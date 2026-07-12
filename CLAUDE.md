@@ -68,7 +68,7 @@ micro-packages, `eval/`, voice.
 | Monorepo     | NX + pnpm workspaces              | Incremental builds, workspace deps   |
 | Lang         | TypeScript (strict; → strictest)  | Type safety                          |
 | Engine       | Vanilla web components            | Framework-agnostic, zero deps        |
-| Bundler      | Vite + tsc emit-decl-only         | Dual ESM/CJS                         |
+| Bundler      | Vite + tsc emit-decl-only         | ESM-only (browser-first)             |
 | Tests        | Vitest                            | Root `vitest.workspace`              |
 | Docs         | Starlight (Astro)                 | EN-first (`apps/docs`)               |
 | Stories      | Storybook web-components-vite     | `apps/storybook`                     |
