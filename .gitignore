@@ -16,6 +16,9 @@ node_modules
 # Vite
 vite.config.*.timestamp*
 
+# Astro (generated cache/types)
+.astro/
+
 # Tests / coverage
 coverage
 __screenshots__/

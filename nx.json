@@ -14,6 +14,7 @@
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
+      "exclude": ["apps/docs/**"],
       "options": {
         "typecheck": {
           "targetName": "typecheck"
@@ -42,7 +43,8 @@
     }
   ],
   "sync": {
-    "applyChanges": true
+    "applyChanges": true,
+    "disabledTaskSyncGenerators": ["@nx/js:typescript-sync"]
   },
   "targetDefaults": {}
 }
