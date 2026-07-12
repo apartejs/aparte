@@ -1,0 +1,13 @@
+packages:
+  # Core (zero-dep web components) + agnostic agent engine
+  - 'packages/core'
+  - 'packages/engine'
+
+  # Locales, LLM providers, blessed plugins, framework wrappers
+  - 'packages/locales/*'
+  - 'packages/providers/*'
+  - 'packages/plugins/*'
+  - 'packages/wrappers/*'
+
+  # Apps: docs (Starlight), Storybook, playgrounds
+  - 'apps/*'

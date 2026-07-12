@@ -1,0 +1,41 @@
+# Compiled output
+dist
+out-tsc
+tmp
+
+# Dependencies
+node_modules
+
+# TypeScript incremental build info — NEVER commit (day-1 lesson from the old repo)
+*.tsbuildinfo
+
+# NX
+.nx/cache
+.nx/workspace-data
+
+# Vite
+vite.config.*.timestamp*
+
+# Storybook
+storybook-static
+
+# Tests / coverage
+coverage
+__screenshots__/
+
+# Claude Code local state — NEVER commit
+.claude/
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / local env
+.env
