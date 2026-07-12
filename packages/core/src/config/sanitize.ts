@@ -68,6 +68,7 @@ const RELATIVE_URL = /^(?:[#/.?]|[a-z0-9._~%+-]+(?:[/?#]|$))/i;
 /** data: URLs are only honoured for images, and only for image media types. */
 const SAFE_DATA_IMG = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|svg\+xml)?[;,]/i;
 /** Whitespace + C0 control chars, used to obfuscate a scheme (e.g. " javascript:" or "java\tscript:"). */
+// eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
 const CONTROL_WS = /[\u0000-\u0020]+/g;
 
 /**

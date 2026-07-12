@@ -181,7 +181,7 @@ export class AparteChatViewport extends HTMLElement {
             message.segments = [];
         }
 
-        let segment = message.segments.find(s => s.id === segmentId);
+        const segment = message.segments.find(s => s.id === segmentId);
         if (segment && 'content' in segment) {
             (segment as { content: string }).content += chunk;
         }
@@ -723,10 +723,11 @@ export class AparteChatViewport extends HTMLElement {
             case 'addSegment':
                 bubble.addSegment?.(payload as AparteSegment);
                 break;
-            case 'updateSegment':
+            case 'updateSegment': {
                 const { segmentId: sid, updates: segUpdates } = payload as { segmentId: string; updates: Partial<AparteSegment> };
                 bubble.updateSegment?.(sid, segUpdates);
                 break;
+            }
             case 'removeSegment':
                 (bubble as any).removeSegment?.(payload as string);
                 break;
