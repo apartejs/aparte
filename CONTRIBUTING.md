@@ -30,7 +30,7 @@ Every new package or feature lands **behind a green gate**:
 - `pnpm build` and `pnpm typecheck` succeed for the touched package(s)
 - `pnpm lint` is clean
 - packaging is valid (`publint` + are-the-types-wrong) once the package is published
-- a Storybook story and a docs page exist for public API
+- a docs page exists for public API
 
 ## Commits & changesets
 

@@ -16,9 +16,6 @@ node_modules
 # Vite
 vite.config.*.timestamp*
 
-# Storybook
-storybook-static
-
 # Tests / coverage
 coverage
 __screenshots__/

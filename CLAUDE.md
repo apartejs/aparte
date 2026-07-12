@@ -36,8 +36,7 @@
 ```
 apartejs/
 ├── apps/
-│   ├── docs/                 Starlight (Astro) — EN-first, built from scratch
-│   ├── storybook/            Web Components stories — source of truth for the API
+│   ├── docs/                 Starlight (Astro) — EN-first, docs + live showcase
 │   └── playgrounds/          react · vue · svelte · angular · vanilla (+ demo-vanilla)
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
@@ -70,8 +69,7 @@ micro-packages, `eval/`, voice.
 | Engine       | Vanilla web components            | Framework-agnostic, zero deps        |
 | Bundler      | Vite + tsc emit-decl-only         | ESM-only (browser-first)             |
 | Tests        | Vitest                            | Root `vitest.workspace`              |
-| Docs         | Starlight (Astro)                 | EN-first (`apps/docs`)               |
-| Stories      | Storybook web-components-vite     | `apps/storybook`                     |
+| Docs         | Starlight (Astro)                 | EN-first, docs + live showcase       |
 | Wrappers     | React / Vue / Svelte / Angular    | each **peer + dev only**             |
 
 ---
@@ -118,7 +116,6 @@ nx test  @aparte/core
 nx affected:test             # when touching shared packages
 nx affected:build
 
-pnpm storybook               # apps/storybook
 pnpm docs                    # apps/docs (Starlight dev)
 ```
 
@@ -140,7 +137,7 @@ pnpm docs                    # apps/docs (Starlight dev)
 
 ## 📚 Reference
 
-- Storybook = source of truth for component API.
+- The generated CEM (custom-elements manifest) is the source of truth for the component API, surfaced in the Starlight docs.
 - The **customization charter** (106 regions, LAUNCH / V0.1 / on-demand priorities) is the
   design spec; its LAUNCH scope is expressed in-repo via the generated CEM + a public
   "Customization" docs section — not copied wholesale.

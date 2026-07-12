@@ -9,5 +9,5 @@ packages:
   - 'packages/plugins/*'
   - 'packages/wrappers/*'
 
-  # Apps: docs (Starlight), Storybook, playgrounds
+  # Apps: docs (Starlight), playgrounds
   - 'apps/*'

@@ -31,8 +31,6 @@
     "node_modules",
     "dist",
     "demo",
-    "**/*.stories.ts",
-    "**/*.stories.js",
     "**/__tests__/**",
     "**/*.spec.ts",
     "**/*.test.ts"
