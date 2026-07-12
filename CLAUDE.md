@@ -15,8 +15,7 @@
 > and consumes `@aparte/*` from npm. The local-first / offline promise is the
 > **product's**, never the library's. No routing, settings, or persistence here.
 >
-> Repo type: **NX monorepo + pnpm workspaces** (extracted from the former `@aimi/*`
-> packages). Default branch: `main`.
+> Repo type: **NX monorepo + pnpm workspaces**. Default branch: `main`.
 
 ---
 
@@ -57,8 +56,8 @@ apartejs/
 - `providers/*` = pluggable LLM adapters (wire-format only; consumer opts in).
 - `wrappers/*` = thin framework bridges (React/Vue/Svelte/Angular).
 
-**Deliberately left behind** (in the old repo, reintroduced only on real demand):
-the product *home*, the 8 markdown/highlight micro-packages, `eval/`, voice.
+**Out of scope** (added only on real demand): the product *home*, the markdown/highlight
+micro-packages, `eval/`, voice.
 
 ---
 
@@ -99,7 +98,7 @@ the product *home*, the 8 markdown/highlight micro-packages, `eval/`, voice.
    → a `providers/*` or `plugins/*` the consumer opts into.
 2. **No framework at the ROOT.** Angular/React/Vue/Svelte live **only** in their own
    wrapper package (peer + dev) and their playground. Root = pnpm + NX + TS + vitest +
-   changesets, period. (The old repo leaked Angular into the root — don't repeat it.)
+   changesets, period. Never let a framework leak into the root.
 3. **No product logic here.** Routing, settings, persistence belong to the product.
    Core stays presentational + transport-agnostic.
 4. **`workspace:*`** for every cross-package dep in `package.json`.
@@ -145,4 +144,3 @@ pnpm docs                    # apps/docs (Starlight dev)
 - The **customization charter** (106 regions, LAUNCH / V0.1 / on-demand priorities) is the
   design spec; its LAUNCH scope is expressed in-repo via the generated CEM + a public
   "Customization" docs section — not copied wholesale.
-- Migration rationale, name sweep, and the 6 decisions: the migration plan.

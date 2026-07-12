@@ -1,8 +1,7 @@
 # aparte
 
 > **🚧 Pre-alpha — under construction.** The public API is unstable and nothing is published to
-> npm yet. This repo is being migrated package-by-package from a private monorepo; watch the
-> milestones below.
+> npm yet. Packages are landing incrementally; watch the milestones below.
 
 **aparte** (`@aparte`, pronounced *"ah-par-té"*) is a **framework-agnostic AI-chat library**:
 vanilla Web Components at the core, thin framework wrappers on top, and opt-in providers and
@@ -36,8 +35,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and the gate each chang
 
 ## Milestones
 
-- **M0** — repo bootstrap (this) ✅ in progress
-- **M1** — `core` · M2 — `engine` · M3 — providers · M4 — wrappers · M5 — plugins + locales
+- **M0** — repo bootstrap ✅ · **M1** — `core` ✅
+- **M2** — `engine` · M3 — providers · M4 — wrappers · M5 — plugins + locales
 - **M6** — playgrounds · M7 — first `0.0.x` alpha on npm
 
 ## License
