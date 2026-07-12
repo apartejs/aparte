@@ -102,45 +102,62 @@ describe('AparteConfig', () => {
         });
     });
 
-    describe('Action Management', () => {
-        it('should register action', () => {
-            const action = {
-                id: 'test-action',
-                label: 'Test',
-                icon: '<svg></svg>',
-                position: 'left' as const,
-                onClick: vi.fn()
-            };
-
-            AparteConfig.registerAction(action);
-
-            expect(AparteConfig.getActions()).toContainEqual(action);
+    describe('Action registry (unified, zoned)', () => {
+        afterEach(() => {
+            ['composer-a', 'bubble-a', 'both-a', 'ord-1', 'ord-2', 'hide-me'].forEach(id =>
+                AparteConfig.unregisterAction(id));
         });
 
-        it('should not register duplicate action IDs', () => {
-            const action1 = {
-                id: 'test',
-                label: 'Test 1',
-                icon: '',
-                position: 'left' as const,
-                onClick: vi.fn()
-            };
+        it('registers a composer action and returns it from getActions("composer")', () => {
+            AparteConfig.registerAction({ id: 'composer-a', label: 'A', icon: '<svg></svg>', zones: ['composer'] });
+            expect(AparteConfig.getActions('composer').map(a => a.id)).toContain('composer-a');
+        });
 
-            const action2 = {
-                id: 'test',
-                label: 'Test 2',
-                icon: '',
-                position: 'left' as const,
-                onClick: vi.fn()
-            };
+        it('does not surface a composer-only action in the bubble zone', () => {
+            AparteConfig.registerAction({ id: 'composer-a', label: 'A', icon: '', zones: ['composer'] });
+            expect(AparteConfig.getActions('bubble').map(a => a.id)).not.toContain('composer-a');
+        });
 
-            AparteConfig.registerAction(action1);
-            AparteConfig.registerAction(action2);
+        it('surfaces a multi-zone action in every declared zone', () => {
+            AparteConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
+            expect(AparteConfig.getActions('composer').map(a => a.id)).toContain('both-a');
+            expect(AparteConfig.getActions('bubble').map(a => a.id)).toContain('both-a');
+        });
 
-            const actions = AparteConfig.getActions();
-            const testActions = actions.filter(a => a.id === 'test');
+        it('upserts on duplicate id instead of adding twice', () => {
+            AparteConfig.registerAction({ id: 'composer-a', label: 'first', icon: '', zones: ['composer'] });
+            AparteConfig.registerAction({ id: 'composer-a', label: 'second', icon: '', zones: ['composer'] });
+            const hits = AparteConfig.getActions('composer').filter(a => a.id === 'composer-a');
+            expect(hits).toHaveLength(1);
+            expect(hits[0]?.label).toBe('second');
+        });
 
-            expect(testActions).toHaveLength(1);
+        it('sorts a zone by order (lower first)', () => {
+            AparteConfig.registerAction({ id: 'ord-2', label: '2', icon: '', zones: ['bubble'], order: 2 });
+            AparteConfig.registerAction({ id: 'ord-1', label: '1', icon: '', zones: ['bubble'], order: 1 });
+            const ids = AparteConfig.getActions('bubble').map(a => a.id);
+            expect(ids.indexOf('ord-1')).toBeLessThan(ids.indexOf('ord-2'));
+        });
+
+        it('unregisterAction removes the action from every zone', () => {
+            AparteConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
+            AparteConfig.unregisterAction('both-a');
+            expect(AparteConfig.getActions('composer').map(a => a.id)).not.toContain('both-a');
+            expect(AparteConfig.getActions('bubble').map(a => a.id)).not.toContain('both-a');
+        });
+
+        it('setActionHidden toggles the composer hidden flag', () => {
+            AparteConfig.registerAction({ id: 'hide-me', label: 'H', icon: '', zones: ['composer'], composer: { position: 'left' } });
+            AparteConfig.setActionHidden('hide-me', true);
+            const a = AparteConfig.getActions('composer').find(x => x.id === 'hide-me');
+            expect(a?.composer?.hidden).toBe(true);
+        });
+
+        it('calls an optional onClick alongside the event contract', () => {
+            const onClick = vi.fn();
+            AparteConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer'], onClick });
+            const a = AparteConfig.getActions('composer').find(x => x.id === 'both-a');
+            expect(a?.onClick).toBe(onClick);
         });
     });
 

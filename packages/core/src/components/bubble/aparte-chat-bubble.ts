@@ -773,7 +773,7 @@ export class AparteChatBubble extends HTMLElement {
 
     this._actionBarEl.innerHTML = buttons.join('');
 
-    // Custom actions registered via AparteConfig.registerBubbleAction — appended
+    // Custom actions registered via AparteConfig.registerAction — appended
     // after the built-ins, built as DOM (label goes to attributes, never
     // interpolated into innerHTML) so a consumer label can't inject markup.
     this._appendCustomActions(icons);
@@ -788,8 +788,8 @@ export class AparteChatBubble extends HTMLElement {
   /** Append the registered custom action buttons for this bubble's role. */
   private _appendCustomActions(icons: ReturnType<AparteConfigClass['getIconProvider']>): void {
     if (!this._actionBarEl) return;
-    for (const a of this._cfg.getRegisteredBubbleActions()) {
-      const roles = a.roles ?? ['user', 'assistant'];
+    for (const a of this._cfg.getActions('bubble')) {
+      const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
       const btn = document.createElement('button');
       btn.className = 'aparte-action-btn aparte-action-custom';
@@ -860,11 +860,13 @@ export class AparteChatBubble extends HTMLElement {
     // Read dynamically — attribute may not be set yet at render time
     const messageId = this.getAttribute('message-id');
 
-    // Custom actions (AparteConfig.registerBubbleAction) emit a generic aparte:action
+    // Custom actions (AparteConfig.registerAction) emit a generic aparte:action
     // event carrying the action id — same DOM-event contract as retry/feedback.
     if (action?.startsWith('custom:') && messageId) {
+      const actionId = action.slice('custom:'.length);
       const detail: AparteActionEventDetail = {
-        actionId: action.slice('custom:'.length),
+        actionId,
+        zone: 'bubble',
         messageId,
         role: this._role,
         targetId: this._resolveTargetId(),
@@ -872,6 +874,7 @@ export class AparteChatBubble extends HTMLElement {
       this.dispatchEvent(new CustomEvent<AparteActionEventDetail>('aparte:action', {
         bubbles: true, composed: true, detail,
       }));
+      this._cfg.getActions('bubble').find(x => x.id === actionId)?.onClick?.(e);
       return;
     }
 

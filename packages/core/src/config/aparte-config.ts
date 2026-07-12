@@ -11,7 +11,7 @@
 import { AparteIconProvider, AparteIconName, DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 import { AparteAvatarProvider } from './avatar-provider.js';
 import { AparteLocale, DEFAULT_LOCALE } from './locale.js';
-import { AparteAction, AparteBubbleAction } from './action-provider.js';
+import { AparteAction, AparteActionZone } from './action-provider.js';
 import { AparteSkeletonProvider, AparteSkeletonType } from './skeleton-provider.js';
 import type { AparteStatusRenderer } from './status-renderer.js';
 import type { AparteErrorRenderer } from './error-renderer.js';
@@ -101,7 +101,6 @@ export class AparteConfigClass {
     private _artifactPreviewBuilder?: AparteArtifactPreviewBuilder;
     private _locale: AparteLocale = DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
-    private _bubbleActions: AparteBubbleAction[] = [];
     private _listeners: Set<() => void> = new Set();
 
     // AI Provider Management (BYORK)
@@ -130,7 +129,9 @@ export class AparteConfigClass {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register a custom action button for the input area
+     * Register a custom action button. `zones` places it in the composer toolbar
+     * and/or the message (bubble) toolbar. Re-registering the same id overwrites
+     * it. Notifies mounted elements so they re-render.
      */
     registerAction(action: AparteAction): void {
         const existing = this._actions.findIndex(a => a.id === action.id);
@@ -140,57 +141,33 @@ export class AparteConfigClass {
         } else {
             this._actions.push(action);
         }
+        this._notify();
     }
 
-    /**
-     * Get all registered actions
-     */
-    getActions(): AparteAction[] {
-        return [...this._actions].sort((a, b) => (a.order || 0) - (b.order || 0));
+    /** All registered actions for a zone, sorted by `order` (lower first). */
+    getActions(zone: AparteActionZone): AparteAction[] {
+        return this._actions
+            .filter(a => a.zones.includes(zone))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
     }
 
-    /**
-     * Unregister an action
-     */
+    /** Remove a custom action by id (from every zone); notifies mounted elements if it existed. */
     unregisterAction(id: string): void {
+        const before = this._actions.length;
         this._actions = this._actions.filter(a => a.id !== id);
+        if (this._actions.length !== before) this._notify();
     }
 
     /**
-     * Show or hide an action button by id.
+     * Show or hide a composer action button by id.
      * Triggers a config update so all mounted `aparte-chat-input` elements react immediately.
      */
     setActionHidden(id: string, hidden: boolean): void {
         const action = this._actions.find(a => a.id === id);
         if (action) {
-            action.hidden = hidden;
+            action.composer = { ...action.composer, hidden };
             this._notify();
         }
-    }
-
-    /**
-     * Register a custom action button on the message (bubble) toolbar — beyond the
-     * built-in copy/retry/edit/feedback. Clicking it emits an `aparte:action` event
-     * (see {@link AparteBubbleAction}). Re-registering the same id overwrites it.
-     * Notifies mounted bubbles so they re-render.
-     */
-    registerBubbleAction(action: AparteBubbleAction): void {
-        const existing = this._bubbleActions.findIndex(a => a.id === action.id);
-        if (existing !== -1) this._bubbleActions[existing] = action;
-        else this._bubbleActions.push(action);
-        this._notify();
-    }
-
-    /** All registered custom bubble actions, sorted by `order` (lower first). */
-    getRegisteredBubbleActions(): AparteBubbleAction[] {
-        return [...this._bubbleActions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    }
-
-    /** Remove a custom bubble action by id; notifies mounted bubbles if it existed. */
-    unregisterBubbleAction(id: string): void {
-        const before = this._bubbleActions.length;
-        this._bubbleActions = this._bubbleActions.filter(a => a.id !== id);
-        if (this._bubbleActions.length !== before) this._notify();
     }
 
     /**
@@ -889,7 +866,6 @@ export class AparteConfigClass {
         this._elicitationPresenter = undefined;
         this._locale = DEFAULT_LOCALE;
         this._actions = [];
-        this._bubbleActions = [];
         this._sanitizer = defaultSanitizer;
         // Registries — the leak the audit flagged.
         this._aiProviders.clear();

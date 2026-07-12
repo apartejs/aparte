@@ -311,20 +311,22 @@ export interface AparteFeedbackEventDetail {
 
 /**
  * Detail payload for `aparte:action`.
- * Dispatched by a custom bubble-toolbar action button (registered via
- * `AparteConfig.registerBubbleAction`). Apps listen (bubbling) and dispatch on
- * `actionId`. Mirrors the built-in bubble events (retry/feedback) so custom
- * actions are wired the same way in every framework and in vanilla.
+ * Dispatched by a custom action button (registered via `AparteConfig.registerAction`)
+ * in either the composer or a message-bubble toolbar. Apps listen (bubbling) and
+ * dispatch on `actionId`. Mirrors the built-in bubble events (retry/feedback) so
+ * custom actions are wired the same way in every framework and in vanilla.
  *
  * @event aparte:action
  */
 export interface AparteActionEventDetail {
-    /** The registered action's id (from `AparteBubbleAction.id`). */
+    /** The registered action's id (from `AparteAction.id`). */
     actionId: string;
-    /** Message id of the bubble the action was clicked on. */
-    messageId: string;
-    /** Role of that bubble. */
-    role: 'user' | 'assistant';
+    /** Which zone the action was clicked in. */
+    zone: 'composer' | 'bubble';
+    /** Message id of the bubble the action was clicked on (bubble zone only). */
+    messageId?: string;
+    /** Role of that bubble (bubble zone only). */
+    role?: 'user' | 'assistant';
     /** Optional host element id (aparte-chat) — same use as retry/edit's targetId. */
     targetId?: string;
 }

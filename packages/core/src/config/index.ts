@@ -15,4 +15,4 @@ export type { AparteSiblingNavRenderer } from './sibling-nav-renderer.js';
 export type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
 export type { AparteLocale } from './locale.js';
 export { DEFAULT_LOCALE } from './locale.js';
-export type { AparteAction, AparteBubbleAction } from './action-provider.js';
+export type { AparteAction, AparteActionZone } from './action-provider.js';

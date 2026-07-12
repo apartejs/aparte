@@ -1,4 +1,4 @@
-import type { AparteSendEventDetail, AparteInputConfig } from '../../types/index.js';
+import type { AparteSendEventDetail, AparteInputConfig, AparteActionEventDetail } from '../../types/index.js';
 import { resolveConfig } from '../../config/index.js';
 
 /**
@@ -281,9 +281,9 @@ export class AparteChatInput extends HTMLElement {
         const sendLabel = resolveConfig(this).t('sendButton');
         const inputLabel = resolveConfig(this).t('inputPlaceholder');
 
-        const actions = resolveConfig(this).getActions();
-        const leftActions = actions.filter(a => a.position === 'left');
-        const rightActions = actions.filter(a => a.position === 'right');
+        const actions = resolveConfig(this).getActions('composer');
+        const rightActions = actions.filter(a => a.composer?.position === 'right');
+        const leftActions = actions.filter(a => a.composer?.position !== 'right');
 
         // Re-entrancy check
         if (this.querySelector('.aparte-input-shell')) return;
@@ -348,11 +348,19 @@ export class AparteChatInput extends HTMLElement {
         this._editor = this.querySelector('.aparte-editor');
         this._sendButton = this.querySelector('.aparte-send-button');
 
-        // Bind action click handlers
+        // Bind action click handlers — emit the declarative `aparte:action` event
+        // (framework-agnostic, like retry/feedback) and call the optional onClick.
         actions.forEach(action => {
             const btn = this.querySelector(`[data-action-id="${action.id}"]`);
             if (btn) {
-                btn.addEventListener('click', (e) => action.onClick(e, this));
+                btn.addEventListener('click', (e) => {
+                    this.dispatchEvent(new CustomEvent<AparteActionEventDetail>('aparte:action', {
+                        bubbles: true,
+                        composed: true,
+                        detail: { actionId: action.id, zone: 'composer' },
+                    }));
+                    action.onClick?.(e, this);
+                });
             }
         });
 
@@ -377,7 +385,7 @@ export class AparteChatInput extends HTMLElement {
         const label = resolveConfig(this).t(action.label as any) || action.label;
 
         return `
-            <button class="aparte-action-button" data-action-id="${action.id}" title="${label}" aria-label="${label}"${action.hidden ? ' style="display:none"' : ''}>
+            <button class="aparte-action-button" data-action-id="${action.id}" title="${label}" aria-label="${label}"${action.composer?.hidden ? ' style="display:none"' : ''}>
                 ${iconHtml}
             </button>
         `;
@@ -385,10 +393,10 @@ export class AparteChatInput extends HTMLElement {
 
     /** Reactively sync action button visibility after a config change (no full re-render). */
     private _updateActionVisibility(): void {
-        const actions = resolveConfig(this).getActions();
+        const actions = resolveConfig(this).getActions('composer');
         actions.forEach(action => {
             const btn = this.querySelector(`[data-action-id="${action.id}"]`) as HTMLElement | null;
-            if (btn) btn.style.display = action.hidden ? 'none' : '';
+            if (btn) btn.style.display = action.composer?.hidden ? 'none' : '';
         });
     }
 

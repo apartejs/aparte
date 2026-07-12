@@ -147,7 +147,7 @@ export type {
     AparteSkeletonType,
     AparteLocale,
     AparteAction,
-    AparteBubbleAction,
+    AparteActionZone,
     AparteIconProvider,
     AparteIconName,
     AparteModelPreference,

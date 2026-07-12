@@ -385,12 +385,12 @@ describe('AparteChatBubble', () => {
         });
     });
 
-    // ─── Custom bubble toolbar actions (registerBubbleAction) ─────────────
+    // ─── Custom bubble toolbar actions (registerAction, zones: ['bubble']) ─
     describe('custom bubble actions', () => {
         afterEach(() => AparteConfig.reset());
 
         it('renders a registered action and emits aparte:action on click', () => {
-            AparteConfig.registerBubbleAction({ id: 'share', icon: '<svg class="share-i"></svg>', label: 'Share' });
+            AparteConfig.registerAction({ id: 'share', icon: '<svg class="share-i"></svg>', label: 'Share', zones: ['bubble'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'ca1' });
 
             const btn = bubble.querySelector('.aparte-action-custom[data-action="custom:share"]') as HTMLButtonElement;
@@ -401,11 +401,11 @@ describe('AparteChatBubble', () => {
             let detail: any = null;
             document.body.addEventListener('aparte:action', (e: Event) => { detail = (e as CustomEvent).detail; });
             btn.click();
-            expect(detail).toEqual({ actionId: 'share', messageId: 'ca1', role: 'assistant', targetId: undefined });
+            expect(detail).toEqual({ actionId: 'share', zone: 'bubble', messageId: 'ca1', role: 'assistant', targetId: undefined });
         });
 
         it('honors role targeting (roles: ["user"] hides it on assistant bubbles)', () => {
-            AparteConfig.registerBubbleAction({ id: 'editmeta', icon: '<svg></svg>', label: 'Edit meta', roles: ['user'] });
+            AparteConfig.registerAction({ id: 'editmeta', icon: '<svg></svg>', label: 'Edit meta', zones: ['bubble'], bubble: { roles: ['user'] } });
             bubble = createBubble({ role: 'assistant', 'message-id': 'ca2' });
             expect(bubble.querySelector('[data-action="custom:editmeta"]')).toBeNull();
 
@@ -418,11 +418,11 @@ describe('AparteChatBubble', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'ca4' });
             expect(bubble.querySelector('[data-action="custom:regen"]')).toBeNull();
 
-            // registerBubbleAction notifies → mounted bubble rebuilds its action bar.
-            AparteConfig.registerBubbleAction({ id: 'regen', icon: '<svg></svg>', label: 'Regenerate' });
+            // registerAction notifies → mounted bubble rebuilds its action bar.
+            AparteConfig.registerAction({ id: 'regen', icon: '<svg></svg>', label: 'Regenerate', zones: ['bubble'] });
             expect(bubble.querySelector('[data-action="custom:regen"]')).not.toBeNull();
 
-            AparteConfig.unregisterBubbleAction('regen');
+            AparteConfig.unregisterAction('regen');
             expect(bubble.querySelector('[data-action="custom:regen"]')).toBeNull();
         });
     });
