@@ -1,0 +1,216 @@
+/**
+ * Aparte Select CSS
+ * Stylable via CSS variables
+ */
+
+aparte-select {
+    display: inline-block;
+    position: relative;
+    min-width: 200px;
+    font-family: var(--aparte-font-family, inherit);
+}
+
+/* Trigger */
+.aparte-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--aparte-select-bg, var(--aparte-surface-1, #fff));
+    border: 1px solid var(--aparte-select-border, var(--aparte-border, #e2e8f0));
+    border-radius: var(--aparte-select-radius, 0.5rem);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.aparte-select-trigger:hover {
+    border-color: var(--aparte-select-border-hover, var(--aparte-primary, #3b82f6));
+}
+
+.aparte-select-trigger:focus {
+    outline: none;
+    border-color: var(--aparte-select-border-focus, var(--aparte-primary, #3b82f6));
+    box-shadow: 0 0 0 2px var(--aparte-select-ring, rgba(59, 130, 246, 0.2));
+}
+
+aparte-select[disabled] .aparte-select-trigger {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.aparte-select-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--aparte-select-text, var(--aparte-text, #1e293b));
+}
+
+.aparte-select-chevron {
+    flex-shrink: 0;
+    color: var(--aparte-select-chevron, var(--aparte-text-muted, #94a3b8));
+    transition: transform 0.2s;
+}
+
+aparte-select[open] .aparte-select-chevron {
+    transform: rotate(180deg);
+}
+
+/* Dropdown — position:fixed to escape overflow:hidden ancestors */
+.aparte-select-dropdown {
+    position: fixed;
+    /* top / left / width are set dynamically by _updatePosition() */
+    background: var(--aparte-select-dropdown-bg, var(--aparte-surface-1, #fff));
+    border: 1px solid var(--aparte-select-border, var(--aparte-border, #e2e8f0));
+    border-radius: var(--aparte-select-radius, 0.5rem);
+    box-shadow: var(--aparte-select-shadow, 0 4px 12px rgba(0, 0, 0, 0.1));
+    z-index: var(--aparte-select-z, 1000);
+    max-height: 300px;
+    overflow: auto;
+}
+
+.aparte-select-dropdown[hidden] {
+    display: none;
+}
+
+/* Search */
+.aparte-select-search {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-bottom: 1px solid var(--aparte-border, #e2e8f0);
+    background: transparent;
+    font-size: inherit;
+    font-family: inherit;
+}
+
+.aparte-select-search:focus {
+    outline: none;
+}
+
+/* Options container */
+.aparte-select-options {
+    padding: 0.25rem;
+}
+
+/* Option */
+aparte-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: background-color 0.1s;
+    color: var(--aparte-select-text, var(--aparte-text, #1e293b));
+}
+
+aparte-option:hover {
+    background: var(--aparte-select-option-hover, var(--aparte-surface-2, #f1f5f9));
+}
+
+/* Keyboard-active option (roving highlight driven by aria-activedescendant).
+   Distinct from :hover so keyboard users get an unambiguous focus indicator. */
+aparte-option[data-active] {
+    background: var(--aparte-select-option-hover, var(--aparte-surface-2, #f1f5f9));
+    box-shadow: inset 0 0 0 2px var(--aparte-primary, #3b82f6);
+}
+
+aparte-option[selected] {
+    background: var(--aparte-select-option-selected, var(--aparte-primary, #3b82f6));
+    color: var(--aparte-select-option-selected-text, #fff);
+}
+
+aparte-option[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Status dot injected by AparteOption when data-status is set */
+.aparte-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+.aparte-status-dot[data-status="ready"] {
+    background-color: #22c55e;
+}
+
+.aparte-status-dot[data-status="cached"] {
+    background-color: #f59e0b;
+}
+
+.aparte-status-dot[data-status="not-downloaded"] {
+    background-color: var(--aparte-border, #94a3b8);
+}
+
+/* Optgroup */
+aparte-optgroup {
+    display: block;
+}
+
+.aparte-optgroup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--aparte-text-muted, #94a3b8);
+}
+
+.aparte-optgroup-chevron {
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid currentColor;
+    transition: transform 0.2s;
+}
+
+aparte-optgroup[collapsed] .aparte-optgroup-chevron {
+    transform: rotate(-90deg);
+}
+
+/* Dark mode */
+[data-aparte-theme="dark"] aparte-select .aparte-select-trigger,
+[data-aparte-theme="dark"] aparte-select .aparte-select-dropdown {
+    background: var(--aparte-select-bg, var(--aparte-surface-1, #1e293b));
+    border-color: var(--aparte-select-border, var(--aparte-border, #334155));
+}
+
+[data-aparte-theme="dark"] aparte-option:hover {
+    background: var(--aparte-select-option-hover, var(--aparte-surface-2, #334155));
+}
+
+.aparte-optgroup-loader {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    color: var(--aparte-text-muted, #94a3b8);
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.aparte-spinner-small {
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: aparte-spin 0.6s linear infinite;
+}
+
+@keyframes aparte-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

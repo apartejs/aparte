@@ -1,0 +1,2094 @@
+/*
+ * Aparte CSS
+ * Single source of truth for all component styles.
+ * Theme is controlled via CSS variables - app sets [data-aparte-theme="dark"] to switch.
+ */
+
+/* =========================================
+   Light Theme (Default)
+   ========================================= */
+:root,
+:host {
+  /* Base Colors */
+  --aparte-primary: #6366f1;
+  --aparte-primary-hover: #4f46e5;
+  --aparte-secondary: #9ca3af;
+  --aparte-neutral: #6b7280;
+
+  /* Backgrounds & Surfaces */
+  --aparte-bg: #ffffff;
+  --aparte-surface-1: #ffffff;
+  /* Bubbles, cards */
+  --aparte-surface-2: #f3f4f6;
+  /* Code blocks, headers */
+  --aparte-surface-3: #e5e7eb;
+  /* Skeletons, disabled */
+
+  /* Text */
+  --aparte-text: #1f2937;
+  --aparte-text-muted: #6b7280;
+  --aparte-text-inverse: #ffffff;
+
+  /* Borders */
+  --aparte-border: #e5e7eb;
+  --aparte-border-focus: var(--aparte-primary);
+
+  /* Status Colors */
+  --aparte-info: #3b82f6;
+  --aparte-success: #10b981;
+  --aparte-warning: #f59e0b;
+  --aparte-error: #ef4444;
+
+  /* Radius scale */
+  --aparte-radius-xs: 2px;
+  --aparte-radius-sm: 4px;
+  --aparte-radius-md: 6px;
+  --aparte-radius-lg: 8px;
+  --aparte-radius-xl: 12px;
+  --aparte-radius-full: 9999px;
+
+  /* Component-specific radius (overridable per app) */
+  --aparte-radius-input: var(--aparte-radius-lg);
+  --aparte-radius-input-footer: var(--aparte-radius-lg);
+  --aparte-radius-send-btn: var(--aparte-radius-md);
+  --aparte-radius-action-btn: var(--aparte-radius-sm);
+  --aparte-radius-select: var(--aparte-radius-md);
+  --aparte-radius-avatar: var(--aparte-radius-md);
+  --aparte-radius-bubble: var(--aparte-radius-lg);
+  --aparte-radius-code: var(--aparte-radius-lg);
+  --aparte-radius-thinking: var(--aparte-radius-lg);
+  --aparte-radius-terminal: var(--aparte-radius-lg);
+  --aparte-radius-error: var(--aparte-radius-md);
+  --aparte-radius-file-tree: var(--aparte-radius-lg);
+
+  /* Typography */
+  --aparte-font-family: system-ui, -apple-system, sans-serif;
+
+  /* Messages */
+  --aparte-message-gap: 12px;
+  --aparte-message-padding: 16px 12px;
+  --aparte-message-max-width: 800px;
+
+  /* Bubbles — opt-in. By default both roles render as a transparent row with
+     no bubble background; consumers can flip these to get a chat-app look. */
+  --aparte-bubble-bg-user: transparent;
+  --aparte-bubble-bg-assistant: transparent;
+  --aparte-bubble-text-user: var(--aparte-text);
+  --aparte-bubble-text-assistant: var(--aparte-text);
+  --aparte-bubble-padding: 0;
+  --aparte-bubble-radius: 0;
+
+  /* Aliases used by some segment renderers (artifact card, tool pill).
+     Mapped to existing tokens so consumers that override --aparte-surface-1/2
+     get cohesive results without touching every rule. */
+  --aparte-surface:         var(--aparte-surface-1);
+  --aparte-surface-hover:   var(--aparte-surface-2);
+  --aparte-text-secondary:  var(--aparte-text-muted);
+  --aparte-accent:          var(--aparte-primary);
+  --aparte-success-border:  var(--aparte-success);
+  --aparte-success-surface: color-mix(in oklch, var(--aparte-success) 12%, transparent);
+  --aparte-error-border-soft: var(--aparte-error);
+  --aparte-error-surface:   color-mix(in oklch, var(--aparte-error) 12%, transparent);
+
+  /* Code typography — exposed so apps can swap in Geist Mono / Cascadia / … */
+  --aparte-code-font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', 'Geist Mono', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+
+  /* Attachments */
+  --aparte-attachment-chip-bg: var(--aparte-surface-2);
+  --aparte-attachment-chip-border: var(--aparte-border);
+  --aparte-attachment-chip-radius: var(--aparte-radius-sm);
+  --aparte-attachment-chip-color: var(--aparte-text);
+  --aparte-attachment-image-size: 72px;
+
+  /* Action Bar */
+  --aparte-action-bar-gap: 4px;
+  --aparte-action-bar-btn-size: 28px;
+  --aparte-action-bar-btn-color: var(--aparte-text-muted);
+  --aparte-action-bar-btn-hover-bg: var(--aparte-surface-2);
+  --aparte-action-bar-btn-hover-color: var(--aparte-text);
+
+  /* Branch Picker */
+  --aparte-branch-picker-gap: 4px;
+  --aparte-branch-picker-btn-color: var(--aparte-text-muted);
+  --aparte-branch-picker-btn-hover-color: var(--aparte-text);
+  --aparte-branch-picker-label-size: 12px;
+  --aparte-branch-picker-label-color: var(--aparte-text-muted);
+
+  /* Avatars */
+  --aparte-avatar-size: 32px;
+  --aparte-avatar-radius: var(--aparte-radius-avatar);
+  --aparte-avatar-bg-user: var(--aparte-primary);
+  --aparte-avatar-text-user: var(--aparte-text-inverse);
+  --aparte-avatar-bg-assistant: var(--aparte-success);
+  --aparte-avatar-text-assistant: var(--aparte-text-inverse);
+  --aparte-avatar-image-user: none;
+  --aparte-avatar-image-assistant: none;
+  --aparte-avatar-image-size: 90%;
+
+  /* Text Sizes */
+  --aparte-name-font-size: 14px;
+  --aparte-name-color: var(--aparte-text);
+  --aparte-timestamp-font-size: 12px;
+  --aparte-timestamp-color: var(--aparte-text-muted);
+  --aparte-content-font-size: 15px;
+  --aparte-content-color: var(--aparte-text);
+
+  /* Input */
+  --aparte-input-bg: var(--aparte-surface-1);
+  --aparte-input-border: var(--aparte-border);
+  --aparte-input-text: var(--aparte-text);
+  --aparte-input-placeholder: var(--aparte-text-muted);
+  --aparte-input-focus-border: var(--aparte-primary);
+
+  /* Status Indicator */
+  --aparte-status-color: var(--aparte-text-muted);
+  --aparte-status-bg: transparent;
+  --aparte-status-dot-size: 6px;
+
+  /* Thinking Segment */
+  --aparte-thinking-border: var(--aparte-border);
+  --aparte-thinking-bg: var(--aparte-surface-2);
+  --aparte-thinking-text: var(--aparte-text-muted);
+  --aparte-thinking-content: var(--aparte-text);
+  --aparte-thinking-content-bg: var(--aparte-surface-1);
+
+  /* Code Blocks */
+  --aparte-code-bg: var(--aparte-surface-1);
+  --aparte-code-header-bg: var(--aparte-surface-2);
+  --aparte-code-border: var(--aparte-border);
+  --aparte-code-header-text: var(--aparte-text-muted);
+
+  /* Terminal */
+  --aparte-terminal-bg: #1e293b;
+  --aparte-terminal-text: #e2e8f0;
+  --aparte-terminal-icon: #64748b;
+  --aparte-terminal-hover: #334155;
+  --aparte-terminal-running: #22c55e;
+  --aparte-terminal-output-bg: #0f172a;
+  --aparte-terminal-output-text: #94a3b8;
+
+  /* Progress */
+  --aparte-progress-bar-bg: var(--aparte-surface-3);
+  --aparte-progress-bar-fill: var(--aparte-primary);
+  --aparte-progress-label: var(--aparte-text);
+
+  /* Scroll-to-bottom button */
+  --aparte-scroll-btn-size: 36px;
+  --aparte-scroll-btn-bg: var(--aparte-surface-1);
+  --aparte-scroll-btn-color: var(--aparte-text);
+  --aparte-scroll-btn-border: var(--aparte-border);
+  --aparte-scroll-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --aparte-scroll-btn-hover-bg: var(--aparte-surface-2);
+
+  /* File Tree */
+  --aparte-file-tree-bg: var(--aparte-surface-1);
+  --aparte-file-tree-border: var(--aparte-border);
+  --aparte-file-tree-header-bg: var(--aparte-surface-2);
+  --aparte-file-tree-hover: var(--aparte-surface-2);
+  --aparte-file-tree-title: var(--aparte-text-muted);
+
+  /* Error segment */
+  --aparte-error-bg: #fef2f2;
+  --aparte-error-border: #fecaca;
+  --aparte-error-solid: #dc2626;
+  --aparte-error-text: #991b1b;
+  --aparte-error-title: #7f1d1d;
+
+  /* Prose (segment-content) */
+  --aparte-prose-p-margin: 0.4em 0;
+  --aparte-prose-h1-size: 1.4em;
+  --aparte-prose-h2-size: 1.25em;
+  --aparte-prose-h3-size: 1.1em;
+  --aparte-prose-list-indent: 1.5em;
+  --aparte-prose-list-margin: 0.4em 0;
+  --aparte-prose-li-margin: 0.15em 0;
+  --aparte-prose-blockquote-border: var(--aparte-border);
+  --aparte-prose-code-bg: var(--aparte-surface-2);
+
+  /* Viewport */
+  --aparte-viewport-padding: 16px;
+
+  /* Content */
+  --aparte-content-line-height: 1.7;
+  --aparte-cursor-color: var(--aparte-primary);
+
+  /* Status */
+  --aparte-status-font-size: 13px;
+
+  /* Input (composer) */
+  --aparte-input-font-size: 14px;
+  --aparte-input-line-height: 1.5;
+  --aparte-input-padding-x: 12px;
+  --aparte-input-padding-y: 10px;
+
+  /* Conversation List */
+  --aparte-conv-list-gap: 2px;
+  --aparte-conv-item-padding: 7px 10px;
+  --aparte-conv-item-radius: var(--aparte-radius-md);
+  --aparte-conv-item-color: var(--aparte-text-muted);
+  --aparte-conv-item-color-active: var(--aparte-text);
+  --aparte-conv-item-bg-hover: var(--aparte-surface-3);
+  --aparte-conv-item-bg-active: var(--aparte-surface-3);
+  --aparte-conv-item-font-size: 0.8125rem;
+  --aparte-conv-item-font-weight-active: 500;
+  --aparte-conv-delete-color: var(--aparte-text-muted);
+  --aparte-conv-delete-bg-hover: var(--aparte-error);
+  --aparte-conv-delete-color-hover: var(--aparte-text-inverse);
+  --aparte-conv-delete-radius: var(--aparte-radius-sm);
+}
+
+/* =========================================
+   Dark Theme (App-controlled via attribute)
+   Usage: <div data-aparte-theme="dark">...</div>
+   ========================================= */
+[data-aparte-theme="dark"] {
+  /* Backgrounds */
+  --aparte-bg: #0f172a;
+  --aparte-surface-1: #1e293b;
+  --aparte-surface-2: #334155;
+  --aparte-surface-3: #475569;
+
+  /* Text */
+  --aparte-text: #f1f5f9;
+  --aparte-text-muted: #94a3b8;
+  --aparte-text-inverse: #0f172a;
+  --aparte-name-color: #f3f4f6;
+  --aparte-content-color: #e5e7eb;
+  --aparte-timestamp-color: #64748b;
+
+  /* Borders */
+  --aparte-border: #334155;
+
+  /* Primary */
+  --aparte-primary: #818cf8;
+  --aparte-primary-hover: #6366f1;
+
+  /* Input */
+  --aparte-input-bg: #1e293b;
+  --aparte-input-border: #374151;
+  --aparte-input-text: #e5e7eb;
+  --aparte-input-placeholder: #64748b;
+
+  /* Status */
+  --aparte-status-color: #94a3b8;
+
+  /* Thinking */
+  --aparte-thinking-border: #334155;
+  --aparte-thinking-bg: #1e293b;
+  --aparte-thinking-text: #94a3b8;
+  --aparte-thinking-content: #e5e7eb;
+  --aparte-thinking-content-bg: #0f172a;
+
+  /* Code */
+  --aparte-code-bg: #1e293b;
+  --aparte-code-header-bg: #334155;
+  --aparte-code-border: #475569;
+  --aparte-code-header-text: #94a3b8;
+
+  /* Progress */
+  --aparte-progress-bar-bg: #334155;
+  --aparte-scroll-btn-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  --aparte-progress-label: #e5e7eb;
+
+  /* File Tree */
+  --aparte-file-tree-bg: #1e293b;
+  --aparte-file-tree-border: #334155;
+  --aparte-file-tree-header-bg: #0f172a;
+  --aparte-file-tree-hover: #334155;
+  --aparte-file-tree-title: #94a3b8;
+
+  /* Error segment */
+  --aparte-error-bg: #2d1b1b;
+  --aparte-error-border: #7f1d1d;
+  --aparte-error-solid: #f87171;
+  --aparte-error-text: #fca5a5;
+  --aparte-error-title: #fecaca;
+
+  /* Prose */
+  --aparte-prose-blockquote-border: #475569;
+  --aparte-prose-code-bg: #334155;
+
+  /* Conversation List (dark overrides) */
+  --aparte-conv-item-bg-hover: #334155;
+  --aparte-conv-item-bg-active: #334155;
+  --aparte-conv-delete-color: #64748b;
+}
+
+/* =========================================
+   aparte-chat-viewport
+   ========================================= */
+
+aparte-chat-viewport {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  contain: layout style;
+  /* Container-query root: children adapt to the WIDGET's width, not the
+     viewport's — an embedded chat can be narrow inside a wide page. */
+  container-type: inline-size;
+  text-align: left;
+}
+
+.aparte-viewport-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-neutral, #6b7280) transparent;
+}
+
+.aparte-viewport-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.aparte-viewport-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aparte-viewport-container::-webkit-scrollbar-thumb {
+  background: var(--aparte-neutral, #6b7280);
+  border-radius: var(--aparte-radius-xs);
+}
+
+.aparte-viewport-container::-webkit-scrollbar-thumb:hover {
+  background: var(--aparte-secondary, #9ca3af);
+}
+
+.aparte-messages-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-message-gap, 0);
+  padding: var(--aparte-viewport-padding, 16px);
+}
+
+/* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
+
+.aparte-scroll-btn {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: var(--aparte-scroll-btn-size, 36px);
+  height: var(--aparte-scroll-btn-size, 36px);
+  border-radius: 50%;
+  background: var(--aparte-scroll-btn-bg);
+  color: var(--aparte-scroll-btn-color);
+  border: 1px solid var(--aparte-scroll-btn-border);
+  box-shadow: var(--aparte-scroll-btn-shadow);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease;
+  pointer-events: auto;
+}
+
+.aparte-scroll-btn:hover {
+  background: var(--aparte-scroll-btn-hover-bg);
+}
+
+.aparte-scroll-btn--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px);
+}
+
+/* ─── Bottom spacer ───────────────────────────────────────────────────────── */
+
+.aparte-bottom-spacer {
+  flex-shrink: 0;
+  height: 0px;
+}
+
+/* ─── Framework-managed viewport ──────────────────────────────────────────────
+   When a framework wrapper (React/Vue/Svelte/Angular) owns the bubble elements,
+   the viewport does NOT relocate them into an internal wrapper (that would break
+   the framework's DOM reconciliation). Instead the HOST itself is the scroll
+   surface — these rules mirror .aparte-viewport-container + .aparte-messages-wrapper
+   onto the host, and the bottom spacer becomes an additive padding (no element,
+   so it can't collide with the framework's children). */
+aparte-chat-viewport.aparte-viewport--framework {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-message-gap, 0);
+  padding: var(--aparte-viewport-padding, 16px);
+  padding-bottom: calc(var(--aparte-viewport-padding, 16px) + var(--aparte-fw-spacer, 0px));
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-neutral, #6b7280) transparent;
+}
+
+aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
+  width: 6px;
+}
+
+aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
+  background: var(--aparte-neutral, #6b7280);
+  border-radius: var(--aparte-radius-xs);
+}
+
+/* The scroll button lives INSIDE the scrolling host here (last child), so it
+   floats with `position: sticky` instead of the `absolute` used in core mode
+   (where it sits outside the scroll container). */
+aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
+  position: sticky;
+  bottom: 16px;
+  left: auto;
+  align-self: center;
+  transform: none;
+  flex-shrink: 0;
+}
+
+aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn.aparte-scroll-btn--hidden {
+  transform: translateY(8px);
+}
+
+/* =========================================
+   aparte-chat-bubble
+   ========================================= */
+
+aparte-chat-bubble {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  /* Each bubble is its own layout/paint boundary, and bubbles scrolled out
+     of the viewport are skipped entirely (layout + paint) via
+     content-visibility. While a message streams the user is pinned to the
+     bottom, so every bubble above the live one stops costing a paint on each
+     token — that reclaimed GPU time goes back to the WebGPU decode.
+     contain-intrinsic-size keeps the scrollbar stable: the `auto` keyword
+     reuses a bubble's real height once it has been measured; the 320px is
+     only a fallback for bubbles that have never been rendered yet. */
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+.aparte-message {
+  display: flex;
+  gap: var(--aparte-message-gap, 12px);
+  padding: var(--aparte-message-padding, 16px 12px);
+  width: 100%;
+  max-width: var(--aparte-message-max-width, 800px);
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.aparte-avatar {
+  flex-shrink: 0;
+  width: var(--aparte-avatar-size, 32px);
+  height: var(--aparte-avatar-size, 32px);
+  border-radius: var(--aparte-avatar-radius, 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+}
+
+.aparte-avatar[data-role="user"] {
+  background: var(--aparte-avatar-bg-user, #6366f1);
+  color: var(--aparte-avatar-text-user, #ffffff);
+  background-image: var(--aparte-avatar-image-user, none);
+  background-size: var(--aparte-avatar-image-size, 90%);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.aparte-avatar[data-role="assistant"] {
+  background: var(--aparte-avatar-bg-assistant, #10b981);
+  color: var(--aparte-avatar-text-assistant, #ffffff);
+  background-image: var(--aparte-avatar-image-assistant, none);
+  background-size: var(--aparte-avatar-image-size, 90%);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.aparte-body {
+  flex: 1;
+  min-width: 0;
+  /* Bubble surface — opt-in via the role-scoped variables below.
+     Defaults are transparent + zero radius so the existing flat layout
+     keeps working unchanged. */
+  padding: var(--aparte-bubble-padding, 0);
+  border-radius: var(--aparte-bubble-radius, 0);
+}
+
+.aparte-message[data-role="user"] .aparte-body {
+  background: var(--aparte-bubble-bg-user, transparent);
+  color: var(--aparte-bubble-text-user, var(--aparte-text));
+}
+
+.aparte-message[data-role="assistant"] .aparte-body {
+  background: var(--aparte-bubble-bg-assistant, transparent);
+  color: var(--aparte-bubble-text-assistant, var(--aparte-text));
+}
+
+.aparte-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.aparte-name {
+  font-size: var(--aparte-name-font-size, 14px);
+  font-weight: 600;
+  color: var(--aparte-name-color, #1f2937);
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+}
+
+.aparte-timestamp {
+  font-size: var(--aparte-timestamp-font-size, 12px);
+  color: var(--aparte-timestamp-color, #9ca3af);
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+}
+
+.aparte-content {
+  font-size: var(--aparte-content-font-size, 15px);
+  line-height: var(--aparte-content-line-height, 1.7);
+  color: var(--aparte-content-color, #374151);
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.aparte-segments {
+  font-size: var(--aparte-content-font-size, 15px);
+  line-height: 1.7;
+  color: var(--aparte-content-color, #374151);
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+}
+
+.aparte-segments:empty {
+  display: none;
+}
+
+/* =========================================
+   Attachments
+   ========================================= */
+
+.aparte-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  /* Bubble attachments only ever render for user messages — anchor right. */
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 8px;
+  /* Really small tiles inside the conversation. */
+  --aparte-attachment-image-size: 40px;
+  /* Many attachments → cap the height and scroll instead of growing forever. */
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+/* ── Attachment thumbnail tile ──────────────────────────────────────────────
+   Shared by the composer attachment preview and the sent-message attachment
+   strip. A square that shows the image itself (or a file glyph); the filename
+   and — in the composer — a remove button surface on hover. */
+.aparte-thumb {
+  position: relative;
+  width: var(--aparte-attachment-image-size, 56px);
+  height: var(--aparte-attachment-image-size, 56px);
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: var(--aparte-attachment-chip-bg, var(--aparte-surface-2));
+  border: 1px solid var(--aparte-attachment-chip-border, var(--aparte-border));
+}
+
+.aparte-thumb--image {
+  cursor: pointer;
+}
+
+.aparte-thumb__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.aparte-thumb--file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aparte-thumb__ext {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--aparte-text-muted, var(--aparte-text));
+}
+
+.aparte-thumb__name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 5px 4px;
+  font-size: 10px;
+  line-height: 1.25;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.aparte-thumb:hover .aparte-thumb__name {
+  opacity: 1;
+}
+
+.aparte-thumb__remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.aparte-thumb:hover .aparte-thumb__remove {
+  opacity: 1;
+}
+.aparte-thumb__remove:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* =========================================
+   Action Bar
+   ========================================= */
+
+.aparte-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  min-height: var(--aparte-action-bar-btn-size, 28px);
+}
+
+.aparte-action-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-action-bar-gap, 4px);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  height: var(--aparte-action-bar-btn-size, 28px);
+}
+
+.aparte-message:hover .aparte-action-bar,
+.aparte-message:focus-within .aparte-action-bar {
+  opacity: 1;
+}
+
+/* Last assistant message: action bar always visible — but NOT while streaming */
+aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.aparte-message-streaming) .aparte-action-bar {
+  opacity: 1;
+}
+
+/* Hide footer (action bar + branch picker) entirely while streaming */
+.aparte-message-streaming .aparte-footer {
+  display: none;
+}
+
+.aparte-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aparte-action-bar-btn-size, 28px);
+  height: var(--aparte-action-bar-btn-size, 28px);
+  border: none;
+  border-radius: var(--aparte-radius-sm, 4px);
+  background: transparent;
+  color: var(--aparte-action-bar-btn-color, var(--aparte-text-muted));
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.aparte-action-btn:hover {
+  background: var(--aparte-action-bar-btn-hover-bg, var(--aparte-surface-2));
+  color: var(--aparte-action-bar-btn-hover-color, var(--aparte-text));
+}
+
+.aparte-action-btn[data-copied] {
+  color: var(--aparte-success, #10b981);
+}
+
+.aparte-action-btn[data-submitted] {
+  color: var(--aparte-primary, #6366f1);
+}
+
+/* =========================================
+   Branch Picker
+   ========================================= */
+
+.aparte-branch-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-branch-picker-gap, 4px);
+}
+
+/* [hidden] is overridden by display:flex — force it back */
+.aparte-branch-picker[hidden] {
+  display: none;
+}
+
+.aparte-branch-prev,
+.aparte-branch-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--aparte-radius-sm, 4px);
+  background: transparent;
+  color: var(--aparte-branch-picker-btn-color, var(--aparte-text-muted));
+  cursor: pointer;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.aparte-branch-prev:hover:not(:disabled),
+.aparte-branch-next:hover:not(:disabled) {
+  color: var(--aparte-branch-picker-btn-hover-color, var(--aparte-text));
+  background: var(--aparte-action-bar-btn-hover-bg, var(--aparte-surface-2));
+}
+
+.aparte-branch-prev:disabled,
+.aparte-branch-next:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.aparte-branch-label {
+  font-size: var(--aparte-branch-picker-label-size, 12px);
+  color: var(--aparte-branch-picker-label-color, var(--aparte-text-muted));
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+  min-width: 32px;
+  text-align: center;
+}
+
+/* =========================================
+   Edit mode
+   ========================================= */
+
+.aparte-edit-textarea {
+  width: 100%;
+  margin: 4px 0;
+  border: 1px solid var(--aparte-input-focus-border, var(--aparte-primary));
+  border-radius: var(--aparte-radius-sm, 8px);
+  padding: 10px 12px;
+  font-size: var(--aparte-content-font-size, 15px);
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+  line-height: 1.6;
+  color: var(--aparte-content-color, var(--aparte-text));
+  background: var(--aparte-input-bg, var(--aparte-surface-1));
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* Edit mode keeps the action bar (now ✓ / ✗) visible even when the textarea
+   is not focused — otherwise the user can't reach the save button. */
+.aparte-message[data-editing] .aparte-action-bar {
+  opacity: 1;
+}
+
+.aparte-action-btn.aparte-action-edit-save {
+  color: var(--aparte-success, #16a34a);
+}
+.aparte-action-btn.aparte-action-edit-save:hover {
+  background: var(--aparte-success-surface, rgba(34, 197, 94, 0.14));
+  color: var(--aparte-success, #16a34a);
+}
+.aparte-action-btn.aparte-action-edit-cancel {
+  color: var(--aparte-error, #dc2626);
+}
+.aparte-action-btn.aparte-action-edit-cancel:hover {
+  background: var(--aparte-error-surface, rgba(239, 68, 68, 0.14));
+  color: var(--aparte-error, #dc2626);
+}
+
+
+/* =========================================
+   aparte-chat-input
+   ========================================= */
+
+aparte-chat-input {
+  display: block;
+  width: 100%;
+  max-width: var(--aparte-message-max-width, 800px);
+  margin: 0 auto;
+  background: var(--aparte-input-bg, var(--aparte-surface-1));
+  border: 1px solid var(--aparte-input-border, var(--aparte-border));
+  border-radius: var(--aparte-radius-input);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+aparte-chat-input:focus-within {
+  border-color: var(--aparte-primary);
+}
+
+.aparte-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+}
+
+/* Action slots */
+.aparte-actions-left,
+.aparte-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.aparte-input-container {
+  flex: 1;
+  min-height: 44px;
+  /* Matches _minHeight default */
+  display: flex;
+  flex-direction: column;
+  /* justify-content: center; Removed to fix cursor pos */
+
+}
+
+.aparte-editor {
+  width: 100%;
+  max-height: 200px;
+  /* Matches _maxHeight default */
+  overflow-y: auto;
+  outline: none;
+  border: none;
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--aparte-input-text, #374151);
+  background: transparent;
+  padding: 10px 0;
+  resize: none;
+  text-align: left;
+}
+
+/* Placeholder */
+.aparte-editor:empty:before {
+  content: attr(data-placeholder);
+  color: var(--aparte-input-placeholder, #9ca3af);
+  pointer-events: none;
+  display: block;
+  /* Ensures proper rendering */
+}
+
+/* Disabled state */
+.aparte-editor[contenteditable="false"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.aparte-send-button {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--aparte-radius-send-btn);
+  border: none;
+  background: var(--aparte-primary, #6366f1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+  padding: 0;
+}
+
+.aparte-send-button:hover:not(:disabled) {
+  background: var(--aparte-primary-hover, #4f46e5);
+}
+
+.aparte-send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--aparte-neutral, #6b7280);
+}
+
+/* Action Buttons in Input */
+.aparte-action-button {
+  background: transparent;
+  border: none;
+  color: var(--aparte-neutral, #6b7280);
+  padding: 8px;
+  border-radius: var(--aparte-radius-action-btn);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+  width: 36px;
+  height: 36px;
+}
+
+.aparte-action-button:hover {
+  color: var(--aparte-primary, #6366f1);
+  /* Derive the hover tint from --aparte-primary instead of hardcoding indigo, so a
+     custom theme's action buttons tint with its own accent. */
+  background-color: color-mix(in srgb, var(--aparte-primary, #6366f1) 10%, transparent);
+}
+
+.aparte-action-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* =========================================
+   Input Upper (for file chips, previews, etc.)
+   ========================================= */
+
+.aparte-input-upper {
+  display: none; /* shown by JS when chips are added */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--aparte-border, #e5e7eb);
+  font-size: 13px;
+}
+
+.aparte-input-upper.has-content {
+  display: flex;
+}
+
+/* =========================================
+   Input Footer (for Model Selector, etc.)
+   ========================================= */
+
+.aparte-input-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--aparte-border, #e5e7eb);
+  font-size: 13px;
+}
+
+.aparte-input-footer:empty {
+  display: none;
+}
+
+/* Slot areas */
+.aparte-input-footer slot[name="footer-left"] {
+  display: contents;
+}
+
+.aparte-input-footer slot[name="footer-center"] {
+  flex: 1;
+  display: contents;
+}
+
+.aparte-input-footer slot[name="footer-right"] {
+  display: contents;
+  margin-inline-start: auto;
+}
+
+/* Model Selector Component */
+aparte-model-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Respect native hidden attribute — overrides the display:flex above */
+aparte-model-selector[hidden] { display: none !important; }
+
+.aparte-model-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aparte-provider-select,
+.aparte-model-select {
+  appearance: none;
+  background: var(--aparte-surface-1, #ffffff);
+  border: 1px solid var(--aparte-border, #e5e7eb);
+  border-radius: var(--aparte-radius-select);
+  padding: 6px 28px 6px 10px;
+  font-size: 13px;
+  font-family: var(--aparte-font-family, system-ui);
+  color: var(--aparte-text, #1f2937);
+  cursor: pointer;
+  min-width: 120px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.aparte-provider-select:hover,
+.aparte-model-select:hover {
+  border-color: var(--aparte-primary, #6366f1);
+}
+
+.aparte-provider-select:focus,
+.aparte-model-select:focus {
+  outline: none;
+  border-color: var(--aparte-primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+/* Dark mode overrides for selects */
+[data-aparte-theme="dark"] .aparte-provider-select,
+[data-aparte-theme="dark"] .aparte-model-select {
+  background-color: var(--aparte-surface-1, #1e293b);
+  border-color: var(--aparte-border, #334155);
+  color: var(--aparte-text, #f1f5f9);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+
+/* =========================================
+   aparte-chat-status
+   ========================================= */
+
+aparte-chat-status {
+  display: block;
+  width: 100%;
+  contain: layout style paint;
+}
+
+.aparte-status-container {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.aparte-status-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aparte-status-container[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.aparte-status-text {
+  font-size: var(--aparte-status-font-size, 13px);
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+  color: var(--aparte-status-color, #6b7280);
+  font-style: italic;
+}
+
+.aparte-dots {
+  display: flex;
+  align-items: center;
+}
+
+.aparte-dot {
+  width: var(--aparte-status-dot-size, 6px);
+  height: var(--aparte-status-dot-size, 6px);
+  background: var(--aparte-status-color, #6b7280);
+  border-radius: 50%;
+  animation: aparte-pulse 1.2s infinite ease-in-out;
+}
+
+/* Respect prefers-reduced-motion. Scoped to Aparte's own custom elements (never
+   the consumer's page) — this covers every animated element the library renders
+   inside them: typing dots, spinners, pipeline/artifact pulses, segment
+   animations. Activity stays conveyed via aria-live / aria-busy. */
+@media (prefers-reduced-motion: reduce) {
+  aparte-chat-viewport *,
+  aparte-chat-bubble *,
+  aparte-composer *,
+  aparte-chat-input *,
+  aparte-chat-status *,
+  aparte-conversation-list *,
+  aparte-select *,
+  aparte-progress-spinner * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes aparte-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* =========================================
+   Segment Renderers (Global Defaults)
+   ========================================= */
+
+/* Text */
+.segment-text {
+  word-wrap: break-word;
+}
+
+/* =========================================
+   Prose — reset-agnostic typography
+   Compact defaults for chat context.
+   Customizable via --aparte-prose-* variables.
+   ========================================= */
+
+.aparte-content,
+.segment-content {
+  white-space: normal;
+}
+
+.aparte-content p,
+.segment-content p {
+  margin: var(--aparte-prose-p-margin, 0.4em 0);
+}
+
+.aparte-content p:first-child,
+.segment-content p:first-child {
+  margin-top: 0;
+}
+
+.aparte-content p:last-child,
+.segment-content p:last-child {
+  margin-bottom: 0;
+}
+
+.aparte-content h1, .segment-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: 600; margin: 0.6em 0 0.2em; }
+.aparte-content h2, .segment-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: 600; margin: 0.5em 0 0.2em; }
+.aparte-content h3, .segment-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: 600; margin: 0.4em 0 0.15em; }
+.aparte-content h4, .segment-content h4,
+.aparte-content h5, .segment-content h5,
+.aparte-content h6, .segment-content h6 { font-size: 1em; font-weight: 600; margin: 0.3em 0 0.1em; }
+
+.aparte-content ul,
+.segment-content ul {
+  list-style: disc;
+  padding-left: var(--aparte-prose-list-indent, 1.5em);
+  margin: var(--aparte-prose-list-margin, 0.4em 0);
+}
+
+.aparte-content ol,
+.segment-content ol {
+  list-style: decimal;
+  padding-left: var(--aparte-prose-list-indent, 1.5em);
+  margin: var(--aparte-prose-list-margin, 0.4em 0);
+}
+
+.aparte-content li,
+.segment-content li {
+  margin: var(--aparte-prose-li-margin, 0.15em 0);
+}
+
+.aparte-content blockquote,
+.segment-content blockquote {
+  border-left: 3px solid var(--aparte-prose-blockquote-border, var(--aparte-border, #e5e7eb));
+  padding-left: 1em;
+  margin: 0.4em 0;
+  color: var(--aparte-text-muted, #6b7280);
+  font-style: italic;
+}
+
+.aparte-content strong,
+.segment-content strong {
+  font-weight: 600;
+}
+
+.aparte-content em,
+.segment-content em {
+  font-style: italic;
+}
+
+.aparte-content code,
+.segment-content code {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--aparte-prose-code-bg, var(--aparte-code-bg, #f3f4f6));
+  padding: 0.1em 0.3em;
+  border-radius: var(--aparte-radius-xs);
+}
+
+.aparte-content a,
+.segment-content a {
+  color: var(--aparte-primary, #6366f1);
+  text-decoration: underline;
+}
+
+.aparte-content hr,
+.segment-content hr {
+  border: none;
+  border-top: 1px solid var(--aparte-border, #e5e7eb);
+  margin: 0.75em 0;
+}
+
+/* Thinking */
+.segment-thinking {
+  /* Understated disclosure: a muted left rail, not a filled card. */
+  border-left: 2px solid var(--aparte-thinking-border, #e5e7eb);
+  margin: 10px 0;
+  background: transparent;
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 2px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--aparte-thinking-text, #6b7280);
+  list-style: none;
+}
+
+.thinking-header::-webkit-details-marker {
+  display: none;
+}
+
+.thinking-toggle {
+  margin-inline-start: auto;
+  /* Logical property */
+  transition: transform 0.2s;
+  opacity: 0.55;
+}
+
+details[open] .thinking-toggle {
+  transform: rotate(180deg);
+}
+
+.thinking-toggle::after {
+  content: '▼';
+  font-size: 9px;
+}
+
+.thinking-content {
+  padding: 4px 0 2px 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--aparte-thinking-content, #4b5563);
+  background: transparent;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Code */
+.segment-code {
+  margin: 12px 0;
+  border-radius: var(--aparte-radius-code);
+  overflow: hidden;
+  border: 1px solid var(--aparte-code-border, #e5e7eb);
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--aparte-code-header-bg, #f3f4f6);
+  border-bottom: 1px solid var(--aparte-code-border, #e5e7eb);
+  font-size: 12px;
+  color: var(--aparte-code-header-text, #4b5563);
+}
+
+.code-filename {
+  font-weight: 600;
+  margin-inline-end: auto;
+  /* Logical property: pushes language + copy to the right when filename is present */
+}
+
+.code-header-filler {
+  flex: 1;
+  /* No-filename placeholder — keeps language + copy right-aligned */
+}
+
+.code-language {
+  margin-inline-end: 8px;
+  /* Logical property */
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.code-copy {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--aparte-radius-sm);
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.code-copy:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.code-copy svg {
+  width: 14px;
+  height: 14px;
+}
+
+.code-content-wrapper pre {
+  margin: 0;
+  padding: 12px;
+  /* Wrap long lines instead of a horizontal scrollbar. `pre-wrap` honours
+     newlines + indentation but soft-wraps overflowing lines; `overflow-wrap:
+     anywhere` breaks unbreakable tokens (long URLs, hashes). Applies to both
+     the plain <pre><code> initial render and the shiki <pre class="shiki">
+     replacement, since both sit inside .code-content-wrapper. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+  background: var(--aparte-code-bg, #ffffff);
+}
+
+/* Terminal */
+.segment-terminal {
+  margin: 12px 0;
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.terminal-command-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--aparte-terminal-bg, #1e293b);
+  border-radius: var(--aparte-radius-terminal);
+  color: var(--aparte-terminal-text, #e2e8f0);
+}
+
+.terminal-icon {
+  flex-shrink: 0;
+  color: var(--aparte-terminal-icon, #64748b);
+  display: flex;
+  align-items: center;
+}
+
+.terminal-command {
+  flex: 1;
+  word-break: break-all;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+}
+
+.terminal-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.terminal-run-btn {
+  padding: 4px 12px;
+  background: var(--aparte-primary, #6366f1);
+  color: white;
+  border: none;
+  border-radius: var(--aparte-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.terminal-run-btn:hover {
+  background: var(--aparte-primary-hover, #4f46e5);
+}
+
+.terminal-copy-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--aparte-terminal-icon, #64748b);
+  cursor: pointer;
+  border-radius: var(--aparte-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terminal-copy-btn:hover {
+  background: var(--aparte-terminal-hover, #334155);
+  color: var(--aparte-terminal-text, #e2e8f0);
+}
+
+.terminal-running {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aparte-terminal-running, #22c55e);
+  font-size: 12px;
+}
+
+.terminal-running .spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: aparte-spin 0.8s linear infinite;
+}
+
+@keyframes aparte-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.terminal-output {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--aparte-terminal-output-bg, #0f172a);
+  border-radius: var(--aparte-radius-md);
+  color: var(--aparte-terminal-output-text, #94a3b8);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.terminal-error {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--aparte-error-bg, #fef2f2);
+  border-radius: var(--aparte-radius-sm);
+  color: var(--aparte-error-text, #dc2626);
+  font-size: 12px;
+}
+
+/* Errored bubble state — the whole message carries `data-error` while it holds
+   an error segment (set by the bubble in _reflectError). Kept subtle by default
+   since the error segment itself is already styled; this is a theming hook —
+   restyle `.aparte-message[data-error]` (or its parts) freely. */
+.aparte-message[data-error] .aparte-avatar {
+  box-shadow: 0 0 0 2px var(--aparte-error-solid, #dc2626);
+}
+
+/* Error */
+.segment-error {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--aparte-error-bg, #fef2f2);
+  border: 1px solid var(--aparte-error-border, #fecaca);
+  border-left: 4px solid var(--aparte-error-solid, #dc2626);
+  border-radius: var(--aparte-radius-error);
+  margin: 12px 0;
+  color: var(--aparte-error-text, #991b1b);
+  font-family: var(--aparte-font-family, system-ui, sans-serif);
+}
+
+.error-icon-wrapper {
+  flex-shrink: 0;
+  color: var(--aparte-error-solid, #dc2626);
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.error-icon-wrapper svg {
+  width: 20px;
+  height: 20px;
+}
+
+.error-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.error-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: var(--aparte-error-title, #7f1d1d);
+}
+
+.error-message {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.error-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--aparte-error-border, #fecaca);
+  font-family: monospace;
+  font-size: 12px;
+  opacity: 0.9;
+  white-space: pre-wrap;
+}
+
+/* Progress */
+.segment-progress {
+  margin: 12px 0;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  color: var(--aparte-progress-label, #374151);
+  font-size: 14px;
+}
+
+.progress-bar {
+  height: 4px;
+  background: var(--aparte-progress-bar-bg, #e5e7eb);
+  border-radius: var(--aparte-radius-xs);
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--aparte-progress-bar-fill, #6366f1);
+  border-radius: var(--aparte-radius-xs);
+  transition: width 0.3s ease;
+}
+
+/* File Tree */
+.segment-file-tree {
+  background: var(--aparte-file-tree-bg, #f8fafc);
+  border: 1px solid var(--aparte-file-tree-border, #e2e8f0);
+  border-radius: var(--aparte-radius-file-tree);
+  margin: 12px 0;
+  overflow: hidden;
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+  font-size: 13px;
+}
+
+.file-tree-title {
+  padding: 10px 14px;
+  background: var(--aparte-file-tree-header-bg, #f1f5f9);
+  border-bottom: 1px solid var(--aparte-file-tree-border, #e2e8f0);
+  font-weight: 500;
+  color: var(--aparte-file-tree-title, #475569);
+}
+
+.file-tree-content {
+  padding: 8px 0;
+}
+
+.file-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  cursor: default;
+}
+
+.file-node:hover {
+  background: var(--aparte-file-tree-hover, #f1f5f9);
+}
+
+.file-node.file-status-added .file-name { color: #16a34a; }
+.file-node.file-status-modified .file-name { color: #0284c7; }
+.file-node.file-status-deleted .file-name { color: #dc2626; text-decoration: line-through; opacity: 0.7; }
+
+.file-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Composer Primitives
+   Headless by design — consumers own layout. These rules provide only the
+   minimum defaults needed for correctness (display, box model, interaction).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+aparte-composer {
+  display: block;
+  /* Container-query root — see aparte-chat-viewport. */
+  container-type: inline-size;
+}
+
+aparte-composer-input {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Contenteditable editor inside aparte-composer-input */
+aparte-composer-input .aparte-ci-editor {
+  display: block;
+  width: 100%;
+  min-height: var(--aparte-composer-control-size, 44px);
+  padding: var(--aparte-input-padding-y, 10px) var(--aparte-input-padding-x, 12px);
+  font-size: var(--aparte-input-font-size, 14px);
+  line-height: var(--aparte-input-line-height, 1.5);
+  color: var(--aparte-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  caret-color: var(--aparte-text);
+}
+
+/* Placeholder via CSS */
+aparte-composer-input .aparte-ci-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--aparte-input-placeholder, var(--aparte-text-muted, #9ca3af));
+  pointer-events: none;
+}
+
+aparte-composer-input .aparte-ci-editor[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+aparte-composer-send {
+  display: contents;
+}
+
+aparte-composer-cancel {
+  display: contents;
+}
+
+/* ── Attachment chips list ── */
+aparte-composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  width: 100%;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--aparte-border);
+}
+
+aparte-composer-attachments[hidden] {
+  display: none;
+}
+
+/* Composer attachment strip — lays out the thumbnail tiles (.aparte-thumb). */
+aparte-composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  --aparte-attachment-image-size: 56px;
+  /* Many attachments → cap the height and scroll. */
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+/* ── Add attachment button ── */
+aparte-composer-add-attachment {
+  display: contents;
+}
+
+/* ── Generic action button ── */
+aparte-composer-action {
+  display: contents;
+}
+
+/* ── Drag-over state on root ── */
+aparte-composer.is-dragover .aparte-composer-shell {
+  outline: 2px dashed var(--aparte-primary);
+  outline-offset: -2px;
+  border-radius: var(--aparte-radius-input, 12px);
+}
+/* fallback: no shell */
+aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
+  outline: 2px dashed var(--aparte-primary);
+  outline-offset: -2px;
+  border-radius: var(--aparte-radius-input, 12px);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Composer Layout Helpers  (opt-in, not required)
+   Use these classes when you want the "aparte-chat-input look" out of the box.
+
+   <aparte-composer>
+     <div class="aparte-composer-shell">
+       <aparte-composer-attachments></aparte-composer-attachments>
+       <div class="aparte-composer-row">
+         <aparte-composer-add-attachment></aparte-composer-add-attachment>
+         <aparte-composer-input></aparte-composer-input>
+         <aparte-composer-send></aparte-composer-send>
+       </div>
+     </div>
+   </aparte-composer>
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Outer shell — visual border + radius. Mirrors .aparte-input-wrapper */
+.aparte-composer-shell {
+  background: var(--aparte-input-bg, var(--aparte-surface-1));
+  border: 1px solid var(--aparte-input-border, var(--aparte-border));
+  border-radius: var(--aparte-radius-input, 12px);
+  max-width: var(--aparte-message-max-width, 800px);
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.aparte-composer-shell:focus-within {
+  border-color: var(--aparte-primary);
+}
+
+/* Inner row — flex container for input + buttons */
+.aparte-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+/* Action buttons sized to the input's single-line height — BOTH derive from
+   --aparte-composer-control-size (default 44px), so a theme resizes the whole
+   composer control set with ONE variable and alignment holds. Combined with
+   the row's `align-items: flex-end` this makes the buttons read as vertically
+   centered against a single line of text, and keeps them anchored to the
+   bottom once the input grows multi-line — no magic margins. */
+.aparte-composer-row button {
+  width: var(--aparte-composer-control-size, 44px);
+  height: var(--aparte-composer-control-size, 44px);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Footer row below the input row (model selector etc.) */
+.aparte-composer-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--aparte-border);
+}
+
+.aparte-composer-footer:empty {
+  display: none;
+}
+
+/* Cancel/dictate button — same visual style as action buttons */
+aparte-composer-cancel .aparte-cc-button[hidden],
+aparte-composer-dictate .aparte-cd-button[hidden] {
+  display: none !important;
+}
+
+aparte-composer-cancel .aparte-cc-button,
+aparte-composer-dictate .aparte-cd-button {
+  background: transparent;
+  border: none;
+  color: var(--aparte-neutral, #6b7280);
+  padding: 6px;
+  border-radius: var(--aparte-radius-action-btn, 6px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+aparte-composer-cancel .aparte-cc-button:hover,
+aparte-composer-dictate .aparte-cd-button:hover {
+  color: var(--aparte-text);
+  background: var(--aparte-surface-2);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Chat Container Layout Helper — opt-in "centered composer when empty"
+   Opt in by adding the `--auto-center` modifier to `.aparte-chat-container`
+   (the framework wrappers do this from their `centerWhenEmpty` prop). Consumers
+   that never opt in are byte-for-byte unaffected — none of these rules match.
+
+   Empty  → the [welcome + composer] group sits vertically centered.
+   Active → on the first message the list grows and the composer slides to the
+            bottom (~0.3s). Only `flex-grow` toggles between the two states
+            (flex-basis/height stay constant) so the transition slides instead
+            of snapping. Scoped to `.aparte-viewport--framework` so the native
+            (vanilla) viewport is never touched.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.aparte-chat-container--auto-center {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.aparte-chat-container--auto-center aparte-chat-viewport.aparte-viewport--framework {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  transition: flex-grow 0.3s ease; /* the "slide to bottom" on first message */
+}
+
+.aparte-chat-container--auto-center aparte-composer {
+  flex: 0 0 auto;
+}
+
+/* Empty delta — a wrapper sets [data-aparte-empty] only while centerWhenEmpty is
+   on AND the message list is empty. `justify-content` flips instantly (not an
+   animatable property) — fine, it only differs between the two steady states. */
+.aparte-chat-container--auto-center[data-aparte-empty] {
+  justify-content: center;
+}
+
+.aparte-chat-container--auto-center[data-aparte-empty]
+  aparte-chat-viewport.aparte-viewport--framework {
+  flex-grow: 0;
+}
+
+/* The pre-existing reduced-motion guard only matches `aparte-chat-viewport *`
+   (descendants), not the element itself — so the transition above needs its
+   own guard. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-chat-container--auto-center
+    aparte-chat-viewport.aparte-viewport--framework {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* =========================================
+   aparte-conversation-list
+   ========================================= */
+
+aparte-conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-conv-list-gap, 2px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.aparte-conv-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--aparte-conv-item-padding, 7px 10px);
+  border-radius: var(--aparte-conv-item-radius, 6px);
+  cursor: pointer;
+  min-width: 0;
+  color: var(--aparte-conv-item-color, var(--aparte-text-muted));
+  font-size: var(--aparte-conv-item-font-size, 0.8125rem);
+  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+  transition: background 0.12s;
+  outline: none;
+}
+
+.aparte-conv-item:hover {
+  background: var(--aparte-conv-item-bg-hover, var(--aparte-surface-3));
+}
+
+.aparte-conv-item:focus-visible {
+  outline: 2px solid var(--aparte-primary);
+  outline-offset: -2px;
+}
+
+.aparte-conv-item:hover .aparte-conv-item__delete {
+  opacity: 1;
+}
+
+.aparte-conv-item:hover .aparte-conv-item__archive {
+  opacity: 1;
+}
+
+/* Keyboard access (WCAG 2.1.1): the archive/delete actions are opacity:0 until
+   hover, which would hide keyboard focus. Reveal + ring them on focus. */
+.aparte-conv-item:focus-within .aparte-conv-item__archive,
+.aparte-conv-item:focus-within .aparte-conv-item__delete {
+  opacity: 1;
+}
+
+.aparte-conv-item__archive:focus-visible,
+.aparte-conv-item__delete:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--aparte-primary);
+  outline-offset: -2px;
+}
+
+.aparte-conv-item--active {
+  background: var(--aparte-conv-item-bg-active, var(--aparte-surface-3));
+  color: var(--aparte-conv-item-color-active, var(--aparte-text));
+  font-weight: var(--aparte-conv-item-font-weight-active, 500);
+}
+
+.aparte-conv-item--active .aparte-conv-item__delete {
+  opacity: 0;
+}
+
+.aparte-conv-item--active .aparte-conv-item__archive {
+  opacity: 0;
+}
+
+.aparte-conv-item__title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.aparte-conv-item__delete {
+  flex-shrink: 0;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--aparte-conv-delete-color, var(--aparte-text-muted));
+  border-radius: var(--aparte-conv-delete-radius, var(--aparte-radius-sm));
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.aparte-conv-item__delete:hover {
+  background: var(--aparte-conv-delete-bg-hover, var(--aparte-error));
+  color: var(--aparte-conv-delete-color-hover, var(--aparte-text-inverse));
+}
+
+.aparte-conv-item__archive {
+  flex-shrink: 0;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--aparte-conv-archive-color, var(--aparte-text-muted));
+  border-radius: var(--aparte-conv-archive-radius, var(--aparte-radius-sm));
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.aparte-conv-item__archive:hover {
+  background: var(--aparte-conv-archive-bg-hover, var(--aparte-surface-4, var(--aparte-surface-3)));
+  color: var(--aparte-conv-archive-color-hover, var(--aparte-text));
+}
+
+.aparte-conv-item--archived .aparte-conv-item__title {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* =========================================
+   Provider-HTML overflow guards
+   ========================================= */
+
+/* Markdown providers inject arbitrary HTML into .segment-text, and the bubble
+   clips overflow (`aparte-chat-bubble { overflow: hidden }`) — without these
+   guards a wide image or table is silently cut at the bubble edge. */
+.segment-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+.segment-text table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+/* =========================================
+   Adaptive layout (container width + input modality)
+   ========================================= */
+
+/* Narrow containers (embedded widgets, mobile) — tighter chrome. The theming
+   variables are defined at :root, so `var(x, fallback)` fallbacks can never
+   fire — instead each rule REASSIGNS the variable at the element, the same
+   per-context pattern .aparte-attachments already uses. To retheme the narrow
+   state, override these variables inside your own @container block. Browsers
+   without container-query support keep the wide defaults. */
+@container (max-width: 520px) {
+  .aparte-message {
+    --aparte-message-padding: 12px 8px;
+    --aparte-message-gap: 8px;
+  }
+
+  .aparte-avatar {
+    --aparte-avatar-size: 24px;
+  }
+
+  .aparte-messages-wrapper {
+    --aparte-viewport-padding: 12px 8px;
+  }
+
+  .aparte-composer-row {
+    padding: 8px;
+  }
+}
+
+/* Coarse pointers (touch) — comfortable hit areas. */
+@media (pointer: coarse) {
+  .aparte-scroll-btn {
+    --aparte-scroll-btn-size: 44px;
+  }
+
+  .aparte-send-button,
+  .aparte-action-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Hover cannot reveal these on touch — keep them visible and tappable. */
+  .aparte-conv-item__delete,
+  .aparte-conv-item__archive {
+    opacity: 1;
+    width: 28px;
+    height: 28px;
+  }
+}
