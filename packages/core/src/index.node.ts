@@ -142,6 +142,7 @@ export type {
     AparteStreamingMarkdownProvider,
     AparteStreamingMarkdownRenderer,
     AparteHighlightProvider,
+    AparteSystemPromptVarsProvider,
     AparteSkeletonProvider,
     AparteSkeletonType,
     AparteLocale,

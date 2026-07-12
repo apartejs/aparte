@@ -140,7 +140,7 @@ export { parseAparteEventStream } from './parsers/index.js';
 // Export config
 export { AparteConfig, AparteConfigClass } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSkeletonProvider, AparteSkeletonType, AparteLocale, AparteAction, AparteBubbleAction, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteSkeletonProvider, AparteSkeletonType, AparteLocale, AparteAction, AparteBubbleAction, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
 export { DEFAULT_ICON_FALLBACKS, DEFAULT_SKELETON_FALLBACKS, DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client
