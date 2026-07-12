@@ -5,8 +5,9 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
   integrations: [
     starlight({
-      title: 'aparte',
+      title: 'aparté',
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero dependencies.',
+      customCss: ['./src/styles/aparte-theme.css'],
       sidebar: [
         { label: 'Guides', autogenerate: { directory: 'guides' } },
       ],

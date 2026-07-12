@@ -1,0 +1,102 @@
+/*
+ * aparté brand theme for Starlight — the same "brass spotlight on a dark stage"
+ * identity as the landing. Maps Starlight's --sl-color-* / --sl-font-* tokens to
+ * the aparté palette: brass accent (#d9a24b) + stage plum over warm aubergine
+ * neutrals, editorial serif on headings. Dark-first, like Starlight.
+ */
+
+/* ── Dark theme (Starlight default) ─────────────────────────────────────── */
+:root {
+  --sl-color-accent-low: #3a2a12;    /* deep brass — accent backgrounds */
+  --sl-color-accent: #d9a24b;         /* brass — the spotlight */
+  --sl-color-accent-high: #e7c588;    /* brass-soft — accent text on dark */
+
+  /* Warm aubergine neutral scale (white = brightest text → black = page bg) */
+  --sl-color-white: #f2eee7;          /* brightest text */
+  --sl-color-gray-1: #e7e2ea;
+  --sl-color-gray-2: #c3bacb;
+  --sl-color-gray-3: #a89bb6;         /* muted text */
+  --sl-color-gray-4: #6f6480;
+  --sl-color-gray-5: #342a40;         /* hairlines */
+  --sl-color-gray-6: #211b28;         /* surfaces */
+  --sl-color-black: #17141c;          /* page bg */
+
+  --aparte-plum: #a48fc0;             /* secondary voice, used by flourishes */
+
+  --sl-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sl-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  --sl-hairline-color: var(--sl-color-gray-5);
+}
+
+/* ── Light theme ────────────────────────────────────────────────────────── */
+:root[data-theme='light'] {
+  --sl-color-accent-low: #f3e8d2;
+  --sl-color-accent: #a06f28;         /* deeper brass for AA link contrast */
+  --sl-color-accent-high: #5c3f10;    /* accent text on light */
+
+  --sl-color-white: #241f2b;          /* darkest text */
+  --sl-color-gray-1: #2c2733;
+  --sl-color-gray-2: #443e50;
+  --sl-color-gray-3: #6d6479;         /* muted text */
+  --sl-color-gray-4: #8b8398;
+  --sl-color-gray-5: #e5ddce;         /* hairlines */
+  --sl-color-gray-6: #f1ebdf;         /* surfaces */
+  --sl-color-gray-7: #faf7f0;
+  --sl-color-black: #f6f2ea;          /* page bg */
+
+  --aparte-plum: #6e5a8a;
+}
+
+/* ── Brand polish ───────────────────────────────────────────────────────── */
+
+/* Editorial serif display on headings + the site title (matches the landing). */
+:is(h1, h2, h3),
+.sl-markdown-content :is(h1, h2, h3),
+a.site-title {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.018em;
+}
+a.site-title { font-style: italic; }
+:root:not([data-theme='light']) a.site-title { color: var(--sl-color-accent-high); }
+
+/* Atmospheric spotlight behind the whole site (dark only, subtle). */
+:root:not([data-theme='light']) body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 60vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(48rem 30rem at 78% -12%, color-mix(in oklab, var(--sl-color-accent) 14%, transparent), transparent 62%),
+    radial-gradient(52rem 32rem at 12% -18%, color-mix(in oklab, var(--aparte-plum) 14%, transparent), transparent 60%);
+}
+
+/* Links glow a touch on hover. */
+.sl-markdown-content a:hover {
+  text-shadow: 0 0 18px color-mix(in oklab, var(--sl-color-accent) 55%, transparent);
+}
+
+/* Inline code reads as a brass chip rather than default gray. */
+:not(pre) > code {
+  color: var(--sl-color-accent-high);
+  background-color: var(--sl-color-accent-low);
+  border: 1px solid color-mix(in oklab, var(--sl-color-accent) 30%, transparent);
+}
+
+/* Text selection in brass. */
+::selection {
+  background: color-mix(in oklab, var(--sl-color-accent) 34%, transparent);
+}
+
+/* Custom scrollbar (dark). */
+:root:not([data-theme='light']) {
+  scrollbar-color: #3a2f45 #17141c;
+}
+:root:not([data-theme='light']) ::-webkit-scrollbar { width: 11px; height: 11px; }
+:root:not([data-theme='light']) ::-webkit-scrollbar-track { background: #17141c; }
+:root:not([data-theme='light']) ::-webkit-scrollbar-thumb {
+  background: #342a40; border-radius: 999px; border: 2px solid #17141c;
+}
+:root:not([data-theme='light']) ::-webkit-scrollbar-thumb:hover { background: #463a54; }

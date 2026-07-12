@@ -1,0 +1,205 @@
+---
+import '../styles/landing.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>aparté — framework-agnostic AI chat</title>
+    <meta
+      name="description"
+      content="A framework-agnostic AI-chat library — vanilla web components, zero runtime dependencies. Drop it into React, Vue, Svelte, Angular, or nothing at all."
+    />
+  </head>
+  <body>
+    <div class="stage-glow" aria-hidden="true"></div>
+
+    <main class="wrap">
+      <nav>
+        <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
+        <div class="nav-links">
+          <a href="#showcase" class="hide-sm">Frameworks</a>
+          <a href="/guides/getting-started/" class="hide-sm">Docs</a>
+          <a href="https://github.com/apartejs/aparte">GitHub</a>
+          <button class="toggle" id="themeToggle" aria-label="Switch theme" title="Switch theme">&#9789;</button>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">The framework-agnostic AI-chat library</p>
+          <h1 class="thesis serif">Chat, spoken <em>aside.</em></h1>
+          <p class="lede">Vanilla web components at the core, thin wrappers for React, Vue, Svelte and Angular&#8202;&mdash;&#8202;and <b>zero runtime dependencies</b>. Point it at any model through a transport; the key stays wherever you want it.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="/guides/getting-started/">Read the docs &#8594;</a>
+            <a class="btn btn-ghost" href="https://github.com/apartejs/aparte">Star on GitHub</a>
+          </div>
+          <div class="install mono">
+            <span><span class="prompt">$</span> npm i <code>@aparte/core</code></span>
+            <button class="copy" id="copyInstall">Copy</button>
+          </div>
+        </div>
+
+        <div class="aside-stage">
+          <div class="gutter" aria-hidden="true">
+            <span class="rule"></span>
+            <span class="tag">apart&eacute;</span>
+            <span class="rule"></span>
+          </div>
+          <!-- Temporary mock demo — swap for the real <aparte-chat> once core's theme + icons land. -->
+          <div class="chat" aria-label="Live aparte chat demo — type a message and it streams a reply.">
+            <div class="chat-head"><span class="dot"></span> assistant &middot; try it</div>
+            <div class="msg" id="thread" aria-live="polite"></div>
+            <div class="chips" id="chips">
+              <button class="chip" type="button">What is aparte?</button>
+              <button class="chip" type="button">Which frameworks?</button>
+              <button class="chip" type="button">How does streaming work?</button>
+            </div>
+            <form class="composer" id="composer">
+              <input id="input" placeholder="Say something to aparte&hellip;" autocomplete="off" aria-label="Message" />
+              <button class="send" type="submit" aria-label="Send message">&#8593;</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <div class="facts">
+        <span><span class="k">i.</span><b>Zero</b> runtime dependencies</span>
+        <span><span class="k">ii.</span><b>Five</b> ways to mount it</span>
+        <span><span class="k">iii.</span>Streams <b>by default</b></span>
+        <span><span class="k">iv.</span>Your key, <b>your server</b></span>
+      </div>
+
+      <section class="showcase" id="showcase">
+        <div class="sec-head">
+          <h2 class="serif">Same component, <span class="paren">(</span>every framework<span class="paren">)</span></h2>
+        </div>
+        <p class="sec-sub">It&#8217;s one web component underneath, so the rendered chat is identical everywhere. What changes is the two lines you write to mount it.</p>
+        <div class="tabs" role="tablist" id="tabs">
+          <button class="tab" role="tab" aria-selected="true" data-fw="vanilla">Vanilla</button>
+          <button class="tab" role="tab" aria-selected="false" data-fw="react">React</button>
+          <button class="tab" role="tab" aria-selected="false" data-fw="vue">Vue</button>
+          <button class="tab" role="tab" aria-selected="false" data-fw="svelte">Svelte</button>
+          <button class="tab" role="tab" aria-selected="false" data-fw="angular">Angular</button>
+        </div>
+        <div class="code mono"><pre id="snippet"></pre></div>
+      </section>
+
+      <footer>
+        <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
+        <div class="foot-links">
+          <a href="/guides/getting-started/">Docs</a>
+          <a href="https://github.com/apartejs/aparte">GitHub</a>
+          <a href="https://www.npmjs.com/org/aparte">npm</a>
+        </div>
+        <div>A private word, in any framework.</div>
+      </footer>
+    </main>
+
+    <script>
+      // ── theme toggle ───────────────────────────────
+      const root = document.documentElement;
+      document.getElementById('themeToggle')?.addEventListener('click', () => {
+        const cur = root.getAttribute('data-theme')
+          || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+      });
+
+      // ── copy install ───────────────────────────────
+      document.getElementById('copyInstall')?.addEventListener('click', (e) => {
+        navigator.clipboard?.writeText('npm i @aparte/core');
+        const b = e.currentTarget as HTMLButtonElement;
+        const t = b.textContent; b.textContent = 'Copied';
+        setTimeout(() => (b.textContent = t), 1400);
+      });
+
+      // ── the living aside: a real, interactive chat (mock replies, no backend) ──
+      const thread = document.getElementById('thread')!;
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function addBubble(role: string, text: string) {
+        const b = document.createElement('div');
+        b.className = 'bubble ' + (role === 'user' ? 'user' : 'bot');
+        b.textContent = text;
+        thread.appendChild(b);
+        thread.scrollTop = thread.scrollHeight;
+        return b;
+      }
+      function streamReply(text: string, done?: () => void) {
+        const b = addBubble('bot', '');
+        if (reduce) { b.textContent = text; done?.(); return; }
+        const caret = document.createElement('span'); caret.className = 'caret';
+        b.appendChild(caret);
+        const toks = text.split(/(\s+)/); let i = 0;
+        const tick = () => {
+          if (i < toks.length) {
+            caret.insertAdjacentText('beforebegin', toks[i++]);
+            thread.scrollTop = thread.scrollHeight;
+            setTimeout(tick, 30 + Math.random() * 48);
+          } else { caret.remove(); done?.(); }
+        };
+        setTimeout(tick, 220);
+      }
+      function replyTo(q: string) {
+        q = q.toLowerCase();
+        if (/frame|react|vue|svelte|angular|vanilla/.test(q))
+          return 'React, Vue, Svelte, Angular — or none at all. It’s one web component underneath, so the chat renders identically everywhere; only the two lines that mount it change.';
+        if (/stream|token|type|render|reply/.test(q))
+          return 'Exactly like this — token by token. aparte streams your model’s replies through a transport, and your API key can stay on your server.';
+        if (/depend|size|zero|bundle|weight/.test(q))
+          return 'Zero runtime dependencies in the core. Markdown, syntax highlighting and icons are opt-in plugins you add only if you want them.';
+        if (/what|who|aparte|hello|hi|hey/.test(q))
+          return 'aparte is a framework-agnostic AI-chat library — vanilla web components, zero dependencies. This chat you’re using is the component itself, running right here.';
+        return 'In the real thing I’d relay that to your model. Here I’m a small scripted stand-in, so you can feel the interaction — the streaming, the bubbles, the composer.';
+      }
+      let busy = false;
+      function send(text: string) {
+        text = (text || '').trim();
+        if (!text || busy) return;
+        busy = true;
+        addBubble('user', text);
+        setTimeout(() => streamReply(replyTo(text), () => { busy = false; }), 240);
+      }
+      document.getElementById('composer')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('input') as HTMLInputElement;
+        send(input.value); input.value = '';
+      });
+      document.getElementById('chips')?.addEventListener('click', (e) => {
+        const c = (e.target as HTMLElement).closest('.chip'); if (!c) return;
+        send(c.textContent || '');
+      });
+      streamReply('Hi — I’m aparte, streaming this to you token by token. Ask me anything, or tap a suggestion below.');
+
+      // ── framework code tabs ────────────────────────
+      const snippets: Record<string, string> = {
+        vanilla:
+          '<span class="cm">// nothing to wrap — it’s a web component</span>\n' +
+          '<span class="kw">import</span> <span class="st">\'@aparte/core\'</span>;\n\n' +
+          '<span class="tg">&lt;aparte-chat&gt;&lt;/aparte-chat&gt;</span>',
+        react:
+          '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/react\'</span>;\n\n' +
+          '<span class="tg">&lt;AparteChat</span> transport={backend} <span class="tg">/&gt;</span>',
+        vue:
+          '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/vue\'</span>;\n\n' +
+          '<span class="tg">&lt;AparteChat</span> :transport="backend" <span class="tg">/&gt;</span>',
+        svelte:
+          '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/svelte\'</span>;\n\n' +
+          '<span class="tg">&lt;AparteChat</span> {transport} <span class="tg">/&gt;</span>',
+        angular:
+          '<span class="cm">// import AparteModule once, then</span>\n' +
+          '<span class="tg">&lt;aparte-chat</span> [transport]="backend"<span class="tg">&gt;&lt;/aparte-chat&gt;</span>',
+      };
+      const snip = document.getElementById('snippet')!;
+      const render = (fw: string) => { snip.innerHTML = snippets[fw]; };
+      document.getElementById('tabs')?.addEventListener('click', (e) => {
+        const t = (e.target as HTMLElement).closest('.tab') as HTMLElement | null; if (!t) return;
+        document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+        render(t.dataset.fw!);
+      });
+      render('vanilla');
+    </script>
+  </body>
+</html>
