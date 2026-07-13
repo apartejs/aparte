@@ -48,19 +48,21 @@ import '../styles/landing.css';
             <span class="tag">apart&eacute;</span>
             <span class="rule"></span>
           </div>
-          <!-- Temporary mock demo — swap for the real <aparte-chat> once core's theme + icons land. -->
-          <div class="chat" aria-label="Live aparte chat demo — type a message and it streams a reply.">
+          <!-- The real @aparte/core: a viewport (manages messages + streaming)
+               above a composer, in one container — the canonical layout. -->
+          <div class="chat" aria-label="Live aparte chat — type a message and it streams a reply.">
             <div class="chat-head"><span class="dot"></span> assistant &middot; try it</div>
-            <div class="msg" id="thread" aria-live="polite"></div>
-            <div class="chips" id="chips">
-              <button class="chip" type="button">What is aparte?</button>
-              <button class="chip" type="button">Which frameworks?</button>
-              <button class="chip" type="button">How does streaming work?</button>
+            <div class="aparte-demo" data-empty>
+              <aparte-chat-viewport></aparte-chat-viewport>
+              <aparte-composer>
+                <div class="aparte-composer-shell">
+                  <div class="aparte-composer-row">
+                    <aparte-composer-input style="flex:1" placeholder="Say something to aparté&hellip;"></aparte-composer-input>
+                    <aparte-composer-send></aparte-composer-send>
+                  </div>
+                </div>
+              </aparte-composer>
             </div>
-            <form class="composer" id="composer">
-              <input id="input" placeholder="Say something to aparte&hellip;" autocomplete="off" aria-label="Message" />
-              <button class="send" type="submit" aria-label="Send message">&#8593;</button>
-            </form>
           </div>
         </div>
       </section>
@@ -99,12 +101,26 @@ import '../styles/landing.css';
     </main>
 
     <script>
-      // ── theme toggle ───────────────────────────────
+      // The real library — registers <aparte-*> elements + pulls in the theme.
+      import '@aparte/core';
+      import '@aparte/core/styles.css';
+      import { registerDefaultRenderers } from '@aparte/core';
+      registerDefaultRenderers();
+
+      // ── theme toggle (drives the landing AND the real chat component) ──
       const root = document.documentElement;
+      const chatEl = document.querySelector('.chat');
+      function syncChatTheme() {
+        const dark = (root.getAttribute('data-theme')
+          || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+        chatEl?.setAttribute('data-aparte-theme', dark ? 'dark' : 'light');
+      }
+      syncChatTheme();
       document.getElementById('themeToggle')?.addEventListener('click', () => {
         const cur = root.getAttribute('data-theme')
           || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+        syncChatTheme();
       });
 
       // ── copy install ───────────────────────────────
@@ -115,30 +131,20 @@ import '../styles/landing.css';
         setTimeout(() => (b.textContent = t), 1400);
       });
 
-      // ── the living aside: a real, interactive chat (mock replies, no backend) ──
-      const thread = document.getElementById('thread')!;
+      // ── the real chat: the viewport manages messages + streaming ──
+      const viewport = document.querySelector('aparte-chat-viewport') as any;
+      const demo = document.querySelector('.aparte-demo');
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let msgId = 0;
 
-      function addBubble(role: string, text: string) {
-        const b = document.createElement('div');
-        b.className = 'bubble ' + (role === 'user' ? 'user' : 'bot');
-        b.textContent = text;
-        thread.appendChild(b);
-        thread.scrollTop = thread.scrollHeight;
-        return b;
-      }
-      function streamReply(text: string, done?: () => void) {
-        const b = addBubble('bot', '');
-        if (reduce) { b.textContent = text; done?.(); return; }
-        const caret = document.createElement('span'); caret.className = 'caret';
-        b.appendChild(caret);
+      function streamAssistant(text: string, done?: () => void) {
+        const id = 'a' + ++msgId;
+        viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+        if (reduce) { viewport.appendToken(id, text); done?.(); return; }
         const toks = text.split(/(\s+)/); let i = 0;
         const tick = () => {
-          if (i < toks.length) {
-            caret.insertAdjacentText('beforebegin', toks[i++]);
-            thread.scrollTop = thread.scrollHeight;
-            setTimeout(tick, 30 + Math.random() * 48);
-          } else { caret.remove(); done?.(); }
+          if (i < toks.length) { viewport.appendToken(id, toks[i++]); setTimeout(tick, 30 + Math.random() * 48); }
+          else { done?.(); }
         };
         setTimeout(tick, 220);
       }
@@ -159,19 +165,22 @@ import '../styles/landing.css';
         text = (text || '').trim();
         if (!text || busy) return;
         busy = true;
-        addBubble('user', text);
-        setTimeout(() => streamReply(replyTo(text), () => { busy = false; }), 240);
+        demo?.removeAttribute('data-empty');
+        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: text, timestamp: Date.now() });
+        setTimeout(() => streamAssistant(replyTo(text), () => { busy = false; }), 240);
       }
-      document.getElementById('composer')?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const input = document.getElementById('input') as HTMLInputElement;
-        send(input.value); input.value = '';
+      document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e) => {
+        send((e as any).detail?.content || '');
       });
-      document.getElementById('chips')?.addEventListener('click', (e) => {
-        const c = (e.target as HTMLElement).closest('.chip'); if (!c) return;
-        send(c.textContent || '');
+      // The retry button emits aparte:retry — a real app re-runs the model. The
+      // demo just streams a fresh reply so the button visibly does something.
+      document.addEventListener('aparte:retry', () => {
+        if (busy) return;
+        busy = true;
+        setTimeout(() => streamAssistant('Here’s another take — in a real app, retry re-runs your model against the same prompt. This demo just streams a fresh reply.', () => { busy = false; }), 200);
       });
-      streamReply('Hi — I’m aparte, streaming this to you token by token. Ask me anything, or tap a suggestion below.');
+      // Opens on the empty state, then greets after a beat (shows the empty→active slide).
+      setTimeout(() => { demo?.removeAttribute('data-empty'); streamAssistant('Hi — I’m aparte, streaming this to you token by token. Type a message below and watch it flow.'); }, 900);
 
       // ── framework code tabs ────────────────────────
       const snippets: Record<string, string> = {

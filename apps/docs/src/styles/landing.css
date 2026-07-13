@@ -109,6 +109,15 @@ h1.thesis em { font-style: italic; color: var(--accent); }
 .gutter .rule { width: 1px; flex: 1; background: linear-gradient(var(--accent), transparent); }
 .gutter .tag { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); font-style: italic; font-family: Georgia, serif; }
 .chat { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 20px; box-shadow: var(--shadow); }
+
+/* The real chat demo: <aparte-chat-viewport> grows above <aparte-composer>,
+   with an empty state that centers the composer until the first message. */
+.aparte-demo { display: flex; flex-direction: column; min-height: 300px; max-height: 380px; }
+.aparte-demo aparte-chat-viewport { flex: 1 1 auto; min-height: 0; overflow: hidden; transition: flex-grow .3s ease; }
+.aparte-demo aparte-composer { flex: 0 0 auto; margin-top: 8px; }
+.aparte-demo[data-empty] { justify-content: center; }
+.aparte-demo[data-empty] aparte-chat-viewport { flex-grow: 0; }
+@media (prefers-reduced-motion: reduce) { .aparte-demo aparte-chat-viewport { transition-duration: .01ms; } }
 .chat-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; color: var(--dim); font-size: 12.5px; letter-spacing: .04em; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 22%, transparent); }
 .msg { display: flex; flex-direction: column; gap: 12px; min-height: 190px; max-height: 300px; overflow-y: auto; padding-right: 4px; scroll-behavior: smooth; }

@@ -58,7 +58,9 @@ a.site-title {
   letter-spacing: -0.018em;
 }
 a.site-title { font-style: italic; }
-:root:not([data-theme='light']) a.site-title { color: var(--sl-color-accent-high); }
+/* Match the landing wordmark: (aparté) with brass parentheses around the name. */
+a.site-title::before { content: '('; color: var(--sl-color-accent); margin-right: 0.1em; }
+a.site-title::after { content: ')'; color: var(--sl-color-accent); margin-left: 0.1em; }
 
 /* Atmospheric spotlight behind the whole site (dark only, subtle). */
 :root:not([data-theme='light']) body::before {

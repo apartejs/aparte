@@ -77,6 +77,9 @@ importers:
 
   apps/docs:
     dependencies:
+      '@aparte/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@astrojs/starlight':
         specifier: ^0.37.1
         version: 0.37.7(astro@5.18.2(@types/node@20.11.0)(jiti@1.21.0)(rollup@4.62.2)(tsx@4.23.0)(typescript@5.9.3)(yaml@2.9.0))
