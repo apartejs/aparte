@@ -409,6 +409,51 @@
 }
 
 /* =========================================
+   aparte-chat  (the drop-in shell)
+   Composes a viewport + composer as a flex column. Size the element yourself
+   (a height, or let it fill a sized parent); the viewport grows and scrolls and
+   the composer sits below it. Mirrors the framework auto-center layout for the
+   vanilla viewport, which otherwise has no flex sizing of its own.
+   ========================================= */
+
+aparte-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+aparte-chat > aparte-chat-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+aparte-chat > aparte-composer {
+  flex: 0 0 auto;
+}
+
+/* center-empty: the shell centers the composer as a welcome state until the first
+   message, then slides to the normal layout. The component toggles [data-empty]
+   on itself by watching its viewport — only `flex-grow` animates, so the composer
+   glides to the bottom instead of snapping. */
+aparte-chat[center-empty] > aparte-chat-viewport {
+  transition: flex-grow 0.3s ease;
+}
+
+aparte-chat[center-empty][data-empty] {
+  justify-content: center;
+}
+
+aparte-chat[center-empty][data-empty] > aparte-chat-viewport {
+  flex-grow: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  aparte-chat[center-empty] > aparte-chat-viewport {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* =========================================
    aparte-chat-viewport
    ========================================= */
 

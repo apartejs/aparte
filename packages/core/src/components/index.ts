@@ -1,4 +1,5 @@
 // Components barrel export
+export { AparteChat } from './chat/index.js';
 export { AparteChatBubble, populateBubbleFromMessage } from './bubble/index.js';
 export type { SyncableBubble } from './bubble/index.js';
 export { AparteChatInput } from './input/index.js';
