@@ -173,7 +173,7 @@ describe('Segment Renderers', () => {
             };
             const html = renderer.render(seg as any);
             expect(html).toContain('tool-pill-spinner');
-            expect(html).not.toContain('✓');
+            expect(html).not.toContain(AparteConfig.getIcon('check'));
         });
 
         it('renders checkmark for resolved status', () => {
@@ -184,7 +184,7 @@ describe('Segment Renderers', () => {
                 status: 'resolved'
             };
             const html = renderer.render(seg as any);
-            expect(html).toContain('✓');
+            expect(html).toContain(AparteConfig.getIcon('check'));
             expect(html).not.toContain('tool-pill-spinner');
         });
 
@@ -196,7 +196,7 @@ describe('Segment Renderers', () => {
                 status: 'aborted'
             };
             const html = renderer.render(seg as any);
-            expect(html).toContain('✕');
+            expect(html).toContain(AparteConfig.getIcon('close'));
         });
 
         it('sets data-status attribute matching the segment status', () => {

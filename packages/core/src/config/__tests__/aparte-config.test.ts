@@ -81,12 +81,12 @@ describe('AparteConfig', () => {
 
         it('falls back for optional icon keys a provider does not implement', () => {
             // A provider without the optional `tool` / `close` / `stop` keys (all
-            // pre-existing icon packs) must fall back to the default glyphs.
+            // pre-existing icon packs) must fall back to the default SVG icons.
             AparteConfig.setIconProvider({ copy: () => '<svg data-x></svg>' } as any);
 
             expect(AparteConfig.getIcon('copy')).toBe('<svg data-x></svg>');
-            expect(AparteConfig.getIcon('tool')).toBe('🔧');
-            expect(AparteConfig.getIcon('close')).toBe('✕');
+            expect(AparteConfig.getIcon('tool')).toContain('<svg');
+            expect(AparteConfig.getIcon('close')).toContain('<svg');
             // `stop` is a typed optional key: its fallback is the square SVG, so the
             // composer stop button renders an icon (not the literal text "stop").
             expect(AparteConfig.getIcon('stop')).toContain('<svg');
