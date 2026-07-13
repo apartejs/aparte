@@ -5,8 +5,10 @@
   "private": true,
   "scripts": {
     "gen:css-vars": "node scripts/gen-css-vars.mjs",
-    "dev": "node scripts/gen-css-vars.mjs && astro dev",
-    "build": "node scripts/gen-css-vars.mjs && astro build",
+    "gen:api": "node scripts/gen-api-ref.mjs",
+    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs",
+    "dev": "pnpm gen && astro dev",
+    "build": "pnpm gen && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },

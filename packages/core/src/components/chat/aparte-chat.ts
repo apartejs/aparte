@@ -1,3 +1,6 @@
+import type { AparteChatViewport } from '../viewport/aparte-chat-viewport.js';
+import type { AparteComposer } from '../composer/aparte-composer.js';
+
 /**
  * AparteChat - The Shell
  *
@@ -17,13 +20,10 @@
  * Size the element via CSS (a height, or let it fill a sized parent).
  *
  * @element aparte-chat
- * @attr {string} placeholder   - Placeholder for the composer input (default composition)
- * @attr {boolean} disabled     - Disables the composer
- * @attr {boolean} center-empty - Center the composer as a welcome state until the first message
+ * @attr placeholder  - Placeholder for the composer input (default composition)
+ * @attr disabled     - Disables the composer
+ * @attr center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
  */
-import type { AparteChatViewport } from '../viewport/aparte-chat-viewport.js';
-import type { AparteComposer } from '../composer/aparte-composer.js';
-
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
     return ['placeholder', 'disabled', 'center-empty'];

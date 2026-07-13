@@ -72,6 +72,8 @@ const esc = (s) => s.replace(/\|/g, '\\|');
 let md = `---
 title: CSS variables
 description: The complete, generated reference of every --aparte-* theme variable.
+sidebar:
+  order: 2
 ---
 
 <!-- AUTO-GENERATED from packages/core/src/styles/aparte.css by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
