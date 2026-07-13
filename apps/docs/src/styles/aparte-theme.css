@@ -7,21 +7,23 @@
 
 /* ── Dark theme (Starlight default) ─────────────────────────────────────── */
 :root {
-  --sl-color-accent-low: #3a2a12;    /* deep brass — accent backgrounds */
-  --sl-color-accent: #d9a24b;         /* brass — the spotlight */
-  --sl-color-accent-high: #e7c588;    /* brass-soft — accent text on dark */
+  --sl-color-accent-low: #3a2a12;    /* deep brass — Starlight-specific accent bg */
+  --sl-color-accent: var(--brand-brass);
+  --sl-color-accent-high: var(--brand-brass-soft);  /* accent text on dark */
 
-  /* Warm aubergine neutral scale (white = brightest text → black = page bg) */
-  --sl-color-white: #f2eee7;          /* brightest text */
+  /* Warm aubergine neutral scale (white = brightest text → black = page bg).
+     The shared tones map onto the brand palette; the in-between grays are
+     Starlight-specific. */
+  --sl-color-white: var(--brand-text);  /* brightest text */
   --sl-color-gray-1: #e7e2ea;
   --sl-color-gray-2: #c3bacb;
-  --sl-color-gray-3: #a89bb6;         /* muted text */
+  --sl-color-gray-3: var(--brand-dim);  /* muted text */
   --sl-color-gray-4: #6f6480;
-  --sl-color-gray-5: #342a40;         /* hairlines */
-  --sl-color-gray-6: #211b28;         /* surfaces */
-  --sl-color-black: #17141c;          /* page bg */
+  --sl-color-gray-5: var(--brand-line); /* hairlines */
+  --sl-color-gray-6: var(--brand-surface); /* surfaces */
+  --sl-color-black: var(--brand-ground);   /* page bg */
 
-  --aparte-plum: #a48fc0;             /* secondary voice, used by flourishes */
+  --aparte-plum: var(--brand-plum);     /* secondary voice, used by flourishes */
 
   --sl-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --sl-font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
@@ -31,20 +33,20 @@
 /* ── Light theme ────────────────────────────────────────────────────────── */
 :root[data-theme='light'] {
   --sl-color-accent-low: #f3e8d2;
-  --sl-color-accent: #a06f28;         /* deeper brass for AA link contrast */
-  --sl-color-accent-high: #5c3f10;    /* accent text on light */
+  --sl-color-accent: var(--brand-brass);
+  --sl-color-accent-high: #5c3f10;    /* accent text on light — kept dark for AA contrast */
 
-  --sl-color-white: #241f2b;          /* darkest text */
+  --sl-color-white: var(--brand-text); /* darkest text */
   --sl-color-gray-1: #2c2733;
   --sl-color-gray-2: #443e50;
-  --sl-color-gray-3: #6d6479;         /* muted text */
+  --sl-color-gray-3: var(--brand-dim); /* muted text */
   --sl-color-gray-4: #8b8398;
-  --sl-color-gray-5: #e5ddce;         /* hairlines */
-  --sl-color-gray-6: #f1ebdf;         /* surfaces */
+  --sl-color-gray-5: var(--brand-line); /* hairlines */
+  --sl-color-gray-6: var(--brand-surface-2); /* surfaces (light: matches the landing's surface-2 tone) */
   --sl-color-gray-7: #faf7f0;
-  --sl-color-black: #f6f2ea;          /* page bg */
+  --sl-color-black: var(--brand-ground); /* page bg */
 
-  --aparte-plum: #6e5a8a;
+  --aparte-plum: var(--brand-plum);
 }
 
 /* ── Brand polish ───────────────────────────────────────────────────────── */
@@ -57,10 +59,17 @@ a.site-title {
   font-weight: 400;
   letter-spacing: -0.018em;
 }
-a.site-title { font-style: italic; }
-/* Match the landing wordmark: (aparté) with brass parentheses around the name. */
-a.site-title::before { content: '('; color: var(--sl-color-accent); margin-right: 0.1em; }
-a.site-title::after { content: ')'; color: var(--sl-color-accent); margin-left: 0.1em; }
+/* The name itself: italic serif in the light text colour, exactly like the
+   landing wordmark (Starlight tints the site title with the accent otherwise).
+   `gap: 0` is the real fix for the wide gap: Starlight makes the title a flex
+   row (`sl-flex`) with a gap for an optional logo, which was pushing the
+   parenthesis pseudo-elements far from the name. */
+a.site-title { font-style: italic; color: var(--sl-color-white); gap: 0; }
+/* Match the landing wordmark: brass, UPRIGHT parentheses hugging the name.
+   Upright (font-style: normal) + a hair-thin gap — the default italic would
+   slant them and push them away from the word. */
+a.site-title::before { content: '('; color: var(--sl-color-accent); font-style: normal; margin-right: 0.03em; }
+a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: normal; margin-left: 0.03em; }
 
 /* Atmospheric spotlight behind the whole site (dark only, subtle). */
 :root:not([data-theme='light']) body::before {
@@ -92,13 +101,24 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); margin-left: 
   background: color-mix(in oklab, var(--sl-color-accent) 34%, transparent);
 }
 
+/* Search (Pagefind): same brass focus as the chat composer — Pagefind defaults
+   to a lighter accent, so the search box focus looked off next to the chat. */
+:root {
+  --pagefind-ui-primary: var(--sl-color-accent);
+}
+.pagefind-ui__search-input:focus,
+.pagefind-ui__search-input:focus-visible {
+  border-color: var(--sl-color-accent);
+  outline-color: var(--sl-color-accent);
+}
+
 /* Custom scrollbar (dark). */
 :root:not([data-theme='light']) {
-  scrollbar-color: #3a2f45 #17141c;
+  scrollbar-color: #3a2f45 var(--brand-ground);
 }
 :root:not([data-theme='light']) ::-webkit-scrollbar { width: 11px; height: 11px; }
-:root:not([data-theme='light']) ::-webkit-scrollbar-track { background: #17141c; }
+:root:not([data-theme='light']) ::-webkit-scrollbar-track { background: var(--brand-ground); }
 :root:not([data-theme='light']) ::-webkit-scrollbar-thumb {
-  background: #342a40; border-radius: 999px; border: 2px solid #17141c;
+  background: var(--brand-line); border-radius: 999px; border: 2px solid var(--brand-ground);
 }
 :root:not([data-theme='light']) ::-webkit-scrollbar-thumb:hover { background: #463a54; }

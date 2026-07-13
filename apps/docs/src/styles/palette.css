@@ -1,0 +1,55 @@
+/*
+ * aparté brand palette — the SINGLE source of truth for the brand colours.
+ * Both consumers reference these tokens (they never re-declare a hex):
+ *   - the landing      (src/styles/landing.css)      via its --ground/--accent/… aliases
+ *   - the Starlight docs (src/styles/aparte-theme.css) via --sl-color-*
+ *
+ * Dark is the default; light applies on explicit [data-theme="light"] and, before
+ * JS runs, on system-light. Change a colour HERE → landing + docs both follow.
+ *
+ * Namespaced `--brand-*` on purpose: distinct from the core component's own
+ * `--aparte-*` theme tokens (which live in @aparte/core) and from Starlight's
+ * `--sl-*`, so nothing collides on a page that loads all three.
+ */
+:root {
+  --brand-brass: #d9a24b;        /* the spotlight */
+  --brand-brass-soft: #e7c588;
+  --brand-ground: #17141c;       /* page background */
+  --brand-surface: #211b28;
+  --brand-surface-2: #2a2333;
+  --brand-line: #342a40;
+  --brand-text: #f2eee7;         /* brightest text */
+  --brand-dim: #a89bb6;          /* muted text */
+  --brand-plum: #a48fc0;         /* secondary voice */
+  --brand-user-bubble: #2f2740;
+}
+
+:root[data-theme="light"] {
+  --brand-brass: #b07d33;
+  --brand-brass-soft: #caa15a;
+  --brand-ground: #f6f2ea;
+  --brand-surface: #fffdf8;
+  --brand-surface-2: #f1ebdf;
+  --brand-line: #e5ddce;
+  --brand-text: #241f2b;
+  --brand-dim: #6d6479;
+  --brand-plum: #6e5a8a;
+  --brand-user-bubble: #efe7f6;
+}
+
+/* Same light values before/without JS, when the OS prefers light and no explicit
+   theme has been chosen. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --brand-brass: #b07d33;
+    --brand-brass-soft: #caa15a;
+    --brand-ground: #f6f2ea;
+    --brand-surface: #fffdf8;
+    --brand-surface-2: #f1ebdf;
+    --brand-line: #e5ddce;
+    --brand-text: #241f2b;
+    --brand-dim: #6d6479;
+    --brand-plum: #6e5a8a;
+    --brand-user-bubble: #efe7f6;
+  }
+}

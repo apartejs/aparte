@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
+    "gen:css-vars": "node scripts/gen-css-vars.mjs",
+    "dev": "node scripts/gen-css-vars.mjs && astro dev",
+    "build": "node scripts/gen-css-vars.mjs && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },

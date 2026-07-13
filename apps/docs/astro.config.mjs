@@ -7,9 +7,10 @@ export default defineConfig({
     starlight({
       title: 'aparté',
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero dependencies.',
-      customCss: ['./src/styles/aparte-theme.css'],
+      customCss: ['./src/styles/palette.css', './src/styles/aparte-theme.css'],
       sidebar: [
         { label: 'Guides', autogenerate: { directory: 'guides' } },
+        { label: 'Reference', autogenerate: { directory: 'reference' } },
       ],
     }),
   ],
