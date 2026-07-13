@@ -19,15 +19,15 @@ export interface AparteThemeVariables {
     '--aparte-neutral'?: string;
 
     // Bubble styling
-    '--aparte-bubble-bg-user'?: string;
-    '--aparte-bubble-bg-assistant'?: string;
-    '--aparte-bubble-text-user'?: string;
-    '--aparte-bubble-text-assistant'?: string;
-    '--aparte-bubble-radius'?: string;
-    '--aparte-bubble-radius-corner'?: string;
-    '--aparte-bubble-padding'?: string;
-    '--aparte-bubble-max-width'?: string;
-    '--aparte-bubble-font-size'?: string;
+    '--aparte-message-content-bg-user'?: string;
+    '--aparte-message-content-bg-assistant'?: string;
+    '--aparte-message-content-text-user'?: string;
+    '--aparte-message-content-text-assistant'?: string;
+    '--aparte-message-content-radius'?: string;
+    '--aparte-message-content-radius-corner'?: string;
+    '--aparte-message-content-padding'?: string;
+    '--aparte-message-content-max-width'?: string;
+    '--aparte-message-content-font-size'?: string;
 
     // Input styling
     '--aparte-input-bg'?: string;

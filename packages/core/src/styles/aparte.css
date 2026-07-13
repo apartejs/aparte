@@ -10,28 +10,29 @@
 :root,
 :host {
   /* Base Colors */
-  --aparte-primary: #6366f1;
-  --aparte-primary-hover: #4f46e5;
-  --aparte-secondary: #9ca3af;
-  --aparte-neutral: #6b7280;
+  --aparte-primary: #b07d33;
+  --aparte-primary-hover: #a06f28;
+  --aparte-secondary: #9a8fb0;
+  --aparte-neutral: #6d6479;
 
   /* Backgrounds & Surfaces */
-  --aparte-bg: #ffffff;
-  --aparte-surface-1: #ffffff;
+  --aparte-bg: #f6f2ea;
+  --aparte-surface-1: #fffdf8;
   /* Bubbles, cards */
-  --aparte-surface-2: #f3f4f6;
+  --aparte-surface-2: #f1ebdf;
   /* Code blocks, headers */
-  --aparte-surface-3: #e5e7eb;
+  --aparte-surface-3: #e7dfce;
   /* Skeletons, disabled */
 
   /* Text */
-  --aparte-text: #1f2937;
-  --aparte-text-muted: #6b7280;
-  --aparte-text-inverse: #ffffff;
+  --aparte-text: #241f2b;
+  --aparte-text-muted: #6d6479;
+  --aparte-text-inverse: #fffdf8;
 
   /* Borders */
-  --aparte-border: #e5e7eb;
+  --aparte-border: #e5ddce;
   --aparte-border-focus: var(--aparte-primary);
+  --aparte-border-width: 1px;
 
   /* Status Colors */
   --aparte-info: #3b82f6;
@@ -61,8 +62,52 @@
   --aparte-radius-error: var(--aparte-radius-md);
   --aparte-radius-file-tree: var(--aparte-radius-lg);
 
+  /* Spacing scale — every gap / padding / margin / offset routes through these,
+     so there are no raw px spacings in the rules. Incidental, pixel-tuned values
+     (e.g. an overlay inset) get their own component var instead of a scale step. */
+  --aparte-space-1: 2px;
+  --aparte-space-2: 4px;
+  --aparte-space-3: 6px;
+  --aparte-space-4: 8px;
+  --aparte-space-5: 10px;
+  --aparte-space-6: 12px;
+  --aparte-space-7: 14px;
+  --aparte-space-8: 16px;
+
+  /* Font-size scale — component text sizes reference these (no raw px sizes). */
+  --aparte-font-size-2xs: 10px;
+  --aparte-font-size-xs: 11px;
+  --aparte-font-size-sm: 12px;
+  --aparte-font-size-md: 13px;
+  --aparte-font-size-lg: 14px;
+  --aparte-font-size-base: 15px;
+
+  /* Font-weight scale — every font-weight references these (no raw weights). */
+  --aparte-font-weight-normal: 400;
+  --aparte-font-weight-medium: 500;
+  --aparte-font-weight-semibold: 600;
+  --aparte-font-weight-bold: 700;
+
+  /* Line-height scale — every line-height references these (no raw values). */
+  --aparte-line-height-none: 1;
+  --aparte-line-height-tight: 1.25;
+  --aparte-line-height-normal: 1.5;
+  --aparte-line-height-relaxed: 1.6;
+  --aparte-line-height-loose: 1.7;
+
   /* Typography */
   --aparte-font-family: system-ui, -apple-system, sans-serif;
+
+  /* Text/icon over a --aparte-primary (brass) fill — send button, run button. */
+  --aparte-on-primary: #ffffff;
+  /* Focus ring — derived from the accent so it themes automatically. */
+  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 15%, transparent);
+  /* Outline width for keyboard focus + drag-over indicators. */
+  --aparte-focus-outline-width: 2px;
+  /* Scrollbars rendered by the library. */
+  --aparte-scrollbar-width: 6px;
+  /* Comfortable hit-area on coarse (touch) pointers. */
+  --aparte-touch-target-size: 44px;
 
   /* Messages */
   --aparte-message-gap: 12px;
@@ -71,12 +116,12 @@
 
   /* Bubbles — opt-in. By default both roles render as a transparent row with
      no bubble background; consumers can flip these to get a chat-app look. */
-  --aparte-bubble-bg-user: transparent;
-  --aparte-bubble-bg-assistant: transparent;
-  --aparte-bubble-text-user: var(--aparte-text);
-  --aparte-bubble-text-assistant: var(--aparte-text);
-  --aparte-bubble-padding: 0;
-  --aparte-bubble-radius: 0;
+  --aparte-message-content-bg-user: #efe7f6;
+  --aparte-message-content-bg-assistant: transparent;
+  --aparte-message-content-text-user: var(--aparte-text);
+  --aparte-message-content-text-assistant: var(--aparte-text);
+  --aparte-message-content-padding: 10px 14px;
+  --aparte-message-content-radius: 14px;
 
   /* Aliases used by some segment renderers (artifact card, tool pill).
      Mapped to existing tokens so consumers that override --aparte-surface-1/2
@@ -99,6 +144,18 @@
   --aparte-attachment-chip-radius: var(--aparte-radius-sm);
   --aparte-attachment-chip-color: var(--aparte-text);
   --aparte-attachment-image-size: 72px;
+  --aparte-attachments-max-height: 140px;
+
+  /* Attachment thumbnail tile (composer preview + sent-message strip) */
+  --aparte-thumb-radius: var(--aparte-radius-lg);
+  --aparte-thumb-name-color: #ffffff;
+  --aparte-thumb-name-scrim: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0));
+  --aparte-thumb-name-padding: 14px 5px 4px;
+  --aparte-thumb-remove-size: 18px;
+  --aparte-thumb-remove-inset: 3px;
+  --aparte-thumb-remove-bg: rgba(0, 0, 0, 0.6);
+  --aparte-thumb-remove-bg-hover: rgba(0, 0, 0, 0.85);
+  --aparte-thumb-remove-color: #ffffff;
 
   /* Action Bar */
   --aparte-action-bar-gap: 4px;
@@ -109,17 +166,21 @@
 
   /* Branch Picker */
   --aparte-branch-picker-gap: 4px;
+  --aparte-branch-picker-btn-size: 20px;
+  --aparte-branch-picker-btn-icon-size: 16px;
   --aparte-branch-picker-btn-color: var(--aparte-text-muted);
   --aparte-branch-picker-btn-hover-color: var(--aparte-text);
   --aparte-branch-picker-label-size: 12px;
   --aparte-branch-picker-label-color: var(--aparte-text-muted);
+  --aparte-branch-picker-label-min-width: 32px;
 
   /* Avatars */
   --aparte-avatar-size: 32px;
+  --aparte-avatar-font-size: 14px;
   --aparte-avatar-radius: var(--aparte-radius-avatar);
   --aparte-avatar-bg-user: var(--aparte-primary);
   --aparte-avatar-text-user: var(--aparte-text-inverse);
-  --aparte-avatar-bg-assistant: var(--aparte-success);
+  --aparte-avatar-bg-assistant: var(--aparte-surface-3);
   --aparte-avatar-text-assistant: var(--aparte-text-inverse);
   --aparte-avatar-image-user: none;
   --aparte-avatar-image-assistant: none;
@@ -139,6 +200,16 @@
   --aparte-input-text: var(--aparte-text);
   --aparte-input-placeholder: var(--aparte-text-muted);
   --aparte-input-focus-border: var(--aparte-primary);
+  --aparte-input-gap: 8px;
+  --aparte-input-editor-font-size: 15px;
+  --aparte-input-editor-max-height: 200px;
+  --aparte-input-container-min-height: 44px;
+
+  /* Send button + inline action buttons (legacy aparte-chat-input) */
+  --aparte-send-btn-size: 36px;
+  --aparte-input-action-btn-size: 36px;
+  --aparte-input-action-btn-icon-size: 20px;
+  --aparte-select-min-width: 120px;
 
   /* Status Indicator */
   --aparte-status-color: var(--aparte-text-muted);
@@ -151,12 +222,19 @@
   --aparte-thinking-text: var(--aparte-text-muted);
   --aparte-thinking-content: var(--aparte-text);
   --aparte-thinking-content-bg: var(--aparte-surface-1);
+  --aparte-thinking-content-max-height: 300px;
+  --aparte-thinking-content-line-height: 1.55;
+  --aparte-thinking-toggle-size: 9px;
+  --aparte-thinking-rail-width: 2px;
 
   /* Code Blocks */
   --aparte-code-bg: var(--aparte-surface-1);
   --aparte-code-header-bg: var(--aparte-surface-2);
   --aparte-code-border: var(--aparte-border);
   --aparte-code-header-text: var(--aparte-text-muted);
+  --aparte-code-copy-hover-bg: rgba(0, 0, 0, 0.05);
+  --aparte-code-copy-icon-size: 14px;
+  --aparte-code-inline-font-size: 0.875em;
 
   /* Terminal */
   --aparte-terminal-bg: #1e293b;
@@ -166,6 +244,9 @@
   --aparte-terminal-running: #22c55e;
   --aparte-terminal-output-bg: #0f172a;
   --aparte-terminal-output-text: #94a3b8;
+  --aparte-terminal-copy-btn-size: 26px;
+  --aparte-terminal-font-size: 13px;
+  --aparte-terminal-output-max-height: 200px;
 
   /* Progress */
   --aparte-progress-bar-bg: var(--aparte-surface-3);
@@ -186,6 +267,10 @@
   --aparte-file-tree-header-bg: var(--aparte-surface-2);
   --aparte-file-tree-hover: var(--aparte-surface-2);
   --aparte-file-tree-title: var(--aparte-text-muted);
+  /* Git-status file colours reuse the semantic status tokens by default. */
+  --aparte-file-status-added: var(--aparte-success);
+  --aparte-file-status-modified: var(--aparte-info);
+  --aparte-file-status-deleted: var(--aparte-error);
 
   /* Error segment */
   --aparte-error-bg: #fef2f2;
@@ -193,6 +278,8 @@
   --aparte-error-solid: #dc2626;
   --aparte-error-text: #991b1b;
   --aparte-error-title: #7f1d1d;
+  --aparte-error-icon-size: 20px;
+  --aparte-error-rail-width: 4px;
 
   /* Prose (segment-content) */
   --aparte-prose-p-margin: 0.4em 0;
@@ -203,13 +290,14 @@
   --aparte-prose-list-margin: 0.4em 0;
   --aparte-prose-li-margin: 0.15em 0;
   --aparte-prose-blockquote-border: var(--aparte-border);
+  --aparte-prose-blockquote-border-width: 3px;
   --aparte-prose-code-bg: var(--aparte-surface-2);
 
   /* Viewport */
   --aparte-viewport-padding: 16px;
 
   /* Content */
-  --aparte-content-line-height: 1.7;
+  --aparte-content-line-height: var(--aparte-line-height-loose, 1.7);
   --aparte-cursor-color: var(--aparte-primary);
 
   /* Status */
@@ -217,7 +305,7 @@
 
   /* Input (composer) */
   --aparte-input-font-size: 14px;
-  --aparte-input-line-height: 1.5;
+  --aparte-input-line-height: var(--aparte-line-height-normal, 1.5);
   --aparte-input-padding-x: 12px;
   --aparte-input-padding-y: 10px;
 
@@ -230,11 +318,13 @@
   --aparte-conv-item-bg-hover: var(--aparte-surface-3);
   --aparte-conv-item-bg-active: var(--aparte-surface-3);
   --aparte-conv-item-font-size: 0.8125rem;
-  --aparte-conv-item-font-weight-active: 500;
+  --aparte-conv-item-font-weight-active: var(--aparte-font-weight-medium, 500);
   --aparte-conv-delete-color: var(--aparte-text-muted);
   --aparte-conv-delete-bg-hover: var(--aparte-error);
   --aparte-conv-delete-color-hover: var(--aparte-text-inverse);
   --aparte-conv-delete-radius: var(--aparte-radius-sm);
+  --aparte-conv-item-gap: 6px;
+  --aparte-conv-action-btn-size: 20px;
 }
 
 /* =========================================
@@ -243,31 +333,35 @@
    ========================================= */
 [data-aparte-theme="dark"] {
   /* Backgrounds */
-  --aparte-bg: #0f172a;
-  --aparte-surface-1: #1e293b;
-  --aparte-surface-2: #334155;
-  --aparte-surface-3: #475569;
+  --aparte-bg: #17141c;
+  --aparte-surface-1: #211b28;
+  --aparte-surface-2: #2a2333;
+  --aparte-surface-3: #342a40;
+
+  /* Bubbles — user only; assistant is plain prose (AI-chat convention) */
+  --aparte-message-content-bg-user: #2f2740;
+  --aparte-message-content-bg-assistant: transparent;
 
   /* Text */
-  --aparte-text: #f1f5f9;
-  --aparte-text-muted: #94a3b8;
-  --aparte-text-inverse: #0f172a;
-  --aparte-name-color: #f3f4f6;
-  --aparte-content-color: #e5e7eb;
-  --aparte-timestamp-color: #64748b;
+  --aparte-text: #f2eee7;
+  --aparte-text-muted: #a89bb6;
+  --aparte-text-inverse: #17141c;
+  --aparte-name-color: #f2eee7;
+  --aparte-content-color: #ece8e2;
+  --aparte-timestamp-color: #7a7088;
 
   /* Borders */
-  --aparte-border: #334155;
+  --aparte-border: #342a40;
 
   /* Primary */
-  --aparte-primary: #818cf8;
-  --aparte-primary-hover: #6366f1;
+  --aparte-primary: #d9a24b;
+  --aparte-primary-hover: #e7c588;
 
   /* Input */
-  --aparte-input-bg: #1e293b;
-  --aparte-input-border: #374151;
-  --aparte-input-text: #e5e7eb;
-  --aparte-input-placeholder: #64748b;
+  --aparte-input-bg: #211b28;
+  --aparte-input-border: #342a40;
+  --aparte-input-text: #f2eee7;
+  --aparte-input-placeholder: #7a7088;
 
   /* Status */
   --aparte-status-color: #94a3b8;
@@ -343,7 +437,7 @@ aparte-chat-viewport {
 }
 
 .aparte-viewport-container::-webkit-scrollbar {
-  width: 6px;
+  width: var(--aparte-scrollbar-width, 6px);
 }
 
 .aparte-viewport-container::-webkit-scrollbar-track {
@@ -370,7 +464,7 @@ aparte-chat-viewport {
 
 .aparte-scroll-btn {
   position: absolute;
-  bottom: 16px;
+  bottom: var(--aparte-space-8, 16px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -379,7 +473,7 @@ aparte-chat-viewport {
   border-radius: 50%;
   background: var(--aparte-scroll-btn-bg);
   color: var(--aparte-scroll-btn-color);
-  border: 1px solid var(--aparte-scroll-btn-border);
+  border: var(--aparte-border-width, 1px) solid var(--aparte-scroll-btn-border);
   box-shadow: var(--aparte-scroll-btn-shadow);
   cursor: pointer;
   display: flex;
@@ -427,7 +521,7 @@ aparte-chat-viewport.aparte-viewport--framework {
 }
 
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
-  width: 6px;
+  width: var(--aparte-scrollbar-width, 6px);
 }
 
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-track {
@@ -444,7 +538,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    (where it sits outside the scroll container). */
 aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
   position: sticky;
-  bottom: 16px;
+  bottom: var(--aparte-space-8, 16px);
   left: auto;
   align-self: center;
   transform: none;
@@ -494,9 +588,15 @@ aparte-chat-bubble {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--aparte-avatar-font-size, 14px);
+  font-weight: var(--aparte-font-weight-semibold, 600);
   font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
+}
+
+/* No message avatar by default — the slot only shows once an AvatarProvider
+   (or a consumer) fills it. Role is carried by layout + colour instead. */
+.aparte-avatar:empty {
+  display: none;
 }
 
 .aparte-avatar[data-role="user"] {
@@ -520,33 +620,41 @@ aparte-chat-bubble {
 .aparte-body {
   flex: 1;
   min-width: 0;
-  /* Bubble surface — opt-in via the role-scoped variables below.
-     Defaults are transparent + zero radius so the existing flat layout
-     keeps working unchanged. */
-  padding: var(--aparte-bubble-padding, 0);
-  border-radius: var(--aparte-bubble-radius, 0);
 }
 
-.aparte-message[data-role="user"] .aparte-body {
-  background: var(--aparte-bubble-bg-user, transparent);
-  color: var(--aparte-bubble-text-user, var(--aparte-text));
+/* The message bubble — the surface fills ONLY the content (attachments +
+   segments + text). The sender name (above) and the action bar (below) are
+   siblings in .aparte-body, so they stay OUTSIDE the coloured surface. */
+.aparte-message-content {
+  border-radius: var(--aparte-message-content-radius, 0);
+  max-width: 100%;
 }
 
-.aparte-message[data-role="assistant"] .aparte-body {
-  background: var(--aparte-bubble-bg-assistant, transparent);
-  color: var(--aparte-bubble-text-assistant, var(--aparte-text));
+/* AI-chat convention (not messaging): the USER message is a subtle bubble that
+   hugs its text; the ASSISTANT message is plain full-width prose — no bubble,
+   like ChatGPT / Claude. */
+.aparte-message[data-role="user"] .aparte-message-content {
+  width: fit-content;
+  padding: var(--aparte-message-content-padding, 0);
+  background: var(--aparte-message-content-bg-user, transparent);
+  color: var(--aparte-message-content-text-user, var(--aparte-text));
+}
+
+.aparte-message[data-role="assistant"] .aparte-message-content {
+  background: var(--aparte-message-content-bg-assistant, transparent);
+  color: var(--aparte-message-content-text-assistant, var(--aparte-text));
 }
 
 .aparte-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: var(--aparte-space-4, 8px);
+  margin-bottom: var(--aparte-space-3, 6px);
 }
 
 .aparte-name {
   font-size: var(--aparte-name-font-size, 14px);
-  font-weight: 600;
+  font-weight: var(--aparte-font-weight-semibold, 600);
   color: var(--aparte-name-color, #1f2937);
   font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
 }
@@ -568,7 +676,7 @@ aparte-chat-bubble {
 
 .aparte-segments {
   font-size: var(--aparte-content-font-size, 15px);
-  line-height: 1.7;
+  line-height: var(--aparte-content-line-height, 1.7);
   color: var(--aparte-content-color, #374151);
   font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
 }
@@ -586,13 +694,19 @@ aparte-chat-bubble {
   flex-wrap: wrap;
   /* Bubble attachments only ever render for user messages — anchor right. */
   justify-content: flex-end;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: var(--aparte-space-3, 6px);
+  margin-bottom: var(--aparte-space-4, 8px);
   /* Really small tiles inside the conversation. */
   --aparte-attachment-image-size: 40px;
   /* Many attachments → cap the height and scroll instead of growing forever. */
-  max-height: 140px;
+  max-height: var(--aparte-attachments-max-height, 140px);
   overflow-y: auto;
+}
+
+/* The class `display: flex` above would otherwise override the `hidden`
+   attribute — restore it so an empty attachment strip takes no space. */
+.aparte-attachments[hidden] {
+  display: none;
 }
 
 /* ── Attachment thumbnail tile ──────────────────────────────────────────────
@@ -604,11 +718,11 @@ aparte-chat-bubble {
   width: var(--aparte-attachment-image-size, 56px);
   height: var(--aparte-attachment-image-size, 56px);
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: var(--aparte-thumb-radius, 8px);
   overflow: hidden;
   box-sizing: border-box;
   background: var(--aparte-attachment-chip-bg, var(--aparte-surface-2));
-  border: 1px solid var(--aparte-attachment-chip-border, var(--aparte-border));
+  border: var(--aparte-border-width, 1px) solid var(--aparte-attachment-chip-border, var(--aparte-border));
 }
 
 .aparte-thumb--image {
@@ -629,8 +743,8 @@ aparte-chat-bubble {
 }
 
 .aparte-thumb__ext {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--aparte-font-size-xs, 11px);
+  font-weight: var(--aparte-font-weight-bold, 700);
   letter-spacing: 0.03em;
   color: var(--aparte-text-muted, var(--aparte-text));
 }
@@ -640,11 +754,11 @@ aparte-chat-bubble {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 14px 5px 4px;
-  font-size: 10px;
-  line-height: 1.25;
-  color: #fff;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0));
+  padding: var(--aparte-thumb-name-padding, 14px 5px 4px);
+  font-size: var(--aparte-font-size-2xs, 10px);
+  line-height: var(--aparte-line-height-tight, 1.25);
+  color: var(--aparte-thumb-name-color, #fff);
+  background: var(--aparte-thumb-name-scrim, linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0)));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -658,18 +772,18 @@ aparte-chat-bubble {
 
 .aparte-thumb__remove {
   position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 18px;
-  height: 18px;
+  top: var(--aparte-thumb-remove-inset, 3px);
+  right: var(--aparte-thumb-remove-inset, 3px);
+  width: var(--aparte-thumb-remove-size, 18px);
+  height: var(--aparte-thumb-remove-size, 18px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  background: var(--aparte-thumb-remove-bg, rgba(0, 0, 0, 0.6));
+  color: var(--aparte-thumb-remove-color, #fff);
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s ease, background 0.15s ease;
@@ -678,7 +792,7 @@ aparte-chat-bubble {
   opacity: 1;
 }
 .aparte-thumb__remove:hover {
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--aparte-thumb-remove-bg-hover, rgba(0, 0, 0, 0.85));
 }
 
 /* =========================================
@@ -688,8 +802,8 @@ aparte-chat-bubble {
 .aparte-footer {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 6px;
+  gap: var(--aparte-action-bar-gap, 4px);
+  margin-top: var(--aparte-space-3, 6px);
   min-height: var(--aparte-action-bar-btn-size, 28px);
 }
 
@@ -766,16 +880,16 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--aparte-branch-picker-btn-size, 20px);
+  height: var(--aparte-branch-picker-btn-size, 20px);
   border: none;
   border-radius: var(--aparte-radius-sm, 4px);
   background: transparent;
   color: var(--aparte-branch-picker-btn-color, var(--aparte-text-muted));
   cursor: pointer;
   padding: 0;
-  font-size: 16px;
-  line-height: 1;
+  font-size: var(--aparte-branch-picker-btn-icon-size, 16px);
+  line-height: var(--aparte-line-height-none, 1);
   transition: color 0.15s ease, background 0.15s ease;
 }
 
@@ -795,7 +909,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   font-size: var(--aparte-branch-picker-label-size, 12px);
   color: var(--aparte-branch-picker-label-color, var(--aparte-text-muted));
   font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
-  min-width: 32px;
+  min-width: var(--aparte-branch-picker-label-min-width, 32px);
   text-align: center;
 }
 
@@ -805,13 +919,13 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 .aparte-edit-textarea {
   width: 100%;
-  margin: 4px 0;
-  border: 1px solid var(--aparte-input-focus-border, var(--aparte-primary));
+  margin: var(--aparte-space-2, 4px) 0;
+  border: var(--aparte-border-width, 1px) solid var(--aparte-input-focus-border, var(--aparte-primary));
   border-radius: var(--aparte-radius-sm, 8px);
-  padding: 10px 12px;
+  padding: var(--aparte-space-5, 10px) var(--aparte-space-6, 12px);
   font-size: var(--aparte-content-font-size, 15px);
   font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
-  line-height: 1.6;
+  line-height: var(--aparte-line-height-relaxed, 1.6);
   color: var(--aparte-content-color, var(--aparte-text));
   background: var(--aparte-input-bg, var(--aparte-surface-1));
   resize: vertical;
@@ -851,7 +965,7 @@ aparte-chat-input {
   max-width: var(--aparte-message-max-width, 800px);
   margin: 0 auto;
   background: var(--aparte-input-bg, var(--aparte-surface-1));
-  border: 1px solid var(--aparte-input-border, var(--aparte-border));
+  border: var(--aparte-border-width, 1px) solid var(--aparte-input-border, var(--aparte-border));
   border-radius: var(--aparte-radius-input);
   overflow: hidden;
   transition: border-color 0.2s;
@@ -864,8 +978,8 @@ aparte-chat-input:focus-within {
 .aparte-input-wrapper {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--aparte-input-gap, 8px);
+  padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
   background: transparent;
 }
 
@@ -874,13 +988,13 @@ aparte-chat-input:focus-within {
 .aparte-actions-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--aparte-space-2, 4px);
   flex-shrink: 0;
 }
 
 .aparte-input-container {
   flex: 1;
-  min-height: 44px;
+  min-height: var(--aparte-input-container-min-height, 44px);
   /* Matches _minHeight default */
   display: flex;
   flex-direction: column;
@@ -890,17 +1004,17 @@ aparte-chat-input:focus-within {
 
 .aparte-editor {
   width: 100%;
-  max-height: 200px;
+  max-height: var(--aparte-input-editor-max-height, 200px);
   /* Matches _maxHeight default */
   overflow-y: auto;
   outline: none;
   border: none;
   font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: var(--aparte-input-editor-font-size, 15px);
+  line-height: var(--aparte-line-height-normal, 1.5);
   color: var(--aparte-input-text, #374151);
   background: transparent;
-  padding: 10px 0;
+  padding: var(--aparte-space-5, 10px) 0;
   resize: none;
   text-align: left;
 }
@@ -922,12 +1036,12 @@ aparte-chat-input:focus-within {
 
 .aparte-send-button {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: var(--aparte-send-btn-size, 36px);
+  height: var(--aparte-send-btn-size, 36px);
   border-radius: var(--aparte-radius-send-btn);
   border: none;
   background: var(--aparte-primary, #6366f1);
-  color: white;
+  color: var(--aparte-on-primary, white);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -941,9 +1055,9 @@ aparte-chat-input:focus-within {
 }
 
 .aparte-send-button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
-  background: var(--aparte-neutral, #6b7280);
+  background: var(--aparte-send-disabled-bg, var(--aparte-primary));
 }
 
 /* Action Buttons in Input */
@@ -951,15 +1065,15 @@ aparte-chat-input:focus-within {
   background: transparent;
   border: none;
   color: var(--aparte-neutral, #6b7280);
-  padding: 8px;
+  padding: var(--aparte-space-4, 8px);
   border-radius: var(--aparte-radius-action-btn);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color 0.15s, background-color 0.15s;
-  width: 36px;
-  height: 36px;
+  width: var(--aparte-input-action-btn-size, 36px);
+  height: var(--aparte-input-action-btn-size, 36px);
 }
 
 .aparte-action-button:hover {
@@ -970,8 +1084,8 @@ aparte-chat-input:focus-within {
 }
 
 .aparte-action-button svg {
-  width: 20px;
-  height: 20px;
+  width: var(--aparte-input-action-btn-icon-size, 20px);
+  height: var(--aparte-input-action-btn-icon-size, 20px);
 }
 
 /* =========================================
@@ -982,10 +1096,10 @@ aparte-chat-input:focus-within {
   display: none; /* shown by JS when chips are added */
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--aparte-border, #e5e7eb);
-  font-size: 13px;
+  gap: var(--aparte-space-4, 8px);
+  padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
+  border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-border, #e5e7eb);
+  font-size: var(--aparte-font-size-md, 13px);
 }
 
 .aparte-input-upper.has-content {
@@ -999,10 +1113,10 @@ aparte-chat-input:focus-within {
 .aparte-input-footer {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--aparte-border, #e5e7eb);
-  font-size: 13px;
+  gap: var(--aparte-space-6, 12px);
+  padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
+  border-top: var(--aparte-border-width, 1px) solid var(--aparte-border, #e5e7eb);
+  font-size: var(--aparte-font-size-md, 13px);
 }
 
 .aparte-input-footer:empty {
@@ -1028,7 +1142,7 @@ aparte-chat-input:focus-within {
 aparte-model-selector {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--aparte-space-4, 8px);
 }
 /* Respect native hidden attribute — overrides the display:flex above */
 aparte-model-selector[hidden] { display: none !important; }
@@ -1036,24 +1150,27 @@ aparte-model-selector[hidden] { display: none !important; }
 .aparte-model-selector {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--aparte-space-4, 8px);
 }
 
 .aparte-provider-select,
 .aparte-model-select {
   appearance: none;
   background: var(--aparte-surface-1, #ffffff);
-  border: 1px solid var(--aparte-border, #e5e7eb);
+  border: var(--aparte-border-width, 1px) solid var(--aparte-border, #e5e7eb);
   border-radius: var(--aparte-radius-select);
-  padding: 6px 28px 6px 10px;
-  font-size: 13px;
+  padding: var(--aparte-space-3, 6px) 28px var(--aparte-space-3, 6px) var(--aparte-space-5, 10px);
+  font-size: var(--aparte-font-size-md, 13px);
   font-family: var(--aparte-font-family, system-ui);
   color: var(--aparte-text, #1f2937);
   cursor: pointer;
-  min-width: 120px;
+  min-width: var(--aparte-select-min-width, 120px);
+  /* Chevron: baked into a data-URI SVG (CSS vars can't interpolate into url()).
+     The stroke colour is theme-matched via the [data-aparte-theme] override
+     below rather than a single var — the one spot that needs two variants. */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right var(--aparte-space-4, 8px) center;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -1066,7 +1183,7 @@ aparte-model-selector[hidden] { display: none !important; }
 .aparte-model-select:focus {
   outline: none;
   border-color: var(--aparte-primary, #6366f1);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: var(--aparte-focus-ring, 0 0 0 3px rgba(99, 102, 241, 0.15));
 }
 
 /* Dark mode overrides for selects */
@@ -1101,7 +1218,7 @@ aparte-chat-status {
 .aparte-status-content {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--aparte-space-4, 8px);
 }
 
 .aparte-status-container[data-visible="true"] {
@@ -1195,12 +1312,12 @@ aparte-chat-status {
   margin-bottom: 0;
 }
 
-.aparte-content h1, .segment-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: 600; margin: 0.6em 0 0.2em; }
-.aparte-content h2, .segment-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: 600; margin: 0.5em 0 0.2em; }
-.aparte-content h3, .segment-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: 600; margin: 0.4em 0 0.15em; }
+.aparte-content h1, .segment-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.6em 0 0.2em; }
+.aparte-content h2, .segment-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.5em 0 0.2em; }
+.aparte-content h3, .segment-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.4em 0 0.15em; }
 .aparte-content h4, .segment-content h4,
 .aparte-content h5, .segment-content h5,
-.aparte-content h6, .segment-content h6 { font-size: 1em; font-weight: 600; margin: 0.3em 0 0.1em; }
+.aparte-content h6, .segment-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.3em 0 0.1em; }
 
 .aparte-content ul,
 .segment-content ul {
@@ -1223,7 +1340,7 @@ aparte-chat-status {
 
 .aparte-content blockquote,
 .segment-content blockquote {
-  border-left: 3px solid var(--aparte-prose-blockquote-border, var(--aparte-border, #e5e7eb));
+  border-left: var(--aparte-prose-blockquote-border-width, 3px) solid var(--aparte-prose-blockquote-border, var(--aparte-border, #e5e7eb));
   padding-left: 1em;
   margin: 0.4em 0;
   color: var(--aparte-text-muted, #6b7280);
@@ -1232,7 +1349,7 @@ aparte-chat-status {
 
 .aparte-content strong,
 .segment-content strong {
-  font-weight: 600;
+  font-weight: var(--aparte-font-weight-semibold, 600);
 }
 
 .aparte-content em,
@@ -1242,8 +1359,8 @@ aparte-chat-status {
 
 .aparte-content code,
 .segment-content code {
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
-  font-size: 0.875em;
+  font-family: var(--aparte-code-font-family, ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace);
+  font-size: var(--aparte-code-inline-font-size, 0.875em);
   background: var(--aparte-prose-code-bg, var(--aparte-code-bg, #f3f4f6));
   padding: 0.1em 0.3em;
   border-radius: var(--aparte-radius-xs);
@@ -1258,26 +1375,26 @@ aparte-chat-status {
 .aparte-content hr,
 .segment-content hr {
   border: none;
-  border-top: 1px solid var(--aparte-border, #e5e7eb);
+  border-top: var(--aparte-border-width, 1px) solid var(--aparte-border, #e5e7eb);
   margin: 0.75em 0;
 }
 
 /* Thinking */
 .segment-thinking {
   /* Understated disclosure: a muted left rail, not a filled card. */
-  border-left: 2px solid var(--aparte-thinking-border, #e5e7eb);
-  margin: 10px 0;
+  border-left: var(--aparte-thinking-rail-width, 2px) solid var(--aparte-thinking-border, #e5e7eb);
+  margin: var(--aparte-space-5, 10px) 0;
   background: transparent;
 }
 
 .thinking-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 0 2px 10px;
+  gap: var(--aparte-space-3, 6px);
+  padding: var(--aparte-space-1, 2px) 0 var(--aparte-space-1, 2px) var(--aparte-space-5, 10px);
   cursor: pointer;
   user-select: none;
-  font-size: 12px;
+  font-size: var(--aparte-font-size-sm, 12px);
   color: var(--aparte-thinking-text, #6b7280);
   list-style: none;
 }
@@ -1299,40 +1416,40 @@ details[open] .thinking-toggle {
 
 .thinking-toggle::after {
   content: '▼';
-  font-size: 9px;
+  font-size: var(--aparte-thinking-toggle-size, 9px);
 }
 
 .thinking-content {
-  padding: 4px 0 2px 10px;
-  font-size: 13px;
-  line-height: 1.55;
+  padding: var(--aparte-space-2, 4px) 0 var(--aparte-space-1, 2px) var(--aparte-space-5, 10px);
+  font-size: var(--aparte-font-size-md, 13px);
+  line-height: var(--aparte-thinking-content-line-height, 1.55);
   white-space: pre-wrap;
   color: var(--aparte-thinking-content, #4b5563);
   background: transparent;
-  max-height: 300px;
+  max-height: var(--aparte-thinking-content-max-height, 300px);
   overflow-y: auto;
 }
 
 /* Code */
 .segment-code {
-  margin: 12px 0;
+  margin: var(--aparte-space-6, 12px) 0;
   border-radius: var(--aparte-radius-code);
   overflow: hidden;
-  border: 1px solid var(--aparte-code-border, #e5e7eb);
+  border: var(--aparte-border-width, 1px) solid var(--aparte-code-border, #e5e7eb);
 }
 
 .code-header {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
   background: var(--aparte-code-header-bg, #f3f4f6);
-  border-bottom: 1px solid var(--aparte-code-border, #e5e7eb);
-  font-size: 12px;
+  border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-code-border, #e5e7eb);
+  font-size: var(--aparte-font-size-sm, 12px);
   color: var(--aparte-code-header-text, #4b5563);
 }
 
 .code-filename {
-  font-weight: 600;
+  font-weight: var(--aparte-font-weight-semibold, 600);
   margin-inline-end: auto;
   /* Logical property: pushes language + copy to the right when filename is present */
 }
@@ -1343,7 +1460,7 @@ details[open] .thinking-toggle {
 }
 
 .code-language {
-  margin-inline-end: 8px;
+  margin-inline-end: var(--aparte-space-4, 8px);
   /* Logical property */
   text-transform: uppercase;
   opacity: 0.7;
@@ -1353,7 +1470,7 @@ details[open] .thinking-toggle {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: var(--aparte-space-2, 4px);
   border-radius: var(--aparte-radius-sm);
   color: inherit;
   display: flex;
@@ -1362,17 +1479,17 @@ details[open] .thinking-toggle {
 }
 
 .code-copy:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--aparte-code-copy-hover-bg, rgba(0, 0, 0, 0.05));
 }
 
 .code-copy svg {
-  width: 14px;
-  height: 14px;
+  width: var(--aparte-code-copy-icon-size, 14px);
+  height: var(--aparte-code-copy-icon-size, 14px);
 }
 
 .code-content-wrapper pre {
   margin: 0;
-  padding: 12px;
+  padding: var(--aparte-space-6, 12px);
   /* Wrap long lines instead of a horizontal scrollbar. `pre-wrap` honours
      newlines + indentation but soft-wraps overflowing lines; `overflow-wrap:
      anywhere` breaks unbreakable tokens (long URLs, hashes). Applies to both
@@ -1386,16 +1503,16 @@ details[open] .thinking-toggle {
 
 /* Terminal */
 .segment-terminal {
-  margin: 12px 0;
-  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
-  font-size: 13px;
+  margin: var(--aparte-space-6, 12px) 0;
+  font-family: var(--aparte-code-font-family, 'Fira Code', 'Monaco', 'Consolas', monospace);
+  font-size: var(--aparte-terminal-font-size, 13px);
 }
 
 .terminal-command-block {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: var(--aparte-space-5, 10px);
+  padding: var(--aparte-space-5, 10px) var(--aparte-space-7, 14px);
   background: var(--aparte-terminal-bg, #1e293b);
   border-radius: var(--aparte-radius-terminal);
   color: var(--aparte-terminal-text, #e2e8f0);
@@ -1419,18 +1536,18 @@ details[open] .thinking-toggle {
 .terminal-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--aparte-space-3, 6px);
   flex-shrink: 0;
 }
 
 .terminal-run-btn {
-  padding: 4px 12px;
+  padding: var(--aparte-space-2, 4px) var(--aparte-space-6, 12px);
   background: var(--aparte-primary, #6366f1);
-  color: white;
+  color: var(--aparte-on-primary, white);
   border: none;
   border-radius: var(--aparte-radius-sm);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--aparte-font-size-sm, 12px);
+  font-weight: var(--aparte-font-weight-medium, 500);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -1440,8 +1557,8 @@ details[open] .thinking-toggle {
 }
 
 .terminal-copy-btn {
-  width: 26px;
-  height: 26px;
+  width: var(--aparte-terminal-copy-btn-size, 26px);
+  height: var(--aparte-terminal-copy-btn-size, 26px);
   padding: 0;
   background: transparent;
   border: none;
@@ -1461,14 +1578,14 @@ details[open] .thinking-toggle {
 .terminal-running {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--aparte-space-3, 6px);
   color: var(--aparte-terminal-running, #22c55e);
-  font-size: 12px;
+  font-size: var(--aparte-font-size-sm, 12px);
 }
 
 .terminal-running .spinner {
-  width: 12px;
-  height: 12px;
+  width: var(--aparte-space-6, 12px);
+  height: var(--aparte-space-6, 12px);
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
@@ -1482,24 +1599,24 @@ details[open] .thinking-toggle {
 }
 
 .terminal-output {
-  margin-top: 8px;
-  padding: 10px 14px;
+  margin-top: var(--aparte-space-4, 8px);
+  padding: var(--aparte-space-5, 10px) var(--aparte-space-7, 14px);
   background: var(--aparte-terminal-output-bg, #0f172a);
   border-radius: var(--aparte-radius-md);
   color: var(--aparte-terminal-output-text, #94a3b8);
   white-space: pre-wrap;
-  line-height: 1.5;
-  max-height: 200px;
+  line-height: var(--aparte-line-height-normal, 1.5);
+  max-height: var(--aparte-terminal-output-max-height, 200px);
   overflow-y: auto;
 }
 
 .terminal-error {
-  margin-top: 6px;
-  padding: 6px 10px;
+  margin-top: var(--aparte-space-3, 6px);
+  padding: var(--aparte-space-3, 6px) var(--aparte-space-5, 10px);
   background: var(--aparte-error-bg, #fef2f2);
   border-radius: var(--aparte-radius-sm);
   color: var(--aparte-error-text, #dc2626);
-  font-size: 12px;
+  font-size: var(--aparte-font-size-sm, 12px);
 }
 
 /* Errored bubble state — the whole message carries `data-error` while it holds
@@ -1513,13 +1630,13 @@ details[open] .thinking-toggle {
 /* Error */
 .segment-error {
   display: flex;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: var(--aparte-space-6, 12px);
+  padding: var(--aparte-space-6, 12px) var(--aparte-space-8, 16px);
   background: var(--aparte-error-bg, #fef2f2);
-  border: 1px solid var(--aparte-error-border, #fecaca);
-  border-left: 4px solid var(--aparte-error-solid, #dc2626);
+  border: var(--aparte-border-width, 1px) solid var(--aparte-error-border, #fecaca);
+  border-left: var(--aparte-error-rail-width, 4px) solid var(--aparte-error-solid, #dc2626);
   border-radius: var(--aparte-radius-error);
-  margin: 12px 0;
+  margin: var(--aparte-space-6, 12px) 0;
   color: var(--aparte-error-text, #991b1b);
   font-family: var(--aparte-font-family, system-ui, sans-serif);
 }
@@ -1529,12 +1646,12 @@ details[open] .thinking-toggle {
   color: var(--aparte-error-solid, #dc2626);
   display: flex;
   align-items: flex-start;
-  padding-top: 2px;
+  padding-top: var(--aparte-space-1, 2px);
 }
 
 .error-icon-wrapper svg {
-  width: 20px;
-  height: 20px;
+  width: var(--aparte-error-icon-size, 20px);
+  height: var(--aparte-error-icon-size, 20px);
 }
 
 .error-content {
@@ -1543,46 +1660,46 @@ details[open] .thinking-toggle {
 }
 
 .error-title {
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-weight: var(--aparte-font-weight-semibold, 600);
+  font-size: var(--aparte-font-size-lg, 14px);
+  margin-bottom: var(--aparte-space-2, 4px);
   color: var(--aparte-error-title, #7f1d1d);
 }
 
 .error-message {
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--aparte-font-size-lg, 14px);
+  line-height: var(--aparte-line-height-normal, 1.5);
 }
 
 .error-details {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--aparte-error-border, #fecaca);
-  font-family: monospace;
-  font-size: 12px;
+  margin-top: var(--aparte-space-4, 8px);
+  padding-top: var(--aparte-space-4, 8px);
+  border-top: var(--aparte-border-width, 1px) solid var(--aparte-error-border, #fecaca);
+  font-family: var(--aparte-code-font-family, monospace);
+  font-size: var(--aparte-font-size-sm, 12px);
   opacity: 0.9;
   white-space: pre-wrap;
 }
 
 /* Progress */
 .segment-progress {
-  margin: 12px 0;
+  margin: var(--aparte-space-6, 12px) 0;
 }
 
 .progress-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: var(--aparte-space-2, 4px);
   color: var(--aparte-progress-label, #374151);
-  font-size: 14px;
+  font-size: var(--aparte-font-size-lg, 14px);
 }
 
 .progress-bar {
-  height: 4px;
+  height: var(--aparte-space-2, 4px);
   background: var(--aparte-progress-bar-bg, #e5e7eb);
   border-radius: var(--aparte-radius-xs);
-  margin-top: 8px;
+  margin-top: var(--aparte-space-4, 8px);
   overflow: hidden;
 }
 
@@ -1596,31 +1713,31 @@ details[open] .thinking-toggle {
 /* File Tree */
 .segment-file-tree {
   background: var(--aparte-file-tree-bg, #f8fafc);
-  border: 1px solid var(--aparte-file-tree-border, #e2e8f0);
+  border: var(--aparte-border-width, 1px) solid var(--aparte-file-tree-border, #e2e8f0);
   border-radius: var(--aparte-radius-file-tree);
-  margin: 12px 0;
+  margin: var(--aparte-space-6, 12px) 0;
   overflow: hidden;
   font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
-  font-size: 13px;
+  font-size: var(--aparte-font-size-md, 13px);
 }
 
 .file-tree-title {
-  padding: 10px 14px;
+  padding: var(--aparte-space-5, 10px) var(--aparte-space-7, 14px);
   background: var(--aparte-file-tree-header-bg, #f1f5f9);
-  border-bottom: 1px solid var(--aparte-file-tree-border, #e2e8f0);
-  font-weight: 500;
+  border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-file-tree-border, #e2e8f0);
+  font-weight: var(--aparte-font-weight-medium, 500);
   color: var(--aparte-file-tree-title, #475569);
 }
 
 .file-tree-content {
-  padding: 8px 0;
+  padding: var(--aparte-space-4, 8px) 0;
 }
 
 .file-node {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 14px;
+  gap: var(--aparte-space-4, 8px);
+  padding: var(--aparte-space-2, 4px) var(--aparte-space-7, 14px);
   cursor: default;
 }
 
@@ -1628,12 +1745,12 @@ details[open] .thinking-toggle {
   background: var(--aparte-file-tree-hover, #f1f5f9);
 }
 
-.file-node.file-status-added .file-name { color: #16a34a; }
-.file-node.file-status-modified .file-name { color: #0284c7; }
-.file-node.file-status-deleted .file-name { color: #dc2626; text-decoration: line-through; opacity: 0.7; }
+.file-node.file-status-added .file-name { color: var(--aparte-file-status-added, #16a34a); }
+.file-node.file-status-modified .file-name { color: var(--aparte-file-status-modified, #0284c7); }
+.file-node.file-status-deleted .file-name { color: var(--aparte-file-status-deleted, #dc2626); text-decoration: line-through; opacity: 0.7; }
 
 .file-icon {
-  font-size: 14px;
+  font-size: var(--aparte-font-size-lg, 14px);
   flex-shrink: 0;
   opacity: 0.7;
 }
@@ -1700,11 +1817,11 @@ aparte-composer-cancel {
 aparte-composer-attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: var(--aparte-space-3, 6px);
+  padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
   width: 100%;
   box-sizing: border-box;
-  border-bottom: 1px solid var(--aparte-border);
+  border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-border);
 }
 
 aparte-composer-attachments[hidden] {
@@ -1715,10 +1832,10 @@ aparte-composer-attachments[hidden] {
 aparte-composer-attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--aparte-space-3, 6px);
   --aparte-attachment-image-size: 56px;
   /* Many attachments → cap the height and scroll. */
-  max-height: 140px;
+  max-height: var(--aparte-attachments-max-height, 140px);
   overflow-y: auto;
 }
 
@@ -1734,13 +1851,13 @@ aparte-composer-action {
 
 /* ── Drag-over state on root ── */
 aparte-composer.is-dragover .aparte-composer-shell {
-  outline: 2px dashed var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width, 2px) dashed var(--aparte-primary);
   outline-offset: -2px;
   border-radius: var(--aparte-radius-input, 12px);
 }
 /* fallback: no shell */
 aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
-  outline: 2px dashed var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width, 2px) dashed var(--aparte-primary);
   outline-offset: -2px;
   border-radius: var(--aparte-radius-input, 12px);
 }
@@ -1764,7 +1881,7 @@ aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
 /* Outer shell — visual border + radius. Mirrors .aparte-input-wrapper */
 .aparte-composer-shell {
   background: var(--aparte-input-bg, var(--aparte-surface-1));
-  border: 1px solid var(--aparte-input-border, var(--aparte-border));
+  border: var(--aparte-border-width, 1px) solid var(--aparte-input-border, var(--aparte-border));
   border-radius: var(--aparte-radius-input, 12px);
   max-width: var(--aparte-message-max-width, 800px);
   margin: 0 auto;
@@ -1781,8 +1898,8 @@ aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
 .aparte-composer-row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--aparte-space-4, 8px);
+  padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
 }
 
 /* Action buttons sized to the input's single-line height — BOTH derive from
@@ -1805,9 +1922,9 @@ aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
 .aparte-composer-footer {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-top: 1px solid var(--aparte-border);
+  gap: var(--aparte-space-4, 8px);
+  padding: var(--aparte-space-3, 6px) var(--aparte-space-6, 12px);
+  border-top: var(--aparte-border-width, 1px) solid var(--aparte-border);
 }
 
 .aparte-composer-footer:empty {
@@ -1825,7 +1942,7 @@ aparte-composer-dictate .aparte-cd-button {
   background: transparent;
   border: none;
   color: var(--aparte-neutral, #6b7280);
-  padding: 6px;
+  padding: var(--aparte-space-3, 6px);
   border-radius: var(--aparte-radius-action-btn, 6px);
   cursor: pointer;
   display: flex;
@@ -1910,7 +2027,7 @@ aparte-conversation-list {
 .aparte-conv-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--aparte-conv-item-gap, 6px);
   padding: var(--aparte-conv-item-padding, 7px 10px);
   border-radius: var(--aparte-conv-item-radius, 6px);
   cursor: pointer;
@@ -1927,7 +2044,7 @@ aparte-conversation-list {
 }
 
 .aparte-conv-item:focus-visible {
-  outline: 2px solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width, 2px) solid var(--aparte-primary);
   outline-offset: -2px;
 }
 
@@ -1949,7 +2066,7 @@ aparte-conversation-list {
 .aparte-conv-item__archive:focus-visible,
 .aparte-conv-item__delete:focus-visible {
   opacity: 1;
-  outline: 2px solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width, 2px) solid var(--aparte-primary);
   outline-offset: -2px;
 }
 
@@ -1981,8 +2098,8 @@ aparte-conversation-list {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--aparte-conv-action-btn-size, 20px);
+  height: var(--aparte-conv-action-btn-size, 20px);
   border: none;
   background: none;
   color: var(--aparte-conv-delete-color, var(--aparte-text-muted));
@@ -2003,8 +2120,8 @@ aparte-conversation-list {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--aparte-conv-action-btn-size, 20px);
+  height: var(--aparte-conv-action-btn-size, 20px);
   border: none;
   background: none;
   color: var(--aparte-conv-archive-color, var(--aparte-text-muted));
@@ -2055,8 +2172,8 @@ aparte-conversation-list {
    without container-query support keep the wide defaults. */
 @container (max-width: 520px) {
   .aparte-message {
-    --aparte-message-padding: 12px 8px;
-    --aparte-message-gap: 8px;
+    --aparte-message-padding: var(--aparte-space-6, 12px) var(--aparte-space-4, 8px);
+    --aparte-message-gap: var(--aparte-space-4, 8px);
   }
 
   .aparte-avatar {
@@ -2064,31 +2181,32 @@ aparte-conversation-list {
   }
 
   .aparte-messages-wrapper {
-    --aparte-viewport-padding: 12px 8px;
+    --aparte-viewport-padding: var(--aparte-space-6, 12px) var(--aparte-space-4, 8px);
   }
 
   .aparte-composer-row {
-    padding: 8px;
+    padding: var(--aparte-space-4, 8px);
   }
 }
 
 /* Coarse pointers (touch) — comfortable hit areas. */
 @media (pointer: coarse) {
   .aparte-scroll-btn {
-    --aparte-scroll-btn-size: 44px;
+    --aparte-scroll-btn-size: var(--aparte-touch-target-size, 44px);
   }
 
-  .aparte-send-button,
+  .aparte-send-button {
+    --aparte-send-btn-size: var(--aparte-touch-target-size, 44px);
+  }
+
   .aparte-action-button {
-    width: 44px;
-    height: 44px;
+    --aparte-input-action-btn-size: var(--aparte-touch-target-size, 44px);
   }
 
   /* Hover cannot reveal these on touch — keep them visible and tappable. */
   .aparte-conv-item__delete,
   .aparte-conv-item__archive {
     opacity: 1;
-    width: 28px;
-    height: 28px;
+    --aparte-conv-action-btn-size: 28px;
   }
 }

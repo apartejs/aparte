@@ -103,18 +103,17 @@ describe('AparteChatBubble', () => {
     // ─── Avatar / header ──────────────────────────────────────────────────
 
     describe('avatar and role display', () => {
-        it('user avatar shows a single uppercase letter', () => {
+        it('renders no avatar by default (empty slot — role shown by layout/colour)', () => {
             bubble = createBubble({ role: 'user', 'message-id': 'av1' });
             const avatar = bubble.querySelector('.aparte-avatar');
-            const text = avatar?.textContent?.trim() ?? '';
-            expect(text).toHaveLength(1);
-            expect(text).toMatch(/[A-Z]/);
+            expect(avatar).not.toBeNull();                // the slot exists (opt-in via AvatarProvider)
+            expect(avatar?.textContent?.trim()).toBe(''); // but empty by default — no initial
         });
 
-        it('assistant avatar shows "A" initial', () => {
+        it('assistant avatar is also empty by default', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'av2' });
             const avatar = bubble.querySelector('.aparte-avatar');
-            expect(avatar?.textContent?.trim()).toBe('A');
+            expect(avatar?.textContent?.trim()).toBe('');
         });
 
         it('message element has data-role attribute matching role', () => {

@@ -410,17 +410,17 @@ export class AparteChatBubble extends HTMLElement {
     } else {
     this.innerHTML = `
       <div class="aparte-message" data-role="${role}" role="article" aria-label="${this._getAriaLabel()}">
-        <div class="aparte-avatar" data-role="${role}">
-          ${initial}
-        </div>
+        <div class="aparte-avatar" data-role="${role}"></div>
         <div class="aparte-body">
           <div class="aparte-header">
             <span class="aparte-name">${displayName}</span>
             <span class="aparte-timestamp"></span>
           </div>
           <div class="aparte-attachments" hidden></div>
-          <div class="aparte-segments"></div>
-          <div class="aparte-content"></div>
+          <div class="aparte-message-content">
+            <div class="aparte-segments"></div>
+            <div class="aparte-content"></div>
+          </div>
           <div class="aparte-footer">
             <div class="aparte-branch-picker" hidden>
               <button class="aparte-branch-prev" aria-label="${this._cfg.getLocale().previousResponse ?? 'Previous response'}">&#8249;</button>
