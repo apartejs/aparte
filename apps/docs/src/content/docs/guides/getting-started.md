@@ -1,6 +1,8 @@
 ---
 title: Getting started
 description: Install @aparte/core and render your first streaming chat — vanilla web components, no framework, no backend required.
+sidebar:
+  order: 1
 ---
 
 `@aparte/core` is a set of **framework-agnostic web components** for AI chat. You

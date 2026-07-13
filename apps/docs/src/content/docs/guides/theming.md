@@ -1,6 +1,8 @@
 ---
 title: Theming
 description: aparté is 100% CSS-driven — restyle every part of the chat by overriding CSS variables, with no JS theme logic and no forking.
+sidebar:
+  order: 2
 ---
 
 aparté is **100% CSS-driven**. There is no JavaScript theme logic — you restyle the
