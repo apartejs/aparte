@@ -1,9 +1,8 @@
 /**
  * conversation/compactor.ts — Budget adaptatif + assemblage du context window.
  *
- * Source of truth (TS port) for the conversation history budgeting and
- * sliding-window assembly previously implemented in
- * `aparte-training/tests-node/lib/conversation-compactor.mjs`.
+ * Conversation history budgeting and sliding-window assembly —
+ * framework-free and tokenizer-free (char-count heuristic).
  *
  * Pattern (cf. Claude Code /context, OpenAI Agents SDK TrimmingSession):
  *   Budget = CONTEXT_WINDOW − systemPrompt − tools − reservedThinking
@@ -352,7 +351,7 @@ export function assembleCompacted(params: AssembleParams): AssembleResult {
 
 /**
  * Compute budget + assemble in one call. The primary entry point for
- * consumers (apps/home requestInterceptor, future apps/mobile, Node tests).
+ * consumers (a browser request interceptor, mobile, Node tests).
  */
 export function compactConversation(input: CompactionInput): CompactionResult {
     const { messages, systemPrompt, toolsArray, summary, retrievedTurns, config } = input;

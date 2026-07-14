@@ -14,11 +14,8 @@
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
-    // noUnusedLocals/Params off (the base turns Locals on) — matches the source engine's own
-    // tsconfig; the package carries intentional not-yet-wired scaffolding (orchestrator/classifier.ts).
-    // eslint's no-unused-vars stays the unused guard across the package.
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
