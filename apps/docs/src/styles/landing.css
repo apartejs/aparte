@@ -42,6 +42,20 @@ body {
 .wrap { width: min(1120px, 92vw); margin-inline: auto; }
 a { color: inherit; }
 
+/* Custom page scrollbar — harmonized with the Starlight docs (see
+   aparte-theme.css). Dark only; light keeps the OS default, exactly like the
+   docs. Same brand tones, so the page scroll reads identically across
+   landing ↔ docs. */
+:root:not([data-theme="light"]) {
+  scrollbar-color: #3a2f45 var(--brand-ground);
+}
+:root:not([data-theme="light"]) ::-webkit-scrollbar { width: 11px; height: 11px; }
+:root:not([data-theme="light"]) ::-webkit-scrollbar-track { background: var(--brand-ground); }
+:root:not([data-theme="light"]) ::-webkit-scrollbar-thumb {
+  background: var(--brand-line); border-radius: 999px; border: 2px solid var(--brand-ground);
+}
+:root:not([data-theme="light"]) ::-webkit-scrollbar-thumb:hover { background: #463a54; }
+
 .stage-glow {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
