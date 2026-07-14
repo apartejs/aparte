@@ -310,6 +310,54 @@ describe('MessageRepository', () => {
             repo.addOrUpdateMessage(b.id, c);
             expect(repo.getBranches(c.id)).toEqual([c.id]);
         });
+
+        it('re-parents the ACTIVE child without corrupting the old parent\'s active branch', () => {
+            // a → [b(active), c, d]. Move the ACTIVE child b under d. The old
+            // parent a must fall back to a REMAINING sibling (c), not to a node
+            // inside the moved-away subtree.
+            const a = makeMsg();
+            const b = makeMsg();
+            const c = makeMsg();
+            const d = makeMsg();
+            repo.addOrUpdateMessage(null, a);
+            repo.addOrUpdateMessage(a.id, b);  // b becomes a's active child
+            repo.addOrUpdateMessage(a.id, c);
+            repo.addOrUpdateMessage(a.id, d);
+
+            repo.addOrUpdateMessage(d.id, b);  // re-parent the active child b under d
+
+            // Tree: a.children = [c, d], d.children = [b].
+            expect(repo.getBranches(c.id)).toEqual([c.id, d.id]);
+            expect(repo.getBranches(b.id)).toEqual([b.id]);
+
+            // a's active child must now be c (first remaining sibling), so the
+            // active path from a is [a, c] — NOT [a, d, b] via the dangling pointer.
+            repo.switchToBranch(a.id);
+            expect(repo.getMessages().map(m => m.id)).toEqual([a.id, c.id]);
+        });
+    });
+
+    // ─── resetHead: intentionally keeps sibling branches ────────────────────
+
+    describe('resetHead() — sibling branches', () => {
+        it('removes the node + descendants, lands head on the parent, and keeps siblings', () => {
+            const user = makeMsg({ role: 'user' });
+            const b = makeMsg({ content: 'v1' });     // active assistant response
+            const b2 = makeMsg({ content: 'v2' });    // a retry sibling of b
+            repo.addOrUpdateMessage(null, user);
+            repo.addOrUpdateMessage(user.id, b);
+            repo.addOrUpdateMessage(user.id, b2);     // b stays active
+
+            repo.resetHead(b.id);
+
+            // b is gone; b2 (a sibling branch) is intentionally kept.
+            expect(repo.getMessageById(b.id)).toBeUndefined();
+            expect(repo.getMessageById(b2.id)).toBeDefined();
+            expect(repo.getBranches(b2.id)).toEqual([b2.id]);
+            // Head lands on the parent, ready to regenerate; active path is just [user].
+            expect(repo.headId).toBe(user.id);
+            expect(repo.getMessages().map(m => m.id)).toEqual([user.id]);
+        });
     });
 
     // ─── export ───────────────────────────────────────────────────────────

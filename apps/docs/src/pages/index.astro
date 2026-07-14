@@ -148,16 +148,21 @@ import '../styles/landing.css';
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
       let msgId = 0;
 
-      function streamAssistant(text: string, done?: () => void) {
-        const id = 'a' + ++msgId;
-        viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
-        if (reduce) { viewport.appendToken(id, text); done?.(); return; }
+      // Stream text into an EXISTING assistant message (fresh replies and retry
+      // branches share this).
+      function streamInto(id: string, text: string, done?: () => void) {
+        if (reduce) { viewport.appendToken(id, text); viewport.completeMessage(id); done?.(); return; }
         const toks = text.split(/(\s+)/); let i = 0;
         const tick = () => {
           if (i < toks.length) { viewport.appendToken(id, toks[i++]); setTimeout(tick, 30 + Math.random() * 48); }
-          else { done?.(); }
+          else { viewport.completeMessage(id); done?.(); }
         };
         setTimeout(tick, 220);
+      }
+      function streamAssistant(text: string, done?: () => void) {
+        const id = 'a' + ++msgId;
+        viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+        streamInto(id, text, done);
       }
       function replyTo(q: string) {
         q = q.toLowerCase();
@@ -182,12 +187,16 @@ import '../styles/landing.css';
       document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e) => {
         send((e as any).detail?.content || '');
       });
-      // The retry button emits aparte:retry — a real app re-runs the model. The
-      // demo just streams a fresh reply so the button visibly does something.
-      document.addEventListener('aparte:retry', () => {
+      // Retry forks a BRANCH instead of appending: addSiblingOf() creates a new
+      // sibling of the retried answer, and the built-in ‹1/2› picker appears so
+      // you can flip between versions — what a real app gets from AparteClient.
+      document.addEventListener('aparte:retry', (e) => {
         if (busy) return;
+        const messageId = (e as any).detail?.messageId;
+        const id = viewport.addSiblingOf(messageId, { id: 'a' + ++msgId, role: 'assistant', content: '', timestamp: Date.now() });
+        if (!id) return;
         busy = true;
-        setTimeout(() => streamAssistant('Here’s another take — in a real app, retry re-runs your model against the same prompt. This demo just streams a fresh reply.', () => { busy = false; }), 200);
+        streamInto(id, 'Here’s another take — retry forked a new branch instead of overwriting. Use the ‹1/2› picker above to compare versions.', () => { busy = false; });
       });
       // Opens on the empty state; the greeting after a beat trips the shell's
       // empty→active slide on its own (the first bubble clears center-empty).

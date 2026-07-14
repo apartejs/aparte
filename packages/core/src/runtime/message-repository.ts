@@ -186,7 +186,11 @@ export class MessageRepository {
         // Delete all descendants first
         this._deleteDescendants(node);
 
-        // Cut the node from its parent, clearing next BEFORE any findHead call
+        // Cut the node from its parent, clearing next BEFORE any findHead call.
+        // Landing head on the parent with no active child is intentional for the
+        // truncate/edit purpose (regenerate from the parent). Any OTHER sibling
+        // branches of `messageId` are deliberately left in place — use
+        // `clearChildren(parentId)` when you want to drop every branch instead.
         const parentOrRoot = node.prev ?? this._root;
         parentOrRoot.children = parentOrRoot.children.filter(id => id !== messageId);
         if (parentOrRoot.next === node) {
@@ -285,7 +289,12 @@ export class MessageRepository {
         if (oldParentOrRoot !== (newParent ?? this._root)) {
             oldParentOrRoot.children = oldParentOrRoot.children.filter(id => id !== child.current.id);
             if (oldParentOrRoot.next === child) {
-                oldParentOrRoot.next = findHead(oldParentOrRoot as RepoNode) ?? null;
+                // The moved child was the active one — fall back to a remaining
+                // sibling (or none). NOT `findHead(oldParentOrRoot)`: `next` still
+                // points at `child` here, so findHead would walk into the subtree
+                // being moved away and leave a dangling pointer.
+                const nextId = oldParentOrRoot.children[0];
+                oldParentOrRoot.next = nextId ? this._nodes.get(nextId) ?? null : null;
             }
         }
         // Attach to new parent
