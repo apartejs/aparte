@@ -799,6 +799,13 @@ export class AparteChatViewport extends HTMLElement {
 
         this._dispatchPathChanged(activeMessages, siblingsInfo);
         this._recalculateSpacer();
+
+        // The path swap rebuilt the DOM without firing a `scroll` event, so the
+        // auto-scroll flag (and the scroll-to-bottom button that mirrors it) can
+        // be stale — e.g. navigating from a long branch to one that fits entirely
+        // would leave the button showing with nothing to scroll. Re-derive both
+        // from the real post-layout geometry.
+        requestAnimationFrame(() => this._handleScroll());
     }
 
     private _dispatchPathChanged(messages: AparteMessage[], siblings: AparteSiblingInfo[]): void {

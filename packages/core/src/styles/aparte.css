@@ -419,9 +419,17 @@
 aparte-chat {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  /* Fill the parent by default (like aimi's <aimi-chat> :host + container) so the
+     height:100% chain the inner scroll container relies on has a definite anchor.
+     Size the element yourself — a height on it, or a sized parent. */
+  height: 100%;
+  overflow: hidden;
 }
 
+/* The viewport takes the space left by the composer; the standalone height:100%
+   default resolves against the shell's definite height above, and the inner
+   .aparte-viewport-container keeps doing the scrolling (styled scrollbar, wheel,
+   auto-scroll, scroll button all stay wired to it). */
 aparte-chat > aparte-chat-viewport {
   flex: 1 1 auto;
   min-height: 0;

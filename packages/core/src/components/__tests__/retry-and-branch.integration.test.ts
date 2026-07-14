@@ -316,6 +316,24 @@ describe('Navigation boundary conditions', () => {
         expect(() => vp.navigateBranch('ghost', 'prev')).not.toThrow();
     });
 
+    it('re-derives the scroll button after branch navigation (hidden when the branch fits)', async () => {
+        const v1 = msg({ content: 'v1' });
+        const v2 = msg({ content: 'v2' });
+        vp.appendMessage(v1);
+        vp.addSiblingOf(v1.id, v2); // active = v2
+
+        vp.navigateBranch(v2.id, 'prev');
+        // navigateBranch deliberately disables auto-scroll, which shows the button…
+        const btn = vp.querySelector('.aparte-scroll-btn')!;
+        expect(btn.classList.contains('aparte-scroll-btn--hidden')).toBe(false);
+
+        // …then the post-layout pass re-derives it from real geometry: here the
+        // container has nothing to scroll (we're "at the bottom"), so it must
+        // hide again instead of staying stale.
+        await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+        expect(btn.classList.contains('aparte-scroll-btn--hidden')).toBe(true);
+    });
+
     it('multi-turn conversation: navigation preserves full path depth', () => {
         // q → a → q2 → a2  (depth 4)
         const q  = msg({ role: 'user', content: 'q' });
