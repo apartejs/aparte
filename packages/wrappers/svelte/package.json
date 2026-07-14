@@ -1,0 +1,63 @@
+{
+  "name": "@aparte/svelte",
+  "version": "0.1.0",
+  "description": "Svelte 4 wrapper for aparté — an ergonomic <AparteChat> component plus stores over the framework-agnostic web components.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@aparte-workspace/source": "./src/lib/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -b --emitDeclarationOnly --force",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "@aparte/core": "workspace:*",
+    "svelte": "^4.0.0"
+  },
+  "devDependencies": {
+    "@aparte/core": "workspace:*",
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@testing-library/svelte": "^5.2.0",
+    "jsdom": "^22.1.0",
+    "svelte": "^4.2.0",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0"
+  },
+  "keywords": [
+    "svelte",
+    "aparte",
+    "chat",
+    "ai",
+    "web-components"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apartejs/aparte.git",
+    "directory": "packages/wrappers/svelte"
+  },
+  "bugs": {
+    "url": "https://github.com/apartejs/aparte/issues"
+  }
+}

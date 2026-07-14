@@ -25,5 +25,6 @@ provider (or none) in the [config](/providers/); the wrapper streams whatever's 
 
 - **[React](/frameworks/react/)** — `@aparte/react` (React 18/19).
 - **[Vue](/frameworks/vue/)** — `@aparte/vue` (Vue 3.5+).
+- **[Svelte](/frameworks/svelte/)** — `@aparte/svelte` (Svelte 4).
 
-Svelte and Angular wrappers follow.
+The Angular wrapper follows.

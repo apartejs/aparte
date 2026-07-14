@@ -1,0 +1,21 @@
+{
+    "name": "@aparte/svelte",
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "packages/wrappers/svelte/src",
+    "projectType": "library",
+    "targets": {
+        "build": {
+            "executor": "nx:run-script",
+            "outputs": ["{projectRoot}/dist"],
+            "options": { "script": "build" }
+        },
+        "test": {
+            "executor": "@nx/vite:test",
+            "outputs": ["{options.reportsDirectory}"],
+            "options": {
+                "reportsDirectory": "../../../coverage/packages/wrappers/svelte",
+                "cwd": "packages/wrappers/svelte"
+            }
+        }
+    }
+}
