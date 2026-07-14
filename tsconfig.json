@@ -3,6 +3,7 @@
   "compileOnSave": false,
   "files": [],
   "references": [
-    { "path": "./packages/core" }
+    { "path": "./packages/core" },
+    { "path": "./packages/engine" }
   ]
 }
