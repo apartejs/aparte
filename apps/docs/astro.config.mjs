@@ -21,6 +21,7 @@ export default defineConfig({
             { label: 'AI', autogenerate: { directory: 'providers/ai' } },
           ],
         },
+        { label: 'Frameworks', autogenerate: { directory: 'frameworks' } },
         { label: 'Reference', autogenerate: { directory: 'reference' } },
       ],
     }),

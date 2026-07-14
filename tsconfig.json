@@ -7,6 +7,7 @@
     { "path": "./packages/engine" },
     { "path": "./packages/providers/ai/openai-compat" },
     { "path": "./packages/providers/ai/ai-sdk" },
-    { "path": "./packages/providers/ai/transformers" }
+    { "path": "./packages/providers/ai/transformers" },
+    { "path": "./packages/wrappers/react" }
   ]
 }
