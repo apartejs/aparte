@@ -17,8 +17,9 @@
     "strict": true,
     "target": "es2022",
     "customConditions": ["@aparte-workspace/source"],
-    "baseUrl": ".",
     // Dev source paths are added per package as milestones land (M1: core, …).
+    // Path aliases (when populated) resolve relative to this file — no root prefix option
+    // is set (that one is deprecated in TS 7.0).
     "paths": {}
   }
 }

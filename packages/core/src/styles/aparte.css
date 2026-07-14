@@ -419,9 +419,9 @@
 aparte-chat {
   display: flex;
   flex-direction: column;
-  /* Fill the parent by default (like aimi's <aimi-chat> :host + container) so the
-     height:100% chain the inner scroll container relies on has a definite anchor.
-     Size the element yourself — a height on it, or a sized parent. */
+  /* Fill the parent by default so the height:100% chain the inner scroll container
+     relies on has a definite anchor. Size the element yourself — a height on it, or
+     a sized parent. */
   height: 100%;
   overflow: hidden;
 }
