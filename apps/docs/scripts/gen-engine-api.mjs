@@ -6,7 +6,7 @@
  * Starlight frontmatter + an auto-generated banner. Never edit the output by hand.
  */
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync, rmSync, renameSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
