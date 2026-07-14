@@ -7,7 +7,7 @@ import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegmen
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteThinkingSegment } from '../types/segments.js';
 import type { AparteToolCallSegment } from '../types/segments.js';
-import type { AparteToolCall } from '../types/tools.js';
+import type { AparteToolCall, AparteTool } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 
@@ -536,6 +536,18 @@ export class AparteClient {
      * Handle aparte:retry — add a sibling branch to the assistant message and re-stream
      * using the same conversation history minus the retried reply.
      */
+    /**
+     * Registered tools, gated by capability: only returned when the current model
+     * declares `function_calling` support (else `[]`). Single source for the gate so
+     * send / retry / edit can't drift — the drift is exactly what shipped `tools` on
+     * the initial send while retry/edit correctly omitted them.
+     */
+    private _toolsForCurrentModel(): AparteTool[] {
+        const supportsFunctionCalling =
+            this._config.getCurrentModel()?.capabilities?.includes('function_calling') ?? false;
+        return supportsFunctionCalling ? this._config.getTools() : [];
+    }
+
     private async _handleRetry(event: CustomEvent): Promise<void> {
         const { messageId, targetId } = event.detail ?? {};
         if (!messageId) return;
@@ -588,10 +600,7 @@ export class AparteClient {
         const userSystemPrompt = this._config.resolveSystemPrompt();
         if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
 
-        // Only inject tools if the current model declares function_calling support
-        const currentModel = this._config.getCurrentModel();
-        const modelSupportsFunctionCalling = currentModel?.capabilities?.includes('function_calling') ?? false;
-        const registeredTools = modelSupportsFunctionCalling ? this._config.getTools() : [];
+        const registeredTools = this._toolsForCurrentModel();
 
         let baseRequest: AparteChatRequest = {
             messages: [...systemMessages, ...chatMessages],
@@ -678,10 +687,7 @@ export class AparteClient {
         const userSystemPrompt = this._config.resolveSystemPrompt();
         if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
 
-        // Only inject tools if the current model declares function_calling support
-        const currentModel = this._config.getCurrentModel();
-        const modelSupportsFunctionCalling = currentModel?.capabilities?.includes('function_calling') ?? false;
-        const registeredTools = modelSupportsFunctionCalling ? this._config.getTools() : [];
+        const registeredTools = this._toolsForCurrentModel();
 
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
@@ -885,11 +891,13 @@ export class AparteClient {
                 this.options.rawFileInject === 'images-only' ? rawFiles.filter(f => f.type.startsWith('image/')) :
                 rawFiles;
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
+            const registeredTools = this._toolsForCurrentModel();
+
             let baseRequest: AparteChatRequest = {
                 messages: this._buildMessages(content, targetElement, contentParts.length > 0 ? contentParts : undefined),
                 modelId: modelId || config.defaultModel || '',
                 stream: true,
-                tools: this._config.getTools().length ? this._config.getTools() : undefined
+                tools: registeredTools.length ? registeredTools : undefined
             };
 
             if (this.options.requestInterceptor) {

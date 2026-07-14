@@ -194,6 +194,36 @@ describe('AparteClient', () => {
         });
     });
 
+    // ─── tool capability gate ──────────────────────────────────────────────
+    // Regression: send/retry/edit must gate `tools` identically. The gate lives in
+    // one place (_toolsForCurrentModel) so they can't drift — the drift is exactly
+    // what shipped `tools` on the initial send while retry/edit omitted them.
+    describe('_toolsForCurrentModel — function_calling capability gate', () => {
+        const tool = { name: 'search', description: 'Search', parameters: {} } as unknown;
+
+        function clientWith(model: unknown): AparteClient {
+            const cfg = new AparteConfigClass();
+            vi.spyOn(cfg, 'getCurrentModel').mockReturnValue(model as never);
+            vi.spyOn(cfg, 'getTools').mockReturnValue([tool] as never);
+            return new AparteClient({ autoRegister: false, config: cfg });
+        }
+
+        it('returns registered tools when the model declares function_calling', () => {
+            client = clientWith({ id: 'm', name: 'M', capabilities: ['function_calling'] });
+            expect((client as unknown as { _toolsForCurrentModel(): unknown[] })._toolsForCurrentModel()).toEqual([tool]);
+        });
+
+        it('returns [] when the model lacks function_calling (tools still registered)', () => {
+            client = clientWith({ id: 'm', name: 'M', capabilities: [] });
+            expect((client as unknown as { _toolsForCurrentModel(): unknown[] })._toolsForCurrentModel()).toEqual([]);
+        });
+
+        it('returns [] when there is no current model', () => {
+            client = clientWith(undefined);
+            expect((client as unknown as { _toolsForCurrentModel(): unknown[] })._toolsForCurrentModel()).toEqual([]);
+        });
+    });
+
     // ─── agnostic API surface ──────────────────────────────────────────────
 
     describe('agnostic / no-DOM coupling', () => {
