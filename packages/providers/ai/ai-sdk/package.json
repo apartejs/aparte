@@ -35,11 +35,6 @@
     "@aparte/core": "workspace:*",
     "ai": "^7.0.0"
   },
-  "peerDependenciesMeta": {
-    "@aparte/core": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@aparte/core": "workspace:*",
     "@types/node": "^22.0.0",

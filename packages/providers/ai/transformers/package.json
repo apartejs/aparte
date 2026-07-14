@@ -35,11 +35,6 @@
     "@aparte/core": "workspace:*",
     "@huggingface/transformers": "^4.2.0"
   },
-  "peerDependenciesMeta": {
-    "@aparte/core": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@aparte/core": "workspace:*",
     "@huggingface/transformers": "^4.2.0",
