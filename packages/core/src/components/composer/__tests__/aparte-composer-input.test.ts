@@ -2,11 +2,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import '../aparte-composer.js';
 import '../aparte-composer-input.js';
+import type { AparteComposerInput } from '../aparte-composer-input.js';
 
 function mount() {
     const composer = document.createElement('aparte-composer');
     document.body.appendChild(composer);
-    const input = document.createElement('aparte-composer-input');
+    const input = document.createElement('aparte-composer-input') as AparteComposerInput;
     composer.appendChild(input);
     // connectedCallback fires synchronously on append into a connected tree.
     const editor = (input as unknown as { _editor: HTMLElement })._editor;
@@ -39,6 +40,52 @@ describe('aparte-composer-input — IME-aware submit-on-enter', () => {
         const { editor, submit } = mount();
         editor.dispatchEvent(enter({ shiftKey: true }));
         expect(submit).not.toHaveBeenCalled();
+    });
+});
+
+describe('aparte-composer-input — getValue preserves newlines', () => {
+    it('serializes <br> to \\n (textContent would drop them)', () => {
+        const { input, editor } = mount();
+        editor.innerHTML = 'line one<br>line two';
+        expect(input.getValue()).toBe('line one\nline two');
+    });
+
+    it('trims leading/trailing whitespace incl. a trailing bogus <br>', () => {
+        const { input, editor } = mount();
+        editor.innerHTML = 'only line<br><br>';
+        expect(input.getValue()).toBe('only line');
+    });
+
+    it('round-trips a value seeded via setValue', () => {
+        const { input } = mount();
+        input.setValue('a\nb');
+        expect(input.getValue()).toBe('a\nb');
+    });
+});
+
+describe('aparte-composer-input — standalone (no <aparte-composer> parent)', () => {
+    function mountBare() {
+        const input = document.createElement('aparte-composer-input') as AparteComposerInput;
+        document.body.appendChild(input);
+        const editor = (input as unknown as { _editor: HTMLElement })._editor;
+        return { input, editor };
+    }
+
+    it('emits aparte-composer-submit on Enter instead of no-op-ing', () => {
+        const { input, editor } = mountBare();
+        const onSubmit = vi.fn();
+        input.addEventListener('aparte-composer-submit', onSubmit);
+        editor.dispatchEvent(enter({ isComposing: false }));
+        expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not emit submit on Shift+Enter (newline), and never on an empty field', () => {
+        const { input, editor } = mountBare();
+        const onSubmit = vi.fn();
+        input.addEventListener('aparte-composer-submit', onSubmit);
+        // Shift+Enter = newline, not submit.
+        editor.dispatchEvent(enter({ shiftKey: true }));
+        expect(onSubmit).not.toHaveBeenCalled();
     });
 });
 

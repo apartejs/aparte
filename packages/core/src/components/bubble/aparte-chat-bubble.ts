@@ -13,6 +13,7 @@ import type {
 import { getSegmentRenderer } from '../../renderers/index.js';
 import { AparteConfigClass } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
+import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 
 /**
  * Warn ONCE when a segment has no registered renderer — the classic
@@ -46,19 +47,6 @@ const INFO_ICON_SVG =
   'stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/>' +
   '<path d="M12 8h.01"/></svg>';
 
-/** Lucide "check" — edit-mode save (✓). Inline so no icon-provider key needed. */
-const CHECK_ICON_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" ' +
-  'fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" ' +
-  'stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-
-/** Lucide "x" — edit-mode cancel (✗). */
-const CROSS_ICON_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" ' +
-  'fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" ' +
-  'stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/>' +
-  '<line x1="6" y1="6" x2="18" y2="18"/></svg>';
-
 /**
  * AparteChatBubble - The Render
  * 
@@ -85,8 +73,8 @@ export class AparteChatBubble extends HTMLElement {
   private _siblingIndex = 0;
   /** True while the user-message inline editor is open. */
   private _editing = false;
-  /** The live edit <textarea>, present only while `_editing`. */
-  private _editTextarea: HTMLTextAreaElement | null = null;
+  /** The live inline editor (the composer's contenteditable primitive), present only while `_editing`. */
+  private _editInput: AparteComposerInput | null = null;
 
   static get observedAttributes(): string[] {
     // Both `data-role` (preferred, set by Angular wrapper) and `role` (legacy
@@ -846,9 +834,9 @@ export class AparteChatBubble extends HTMLElement {
     const cancelLabel = locale.editCancel ?? 'Cancel';
     this._actionBarEl.innerHTML =
       `<button class="aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
-      `aria-label="${saveLabel}" title="${saveLabel}">${CHECK_ICON_SVG}</button>` +
+      `aria-label="${saveLabel}" title="${saveLabel}">${this._cfg.getIcon('check')}</button>` +
       `<button class="aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
-      `aria-label="${cancelLabel}" title="${cancelLabel}">${CROSS_ICON_SVG}</button>`;
+      `aria-label="${cancelLabel}" title="${cancelLabel}">${this._cfg.getIcon('close')}</button>`;
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
@@ -952,54 +940,56 @@ export class AparteChatBubble extends HTMLElement {
 
   /**
    * Open the inline editor for a user message. Idempotent — a second `edit`
-   * click while already editing is a no-op (no stacked textareas).
+   * click while already editing is a no-op (no stacked editors).
+   *
+   * The editor reuses the composer's contenteditable primitive
+   * (`<aparte-composer-input>`) so editing is iso with composing: same autosize,
+   * IME, paste and styling. With no `<aparte-composer>` root it runs standalone —
+   * `Enter` (Shift+Enter = newline) surfaces as `aparte-composer-submit`, which we
+   * treat as save; `Esc` cancels.
    */
   private _enterEditMode(): void {
     if (this._editing || !this._contentEl) return;
     this._editing = true;
     this.querySelector('.aparte-message')?.setAttribute('data-editing', '');
 
-    const textarea = document.createElement('textarea');
-    textarea.className = 'aparte-edit-textarea';
-    textarea.setAttribute('aria-label', this._cfg.getLocale().edit ?? 'Edit message');
-    textarea.value = this._content;
-    textarea.rows = Math.max(3, (this._content.match(/\n/g) || []).length + 1);
-    this._editTextarea = textarea;
+    const input = document.createElement('aparte-composer-input') as AparteComposerInput;
+    input.setAttribute('placeholder', this._cfg.getLocale().edit ?? 'Edit message');
+    this._editInput = input;
 
     this._contentEl.style.display = 'none';
-    this._contentEl.insertAdjacentElement('afterend', textarea);
+    this._contentEl.insertAdjacentElement('afterend', input);
+    // `insertAdjacentElement` upgrades + connects synchronously, so the editor is
+    // ready — seed it with the current text (autosizes to fit).
+    input.setValue(this._content);
 
-    // Esc cancels · Ctrl/Cmd+Enter saves.
-    textarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
+    // Enter (via the primitive's standalone submit event) saves; Esc cancels.
+    input.addEventListener('aparte-composer-submit', () => this._exitEditMode(true));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !e.isComposing) {
         e.preventDefault();
         this._exitEditMode(false);
-      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        this._exitEditMode(true);
       }
     });
 
     // Swap the action bar over to ✓ / ✗.
     this._updateActionBar();
 
-    textarea.focus();
-    const end = textarea.value.length;
-    textarea.setSelectionRange(end, end);
+    input.focusEnd();
   }
 
   /**
    * Leave edit mode. When `save` is true and the text actually changed, emits
    * `aparte:edit`; otherwise restores the original message untouched. Always
-   * restores the normal action bar and removes the textarea.
+   * restores the normal action bar and removes the inline editor.
    */
   private _exitEditMode(save: boolean): void {
     if (!this._editing) return;
-    const newContent = this._editTextarea?.value.trim() ?? '';
+    const newContent = this._editInput?.getValue() ?? '';
     const original = this._content;
 
-    this._editTextarea?.remove();
-    this._editTextarea = null;
+    this._editInput?.remove();
+    this._editInput = null;
     if (this._contentEl) this._contentEl.style.display = '';
     this.querySelector('.aparte-message')?.removeAttribute('data-editing');
     this._editing = false;

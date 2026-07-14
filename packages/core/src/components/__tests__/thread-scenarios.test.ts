@@ -788,6 +788,9 @@ describe('Thread scenarios — full spec', () => {
 describe('aparte:edit event payload', () => {
     it('bubble dispatches detail.content (not detail.newContent)', async () => {
         await import('../bubble/aparte-chat-bubble.js');
+        // The inline editor is the composer's contenteditable primitive — import it
+        // so `aparte-composer-input` is registered/upgraded when the bubble mounts it.
+        await import('../composer/aparte-composer-input.js');
         const bubble = document.createElement('aparte-chat-bubble') as HTMLElement & {
             setContent(c: string): void;
         };
@@ -801,23 +804,23 @@ describe('aparte:edit event payload', () => {
             receivedDetail = (e as CustomEvent).detail;
         }, { once: true });
 
-        // Simulate entering edit mode and confirming
+        // Enter edit mode via the real action button.
         const editBtn = bubble.querySelector('.aparte-action-edit') as HTMLButtonElement;
         editBtn?.click();
 
-        const textarea = bubble.querySelector('.aparte-edit-textarea') as HTMLTextAreaElement;
-        if (textarea) {
-            textarea.value = 'edited text';
-            const confirmBtn = bubble.querySelector('.aparte-edit-confirm') as HTMLButtonElement;
-            confirmBtn?.click();
-        }
+        // Seed the new text through the primitive, then hit the real ✓ save button.
+        const input = bubble.querySelector('aparte-composer-input') as HTMLElement & {
+            setValue(v: string): void;
+        };
+        input.setValue('edited text');
+        const saveBtn = bubble.querySelector('.aparte-action-edit-save') as HTMLButtonElement;
+        saveBtn.click();
 
-        if (receivedDetail) {
-            expect(receivedDetail).toHaveProperty('content');
-            expect(receivedDetail).not.toHaveProperty('newContent');
-            expect(receivedDetail.content).toBe('edited text');
-            expect(receivedDetail.messageId).toBe('edit-test');
-        }
+        expect(receivedDetail).not.toBeNull();
+        expect(receivedDetail).toHaveProperty('content');
+        expect(receivedDetail).not.toHaveProperty('newContent');
+        expect(receivedDetail.content).toBe('edited text');
+        expect(receivedDetail.messageId).toBe('edit-test');
 
         bubble.remove();
     });

@@ -453,6 +453,12 @@ aparte-chat[center-empty][data-empty] {
 
 aparte-chat[center-empty][data-empty] > aparte-chat-viewport {
   flex-grow: 0;
+  /* Release the standalone `height: 100%` (set on the viewport element for the
+     scroll chain): an explicit height ignores `flex-grow: 0`, so the empty viewport
+     would still fill the shell and leave `justify-content: center` no room to center
+     the composer. Empty = nothing to scroll, so auto height is safe here; the moment
+     a message lands, [data-empty] drops and height: 100% (scroll chain) is back. */
+  height: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -970,23 +976,23 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
    Edit mode
    ========================================= */
 
-.aparte-edit-textarea {
-  width: 100%;
+/* Inline editor: the composer's contenteditable primitive, given the composer
+   shell's box (bordered surface) so it reads as the same field. The inner
+   .aparte-ci-editor inherits its padding/font/caret from the shared composer rule. */
+.aparte-message[data-editing] aparte-composer-input {
+  display: block;
   margin: var(--aparte-space-2, 4px) 0;
-  border: var(--aparte-border-width, 1px) solid var(--aparte-input-focus-border, var(--aparte-primary));
-  border-radius: var(--aparte-radius-sm, 8px);
-  padding: var(--aparte-space-5, 10px) var(--aparte-space-6, 12px);
-  font-size: var(--aparte-content-font-size, 15px);
-  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
-  line-height: var(--aparte-line-height-relaxed, 1.6);
-  color: var(--aparte-content-color, var(--aparte-text));
   background: var(--aparte-input-bg, var(--aparte-surface-1));
-  resize: vertical;
-  outline: none;
+  border: var(--aparte-border-width, 1px) solid var(--aparte-input-border, var(--aparte-border));
+  border-radius: var(--aparte-radius-input, 12px);
   box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.aparte-message[data-editing] aparte-composer-input:focus-within {
+  border-color: var(--aparte-input-focus-border, var(--aparte-primary));
 }
 
-/* Edit mode keeps the action bar (now ✓ / ✗) visible even when the textarea
+/* Edit mode keeps the action bar (now ✓ / ✗) visible even when the editor
    is not focused — otherwise the user can't reach the save button. */
 .aparte-message[data-editing] .aparte-action-bar {
   opacity: 1;

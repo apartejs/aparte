@@ -60,7 +60,21 @@ export class AparteComposerInput extends HTMLElement {
     // ── Public API ──────────────────────────────────────────────────────────
 
     getValue(): string {
-        return this._editor?.textContent?.trim() || '';
+        // `textContent` drops `<br>`, so multi-line content would collapse onto one
+        // line. Serialize the editor ourselves: text nodes as-is, `<br>` → newline.
+        // We keep the editor flat (text + <br>, see _handleKeydown), but descend into
+        // any stray wrapper for safety.
+        if (!this._editor) return '';
+        let out = '';
+        const walk = (node: Node): void => {
+            node.childNodes.forEach(child => {
+                if (child.nodeType === Node.TEXT_NODE) out += child.textContent ?? '';
+                else if (child.nodeName === 'BR') out += '\n';
+                else walk(child);
+            });
+        };
+        walk(this._editor);
+        return out.trim();
     }
 
     setValue(value: string): void {
@@ -81,6 +95,19 @@ export class AparteComposerInput extends HTMLElement {
 
     override focus(): void { this._editor?.focus(); }
     override blur(): void { this._editor?.blur(); }
+
+    /** Focus the editor and place the caret at the very end of its content. */
+    focusEnd(): void {
+        if (!this._editor) return;
+        this._editor.focus();
+        const sel = this.ownerDocument?.getSelection();
+        if (!sel) return;
+        const range = this.ownerDocument.createRange();
+        range.selectNodeContents(this._editor);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
 
     // ── Private ─────────────────────────────────────────────────────────────
 
@@ -173,7 +200,26 @@ export class AparteComposerInput extends HTMLElement {
         const submits = submitOnEnter ? !e.shiftKey : e.shiftKey;
         if (submits) {
             e.preventDefault();
-            this._getRoot()?.submit();
+            const root = this._getRoot();
+            if (root) {
+                root.submit();
+            } else {
+                // Standalone (no <aparte-composer> parent, e.g. the bubble's inline
+                // editor): there is no root to submit to, so surface the intent as a
+                // DOM event the host can act on. Keeps this primitive reusable on its
+                // own — the IME guard + submitOnEnter mapping above stay the single
+                // source of truth for "when to submit".
+                this.dispatchEvent(new CustomEvent('aparte-composer-submit', { bubbles: true }));
+            }
+        } else {
+            // Newline branch. Take control instead of the browser's contenteditable
+            // default, which inserts <div>/<br> wrappers that resist deletion.
+            // `insertLineBreak` inserts a single <br> and manages the trailing bogus
+            // <br> so backspace removes it cleanly (the "can't delete the newline" bug).
+            e.preventDefault();
+            // Nothing to break on an empty field — don't seed a leading blank line.
+            if (!this._editor?.textContent) return;
+            this.ownerDocument?.execCommand('insertLineBreak');
         }
     }
 
