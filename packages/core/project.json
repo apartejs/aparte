@@ -5,13 +5,12 @@
     "projectType": "library",
     "targets": {
         "build": {
-            "executor": "@nx/vite:build",
+            "executor": "nx:run-script",
             "outputs": [
-                "{options.outputPath}"
+                "{projectRoot}/dist"
             ],
             "options": {
-                "outputPath": "dist/packages/core",
-                "cwd": "packages/core"
+                "script": "build"
             }
         },
         "test": {
