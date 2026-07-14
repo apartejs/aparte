@@ -78,11 +78,25 @@ h1.thesis em { font-style: italic; color: var(--accent); }
 .btn-primary:hover { transform: translateY(-1px); background: var(--accent-soft); }
 .btn-ghost { border-color: var(--line); color: var(--text); }
 .btn-ghost:hover { border-color: var(--accent); }
-.install { margin-top: 26px; display: inline-flex; align-items: center; gap: 12px; font-size: 14.5px; color: var(--dim); }
-.install code { color: var(--text); }
-.install .prompt { color: var(--accent); }
-.copy { background: none; border: none; color: var(--dim); cursor: pointer; font: inherit; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; transition: color .2s, background .2s; }
-.copy:hover { color: var(--text); background: var(--surface-2); }
+/* Install snippet — a compact one-line chip in the landing's surface style,
+   with a copy icon. */
+.install {
+  position: relative; margin-top: 26px; width: fit-content; max-width: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+}
+.install pre {
+  margin: 0; padding: 10px 44px 10px 15px;
+  font-size: 13.5px; line-height: 1.4; overflow-x: auto;
+}
+.install .prompt { color: var(--accent); margin-right: 4px; }
+.install-copy {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  background: none; border: none; color: var(--dim); cursor: pointer;
+  padding: 5px; border-radius: 6px; display: flex;
+  transition: color .2s, background .2s;
+}
+.install-copy:hover { color: var(--text); background: var(--surface-2); }
+.install-copy svg { display: block; }
 
 .aside-stage { position: relative; padding-left: 34px; }
 .gutter { position: absolute; left: 0; top: 6px; bottom: 6px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
