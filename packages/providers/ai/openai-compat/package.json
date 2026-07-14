@@ -1,0 +1,68 @@
+{
+  "name": "@aparte/provider-openai-compat",
+  "version": "0.1.0",
+  "description": "One OpenAI-compatible chat-completions adapter for any /v1 endpoint — OpenAI, Mistral, OpenRouter, Z.ai, Groq, LM Studio, Ollama and friends, via presets or plain config.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@aparte-workspace/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -b --emitDeclarationOnly --force",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "@aparte/core": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@aparte/core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@aparte/core": "workspace:*",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^4.5.4"
+  },
+  "keywords": [
+    "ai",
+    "provider",
+    "openai",
+    "openai-compatible",
+    "chat-completions",
+    "llm",
+    "ollama",
+    "lmstudio"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apartejs/aparte.git",
+    "directory": "packages/providers/ai/openai-compat"
+  },
+  "bugs": {
+    "url": "https://github.com/apartejs/aparte/issues"
+  }
+}

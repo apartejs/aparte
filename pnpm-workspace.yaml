@@ -5,7 +5,7 @@ packages:
 
   # Locales, LLM providers, blessed plugins, framework wrappers
   - 'packages/locales/*'
-  - 'packages/providers/*'
+  - 'packages/providers/*/*'
   - 'packages/plugins/*'
   - 'packages/wrappers/*'
 

@@ -148,13 +148,16 @@ it listens for `aparte-send` (and `aparte:retry`, `aparte:edit`) globally and st
 typed segments from the provider into your bubbles. No `aparte-send` handler of your
 own, no manual `appendToken`.
 
-Provider adapters ship as opt-in `@aparte/provider-*` packages (landing with milestone
-M3); until then, register any object implementing the `AparteAIProvider` interface with
-`AparteConfig.registerAIProvider(…)`.
+Provider adapters ship as opt-in `@aparte/provider-*` packages — see the
+**[Providers](/providers/)** section for the OpenAI-compatible adapter (OpenAI, Mistral, OpenRouter,
+Groq, LM Studio, Ollama…), the Vercel AI SDK bridge (Anthropic, Google, 25+ vendors), and the
+in-browser Transformers.js provider. You can also register any object implementing the
+`AparteAIProvider` interface yourself.
 
 ## Next steps
 
 - **[Theming](/guides/theming)** — restyle everything through CSS variables, no forking.
 - **[Customization](/guides/customization)** — icons, render hooks, action registries.
 - **[Conversations & branching](/guides/conversations-branching)** — retry / edit, branches, persistence.
+- **[Providers](/providers/)** — connect a real model: OpenAI-compatible, the AI SDK bridge, or in-browser Transformers.js.
 - **[The agent engine](/guides/engine)** — the headless `runStreamAgent` loop and the `streamRunner` seam.

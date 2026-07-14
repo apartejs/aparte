@@ -4,6 +4,9 @@
   "files": [],
   "references": [
     { "path": "./packages/core" },
-    { "path": "./packages/engine" }
+    { "path": "./packages/engine" },
+    { "path": "./packages/providers/ai/openai-compat" },
+    { "path": "./packages/providers/ai/ai-sdk" },
+    { "path": "./packages/providers/ai/transformers" }
   ]
 }

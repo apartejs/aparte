@@ -14,6 +14,13 @@ export default defineConfig({
       customCss: ['./src/styles/palette.css', './src/styles/aparte-theme.css'],
       sidebar: [
         { label: 'Guides', autogenerate: { directory: 'guides' } },
+        {
+          label: 'Providers',
+          items: [
+            { label: 'Overview', link: '/providers/' },
+            { label: 'AI', autogenerate: { directory: 'providers/ai' } },
+          ],
+        },
         { label: 'Reference', autogenerate: { directory: 'reference' } },
       ],
     }),
