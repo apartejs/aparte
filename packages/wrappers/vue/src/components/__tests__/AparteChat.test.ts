@@ -77,6 +77,17 @@ describe('AparteChat.vue', () => {
         expect(status.attributes('visible')).toBe('');
     });
 
+    it('emits typingChange when the host toggles the typing indicator (parity with React onTypingChange)', async () => {
+        const wrapper = mount(AparteChat, {
+            props: { messages: [{ id: '1', role: 'assistant', content: '', timestamp: 0 }], isTyping: true },
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        // updateLastMessage(..., { append: true }) makes the host flip typing off.
+        wrapper.vm.updateLastMessage('token', { append: true });
+        expect(wrapper.emitted('typingChange')).toBeTruthy();
+        expect(wrapper.emitted('typingChange')!.at(-1)![0]).toBe(false);
+    });
+
     it('emits messageSent when the composer dispatches aparte-send', async () => {
         const wrapper = mount(AparteChat, {
             props: {

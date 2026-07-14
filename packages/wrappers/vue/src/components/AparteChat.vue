@@ -60,6 +60,8 @@ const emit = defineEmits<{
   /** Same payload as `messagesChange`, enabling `v-model:messages`. */
   'update:messages': [messages: AparteMessage[]];
   messageAppended: [message: AparteMessage];
+  /** The typing/"thinking" indicator toggled (the host flips it off on the first streamed token). */
+  typingChange: [isTyping: boolean];
   conversationCreated: [id: string];
 }>();
 
@@ -93,7 +95,7 @@ onMounted(() => {
     setMessages: (m) => { internalMessages.value = m as AparteMessage[]; },
     onMessagesChange: (m) => { emit('messagesChange', m as AparteMessage[]); emit('update:messages', m as AparteMessage[]); },
     onMessageAppended: (m) => emit('messageAppended', m as AparteMessage),
-    onTypingChange: (t) => { typingActive.value = t; },
+    onTypingChange: (t) => { typingActive.value = t; emit('typingChange', t); },
     onStreamingChange: () => { /* exposed via isStreaming() */ },
     afterRender: (cb) => { void nextTick(cb); },
     resetComposer: () => (composerRef.value as unknown as { reset?: () => void })?.reset?.(),
