@@ -1,0 +1,10 @@
+/*
+ * Source aggregate of every stylesheet the built `dist/index.css` bundles.
+ * Exposed as the `@aparte-workspace/source` variant of the `./styles.css` export
+ * so dev consumers (the docs) get theme + component CSS straight from source with
+ * HMR, matching what `src/index.ts` imports. Published builds still ship
+ * `dist/index.css` (the export's `default`).
+ */
+@import './aparte.css';
+@import '../primitives/select/select.css';
+@import '../primitives/progress-spinner/progress-spinner.css';

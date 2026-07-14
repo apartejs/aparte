@@ -18,7 +18,10 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./styles.css": "./dist/index.css",
+    "./styles.css": {
+      "@aparte-workspace/source": "./src/styles/bundle.css",
+      "default": "./dist/index.css"
+    },
     "./dist/index.css": "./dist/index.css"
   },
   "files": [
