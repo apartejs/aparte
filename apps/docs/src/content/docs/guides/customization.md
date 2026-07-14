@@ -123,7 +123,10 @@ AparteConfig.setIconProvider({
 });
 ```
 
-You only override the keys you pass; the rest keep their defaults.
+You only override the keys you pass; the rest keep their defaults. The inline **message
+editor**'s save/cancel buttons use the `check` and `close` keys, so they follow your
+provider too; their colours are the `--aparte-success` (save) and `--aparte-error` (cancel)
+CSS variables.
 
 ## Content providers (opt-in)
 
