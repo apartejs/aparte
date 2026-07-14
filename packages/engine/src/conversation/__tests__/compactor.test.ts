@@ -98,7 +98,7 @@ describe('assembleCompacted — working-memory floor & drops', () => {
                 { role: 'user', content: 'low ' + 'x'.repeat(40), score: 0.1 },
             ],
         });
-        const rag = compactedMessages.find(m => m.content.startsWith('Extraits'));
+        const rag = compactedMessages.find(m => m.content.startsWith(DEFAULT_COMPACTION_CONFIG.ragIntroLabel));
         expect(rag?.content).toContain('high');
         expect(dropped.ragHits).toBeGreaterThan(0);
     });

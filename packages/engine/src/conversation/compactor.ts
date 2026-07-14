@@ -60,6 +60,11 @@ export interface CompactionConfig {
     triggerSummaryThresholdPct: number;
     /** Re-run summarization every N user turns. */
     summarizeEveryNTurns: number;
+    /** Header prepended to the summary block injected into the model context. English
+     *  by default — override to localise (the compactor ships no locale system). */
+    summaryLabel: string;
+    /** Header prepended to the RAG-retrieved old turns injected into the context. */
+    ragIntroLabel: string;
 }
 
 export interface BudgetBreakdown {
@@ -144,6 +149,9 @@ export const DEFAULT_COMPACTION_CONFIG: CompactionConfig = {
 
     triggerSummaryThresholdPct: 0.75,
     summarizeEveryNTurns: 5,
+
+    summaryLabel: 'Conversation summary:',
+    ragIntroLabel: 'Relevant excerpts from earlier in the conversation:',
 };
 
 // ─── Token estimation ──────────────────────────────────────────────────────
@@ -231,6 +239,9 @@ interface AssembleParams {
     summaryBudget: number;
     ragBudget: number;
     systemContent?: string;
+    /** Context-injection headers; default to English (DEFAULT_COMPACTION_CONFIG). */
+    summaryLabel?: string;
+    ragIntroLabel?: string;
 }
 
 interface AssembleResult {
@@ -257,6 +268,8 @@ export function assembleCompacted(params: AssembleParams): AssembleResult {
         summaryBudget,
         ragBudget,
         systemContent,
+        summaryLabel = DEFAULT_COMPACTION_CONFIG.summaryLabel,
+        ragIntroLabel = DEFAULT_COMPACTION_CONFIG.ragIntroLabel,
     } = params;
 
     const out: CompactionMessage[] = [];
@@ -271,7 +284,7 @@ export function assembleCompacted(params: AssembleParams): AssembleResult {
 
     // Summary
     if (summary) {
-        const summaryWrapped = `Résumé de la conversation :\n${summary}`;
+        const summaryWrapped = `${summaryLabel}\n${summary}`;
         const summaryToks = estimateTokens(summaryWrapped);
         if (summaryToks <= summaryBudget) {
             out.push({ role: 'system', content: summaryWrapped });
@@ -279,7 +292,7 @@ export function assembleCompacted(params: AssembleParams): AssembleResult {
         } else {
             const ratio = (summaryBudget / summaryToks) * 0.95;
             const truncated = summary.slice(0, Math.max(0, Math.floor(summary.length * ratio)));
-            const wrapped = `Résumé de la conversation :\n${truncated}…`;
+            const wrapped = `${summaryLabel}\n${truncated}…`;
             out.push({ role: 'system', content: wrapped });
             used.summary = estimateTokens(wrapped);
             dropped.summary = true;
@@ -290,7 +303,7 @@ export function assembleCompacted(params: AssembleParams): AssembleResult {
     if (retrievedTurns.length > 0) {
         const sorted = [...retrievedTurns].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
         const lines: string[] = [];
-        const intro = 'Extraits pertinents de la conversation antérieure :\n';
+        const intro = `${ragIntroLabel}\n`;
         let toks = estimateTokens(intro);
         for (const t of sorted) {
             const line = `[${t.role}] ${t.content}`;
@@ -367,6 +380,8 @@ export function compactConversation(input: CompactionInput): CompactionResult {
         summaryBudget: split.summary,
         ragBudget: split.ragHist,
         systemContent: systemPrompt,
+        summaryLabel: budget.config.summaryLabel,
+        ragIntroLabel: budget.config.ragIntroLabel,
     });
 
     const totalUsed = budget.breakdown.systemPrompt
