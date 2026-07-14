@@ -1,4 +1,6 @@
 # Generated before every dev/build — never edit or commit these; they're rebuilt
-# from the core package (aparte.css / custom-elements.json) by the scripts in scripts/.
+# from the packages (aparte.css / custom-elements.json / engine TS + JSDoc) by
+# the scripts in scripts/.
 src/content/docs/reference/css-variables.md
 src/content/docs/reference/api.md
+src/content/docs/reference/engine.md

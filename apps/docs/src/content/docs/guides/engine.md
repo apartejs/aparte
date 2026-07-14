@@ -1,29 +1,46 @@
 ---
 title: The agent engine
-description: "@aparte/core runs the agent loop inline out of the box; @aparte/engine is the same loop, headless and reusable — inject runStreamAgent via the streamRunner seam."
+description: "@aparte/engine is the headless, zero-dependency agent loop — runStreamAgent, the loop core drives via the streamRunner seam, plus the agnostic conversation compactor."
 sidebar:
   order: 5
 ---
 
 `@aparte/core` already runs a full **agent loop**: when you drive a chat with `AparteClient`,
 it streams the model, splits the reply into segments (text, thinking, tool calls, artifacts),
-runs the tool-calling loop, and reports usage — all inline (`AparteClient._streamLoop`). **Core
-works without any other package.**
+runs the tool-calling loop, and reports usage — all inline. **Core works without this package.**
 
-`@aparte/engine` is that *same loop*, extracted as a **headless, framework-agnostic** function:
-**`runStreamAgent`**. It has zero runtime dependencies, touches no DOM, and runs in the browser
-or in Node — so a backend can run the loop server-side, and both paths are provable to behave
-identically.
+`@aparte/engine` is that loop as a **headless, framework-agnostic** package: zero runtime
+dependencies, no DOM, runs in the browser or Node. Its headline export, **`runStreamAgent`**, is
+the exact loop core embeds inline — extracted so a backend can run it server-side with *provably*
+identical behaviour.
 
-## When you'd reach for it
+It is deliberately **just the loop core drives, plus the agnostic conversation compactor**.
+Opt-in *tools* (ask-question, RAG, skills, code execution) belong in `plugins/*`; product
+behaviour (memory, intent orchestration) and the not-yet-wired text agent loop live elsewhere.
+None of that ships here.
 
-- You run the agent loop **on a server** (your `/api/chat`) and want the exact same behaviour as
-  the in-browser client.
-- You want one **audited, tested** loop shared across surfaces instead of two implementations.
+## Install
 
-If neither applies, you don't need it — core's inline loop is the default.
+```bash
+npm install @aparte/engine
+```
 
-## The seam
+`@aparte/core` is an **optional peer**: `runStreamAgent` and the parsers need nothing from it, so
+you can install `@aparte/engine` alone. If you wire it into core's client (below) you already have
+`@aparte/core`; otherwise `npm install @aparte/core @aparte/engine`. ESM-only (like the rest of
+`@aparte/*`); CJS consumers use `await import()`.
+
+## What's in it
+
+| Area | Exports | Status |
+|------|---------|--------|
+| **Structured-stream loop** | `runStreamAgent`, `StreamRunEvent`, the artifact-XML parser | Ready — the seam below |
+| **Context compaction** | `compactConversation` + token-budget / sliding-window helpers | Ready |
+
+Everything is a plain function or class — no globals, no side effects (`sideEffects: false`), fully
+tree-shakeable, so you pull in only what you use.
+
+## The primary use: the `streamRunner` seam
 
 Core stays the zero-dependency leaf: it **never imports `@aparte/engine`**. Instead, `AparteClient`
 exposes an injection point, `streamRunner`. Give it `runStreamAgent` and the client delegates its
@@ -39,17 +56,13 @@ const client = new AparteClient({
 });
 ```
 
-With no `streamRunner`, the inline `_streamLoop` runs (the default). With one, the engine runs the
-loop and core renders it — same messages, same events, same DOM output.
-
-`@aparte/engine` declares `@aparte/core` as an **optional peer**: `runStreamAgent` and the parsers
-need nothing from core; only the higher-level orchestrator/memory helpers use core's config when
-present.
+With no `streamRunner`, the inline loop runs (the default). With one, the engine runs the loop and
+core renders it — same messages, same events, same DOM output.
 
 ## Proven parity
 
 The two paths aren't "meant" to match — it's tested. The engine's **`stream-parity`** suite drives
-core's real `_streamLoop` and `runStreamAgent` (through the real `createStreamAdapter`) against the
+core's real inline loop and `runStreamAgent` (through the real `createStreamAdapter`) against the
 same scripted transport and asserts an identical call sequence and usage across nine scenarios
 (plain text, thinking, human-in-the-loop tool approve/reject, streamed and one-shot artifacts,
 multi-phase pipelines, forced tool calls). So the seam is a drop-in, not an approximation.
