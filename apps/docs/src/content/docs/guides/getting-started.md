@@ -148,11 +148,13 @@ it listens for `aparte-send` (and `aparte:retry`, `aparte:edit`) globally and st
 typed segments from the provider into your bubbles. No `aparte-send` handler of your
 own, no manual `appendToken`.
 
-→ The full, copy-pasteable setup (provider + keys) lives in
-**[Transports & providers](/guides/transports)**.
+Provider adapters ship as opt-in `@aparte/provider-*` packages (landing with milestone
+M3); until then, register any object implementing the `AparteAIProvider` interface with
+`AparteConfig.registerAIProvider(…)`.
 
 ## Next steps
 
 - **[Theming](/guides/theming)** — restyle everything through CSS variables, no forking.
-- **[Transports & providers](/guides/transports)** — connect a real model.
-- **[Framework wrappers](/guides/wrappers)** — React, Vue, Svelte, Angular.
+- **[Customization](/guides/customization)** — icons, render hooks, action registries.
+- **[Conversations & branching](/guides/conversations-branching)** — retry / edit, branches, persistence.
+- **[The agent engine](/guides/engine)** — the headless `runStreamAgent` loop and the `streamRunner` seam.

@@ -41,10 +41,23 @@ AparteConfig.setErrorRenderer(({ message }) => {
   return el;
 });
 
-AparteConfig.setAttachmentRenderer((att) => `<span class="my-chip">${att.name}</span>`);
+AparteConfig.setAttachmentRenderer((att) => {
+  const el = document.createElement('span');
+  el.className = 'my-chip';
+  el.textContent = att.name;     // textContent → the filename can't inject HTML
+  return el;
+});
 ```
 
 Pass `null` to any setter to restore the default.
+
+:::caution
+A render hook that returns a **string** is inserted as HTML. Never interpolate
+user- or model-supplied values into that string (`` `<span>${att.name}</span>` ``) — a
+crafted filename or message becomes an XSS vector. Return a **DOM element** and set
+`textContent` (as above), or escape every interpolated value yourself. Core's built-in
+renderers already do this; the trust boundary is yours the moment you return a string.
+:::
 
 ## Avatars
 

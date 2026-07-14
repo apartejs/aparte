@@ -42,7 +42,7 @@ autosize, IME, paste, and the same keys:
 Saving emits `aparte:edit` with `{ messageId, content, targetId }`. Unlike retry, the edit
 **does not branch**: the user message's text is replaced in place and the answer(s) below it
 are regenerated (the previous response is cleared, not kept as a sibling). With
-[`AparteClient`](/guides/transports) this is automatic; to wire it yourself, see
+[`AparteClient`](/guides/getting-started) this is automatic; to wire it yourself, see
 [the manual way](#the-manual-way) below.
 
 :::tip[Edit is just an event]
@@ -55,7 +55,7 @@ adds a child, not a sibling, so it won't create the alternate user turn on its o
 
 ## The automatic way — `AparteClient`
 
-If you drive the chat with [`AparteClient`](/guides/transports), retry and edit are
+If you drive the chat with [`AparteClient`](/guides/getting-started), retry and edit are
 **handled out of the box**: the client listens for `aparte:retry` / `aparte:edit`. On
 **retry** it creates the sibling branch and re-streams the new answer into it; on **edit**
 it updates the user message in place, clears the old answer, and re-streams a fresh one.
