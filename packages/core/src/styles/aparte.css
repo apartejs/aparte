@@ -416,13 +416,20 @@
    vanilla viewport, which otherwise has no flex sizing of its own.
    ========================================= */
 
-aparte-chat {
+/* Both host shapes core recognises get the same layout: the vanilla
+   <aparte-chat> element AND a framework wrapper's `[data-aparte-chat]` root
+   (React/Vue/Svelte/Angular render `<div data-aparte-chat>`). `[data-aparte-chat]`
+   is the SAME selector core uses to resolve the host (see aparte-client /
+   aparte-chat-bubble), so one rule covers both — no wrapper-specific class. */
+aparte-chat,
+[data-aparte-chat] {
   display: flex;
   flex-direction: column;
   /* Fill the parent by default so the height:100% chain the inner scroll container
      relies on has a definite anchor. Size the element yourself — a height on it, or
      a sized parent. */
   height: 100%;
+  width: 100%;
   overflow: hidden;
 }
 
@@ -430,12 +437,14 @@ aparte-chat {
    default resolves against the shell's definite height above, and the inner
    .aparte-viewport-container keeps doing the scrolling (styled scrollbar, wheel,
    auto-scroll, scroll button all stay wired to it). */
-aparte-chat > aparte-chat-viewport {
+aparte-chat > aparte-chat-viewport,
+[data-aparte-chat] > aparte-chat-viewport {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-aparte-chat > aparte-composer {
+aparte-chat > aparte-composer,
+[data-aparte-chat] > aparte-composer {
   flex: 0 0 auto;
 }
 
@@ -2018,10 +2027,9 @@ aparte-composer-dictate .aparte-cd-button:hover {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Chat Container Layout Helper — opt-in "centered composer when empty"
-   Opt in by adding the `--auto-center` modifier to `.aparte-chat-container`
-   (the framework wrappers do this from their `centerWhenEmpty` prop). Consumers
-   that never opt in are byte-for-byte unaffected — none of these rules match.
+   Opt-in "centered composer when empty" — add the `--auto-center` modifier
+   (the wrappers do this from their `centerWhenEmpty` prop). Consumers that never
+   opt in keep just the base layout above.
 
    Empty  → the [welcome + composer] group sits vertically centered.
    Active → on the first message the list grows and the composer slides to the

@@ -234,22 +234,3 @@ defineExpose({
     </aparte-composer>
   </div>
 </template>
-
-<style scoped>
-.aparte-chat-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-
-aparte-chat-viewport {
-  flex: 1;
-  min-height: 0;
-}
-
-aparte-composer {
-  flex-shrink: 0;
-}
-</style>
