@@ -19,6 +19,7 @@ export { AparteUi };
 export type {
     AparteMessage,
     AparteSendEventDetail,
+    AparteActionEventDetail,
     AparteSegment,
     AparteTextSegment,
     AparteCodeSegment,

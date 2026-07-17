@@ -17,6 +17,7 @@ export { default as AparteUi } from './AparteUi.svelte';
 export type {
     AparteMessage,
     AparteSendEventDetail,
+    AparteActionEventDetail,
     AparteSegment,
     AparteTextSegment,
     AparteCodeSegment,

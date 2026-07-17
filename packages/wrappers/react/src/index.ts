@@ -21,6 +21,7 @@ export type { AparteUiProps, AparteUiHandle } from './components/AparteUi.js';
 export type {
     AparteMessage,
     AparteSendEventDetail,
+    AparteActionEventDetail,
     AparteSegment,
     AparteTextSegment,
     AparteCodeSegment,
