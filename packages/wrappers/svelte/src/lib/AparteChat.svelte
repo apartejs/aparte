@@ -175,6 +175,12 @@
   export function scrollToBottom() {
     (viewportRef as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.();
   }
+  /**
+   * The `<aparte-chat-viewport>` element — for custom scroll handling, an
+   * IntersectionObserver, etc. Parity with React's handle `viewport`, Vue's
+   * exposed `viewport` and Angular's `viewportRef`.
+   */
+  export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
   export function focusInput() {
     (composerRef as unknown as { focus?: () => void })?.focus?.();
   }
