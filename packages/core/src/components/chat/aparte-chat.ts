@@ -69,6 +69,13 @@ export class AparteChat extends HTMLElement {
   }
 
   private _render(): void {
+    // A framework wrapper renders the composition itself — and its children do not
+    // exist yet when this runs (the element is upgraded on insert, before the
+    // framework's template renders), so the viewport check below can't see them.
+    // `framework-managed` is the wrapper's explicit "hands off" signal: without it
+    // the default composition below would be injected UNDER the framework's own.
+    if (this.hasAttribute('framework-managed')) return;
+
     // Author-provided composition wins — if a viewport is already inside, use the
     // children as given and only lay them out (via CSS). Otherwise fill in a
     // default viewport + composer so the empty tag "just works".

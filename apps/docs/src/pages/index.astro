@@ -219,8 +219,9 @@ import '../styles/landing.css';
           '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/svelte\'</span>;\n\n' +
           '<span class="tg">&lt;AparteChat</span> {transport} <span class="tg">/&gt;</span>',
         angular:
-          '<span class="cm">// import AparteModule once, then</span>\n' +
-          '<span class="tg">&lt;aparte-chat</span> [transport]="backend"<span class="tg">&gt;&lt;/aparte-chat&gt;</span>',
+          '<span class="cm">// provideAparte() once at bootstrap, then</span>\n' +
+          '<span class="kw">import</span> { AparteChatComponent } <span class="kw">from</span> <span class="st">\'@aparte/angular\'</span>;\n\n' +
+          '<span class="tg">&lt;aparte-chat</span> [messages]="messages"<span class="tg">&gt;&lt;/aparte-chat&gt;</span>',
       };
       const snip = document.getElementById('snippet')!;
       const render = (fw: string) => { snip.innerHTML = snippets[fw]; };

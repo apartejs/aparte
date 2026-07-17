@@ -22,6 +22,19 @@ describe('AparteChat', () => {
     el.remove();
   });
 
+  it('composes nothing of its own when [framework-managed] (a wrapper owns the children)', () => {
+    // The Angular wrapper's component selector IS this tag, so core upgrades its
+    // host element. Its children only render AFTER connectedCallback, so the
+    // "author-provided composition wins" check below can't see them yet —
+    // `framework-managed` is the wrapper's explicit hands-off signal. Without it
+    // the default composition lands UNDERNEATH the framework's own.
+    const el = mount({ 'framework-managed': '' });
+    expect(el.querySelector('aparte-chat-viewport')).toBeNull();
+    expect(el.querySelector('aparte-composer')).toBeNull();
+    expect(el.innerHTML.trim()).toBe('');
+    el.remove();
+  });
+
   it('forwards placeholder to the inner composer', () => {
     const el = mount({ placeholder: 'Ask me anything…' });
     expect(el.querySelector('aparte-composer')!.getAttribute('placeholder')).toBe('Ask me anything…');

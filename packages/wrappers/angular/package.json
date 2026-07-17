@@ -1,0 +1,68 @@
+{
+  "name": "@aparte/angular",
+  "version": "0.1.0",
+  "description": "Angular 19 wrapper for aparté — an ergonomic <aparte-chat> component plus services over the framework-agnostic web components.",
+  "type": "module",
+  "sideEffects": false,
+  "module": "./dist/fesm2022/aparte-angular.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": { "default": "./package.json" },
+    ".": {
+      "@aparte-workspace/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/fesm2022/aparte-angular.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "@angular/common": "^19.2.0",
+    "@angular/core": "^19.2.0",
+    "@aparte/core": "workspace:*",
+    "rxjs": "^7.8.0"
+  },
+  "devDependencies": {
+    "@analogjs/vitest-angular": "^2.2.2",
+    "@angular/common": "^19.2.0",
+    "@angular/compiler": "^19.2.0",
+    "@angular/compiler-cli": "^19.2.0",
+    "@angular/core": "^19.2.0",
+    "@angular/platform-browser": "^19.2.0",
+    "@aparte/core": "workspace:*",
+    "jsdom": "^22.1.0",
+    "ng-packagr": "^19.2.0",
+    "rxjs": "^7.8.2",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0",
+    "zone.js": "~0.15.0"
+  },
+  "keywords": [
+    "angular",
+    "aparte",
+    "chat",
+    "ai",
+    "web-components"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apartejs/aparte.git",
+    "directory": "packages/wrappers/angular"
+  },
+  "bugs": {
+    "url": "https://github.com/apartejs/aparte/issues"
+  }
+}

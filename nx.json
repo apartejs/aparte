@@ -14,7 +14,7 @@
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
-      "exclude": ["apps/docs/**"],
+      "exclude": ["apps/docs/**", "packages/wrappers/angular/**"],
       "options": {
         "typecheck": {
           "targetName": "typecheck"

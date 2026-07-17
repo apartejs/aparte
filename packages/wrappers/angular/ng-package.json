@@ -1,0 +1,5 @@
+{
+    "$schema": "https://json.schemastore.org/ng-package.json",
+    "lib": { "entryFile": "src/index.ts" },
+    "dest": "./dist"
+}

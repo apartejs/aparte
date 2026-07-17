@@ -10,6 +10,7 @@
     { "path": "./packages/providers/ai/transformers" },
     { "path": "./packages/wrappers/react" },
     { "path": "./packages/wrappers/vue" },
-    { "path": "./packages/wrappers/svelte" }
+    { "path": "./packages/wrappers/svelte" },
+    { "path": "./packages/wrappers/angular" }
   ]
 }
