@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>aparté · demo-vanilla</title>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="brand">aparté <span>· demo-vanilla</span></div>
+        <p class="hint">
+          Proof the published <code>@aparte/core</code> works standalone — no framework, no build magic,
+          resolved through its <code>exports</code> map like any consumer. Type <b>delete</b> to trigger a
+          human-in-the-loop tool approval.
+        </p>
+      </header>
+      <aparte-chat center-empty placeholder="Type a message… (try &ldquo;delete&rdquo;)"></aparte-chat>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
