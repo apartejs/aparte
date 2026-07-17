@@ -1,5 +1,7 @@
 import {
+    DestroyRef,
     InjectionToken,
+    inject,
     makeEnvironmentProviders,
     provideAppInitializer,
     type EnvironmentProviders,
@@ -123,16 +125,20 @@ async function loadPlugins(options: ProvideAparteOptions): Promise<void> {
 }
 
 /** Reflect the theme mode on the document root. */
-function applyThemeMode(mode: 'light' | 'dark' | 'auto'): void {
+function applyThemeMode(mode: 'light' | 'dark' | 'auto', destroyRef: DestroyRef): void {
     if (mode !== 'auto') {
         document.documentElement.setAttribute('data-aparte-theme', mode);
         return;
     }
     const query = window.matchMedia('(prefers-color-scheme: dark)');
-    document.documentElement.setAttribute('data-aparte-theme', query.matches ? 'dark' : 'light');
-    query.addEventListener('change', (e) => {
+    const onChange = (e: MediaQueryListEvent) => {
         document.documentElement.setAttribute('data-aparte-theme', e.matches ? 'dark' : 'light');
-    });
+    };
+    document.documentElement.setAttribute('data-aparte-theme', query.matches ? 'dark' : 'light');
+    query.addEventListener('change', onChange);
+    // Released with the environment injector, so repeated bootstraps (TestBed, a
+    // multi-instance embed) don't stack listeners on the media query forever.
+    destroyRef.onDestroy(() => query.removeEventListener('change', onChange));
 }
 
 /**
@@ -159,6 +165,7 @@ export function provideAparte(options: ProvideAparteOptions = {}): EnvironmentPr
         { provide: APARTE_CONFIG_TOKEN, useValue: options },
         { provide: APARTE_CLIENT_OPTIONS, useValue: options.clientOptions ?? {} },
         provideAppInitializer(async () => {
+            const destroyRef = inject(DestroyRef);
             if (options.providers?.length) {
                 AparteConfig.registerAIProvider(...options.providers);
             }
@@ -170,7 +177,7 @@ export function provideAparte(options: ProvideAparteOptions = {}): EnvironmentPr
             }
             await loadPlugins(options);
             if (options.themeMode) {
-                applyThemeMode(options.themeMode);
+                applyThemeMode(options.themeMode, destroyRef);
             }
         }),
     ]);
