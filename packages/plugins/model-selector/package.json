@@ -1,0 +1,59 @@
+{
+  "name": "@aparte/plugin-model-selector",
+  "version": "0.1.0",
+  "description": "Provider + model selector web component (<aparte-model-selector>) for aparté — grouped dropdown, BYOK.",
+  "type": "module",
+  "sideEffects": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@aparte-workspace/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -b --emitDeclarationOnly --force",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "@aparte/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@aparte/core": "workspace:*",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^4.5.4"
+  },
+  "keywords": [
+    "aparte",
+    "plugin",
+    "model-selector",
+    "web-component",
+    "byok"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apartejs/aparte.git",
+    "directory": "packages/plugins/model-selector"
+  },
+  "bugs": {
+    "url": "https://github.com/apartejs/aparte/issues"
+  }
+}
