@@ -211,13 +211,13 @@ import '../styles/landing.css';
           '<span class="tg">&lt;aparte-chat&gt;&lt;/aparte-chat&gt;</span>',
         react:
           '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/react\'</span>;\n\n' +
-          '<span class="tg">&lt;AparteChat</span> transport={backend} <span class="tg">/&gt;</span>',
+          '<span class="tg">&lt;AparteChat</span> messages={messages} <span class="tg">/&gt;</span>',
         vue:
           '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/vue\'</span>;\n\n' +
-          '<span class="tg">&lt;AparteChat</span> :transport="backend" <span class="tg">/&gt;</span>',
+          '<span class="tg">&lt;AparteChat</span> :messages="messages" <span class="tg">/&gt;</span>',
         svelte:
           '<span class="kw">import</span> { AparteChat } <span class="kw">from</span> <span class="st">\'@aparte/svelte\'</span>;\n\n' +
-          '<span class="tg">&lt;AparteChat</span> {transport} <span class="tg">/&gt;</span>',
+          '<span class="tg">&lt;AparteChat</span> {messages} <span class="tg">/&gt;</span>',
         angular:
           '<span class="cm">// provideAparte() once at bootstrap, then</span>\n' +
           '<span class="kw">import</span> { AparteChatComponent } <span class="kw">from</span> <span class="st">\'@aparte/angular\'</span>;\n\n' +
