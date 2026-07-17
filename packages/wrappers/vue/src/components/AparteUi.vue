@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, toRaw } from 'vue';
 
 const p = defineProps<{
   /** The custom element tag name (e.g. 'aparte-chat-input'). */
@@ -35,13 +35,27 @@ const hostRef = ref<HTMLElement>();
 let el: HTMLElement | null = null;
 let cleanups: Array<() => void> = [];
 
+/**
+ * aparté elements are **attribute-driven** (`observedAttributes`): assigning a
+ * property is either a silent no-op (nothing observes it) or throws outright on a
+ * getter-only accessor — `<aparte-composer>`'s `placeholder`/`disabled` are exactly
+ * that. So primitives go through `setAttribute`; only values an attribute cannot
+ * carry (objects, functions) are handed over as properties.
+ */
 function applyProps() {
   if (!el) return;
   for (const [key, value] of Object.entries(p.props ?? {})) {
     if (key.startsWith('--')) el.style.setProperty(key, String(value));
-    else if (!(key.startsWith('on') && typeof value === 'function')) {
-      (el as unknown as Record<string, unknown>)[key] = value;
-    }
+    else if (key.startsWith('on') && typeof value === 'function') {
+      // Event handlers belong on `events` + the elementEvent emit, not here.
+    } else if (value === null || value === undefined || value === false) el.removeAttribute(key);
+    else if (value === true) el.setAttribute(key, '');
+    else if (typeof value === 'object' || typeof value === 'function') {
+      // Unwrap Vue's reactive proxy before handing it to a plain custom element:
+      // a deep proxy wraps Maps/class internals and breaks them (same reason
+      // <AparteChat> passes `toRaw(config)` to the host).
+      (el as unknown as Record<string, unknown>)[key] = toRaw(value);
+    } else el.setAttribute(key, String(value));
   }
 }
 

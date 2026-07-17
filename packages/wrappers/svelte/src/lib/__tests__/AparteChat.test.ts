@@ -163,16 +163,16 @@ describe('AparteChat.svelte', () => {
         (component as any).scrollToBottom();
     });
 
-    // NB: config forwarding is exercised end-to-end in the React and Vue wrapper
-    // suites (identical wiring). @testing-library/svelte's `render` here does not
-    // run `onMount`, so the host (and its `attachConfig`) never executes — see the
-    // SSR-safe test below — making a runtime resolveConfig() assertion impossible.
-    // The `config` prop's type is still validated by the Svelte build.
-    //
-    // The typed `action` and `typingChange` events are wired the same way (their
-    // dispatch runs from `onMount` / the host callbacks, which this harness skips);
-    // the identical forwarding is verified in the React and Vue suites, and the
-    // dispatch types are validated by the Svelte build.
+    // NB: @testing-library/svelte's `render` here does NOT run `onMount` — the
+    // SSR-safe test below depends on that. Everything this wrapper builds in
+    // `onMount` is therefore out of reach of this harness:
+    //   - the AparteChatHost binding (so `config`/`attachConfig`, the typed `action`
+    //     and `typingChange` events — all host-driven — cannot be asserted here),
+    //   - <AparteUi>, which creates its element in `onMount` too (hence no
+    //     AparteUi.test.ts in this package, unlike React/Vue/Angular).
+    // All of it is wired identically to the other three wrappers and verified in
+    // their suites; the types are validated by the Svelte build. Revisiting this
+    // harness (so onMount runs) would unlock real coverage here — see the ledger.
 
     it('does not generate the host id at render time — deferred to onMount (SSR-safe, #9)', () => {
         // This render is the SSR-equivalent (onMount does not run). The host id must be

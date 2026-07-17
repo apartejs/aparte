@@ -31,12 +31,27 @@ const DEFAULT_EVENTS = [
     'aparte:path-changed',
 ];
 
+/**
+ * aparté elements are **attribute-driven** (`observedAttributes`): assigning a
+ * property is either a silent no-op (nothing observes it) or throws outright on a
+ * getter-only accessor — `<aparte-composer>`'s `placeholder`/`disabled` are exactly
+ * that. So primitives go through `setAttribute`; only values an attribute cannot
+ * carry (objects, functions) are handed over as properties.
+ */
 function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
     for (const [key, value] of Object.entries(props)) {
         if (key.startsWith('--')) {
             el.style.setProperty(key, String(value));
-        } else if (!(key.startsWith('on') && typeof value === 'function')) {
+        } else if (key.startsWith('on') && typeof value === 'function') {
+            // Event handlers belong on `events` + onElementEvent, not here.
+        } else if (value === null || value === undefined || value === false) {
+            el.removeAttribute(key);
+        } else if (value === true) {
+            el.setAttribute(key, '');
+        } else if (typeof value === 'object' || typeof value === 'function') {
             (el as unknown as Record<string, unknown>)[key] = value;
+        } else {
+            el.setAttribute(key, String(value));
         }
     }
 }
