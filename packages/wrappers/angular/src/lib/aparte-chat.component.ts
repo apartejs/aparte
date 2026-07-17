@@ -15,6 +15,8 @@ import {
     TemplateRef,
     inject,
     effect,
+    booleanAttribute,
+    numberAttribute,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Observable } from 'rxjs';
@@ -165,12 +167,11 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
     /** Messages to display */
     @Input('messages') set messagesInput(val: AparteMessage[]) {
         this.messages.set(val);
-        // When messages are cleared (new conversation), reset the viewport repo
-        // and the host's render cache so the next conversation starts clean.
-        if (val.length === 0 && this.viewportRef) {
-            (this.viewportRef.nativeElement as unknown as { clearMessages?: () => void })?.clearMessages?.();
-            this._host?.clearRenderCache();
-        }
+        // When messages are cleared (new conversation), reset the host's render cache
+        // so the next conversation starts clean — same as React/Vue/Svelte do. (The
+        // viewport's own clearMessages() is @deprecated in core and only clears its
+        // repo; the host's clearAll() path already owns the real teardown.)
+        if (val.length === 0) this._host?.clearRenderCache();
     }
     readonly messages = signal<AparteMessage[]>([]);
 
@@ -179,11 +180,11 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
     readonly placeholder = signal<string>('Type a message...');
 
     /** Whether the input is disabled */
-    @Input('disabled') set disabledInput(val: boolean) { this.disabled.set(val); }
+    @Input({ alias: 'disabled', transform: booleanAttribute }) set disabledInput(val: boolean) { this.disabled.set(val); }
     readonly disabled = signal<boolean>(false);
 
     /** When false, Shift+Enter submits and a bare Enter inserts a newline. */
-    @Input('submitOnEnter') set submitOnEnterInput(val: boolean) { this.submitOnEnter.set(val); }
+    @Input({ alias: 'submitOnEnter', transform: booleanAttribute }) set submitOnEnterInput(val: boolean) { this.submitOnEnter.set(val); }
     readonly submitOnEnter = signal<boolean>(true);
 
     /**
@@ -193,11 +194,11 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
      * Off by default — additive (adds the `--auto-center` modifier + a
      * `data-aparte-empty` attribute the shipped `aparte.css` recipe keys off).
      */
-    @Input('centerWhenEmpty') set centerWhenEmptyInput(val: boolean) { this.centerWhenEmpty.set(val); }
+    @Input({ alias: 'centerWhenEmpty', transform: booleanAttribute }) set centerWhenEmptyInput(val: boolean) { this.centerWhenEmpty.set(val); }
     readonly centerWhenEmpty = signal<boolean>(false);
 
     /** Whether the assistant is currently typing/streaming */
-    @Input('isTyping') set isTypingInput(val: boolean) { this.isTyping.set(val); }
+    @Input({ alias: 'isTyping', transform: booleanAttribute }) set isTypingInput(val: boolean) { this.isTyping.set(val); }
     readonly isTyping = signal<boolean>(false);
 
     /** Text to show in the typing status */
@@ -205,7 +206,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
     readonly typingText = signal<string>('Assistant is thinking...');
 
     /** Duration in ms to freeze spacer recalculation after a conversation swap. */
-    @Input('layoutTransitionMs') layoutTransitionMs = 0;
+    @Input({ alias: 'layoutTransitionMs', transform: numberAttribute }) layoutTransitionMs = 0;
 
     /**
      * Active conversation id. When provided, the host attaches an

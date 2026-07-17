@@ -30,6 +30,14 @@ class CustomComposerHost { }
 })
 class BubbleTemplateHost { messages: AparteMessage[] = []; }
 
+// Host using the BARE boolean-attribute form — exactly what the docs/README show.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [messages]="[]" centerWhenEmpty disabled></aparte-chat>`,
+})
+class BareBooleanAttrHost { }
+
 // Mock browser APIs
 if (typeof window !== 'undefined' && typeof HTMLElement !== 'undefined' && !Object.prototype.hasOwnProperty.call(HTMLElement.prototype, 'scrollToBottom')) {
     (HTMLElement.prototype as unknown as Record<string, unknown>).scrollToBottom = vi.fn();
@@ -124,6 +132,42 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         const host = fixture.nativeElement as HTMLElement;
         expect(host.querySelector('.my-custom-composer')).not.toBeNull();
         expect(host.querySelector('.aparte-composer-shell')).toBeNull();
+    });
+
+    it('coerces BARE boolean attributes — the form the docs show — via booleanAttribute', async () => {
+        // Angular passes a bare attribute as the literal string '' (falsy), so without
+        // `transform: booleanAttribute` the documented `<aparte-chat centerWhenEmpty>`
+        // silently did nothing (and doesn't type-check under strictTemplates).
+        // React/Vue/Svelte all treat a bare boolean prop as true by framework convention.
+        const fixture = TestBed.createComponent(BareBooleanAttrHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const box = fixture.nativeElement.querySelector('.aparte-chat-container') as HTMLElement;
+        expect(box.classList.contains('aparte-chat-container--auto-center')).toBe(true);
+        expect(box.getAttribute('data-aparte-empty')).toBe('');
+        const composer = fixture.nativeElement.querySelector('aparte-composer') as HTMLElement;
+        expect(composer.hasAttribute('disabled')).toBe(true);
+    });
+
+    it('leaves the composer footer row empty when no footer slot is projected', async () => {
+        // Angular divergence, deliberate: React/Vue/Svelte omit the footer NODE
+        // entirely (they can test slot presence — $slots / $$slots / props). Angular
+        // has no equivalent for `<ng-content select="[slot=…]">`: content queries match
+        // directives, not CSS selectors, and the projected nodes aren't attached until
+        // the ng-content itself renders (so a "does anything project?" check would be
+        // circular). The row is therefore always rendered but stays EMPTY, and core's
+        // `.aparte-composer-footer:empty { display: none }` hides it — same visual
+        // result. This test locks that it really is empty (Angular strips template
+        // whitespace by default, so `:empty` genuinely matches).
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const footer = fixture.nativeElement.querySelector('.aparte-composer-footer') as HTMLElement;
+        expect(footer).not.toBeNull();
+        expect(footer.childNodes.length).toBe(0);
     });
 
     it('renders aparte-chat-status reflecting isTyping (parity with React/Vue/Svelte)', async () => {
