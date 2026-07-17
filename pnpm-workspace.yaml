@@ -9,5 +9,6 @@ packages:
   - 'packages/plugins/*'
   - 'packages/wrappers/*'
 
-  # Apps: docs (Starlight), playgrounds
+  # Apps: docs (Starlight), playgrounds (one runnable example per framework)
   - 'apps/*'
+  - 'apps/playgrounds/*'

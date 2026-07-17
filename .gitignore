@@ -39,3 +39,6 @@ Thumbs.db
 
 # Secrets / local env
 .env
+
+# Angular CLI cache
+.angular/
