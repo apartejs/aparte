@@ -13,6 +13,7 @@ export default defineConfig({
         // The wrapper renders REAL core web components, so resolve `@aparte/core`
         // from source (its custom elements register on import) and reuse core's
         // jsdom polyfills (ResizeObserver, …).
+        include: ['src/**/*.test.{ts,tsx}'],
         setupFiles: [resolve(__dirname, '../../core/vitest.setup.ts')],
         alias: {
             '@aparte/core': resolve(__dirname, '../../core/src/index.ts'),
