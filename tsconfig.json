@@ -11,6 +11,12 @@
     { "path": "./packages/wrappers/react" },
     { "path": "./packages/wrappers/vue" },
     { "path": "./packages/wrappers/svelte" },
-    { "path": "./packages/wrappers/angular" }
+    { "path": "./packages/wrappers/angular" },
+    { "path": "./packages/locales/fr" },
+    { "path": "./packages/plugins/marked" },
+    { "path": "./packages/plugins/streaming-markdown" },
+    { "path": "./packages/plugins/shiki" },
+    { "path": "./packages/plugins/model-selector" },
+    { "path": "./packages/plugins/ask-question" }
   ]
 }

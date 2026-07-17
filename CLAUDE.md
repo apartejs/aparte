@@ -41,10 +41,10 @@ apartejs/
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent + parity suites
-│   ├── locales/              @aparte/locale-en, @aparte/locale-fr
+│   ├── locales/              @aparte/locale-fr   (EN = core's built-in DEFAULT_LOCALE)
 │   ├── providers/            @aparte/provider-{openai-compat, ai-sdk, transformers}
-│   ├── plugins/              icons-default, skeleton-default, marked,
-│   │                         streaming-markdown, shiki, model-selector, ask-question
+│   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
+│   │                         model-selector (light), ask-question}
 │   └── wrappers/             @aparte/{react, vue, svelte, angular}
 └── nx.json
 ```

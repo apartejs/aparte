@@ -22,6 +22,7 @@ export default defineConfig({
           ],
         },
         { label: 'Frameworks', autogenerate: { directory: 'frameworks' } },
+        { label: 'Plugins', autogenerate: { directory: 'plugins' } },
         { label: 'Reference', autogenerate: { directory: 'reference' } },
       ],
     }),
