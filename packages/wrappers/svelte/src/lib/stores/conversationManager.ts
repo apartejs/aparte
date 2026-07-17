@@ -6,7 +6,7 @@ import {
     type AparteConversation,
     type AparteStorageAdapter,
 } from '@aparte/core';
-import type { AparteMessage } from '../types';
+import type { AparteMessage } from '../types.js';
 
 /**
  * Svelte-store wrapper around the core `ConversationManager`. The active

@@ -1,5 +1,5 @@
 import { writable, type Writable } from 'svelte/store';
-import type { AparteMessage, AparteSegment } from '../types';
+import type { AparteMessage, AparteSegment } from '../types.js';
 
 /** The imperative surface `<AparteChat>` exposes (its `export function`s). */
 export interface AparteChatInstance {
