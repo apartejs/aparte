@@ -21,14 +21,10 @@ skip the manual `@messages-change` → `messages` round-trip:
 
 ```vue
 <script setup lang="ts">
-import { AparteChat, useAparteChat, type AparteSendEventDetail } from '@aparte/vue';
+import { AparteChat, useAparteChat } from '@aparte/vue';
 import '@aparte/core/styles.css';
 
 const chat = useAparteChat();
-
-function onSend(e: AparteSendEventDetail) {
-  chat.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.content, timestamp: e.timestamp });
-}
 </script>
 
 <template>
@@ -37,12 +33,15 @@ function onSend(e: AparteSendEventDetail) {
     :messages="chat.messages.value"
     center-when-empty
     @messages-change="chat.onMessagesChange"
-    @message-sent="onSend"
   >
     <template #empty-state><p>Ask me anything…</p></template>
   </AparteChat>
 </template>
 ```
+
+The user's message is appended to the thread **automatically** on send — don't add it yourself.
+`@message-sent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
+a backend call).
 
 Slots are named slots: `empty-state`, `composer`, `above-composer`, `footer-left/center/right`, and
 the scoped `bubble` slot (`#bubble="{ message }"`) for a fully custom bubble. The imperative handle

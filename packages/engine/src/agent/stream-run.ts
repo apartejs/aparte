@@ -8,10 +8,10 @@
  * work** — it emits {@link StreamRunEvent}s (in `_streamLoop`'s exact order) that
  * an adapter in `@aparte/core` turns into `targetElement.*` calls.
  *
- * Parity target: `packages/ui/core/src/client/aparte-client.ts` `_streamLoop`.
+ * Parity target: `@aparte/core`'s `AparteClient._streamLoop`.
  * Scope: text · thinking · tool_use (+ HITL) · done · error · artifacts (raw /
  * XML / create_artifact) · multi-phase pipeline · synthetic toolChoice bypass.
- * Code-fence promotion stays adapter-side (needs the core parser) → É6.
+ * Code-fence promotion stays adapter-side (it needs the core parser).
  */
 
 import type {
@@ -143,7 +143,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // the SAME turn so the model answers with the tool result already in
         // history. (The adapter's tool-start handler injects renderer CSS here
         // too — a benign, idempotent gain over _streamLoop's synthetic path,
-        // which skipped it; reconciled in the É6 parity test.)
+        // which skipped it; reconciled in the parity test.)
         const toolChoice = baseRequest['toolChoice'];
         if (
             turns === 1 &&
@@ -446,6 +446,11 @@ async function invokeToolHandler(
     signal: AbortSignal,
     toolTimeoutMs: number,
 ): Promise<{ status: 'resolved'; content: string } | { status: 'aborted' }> {
+    // If the run was already aborted before we got here, don't invoke the
+    // handler at all: a past 'abort' event will never re-fire on the listener
+    // below, so the handler would otherwise run to completion despite cancel.
+    if (signal.aborted) return { status: 'aborted' };
+
     const controller = new AbortController();
     const onParentAbort = () => controller.abort();
     signal.addEventListener('abort', onParentAbort, { once: true });

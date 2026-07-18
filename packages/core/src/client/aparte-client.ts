@@ -99,12 +99,12 @@ export interface AparteClientOptions {
     compactionSelector?: AparteCompactionSelector;
 
     /**
-     * Optional headless stream-loop runner (Lot 3 seam). When set, `_streamLoop`
-     * delegates the agentic loop to it and renders via the core adapter
+     * Optional headless stream-loop runner. When set, `_streamLoop` delegates the
+     * agentic loop to it and renders via the core adapter
      * ({@link createStreamAdapter}); when absent, the built-in inline loop runs.
-     * `apps/home` injects `@aparte/engine`'s `runStreamAgent` here so the cloud
-     * path shares one tested loop — core stays the zero-dep leaf and never
-     * imports engine. Same injection pattern as {@link approvalResolver} /
+     * Inject `@aparte/engine`'s `runStreamAgent` here so a backend/cloud path
+     * shares one tested loop — core stays the zero-dep leaf and never imports
+     * engine. Same injection pattern as {@link approvalResolver} /
      * {@link compactionSelector}. See {@link AparteStreamRunner}.
      */
     streamRunner?: AparteStreamRunner;
@@ -1298,8 +1298,8 @@ export class AparteClient {
         const streamController = new AbortController();
         this._streamController = streamController;
 
-        // ── Injected stream runner (Lot 3 seam) ──────────────────────────────
-        // When a headless runner is injected (apps/home wires @aparte/engine's
+        // ── Injected stream runner ───────────────────────────────────────────
+        // When a headless runner is injected (e.g. @aparte/engine's
         // runStreamAgent), delegate the loop to it and render via the core
         // adapter. Absent → the inline loop below runs (core standalone,
         // zero-dep). Both paths produce the same targetElement calls (proven by
@@ -1845,8 +1845,8 @@ export class AparteClient {
     }
 
     /**
-     * Delegate `_streamLoop`'s agentic loop to an injected {@link AparteStreamRunner}
-     * (Lot 3 seam), rendering its DOM-free events through {@link createStreamAdapter}.
+     * Delegate `_streamLoop`'s agentic loop to an injected {@link AparteStreamRunner},
+     * rendering its DOM-free events through {@link createStreamAdapter}.
      * Builds the runner's dependencies from this client's config / provider /
      * transport; the adapter reproduces the inline loop's `targetElement.*` calls
      * (validated by the engine `stream-parity` suite). Leading writes (status

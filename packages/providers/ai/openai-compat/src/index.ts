@@ -317,14 +317,31 @@ export function parseOpenAICompatStream(
                             if (choice.finish_reason === 'tool_calls') {
                                 for (const entry of Object.values(toolCallsById)) {
                                     let input: Record<string, unknown> = {};
-                                    try { input = JSON.parse(entry.args); } catch { /* incomplete */ }
+                                    // finish_reason is 'tool_calls' → the model considers the call
+                                    // COMPLETE, so a parse failure here is malformed tool-call JSON
+                                    // (a real small-model failure), not partial streaming. Surface it
+                                    // instead of silently handing the tool `{}`.
+                                    try {
+                                        input = JSON.parse(entry.args);
+                                    } catch {
+                                        console.warn(
+                                            `[openai-compat] Tool "${entry.name}" returned malformed arguments JSON; ` +
+                                            `passing empty input. Raw:`, entry.args,
+                                        );
+                                    }
                                     const toolCall: AparteToolCall = { id: entry.id, name: entry.name, input };
                                     controller.enqueue({ type: 'tool_use', ...toolCall });
                                 }
                                 controller.enqueue({ type: 'done', usage: capturedUsage });
                                 return;
                             }
-                        } catch { /* skip partial JSON */ }
+                        } catch {
+                            // Every line here is a complete, newline-terminated SSE
+                            // line (see buffer split above), so a parse failure is an
+                            // unexpected/malformed server payload, not partial JSON —
+                            // log a breadcrumb instead of dropping it silently.
+                            console.warn('[openai-compat] Skipped an unparseable SSE data line:', raw);
+                        }
                     }
                 }
                 controller.enqueue({ type: 'done', usage: capturedUsage });

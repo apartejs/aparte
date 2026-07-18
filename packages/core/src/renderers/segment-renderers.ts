@@ -271,13 +271,13 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                 ${segment.filename
                     ? `<span class="code-filename">${escapeHtml(segment.filename)}</span>`
                     : `<span class="code-header-filler"></span>`}
-                <span class="code-language">${segment.language || ''}</span>
+                <span class="code-language">${escapeHtml(segment.language || '')}</span>
                 <button class="code-copy" data-action="copy" title="${contextConfig().t('copy')}">
                     ${contextConfig().getIcon('copy')}
                 </button>
             </div>
             <div class="code-content-wrapper">
-                <pre><code class="language-${segment.language || 'text'}">${escapeHtml(segment.content)}</code></pre>
+                <pre><code class="language-${escapeHtml(segment.language || 'text')}">${escapeHtml(segment.content)}</code></pre>
             </div>
         </div>
     `,
@@ -316,7 +316,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                 codeEl.textContent = segment.content;
             } else {
                 const wrapper = element.querySelector('.code-content-wrapper');
-                if (wrapper) wrapper.innerHTML = `<pre><code class="language-${segment.language || 'text'}">${escapeHtml(segment.content)}</code></pre>`;
+                if (wrapper) wrapper.innerHTML = `<pre><code class="language-${escapeHtml(segment.language || 'text')}">${escapeHtml(segment.content)}</code></pre>`;
             }
         } else {
             // Streaming complete — run the highlight provider for polished output.
@@ -450,7 +450,7 @@ const progressRenderer: AparteSegmentRenderer<AparteProgressSegment> = {
 function renderFileNode(node: AparteFileNode, depth = 0): string {
     const indent = depth * 16;
     const icon = node.type === 'directory' ? '📁' : '📄';
-    const statusClass = node.status ? `file-status-${node.status}` : '';
+    const statusClass = node.status ? `file-status-${escapeHtml(node.status)}` : '';
 
     let html = `<div class="file-node ${statusClass}" style="padding-left: ${indent}px"><span class="file-icon">${icon}</span><span class="file-name">${escapeHtml(node.name)}</span></div>`;
 
@@ -1495,7 +1495,7 @@ function showSandboxError(element: HTMLElement, phase: string, errorMsg: string)
     element.setAttribute('data-state', 'error');
 
     const sub = element.querySelector<HTMLElement>('[data-role="file-sub"]');
-    if (sub) sub.textContent = `Erreur (${phase})`;
+    if (sub) sub.textContent = `Error (${phase})`;
 
     const body = element.querySelector<HTMLElement>('.aparte-art-file__body');
     if (body) {
@@ -1503,9 +1503,9 @@ function showSandboxError(element: HTMLElement, phase: string, errorMsg: string)
         const short = (errorMsg.split('\n')[0] ?? '').slice(0, 240);
         body.innerHTML = `
             <div class="aparte-art-file__error">
-                <div class="aparte-art-file__error-title">Le sandbox a échoué pendant la génération.</div>
+                <div class="aparte-art-file__error-title">The sandbox failed during generation.</div>
                 <div class="aparte-art-file__error-msg">${escapeHtml(short)}</div>
-                <div class="aparte-art-file__error-hint">Cause fréquente : code généré incorrect par le modèle (variable non définie, mauvais type d'argument). Réessaye la requête, le modèle peut produire un code différent.</div>
+                <div class="aparte-art-file__error-hint">Common cause: the model produced invalid code (undefined variable, wrong argument type). Retry the request — the model may produce different code.</div>
             </div>
         `;
     }

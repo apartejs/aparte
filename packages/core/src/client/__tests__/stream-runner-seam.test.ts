@@ -4,8 +4,8 @@ import { AparteConfigClass } from '../../config/index.js';
 import type { AparteStreamRunner } from '../stream-adapter.js';
 
 /**
- * Lot 3 É6 — the `streamRunner` seam. Verifies `_streamLoop` delegates to an
- * injected headless runner (apps/home wires @aparte/engine's runStreamAgent) and
+ * The `streamRunner` seam. Verifies `_streamLoop` delegates to an injected
+ * headless runner (a consumer wires @aparte/engine's runStreamAgent) and
  * renders its events through the core adapter, WITHOUT touching the inline loop.
  * The runner↔adapter parity itself is proven in @aparte/engine's stream-parity
  * suite; here we prove the wiring (delegation, option pass-through, transport
@@ -37,7 +37,7 @@ const runLoop = (client: AparteClient, target: HTMLElement, cfg: AparteConfigCla
     (client as unknown as { _streamLoop: (t: unknown, id: string, p: unknown, r: unknown, a: unknown) => Promise<unknown> })
         ._streamLoop(target, 'assistant-1', cfg.getAIProvider('mock'), req, 'k');
 
-describe('AparteClient — streamRunner seam (Lot 3 E6)', () => {
+describe('AparteClient — streamRunner seam', () => {
     it('delegates the loop to the injected runner and renders its events (inline loop untouched)', async () => {
         const transportChat = vi.fn(async () => '');
         const cfg = makeConfig(transportChat);

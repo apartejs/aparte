@@ -28,14 +28,15 @@ import '@aparte/core/styles.css';
   standalone: true,
   imports: [AparteChatComponent],
   template: `
-    <aparte-chat [messages]="messages" (messageSent)="onSend($event)" (messagesChange)="messages = $event">
+    <aparte-chat (messagesChange)="messages = $event">
       <p slot="empty-state">Ask me anything…</p>
     </aparte-chat>
   `,
 })
 export class Chat {
+  // The chat owns its thread; observe via (messagesChange). The user's message is
+  // appended for you on send — don't push it back through [messages].
   messages: AparteMessage[] = [];
-  onSend(e: { content: string; timestamp: number }) { /* … */ }
 }
 ```
 

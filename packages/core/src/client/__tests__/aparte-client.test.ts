@@ -901,9 +901,9 @@ describe('AparteClient — API key resolution', () => {
     });
 });
 
-// ─── compaction selector seam (Lot 2.11) ────────────────────────────────────
+// ─── compaction selector seam ───────────────────────────────────────────────
 // compact() summarizes the *dropped* turns and keeps the rest verbatim. The
-// selection is injectable so the compaction badge (apps/home) and the action
+// selection is injectable so a compaction badge and the action
 // share one budget-aware selection; the default drops the whole history
 // (summarize all, replace all — the legacy behaviour).
 describe('AparteClient — compaction selector', () => {

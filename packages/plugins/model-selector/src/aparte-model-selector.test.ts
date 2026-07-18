@@ -41,6 +41,18 @@ describe('aparte-model-selector', () => {
         expect(sel.textContent).toContain('Gamma One');
     });
 
+    it('escapes a hostile remote model name (XSS) instead of injecting it', async () => {
+        // A model whose `name` came from a hostile/aggregating /models endpoint.
+        AparteConfig.registerAIProvider(fakeProvider('gamma', '<img src=x onerror=alert(1)>'));
+        const sel = await mountSelector(document.createElement('div'));
+
+        // No live <img>/<script> element must exist — the payload is inert text.
+        expect(sel.querySelector('img')).toBeNull();
+        expect(sel.querySelector('script')).toBeNull();
+        // The option carries the literal string as its text, not as markup.
+        expect(sel.textContent).toContain('<img src=x onerror=alert(1)>');
+    });
+
     it('emits aparte-model-change on a programmatic selection', async () => {
         AparteConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
         const sel = await mountSelector(document.createElement('div'));

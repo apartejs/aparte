@@ -72,10 +72,18 @@ export class AparteOptgroup extends HTMLElement {
                 const header = document.createElement('div');
                 header.className = 'aparte-optgroup-header';
                 header.setAttribute('aria-label', this.label);
-                header.innerHTML = `<span class="aparte-optgroup-label">${this.label}</span>`;
+                // `label` is an attribute value — with the model-selector it carries a
+                // provider-supplied name — so it goes through textContent, never
+                // innerHTML (a hostile name would otherwise inject here).
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'aparte-optgroup-label';
+                labelSpan.textContent = this.label;
+                header.appendChild(labelSpan);
 
                 if (this.collapsible) {
-                    header.innerHTML += `<span class="aparte-optgroup-chevron"></span>`;
+                    const chevron = document.createElement('span');
+                    chevron.className = 'aparte-optgroup-chevron';
+                    header.appendChild(chevron);
                     header.style.cursor = 'pointer';
                     header.addEventListener('click', (e) => {
                         e.stopPropagation();

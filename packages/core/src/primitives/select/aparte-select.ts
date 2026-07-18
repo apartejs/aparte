@@ -130,14 +130,16 @@ export class AparteSelect extends HTMLElement {
         trigger.setAttribute('role', 'combobox');
         trigger.setAttribute('aria-haspopup', 'listbox');
         trigger.setAttribute('aria-expanded', 'false');
-        trigger.innerHTML = `
-            <span class="aparte-select-label">${placeholder}</span>
-            <span class="aparte-select-chevron">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-                </svg>
-            </span>
-        `;
+        // The label is placeholder text (consumer/attribute-supplied) → textContent,
+        // same path as _updateTriggerLabel(), never innerHTML. Only the static SVG
+        // chevron uses innerHTML.
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'aparte-select-label';
+        labelSpan.textContent = placeholder;
+        const chevronSpan = document.createElement('span');
+        chevronSpan.className = 'aparte-select-chevron';
+        chevronSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`;
+        trigger.append(labelSpan, chevronSpan);
 
         const dropdown = document.createElement('div');
         dropdown.className = 'aparte-select-dropdown';

@@ -12,8 +12,8 @@
  * `@aparte/engine` (engine peer-deps core; importing back would create a build
  * cycle). So the run-event contract is **mirrored** here as
  * {@link AparteStreamRunEvent}, structurally identical to engine's `StreamRunEvent`.
- * `@aparte/engine`'s `runStreamAgent` emits objects that satisfy this type; the
- * consumer (apps/home) wires the two together via the injectable
+ * `@aparte/engine`'s `runStreamAgent` emits objects that satisfy this type; a
+ * consumer wires the two together via the injectable
  * `AparteClientOptions.streamRunner` seam — the same pattern as `approvalResolver`
  * (HITL) and `compactionSelector`. Keep the two unions in sync by hand.
  */
@@ -87,7 +87,7 @@ export interface AparteStreamRunOptions {
 
 /**
  * A headless structured-stream loop injected via `AparteClientOptions.streamRunner`
- * — the seam by which `apps/home` swaps `_streamLoop`'s inline loop for
+ * — the seam by which a consumer swaps `_streamLoop`'s inline loop for
  * `@aparte/engine`'s `runStreamAgent` (core stays the zero-dep leaf; it never
  * imports engine). Structurally identical to `runStreamAgent`; wire it with a
  * cast at the injection site if the duck-typed shapes don't line up exactly.

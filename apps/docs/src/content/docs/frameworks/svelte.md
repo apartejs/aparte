@@ -35,11 +35,14 @@ bind the store and connect the component with `bind:this`:
   messages={$messages}
   centerWhenEmpty
   on:messagesChange={(e) => chat.onMessagesChange(e.detail)}
-  on:messageSent={(e) => chat.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.detail.content, timestamp: e.detail.timestamp })}
 >
   <p slot="empty-state">Ask me anything…</p>
 </AparteChat>
 ```
+
+The user's message is appended to the thread **automatically** on send — don't add it yourself.
+`on:messageSent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
+a backend call).
 
 Slots are named slots: `empty-state`, `composer`, `above-composer`, `footer-left/center/right`, and
 the `bubble` slot (`<div slot="bubble" let:message>`) for a fully custom bubble. Every imperative

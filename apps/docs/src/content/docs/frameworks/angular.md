@@ -20,32 +20,23 @@ The components are **standalone** — import them directly, no NgModule:
 
 ```ts
 import { Component } from '@angular/core';
-import { AparteChatComponent, type AparteMessage, type AparteSendEventDetail } from '@aparte/angular';
+import { AparteChatComponent, type AparteMessage } from '@aparte/angular';
 import '@aparte/core/styles.css';
 
 @Component({
   standalone: true,
   imports: [AparteChatComponent],
   template: `
-    <aparte-chat
-      [messages]="messages"
-      centerWhenEmpty
-      (messageSent)="onSend($event)"
-      (messagesChange)="messages = $event"
-    >
+    <aparte-chat centerWhenEmpty (messagesChange)="messages = $event">
       <p slot="empty-state">Ask me anything…</p>
     </aparte-chat>
   `,
 })
 export class Chat {
+  // The chat owns its thread. Observe it via (messagesChange) — do NOT push it
+  // back through [messages]: the user's message is appended for you on send, so
+  // re-adding it in a (messageSent) handler double-counts it.
   messages: AparteMessage[] = [];
-
-  onSend(e: AparteSendEventDetail) {
-    this.messages = [
-      ...this.messages,
-      { id: crypto.randomUUID(), role: 'user', content: e.content, timestamp: e.timestamp },
-    ];
-  }
 }
 ```
 

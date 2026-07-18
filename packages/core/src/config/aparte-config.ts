@@ -362,6 +362,8 @@ export class AparteConfigClass {
      */
     setAvatarProvider(provider: AparteAvatarProvider | null): void {
         this._avatarProvider = provider ?? undefined;
+        // Notify like every other live-renderer swap so mounted bubbles re-render.
+        this._notify();
     }
 
     /** Returns the registered avatar provider, or null if none. */
@@ -458,6 +460,9 @@ export class AparteConfigClass {
      */
     setLocale(locale: AparteLocale): void {
         this._locale = locale;
+        // A runtime language switch must propagate to already-mounted components,
+        // same as every other live setter.
+        this._notify();
     }
 
     /**
@@ -474,6 +479,7 @@ export class AparteConfigClass {
      */
     extendLocale(translations: Partial<AparteLocale>): void {
         this._locale = { ...this._locale, ...translations };
+        this._notify();
     }
 
     /**
@@ -509,7 +515,7 @@ export class AparteConfigClass {
      * Orchestrates: Key Retrieval -> Fetch -> Return
      * This keeps UI components unaware of keys.
      */
-    async refreshProviderModels(providerId: string): Promise<any[]> {
+    async refreshProviderModels(providerId: string): Promise<AparteAIModel[]> {
         const provider = this._aiProviders.get(providerId);
         if (!provider || !provider.fetchModels) return [];
 
@@ -642,7 +648,13 @@ export class AparteConfigClass {
     }
 
     private _notify(): void {
-        this._listeners.forEach(cb => cb());
+        // Each listener is isolated: one throwing/slow subscriber must not abort
+        // the loop and starve the others of the notification.
+        this._listeners.forEach(cb => {
+            try { cb(); } catch (err) {
+                console.error('[AparteConfig] A config-change listener threw', err);
+            }
+        });
         // Also dispatch a browser event for maximum agnosticism. `config` lets
         // listeners ignore changes to a config that isn't theirs — components
         // resolving to a different instance (or the global) skip the rebuild

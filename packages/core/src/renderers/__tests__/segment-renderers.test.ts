@@ -97,6 +97,23 @@ describe('Segment Renderers', () => {
             const html = renderer.render(seg as any);
             expect(html).toContain('const x = 1;');
         });
+
+        it('escapes a prompt-injected language tag (XSS) in both text and attribute positions', () => {
+            const renderer = getSegmentRenderer('code')!;
+            // `language` is the ```lang fence tag — LLM-authored, hostile-by-default.
+            const seg = {
+                id: 'xss',
+                type: 'code',
+                content: 'x',
+                language: '</span><img src=x onerror=alert(1)>"><script>alert(2)</script>',
+            };
+            const html = renderer.render(seg as any);
+            expect(html).not.toContain('<img src=x onerror=');
+            expect(html).not.toContain('<script>alert(2)');
+            // The class="language-…" attribute must not be broken out of.
+            expect(html).not.toContain('"><script>');
+            expect(html).toContain('&lt;img src=x onerror=');
+        });
     });
 
     describe('default renderer: thinking', () => {

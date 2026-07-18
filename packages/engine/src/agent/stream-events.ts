@@ -19,8 +19,7 @@
  * SCOPE: text · thinking · tool_use (+ HITL approval) · done · error · artifacts
  * (raw / XML state machine / create_artifact) · multi-phase pipeline · synthetic
  * toolChoice bypass. Code-fence promotion is the only `_streamLoop` mechanism
- * left out here — it is adapter-side (it needs the core parser) and lands with
- * the É6 bascule.
+ * left out here — it is adapter-side (it needs the core parser).
  */
 
 // ─── Duck-typed mirrors of @aparte/core (structural — NO import) ───────────────

@@ -31,7 +31,7 @@ export interface AparteFormatAdapter {
     id: string;
     /** Base URL for browser-direct calls (overridable per request via config). */
     defaultEndpoint: string;
-    /** Map an Aparte request to the vendor HTTP request (sans auth). */
+    /** Map an Aparte request to the vendor HTTP request (without auth). */
     buildRequest(request: AparteChatRequest): AparteVendorRequest;
     /** Vendor auth headers for a resolved key (browser-direct only). Most vendors. */
     authHeaders?(key: string): Record<string, string>;

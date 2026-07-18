@@ -10,14 +10,10 @@ npm install @aparte/vue @aparte/core vue
 
 ```vue
 <script setup lang="ts">
-import { AparteChat, useAparteChat, type AparteSendEventDetail } from '@aparte/vue';
+import { AparteChat, useAparteChat } from '@aparte/vue';
 import '@aparte/core/styles.css';
 
 const chat = useAparteChat();
-
-function onSend(e: AparteSendEventDetail) {
-  chat.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.content, timestamp: e.timestamp });
-}
 </script>
 
 <template>
@@ -25,10 +21,12 @@ function onSend(e: AparteSendEventDetail) {
     :ref="chat.chatRef"
     :messages="chat.messages.value"
     @messages-change="chat.onMessagesChange"
-    @message-sent="onSend"
   />
 </template>
 ```
+
+The user's message is appended automatically on send — don't add it yourself. `@message-sent` is
+optional and only for side-effects (scroll, analytics).
 
 `@aparte/core` and `vue` are **peer dependencies**. For any `<aparte-*>` element without a dedicated
 component, the generic `<AparteUi name="aparte-…" />` escape hatch mounts it.

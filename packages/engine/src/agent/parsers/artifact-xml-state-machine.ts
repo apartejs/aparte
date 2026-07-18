@@ -47,7 +47,7 @@ const INLINE_MAX_LINES = 15;
  * Map an artifact mimeType to a renderer kind. Byte-identical copy of core's
  * canonical `deriveArtifactKind` (parsers/aparte-stream-parser.ts) — the
  * duplicate stays because `@aparte/core` is an OPTIONAL peer of the engine, so
- * no runtime import is possible (plan Lot 3 §E2). Kept in sync mechanically by
+ * no runtime import is possible. Kept in sync mechanically by
  * `__tests__/derive-artifact-kind-parity.test.ts`.
  */
 export function deriveArtifactKind(mimeType: string, fallback = 'unknown'): string {

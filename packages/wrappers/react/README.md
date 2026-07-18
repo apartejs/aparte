@@ -19,13 +19,13 @@ function Chat() {
       ref={chat.ref}
       messages={chat.messages}
       onMessagesChange={chat.setMessages}
-      onMessageSent={(e) =>
-        chat.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.content, timestamp: e.timestamp })
-      }
     />
   );
 }
 ```
+
+The user's message is appended automatically on send — don't add it yourself. `onMessageSent` is
+optional and only for side-effects (scroll, analytics).
 
 `@aparte/core`, `react` and `react-dom` are **peer dependencies**. For any `<aparte-*>` element
 without a dedicated component, the generic `<AparteUi name="aparte-…" />` escape hatch mounts it.

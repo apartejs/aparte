@@ -31,6 +31,20 @@ interface ProviderModels {
     models: AparteAIModel[];
 }
 
+/**
+ * Escape a value before it is interpolated into an HTML string (text node or
+ * double-quoted attribute). Model names/ids come from a remote `/models`
+ * endpoint and provider labels from consumer config — both hostile-by-default,
+ * and both flow through `innerHTML` when the option list is (re)built.
+ */
+function esc(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 export class AparteModelSelector extends HTMLElement {
     private _currentProviderId: string | null = null;
     private _currentModelId: string | null = null;
@@ -250,20 +264,20 @@ export class AparteModelSelector extends HTMLElement {
         const optionsHtml = singleProvider
             ? this._providerModels[0].models.map(m => {
                 const key = `${this._providerModels[0].provider.id}::${m.id}`;
-                return `<aparte-option value="${key}">${m.name}</aparte-option>`;
+                return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
             }).join('')
             : this._providerModels.map(pm => {
                 const label = pm.provider.getMetadata().name;
                 const isCollapsed = !this._expandedGroups.has(label);
                 return `
                     <aparte-optgroup
-                        label="${label}"
+                        label="${esc(label)}"
                         collapsible
                         ${isCollapsed ? 'collapsed' : ''}
                     >
                         ${pm.models.map(m => {
                             const key = `${pm.provider.id}::${m.id}`;
-                            return `<aparte-option value="${key}">${m.name}</aparte-option>`;
+                            return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
                         }).join('')}
                     </aparte-optgroup>
                 `;
@@ -324,8 +338,8 @@ export class AparteModelSelector extends HTMLElement {
             this.innerHTML = `
                 <aparte-select
                     class="aparte-model-selector-select"
-                    placeholder="${placeholder}"
-                    ${currentValue ? `value="${currentValue}"` : ''}
+                    placeholder="${esc(placeholder)}"
+                    ${currentValue ? `value="${esc(currentValue)}"` : ''}
                     ${searchable ? 'searchable' : ''}
                     ${wasOpen ? 'open' : ''}
                     ${!singleProvider ? 'grouped' : ''}

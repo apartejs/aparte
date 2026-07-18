@@ -362,7 +362,7 @@ describe('AparteConversationController', () => {
     // ─── Race condition: manager-hydrating + setConversationId ────────────
     //
     // Regression test for the "[ConversationController] unknown id" bug
-    // observed in apps/home (2026-05-11):
+    // observed in a consumer app:
     //   1. <aparte-chat> mounts with [conversationId]=id (from router).
     //   2. ConversationManagerService.init() is still hydrating from IndexedDB
     //      → manager.conversations is [] at this instant.
@@ -396,7 +396,7 @@ describe('AparteConversationController', () => {
             };
             // Bypass `manager.init()` so the manager is in the "constructed
             // but not hydrated" state — exactly the window where the bug
-            // happens in apps/home (Angular APP_INITIALIZER race).
+            // happens in a consumer app (Angular APP_INITIALIZER race).
             adapter.store.set(seededId, seeded);
             const freshManager = new ConversationManager(adapter);
             // Note: NO `await freshManager.init()` here.

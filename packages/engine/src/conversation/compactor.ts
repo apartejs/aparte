@@ -1,5 +1,5 @@
 /**
- * conversation/compactor.ts — Budget adaptatif + assemblage du context window.
+ * conversation/compactor.ts — adaptive budgeting + context-window assembly.
  *
  * Conversation history budgeting and sliding-window assembly —
  * framework-free and tokenizer-free (char-count heuristic).
@@ -8,18 +8,18 @@
  *   Budget = CONTEXT_WINDOW − systemPrompt − tools − reservedThinking
  *                          − reservedGeneration − autocompactBuffer − safetyMargin
  *
- * Le budget historique est ensuite divisé en :
- *   - summary    (résumé global, LLM-generated, ~10%)
- *   - ragHist    (turns anciens retrieved par cosine, ~25%)
- *   - window     (sliding window verbatim, le reste)
+ * The history budget is then split into:
+ *   - summary    (global summary, LLM-generated, ~10%)
+ *   - ragHist    (older turns retrieved by cosine similarity, ~25%)
+ *   - window     (verbatim sliding window, the rest)
  *
- * Priorité de drop si overflow :
- *   1. summary    (régénérable async)
- *   2. ragHist    (retrievable au prochain turn)
+ * Drop priority on overflow:
+ *   1. summary    (async-regenerable)
+ *   2. ragHist    (retrievable on the next turn)
  *   3. window oldest turns
- *   X. NEVER dropped : currentUser + lastAssistant (working memory absolue)
+ *   X. NEVER dropped: currentUser + lastAssistant (absolute working memory)
  *
- * Browser-portable : zero deps, just an estimateTokens heuristic.
+ * Browser-portable: zero deps, just an estimateTokens heuristic.
  */
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ export interface RetrievedTurn {
 export interface CompactionConfig {
     /** Total context window of the active model, in tokens. */
     contextWindow: number;
-    /** Reserved budget for the thinking block (LFM2.5-Thinking). */
+    /** Reserved budget for the model's thinking/reasoning block, in tokens. */
     reservedThinking: number;
     /** Reserved budget for the assistant response (max_new_tokens cap). */
     reservedGeneration: number;
@@ -157,9 +157,9 @@ export const DEFAULT_COMPACTION_CONFIG: CompactionConfig = {
 // ─── Token estimation ──────────────────────────────────────────────────────
 
 /**
- * Heuristique tokens (FR ~3.5 chars/tok, EN ~4 chars/tok).
- * Précision ±10%, suffisante pour budgeting.
- * Évite tokenizer.encode() qui coûte ~5ms par message × N = lent.
+ * Token heuristic (FR ~3.5 chars/tok, EN ~4 chars/tok).
+ * Accurate to ±10% — enough for budgeting, and it avoids `tokenizer.encode()`,
+ * which costs ~5ms per message × N (too slow to run on every turn).
  */
 export function estimateTokens(text: string | null | undefined): number {
     if (!text) return 0;
@@ -276,7 +276,7 @@ export function assembleCompacted(params: AssembleParams): AssembleResult {
     const used: UsageBreakdown = { system: 0, summary: 0, ragHist: 0, window: 0 };
     const dropped: DroppedBreakdown = { ragHits: 0, oldTurns: 0, summary: false };
 
-    // System message en tête
+    // System message first
     if (systemContent) {
         out.push({ role: 'system', content: systemContent });
         used.system = estimateTokens(systemContent);

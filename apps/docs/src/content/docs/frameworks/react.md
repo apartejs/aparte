@@ -29,15 +29,16 @@ export function Chat() {
       ref={chat.ref}
       messages={chat.messages}
       onMessagesChange={chat.setMessages}
-      onMessageSent={(e) =>
-        chat.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.content, timestamp: e.timestamp })
-      }
       emptyState={<p>Ask me anything…</p>}
       centerWhenEmpty
     />
   );
 }
 ```
+
+The user's message is appended to the thread **automatically** on send — don't add it yourself.
+`onMessageSent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
+a backend call).
 
 Slots are plain props: `emptyState`, `composer`, `aboveComposer`, `footerLeft/Center/Right`, and
 `renderBubble` for a fully custom bubble. The imperative handle (`chat.ref`) exposes streaming,
