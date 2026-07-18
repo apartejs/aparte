@@ -397,6 +397,53 @@ export class AparteClient {
     }
 
     /**
+     * The shared tail of send / retry / edit: attach the current tools, run the
+     * request interceptor, honour `toolChoice: 'none'`, reset the abort flag,
+     * dispatch `aparte-message-start`, run the agentic `_streamLoop`, then dispatch
+     * `aparte-message-done` or route the error to the lifecycle handler.
+     *
+     * Callers own only their turn-specific prep (target resolution, history
+     * building, appending the assistant placeholder) and hand the fully-built
+     * `messages` here — one place for the provider→interceptor→toolChoice→stream
+     * sequence, so it can't drift between the three entry points.
+     */
+    private async _streamTurn(
+        targetElement: AparteChatTargetElement,
+        messageId: string,
+        provider: AparteAIProvider,
+        messages: AparteChatMessage[],
+        modelId: string,
+        authConfig: string | Record<string, string> | undefined,
+        opts?: { temperature?: number },
+    ): Promise<void> {
+        const registeredTools = this._toolsForCurrentModel();
+        let baseRequest: AparteChatRequest = {
+            messages,
+            modelId,
+            stream: true,
+            tools: registeredTools.length ? registeredTools : undefined,
+            ...(opts?.temperature !== undefined ? { temperature: opts.temperature } : {}),
+        };
+        if (this.options.requestInterceptor) {
+            baseRequest = await this.options.requestInterceptor(baseRequest);
+        }
+        // toolChoice: 'none' — strip tools so the model never sees them.
+        if (baseRequest.toolChoice === 'none') {
+            baseRequest = { ...baseRequest, tools: undefined };
+        }
+
+        this._isAborted = false;
+        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
+        try {
+            const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
+            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
+        } catch (error: unknown) {
+            const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
+            this._handleLifecycleError(targetElement, messageId, aparteError);
+        }
+    }
+
+    /**
      * Compact the current conversation: summarize all messages via the AI,
      * clear the viewport, then inject the summary as a single context message.
      *
@@ -613,38 +660,14 @@ export class AparteClient {
         const userSystemPrompt = this._config.resolveSystemPrompt();
         if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
 
-        const registeredTools = this._toolsForCurrentModel();
-
-        let baseRequest: AparteChatRequest = {
-            messages: [...systemMessages, ...chatMessages],
-            modelId: config.defaultModel || '',
-            stream: true,
-            tools: registeredTools.length ? registeredTools : undefined,
-            // A retry must produce a DIFFERENT answer. Greedy decoding is a
-            // pure function of the input — a re-run is byte-identical — so the
-            // retry opts into sampling: temperature > 0 makes the worker turn
-            // on do_sample. Variation comes from the in-decoder RNG; no seed
-            // needed (and JS Math.random() isn't seedable anyway).
-            temperature: 0.4,
-        };
-
-        if (this.options.requestInterceptor) {
-            baseRequest = await this.options.requestInterceptor(baseRequest);
-        }
-        if (baseRequest.toolChoice === 'none') {
-            baseRequest = { ...baseRequest, tools: undefined };
-        }
-
-        this._isAborted = false;
-        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId: newMessageId, role: 'assistant' });
-
-        try {
-            const usage = await this._streamLoop(targetElement, newMessageId, provider, baseRequest, authConfig);
-            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId: newMessageId, role: 'assistant', usage });
-        } catch (error: any) {
-            const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
-            this._handleLifecycleError(targetElement, newMessageId, aparteError);
-        }
+        // Retry must produce a DIFFERENT answer than the greedy (byte-identical)
+        // re-run: temperature > 0 opts into sampling (the worker turns on
+        // do_sample); variation comes from the in-decoder RNG, no seed needed.
+        await this._streamTurn(
+            targetElement, newMessageId, provider,
+            [...systemMessages, ...chatMessages], config.defaultModel || '',
+            authConfig, { temperature: 0.4 },
+        );
     }
 
     /**
@@ -700,8 +723,6 @@ export class AparteClient {
         const userSystemPrompt = this._config.resolveSystemPrompt();
         if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
 
-        const registeredTools = this._toolsForCurrentModel();
-
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
         if (!providerId) return;
@@ -719,30 +740,11 @@ export class AparteClient {
             timestamp: Date.now()
         });
 
-        let baseRequest: AparteChatRequest = {
-            messages: [...systemMessages, ...chatMessages],
-            modelId: config.defaultModel || '',
-            stream: true,
-            tools: registeredTools.length ? registeredTools : undefined
-        };
-
-        if (this.options.requestInterceptor) {
-            baseRequest = await this.options.requestInterceptor(baseRequest);
-        }
-        if (baseRequest.toolChoice === 'none') {
-            baseRequest = { ...baseRequest, tools: undefined };
-        }
-
-        this._isAborted = false;
-        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId: newMessageId, role: 'assistant' });
-
-        try {
-            const usage = await this._streamLoop(targetElement, newMessageId, provider, baseRequest, authConfig);
-            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId: newMessageId, role: 'assistant', usage });
-        } catch (error: any) {
-            const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
-            this._handleLifecycleError(targetElement, newMessageId, aparteError);
-        }
+        await this._streamTurn(
+            targetElement, newMessageId, provider,
+            [...systemMessages, ...chatMessages], config.defaultModel || '',
+            authConfig,
+        );
     }
 
     /**
@@ -911,26 +913,16 @@ export class AparteClient {
             timestamp: Date.now()
         });
 
-        // Notify Start
-        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
-
+        // Resolve auth + build the request (key channel + file injection are
+        // send-specific). A failure here routes to the lifecycle error exactly
+        // like a stream failure inside _streamTurn.
+        let authConfig: string | Record<string, string> | undefined;
+        let messages: AparteChatMessage[];
         try {
-            // 3. Resolve Keys
-            let authConfig: string | Record<string, string> | undefined;
-            if (this.options.keyResolver) {
-                const resolved = await this.options.keyResolver(providerId);
-                if (resolved) authConfig = resolved;
-            }
-            // Fallback to the AparteConfig key channel (setKeyProvider) so a key
-            // registered there actually reaches the chat — one key source on the happy path.
-            if (authConfig === undefined) {
-                const key = await this._config.getKey(providerId);
-                if (key) authConfig = key;
-            }
+            authConfig = await this._resolveAuth(providerId);
 
-            // 4. Build base request
             const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
-            // rawFileInject controls what reaches the LLM as raw content :
+            // rawFileInject controls what reaches the LLM as raw content:
             //   'none'        → nothing inline. RAG handles all file types (incl. images).
             //   'images-only' → images inline, text/docs to RAG via requestInterceptor.
             //   'all' (default) → images + text files inline. Default for cloud SaaS providers.
@@ -939,35 +931,17 @@ export class AparteClient {
                 this.options.rawFileInject === 'images-only' ? rawFiles.filter(f => f.type.startsWith('image/')) :
                 rawFiles;
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
-            const registeredTools = this._toolsForCurrentModel();
-
-            let baseRequest: AparteChatRequest = {
-                messages: this._buildMessages(content, targetElement, contentParts.length > 0 ? contentParts : undefined),
-                modelId: modelId || config.defaultModel || '',
-                stream: true,
-                tools: registeredTools.length ? registeredTools : undefined
-            };
-
-            if (this.options.requestInterceptor) {
-                baseRequest = await this.options.requestInterceptor(baseRequest);
-            }
-
-            // Apply toolChoice: 'none' — strip tools so the model never sees them
-            if (baseRequest.toolChoice === 'none') {
-                baseRequest = { ...baseRequest, tools: undefined };
-            }
-
-            // 5. Execute Chat — with tool use loop
-            const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
-
-            // Notify Done
-            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
-
-        } catch (error: any) {
-            console.error('[AparteClient] Chat failed:', error);
-            const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
-            this._handleLifecycleError(targetElement, messageId, aparteError);
+            messages = this._buildMessages(content, targetElement, contentParts.length > 0 ? contentParts : undefined);
+        } catch (error: unknown) {
+            this._handleLifecycleError(targetElement, messageId, AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR));
+            return;
         }
+
+        await this._streamTurn(
+            targetElement, messageId, provider,
+            messages, modelId || config.defaultModel || '',
+            authConfig,
+        );
     }
 
     /**
