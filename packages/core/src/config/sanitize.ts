@@ -142,13 +142,19 @@ function sanitizeChildren(src: Node, dest: Node, doc: Document): void {
     }
 }
 
-/** Best-effort scrub for environments without a DOM parser (SSR/Node). */
+/**
+ * Best-effort scrub for environments WITHOUT a DOM parser (SSR/Node). A regex
+ * pass cannot match a real HTML parser and has known evasions (split attributes,
+ * unclosed tags, entity tricks): it is a safety net, **not** a security boundary.
+ * For untrusted content on a non-browser runtime, register a real sanitizer
+ * (e.g. DOMPurify + jsdom) via `AparteConfig.setHtmlSanitizer`.
+ */
 function fallbackScrub(html: string): string {
     return html
-        .replace(/<\s*(script|style|iframe|object|embed|form|svg|math)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-        .replace(/<\s*(script|style|iframe|object|embed|link|meta|base)\b[^>]*>/gi, '')
+        .replace(/<\s*(script|style|iframe|object|embed|form|svg|math|applet|template)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+        .replace(/<\s*(script|style|iframe|object|embed|applet|template|link|meta|base|frame|frameset)\b[^>]*>/gi, '')
         .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-        .replace(/(?:href|src)\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]*)/gi, '');
+        .replace(/(?:href|src|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript|data):[^"]*"|'\s*(?:javascript|vbscript|data):[^']*'|(?:javascript|vbscript|data):[^\s>]*)/gi, '');
 }
 
 /**

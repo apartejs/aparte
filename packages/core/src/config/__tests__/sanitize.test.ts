@@ -120,3 +120,52 @@ describe('defaultSanitizer', () => {
         expect(s('')).toBe('');
     });
 });
+
+/**
+ * XSS bypass corpus — obfuscation & mutation vectors. Each payload, once
+ * sanitized, must contain none of these executable markers. Complements the
+ * targeted cases above with the harder evasions a real attacker reaches for.
+ */
+describe('defaultSanitizer — XSS bypass corpus', () => {
+    const FORBIDDEN = /\son[a-z]+\s*=|javascript:|vbscript:|<script|<svg|<iframe|<object|<embed|<form|<math|<applet|expression\s*\(|formaction/i;
+    const PAYLOADS = [
+        // event handlers — quoting / spacing / casing
+        '<img src=x onerror=alert(1)>',
+        '<img src=x OnErRoR=alert(1)>',
+        '<img src="x" onerror = "alert(1)">',
+        '<div onmouseover="alert(1)">hi</div>',
+        '<a href="#" onclick=alert(1)>x</a>',
+        '<a title="x"onmouseover="alert(1)">x</a>',
+        // scheme obfuscation
+        '<a href="javascript:alert(1)">x</a>',
+        '<a href="  javascript:alert(1)">x</a>',
+        '<a href="java\tscript:alert(1)">x</a>',
+        '<a href="java\nscript:alert(1)">x</a>',
+        '<a href="JaVaScRiPt:alert(1)">x</a>',
+        '<a href="vbscript:msgbox(1)">x</a>',
+        '<a href="&#106;avascript:alert(1)">x</a>',
+        '<a href="data:text/html,<script>alert(1)</script>">x</a>',
+        // dangerous elements (dropped wholesale, incl. mXSS foreign content)
+        '<script>alert(1)</script>',
+        '<ScRiPt>alert(1)</ScRiPt>',
+        '<<script>alert(1)</script>',
+        '<svg onload=alert(1)></svg>',
+        '<svg><script>alert(1)</script></svg>',
+        '<math><mtext><script>alert(1)</script></mtext></math>',
+        '<iframe src="javascript:alert(1)"></iframe>',
+        '<object data="javascript:alert(1)"></object>',
+        '<form action="x"><button formaction="javascript:alert(1)">x</button></form>',
+        // style + srcset vectors
+        '<div style="background:url(javascript:alert(1))">x</div>',
+        '<div style="width:expression(alert(1))">x</div>',
+        '<img srcset="x javascript:alert(1)">',
+        // malformed / mutation
+        '<img src=x onerror=alert(1)//',
+        '<p><script>alert(1)</script>ok</p>',
+    ];
+    for (const payload of PAYLOADS) {
+        it(`neutralizes ${JSON.stringify(payload).slice(0, 56)}`, () => {
+            expect(s(payload)).not.toMatch(FORBIDDEN);
+        });
+    }
+});
