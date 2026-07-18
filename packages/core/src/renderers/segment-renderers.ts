@@ -1647,17 +1647,21 @@ function startsWithDoctype(s: string): boolean {
     return probe === '<!doctype';
 }
 
-/** Escape any literal `</script>` inside the body so it cannot terminate the
- *  outer <script> tag we wrap user code in. Char-based. */
+/** Escape any literal `</script` inside the body so it cannot terminate the
+ *  outer <script> tag we wrap user code in. The HTML spec closes a script on
+ *  `</script` followed by whitespace, `/` or `>` (not only the exact `</script>`),
+ *  so match the 8-char prefix + a terminator. Char-based. */
 function escapeClosingScriptTag(body: string): string {
     let out = '';
     let i = 0;
     while (i < body.length) {
-        if (body[i] === '<') {
-            const probe = body.slice(i, i + 9).toLowerCase();
-            if (probe === '</script>') {
-                out += '<\\/script>';
-                i += 9;
+        if (body[i] === '<' && body.slice(i, i + 8).toLowerCase() === '</script') {
+            const next = body[i + 8];
+            // A real closing tag needs a terminator after `</script` (space/tab/
+            // newline/form-feed, `/`, `>`) or end-of-input.
+            if (next === undefined || next === '/' || next === '>' || /\s/.test(next)) {
+                out += '<\\/script'; // neutralise the `<` so the browser sees no tag
+                i += 8;
                 continue;
             }
         }

@@ -105,9 +105,25 @@ describe('defaultSanitizer', () => {
             expect(out).toContain('type="checkbox"');
         });
 
-        it('drops inline styles carrying legacy expression()/url(javascript:) vectors', () => {
+        it('keeps allowlisted style props and drops the rest (expression, layout, url)', () => {
+            // color survives (presentational); width:expression(...) is dropped
+            // (not allowlisted + a legacy vector).
             const out = s('<p style="color:red;width:expression(alert(1))">x</p>');
-            expect(out).toBe('<p>x</p>');
+            expect(out).toContain('color:red');
+            expect(out).not.toContain('expression');
+            expect(out).not.toContain('width');
+        });
+
+        it('drops layout/positioning styles (click-jacking overlay) even alongside a safe prop', () => {
+            const out = s('<a href="https://x.com" style="color:blue;position:fixed;inset:0;z-index:99999">x</a>');
+            expect(out).toContain('color:blue');
+            expect(out).not.toMatch(/position|inset|z-index/);
+        });
+
+        it('drops id/name (DOM clobbering)', () => {
+            const out = s('<a id="cfg" name="cfg" href="https://x.com">x</a>');
+            expect(out).not.toContain('id=');
+            expect(out).not.toContain('name=');
         });
 
         it('adds rel=noopener to target=_blank links (reverse-tabnabbing)', () => {

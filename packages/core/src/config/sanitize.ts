@@ -40,7 +40,9 @@ const ALLOWED_TAGS = new Set([
 
 /** Attributes allowed on any element. */
 const GLOBAL_ATTRS = new Set([
-    'class', 'style', 'title', 'dir', 'lang', 'id', 'role', 'align',
+    // `id`/`name` are intentionally NOT allowlisted — they enable DOM clobbering
+    // and LLM-authored markup has no legitimate need for author-controlled ids.
+    'class', 'style', 'title', 'dir', 'lang', 'role', 'align',
     'aria-label', 'aria-hidden', 'aria-describedby', 'aria-level',
 ]);
 
@@ -87,12 +89,38 @@ export function isSafeUrl(value: string, tag: string): boolean {
     return RELATIVE_URL.test(v);
 }
 
-/** Drop inline styles that carry legacy script vectors; keep everything else (highlighters rely on style). */
+/**
+ * Inert, presentational inline-style properties a syntax highlighter / markdown
+ * renderer actually emits. An allowlist (not a blocklist) so layout & positioning
+ * properties — `position`, `z-index`, `inset`, `top/left/right/bottom`, `width`,
+ * `height`, `transform`, … — are dropped by default: those are what a hostile
+ * `style` would need to build a full-viewport click-jacking overlay.
+ */
+const SAFE_STYLE_PROPS = new Set([
+    'color', 'background-color',
+    'font-style', 'font-weight', 'font-family', 'font-size',
+    'font-variant', 'font-variant-ligatures',
+    'text-decoration', 'text-decoration-line', 'text-decoration-color', 'text-decoration-style',
+    'white-space',
+]);
+
+/**
+ * Keep only allowlisted inline-style declarations, and reject any `url()` beacon,
+ * legacy `expression()`, or scheme even on an allowlisted property.
+ */
 function scrubStyle(value: string): string | null {
-    if (/(?:expression\s*\(|javascript:|vbscript:|url\s*\(\s*['"]?\s*(?:javascript|data|vbscript):|<\/?)/i.test(value)) {
-        return null;
+    const kept: string[] = [];
+    for (const decl of value.split(';')) {
+        const trimmed = decl.trim();
+        const idx = trimmed.indexOf(':');
+        if (idx === -1) continue;
+        const prop = trimmed.slice(0, idx).trim().toLowerCase();
+        const val = trimmed.slice(idx + 1);
+        if (!val.trim() || !SAFE_STYLE_PROPS.has(prop)) continue;
+        if (/url\s*\(|expression\s*\(|javascript:|vbscript:|[<>]/i.test(val)) continue;
+        kept.push(trimmed); // preserve the original declaration text (no reformatting)
     }
-    return value;
+    return kept.length ? kept.join('; ') : null;
 }
 
 function copyAttributes(src: Element, dest: Element, tag: string): void {
