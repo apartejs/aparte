@@ -36,3 +36,18 @@ Each registered provider becomes an `<aparte-optgroup>`; a single provider rende
 It fires **`aparte-model-change`** with `{ providerId, modelId, previousProviderId, previousModelId }`.
 The selector reads providers from the nearest instance config (via `attachConfig`), falling back to the
 global `AparteConfig` — so multi-chat pages each drive their own model list.
+
+
+## Gating the composer until a model is picked
+
+The model list loads asynchronously, so there's a window where the chat is mounted but no model is
+selected yet. Opt in to block sending (and grey out `<aparte-composer>`) until one is:
+
+```ts
+import { AparteConfig } from '@aparte/core';
+
+AparteConfig.setRequireModelSelection(true);
+```
+
+The composer re-enables automatically once `auto-select` (or the user) picks a model. Off by default, so
+single-model or backend-driven setups that never select a model are unaffected.

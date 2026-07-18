@@ -1,4 +1,6 @@
 import type { AparteSendEventDetail } from '../../types/index.js';
+import { AparteConfig, type AparteConfigClass } from '../../config/aparte-config.js';
+import { resolveConfig } from '../../config/config-context.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event map for internal pub/sub between primitives
@@ -75,6 +77,13 @@ export class AparteComposer extends HTMLElement {
     private _onMessageStart = this._handleMessageStart.bind(this);
     private _onMessageDone = this._handleMessageDone.bind(this);
 
+    /** Config governing THIS composer (nearest instance boundary, else global). */
+    private _cfg: AparteConfigClass = AparteConfig;
+    private _configUnsub: (() => void) | null = null;
+    /** True while `requireModelSelection` is on AND no model is selected — blocks send. */
+    private _modelGated = false;
+    private _onConfigChange = (): void => { this._evaluateModelGate(); };
+
     static get observedAttributes(): string[] {
         return ['placeholder', 'disabled', 'target'];
     }
@@ -84,6 +93,10 @@ export class AparteComposer extends HTMLElement {
         window.addEventListener('apartemessagedone', this._onMessageDone);
         window.addEventListener('apartemessageerror', this._onMessageDone);
         window.addEventListener('apartemessageaborted', this._onMessageDone);
+        // Model-selection gate (opt-in via AparteConfig.setRequireModelSelection).
+        this._cfg = resolveConfig(this);
+        this._configUnsub = this._cfg.subscribe(this._onConfigChange);
+        this._evaluateModelGate();
     }
 
     disconnectedCallback(): void {
@@ -91,6 +104,8 @@ export class AparteComposer extends HTMLElement {
         window.removeEventListener('apartemessagedone', this._onMessageDone);
         window.removeEventListener('apartemessageerror', this._onMessageDone);
         window.removeEventListener('apartemessageaborted', this._onMessageDone);
+        this._configUnsub?.();
+        this._configUnsub = null;
         this._listeners.clear();
     }
 
@@ -203,6 +218,19 @@ export class AparteComposer extends HTMLElement {
 
     get panelActive(): boolean { return this._panelActive; }
 
+    /**
+     * Recompute the model gate from the resolved config. When
+     * `requireModelSelection` is on and no model is selected, block sending and
+     * reflect `data-model-gated` so the shipped CSS greys the composer. Re-runs on
+     * every config change (e.g. the model selector's auto-select firing).
+     */
+    private _evaluateModelGate(): void {
+        const gated = this._cfg.getRequireModelSelection() && !this._cfg.hasSelectedModel();
+        if (gated === this._modelGated) return;
+        this._modelGated = gated;
+        this.toggleAttribute('data-model-gated', gated);
+    }
+
     /** Submit the current value. Called by aparte-composer-send or programmatically. */
     submit(): void {
         if (this._panelActive) {
@@ -216,6 +244,7 @@ export class AparteComposer extends HTMLElement {
         const value = this._value.trim();
         if (!value && this._attachments.length === 0) return;
         if (this.disabled) return;
+        if (this._modelGated) return; // no model selected yet (require-model gate)
 
         this._emit('submit', { value, attachments: this._attachments });
 

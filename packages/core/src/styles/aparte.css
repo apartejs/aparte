@@ -444,7 +444,17 @@ aparte-chat > aparte-chat-viewport,
 }
 
 aparte-chat > aparte-composer,
-[data-aparte-chat] > aparte-composer {
+[data-aparte-chat] > /* Model-selection gate (opt-in via AparteConfig.setRequireModelSelection): grey the
+   composer and block its send button until a model is selected — e.g. while the
+   model selector is still fetching. Ungates automatically on selection. */
+aparte-composer[data-model-gated] {
+  opacity: 0.55;
+}
+aparte-composer[data-model-gated] aparte-composer-send {
+  pointer-events: none;
+}
+
+aparte-composer {
   flex: 0 0 auto;
 }
 
@@ -1283,6 +1293,13 @@ aparte-chat-status {
   display: block;
   width: 100%;
   contain: layout style paint;
+}
+
+/* No layout footprint until the typing indicator is actually shown — otherwise the
+   always-present element reserves height (visible via flex-shrink:0 in the
+   framework-managed viewport) even on the empty/welcome screen. */
+aparte-chat-status:not([visible]) {
+  display: none;
 }
 
 .aparte-status-container {

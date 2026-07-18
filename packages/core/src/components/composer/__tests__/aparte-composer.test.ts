@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '../aparte-composer.js';
 import type { AparteComposer } from '../aparte-composer.js';
 import type { AparteComposerChangeEventDetail } from '../aparte-composer.js';
+import { AparteConfig } from '../../../config/aparte-config.js';
 
 /**
  * Public state observability — the `aparte:composer-change` DOM event + getState()
@@ -98,5 +99,58 @@ describe('aparte-composer — public state events', () => {
         composer.setValue('x');
         expect(outer).toHaveBeenCalledTimes(1);
         document.body.removeEventListener('aparte:composer-change', outer);
+    });
+});
+
+describe('aparte-composer — model-selection gate (opt-in)', () => {
+    let composer: AparteComposer;
+
+    afterEach(() => {
+        composer?.remove();
+        AparteConfig.reset(); // clears requireModelSelection + modelConfig
+        vi.restoreAllMocks();
+    });
+
+    function mount(): AparteComposer {
+        const c = document.createElement('aparte-composer') as AparteComposer;
+        document.body.appendChild(c); // connectedCallback evaluates the gate
+        return c;
+    }
+
+    it('blocks send + sets data-model-gated when a model is required but none selected', () => {
+        AparteConfig.setRequireModelSelection(true);
+        composer = mount();
+        expect(composer.hasAttribute('data-model-gated')).toBe(true);
+
+        composer.setValue('hi');
+        const sendSpy = vi.fn();
+        composer.addEventListener('aparte-send', sendSpy);
+        composer.submit();
+        expect(sendSpy).not.toHaveBeenCalled();
+    });
+
+    it('ungates + sends once a model is selected (reacts to config change)', () => {
+        AparteConfig.setRequireModelSelection(true);
+        composer = mount();
+        expect(composer.hasAttribute('data-model-gated')).toBe(true);
+
+        AparteConfig.setModelConfig({ defaultProvider: 'p', defaultModel: 'm' });
+        expect(composer.hasAttribute('data-model-gated')).toBe(false);
+
+        composer.setValue('hi');
+        const sendSpy = vi.fn();
+        composer.addEventListener('aparte-send', sendSpy);
+        composer.submit();
+        expect(sendSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not gate when requireModelSelection is off (default) — unaffected setups', () => {
+        composer = mount();
+        expect(composer.hasAttribute('data-model-gated')).toBe(false);
+        composer.setValue('hi');
+        const sendSpy = vi.fn();
+        composer.addEventListener('aparte-send', sendSpy);
+        composer.submit();
+        expect(sendSpy).toHaveBeenCalledTimes(1);
     });
 });

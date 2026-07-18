@@ -206,4 +206,4 @@ export class AparteConversationList extends HTMLElement {
     }
 }
 
-customElements.define('aparte-conversation-list', AparteConversationList);
+if (!customElements.get('aparte-conversation-list')) customElements.define('aparte-conversation-list', AparteConversationList);

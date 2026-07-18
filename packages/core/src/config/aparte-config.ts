@@ -106,6 +106,8 @@ export class AparteConfigClass {
     // AI Provider Management (BYORK)
     private _aiProviders: Map<string, AparteAIProvider> = new Map();
     private _modelConfig: AparteModelConfig = {};
+    /** Opt-in: gate the composer (block send + grey out) until a model is selected. */
+    private _requireModelSelection = false;
     // Transport: where chat requests go + how auth is handled (DirectTransport = browser-direct).
     private _transport: AparteTransport = new DirectTransport();
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
@@ -660,6 +662,31 @@ export class AparteConfigClass {
     }
 
     /**
+     * True when the model config has BOTH a provider and a model selected — i.e.
+     * the chat can actually send. Used by the composer's `require-model` gate.
+     */
+    hasSelectedModel(): boolean {
+        return !!(this._modelConfig.defaultProvider && this._modelConfig.defaultModel);
+    }
+
+    /**
+     * Opt-in UX: when enabled, `<aparte-composer>` blocks sending and greys out
+     * until {@link hasSelectedModel} is true (e.g. while the model selector is
+     * still fetching its list). Off by default so single-model / backend setups
+     * that never select a model are unaffected.
+     */
+    setRequireModelSelection(required: boolean): void {
+        if (this._requireModelSelection === required) return;
+        this._requireModelSelection = required;
+        this._notify();
+    }
+
+    /** Whether the composer should gate on model selection (see {@link setRequireModelSelection}). */
+    getRequireModelSelection(): boolean {
+        return this._requireModelSelection;
+    }
+
+    /**
      * Get the currently selected model object, if available synchronously.
      * Returns undefined if no provider/model is selected, or if the provider's
      * models are only available asynchronously (fetchModels).
@@ -872,6 +899,7 @@ export class AparteConfigClass {
         this._tools.clear();
         this._toolRenderers.clear();
         this._modelConfig = {};
+        this._requireModelSelection = false;
         this._modelPreferenceProvider = undefined;
         this._bubbleActionsConfig = { copy: true, retry: true, edit: true, feedback: false };
         this._notify();
