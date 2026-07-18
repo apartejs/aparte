@@ -29,6 +29,8 @@ Every new package or feature lands **behind a green gate**:
 - `pnpm test` passes
 - `pnpm build` and `pnpm typecheck` succeed for the touched package(s)
 - `pnpm lint` is clean
+- `pnpm e2e` (browser smoke across the playgrounds) passes for changes touching the
+  framework boundary or rendering — it also runs in CI
 - packaging is valid (`publint` + are-the-types-wrong) once the package is published
 - a docs page exists for public API
 

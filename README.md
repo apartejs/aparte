@@ -29,15 +29,16 @@ pnpm install          # bootstrap
 pnpm build            # build all packages
 pnpm test             # run the test suite
 pnpm lint             # lint
+pnpm e2e              # browser smoke E2E across the playgrounds (run `pnpm e2e:install` once)
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and the gate each change lands behind.
 
 ## Milestones
 
-- **M0** — repo bootstrap ✅ · **M1** — `core` ✅
-- **M2** — `engine` · M3 — providers · M4 — wrappers · M5 — plugins + locales
-- **M6** — playgrounds · M7 — first `0.0.x` alpha on npm
+- **M0** — bootstrap ✅ · **M1** — `core` ✅ · **M2** — `engine` ✅ · **M3** — providers ✅
+- **M4** — wrappers ✅ · **M5** — plugins + locales ✅ · **M6** — playgrounds ✅
+- **M6.5** — browser E2E hardening ✅ · **M7** — first `0.0.x` alpha on npm *(next)*
 
 ## License
 

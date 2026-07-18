@@ -38,6 +38,7 @@ apartejs/
 ├── apps/
 │   ├── docs/                 Starlight (Astro) — EN-first, docs + live showcase
 │   └── playgrounds/          react · vue · svelte · angular · vanilla (+ demo-vanilla)
+├── e2e/                      Playwright browser smoke tests — drives the playgrounds
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent + parity suites
@@ -110,6 +111,7 @@ micro-packages, `eval/`, voice.
 pnpm install                 # bootstrap
 pnpm build                   # all packages
 pnpm test                    # vitest run (root)
+pnpm e2e                     # browser smoke E2E (Playwright; run `pnpm e2e:install` once first)
 
 nx build @aparte/core
 nx test  @aparte/core
