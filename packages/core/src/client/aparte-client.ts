@@ -736,16 +736,42 @@ export class AparteClient {
      * Resolve a target element by id (from event detail.targetId) or via targetResolver / DOM scan.
      */
     private _resolveTarget<T extends HTMLElement>(targetId?: string): T | null {
+        // An explicit id / resolver is TRUSTED as given (it may gain its render
+        // methods later); only the implicit DOM scan must prefer a candidate that
+        // can actually render — the <aparte-chat> shell matches the selector first
+        // but delegates rendering to its viewport (see _asRenderTarget), so a blind
+        // candidates[0] returned an unusable shell and retry/edit silently no-op'd.
         if (targetId) {
-            const el = document.getElementById(targetId) as T | null;
-            if (el) return el;
+            const el = document.getElementById(targetId) as HTMLElement | null;
+            if (el) return this._asRenderTarget<T>(el) ?? (el as unknown as T);
         }
         if (this.options.targetResolver) {
-            const el = this.options.targetResolver() as T | null;
-            if (el) return el;
+            const el = this.options.targetResolver() as HTMLElement | null;
+            if (el) return this._asRenderTarget<T>(el) ?? (el as unknown as T);
         }
-        const candidates = document.querySelectorAll<T>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
-        return candidates[0] ?? null;
+        const candidates = document.querySelectorAll<HTMLElement>('aparte-chat, aparte-chat-viewport, [data-aparte-chat]');
+        for (const candidate of candidates) {
+            const target = this._asRenderTarget<T>(candidate);
+            if (target) return target;
+        }
+        return (candidates[0] as unknown as T | undefined) ?? null;
+    }
+
+    /**
+     * Resolve an element to a usable render target: itself when it exposes
+     * `appendMessage`, else the viewport it delegates to. The `<aparte-chat>`
+     * shell matches the host selectors/id but owns no `appendMessage` (it forwards
+     * rendering to its `.viewport`), so returning the bare shell would make
+     * send / retry / edit silently no-op. Returns null when neither can render.
+     */
+    private _asRenderTarget<T extends HTMLElement>(el: HTMLElement | null | undefined): T | null {
+        if (!el) return null;
+        if (typeof (el as { appendMessage?: unknown }).appendMessage === 'function') return el as unknown as T;
+        const viewport = (el as { viewport?: HTMLElement | null }).viewport;
+        if (viewport && typeof (viewport as { appendMessage?: unknown }).appendMessage === 'function') {
+            return viewport as unknown as T;
+        }
+        return null;
     }
 
     /**
@@ -818,18 +844,18 @@ export class AparteClient {
         //    retry/edit resolver's scan so a bare `<aparte-chat-viewport>` works
         //    out of the box without a targetResolver.
         if (!targetElement) {
-            // Pick the FIRST candidate that actually exposes appendMessage — not
-            // merely the first candidate. In the documented flat layout the
-            // `<aparte-chat>` shell wraps the `<aparte-chat-viewport>`, so a
-            // plain `querySelector` returns the shell (which delegates rendering
-            // to its viewport and has no appendMessage of its own) and the send
-            // would silently no-op. Scanning all candidates finds the viewport.
-            const candidates = document.querySelectorAll<AparteChatElement>(
+            // Prefer the first candidate that can actually render. The <aparte-chat>
+            // shell matches the selector first but delegates to its viewport (no
+            // appendMessage of its own), so a blind querySelector returned an
+            // unusable shell and the send silently no-op'd. _asRenderTarget skips
+            // to the shell's viewport (or the bare viewport) — see also _resolveTarget.
+            const candidates = document.querySelectorAll<HTMLElement>(
                 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]',
             );
             for (const candidate of candidates) {
-                if (typeof candidate.appendMessage === 'function') {
-                    targetElement = candidate;
+                const resolved = this._asRenderTarget<AparteChatElement>(candidate);
+                if (resolved) {
+                    targetElement = resolved;
                     break;
                 }
             }

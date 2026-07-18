@@ -451,6 +451,65 @@ describe('AparteClient', () => {
 
             el.remove();
         });
+
+        it('resolves the viewport when an <aparte-chat> shell (no appendMessage) wraps it', () => {
+            // Regression: the bare-vanilla layout. The shell matches the selector
+            // FIRST but owns no appendMessage — a blind candidates[0] returned the
+            // shell, so retry/edit (and, before its own fix, send) silently no-op'd.
+            const shell = document.createElement('aparte-chat');
+            const viewport = document.createElement('aparte-chat-viewport');
+            (viewport as any).appendMessage = vi.fn(); // the registered viewport CAN render
+            Object.defineProperty(shell, 'viewport', { get: () => viewport, configurable: true });
+            shell.appendChild(viewport);
+            document.body.appendChild(shell);
+
+            client = new AparteClient({ autoRegister: false });
+            expect((client as any)._resolveTarget(undefined)).toBe(viewport); // NOT the shell
+
+            shell.remove();
+        });
+
+        it('resolves a shell addressed by id to its delegated viewport', () => {
+            // An id on the <aparte-chat> shell (not the viewport) must still reach
+            // the renderable viewport.
+            const shell = document.createElement('aparte-chat');
+            shell.id = 'my-chat';
+            const viewport = document.createElement('aparte-chat-viewport');
+            (viewport as any).appendMessage = vi.fn();
+            Object.defineProperty(shell, 'viewport', { get: () => viewport, configurable: true });
+            shell.appendChild(viewport);
+            document.body.appendChild(shell);
+
+            client = new AparteClient({ autoRegister: false });
+            expect((client as any)._resolveTarget('my-chat')).toBe(viewport);
+
+            shell.remove();
+        });
+    });
+
+    // ─── _asRenderTarget ──────────────────────────────────────────────────
+    describe('_asRenderTarget()', () => {
+        it('returns the element itself when it exposes appendMessage', () => {
+            const el = document.createElement('aparte-chat-viewport');
+            (el as any).appendMessage = vi.fn();
+            client = new AparteClient({ autoRegister: false });
+            expect((client as any)._asRenderTarget(el)).toBe(el);
+        });
+
+        it('returns the delegated .viewport when the element itself cannot render', () => {
+            const shell = document.createElement('aparte-chat');
+            const viewport = document.createElement('aparte-chat-viewport');
+            (viewport as any).appendMessage = vi.fn();
+            Object.defineProperty(shell, 'viewport', { get: () => viewport, configurable: true });
+            client = new AparteClient({ autoRegister: false });
+            expect((client as any)._asRenderTarget(shell)).toBe(viewport);
+        });
+
+        it('returns null when neither the element nor its viewport can render', () => {
+            client = new AparteClient({ autoRegister: false });
+            expect((client as any)._asRenderTarget(document.createElement('div'))).toBeNull();
+            expect((client as any)._asRenderTarget(null)).toBeNull();
+        });
     });
 
     // ─── scopeToTargetId ──────────────────────────────────────────────────
