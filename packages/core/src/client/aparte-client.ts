@@ -8,7 +8,7 @@ import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteThinkingSegment } from '../types/segments.js';
 import type { AparteToolCallSegment } from '../types/segments.js';
 import type { AparteToolCall, AparteTool } from '../types/tools.js';
-import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, contentToText } from '../types/chat.js';
+import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, AparteArtifactHint, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 
 /**
@@ -18,6 +18,19 @@ import { AparteError, AparteErrorCode } from '../types/errors.js';
  * client always calls them through optional chaining. Mirrors the shape the
  * wrappers and `AparteChatHost` already conform to.
  */
+/** Mutable state for streaming a Claude-style `<artifact>` XML block out of the
+ *  text stream — owned by _streamLoop, fed to _feedXmlArtifactDelta per delta. */
+interface XmlArtifactStreamState {
+    state: 'normal' | 'scanning' | 'in-artifact';
+    scanBuf: string;
+    closeBuf: string;
+    segId: string | null;
+    content: string;
+    mime: string;
+    kind: string;
+    title: string;
+}
+
 interface AparteChatTargetElement extends HTMLElement {
     appendMessage?(message: AparteMessage): void;
     updateMessage?(id: string, updates: Partial<AparteMessage>): void;
@@ -1072,6 +1085,141 @@ export class AparteClient {
      * Maintains a running messages array to inject tool_call / tool_result turns.
      */
     /**
+     * Feed one text delta to the Claude-style `<artifact>` XML streamer. Scans for
+     * `<artifact …>` / `</artifact>`, routing chat text through the text parser and
+     * artifact content into a dedicated artifact segment (handling tags split across
+     * deltas). Mutates `xml` in place. Extracted from _streamLoop.
+     */
+    private _feedXmlArtifactDelta(
+        delta: string,
+        xml: XmlArtifactStreamState,
+        ctx: {
+            targetElement: AparteChatTargetElement;
+            messageId: string;
+            textParser: AparteStreamParser;
+            streamingSegmentIds: Set<string>;
+            artifactProgress: Map<string, number>;
+            artifactXmlHint: AparteArtifactHint;
+        },
+    ): void {
+        const { targetElement, messageId, textParser, streamingSegmentIds, artifactProgress, artifactXmlHint } = ctx;
+        let remaining = delta;
+
+        while (remaining.length > 0) {
+            if (xml.state === 'normal') {
+                const tagStart = remaining.indexOf('<artifact');
+                if (tagStart === -1) {
+                    // Pure chat text — route through normal text parser
+                    const r = textParser.parse(remaining);
+                    for (const seg of r.segments) {
+                        if (!streamingSegmentIds.has(seg.id)) {
+                            targetElement.addSegment?.(seg);
+                            streamingSegmentIds.add(seg.id);
+                        } else if ('content' in seg) {
+                            targetElement.updateSegment?.(seg.id, { content: (seg as any).content });
+                        }
+                    }
+                    const active = textParser.getState().activeSegment;
+                    if (active) {
+                        if (!streamingSegmentIds.has(active.id)) {
+                            targetElement.addSegment?.(active);
+                            streamingSegmentIds.add(active.id);
+                        } else {
+                            targetElement.updateSegment?.(active.id, { content: (active as any).content });
+                        }
+                    } else if (!r.segments.length) {
+                        if (targetElement.typeName) targetElement.typeName(remaining);
+                        else targetElement.updateLastMessage?.(remaining, { append: true });
+                    }
+                    remaining = '';
+                } else {
+                    // Emit chat text before the opening tag
+                    const before = remaining.slice(0, tagStart);
+                    if (before) {
+                        const r = textParser.parse(before);
+                        for (const seg of r.segments) {
+                            if (!streamingSegmentIds.has(seg.id)) {
+                                targetElement.addSegment?.(seg);
+                                streamingSegmentIds.add(seg.id);
+                            }
+                        }
+                        if (!r.segments.length && !textParser.getState().activeSegment) {
+                            if (targetElement.typeName) targetElement.typeName(before);
+                            else targetElement.updateLastMessage?.(before, { append: true });
+                        }
+                    }
+                    xml.scanBuf = remaining.slice(tagStart);
+                    remaining = '';
+                    xml.state = 'scanning';
+                }
+            } else if (xml.state === 'scanning') {
+                // Accumulate until we have the full opening tag (ends with >)
+                xml.scanBuf += remaining;
+                remaining = '';
+                const gtIdx = xml.scanBuf.indexOf('>');
+                if (gtIdx !== -1) {
+                    const tag = xml.scanBuf.slice(0, gtIdx + 1);
+                    // Parse mimeType and title attributes (single or double quotes)
+                    const mimeMatch = /mimeType=['"]([^'"]+)['"]/.exec(tag);
+                    const titleMatch = /title=['"]([^'"]+)['"]/.exec(tag);
+                    xml.mime = mimeMatch?.[1] ?? artifactXmlHint.mimeType;
+                    xml.title = titleMatch?.[1] ?? artifactXmlHint.kind;
+                    xml.kind = deriveArtifactKind(xml.mime, artifactXmlHint.kind);
+                    xml.segId = `artifact-xml-${crypto.randomUUID()}`;
+                    xml.content = '';
+                    const openSeg: import('../types/segments.js').AparteArtifactSegment = {
+                        id: xml.segId, type: 'artifact',
+                        mimeType: xml.mime, artifactType: xml.kind,
+                        title: xml.title, content: '',
+                    };
+                    targetElement.addSegment?.(openSeg);
+                    streamingSegmentIds.add(xml.segId);
+                    this._dispatchArtifactLifecycle(targetElement, messageId, openSeg, artifactProgress, false);
+                    xml.state = 'in-artifact';
+                    remaining = xml.scanBuf.slice(gtIdx + 1);
+                    xml.scanBuf = '';
+                }
+            } else { // in-artifact
+                const CLOSE = '</artifact>';
+                const combined = xml.closeBuf + remaining;
+                const closeIdx = combined.indexOf(CLOSE);
+                if (closeIdx !== -1) {
+                    // Closing tag found — finalize the artifact
+                    xml.content += combined.slice(0, closeIdx);
+                    const lineCount = xml.content.split('\n').length;
+                    const isInline = lineCount < 15;
+                    const finalSeg: import('../types/segments.js').AparteArtifactSegment = {
+                        id: xml.segId!, type: 'artifact',
+                        mimeType: xml.mime, artifactType: xml.kind,
+                        title: xml.title, content: xml.content,
+                        inline: isInline,
+                    };
+                    targetElement.updateSegment?.(xml.segId!, { content: xml.content, inline: isInline } as any);
+                    this._dispatchArtifactLifecycle(targetElement, messageId, finalSeg, artifactProgress, true);
+                    xml.state = 'normal';
+                    xml.closeBuf = '';
+                    remaining = combined.slice(closeIdx + CLOSE.length);
+                } else {
+                    // Buffer a tail chunk to handle closing tag split across deltas
+                    const safeLen = Math.max(0, combined.length - CLOSE.length + 1);
+                    const safe = combined.slice(0, safeLen);
+                    xml.content += safe;
+                    xml.closeBuf = combined.slice(safeLen);
+                    remaining = '';
+                    if (xml.segId) {
+                        targetElement.updateSegment?.(xml.segId, { content: xml.content });
+                        this._dispatchArtifactLifecycle(targetElement, messageId, {
+                            id: xml.segId, type: 'artifact',
+                            mimeType: xml.mime, artifactType: xml.kind,
+                            title: xml.title, content: xml.content,
+                        } as import('../types/segments.js').AparteArtifactSegment, artifactProgress, false);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Turn-1 forced tool call. When `toolChoice = { name, input }`
      * (orchestrator-driven), execute the handler directly instead of consulting
      * the LLM, render the tool segment, inject the result as `tool_result`, and
@@ -1267,18 +1415,11 @@ export class AparteClient {
             }
             // ── END artifactRaw ──────────────────────────────────────────────
 
-            // ── XML artifact streaming state (Claude-like) ───────────────────
+            // ── XML artifact streaming state (Claude-like) — fed to _feedXmlArtifactDelta ──
             const artifactXmlHint = baseRequest._meta?.artifactXml;
-            type XmlStreamState = 'normal' | 'scanning' | 'in-artifact';
-            let xmlState: XmlStreamState = 'normal';
-            let xmlScanBuf = '';
-            let xmlCloseBuf = '';
-            let xmlSegId: string | null = null;
-            let xmlContent = '';
-            let xmlMime = '';
-            let xmlKind = '';
-            let xmlTitle = '';
-            // ── END XML state vars ───────────────────────────────────────────
+            const xmlCtx: XmlArtifactStreamState = {
+                state: 'normal', scanBuf: '', closeBuf: '', segId: null, content: '', mime: '', kind: '', title: '',
+            };
 
             // Accumulated text before a tool call in this turn
             let precedingText = '';
@@ -1344,125 +1485,13 @@ export class AparteClient {
                                 break;
                             }
 
-                            // ── XML artifact streaming (Claude-like) ─────────────────────
+                            // XML artifact streaming (Claude-like) — extracted to _feedXmlArtifactDelta.
                             if (artifactXmlHint) {
-                                let remaining = event.delta;
-
-                                while (remaining.length > 0) {
-                                    if (xmlState === 'normal') {
-                                        const tagStart = remaining.indexOf('<artifact');
-                                        if (tagStart === -1) {
-                                            // Pure chat text — route through normal text parser
-                                            const r = textParser.parse(remaining);
-                                            for (const seg of r.segments) {
-                                                if (!streamingSegmentIds.has(seg.id)) {
-                                                    targetElement.addSegment?.(seg);
-                                                    streamingSegmentIds.add(seg.id);
-                                                } else if ('content' in seg) {
-                                                    targetElement.updateSegment?.(seg.id, { content: (seg as any).content });
-                                                }
-                                            }
-                                            const active = textParser.getState().activeSegment;
-                                            if (active) {
-                                                if (!streamingSegmentIds.has(active.id)) {
-                                                    targetElement.addSegment?.(active);
-                                                    streamingSegmentIds.add(active.id);
-                                                } else {
-                                                    targetElement.updateSegment?.(active.id, { content: (active as any).content });
-                                                }
-                                            } else if (!r.segments.length) {
-                                                if (targetElement.typeName) targetElement.typeName(remaining);
-                                                else targetElement.updateLastMessage?.(remaining, { append: true });
-                                            }
-                                            remaining = '';
-                                        } else {
-                                            // Emit chat text before the opening tag
-                                            const before = remaining.slice(0, tagStart);
-                                            if (before) {
-                                                const r = textParser.parse(before);
-                                                for (const seg of r.segments) {
-                                                    if (!streamingSegmentIds.has(seg.id)) {
-                                                        targetElement.addSegment?.(seg);
-                                                        streamingSegmentIds.add(seg.id);
-                                                    }
-                                                }
-                                                if (!r.segments.length && !textParser.getState().activeSegment) {
-                                                    if (targetElement.typeName) targetElement.typeName(before);
-                                                    else targetElement.updateLastMessage?.(before, { append: true });
-                                                }
-                                            }
-                                            xmlScanBuf = remaining.slice(tagStart);
-                                            remaining = '';
-                                            xmlState = 'scanning';
-                                        }
-                                    } else if (xmlState === 'scanning') {
-                                        // Accumulate until we have the full opening tag (ends with >)
-                                        xmlScanBuf += remaining;
-                                        remaining = '';
-                                        const gtIdx = xmlScanBuf.indexOf('>');
-                                        if (gtIdx !== -1) {
-                                            const tag = xmlScanBuf.slice(0, gtIdx + 1);
-                                            // Parse mimeType and title attributes (single or double quotes)
-                                            const mimeMatch = /mimeType=['"]([^'"]+)['"]/.exec(tag);
-                                            const titleMatch = /title=['"]([^'"]+)['"]/.exec(tag);
-                                            xmlMime = mimeMatch?.[1] ?? artifactXmlHint.mimeType;
-                                            xmlTitle = titleMatch?.[1] ?? artifactXmlHint.kind;
-                                            xmlKind = deriveArtifactKind(xmlMime, artifactXmlHint.kind);
-                                            xmlSegId = `artifact-xml-${crypto.randomUUID()}`;
-                                            xmlContent = '';
-                                            const openSeg: import('../types/segments.js').AparteArtifactSegment = {
-                                                id: xmlSegId, type: 'artifact',
-                                                mimeType: xmlMime, artifactType: xmlKind,
-                                                title: xmlTitle, content: '',
-                                            };
-                                            targetElement.addSegment?.(openSeg);
-                                            streamingSegmentIds.add(xmlSegId);
-                                            this._dispatchArtifactLifecycle(targetElement, messageId, openSeg, artifactProgress, false);
-                                            xmlState = 'in-artifact';
-                                            remaining = xmlScanBuf.slice(gtIdx + 1);
-                                            xmlScanBuf = '';
-                                        }
-                                    } else { // in-artifact
-                                        const CLOSE = '</artifact>';
-                                        const combined = xmlCloseBuf + remaining;
-                                        const closeIdx = combined.indexOf(CLOSE);
-                                        if (closeIdx !== -1) {
-                                            // Closing tag found — finalize the artifact
-                                            xmlContent += combined.slice(0, closeIdx);
-                                            const lineCount = xmlContent.split('\n').length;
-                                            const isInline = lineCount < 15;
-                                            const finalSeg: import('../types/segments.js').AparteArtifactSegment = {
-                                                id: xmlSegId!, type: 'artifact',
-                                                mimeType: xmlMime, artifactType: xmlKind,
-                                                title: xmlTitle, content: xmlContent,
-                                                inline: isInline,
-                                            };
-                                            targetElement.updateSegment?.(xmlSegId!, { content: xmlContent, inline: isInline } as any);
-                                            this._dispatchArtifactLifecycle(targetElement, messageId, finalSeg, artifactProgress, true);
-                                            xmlState = 'normal';
-                                            xmlCloseBuf = '';
-                                            remaining = combined.slice(closeIdx + CLOSE.length);
-                                        } else {
-                                            // Buffer a tail chunk to handle closing tag split across deltas
-                                            const safeLen = Math.max(0, combined.length - CLOSE.length + 1);
-                                            const safe = combined.slice(0, safeLen);
-                                            xmlContent += safe;
-                                            xmlCloseBuf = combined.slice(safeLen);
-                                            remaining = '';
-                                            if (xmlSegId) {
-                                                targetElement.updateSegment?.(xmlSegId, { content: xmlContent });
-                                                this._dispatchArtifactLifecycle(targetElement, messageId, {
-                                                    id: xmlSegId, type: 'artifact',
-                                                    mimeType: xmlMime, artifactType: xmlKind,
-                                                    title: xmlTitle, content: xmlContent,
-                                                } as import('../types/segments.js').AparteArtifactSegment, artifactProgress, false);
-                                            }
-                                        }
-                                    }
-                                }
+                                this._feedXmlArtifactDelta(event.delta, xmlCtx, {
+                                    targetElement, messageId, textParser, streamingSegmentIds, artifactProgress, artifactXmlHint,
+                                });
                                 break;
                             }
-                            // ── END XML artifact streaming ────────────────────────────────
                             const result = textParser.parse(event.delta);
                             for (let segment of result.segments) {
                                 // Artifact hint promotion: promote first code fence → artifact
@@ -1727,15 +1756,15 @@ export class AparteClient {
                 // If the stream ended while still inside an <artifact> tag
                 // (model truncated — common on small models with low maxTokens),
                 // flush whatever was buffered and render the partial artifact.
-                if (artifactXmlHint && xmlState === 'in-artifact' && xmlSegId) {
-                    xmlContent += xmlCloseBuf;
-                    const lineCount = xmlContent.split('\n').length;
+                if (artifactXmlHint && xmlCtx.state === 'in-artifact' && xmlCtx.segId) {
+                    xmlCtx.content += xmlCtx.closeBuf;
+                    const lineCount = xmlCtx.content.split('\n').length;
                     const isInline = lineCount < 15;
-                    targetElement.updateSegment?.(xmlSegId, { content: xmlContent, inline: isInline } as any);
+                    targetElement.updateSegment?.(xmlCtx.segId, { content: xmlCtx.content, inline: isInline } as any);
                     this._dispatchArtifactLifecycle(targetElement, messageId, {
-                        id: xmlSegId, type: 'artifact',
-                        mimeType: xmlMime, artifactType: xmlKind,
-                        title: xmlTitle, content: xmlContent, inline: isInline,
+                        id: xmlCtx.segId, type: 'artifact',
+                        mimeType: xmlCtx.mime, artifactType: xmlCtx.kind,
+                        title: xmlCtx.title, content: xmlCtx.content, inline: isInline,
                     } as import('../types/segments.js').AparteArtifactSegment, artifactProgress, true);
                     console.warn('[AparteClient] XML artifact finalized without closing tag — content may be partial.');
                 }
