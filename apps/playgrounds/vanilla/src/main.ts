@@ -5,7 +5,6 @@ import './style.css';
 import { registerDefaultRenderers, AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
-import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 
 const KEY_STORAGE = 'aparte.openrouter.key';
 
@@ -22,6 +21,9 @@ AparteConfig.registerAIProvider(
 );
 
 // 3. Browser talks to the provider directly; the key (if any) stays in the browser.
+// Gate the composer until the model selector has fetched + auto-selected a model.
+AparteConfig.setRequireModelSelection(true);
+
 AparteConfig.setTransport(new DirectTransport({ byok: true }));
 
 const client = new AparteClient({
@@ -29,6 +31,11 @@ const client = new AparteClient({
         providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
 });
 client.start(); // listens for aparte-send/retry/edit and streams replies into the chat
+
+// Register <aparte-model-selector> AFTER providers are registered, so its async
+// connectedCallback loads the model list with the providers already present
+// (a static import would upgrade the element mid-setup and miss them).
+void import('@aparte/plugin-model-selector');
 
 // ── BYOK key field (persisted locally, never committed) ──────────────────────
 const keyInput = document.querySelector<HTMLInputElement>('#openrouter-key');
@@ -47,7 +54,6 @@ if (keyInput) {
 // AparteClient appends and streams the ASSISTANT reply.
 type ChatViewport = { appendMessage(m: { id: string; role: string; content: string; timestamp: number }): void };
 const chat = document.querySelector('aparte-chat') as (HTMLElement & { viewport?: ChatViewport | null }) | null;
-const suggestions = document.querySelector<HTMLElement>('#suggestions');
 
 if (chat) {
     chat.addEventListener('aparte-send', (e) => {
@@ -74,5 +80,5 @@ if (chat) {
     });
 
     // Hide the suggestions once the conversation starts.
-    chat.addEventListener('aparte-send', () => suggestions?.remove(), { once: true });
+    chat.addEventListener('aparte-send', () => document.getElementById('welcome')?.remove(), { once: true });
 }

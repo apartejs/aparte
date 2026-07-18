@@ -9,7 +9,6 @@
     <div class="app">
       <header class="topbar">
         <div class="brand">aparté <span>· vanilla</span></div>
-        <aparte-model-selector auto-select persist searchable></aparte-model-selector>
         <input
           id="openrouter-key"
           type="password"
@@ -19,13 +18,32 @@
         />
       </header>
 
-      <div class="suggestions" id="suggestions">
-        <button class="chip" data-prompt="Explain what aparté is in one sentence.">What is aparté?</button>
-        <button class="chip" data-prompt="Write a haiku about web components.">Write a haiku</button>
-        <button class="chip" data-prompt="Give me a markdown table comparing 3 JS frameworks.">Markdown table</button>
-      </div>
+      <aparte-chat center-empty>
+        <aparte-chat-viewport></aparte-chat-viewport>
 
-      <aparte-chat center-empty placeholder="Ask anything…"></aparte-chat>
+        <aparte-composer>
+          <div class="welcome" id="welcome">
+            <h2>Start a conversation</h2>
+            <div class="suggestions">
+              <button class="chip" data-prompt="Explain what aparté is in one sentence.">What is aparté?</button>
+              <button class="chip" data-prompt="Write a haiku about web components.">Write a haiku</button>
+              <button class="chip" data-prompt="Give me a markdown table comparing 3 JS frameworks.">Markdown table</button>
+            </div>
+          </div>
+
+          <div class="aparte-composer-shell">
+            <aparte-composer-attachments></aparte-composer-attachments>
+            <div class="aparte-composer-row">
+              <aparte-composer-add-attachment></aparte-composer-add-attachment>
+              <aparte-composer-input placeholder="Ask anything…"></aparte-composer-input>
+              <aparte-composer-send></aparte-composer-send>
+            </div>
+            <div class="aparte-composer-footer">
+              <aparte-model-selector auto-select persist searchable></aparte-model-selector>
+            </div>
+          </div>
+        </aparte-composer>
+      </aparte-chat>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

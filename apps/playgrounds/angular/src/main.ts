@@ -1,11 +1,17 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideAparte } from '@aparte/angular';
+import { provideAparte, AparteConfig } from '@aparte/angular';
+import { setupMarkedProvider } from '@aparte/plugin-marked';
+import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { AppComponent } from './app/app.component';
 import { KEY_STORAGE } from './app/aparte';
 
 // provideAparte registers the providers + plugins and wires the AparteClient
 // options; AppComponent calls AparteAiService.connect() to start it.
+// Gate the composer until a model is selected.
+setupMarkedProvider();
+AparteConfig.setRequireModelSelection(true);
+
 bootstrapApplication(AppComponent, {
     providers: [
         provideAparte({
@@ -14,11 +20,6 @@ bootstrapApplication(AppComponent, {
                 createOpenAICompatProvider(presets.LMSTUDIO),
                 createOpenAICompatProvider(presets.OPENROUTER),
             ],
-            plugins: {
-                // 0-arg loaders → provideAparte runs them (registers the plugins).
-                markdown: () => import('@aparte/plugin-marked').then((m) => m.setupMarkedProvider()),
-                actions: [() => import('@aparte/plugin-model-selector').then(() => undefined)],
-            },
             clientOptions: {
                 keyResolver: (providerId) =>
                     providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,

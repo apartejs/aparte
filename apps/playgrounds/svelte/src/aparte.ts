@@ -24,6 +24,10 @@ export function setupAparte(): void {
         createOpenAICompatProvider(presets.LMSTUDIO),
         createOpenAICompatProvider(presets.OPENROUTER),
     );
+    // Gate the composer (block send + grey out) until the model selector has
+    // fetched its list and auto-selected a model.
+    AparteConfig.setRequireModelSelection(true);
+
     AparteConfig.setTransport(new DirectTransport({ byok: true }));
 
     new AparteClient({
