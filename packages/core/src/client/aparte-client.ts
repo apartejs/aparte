@@ -1071,6 +1071,72 @@ export class AparteClient {
      * Stream loop: runs one provider.chat() call and repeats if a tool was called.
      * Maintains a running messages array to inject tool_call / tool_result turns.
      */
+    /**
+     * Turn-1 forced tool call. When `toolChoice = { name, input }`
+     * (orchestrator-driven), execute the handler directly instead of consulting
+     * the LLM, render the tool segment, inject the result as `tool_result`, and
+     * strip `toolChoice` for the follow-up turn. Returns the (possibly-updated)
+     * request and whether the loop should skip to the next turn (handler missing
+     * or aborted). Extracted from `_streamLoop`. `messages` is mutated in place.
+     */
+    private async _maybeRunSyntheticTool(
+        baseRequest: AparteChatRequest,
+        turns: number,
+        messages: AparteChatMessage[],
+        targetElement: AparteChatTargetElement,
+    ): Promise<{ baseRequest: AparteChatRequest; skip: boolean }> {
+        const toolChoice = baseRequest.toolChoice;
+        if (!(turns === 1 && toolChoice && typeof toolChoice === 'object' && toolChoice.input !== undefined)) {
+            return { baseRequest, skip: false };
+        }
+
+        const syntheticId = crypto.randomUUID();
+        const syntheticCall: AparteToolCall = { id: syntheticId, name: toolChoice.name, input: toolChoice.input };
+
+        // Render the tool segment so the UI shows the tool was called.
+        const toolSeg: AparteToolCallSegment = {
+            id: `tool-${syntheticId}`,
+            type: 'tool_call',
+            toolCall: syntheticCall,
+            status: 'pending',
+        };
+        const toolRenderer = this._config.getToolRenderer(toolChoice.name);
+        if (toolRenderer) {
+            const html = toolRenderer.render(toolSeg);
+            if (html) targetElement.addSegment?.(toolSeg);
+        } else {
+            targetElement.addSegment?.(toolSeg);
+        }
+
+        const handler = this._config.getToolHandler(toolChoice.name);
+        if (!handler) {
+            console.warn(`[AparteClient] No handler for synthetic tool "${toolChoice.name}"`);
+            targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+            return { baseRequest, skip: true };
+        }
+
+        const controller = new AbortController();
+        this._activeToolControllers.add(controller);
+        const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
+        try {
+            const result = await handler(syntheticCall, controller.signal);
+            targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
+            messages.push({ role: 'tool_call', content: '', toolCalls: [syntheticCall] });
+            messages.push({ role: 'tool_result', content: result.content, toolCallId: syntheticId });
+            // Strip toolChoice + tools from the follow-up LLM call — it should just answer.
+            return { baseRequest: { ...baseRequest, toolChoice: 'none', tools: undefined }, skip: false };
+        } catch (err: any) {
+            if (err?.name === 'AbortError') {
+                targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+                return { baseRequest, skip: true };
+            }
+            throw err;
+        } finally {
+            clearTimeout(timeout);
+            this._activeToolControllers.delete(controller);
+        }
+    }
+
     private async _streamLoop(
         targetElement: AparteChatTargetElement,
         messageId: string,
@@ -1101,26 +1167,17 @@ export class AparteClient {
         let lastUsage: AparteUsage | undefined;
 
         // ── Pipeline mode ─────────────────────────────────────────────────
-        // _meta.pipeline = [{ mode, system, mimeType?, kind? }, ...]
-        // Each phase runs as one LLM turn. The system message and artifact hint
-        // are injected per phase; the assistant reply from phase N is appended
-        // as context before phase N+1.
-        type PipelinePhase =
-            | { mode: 'text'; system: string }
-            | { mode: 'thinking'; system: string; label?: string }
-            | { mode: 'artifact'; system: string; mimeType: string; kind: string };
-        const pipeline = baseRequest._meta?.['pipeline'] as PipelinePhase[] | undefined;
+        // _meta.pipeline runs each phase as one LLM turn: the system message +
+        // artifact hint are injected per phase, and reply N is context for N+1.
+        // (Typed via AparteRequestMeta — no local shape / cast needed.)
+        const pipeline = baseRequest._meta?.pipeline;
         let pipelineIndex = 0;
-        // ── END Pipeline setup ────────────────────────────────────────────
 
         this._updateMessage(targetElement, messageId, { status: 'streaming' });
 
-        // Inject prefix segments (e.g. orchestrator thinking block) before streaming
-        const prefixSegments = baseRequest._meta?.['prefixSegments'] as AparteSegment[] | undefined;
-        if (prefixSegments?.length) {
-            for (const seg of prefixSegments) {
-                targetElement.addSegment?.(seg);
-            }
+        // Inject prefix segments (e.g. an orchestrator thinking block) before streaming.
+        for (const seg of baseRequest._meta?.prefixSegments ?? []) {
+            targetElement.addSegment?.(seg);
         }
 
         while (continueLoop) {
@@ -1141,66 +1198,13 @@ export class AparteClient {
                 break;
             }
 
-            // ── SYNTHETIC TOOL CALL ──────────────────────────────────────────
-            // When toolChoice = { name, input } (orchestrator-driven), bypass the
-            // LLM entirely for this turn and execute the handler directly.
-            // This mirrors how OpenAI/Anthropic handle forced tool_choice with
-            // pre-filled arguments: the model is not consulted, the handler runs,
-            // its result is injected as tool_result, then the loop continues
-            // and the LLM is called with the full history to generate the final reply.
-            const toolChoice = baseRequest.toolChoice;
-            if (turns === 1 && toolChoice && typeof toolChoice === 'object' && toolChoice.input !== undefined) {
-                const syntheticId = crypto.randomUUID();
-                const syntheticCall: AparteToolCall = { id: syntheticId, name: toolChoice.name, input: toolChoice.input };
-
-                // Render the tool segment so the UI shows the tool was called
-                const toolSeg: AparteToolCallSegment = {
-                    id: `tool-${syntheticId}`,
-                    type: 'tool_call',
-                    toolCall: syntheticCall,
-                    status: 'pending'
-                };
-                const toolRenderer = this._config.getToolRenderer(toolChoice.name);
-                if (toolRenderer) {
-                    const html = toolRenderer.render(toolSeg);
-                    if (html) targetElement.addSegment?.(toolSeg);
-                } else {
-                    targetElement.addSegment?.(toolSeg);
-                }
-
-                const handler = this._config.getToolHandler(toolChoice.name);
-                if (handler) {
-                    const controller = new AbortController();
-                    this._activeToolControllers.add(controller);
-                    const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
-                    try {
-                        const result = await handler(syntheticCall, controller.signal);
-                        targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
-                        messages.push({ role: 'tool_call', content: '', toolCalls: [syntheticCall] });
-                        messages.push({ role: 'tool_result', content: result.content, toolCallId: syntheticId });
-                        // Strip toolChoice + tools from the follow-up LLM call — it should just answer
-                        baseRequest = { ...baseRequest, toolChoice: 'none', tools: undefined };
-                    } catch (err: any) {
-                        clearTimeout(timeout);
-                        this._activeToolControllers.delete(controller);
-                        if (err?.name === 'AbortError') {
-                            targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                            continueLoop = false;
-                            continue;
-                        }
-                        throw err;
-                    } finally {
-                        clearTimeout(timeout);
-                        this._activeToolControllers.delete(controller);
-                    }
-                } else {
-                    console.warn(`[AparteClient] No handler for synthetic tool "${toolChoice.name}"`);
-                    targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                    continueLoop = false;
-                    continue;
-                }
-            }
-            // ── END SYNTHETIC TOOL CALL ──────────────────────────────────────
+            // Turn-1 forced tool call (orchestrator-driven toolChoice) — runs the
+            // handler directly instead of the LLM. `skip` = this turn is done
+            // (handler missing / aborted); otherwise fall through with the request
+            // stripped of toolChoice for the follow-up. See _maybeRunSyntheticTool.
+            const synthetic = await this._maybeRunSyntheticTool(baseRequest, turns, messages, targetElement);
+            baseRequest = synthetic.baseRequest;
+            if (synthetic.skip) { continueLoop = false; continue; }
 
             // ── Build per-phase request when pipeline is active ───────────────
             let phaseMessages: AparteChatMessage[] = messages;
@@ -1238,16 +1242,12 @@ export class AparteClient {
             let thinkingContent = '';
             let thinkingCollapsed = false;
             // Extract artifact hint once — used in both streaming and finalize promotion
-            const artifactHint = baseRequest._meta?.['artifactHint'] as
-                | { mimeType: string; kind: string }
-                | undefined;
+            const artifactHint = baseRequest._meta?.artifactHint;
             let artifactPromoted = false; // promote only the first code segment
 
             // ── artifactRaw mode (turn 2 of multi-turn) ──────────────────────
             // Entire stream is raw code → routed directly into an artifact segment.
-            const artifactRawHint = request._meta?.['artifactRaw'] as
-                | { mimeType: string; kind: string }
-                | undefined;
+            const artifactRawHint = request._meta?.artifactRaw;
             let rawSegId: string | null = null;
             let rawContent = '';
 
@@ -1268,9 +1268,7 @@ export class AparteClient {
             // ── END artifactRaw ──────────────────────────────────────────────
 
             // ── XML artifact streaming state (Claude-like) ───────────────────
-            const artifactXmlHint = baseRequest._meta?.['artifactXml'] as
-                | { mimeType: string; kind: string }
-                | undefined;
+            const artifactXmlHint = baseRequest._meta?.artifactXml;
             type XmlStreamState = 'normal' | 'scanning' | 'in-artifact';
             let xmlState: XmlStreamState = 'normal';
             let xmlScanBuf = '';
@@ -1844,7 +1842,7 @@ export class AparteClient {
             for (const seg of prefixSegments) targetElement.addSegment?.(seg);
         }
 
-        const artifactHint = baseRequest._meta?.['artifactHint'] as { mimeType: string; kind: string } | undefined;
+        const artifactHint = baseRequest._meta?.artifactHint;
         const emitter = createStreamAdapter({
             target: targetElement as StreamAdapterTarget,
             config: this._config,
