@@ -5,11 +5,7 @@
  * Returns HTML strings: SVG, <i> tags, emojis, or any valid HTML.
  * 
  * @example
- * // Using default plugin
- * import { setupDefaultIcons } from '@aparte/plugin-icons-default';
- * setupDefaultIcons();
- * 
- * // Using FontAwesome
+ * // Register an icon provider (e.g. a FontAwesome bridge)
  * AparteConfig.setIconProvider({
  *   copy: () => '<i class="fas fa-copy"></i>',
  *   check: () => '<i class="fas fa-check"></i>',

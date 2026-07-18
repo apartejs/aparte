@@ -5,11 +5,7 @@
  * Returns HTML strings for various loading states.
  * 
  * @example
- * // Using default plugin
- * import { setupDefaultSkeletons } from '@aparte/plugin-skeleton-default';
- * setupDefaultSkeletons();
- * 
- * // Using Angular ngx-skeleton-loader bridge
+ * // Register a skeleton provider (e.g. an Angular ngx-skeleton-loader bridge)
  * AparteConfig.setSkeletonProvider({
  *   message: () => '<ngx-skeleton-loader count="3"></ngx-skeleton-loader>',
  *   code: () => '<ngx-skeleton-loader appearance="line" count="5"></ngx-skeleton-loader>',

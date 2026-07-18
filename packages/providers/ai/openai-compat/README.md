@@ -14,7 +14,7 @@ AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
 AparteConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
 ```
 
-`@aparte/core` is an **optional peer**. For vendors outside the OpenAI-compat family
+`@aparte/core` is a **peer dependency**. For vendors outside the OpenAI-compat family
 (Anthropic, Gemini, …) use [`@aparte/provider-ai-sdk`](../ai-sdk) instead.
 
 > Part of the [aparté](https://github.com/apartejs/aparte) monorepo. ESM-only.

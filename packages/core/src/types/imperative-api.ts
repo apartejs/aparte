@@ -5,9 +5,11 @@ import type { AparteSegment } from './segments.js';
  * The canonical imperative surface a framework `<AparteChat>` exposes (React's
  * ref handle, Vue/Svelte's instance, Angular's component). All four delegate to
  * the framework-agnostic `AparteChatHost`, so this ONE contract is the single
- * source of truth — each wrapper's handle type aliases it and the Angular
- * component `implements` it, which turns any per-wrapper drift (a missing or
- * mistyped method) into a compile error instead of a silent divergence.
+ * source of truth, and each wrapper enforces it against the compiler — React via
+ * the ref-handle type on a return-annotated `useImperativeHandle`, Angular via
+ * `implements`, Vue via `satisfies` on `defineExpose`, Svelte via a type-checked
+ * parity factory — so a missing or mistyped method is a build error in that
+ * wrapper, not a silent divergence.
  */
 export interface AparteChatImperativeApi {
     // ── message + streaming surface ──

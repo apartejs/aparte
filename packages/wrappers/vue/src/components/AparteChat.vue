@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
-import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass } from '@aparte/core';
+import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
@@ -162,12 +162,14 @@ const isStreaming = () => host?.isStreaming ?? false;
 // wrappers — Svelte 4 can only expose functions, so the shared name is one.
 const getViewport = () => viewportRef.value ?? null;
 
+// `satisfies` makes a dropped or mistyped method a compile error — the canonical
+// AparteChatImperativeApi is enforced here, not just aliased for consumers.
 defineExpose({
   appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
   appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
   truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
   scrollToBottom, focusInput, isStreaming, getViewport,
-});
+} satisfies AparteChatImperativeApi);
 </script>
 
 <template>

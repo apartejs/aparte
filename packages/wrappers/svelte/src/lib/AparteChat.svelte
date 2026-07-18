@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass } from '@aparte/core';
+  import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
 
   export let messages: AparteMessage[] = [];
@@ -185,6 +185,19 @@
     (composerRef as unknown as { focus?: () => void })?.focus?.();
   }
   export function isStreaming(): boolean { return host?.isStreaming ?? false; }
+
+  // Compile-time parity check: Svelte 4 can't generic-annotate `export function`s,
+  // so this never-called factory type-checks that the exported surface matches the
+  // canonical AparteChatImperativeApi. A dropped/mistyped method is a build error.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function _assertImperativeParity(): AparteChatImperativeApi {
+    return {
+      appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
+      appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
+      truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
+      scrollToBottom, focusInput, isStreaming, getViewport,
+    };
+  }
 </script>
 
 <div

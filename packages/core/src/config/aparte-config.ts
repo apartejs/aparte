@@ -556,6 +556,9 @@ export class AparteConfigClass {
      */
     unregisterAIProvider(id: string): void {
         this._aiProviders.delete(id);
+        // Notify like registerAIProvider does, so a mounted model-selector drops
+        // the removed provider instead of showing a stale list.
+        this._notify();
     }
 
     /**
@@ -934,7 +937,7 @@ export class AparteConfigClass {
 
     private _defaultSkeletonRenderer(type: AparteSkeletonType): string {
         // Minimal fallback - no CSS animations, no heavy styling
-        // Install @aparte/plugin-skeleton-default for shimmer effects
+        // Register a richer skeleton via setSkeletonProvider for shimmer effects
         const fallbacks: Record<AparteSkeletonType, string> = {
             message: '<div class="aparte-skeleton-fallback" style="padding:16px;color:#9ca3af;">Loading message...</div>',
             code: '<div class="aparte-skeleton-fallback" style="padding:16px;background:#1e293b;color:#64748b;border-radius:8px;">Loading code...</div>',

@@ -9,7 +9,7 @@ npm install @aparte/provider-transformers @huggingface/transformers
 ```
 
 `@huggingface/transformers` is a **peer dependency** — you bring the version you want (it's heavy and
-ships its own onnxruntime). `@aparte/core` is an **optional peer**.
+ships its own onnxruntime). `@aparte/core` is a **peer dependency**.
 
 ```ts
 import { AparteConfig, DirectTransport } from '@aparte/core';

@@ -15,9 +15,9 @@ import type { AparteChatHandle } from '../components/AparteChat.js';
  *     ref={chat.ref}
  *     messages={chat.messages}
  *     onMessagesChange={chat.setMessages}
- *     onMessageSent={(e) => chat.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.content, timestamp: e.timestamp })}
  *   />
  * );
+ * // The user's message is appended automatically on send — don't re-add it.
  */
 export interface UseAparteChat {
     messages: AparteMessage[];

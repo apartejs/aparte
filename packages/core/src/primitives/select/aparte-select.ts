@@ -485,8 +485,12 @@ export class AparteSelect extends HTMLElement {
     }
 
     private _getSelectedLabel(): string {
-        const option = this.querySelector(`aparte-option[value="${this._value}"]`);
-        return option?.textContent?.trim() || '';
+        // Match by property, not an interpolated attribute selector — a value with
+        // `"`/`]` (e.g. a remote model id) would make querySelector throw SyntaxError.
+        for (const opt of this.querySelectorAll('aparte-option')) {
+            if (opt.getAttribute('value') === this._value) return opt.textContent?.trim() || '';
+        }
+        return '';
     }
 
     private _filterOptions(query: string): void {
