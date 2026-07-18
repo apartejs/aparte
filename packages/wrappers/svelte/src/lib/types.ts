@@ -17,7 +17,7 @@ export type {
 
 /** Props of the `<AparteUi>` universal pass-through proxy. */
 export interface AparteUiProps {
-    /** The custom element tag name (e.g. 'aparte-chat-input'). */
+    /** The custom element tag name (e.g. 'aparte-model-selector'). */
     name: string;
     /** Props to apply. Keys starting with `--` become CSS variables. */
     props?: Record<string, unknown>;

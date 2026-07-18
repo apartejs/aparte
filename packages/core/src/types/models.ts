@@ -220,7 +220,7 @@ export interface AparteViewportConfig {
     layoutTransitionMs?: number;
 }
 
-/** Configuration options for AparteChatInput */
+/** Configuration options for the composer input. */
 export interface AparteInputConfig {
     /** Placeholder text for the input */
     placeholder?: string;

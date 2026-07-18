@@ -95,7 +95,7 @@ import { AparteUi } from '@aparte/vue';
 
 <template>
   <AparteUi
-    name="aparte-chat-input"
+    name="aparte-model-selector"
     :props="{ placeholder: 'Ask…', '--glow-speed': '4s' }"
     @element-event="(e) => console.log(e.type, e.detail)"
   />

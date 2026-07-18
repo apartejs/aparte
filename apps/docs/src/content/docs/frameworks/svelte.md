@@ -94,7 +94,7 @@ interactive aparté events by default; pass `events` to listen to others:
 </script>
 
 <AparteUi
-  name="aparte-chat-input"
+  name="aparte-model-selector"
   props={{ placeholder: 'Ask…', '--glow-speed': '4s' }}
   on:elementEvent={(e) => console.log(e.detail.type, e.detail.detail)}
 />

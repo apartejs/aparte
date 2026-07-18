@@ -205,7 +205,7 @@
   --aparte-input-editor-max-height: 200px;
   --aparte-input-container-min-height: 44px;
 
-  /* Send button + inline action buttons (legacy aparte-chat-input) */
+  /* Send button + inline action buttons */
   --aparte-send-btn-size: 36px;
   --aparte-input-action-btn-size: 36px;
   --aparte-input-action-btn-icon-size: 20px;
@@ -1046,24 +1046,8 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 
 /* =========================================
-   aparte-chat-input
+   Legacy composer input utility classes
    ========================================= */
-
-aparte-chat-input {
-  display: block;
-  width: 100%;
-  max-width: var(--aparte-message-max-width, 800px);
-  margin: 0 auto;
-  background: var(--aparte-input-bg, var(--aparte-surface-1));
-  border: var(--aparte-border-width, 1px) solid var(--aparte-input-border, var(--aparte-border));
-  border-radius: var(--aparte-radius-input);
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-
-aparte-chat-input:focus-within {
-  border-color: var(--aparte-primary);
-}
 
 .aparte-input-wrapper {
   display: flex;
@@ -1352,7 +1336,6 @@ aparte-chat-status:not([visible]) {
   aparte-chat-viewport *,
   aparte-chat-bubble *,
   aparte-composer *,
-  aparte-chat-input *,
   aparte-chat-status *,
   aparte-conversation-list *,
   aparte-select *,
@@ -1961,7 +1944,7 @@ aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Composer Layout Helpers  (opt-in, not required)
-   Use these classes when you want the "aparte-chat-input look" out of the box.
+   Use these classes when you want the composer look out of the box.
 
    <aparte-composer>
      <div class="aparte-composer-shell">

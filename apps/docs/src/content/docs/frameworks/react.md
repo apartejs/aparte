@@ -82,7 +82,7 @@ For an `<aparte-*>` element without a dedicated component, mount it generically:
 ```tsx
 import { AparteUi } from '@aparte/react';
 
-<AparteUi name="aparte-chat-input" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
+<AparteUi name="aparte-model-selector" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
 ```
 
 ## Also exported

@@ -32,7 +32,7 @@ export interface AparteUiHandle {
  * @example
  * ```html
  * <aparte-ui
- *   name="aparte-chat-input"
+ *   name="aparte-model-selector"
  *   [props]="{
  *     placeholder: 'Ask anything...',
  *     '--glow-opacity': '1',
@@ -67,7 +67,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
     // Inputs
     // ─────────────────────────────────────────────────────────────
 
-    /** The custom element tag name (e.g., 'aparte-chat-input') */
+    /** The custom element tag name (e.g., 'aparte-model-selector') */
     @Input({ required: true }) name!: string;
 
     /** Properties to pass to the element. Keys starting with '--' are CSS vars */

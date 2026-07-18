@@ -788,8 +788,8 @@ export class AparteClient {
         const { content, modelId, providerId: explicitProviderId } = event.detail;
 
         // 1. Use targetId from event detail — the most reliable path.
-        //    aparte-chat-input sets detail.targetId = host.id (set by AparteChatComponent).
-        //    document.getElementById works even when aparte-chat-input is temporarily detached.
+        //    The composer sets detail.targetId = host.id (set by AparteChatComponent).
+        //    document.getElementById works even when the composer is temporarily detached.
         let targetElement: AparteChatTargetElement | null = null;
         const targetId = (event.detail as any)?.targetId as string | undefined;
         if (targetId) {
@@ -845,7 +845,7 @@ export class AparteClient {
         }
 
         if (!targetElement) {
-            console.warn('[AparteClient] ⚠️ No target element found with appendMessage support. Provide a targetResolver in AparteClientOptions or ensure aparte-chat-input has a `target` attribute.');
+            console.warn('[AparteClient] ⚠️ No target element found with appendMessage support. Provide a targetResolver in AparteClientOptions or ensure the composer has a `target` attribute.');
             return;
         }
 

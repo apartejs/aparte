@@ -2,7 +2,7 @@ import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
 
 export interface AparteUiProps {
-    /** The custom element tag name (e.g. 'aparte-chat-input'). */
+    /** The custom element tag name (e.g. 'aparte-model-selector'). */
     name: string;
     /** Props to apply. Keys starting with `--` become CSS variables. */
     props?: Record<string, unknown>;
@@ -27,7 +27,7 @@ export interface AparteUiHandle {
  * Angular's `AparteUiComponent`.
  *
  * @example
- * <AparteUi name="aparte-chat-input" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
+ * <AparteUi name="aparte-model-selector" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
  */
 export const AparteUi = forwardRef<AparteUiHandle, AparteUiProps>(function AparteUi(
     { name, props = {}, onElementEvent, events },

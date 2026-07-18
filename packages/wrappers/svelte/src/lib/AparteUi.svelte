@@ -2,7 +2,7 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
 
-  /** The custom element tag name (e.g. 'aparte-chat-input'). */
+  /** The custom element tag name (e.g. 'aparte-model-selector'). */
   export let name: string;
   /** Props to apply. Keys starting with `--` become CSS variables. */
   export let props: Record<string, unknown> = {};

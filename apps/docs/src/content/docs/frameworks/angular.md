@@ -120,7 +120,7 @@ interactive aparté events by default; pass `[events]` to listen to others:
 
 ```html
 <aparte-ui
-  name="aparte-chat-input"
+  name="aparte-model-selector"
   [props]="{ placeholder: 'Ask…', '--glow-speed': '4s' }"
   (elementEvent)="onEvent($event)"
 />

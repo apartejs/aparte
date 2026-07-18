@@ -7,8 +7,8 @@
  * stringly-typed `aparte-ask-question-*` events that drifted in Phase 1.
  *
  * On a request it builds the schema-appropriate panel (enum / boolean / string /
- * object) and mounts it inside the nearest `<aparte-composer>` (or
- * `<aparte-chat-input>`) via its `showPanel` API, resolving:
+ * object) and mounts it inside the nearest `<aparte-composer>` via its
+ * `showPanel` API, resolving:
  *   - accept  — the send button (panel submit), when all fields are complete
  *   - decline — the inline "Skip" affordance
  *   - cancel  — the assistant turn was stopped/errored while pending
@@ -115,8 +115,6 @@ export class AparteElicitation extends HTMLElement {
         while (node) {
             const composer = node.querySelector('aparte-composer') as ComposerEl | null;
             if (composer && typeof composer.showPanel === 'function') return composer;
-            const input = node.querySelector('aparte-chat-input') as ComposerEl | null;
-            if (input && typeof input.showPanel === 'function') return input;
             node = node.parentElement;
         }
         const doc = document.querySelector('aparte-composer') as ComposerEl | null;

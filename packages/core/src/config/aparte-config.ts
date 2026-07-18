@@ -162,7 +162,7 @@ export class AparteConfigClass {
 
     /**
      * Show or hide a composer action button by id.
-     * Triggers a config update so all mounted `aparte-chat-input` elements react immediately.
+     * Triggers a config update so all mounted composer elements react immediately.
      */
     setActionHidden(id: string, hidden: boolean): void {
         const action = this._actions.find(a => a.id === id);

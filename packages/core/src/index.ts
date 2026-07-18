@@ -101,7 +101,6 @@ export {
 export { AparteChat } from './components/index.js';
 export { AparteChatBubble, populateBubbleFromMessage } from './components/index.js';
 export type { SyncableBubble } from './components/index.js';
-export { AparteChatInput } from './components/index.js';
 export { AparteChatStatus } from './components/index.js';
 export { AparteChatViewport } from './components/index.js';
 
@@ -189,7 +188,6 @@ export { AparteElicitation } from './components/elicitation/aparte-elicitation.j
 // Components register themselves in their files
 import './components/chat/aparte-chat.js';
 import './components/bubble/aparte-chat-bubble.js';
-import './components/input/aparte-chat-input.js';
 import './components/status/aparte-chat-status.js';
 import './components/viewport/aparte-chat-viewport.js';
 import './components/elicitation/aparte-elicitation.js';
@@ -207,10 +205,9 @@ export function registerAllComponents(): void {
     const _chat = customElements.get('aparte-chat');
     const _viewport = customElements.get('aparte-chat-viewport');
     const _bubble = customElements.get('aparte-chat-bubble');
-    const _input = customElements.get('aparte-chat-input');
     const _status = customElements.get('aparte-chat-status');
 
-    if (!_chat || !_viewport || !_bubble || !_input || !_status) {
+    if (!_chat || !_viewport || !_bubble || !_status) {
         console.warn('[Aparte] Some components may not be registered. Ensure all component files are imported.');
     }
 }

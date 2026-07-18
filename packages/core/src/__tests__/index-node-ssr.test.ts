@@ -33,7 +33,7 @@ describe('index.node — SSR-safe entry', () => {
     it('does NOT leak custom-element classes into the Node build', async () => {
         const mod = await import('../index.node') as Record<string, unknown>;
         // These are HTMLElement subclasses — browser-only; must be absent here.
-        for (const name of ['AparteChatBubble', 'AparteComposer', 'AparteSelect', 'AparteChatInput', 'AparteConversationList']) {
+        for (const name of ['AparteChatBubble', 'AparteComposer', 'AparteSelect', 'AparteConversationList']) {
             expect(mod[name], `${name} must not be exported from the Node build`).toBeUndefined();
         }
     });
