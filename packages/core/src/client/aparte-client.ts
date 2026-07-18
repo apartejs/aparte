@@ -1259,6 +1259,216 @@ export class AparteClient {
         }
     }
 
+    /**
+     * Handle one `tool_use` stream event from {@link _streamLoop}: the built-in
+     * `create_artifact`, per-tool renderer selection, the human-in-the-loop
+     * approval gate, and running the registered handler (timeout / abort).
+     * Mutates the shared `messages` / `toolCallsThisTurn` history in place and
+     * returns whether the agentic loop should keep going.
+     */
+    private async _handleToolUseEvent(
+        event: { id: string; name: string; input: Record<string, unknown> },
+        ctx: {
+            targetElement: AparteChatTargetElement;
+            messageId: string;
+            messages: AparteChatMessage[];
+            toolCallsThisTurn: AparteToolCall[];
+            precedingText: string;
+            artifactProgress: Map<string, number>;
+            turns: number;
+            globalMaxTurns: number;
+        },
+    ): Promise<{ continueLoop: boolean }> {
+        const { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns } = ctx;
+        let continueLoop = true;
+
+        toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
+
+        // ── Built-in: create_artifact ─────────────────────────────────
+        // When the LLM calls create_artifact, bypass the generic handler:
+        // create an AparteArtifactSegment directly (isolated from chat text),
+        // dispatch artifact lifecycle events, and inject a success tool_result
+        // so the LLM can continue with a conversational reply.
+        if (event.name === 'create_artifact') {
+            const input = event.input as {
+                mimeType?: string;
+                title?: string;
+                content?: string;
+            };
+            const mimeType = input.mimeType ?? 'text/plain';
+            const kind = mimeType.includes('react') ? 'react'
+                : mimeType.includes('html') ? 'html'
+                : mimeType.includes('javascript') ? 'js'
+                : mimeType.includes('css') ? 'css'
+                : mimeType.includes('svg') ? 'svg'
+                : mimeType.includes('json') ? 'json'
+                : mimeType.includes('csv') ? 'csv'
+                : mimeType.includes('markdown') ? 'markdown'
+                : 'text';
+            const artifactSeg: import('../types/segments.js').AparteArtifactSegment = {
+                id: `artifact-${event.id}`,
+                type: 'artifact',
+                mimeType,
+                artifactType: kind,
+                title: input.title ?? kind,
+                content: input.content ?? '',
+            };
+            targetElement.addSegment?.(artifactSeg);
+            this._dispatchArtifactLifecycle(targetElement, messageId, artifactSeg, artifactProgress, true);
+
+            messages.push({
+                role: 'tool_call',
+                content: '',
+                toolCalls: [{ id: event.id, name: event.name, input: event.input }],
+            });
+            messages.push({
+                role: 'tool_result',
+                content: 'Artifact created successfully.',
+                toolCallId: event.id,
+            });
+            return { continueLoop: true };
+        }
+        // ── End built-in create_artifact ──────────────────────────────
+
+        const toolSeg: AparteToolCallSegment = {
+            id: `tool-${event.id}`,
+            type: 'tool_call',
+            toolCall: { id: event.id, name: event.name, input: event.input },
+            status: 'pending'
+        };
+
+        // Check for a per-tool renderer override
+        const toolRenderer = this._config.getToolRenderer(event.name);
+        if (toolRenderer) {
+            // Inject per-tool styles once
+            if (toolRenderer.getStyles) {
+                const styles = toolRenderer.getStyles();
+                if (styles) {
+                    const styleId = `aparte-tool-renderer-${event.name}`;
+                    if (!document.getElementById(styleId)) {
+                        const el = document.createElement('style');
+                        el.id = styleId;
+                        el.textContent = styles;
+                        document.head.appendChild(el);
+                    }
+                }
+            }
+            const html = toolRenderer.render(toolSeg);
+            // Only add segment if the renderer produces visible output
+            if (html) {
+                targetElement.addSegment?.(toolSeg);
+            }
+            // No DOM setup here — segment bubble handles it via its own renderer
+        } else {
+            // Fallback: generic tool_call segment renderer (pill + spinner)
+            targetElement.addSegment?.(toolSeg);
+        }
+
+        // Check per-tool maxTurns override
+        const toolDef = this._config.getTools().find(t => t.name === event.name);
+        const effectiveMaxTurns = toolDef?.maxTurns ?? globalMaxTurns;
+        if (turns >= effectiveMaxTurns) {
+            console.warn(`[AparteClient] Tool "${event.name}" maxTurns (${effectiveMaxTurns}) reached.`);
+            targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+            return { continueLoop: false };
+        }
+
+        // Find and run the registered handler
+        const handler = this._config.getToolHandler(event.name);
+        if (handler) {
+            // The input the handler runs with. A human approval step may
+            // override it via the decision payload (see below); with no
+            // approval it is exactly what the model requested.
+            let effectiveInput = event.input;
+            // Human-in-the-loop: pause for approval before running, if required.
+            if (toolDef?.needsApproval) {
+                const approvalController = new AbortController();
+                this._activeToolControllers.add(approvalController);
+                targetElement.updateSegment?.(toolSeg.id, { status: 'awaiting-approval' });
+                targetElement.dispatchEvent?.(new CustomEvent('aparte-tool-approval-request', {
+                    bubbles: true, composed: true,
+                    detail: { toolCallId: event.id, toolName: event.name, input: event.input }
+                }));
+                let decision: { approved: boolean; payload?: unknown };
+                const resolveApproval = this.options.approvalResolver
+                    ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig));
+                try {
+                    decision = await resolveApproval(event.id, approvalController.signal);
+                } finally {
+                    this._activeToolControllers.delete(approvalController);
+                }
+                if (!decision.approved) {
+                    const rejection = 'Tool execution was rejected by the user.';
+                    targetElement.updateSegment?.(toolSeg.id, { status: 'rejected', result: rejection });
+                    const existingToolCallMsg = messages.find(
+                        m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
+                    );
+                    if (!existingToolCallMsg) {
+                        messages.push({
+                            role: 'tool_call',
+                            content: '',
+                            toolCalls: toolCallsThisTurn,
+                            precedingText: precedingText.trim() || undefined
+                        });
+                    }
+                    messages.push({ role: 'tool_result', content: rejection, toolCallId: event.id });
+                    return { continueLoop: false };
+                }
+                // Approved → optionally let the human's payload edit the
+                // arguments, then restore pending and run the handler.
+                if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {
+                    effectiveInput = { ...event.input, ...(decision.payload as Record<string, unknown>) };
+                }
+                targetElement.updateSegment?.(toolSeg.id, { status: 'pending' });
+            }
+
+            const controller = new AbortController();
+            this._activeToolControllers.add(controller);
+            const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
+
+            try {
+                const result = await handler(
+                    { id: event.id, name: event.name, input: effectiveInput },
+                    controller.signal
+                );
+                targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
+
+                // Inject tool_call + tool_result into message history for re-call
+                const existingToolCallMsg = messages.find(
+                    m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
+                );
+                if (!existingToolCallMsg) {
+                    messages.push({
+                        role: 'tool_call',
+                        content: '',
+                        toolCalls: toolCallsThisTurn,
+                        precedingText: precedingText.trim() || undefined
+                    });
+                }
+                messages.push({
+                    role: 'tool_result',
+                    content: result.content,
+                    toolCallId: event.id
+                });
+            } catch (err: any) {
+                if (err?.name === 'AbortError') {
+                    targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+                    continueLoop = false;
+                } else {
+                    throw err;
+                }
+            } finally {
+                clearTimeout(timeout);
+                this._activeToolControllers.delete(controller);
+            }
+        } else {
+            console.warn(`[AparteClient] No handler registered for tool "${event.name}"`);
+            targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+            continueLoop = false;
+        }
+        return { continueLoop };
+    }
+
     private async _streamLoop(
         targetElement: AparteChatTargetElement,
         messageId: string,
@@ -1514,192 +1724,11 @@ export class AparteClient {
                             break;
                         }
                         case 'tool_use': {
-                            toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
-
-                            // ── Built-in: create_artifact ─────────────────────────────────
-                            // When the LLM calls create_artifact, bypass the generic handler:
-                            // create an AparteArtifactSegment directly (isolated from chat text),
-                            // dispatch artifact lifecycle events, and inject a success tool_result
-                            // so the LLM can continue with a conversational reply.
-                            if (event.name === 'create_artifact') {
-                                const input = event.input as {
-                                    mimeType?: string;
-                                    title?: string;
-                                    content?: string;
-                                };
-                                const mimeType = input.mimeType ?? 'text/plain';
-                                const kind = mimeType.includes('react') ? 'react'
-                                    : mimeType.includes('html') ? 'html'
-                                    : mimeType.includes('javascript') ? 'js'
-                                    : mimeType.includes('css') ? 'css'
-                                    : mimeType.includes('svg') ? 'svg'
-                                    : mimeType.includes('json') ? 'json'
-                                    : mimeType.includes('csv') ? 'csv'
-                                    : mimeType.includes('markdown') ? 'markdown'
-                                    : 'text';
-                                const artifactSeg: import('../types/segments.js').AparteArtifactSegment = {
-                                    id: `artifact-${event.id}`,
-                                    type: 'artifact',
-                                    mimeType,
-                                    artifactType: kind,
-                                    title: input.title ?? kind,
-                                    content: input.content ?? '',
-                                };
-                                targetElement.addSegment?.(artifactSeg);
-                                this._dispatchArtifactLifecycle(targetElement, messageId, artifactSeg, artifactProgress, true);
-
-                                messages.push({
-                                    role: 'tool_call',
-                                    content: '',
-                                    toolCalls: [{ id: event.id, name: event.name, input: event.input }],
-                                });
-                                messages.push({
-                                    role: 'tool_result',
-                                    content: 'Artifact created successfully.',
-                                    toolCallId: event.id,
-                                });
-                                break;
-                            }
-                            // ── End built-in create_artifact ──────────────────────────────
-
-                            const toolSeg: AparteToolCallSegment = {
-                                id: `tool-${event.id}`,
-                                type: 'tool_call',
-                                toolCall: { id: event.id, name: event.name, input: event.input },
-                                status: 'pending'
-                            };
-
-                            // Check for a per-tool renderer override
-                            const toolRenderer = this._config.getToolRenderer(event.name);
-                            if (toolRenderer) {
-                                // Inject per-tool styles once
-                                if (toolRenderer.getStyles) {
-                                    const styles = toolRenderer.getStyles();
-                                    if (styles) {
-                                        const styleId = `aparte-tool-renderer-${event.name}`;
-                                        if (!document.getElementById(styleId)) {
-                                            const el = document.createElement('style');
-                                            el.id = styleId;
-                                            el.textContent = styles;
-                                            document.head.appendChild(el);
-                                        }
-                                    }
-                                }
-                                const html = toolRenderer.render(toolSeg);
-                                // Only add segment if the renderer produces visible output
-                                if (html) {
-                                    targetElement.addSegment?.(toolSeg);
-                                }
-                                // No DOM setup here — segment bubble handles it via its own renderer
-                            } else {
-                                // Fallback: generic tool_call segment renderer (pill + spinner)
-                                targetElement.addSegment?.(toolSeg);
-                            }
-
-                            // Check per-tool maxTurns override
-                            const toolDef = this._config.getTools().find(t => t.name === event.name);
-                            const effectiveMaxTurns = toolDef?.maxTurns ?? globalMaxTurns;
-                            if (turns >= effectiveMaxTurns) {
-                                console.warn(`[AparteClient] Tool "${event.name}" maxTurns (${effectiveMaxTurns}) reached.`);
-                                targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                                continueLoop = false;
-                                break;
-                            }
-
-                            // Find and run the registered handler
-                            const handler = this._config.getToolHandler(event.name);
-                            if (handler) {
-                                // The input the handler runs with. A human approval step may
-                                // override it via the decision payload (see below); with no
-                                // approval it is exactly what the model requested.
-                                let effectiveInput = event.input;
-                                // Human-in-the-loop: pause for approval before running, if required.
-                                if (toolDef?.needsApproval) {
-                                    const approvalController = new AbortController();
-                                    this._activeToolControllers.add(approvalController);
-                                    targetElement.updateSegment?.(toolSeg.id, { status: 'awaiting-approval' });
-                                    targetElement.dispatchEvent?.(new CustomEvent('aparte-tool-approval-request', {
-                                        bubbles: true, composed: true,
-                                        detail: { toolCallId: event.id, toolName: event.name, input: event.input }
-                                    }));
-                                    let decision: { approved: boolean; payload?: unknown };
-                                    const resolveApproval = this.options.approvalResolver
-                                        ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig));
-                                    try {
-                                        decision = await resolveApproval(event.id, approvalController.signal);
-                                    } finally {
-                                        this._activeToolControllers.delete(approvalController);
-                                    }
-                                    if (!decision.approved) {
-                                        const rejection = 'Tool execution was rejected by the user.';
-                                        targetElement.updateSegment?.(toolSeg.id, { status: 'rejected', result: rejection });
-                                        const existingToolCallMsg = messages.find(
-                                            m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
-                                        );
-                                        if (!existingToolCallMsg) {
-                                            messages.push({
-                                                role: 'tool_call',
-                                                content: '',
-                                                toolCalls: toolCallsThisTurn,
-                                                precedingText: precedingText.trim() || undefined
-                                            });
-                                        }
-                                        messages.push({ role: 'tool_result', content: rejection, toolCallId: event.id });
-                                        continueLoop = false;
-                                        break;
-                                    }
-                                    // Approved → optionally let the human's payload edit the
-                                    // arguments, then restore pending and run the handler.
-                                    if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {
-                                        effectiveInput = { ...event.input, ...(decision.payload as Record<string, unknown>) };
-                                    }
-                                    targetElement.updateSegment?.(toolSeg.id, { status: 'pending' });
-                                }
-
-                                const controller = new AbortController();
-                                this._activeToolControllers.add(controller);
-                                const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
-
-                                try {
-                                    const result = await handler(
-                                        { id: event.id, name: event.name, input: effectiveInput },
-                                        controller.signal
-                                    );
-                                    targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
-
-                                    // Inject tool_call + tool_result into message history for re-call
-                                    const existingToolCallMsg = messages.find(
-                                        m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
-                                    );
-                                    if (!existingToolCallMsg) {
-                                        messages.push({
-                                            role: 'tool_call',
-                                            content: '',
-                                            toolCalls: toolCallsThisTurn,
-                                            precedingText: precedingText.trim() || undefined
-                                        });
-                                    }
-                                    messages.push({
-                                        role: 'tool_result',
-                                        content: result.content,
-                                        toolCallId: event.id
-                                    });
-                                } catch (err: any) {
-                                    if (err?.name === 'AbortError') {
-                                        targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                                        continueLoop = false;
-                                    } else {
-                                        throw err;
-                                    }
-                                } finally {
-                                    clearTimeout(timeout);
-                                    this._activeToolControllers.delete(controller);
-                                }
-                            } else {
-                                console.warn(`[AparteClient] No handler registered for tool "${event.name}"`);
-                                targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                                continueLoop = false;
-                            }
+                            const toolResult = await this._handleToolUseEvent(
+                                { id: event.id, name: event.name, input: event.input },
+                                { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns },
+                            );
+                            if (!toolResult.continueLoop) continueLoop = false;
                             break;
                         }
                         case 'error':
