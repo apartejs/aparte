@@ -258,9 +258,11 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         const component = fixture.componentInstance;
         expect(component.injectTokenStream).toBeDefined();
-        // Parity with React/Vue/Svelte.
+        // Parity with React/Vue/Svelte (the canonical AparteChatImperativeApi).
         expect(typeof component.scrollToBottom).toBe('function');
         expect(typeof component.focusInput).toBe('function');
+        expect(typeof component.setConversationId).toBe('function');
+        expect(typeof component.getViewport).toBe('function');
         fixture.detectChanges();
         await fixture.whenStable();
         expect(() => { component.scrollToBottom(); component.focusInput(); }).not.toThrow();

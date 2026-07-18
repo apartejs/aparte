@@ -154,3 +154,6 @@ export type {
     AparteArtifactOpenEventDetail
 } from './events.js';
 
+// The canonical imperative surface every framework <AparteChat> exposes.
+export type { AparteChatImperativeApi } from './imperative-api.js';
+

@@ -81,7 +81,9 @@ export type {
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
-    AparteToolActionDetail
+    AparteToolActionDetail,
+    // Canonical imperative surface (aliased by every wrapper's handle type).
+    AparteChatImperativeApi
 } from './types/index.js';
 
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';

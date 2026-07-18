@@ -27,6 +27,7 @@ import type {
     AparteChatHostBinding,
     AparteConfigClass,
     AparteActionEventDetail,
+    AparteChatImperativeApi,
 } from '@aparte/core';
 import { AparteChatHost } from '@aparte/core';
 
@@ -143,7 +144,7 @@ import { AparteChatHost } from '@aparte/core';
     }
   `]
 })
-export class AparteChatComponent implements AfterViewInit, OnDestroy {
+export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChatImperativeApi {
     constructor() {
         // Reactive effect to reconcile bubbles when the messages signal updates.
         // Debounced with requestAnimationFrame so rapid token bursts only trigger
@@ -428,6 +429,16 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
 
     /** Stop any active token stream. */
     stopTokenStream(): void { this._host?.stopTokenStream(); }
+
+    /**
+     * Set the active conversation id imperatively — parity with the other
+     * wrappers' handles (the `conversationId` `@Input` remains the declarative
+     * path). Delegates to the host, which loads/persists via the registered
+     * `ConversationManager`.
+     */
+    setConversationId(id: string | null): Promise<void> {
+        return this._host?.setConversationId(id) ?? Promise.resolve();
+    }
 
     private _observableToAsyncIterable(stream: Observable<string>): AsyncIterable<string> {
         return {

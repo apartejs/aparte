@@ -80,6 +80,7 @@ export type {
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
     AparteToolActionDetail,
+    AparteChatImperativeApi,
 } from './types/index.js';
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 

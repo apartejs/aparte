@@ -8,8 +8,8 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from 'react';
-import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass } from '@aparte/core';
-import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
+import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
     /**
@@ -114,38 +114,11 @@ export interface AparteChatProps {
     config?: AparteConfigClass;
 }
 
-export interface AparteChatHandle {
-    // ── message + streaming surface (forwards to AparteChatHost) ──
-    appendMessage: (message: AparteMessage) => void;
-    updateMessage: (messageId: string, updates: Partial<AparteMessage>) => void;
-    updateLastMessage: (content: string, options?: { append?: boolean }) => void;
-    addSegment: (segment: AparteSegment) => void;
-    updateSegment: (segmentId: string, updates: Partial<AparteSegment>) => void;
-    removeSegment: (segmentId: string) => void;
-    appendToSegment: (segmentId: string, content: string) => void;
-    getMessages: () => AparteMessage[];
-    clearMessages: () => void;
-    // ── branch / edit ──
-    addBranch: (messageId: string) => number;
-    addSiblingOf: (existingId: string, message: AparteMessage) => string | null;
-    truncateFrom: (messageId: string) => void;
-    truncateResponsesAfter: (userMessageId: string) => void;
-    // ── manual token streaming (agnostic AsyncIterable) ──
-    injectTokenStream: (messageId: string, tokens: AsyncIterable<string>) => Promise<void>;
-    stopTokenStream: () => void;
-    // ── conversation lifecycle ──
-    setConversationId: (id: string | null) => Promise<void>;
-    // ── misc ──
-    scrollToBottom: () => void;
-    focusInput: () => void;
-    isStreaming: () => boolean;
-    /**
-     * The `<aparte-chat-viewport>` element — for custom scroll handling, an
-     * IntersectionObserver, etc. Same `getViewport()` accessor on all four
-     * wrappers.
-     */
-    getViewport: () => HTMLElement | null;
-}
+/**
+ * The React ref handle for `<AparteChat>` — the canonical imperative surface
+ * shared by all four wrappers (see `AparteChatImperativeApi` in `@aparte/core`).
+ */
+export type AparteChatHandle = AparteChatImperativeApi;
 
 export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function AparteChat(
     {

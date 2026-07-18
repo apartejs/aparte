@@ -1,30 +1,12 @@
 import { writable, type Writable } from 'svelte/store';
+import type { AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment } from '../types.js';
 
-/** The imperative surface `<AparteChat>` exposes (its `export function`s). */
-export interface AparteChatInstance {
-    appendMessage(message: AparteMessage): void;
-    updateMessage(messageId: string, updates: Partial<AparteMessage>): void;
-    updateLastMessage(content: string, options?: { append?: boolean }): void;
-    addSegment(segment: AparteSegment): void;
-    updateSegment(segmentId: string, updates: Partial<AparteSegment>): void;
-    removeSegment(segmentId: string): void;
-    appendToSegment(segmentId: string, content: string): void;
-    getMessages(): AparteMessage[];
-    clearMessages(): void;
-    addBranch(messageId: string): number;
-    addSiblingOf(existingId: string, message: AparteMessage): string | null;
-    truncateFrom(messageId: string): void;
-    truncateResponsesAfter(userMessageId: string): void;
-    injectTokenStream(messageId: string, tokens: AsyncIterable<string>): Promise<void>;
-    stopTokenStream(): void;
-    setConversationId(id: string | null): Promise<void>;
-    isStreaming(): boolean;
-    scrollToBottom(): void;
-    focusInput(): void;
-    /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
-    getViewport(): HTMLElement | null;
-}
+/**
+ * The imperative surface `<AparteChat>` exposes (its `export function`s) — the
+ * canonical contract shared by all four wrappers (`AparteChatImperativeApi`).
+ */
+export type AparteChatInstance = AparteChatImperativeApi;
 
 export interface AparteChatStore {
     /** Subscribe with `$messages` and bind to `<AparteChat messages={$messages}>`. */
