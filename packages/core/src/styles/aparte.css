@@ -443,10 +443,11 @@ aparte-chat > aparte-chat-viewport,
   min-height: 0;
 }
 
-aparte-chat > aparte-composer,
-[data-aparte-chat] > /* Model-selection gate (opt-in via AparteConfig.setRequireModelSelection): grey the
+/* Model-selection gate (opt-in via AparteConfig.setRequireModelSelection): grey the
    composer and block its send button until a model is selected — e.g. while the
-   model selector is still fetching. Ungates automatically on selection. */
+   model selector is still fetching. Ungates automatically on selection.
+   Unscoped so it greys the composer in EVERY host (vanilla shell + all wrappers),
+   not only a `[data-aparte-chat]` direct child. */
 aparte-composer[data-model-gated] {
   opacity: 0.55;
 }

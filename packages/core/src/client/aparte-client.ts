@@ -818,11 +818,20 @@ export class AparteClient {
         //    retry/edit resolver's scan so a bare `<aparte-chat-viewport>` works
         //    out of the box without a targetResolver.
         if (!targetElement) {
-            const scanned = document.querySelector(
+            // Pick the FIRST candidate that actually exposes appendMessage — not
+            // merely the first candidate. In the documented flat layout the
+            // `<aparte-chat>` shell wraps the `<aparte-chat-viewport>`, so a
+            // plain `querySelector` returns the shell (which delegates rendering
+            // to its viewport and has no appendMessage of its own) and the send
+            // would silently no-op. Scanning all candidates finds the viewport.
+            const candidates = document.querySelectorAll<AparteChatElement>(
                 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]',
-            ) as AparteChatElement | null;
-            if (scanned && typeof scanned.appendMessage === 'function') {
-                targetElement = scanned;
+            );
+            for (const candidate of candidates) {
+                if (typeof candidate.appendMessage === 'function') {
+                    targetElement = candidate;
+                    break;
+                }
             }
         }
 
