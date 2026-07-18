@@ -37,7 +37,7 @@
      * `messages`). For side-effects: scroll, analytics, send.
      */
     messageSent: AparteSendEventDetail;
-    /** A custom bubble action (registerBubbleAction) was clicked — typed aparte:action. */
+    /** A custom bubble action (registerBubbleAction) was clicked — typed aparte-action. */
     action: AparteActionEventDetail;
     /** Active path changed (branch nav/edit/retry/streaming) — bind back to `messages`. */
     messagesChange: AparteMessage[];
@@ -99,7 +99,7 @@
     dispatch('messageSent', (event as CustomEvent<AparteSendEventDetail>).detail);
   }
 
-  // Custom bubble actions bubble to the root as `aparte:action` — dispatch typed.
+  // Custom bubble actions bubble to the root as `aparte-action` — dispatch typed.
   function handleAction(event: Event) {
     dispatch('action', (event as CustomEvent<AparteActionEventDetail>).detail);
   }
@@ -131,11 +131,11 @@
     });
     teardown = host.bind();
     host.syncBubbles();
-    rootRef?.addEventListener('aparte:action', handleAction);
+    rootRef?.addEventListener('aparte-action', handleAction);
   });
 
   onDestroy(() => {
-    rootRef?.removeEventListener('aparte:action', handleAction);
+    rootRef?.removeEventListener('aparte-action', handleAction);
     teardown?.();
     teardown = null;
     host = null;

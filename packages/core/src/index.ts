@@ -9,6 +9,9 @@ import './styles/aparte.css';
 import './primitives/select/select.css';
 import './primitives/progress-spinner/progress-spinner.css';
 
+// Global HTMLElementEventMap augmentation — typed `e.detail` for aparté events.
+import './types/event-map.js';
+
 // Export primitives
 export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, AparteProgressSpinner } from './primitives/index.js';
 

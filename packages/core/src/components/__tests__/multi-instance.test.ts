@@ -104,7 +104,7 @@ describe('multi-instance config isolation', () => {
         attachConfig(hostA, cfgWithCopyIcon('late'));
         // The bubble listens for config-change to rebuild; simulate the notify
         // path by dispatching the same window event the config emits.
-        window.dispatchEvent(new CustomEvent('aparte:config-change'));
+        window.dispatchEvent(new CustomEvent('aparte-config-change'));
 
         expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="late"');
     });
@@ -116,7 +116,7 @@ describe('multi-instance config isolation', () => {
         expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="temp"');
 
         detachConfig(hostA);
-        window.dispatchEvent(new CustomEvent('aparte:config-change'));
+        window.dispatchEvent(new CustomEvent('aparte-config-change'));
         expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).not.toContain('data-marker');
     });
 

@@ -254,7 +254,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
     /**
      * Emitted when a custom bubble action (registered via
      * `AparteConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
-     * wrapper over the bubbling `aparte:action` DOM event. Switch on `$event.actionId`.
+     * wrapper over the bubbling `aparte-action` DOM event. Switch on `$event.actionId`.
      */
     readonly action = output<AparteActionEventDetail>();
     /** Emitted when messages are updated internally (e.g. by AparteClient) */
@@ -324,10 +324,10 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
         });
         this._unbindHost = this._host.bind();
 
-        // Custom bubble actions bubble to the host as `aparte:action`; surface them as
+        // Custom bubble actions bubble to the host as `aparte-action`; surface them as
         // the typed `action` output. (addEventListener, not @HostListener: Angular
         // parses a colon in the event name as a `target:event` global target.)
-        host.addEventListener('aparte:action', this._onAction);
+        host.addEventListener('aparte-action', this._onAction);
 
         // Re-reconcile bubbles whenever Angular's @for materialises/destroys them.
         this._host.syncBubbles();
@@ -343,7 +343,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
             cancelAnimationFrame(this._syncRafId);
             this._syncRafId = null;
         }
-        (this.elementRef.nativeElement as HTMLElement).removeEventListener('aparte:action', this._onAction);
+        (this.elementRef.nativeElement as HTMLElement).removeEventListener('aparte-action', this._onAction);
         this._bubbleRefsSub?.unsubscribe();
         this._bubbleRefsSub = undefined;
         this._unbindHost?.();

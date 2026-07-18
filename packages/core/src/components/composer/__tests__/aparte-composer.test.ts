@@ -6,7 +6,7 @@ import type { AparteComposerChangeEventDetail } from '../aparte-composer.js';
 import { AparteConfig } from '../../../config/aparte-config.js';
 
 /**
- * Public state observability — the `aparte:composer-change` DOM event + getState()
+ * Public state observability — the `aparte-composer-change` DOM event + getState()
  * are what let a custom send button (or footer control) OUTSIDE the composer
  * package mirror live state without the private `_on`/`_emit` bus.
  */
@@ -25,7 +25,7 @@ describe('aparte-composer — public state events', () => {
 
     function onChange() {
         const spy = vi.fn();
-        composer.addEventListener('aparte:composer-change', (e) => {
+        composer.addEventListener('aparte-composer-change', (e) => {
             spy((e as CustomEvent<AparteComposerChangeEventDetail>).detail);
         });
         return spy;
@@ -45,7 +45,7 @@ describe('aparte-composer — public state events', () => {
         expect(composer.getState().attachments).toHaveLength(1);
     });
 
-    it('fires aparte:composer-change with the full state snapshot on setValue', () => {
+    it('fires aparte-composer-change with the full state snapshot on setValue', () => {
         const spy = onChange();
         composer.setValue('hello');
         expect(spy).toHaveBeenCalledTimes(1);
@@ -55,10 +55,10 @@ describe('aparte-composer — public state events', () => {
 
     it('mirrors streaming lifecycle (window events) to the public event', () => {
         const spy = onChange();
-        window.dispatchEvent(new CustomEvent('apartemessagestart'));
+        window.dispatchEvent(new CustomEvent('aparte-message-start'));
         expect(spy).toHaveBeenCalledTimes(1);
         expect(spy.mock.calls[0][0].state.streaming).toBe(true);
-        window.dispatchEvent(new CustomEvent('apartemessagedone'));
+        window.dispatchEvent(new CustomEvent('aparte-message-done'));
         expect(spy.mock.calls[1][0].state.streaming).toBe(false);
     });
 
@@ -86,19 +86,19 @@ describe('aparte-composer — public state events', () => {
         }
     });
 
-    it('emits a public aparte:cancel on cancel(), symmetric with aparte-send', () => {
+    it('emits a public aparte-cancel on cancel(), symmetric with aparte-send', () => {
         const cancelSpy = vi.fn();
-        composer.addEventListener('aparte:cancel', cancelSpy);
+        composer.addEventListener('aparte-cancel', cancelSpy);
         composer.cancel();
         expect(cancelSpy).toHaveBeenCalledTimes(1);
     });
 
     it('the change event bubbles and crosses shadow boundaries (composed)', () => {
         const outer = vi.fn();
-        document.body.addEventListener('aparte:composer-change', outer);
+        document.body.addEventListener('aparte-composer-change', outer);
         composer.setValue('x');
         expect(outer).toHaveBeenCalledTimes(1);
-        document.body.removeEventListener('aparte:composer-change', outer);
+        document.body.removeEventListener('aparte-composer-change', outer);
     });
 });
 
@@ -178,24 +178,24 @@ describe('aparte-composer — multi-instance streaming isolation', () => {
     });
 
     it('only the targeted composer enters the streaming state', () => {
-        window.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { targetId: 'chat-a' } }));
+        window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { targetId: 'chat-a' } }));
         expect(a.streaming).toBe(true);
         expect(b.streaming).toBe(false); // was: the cross-talk flipped B too
     });
 
     it('only the targeted composer leaves the streaming state', () => {
-        window.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { targetId: 'chat-a' } }));
-        window.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { targetId: 'chat-b' } }));
+        window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { targetId: 'chat-a' } }));
+        window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { targetId: 'chat-b' } }));
         expect(a.streaming).toBe(true);
         expect(b.streaming).toBe(true);
 
-        window.dispatchEvent(new CustomEvent('apartemessagedone', { detail: { targetId: 'chat-a' } }));
+        window.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { targetId: 'chat-a' } }));
         expect(a.streaming).toBe(false);
         expect(b.streaming).toBe(true); // B's turn is untouched by A finishing
     });
 
     it('an untargeted (broadcast) lifecycle event still reaches every composer', () => {
-        window.dispatchEvent(new CustomEvent('apartemessagestart'));
+        window.dispatchEvent(new CustomEvent('aparte-message-start'));
         expect(a.streaming).toBe(true);
         expect(b.streaming).toBe(true);
     });

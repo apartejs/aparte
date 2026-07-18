@@ -114,14 +114,14 @@ describe('AparteChat.vue', () => {
         expect(wrapper.emitted('messageSent')![0][0]).toEqual(detail);
     });
 
-    it('emits action for a bubbling aparte:action DOM event', async () => {
+    it('emits action for a bubbling aparte-action DOM event', async () => {
         const wrapper = mount(AparteChat, { props: { messages: mockMessages } });
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        // A custom bubble action (registerBubbleAction) dispatches aparte:action, which
+        // A custom bubble action (registerBubbleAction) dispatches aparte-action, which
         // bubbles to the root — the wrapper re-emits it typed.
         const bubble = wrapper.element.querySelector('aparte-chat-bubble')!;
-        bubble.dispatchEvent(new CustomEvent('aparte:action', {
+        bubble.dispatchEvent(new CustomEvent('aparte-action', {
             detail: { actionId: 'share', messageId: '1', role: 'user' },
             bubbles: true, composed: true,
         }));

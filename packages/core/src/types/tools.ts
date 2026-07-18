@@ -22,14 +22,14 @@ export interface AparteTool {
      * When true, the agent loop pauses before running this tool's handler and
      * waits for a human decision (approve / reject) — "human in the loop". The
      * UI surfaces Approve/Reject (default renderer, or a custom tool renderer)
-     * and resolves it by dispatching an `aparte:tool-decision` event. On reject,
+     * and resolves it by dispatching an `aparte-tool-decision` event. On reject,
      * a synthetic "rejected by user" result is injected and the turn stops.
      */
     needsApproval?: boolean;
 }
 
 /**
- * Detail for `aparte:tool-decision` — the human's verdict on a tool awaiting
+ * Detail for `aparte-tool-decision` — the human's verdict on a tool awaiting
  * approval. Dispatched by the approval UI (built-in or app-provided) and
  * consumed by the agent loop to resume or reject.
  */
@@ -47,7 +47,7 @@ export interface AparteToolDecisionDetail {
 }
 
 /**
- * Detail for `aparte:tool-approval-request` — emitted by the loop when a tool
+ * Detail for `aparte-tool-approval-request` — emitted by the loop when a tool
  * marked `needsApproval` is about to run. Apps may listen to show a richer
  * approval surface; the built-in renderer already shows Approve/Reject inline.
  */
@@ -58,7 +58,7 @@ export interface AparteToolApprovalRequestDetail {
 }
 
 /**
- * Detail for `aparte:tool-action` — a generic callback channel so any rendered
+ * Detail for `aparte-tool-action` — a generic callback channel so any rendered
  * tool UI (via {@link AparteToolRenderer.setup}) can post an interactive action
  * back toward the host/loop (e.g. a custom confirm/choose/retry button).
  */

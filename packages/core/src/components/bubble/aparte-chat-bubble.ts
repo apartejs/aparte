@@ -121,11 +121,11 @@ export class AparteChatBubble extends HTMLElement {
     // yet, so the initial time would otherwise stay blank. No-ops when the
     // attribute is absent (set later → attributeChangedCallback handles it).
     this._updateTimestamp(this.getAttribute('timestamp'));
-    window.addEventListener('aparte:config-change', this._onConfigChange);
+    window.addEventListener('aparte-config-change', this._onConfigChange);
   }
 
   disconnectedCallback(): void {
-    window.removeEventListener('aparte:config-change', this._onConfigChange);
+    window.removeEventListener('aparte-config-change', this._onConfigChange);
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -240,7 +240,7 @@ export class AparteChatBubble extends HTMLElement {
   /**
    * Set token usage + timing for this message (assistant only).
    * Renders the info ("i") action in the action bar; clicking it opens
-   * the app-owned stats popover (`aparte:message-info`).
+   * the app-owned stats popover (`aparte-message-info`).
    */
   setUsage(usage: AparteUsage | null | undefined): void {
     this._usage = usage ?? null;
@@ -250,7 +250,7 @@ export class AparteChatBubble extends HTMLElement {
   /**
    * Update the branch picker UI for tree-based navigation.
    * The viewport calls this after a branch switch or re-render.
-   * Prev/Next clicks dispatch `aparte:branch-navigate` (bubbles: true) so
+   * Prev/Next clicks dispatch `aparte-branch-navigate` (bubbles: true) so
    * the viewport can handle the actual tree switch.
    */
   setSiblings(count: number, index: number): void {
@@ -644,7 +644,7 @@ export class AparteChatBubble extends HTMLElement {
       tile.addEventListener('click', () => {
         const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
         if (!img) return;
-        this.dispatchEvent(new CustomEvent('aparte:attachment-preview', {
+        this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
           bubbles: true, composed: true,
           detail: { url: img.src, name: tile.getAttribute('title') ?? '' },
         }));
@@ -671,7 +671,7 @@ export class AparteChatBubble extends HTMLElement {
       if (!messageId) return;
       const detail: AparteBranchNavigateEventDetail = { messageId, direction };
       // Tree-based navigation: let the viewport handle the branch switch
-      this.dispatchEvent(new CustomEvent<AparteBranchNavigateEventDetail>('aparte:branch-navigate', {
+      this.dispatchEvent(new CustomEvent<AparteBranchNavigateEventDetail>('aparte-branch-navigate', {
         bubbles: true,
         composed: true,
         detail,
@@ -748,7 +748,7 @@ export class AparteChatBubble extends HTMLElement {
         }
 
         // Info button — opens the stats popover. The popover UI itself is
-        // owned by the app layer (it listens for `aparte:message-info`); the
+        // owned by the app layer (it listens for `aparte-message-info`); the
         // bubble only renders the trigger and forwards the usage payload.
         if (this._usage) {
           const infoLabel = locale.messageInfo ?? 'Details';
@@ -848,7 +848,7 @@ export class AparteChatBubble extends HTMLElement {
     // Read dynamically — attribute may not be set yet at render time
     const messageId = this.getAttribute('message-id');
 
-    // Custom actions (AparteConfig.registerAction) emit a generic aparte:action
+    // Custom actions (AparteConfig.registerAction) emit a generic aparte-action
     // event carrying the action id — same DOM-event contract as retry/feedback.
     if (action?.startsWith('custom:') && messageId) {
       const actionId = action.slice('custom:'.length);
@@ -859,7 +859,7 @@ export class AparteChatBubble extends HTMLElement {
         role: this._role,
         targetId: this._resolveTargetId(),
       };
-      this.dispatchEvent(new CustomEvent<AparteActionEventDetail>('aparte:action', {
+      this.dispatchEvent(new CustomEvent<AparteActionEventDetail>('aparte-action', {
         bubbles: true, composed: true, detail,
       }));
       this._cfg.getActions('bubble').find(x => x.id === actionId)?.onClick?.(e);
@@ -893,7 +893,7 @@ export class AparteChatBubble extends HTMLElement {
         if (!messageId) break;
         const targetId = this._resolveTargetId();
         const detail: AparteRetryEventDetail = { messageId, targetId };
-        this.dispatchEvent(new CustomEvent<AparteRetryEventDetail>('aparte:retry', {
+        this.dispatchEvent(new CustomEvent<AparteRetryEventDetail>('aparte-retry', {
           bubbles: true, composed: true,
           detail,
         }));
@@ -917,7 +917,7 @@ export class AparteChatBubble extends HTMLElement {
         const value: AparteFeedbackEventDetail['value'] = action === 'feedback-positive' ? 'positive' : 'negative';
         btn.setAttribute('data-submitted', '');
         const detail: AparteFeedbackEventDetail = { messageId, value };
-        this.dispatchEvent(new CustomEvent<AparteFeedbackEventDetail>('aparte:feedback', {
+        this.dispatchEvent(new CustomEvent<AparteFeedbackEventDetail>('aparte-feedback', {
           bubbles: true, composed: true,
           detail,
         }));
@@ -929,7 +929,7 @@ export class AparteChatBubble extends HTMLElement {
           messageId,
           usage: this._usage ?? undefined,
         };
-        this.dispatchEvent(new CustomEvent<AparteMessageInfoEventDetail>('aparte:message-info', {
+        this.dispatchEvent(new CustomEvent<AparteMessageInfoEventDetail>('aparte-message-info', {
           bubbles: true, composed: true,
           detail,
         }));
@@ -980,7 +980,7 @@ export class AparteChatBubble extends HTMLElement {
 
   /**
    * Leave edit mode. When `save` is true and the text actually changed, emits
-   * `aparte:edit`; otherwise restores the original message untouched. Always
+   * `aparte-edit`; otherwise restores the original message untouched. Always
    * restores the normal action bar and removes the inline editor.
    */
   private _exitEditMode(save: boolean): void {
@@ -1003,7 +1003,7 @@ export class AparteChatBubble extends HTMLElement {
           content: newContent,
           targetId: this._resolveTargetId(),
         };
-        this.dispatchEvent(new CustomEvent<AparteEditEventDetail>('aparte:edit', {
+        this.dispatchEvent(new CustomEvent<AparteEditEventDetail>('aparte-edit', {
           bubbles: true, composed: true,
           detail,
         }));

@@ -7,7 +7,7 @@
  * (charter §6 render hooks: `string | HTMLElement`). Called whenever the active
  * sibling / count changes.
  *
- * The prev/next arrows and their behavior (dispatching `aparte:branch-navigate`) are
+ * The prev/next arrows and their behavior (dispatching `aparte-branch-navigate`) are
  * kept — this hook customizes only the indicator. For click-to-jump navigation,
  * dispatch your own events / use the imperative API from your rendered output.
  *

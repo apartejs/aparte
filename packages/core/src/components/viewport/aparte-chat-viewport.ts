@@ -60,7 +60,7 @@ export class AparteChatViewport extends HTMLElement {
     private _mutationObserver: MutationObserver | null = null;
     private _boundResetHandler: (() => void) | null = null;
     /**
-     * When true, _reRenderActivePath() only dispatches aparte:path-changed without
+     * When true, _reRenderActivePath() only dispatches aparte-path-changed without
      * touching the DOM. Set via setFrameworkManagedDOM(true) when a framework
      * (e.g. Angular) owns the bubble elements.
      */
@@ -87,12 +87,12 @@ export class AparteChatViewport extends HTMLElement {
         this._setupEventListeners();
         this._setupObservers();
         this._boundResetHandler = () => this.clearAll();
-        window.addEventListener('aparte:reset', this._boundResetHandler);
+        window.addEventListener('aparte-reset', this._boundResetHandler);
     }
 
     disconnectedCallback(): void {
         if (this._boundResetHandler) {
-            window.removeEventListener('aparte:reset', this._boundResetHandler);
+            window.removeEventListener('aparte-reset', this._boundResetHandler);
             this._boundResetHandler = null;
         }
         this._cleanup();
@@ -578,7 +578,7 @@ export class AparteChatViewport extends HTMLElement {
      * Always calls `_reRenderActivePath()`:
      * - In native DOM mode: rebuilds bubble elements.
      * - In framework-managed mode: skips DOM manipulation but dispatches
-     *   `aparte:path-changed` with sibling metadata so the wrapper can update
+     *   `aparte-path-changed` with sibling metadata so the wrapper can update
      *   branch arrows on already-rendered bubbles.
      */
     importTree(tree: ExportedMessageRepository): void {
@@ -589,7 +589,7 @@ export class AparteChatViewport extends HTMLElement {
 
     /**
      * Clear all messages and remove all bubble elements from the DOM.
-     * Also dispatches a aparte:reset-done event.
+     * Also dispatches a aparte-reset-done event.
      *
      * In framework-managed mode the DOM is owned by the host framework
      * (Angular @for, React, etc.) and we must not clear `innerHTML` — doing
@@ -609,7 +609,7 @@ export class AparteChatViewport extends HTMLElement {
         this._setSpacerHeight(0);
         this._isAutoScrollEnabled = true;
         this._updateScrollButton();
-        this.dispatchEvent(new CustomEvent('aparte:reset-done', { bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('aparte-reset-done', { bubbles: true, composed: true }));
     }
 
     /**
@@ -668,7 +668,7 @@ export class AparteChatViewport extends HTMLElement {
 
     /**
      * Signal that a framework (e.g. Angular) manages the bubble DOM.
-     * When true, branch navigation dispatches `aparte:path-changed` without
+     * When true, branch navigation dispatches `aparte-path-changed` without
      * clearing/rebuilding the messages wrapper — the framework re-renders instead.
      */
     setFrameworkManagedDOM(managed: boolean): void {
@@ -750,10 +750,10 @@ export class AparteChatViewport extends HTMLElement {
      * Re-render the active path: clears the messages wrapper and rebuilds bubbles
      * for every message on the current active branch path (root → head).
      * Calls `setSiblings(count, index)` on each bubble that has siblings, and
-     * dispatches `aparte:path-changed` so Angular wrapper can sync its signal.
+     * dispatches `aparte-path-changed` so Angular wrapper can sync its signal.
      *
      * When `_frameworkManagedDOM` is true (set via setFrameworkManagedDOM), the DOM
-     * manipulation is skipped — only `aparte:path-changed` is dispatched so the
+     * manipulation is skipped — only `aparte-path-changed` is dispatched so the
      * framework can re-render from updated signal state.
      */
     private _reRenderActivePath(): void {
@@ -810,7 +810,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _dispatchPathChanged(messages: AparteMessage[], siblings: AparteSiblingInfo[]): void {
         const detail: ApartePathChangedEventDetail = { messages, siblings };
-        this.dispatchEvent(new CustomEvent<ApartePathChangedEventDetail>('aparte:path-changed', {
+        this.dispatchEvent(new CustomEvent<ApartePathChangedEventDetail>('aparte-path-changed', {
             bubbles: true,
             composed: true,
             detail,
@@ -967,7 +967,7 @@ export class AparteChatViewport extends HTMLElement {
             this._smoothScrollToBottom();
             this._updateScrollButton();
         });
-        this.addEventListener('aparte:branch-navigate', (e: Event) => {
+        this.addEventListener('aparte-branch-navigate', (e: Event) => {
             const evt = e as CustomEvent<{ messageId: string; direction: 'prev' | 'next' }>;
             evt.stopPropagation();
             this.navigateBranch(evt.detail.messageId, evt.detail.direction);

@@ -7,12 +7,12 @@
 /** The custom events aparté elements actually dispatch (verified against core). */
 export const DEFAULT_UI_EVENTS: readonly string[] = [
     'aparte-send',
-    'aparte:action',
-    'aparte:retry',
-    'aparte:edit',
-    'aparte:branch-navigate',
-    'aparte:composer-change',
-    'aparte:path-changed',
+    'aparte-action',
+    'aparte-retry',
+    'aparte-edit',
+    'aparte-branch-navigate',
+    'aparte-composer-change',
+    'aparte-path-changed',
 ];
 
 /**

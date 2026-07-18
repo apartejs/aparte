@@ -31,11 +31,11 @@ export class AparteChatStatus extends HTMLElement {
     // element already upgraded — it self-registers on import, so a persistent
     // <aparte-chat-status> in the page mounts before any config runs). Mirrors the
     // bubble's config-change subscription.
-    window.addEventListener('aparte:config-change', this._onConfigChange);
+    window.addEventListener('aparte-config-change', this._onConfigChange);
   }
 
   disconnectedCallback(): void {
-    window.removeEventListener('aparte:config-change', this._onConfigChange);
+    window.removeEventListener('aparte-config-change', this._onConfigChange);
   }
 
   private _onConfigChange = (e: Event): void => {

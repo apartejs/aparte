@@ -92,10 +92,10 @@ export class AparteChatInput extends HTMLElement {
         this._render();
         this._setupEventListeners();
         this._setupSlotObserver();
-        window.addEventListener('apartemessagestart', this._onMessageStart);
-        window.addEventListener('apartemessagedone', this._onMessageDone);
-        window.addEventListener('apartemessageerror', this._onMessageDone);
-        window.addEventListener('apartemessageaborted', this._onMessageDone);
+        window.addEventListener('aparte-message-start', this._onMessageStart);
+        window.addEventListener('aparte-message-done', this._onMessageDone);
+        window.addEventListener('aparte-message-error', this._onMessageDone);
+        window.addEventListener('aparte-message-aborted', this._onMessageDone);
         this._configUnsubscribe = resolveConfig(this).subscribe(() => this._updateActionVisibility());
     }
 
@@ -106,10 +106,10 @@ export class AparteChatInput extends HTMLElement {
         this._editor?.removeEventListener('blur', this._handleBlur);
         this._editor?.removeEventListener('paste', this._handlePaste);
         this._sendButton?.removeEventListener('click', this._handleSendClick);
-        window.removeEventListener('apartemessagestart', this._onMessageStart);
-        window.removeEventListener('apartemessagedone', this._onMessageDone);
-        window.removeEventListener('apartemessageerror', this._onMessageDone);
-        window.removeEventListener('apartemessageaborted', this._onMessageDone);
+        window.removeEventListener('aparte-message-start', this._onMessageStart);
+        window.removeEventListener('aparte-message-done', this._onMessageDone);
+        window.removeEventListener('aparte-message-error', this._onMessageDone);
+        window.removeEventListener('aparte-message-aborted', this._onMessageDone);
         this._configUnsubscribe?.();
         this._configUnsubscribe = null;
         this._slotObserver?.disconnect();
@@ -348,13 +348,13 @@ export class AparteChatInput extends HTMLElement {
         this._editor = this.querySelector('.aparte-editor');
         this._sendButton = this.querySelector('.aparte-send-button');
 
-        // Bind action click handlers — emit the declarative `aparte:action` event
+        // Bind action click handlers — emit the declarative `aparte-action` event
         // (framework-agnostic, like retry/feedback) and call the optional onClick.
         actions.forEach(action => {
             const btn = this.querySelector(`[data-action-id="${action.id}"]`);
             if (btn) {
                 btn.addEventListener('click', (e) => {
-                    this.dispatchEvent(new CustomEvent<AparteActionEventDetail>('aparte:action', {
+                    this.dispatchEvent(new CustomEvent<AparteActionEventDetail>('aparte-action', {
                         bubbles: true,
                         composed: true,
                         detail: { actionId: action.id, zone: 'composer' },
@@ -554,7 +554,7 @@ export class AparteChatInput extends HTMLElement {
         }
         if (this._isStreaming) {
             // Dispatch global abort request
-            window.dispatchEvent(new CustomEvent('aparte:abort', { bubbles: false }));
+            window.dispatchEvent(new CustomEvent('aparte-abort', { bubbles: false }));
         } else {
             this._send();
         }

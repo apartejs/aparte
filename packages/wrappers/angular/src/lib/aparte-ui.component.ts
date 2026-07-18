@@ -76,7 +76,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
     /**
      * Which custom events to forward through `elementEvent`. Defaults to the
      * interactive aparté surface ({@link DEFAULT_UI_EVENTS}); pass your own list to
-     * listen to other events (e.g. `['aparte:composer-change']` for attachments).
+     * listen to other events (e.g. `['aparte-composer-change']` for attachments).
      */
     @Input() events?: string[];
 

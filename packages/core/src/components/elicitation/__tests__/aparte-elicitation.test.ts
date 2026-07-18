@@ -68,7 +68,7 @@ describe('<aparte-elicitation> presenter', () => {
     it('resolves cancel when the assistant turn is aborted', async () => {
         mountChat();
         const p = requestUserInput({ message: '?', schema: { type: 'string' } });
-        window.dispatchEvent(new CustomEvent('apartemessageaborted'));
+        window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
         expect(await p).toEqual({ action: 'cancel' });
     });
 

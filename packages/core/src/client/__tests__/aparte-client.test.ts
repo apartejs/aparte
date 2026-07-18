@@ -6,7 +6,7 @@ import { AparteConfigClass } from '../../config/index.js';
  * AparteClient tests
  *
  * Focus: public API surface — abort(), start/stop lifecycle, maxTurns option,
- * and the aparte:abort window event bridge.
+ * and the aparte-abort window event bridge.
  * Internal _streamLoop is not tested here (needs a full provider mock);
  * integration tests for that live in higher-level packages.
  */
@@ -52,12 +52,12 @@ describe('AparteClient', () => {
             expect(eventNames).toContain('aparte-send');
         });
 
-        it('adds aparte:abort listener on window', () => {
+        it('adds aparte-abort listener on window', () => {
             const spy = vi.spyOn(window, 'addEventListener');
             client = new AparteClient({ autoRegister: false });
             client.start();
             const eventNames = spy.mock.calls.map(c => c[0]);
-            expect(eventNames).toContain('aparte:abort');
+            expect(eventNames).toContain('aparte-abort');
         });
 
         it('is safe to call start() twice (re-registers listener)', () => {
@@ -82,13 +82,13 @@ describe('AparteClient', () => {
             expect(eventNames).toContain('aparte-send');
         });
 
-        it('removes aparte:abort listener from window', () => {
+        it('removes aparte-abort listener from window', () => {
             const spy = vi.spyOn(window, 'removeEventListener');
             client = new AparteClient({ autoRegister: false });
             client.start();
             client.stop();
             const eventNames = spy.mock.calls.map(c => c[0]);
-            expect(eventNames).toContain('aparte:abort');
+            expect(eventNames).toContain('aparte-abort');
         });
     });
 
@@ -135,15 +135,15 @@ describe('AparteClient', () => {
         });
     });
 
-    // ─── aparte:abort window event ───────────────────────────────────────────
+    // ─── aparte-abort window event ───────────────────────────────────────────
 
-    describe('aparte:abort window event', () => {
-        it('calls abort() when aparte:abort is dispatched while started', () => {
+    describe('aparte-abort window event', () => {
+        it('calls abort() when aparte-abort is dispatched while started', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
             const spy = vi.spyOn(client, 'abort');
 
-            window.dispatchEvent(new CustomEvent('aparte:abort'));
+            window.dispatchEvent(new CustomEvent('aparte-abort'));
 
             expect(spy).toHaveBeenCalledOnce();
         });
@@ -154,16 +154,16 @@ describe('AparteClient', () => {
             client.stop();
             const spy = vi.spyOn(client, 'abort');
 
-            window.dispatchEvent(new CustomEvent('aparte:abort'));
+            window.dispatchEvent(new CustomEvent('aparte-abort'));
 
             expect(spy).not.toHaveBeenCalled();
         });
 
-        it('does NOT react to aparte:abort before start()', () => {
+        it('does NOT react to aparte-abort before start()', () => {
             client = new AparteClient({ autoRegister: false });
             const spy = vi.spyOn(client, 'abort');
 
-            window.dispatchEvent(new CustomEvent('aparte:abort'));
+            window.dispatchEvent(new CustomEvent('aparte-abort'));
 
             expect(spy).not.toHaveBeenCalled();
         });
@@ -327,72 +327,72 @@ describe('AparteClient', () => {
         });
     });
 
-    // ─── aparte:retry / aparte:edit listener registration ─────────────────────
+    // ─── aparte-retry / aparte-edit listener registration ─────────────────────
 
-    describe('aparte:retry + aparte:edit listeners', () => {
-        it('registers aparte:retry listener on start()', () => {
+    describe('aparte-retry + aparte-edit listeners', () => {
+        it('registers aparte-retry listener on start()', () => {
             const spy = vi.spyOn(window, 'addEventListener');
             client = new AparteClient({ autoRegister: false });
             client.start();
             const names = spy.mock.calls.map(c => c[0]);
-            expect(names).toContain('aparte:retry');
+            expect(names).toContain('aparte-retry');
         });
 
-        it('registers aparte:edit listener on start()', () => {
+        it('registers aparte-edit listener on start()', () => {
             const spy = vi.spyOn(window, 'addEventListener');
             client = new AparteClient({ autoRegister: false });
             client.start();
             const names = spy.mock.calls.map(c => c[0]);
-            expect(names).toContain('aparte:edit');
+            expect(names).toContain('aparte-edit');
         });
 
-        it('removes aparte:retry listener on stop()', () => {
+        it('removes aparte-retry listener on stop()', () => {
             const spy = vi.spyOn(window, 'removeEventListener');
             client = new AparteClient({ autoRegister: false });
             client.start();
             client.stop();
             const names = spy.mock.calls.map(c => c[0]);
-            expect(names).toContain('aparte:retry');
+            expect(names).toContain('aparte-retry');
         });
 
-        it('removes aparte:edit listener on stop()', () => {
+        it('removes aparte-edit listener on stop()', () => {
             const spy = vi.spyOn(window, 'removeEventListener');
             client = new AparteClient({ autoRegister: false });
             client.start();
             client.stop();
             const names = spy.mock.calls.map(c => c[0]);
-            expect(names).toContain('aparte:edit');
+            expect(names).toContain('aparte-edit');
         });
 
-        it('does not react to aparte:retry before start()', () => {
+        it('does not react to aparte-retry before start()', () => {
             client = new AparteClient({ autoRegister: false });
             const spy = vi.spyOn(client as any, '_handleRetry');
-            window.dispatchEvent(new CustomEvent('aparte:retry', { detail: { messageId: 'x' } }));
+            window.dispatchEvent(new CustomEvent('aparte-retry', { detail: { messageId: 'x' } }));
             expect(spy).not.toHaveBeenCalled();
         });
 
-        it('does not react to aparte:edit before start()', () => {
+        it('does not react to aparte-edit before start()', () => {
             client = new AparteClient({ autoRegister: false });
             const spy = vi.spyOn(client as any, '_handleEdit');
-            window.dispatchEvent(new CustomEvent('aparte:edit', { detail: { messageId: 'x', content: 'y' } }));
+            window.dispatchEvent(new CustomEvent('aparte-edit', { detail: { messageId: 'x', content: 'y' } }));
             expect(spy).not.toHaveBeenCalled();
         });
 
-        it('calls _handleRetry when aparte:retry is dispatched while started', async () => {
+        it('calls _handleRetry when aparte-retry is dispatched while started', async () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
             const spy = vi.spyOn(client as any, '_handleRetry').mockResolvedValue(undefined);
-            window.dispatchEvent(new CustomEvent('aparte:retry', { detail: { messageId: 'x' } }));
+            window.dispatchEvent(new CustomEvent('aparte-retry', { detail: { messageId: 'x' } }));
             // Allow microtask queue to flush
             await Promise.resolve();
             expect(spy).toHaveBeenCalledOnce();
         });
 
-        it('calls _handleEdit when aparte:edit is dispatched while started', async () => {
+        it('calls _handleEdit when aparte-edit is dispatched while started', async () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
             const spy = vi.spyOn(client as any, '_handleEdit').mockResolvedValue(undefined);
-            window.dispatchEvent(new CustomEvent('aparte:edit', { detail: { messageId: 'x', content: 'new text' } }));
+            window.dispatchEvent(new CustomEvent('aparte-edit', { detail: { messageId: 'x', content: 'new text' } }));
             await Promise.resolve();
             expect(spy).toHaveBeenCalledOnce();
         });
@@ -402,7 +402,7 @@ describe('AparteClient', () => {
             client.start();
             client.stop();
             const spy = vi.spyOn(client as any, '_handleRetry').mockResolvedValue(undefined);
-            window.dispatchEvent(new CustomEvent('aparte:retry', { detail: { messageId: 'x' } }));
+            window.dispatchEvent(new CustomEvent('aparte-retry', { detail: { messageId: 'x' } }));
             await Promise.resolve();
             expect(spy).not.toHaveBeenCalled();
         });
@@ -525,7 +525,7 @@ describe('AparteClient', () => {
             client.start();
             const spy = vi.spyOn(client as any, '_handleRetry').mockResolvedValue(undefined);
 
-            window.dispatchEvent(new CustomEvent('aparte:retry', {
+            window.dispatchEvent(new CustomEvent('aparte-retry', {
                 detail: { messageId: 'x', targetId: 'chat-2' }  // different target
             }));
             await Promise.resolve();
@@ -538,7 +538,7 @@ describe('AparteClient', () => {
             client.start();
             const spy = vi.spyOn(client as any, '_handleRetry').mockResolvedValue(undefined);
 
-            window.dispatchEvent(new CustomEvent('aparte:retry', {
+            window.dispatchEvent(new CustomEvent('aparte-retry', {
                 detail: { messageId: 'x', targetId: 'chat-1' }  // matches
             }));
             await Promise.resolve();
@@ -551,7 +551,7 @@ describe('AparteClient', () => {
             client.start();
             const spy = vi.spyOn(client as any, '_handleEdit').mockResolvedValue(undefined);
 
-            window.dispatchEvent(new CustomEvent('aparte:edit', {
+            window.dispatchEvent(new CustomEvent('aparte-edit', {
                 detail: { messageId: 'x', content: 'new', targetId: 'chat-99' }
             }));
             await Promise.resolve();
@@ -564,7 +564,7 @@ describe('AparteClient', () => {
             client.start();
             const spy = vi.spyOn(client as any, '_handleEdit').mockResolvedValue(undefined);
 
-            window.dispatchEvent(new CustomEvent('aparte:edit', {
+            window.dispatchEvent(new CustomEvent('aparte-edit', {
                 detail: { messageId: 'x', content: 'new', targetId: 'chat-1' }
             }));
             await Promise.resolve();
@@ -581,7 +581,7 @@ describe('AparteClient', () => {
             const spy1 = vi.spyOn(client1 as any, '_handleRetry').mockResolvedValue(undefined);
             const spy2 = vi.spyOn(client2 as any, '_handleRetry').mockResolvedValue(undefined);
 
-            window.dispatchEvent(new CustomEvent('aparte:retry', {
+            window.dispatchEvent(new CustomEvent('aparte-retry', {
                 detail: { messageId: 'x', targetId: 'chat-A' }
             }));
             await Promise.resolve();
@@ -598,7 +598,7 @@ describe('AparteClient', () => {
             client.start();
             const spy = vi.spyOn(client as any, '_handleRetry').mockResolvedValue(undefined);
 
-            window.dispatchEvent(new CustomEvent('aparte:retry', {
+            window.dispatchEvent(new CustomEvent('aparte-retry', {
                 detail: { messageId: 'x', targetId: 'any-target' }
             }));
             await Promise.resolve();
@@ -637,7 +637,7 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:retry', {
+            window.dispatchEvent(new CustomEvent('aparte-retry', {
                 detail: { messageId: 'a1', targetId: 'retry-target' },
             }));
             await Promise.resolve();
@@ -659,7 +659,7 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:retry', { detail: {} }));
+            window.dispatchEvent(new CustomEvent('aparte-retry', { detail: {} }));
             await Promise.resolve();
 
             expect(target.addSiblingOf).not.toHaveBeenCalled();
@@ -671,13 +671,13 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:retry', {
+            window.dispatchEvent(new CustomEvent('aparte-retry', {
                 detail: { messageId: 'a1', targetId: 'does-not-exist' },
             }));
             await Promise.resolve();
 
             expect(warnSpy).toHaveBeenCalledWith(
-                expect.stringContaining('aparte:retry'),
+                expect.stringContaining('aparte-retry'),
             );
         });
     });
@@ -706,7 +706,7 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:edit', {
+            window.dispatchEvent(new CustomEvent('aparte-edit', {
                 detail: { messageId: 'u1', content: 'new question', targetId: 'edit-target' },
             }));
             await Promise.resolve();
@@ -723,7 +723,7 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:edit', {
+            window.dispatchEvent(new CustomEvent('aparte-edit', {
                 detail: { messageId: 'u1', content: 'edited', targetId: 'edit-target' },
             }));
             await Promise.resolve();
@@ -741,7 +741,7 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:edit', {
+            window.dispatchEvent(new CustomEvent('aparte-edit', {
                 detail: { messageId: 'u1', content: 'edited', targetId: 'edit-target' },
             }));
             await Promise.resolve();
@@ -758,7 +758,7 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:edit', {
+            window.dispatchEvent(new CustomEvent('aparte-edit', {
                 detail: { messageId: 'u1', targetId: 'edit-target' },
             }));
             await Promise.resolve();
@@ -773,13 +773,13 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             client.start();
 
-            window.dispatchEvent(new CustomEvent('aparte:edit', {
+            window.dispatchEvent(new CustomEvent('aparte-edit', {
                 detail: { messageId: 'u1', content: 'edited', targetId: 'does-not-exist' },
             }));
             await Promise.resolve();
 
             expect(warnSpy).toHaveBeenCalledWith(
-                expect.stringContaining('aparte:edit'),
+                expect.stringContaining('aparte-edit'),
             );
         });
     });
@@ -797,8 +797,8 @@ describe('AparteClient', () => {
             const p = (client as any)._awaitToolDecision('call-1', ctrl.signal) as Promise<{ approved: boolean; payload?: unknown }>;
 
             // a decision aimed at a different tool call must be ignored
-            document.dispatchEvent(new CustomEvent('aparte:tool-decision', { detail: { toolCallId: 'other', approved: true } }));
-            document.dispatchEvent(new CustomEvent('aparte:tool-decision', {
+            document.dispatchEvent(new CustomEvent('aparte-tool-decision', { detail: { toolCallId: 'other', approved: true } }));
+            document.dispatchEvent(new CustomEvent('aparte-tool-decision', {
                 detail: { toolCallId: 'call-1', approved: true, payload: { path: '/edited' } },
             }));
 
@@ -809,7 +809,7 @@ describe('AparteClient', () => {
             client = new AparteClient({ autoRegister: false });
             const ctrl = new AbortController();
             const p = (client as any)._awaitToolDecision('call-1', ctrl.signal);
-            document.dispatchEvent(new CustomEvent('aparte:tool-decision', { detail: { toolCallId: 'call-1', approved: false } }));
+            document.dispatchEvent(new CustomEvent('aparte-tool-decision', { detail: { toolCallId: 'call-1', approved: false } }));
             await expect(p).resolves.toMatchObject({ approved: false });
         });
 
@@ -939,7 +939,7 @@ describe('AparteClient — compaction selector', () => {
 
     const done = () =>
         new Promise<any>(res =>
-            window.addEventListener('aparte:compact-done', (e: any) => res(e.detail), { once: true }),
+            window.addEventListener('aparte-compact-done', (e: any) => res(e.detail), { once: true }),
         );
 
     it('skips compaction (no provider consulted) when the selector drops nothing', async () => {

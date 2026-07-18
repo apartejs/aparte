@@ -15,7 +15,7 @@ import { resolveConfig } from '../config/config-context.js';
 export interface AparteChatBinding {
     /** Stable id of the host element (used as `targetId` for scoped events). */
     readonly hostId: string;
-    /** The element that emits/receives `aparte-send` and `aparte:path-changed`. */
+    /** The element that emits/receives `aparte-send` and `aparte-path-changed`. */
     readonly host: HTMLElement;
     /** Replace the entire message list (used when switching conversations). */
     setMessages(messages: AparteMessage[]): void;
@@ -59,8 +59,8 @@ export interface AparteConversationControllerOptions {
  * Responsibilities:
  *   - Load messages when `setConversationId(id)` is called.
  *   - Lazily create a conversation on the first user `aparte-send` if none active.
- *   - Persist updates triggered by `aparte:path-changed` (branch nav, retry, edit).
- *   - Dispatch `aparte:abort` when the active conversation changes mid-stream.
+ *   - Persist updates triggered by `aparte-path-changed` (branch nav, retry, edit).
+ *   - Dispatch `aparte-abort` when the active conversation changes mid-stream.
  *
  * Usage:
  * ```ts
@@ -159,10 +159,10 @@ export class AparteConversationController {
         host.addEventListener('aparte-send', this._onSendCapture, { capture: true });
 
         // Persist after every path change (branch nav, edit, retry).
-        // Note: streaming completion does NOT dispatch aparte:path-changed;
+        // Note: streaming completion does NOT dispatch aparte-path-changed;
         // see _onMessageDone/Error/Aborted below for that case.
         // Guard: skip during setConversationId() — importTree() triggers
-        // aparte:path-changed synchronously when restoring branch topology,
+        // aparte-path-changed synchronously when restoring branch topology,
         // and persisting there would touch updatedAt causing the conv to
         // float to the top of the history list without any real modification.
         this._onPathChanged = () => {
@@ -170,12 +170,12 @@ export class AparteConversationController {
                 this._persistActive();
             }
         };
-        host.addEventListener('aparte:path-changed', this._onPathChanged);
+        host.addEventListener('aparte-path-changed', this._onPathChanged);
 
         // Track streaming state so setConversationId can abort cleanly, AND
         // persist freshly-completed assistant turns to storage. Without this,
         // assistant messages would only ever live in the in-memory binding
-        // because aparte:path-changed is reserved for branch operations.
+        // because aparte-path-changed is reserved for branch operations.
         this._onMessageStart = () => { this._isStreaming = true; };
         this._onMessageDone = () => {
             this._isStreaming = false;
@@ -192,10 +192,10 @@ export class AparteConversationController {
             this._isStreaming = false;
             queueMicrotask(() => this._persistActive());
         };
-        host.addEventListener('apartemessagestart', this._onMessageStart);
-        host.addEventListener('apartemessagedone', this._onMessageDone);
-        host.addEventListener('apartemessageerror', this._onMessageError);
-        host.addEventListener('apartemessageaborted', this._onMessageAborted);
+        host.addEventListener('aparte-message-start', this._onMessageStart);
+        host.addEventListener('aparte-message-done', this._onMessageDone);
+        host.addEventListener('aparte-message-error', this._onMessageError);
+        host.addEventListener('aparte-message-aborted', this._onMessageAborted);
 
         // App-level selection bus. Lets sidebars / nav menus drive the
         // active conversation without going through Angular @Input bindings,
@@ -211,7 +211,7 @@ export class AparteConversationController {
             void this.setConversationId(evt.detail?.id ?? null);
         };
         if (typeof window !== 'undefined') {
-            window.addEventListener('aparte:select-conversation', this._onSelectConversation);
+            window.addEventListener('aparte-select-conversation', this._onSelectConversation);
         }
 
         // Subscribe to manager so we can react to external mutations
@@ -229,7 +229,7 @@ export class AparteConversationController {
                     // and AI provider running until they finish naturally.
                     if (this._isStreaming) {
                         try {
-                            window.dispatchEvent(new CustomEvent('aparte:abort', {
+                            window.dispatchEvent(new CustomEvent('aparte-abort', {
                                 detail: { targetId: this._binding.hostId },
                             }));
                         } catch {
@@ -261,27 +261,27 @@ export class AparteConversationController {
             this._onSendCapture = null;
         }
         if (this._onPathChanged) {
-            host.removeEventListener('aparte:path-changed', this._onPathChanged);
+            host.removeEventListener('aparte-path-changed', this._onPathChanged);
             this._onPathChanged = null;
         }
         if (this._onMessageStart) {
-            host.removeEventListener('apartemessagestart', this._onMessageStart);
+            host.removeEventListener('aparte-message-start', this._onMessageStart);
             this._onMessageStart = null;
         }
         if (this._onMessageDone) {
-            host.removeEventListener('apartemessagedone', this._onMessageDone);
+            host.removeEventListener('aparte-message-done', this._onMessageDone);
             this._onMessageDone = null;
         }
         if (this._onMessageError) {
-            host.removeEventListener('apartemessageerror', this._onMessageError);
+            host.removeEventListener('aparte-message-error', this._onMessageError);
             this._onMessageError = null;
         }
         if (this._onMessageAborted) {
-            host.removeEventListener('apartemessageaborted', this._onMessageAborted);
+            host.removeEventListener('aparte-message-aborted', this._onMessageAborted);
             this._onMessageAborted = null;
         }
         if (this._onSelectConversation && typeof window !== 'undefined') {
-            window.removeEventListener('aparte:select-conversation', this._onSelectConversation);
+            window.removeEventListener('aparte-select-conversation', this._onSelectConversation);
             this._onSelectConversation = null;
         }
         if (this._unsubscribeManager) {
@@ -312,7 +312,7 @@ export class AparteConversationController {
             // persist after it, the binding may already be cleared/replaced.
             this._persistActive();
             try {
-                window.dispatchEvent(new CustomEvent('aparte:abort', {
+                window.dispatchEvent(new CustomEvent('aparte-abort', {
                     detail: { targetId: this._binding.hostId },
                 }));
             } catch {
@@ -330,7 +330,7 @@ export class AparteConversationController {
             // mirroring the same guard that exists for non-null switches above.
             if (isSwitch && this._isStreaming) {
                 try {
-                    window.dispatchEvent(new CustomEvent('aparte:abort', {
+                    window.dispatchEvent(new CustomEvent('aparte-abort', {
                         detail: { targetId: this._binding.hostId },
                     }));
                 } catch {
@@ -391,12 +391,12 @@ export class AparteConversationController {
 
         this._activeId = id;
         // The controller is the sole writer of `manager._activeId`. Other
-        // components must dispatch `aparte:select-conversation` rather than
+        // components must dispatch `aparte-select-conversation` rather than
         // calling `manager.select()` directly.
         manager.select(id);
         // setMessages always runs first: it handles cleanup (stop streaming,
         // clear rendered ids, reset spacer) and sets the flat active-path signal.
-        // importTree (below) may dispatch aparte:path-changed synchronously — flag
+        // importTree (below) may dispatch aparte-path-changed synchronously — flag
         // the load to prevent _onPathChanged from calling _persistActive() and
         // touching updatedAt (which would cause the conv to float to the top).
         this._isLoadingConversation = true;

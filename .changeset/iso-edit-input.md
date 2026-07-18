@@ -18,7 +18,7 @@ method (focus with the caret at the end of the content). Its contenteditable als
 robustly now — `Shift+Enter` inserts a single deletable `<br>` (no `<div>` wrappers), an empty
 field can't start with a blank line, and `getValue()` preserves newlines (`<br>` → `\n`).
 
-The `aparte:edit` event contract is unchanged.
+The `aparte-edit` event contract is unchanged.
 
 Also fixes `<aparte-chat center-empty>`: the empty/welcome state centers again. The viewport's
 standalone `height: 100%` (for the scroll chain) was defeating `flex-grow: 0`, so the composer

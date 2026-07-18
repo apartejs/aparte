@@ -10,8 +10,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
  *   2. Multiple retries → correct sibling count & navigation
  *   3. New-chat (clearMessages) → repo reset, no leftover topology
  *   4. Retry after new-chat → no duplicate / ghost messages
- *   5. aparte:path-changed payload in framework-managed mode
- *   6. aparte:path-changed includes sibling metadata after retry
+ *   5. aparte-path-changed payload in framework-managed mode
+ *   6. aparte-path-changed includes sibling metadata after retry
  */
 
 import '../viewport/aparte-chat-viewport.js';
@@ -143,9 +143,9 @@ describe('Retry flow', () => {
         expect(vp.getMessages()[1].id).toBe(v3.id);
     });
 
-    // ─── Retry flow — aparte:path-changed payload ───────────────────────────
+    // ─── Retry flow — aparte-path-changed payload ───────────────────────────
 
-    it('aparte:path-changed includes sibling metadata with count > 1 after retry', () => {
+    it('aparte-path-changed includes sibling metadata with count > 1 after retry', () => {
         vp.setFrameworkManagedDOM(true);
 
         const user = msg({ role: 'user', content: 'q' });
@@ -154,7 +154,7 @@ describe('Retry flow', () => {
         vp.appendMessage(v1);
 
         let siblings: Array<{ id: string; count: number; index: number }> | undefined;
-        vp.addEventListener('aparte:path-changed', (e: Event) => {
+        vp.addEventListener('aparte-path-changed', (e: Event) => {
             siblings = (e as CustomEvent).detail.siblings;
         });
 
@@ -167,7 +167,7 @@ describe('Retry flow', () => {
         expect(v2Meta?.index).toBe(1);
     });
 
-    it('aparte:path-changed sibling count for user message is 1 (no branch picker)', () => {
+    it('aparte-path-changed sibling count for user message is 1 (no branch picker)', () => {
         vp.setFrameworkManagedDOM(true);
 
         const user = msg({ role: 'user', content: 'q' });
@@ -176,7 +176,7 @@ describe('Retry flow', () => {
         vp.appendMessage(v1);
 
         let siblings: Array<{ id: string; count: number; index: number }> | undefined;
-        vp.addEventListener('aparte:path-changed', (e: Event) => {
+        vp.addEventListener('aparte-path-changed', (e: Event) => {
             siblings = (e as CustomEvent).detail.siblings;
         });
 
@@ -278,7 +278,7 @@ describe('New conversation (clearMessages) flow', () => {
         vp.appendMessage(a2);
 
         let siblings: Array<{ id: string; count: number; index: number }> | undefined;
-        vp.addEventListener('aparte:path-changed', (e: Event) => {
+        vp.addEventListener('aparte-path-changed', (e: Event) => {
             siblings = (e as CustomEvent).detail.siblings;
         });
 

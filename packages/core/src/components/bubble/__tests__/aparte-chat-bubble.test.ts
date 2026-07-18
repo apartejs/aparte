@@ -8,7 +8,7 @@ import { describe, it, expect, afterEach } from 'vitest';
  *  - Race condition: role attribute set AFTER connectedCallback
  *  - Content / segment rendering
  *  - Branch picker (setSiblings)
- *  - aparte:retry / aparte:branch-navigate events
+ *  - aparte-retry / aparte-branch-navigate events
  */
 
 import '../aparte-chat-bubble.js';
@@ -171,13 +171,13 @@ describe('AparteChatBubble', () => {
         });
     });
 
-    // ─── aparte:retry event ─────────────────────────────────────────────────
+    // ─── aparte-retry event ─────────────────────────────────────────────────
 
-    describe('aparte:retry event', () => {
-        it('retry button on assistant bubble fires aparte:retry with correct messageId', () => {
+    describe('aparte-retry event', () => {
+        it('retry button on assistant bubble fires aparte-retry with correct messageId', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'r1' });
             let retryDetail: any = null;
-            document.body.addEventListener('aparte:retry', (e: Event) => {
+            document.body.addEventListener('aparte-retry', (e: Event) => {
                 retryDetail = (e as CustomEvent).detail;
             });
             const retryBtn = bubble.querySelector('.aparte-action-retry') as HTMLButtonElement;
@@ -185,10 +185,10 @@ describe('AparteChatBubble', () => {
             expect(retryDetail?.messageId).toBe('r1');
         });
 
-        it('user bubble does NOT fire aparte:retry on any click', () => {
+        it('user bubble does NOT fire aparte-retry on any click', () => {
             bubble = createBubble({ role: 'user', 'message-id': 'r2' });
             let fired = false;
-            document.body.addEventListener('aparte:retry', () => { fired = true; });
+            document.body.addEventListener('aparte-retry', () => { fired = true; });
             // No retry button exists on user bubble, so just click the bubble itself
             bubble.click();
             expect(fired).toBe(false);
@@ -208,7 +208,7 @@ describe('AparteChatBubble', () => {
             b.setAttribute('message-id', 'rt1');
             host.appendChild(b);
             let detail: { messageId?: string; targetId?: string } | null = null;
-            document.body.addEventListener('aparte:retry', (e: Event) => { detail = (e as CustomEvent).detail; });
+            document.body.addEventListener('aparte-retry', (e: Event) => { detail = (e as CustomEvent).detail; });
             (b.querySelector('.aparte-action-retry') as HTMLButtonElement)?.click();
             expect(detail!.messageId).toBe('rt1');
             expect(detail!.targetId).toBe('host-xyz'); // was undefined before the fix
@@ -216,14 +216,14 @@ describe('AparteChatBubble', () => {
         });
     });
 
-    // ─── aparte:branch-navigate event ───────────────────────────────────────
+    // ─── aparte-branch-navigate event ───────────────────────────────────────
 
-    describe('aparte:branch-navigate event', () => {
-        it('prev button fires aparte:branch-navigate with direction prev', () => {
+    describe('aparte-branch-navigate event', () => {
+        it('prev button fires aparte-branch-navigate with direction prev', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'bn1' });
             bubble.setSiblings(3, 1);
             let detail: any = null;
-            document.body.addEventListener('aparte:branch-navigate', (e: Event) => {
+            document.body.addEventListener('aparte-branch-navigate', (e: Event) => {
                 detail = (e as CustomEvent).detail;
             });
             const prevBtn = bubble.querySelector('.aparte-branch-prev') as HTMLButtonElement;
@@ -232,11 +232,11 @@ describe('AparteChatBubble', () => {
             expect(detail?.messageId).toBe('bn1');
         });
 
-        it('next button fires aparte:branch-navigate with direction next', () => {
+        it('next button fires aparte-branch-navigate with direction next', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'bn2' });
             bubble.setSiblings(3, 1);
             let detail: any = null;
-            document.body.addEventListener('aparte:branch-navigate', (e: Event) => {
+            document.body.addEventListener('aparte-branch-navigate', (e: Event) => {
                 detail = (e as CustomEvent).detail;
             });
             const nextBtn = bubble.querySelector('.aparte-branch-next') as HTMLButtonElement;
@@ -244,11 +244,11 @@ describe('AparteChatBubble', () => {
             expect(detail?.direction).toBe('next');
         });
 
-        it('disabled prev button does NOT fire aparte:branch-navigate', () => {
+        it('disabled prev button does NOT fire aparte-branch-navigate', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'bn3' });
             bubble.setSiblings(3, 0); // at first → prev disabled
             let fired = false;
-            document.body.addEventListener('aparte:branch-navigate', () => { fired = true; });
+            document.body.addEventListener('aparte-branch-navigate', () => { fired = true; });
             const prevBtn = bubble.querySelector('.aparte-branch-prev') as HTMLButtonElement;
             prevBtn?.click();
             expect(fired).toBe(false);
@@ -388,7 +388,7 @@ describe('AparteChatBubble', () => {
     describe('custom bubble actions', () => {
         afterEach(() => AparteConfig.reset());
 
-        it('renders a registered action and emits aparte:action on click', () => {
+        it('renders a registered action and emits aparte-action on click', () => {
             AparteConfig.registerAction({ id: 'share', icon: '<svg class="share-i"></svg>', label: 'Share', zones: ['bubble'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'ca1' });
 
@@ -398,7 +398,7 @@ describe('AparteChatBubble', () => {
             expect(btn.querySelector('.share-i')).not.toBeNull();
 
             let detail: any = null;
-            document.body.addEventListener('aparte:action', (e: Event) => { detail = (e as CustomEvent).detail; });
+            document.body.addEventListener('aparte-action', (e: Event) => { detail = (e as CustomEvent).detail; });
             btn.click();
             expect(detail).toEqual({ actionId: 'share', zone: 'bubble', messageId: 'ca1', role: 'assistant', targetId: undefined });
         });

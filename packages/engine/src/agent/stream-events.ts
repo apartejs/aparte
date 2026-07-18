@@ -117,7 +117,7 @@ export type StreamApprovalResolver = (
  * - `thinking-delta`  → addSegment('thinking') then updateSegment(content) (:1227-1244); first `text-delta` after
  *                       thinking collapses it (updateSegment collapsed:true, :1247-1250)
  * - `tool-start`      → renderer lookup + per-tool-name CSS inject into document.head + addSegment (:1490-1522)
- * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte:tool-approval-request` (:1544-1550)
+ * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte-tool-approval-request` (:1544-1550)
  * - `tool-approved`   → updateSegment('pending') (:1580)
  * - `tool-rejected`   → updateSegment('rejected', result) (:1560)
  * - `tool-resolved`   → updateSegment('resolved', result) (:1588)
@@ -126,7 +126,7 @@ export type StreamApprovalResolver = (
  *                         scope:'tool'   → updateSegment('aborted') (:1526-1531)
  * - `phase-advance`   → addSegment({type:'pipeline-waiting'}) (:1720-1721); the loop has already
  *                       pushed the phase's reply into history and bumped the phase index
- * - `run-aborted`     → dispatch `apartemessageaborted` (:1218-1221 / :1046)
+ * - `run-aborted`     → dispatch `aparte-message-aborted` (:1218-1221 / :1046)
  * - `run-done`        → updateMessage(status:'completed') always + setUsage if usage (:1733-1742)
  */
 export type StreamRunEvent =

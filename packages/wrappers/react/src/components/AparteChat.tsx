@@ -55,7 +55,7 @@ export interface AparteChatProps {
      * implement any imperative interface): re-render from `message.content` /
      * `message.segments`. Note the built-in action bar (retry/edit/branch) and
      * the imperative streaming push are the native bubble's — a custom bubble
-     * owns whatever it wires (it can dispatch `aparte:retry` etc. or call the
+     * owns whatever it wires (it can dispatch `aparte-retry` etc. or call the
      * wrapper's imperative API).
      */
     renderBubble?: (message: AparteMessage) => React.ReactNode;
@@ -89,7 +89,7 @@ export interface AparteChatProps {
     /**
      * Fired when a custom bubble action (registered via
      * `AparteConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
-     * wrapper over the bubbling `aparte:action` DOM event. Dispatch on `detail.actionId`.
+     * wrapper over the bubbling `aparte-action` DOM event. Dispatch on `detail.actionId`.
      */
     onAction?: (detail: AparteActionEventDetail) => void;
     /**
@@ -280,14 +280,14 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         else composer.removeAttribute('disabled');
     }, [placeholder, disabled]);
 
-    // Custom bubble actions bubble to the host root as `aparte:action`; surface them
+    // Custom bubble actions bubble to the host root as `aparte-action`; surface them
     // as a typed prop.
     useEffect(() => {
         const host = hostElRef.current;
         if (!host) return;
         const onAct = (e: Event) => cbRef.current.onAction?.((e as CustomEvent<AparteActionEventDetail>).detail);
-        host.addEventListener('aparte:action', onAct);
-        return () => host.removeEventListener('aparte:action', onAct);
+        host.addEventListener('aparte-action', onAct);
+        return () => host.removeEventListener('aparte-action', onAct);
     }, []);
 
     useImperativeHandle(ref, (): AparteChatHandle => ({

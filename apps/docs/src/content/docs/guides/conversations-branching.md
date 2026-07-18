@@ -22,13 +22,13 @@ what follows (it does *not* keep the old version as a branch). See
 
 ## Retry creates branches
 
-The built-in **retry** bubble action emits the public event `aparte:retry`. Handling it
+The built-in **retry** bubble action emits the public event `aparte-retry`. Handling it
 creates a new sibling of the answer — a fresh branch under the same parent, with the old
 answer kept.
 
 The **branch picker and its navigation are built in**: as soon as a message has more than
 one sibling, the bubble renders `‹ 1/2 ›`, and its prev/next buttons switch the active
-branch for you (via `aparte:branch-navigate`, which the viewport handles). You never wire
+branch for you (via `aparte-branch-navigate`, which the viewport handles). You never wire
 navigation yourself.
 
 ## Editing a user message
@@ -39,7 +39,7 @@ autosize, IME, paste, and the same keys:
 
 - **Enter** saves · **Shift+Enter** inserts a newline · **Esc** cancels.
 
-Saving emits `aparte:edit` with `{ messageId, content, targetId }`. Unlike retry, the edit
+Saving emits `aparte-edit` with `{ messageId, content, targetId }`. Unlike retry, the edit
 **does not branch**: the user message's text is replaced in place and the answer(s) below it
 are regenerated (the previous response is cleared, not kept as a sibling). With
 [`AparteClient`](/guides/getting-started) this is automatic; to wire it yourself, see
@@ -47,7 +47,7 @@ are regenerated (the previous response is cleared, not kept as a sibling). With
 
 :::tip[Edit is just an event]
 The in-place replace is only `AparteClient`'s **default** — the bubble merely emits
-`aparte:edit`, so the handler owns the behaviour. Handle the event yourself to do otherwise;
+`aparte-edit`, so the handler owns the behaviour. Handle the event yourself to do otherwise;
 to keep the old version (ChatGPT-style branch-on-edit) you'd build that tree yourself, e.g.
 via [`exportTree()` / `importTree()`](#persistence) — note `addSiblingOf` on a user message
 adds a child, not a sibling, so it won't create the alternate user turn on its own.
@@ -56,21 +56,21 @@ adds a child, not a sibling, so it won't create the alternate user turn on its o
 ## The automatic way — `AparteClient`
 
 If you drive the chat with [`AparteClient`](/guides/getting-started), retry and edit are
-**handled out of the box**: the client listens for `aparte:retry` / `aparte:edit`. On
+**handled out of the box**: the client listens for `aparte-retry` / `aparte-edit`. On
 **retry** it creates the sibling branch and re-streams the new answer into it; on **edit**
 it updates the user message in place, clears the old answer, and re-streams a fresh one.
 Nothing to write.
 
 ## The manual way
 
-Without the client (e.g. a custom loop), handle `aparte:retry` yourself. Create the
+Without the client (e.g. a custom loop), handle `aparte-retry` yourself. Create the
 sibling with **`viewport.addSiblingOf(messageId, newMessage)`** — it returns the new
 message's id — then stream into it:
 
 ```ts
 const viewport = document.querySelector('aparte-chat-viewport'); // or chat.viewport
 
-document.addEventListener('aparte:retry', (e) => {
+document.addEventListener('aparte-retry', (e) => {
   const id = viewport.addSiblingOf(e.detail.messageId, {
     id: crypto.randomUUID(),
     role: 'assistant',
@@ -93,12 +93,12 @@ same parent (the new response *replaces* the old on the active path); on a **use
 message it creates a child (a new turn follows it).
 :::
 
-For **edit**, handle `aparte:edit`: overwrite the user message, drop its now-stale answer,
+For **edit**, handle `aparte-edit`: overwrite the user message, drop its now-stale answer,
 and stream a fresh one. This mirrors what `AparteClient` does — an in-place update, not a
 branch:
 
 ```ts
-document.addEventListener('aparte:edit', (e) => {
+document.addEventListener('aparte-edit', (e) => {
   const { messageId, content } = e.detail;
 
   viewport.updateMessage(messageId, { content });   // replace the user text in place

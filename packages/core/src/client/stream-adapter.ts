@@ -130,9 +130,9 @@ function dispatchLifecycleEvent(target: StreamAdapterTarget, name: string, detai
 }
 
 /**
- * `_dispatchArtifactLifecycle` (aparte-client.ts) — fires `aparte:artifact-start`
- * once per segment id, `aparte:artifact-delta` when the body grew, and
- * `aparte:artifact-ready` when `isFinal`. `progress` tracks per-id broadcast length.
+ * `_dispatchArtifactLifecycle` (aparte-client.ts) — fires `aparte-artifact-start`
+ * once per segment id, `aparte-artifact-delta` when the body grew, and
+ * `aparte-artifact-ready` when `isFinal`. `progress` tracks per-id broadcast length.
  */
 function dispatchArtifactLifecycle(
     target: StreamAdapterTarget,
@@ -146,7 +146,7 @@ function dispatchArtifactLifecycle(
     const seen = progress.get(id);
 
     if (seen === undefined) {
-        target.dispatchEvent(new CustomEvent('aparte:artifact-start', {
+        target.dispatchEvent(new CustomEvent('aparte-artifact-start', {
             bubbles: true, composed: true,
             detail: { messageId, segmentId: id, mimeType: segment.mimeType, artifactType: segment.artifactType, title: segment.title },
         }));
@@ -156,7 +156,7 @@ function dispatchArtifactLifecycle(
     const lastLen = progress.get(id) ?? 0;
     if (content.length > lastLen) {
         const chunk = content.slice(lastLen);
-        target.dispatchEvent(new CustomEvent('aparte:artifact-delta', {
+        target.dispatchEvent(new CustomEvent('aparte-artifact-delta', {
             bubbles: true, composed: true,
             detail: { segmentId: id, chunk },
         }));
@@ -164,7 +164,7 @@ function dispatchArtifactLifecycle(
     }
 
     if (isFinal) {
-        target.dispatchEvent(new CustomEvent('aparte:artifact-ready', {
+        target.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
             bubbles: true, composed: true,
             detail: { messageId, segmentId: id, mimeType: segment.mimeType, artifactType: segment.artifactType, title: segment.title, content },
         }));
@@ -403,7 +403,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'tool-awaiting-approval':
                 target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'awaiting-approval' });
-                dispatchLifecycleEvent(target, 'aparte:tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input });
+                dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input });
                 break;
 
             case 'tool-approved':
@@ -440,7 +440,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'run-aborted':
-                dispatchLifecycleEvent(target, 'apartemessageaborted', { messageId });
+                dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId });
                 break;
 
             case 'run-done':

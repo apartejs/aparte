@@ -50,10 +50,10 @@ function msg(role: 'user' | 'assistant', content: string): AparteMessage {
     return { id: `id-${++_seq}`, role, content, status: 'completed', timestamp: Date.now() };
 }
 
-/** Capture siblings from the next aparte:path-changed event */
+/** Capture siblings from the next aparte-path-changed event */
 function captureSiblings(vp: ViewportEl): Promise<SiblingMeta[]> {
     return new Promise(resolve => {
-        vp.addEventListener('aparte:path-changed', (e: Event) => {
+        vp.addEventListener('aparte-path-changed', (e: Event) => {
             resolve((e as CustomEvent).detail.siblings ?? []);
         }, { once: true });
     });
@@ -780,12 +780,12 @@ describe('Thread scenarios — full spec', () => {
     });
 });
 
-// ─── aparte:edit event key spec ────────────────────────────────────────────────
+// ─── aparte-edit event key spec ────────────────────────────────────────────────
 //
-// The bubble dispatches aparte:edit with key `content` (not `newContent`).
+// The bubble dispatches aparte-edit with key `content` (not `newContent`).
 // The client destructures `content` — if key is wrong, guard exits silently.
 
-describe('aparte:edit event payload', () => {
+describe('aparte-edit event payload', () => {
     it('bubble dispatches detail.content (not detail.newContent)', async () => {
         await import('../bubble/aparte-chat-bubble.js');
         // The inline editor is the composer's contenteditable primitive — import it
@@ -800,7 +800,7 @@ describe('aparte:edit event payload', () => {
         bubble.setContent('original text');
 
         let receivedDetail: any = null;
-        document.body.addEventListener('aparte:edit', (e: Event) => {
+        document.body.addEventListener('aparte-edit', (e: Event) => {
             receivedDetail = (e as CustomEvent).detail;
         }, { once: true });
 

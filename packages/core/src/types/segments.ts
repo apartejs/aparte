@@ -143,7 +143,7 @@ export interface AparteCustomSegment extends AparteSegmentBase {
  * Artifact segment — a structured payload (React/HTML/SVG/JS/CSS, etc.) embedded in the
  * assistant's reply. The payload is delimited in the stream by `<artifact type="...">…</artifact>`.
  *
- * The core only models the data and emits lifecycle events (`aparte:artifact-start|delta|ready`).
+ * The core only models the data and emits lifecycle events (`aparte-artifact-start|delta|ready`).
  * Apps decide how to render the rich preview (typically a side panel with an iframe/code view).
  *
  * `mimeType` follows standard MIME conventions, with the Anthropic vendor namespace for

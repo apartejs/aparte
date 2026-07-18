@@ -3,7 +3,7 @@
 Proof that **`@aparte/core` is self-contained** — a plain Vite app, no framework, no AI model, that resolves
 `@aparte/core` through its published `exports` map (**`dist`**, not the monorepo source) exactly like an
 external consumer. It also shows the built-in **human-in-the-loop tool approval**: type "delete" and the
-assistant surfaces a `tool_call` segment with Approve / Reject wired to the real `aparte:tool-decision`
+assistant surfaces a `tool_call` segment with Approve / Reject wired to the real `aparte-tool-decision`
 contract.
 
 ```bash

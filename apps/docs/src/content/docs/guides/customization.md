@@ -89,10 +89,10 @@ AparteConfig.registerAction({
 });
 ```
 
-Clicks are **declarative** — they emit `aparte:action`, so you handle them in one place:
+Clicks are **declarative** — they emit `aparte-action`, so you handle them in one place:
 
 ```ts
-document.addEventListener('aparte:action', (e) => {
+document.addEventListener('aparte-action', (e) => {
   const { actionId, zone, messageId, role } = e.detail;
   if (actionId === 'share') {/* … */}
 });

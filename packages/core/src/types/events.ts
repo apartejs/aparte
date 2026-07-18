@@ -112,7 +112,7 @@ export interface AparteStatusEventDetail {
  * @event aparte-model-change
  */
 /**
- * Emitted when a message response completes (apartemessagedone).
+ * Emitted when a message response completes (aparte-message-done).
  * Carries token usage when the provider reports it.
  */
 export interface AparteMessageDoneEventDetail {
@@ -141,7 +141,7 @@ export interface AparteModelChangeEventDetail {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Per-message sibling metadata carried by `aparte:path-changed`.
+ * Per-message sibling metadata carried by `aparte-path-changed`.
  * `index` is 0-based; UI renders it as `index + 1 / count`.
  */
 export interface AparteSiblingInfo {
@@ -154,11 +154,11 @@ export interface AparteSiblingInfo {
 }
 
 /**
- * Detail payload for `aparte:branch-navigate`.
+ * Detail payload for `aparte-branch-navigate`.
  * Dispatched by the bubble's branch-picker buttons; the viewport listens
  * (bubbling) and calls `navigateBranch(messageId, direction)` on its repo.
  *
- * @event aparte:branch-navigate
+ * @event aparte-branch-navigate
  */
 export interface AparteBranchNavigateEventDetail {
     /** Message id whose siblings should be navigated */
@@ -168,12 +168,12 @@ export interface AparteBranchNavigateEventDetail {
 }
 
 /**
- * Detail payload for `aparte:path-changed`.
+ * Detail payload for `aparte-path-changed`.
  * Dispatched by the viewport in framework-managed mode after the active
  * path of the conversation tree changes (sibling switch, retry, edit, etc.).
  * Consumers (Angular wrapper) reconcile their signal/state from this payload.
  *
- * @event aparte:path-changed
+ * @event aparte-path-changed
  */
 export interface ApartePathChangedEventDetail {
     /** Messages on the new active path, root → head. */
@@ -183,12 +183,12 @@ export interface ApartePathChangedEventDetail {
 }
 
 /**
- * Detail payload for `aparte:retry`.
+ * Detail payload for `aparte-retry`.
  * Dispatched by the assistant bubble's "Retry" action. Picked up by the
  * AparteClient, which calls `addSiblingOf` on the target viewport and streams
  * a fresh response into the new sibling.
  *
- * @event aparte:retry
+ * @event aparte-retry
  */
 export interface AparteRetryEventDetail {
     /** Message id of the assistant response being retried (its sibling will be created). */
@@ -202,11 +202,11 @@ export interface AparteRetryEventDetail {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Detail payload for `aparte:artifact-start`.
+ * Detail payload for `aparte-artifact-start`.
  * Dispatched by the stream loop the moment an opening `<artifact …>` tag is parsed.
  * Apps typically use this to open a side panel and prepare a streaming code view.
  *
- * @event aparte:artifact-start
+ * @event aparte-artifact-start
  */
 export interface AparteArtifactStartEventDetail {
     /** Owning message id */
@@ -222,11 +222,11 @@ export interface AparteArtifactStartEventDetail {
 }
 
 /**
- * Detail payload for `aparte:artifact-delta`.
+ * Detail payload for `aparte-artifact-delta`.
  * Dispatched once per chunk routed into an open artifact body.
  * Consumers append to the displayed buffer in real time.
  *
- * @event aparte:artifact-delta
+ * @event aparte-artifact-delta
  */
 export interface AparteArtifactDeltaEventDetail {
     /** Owning segment id */
@@ -236,12 +236,12 @@ export interface AparteArtifactDeltaEventDetail {
 }
 
 /**
- * Detail payload for `aparte:artifact-ready`.
+ * Detail payload for `aparte-artifact-ready`.
  * Dispatched when the closing `</artifact>` tag is parsed (or the stream ends with
  * an active artifact segment). The full content is now available; consumers can
  * switch from streaming view to a final preview.
  *
- * @event aparte:artifact-ready
+ * @event aparte-artifact-ready
  */
 export interface AparteArtifactReadyEventDetail {
     /** Owning message id */
@@ -259,12 +259,12 @@ export interface AparteArtifactReadyEventDetail {
 }
 
 /**
- * Detail payload for `aparte:artifact-open`.
+ * Detail payload for `aparte-artifact-open`.
  * Dispatched by the artifact pill when a user clicks it (e.g. on a persisted
  * conversation reload). Apps use this to re-open the preview panel for an
  * already-completed artifact.
  *
- * @event aparte:artifact-open
+ * @event aparte-artifact-open
  */
 export interface AparteArtifactOpenEventDetail {
     /** Owning segment id */
@@ -280,12 +280,12 @@ export interface AparteArtifactOpenEventDetail {
 }
 
 /**
- * Detail payload for `aparte:edit`.
+ * Detail payload for `aparte-edit`.
  * Dispatched by the user bubble after the user confirms an inline edit.
  * Picked up by the AparteClient, which truncates the existing responses to
  * this message and re-streams a new one.
  *
- * @event aparte:edit
+ * @event aparte-edit
  */
 export interface AparteEditEventDetail {
     /** Message id of the user message being edited. */
@@ -297,10 +297,10 @@ export interface AparteEditEventDetail {
 }
 
 /**
- * Detail payload for `aparte:feedback`.
+ * Detail payload for `aparte-feedback`.
  * Dispatched by the assistant bubble's thumbs-up / thumbs-down buttons.
  *
- * @event aparte:feedback
+ * @event aparte-feedback
  */
 export interface AparteFeedbackEventDetail {
     /** Message id receiving the feedback. */
@@ -310,13 +310,13 @@ export interface AparteFeedbackEventDetail {
 }
 
 /**
- * Detail payload for `aparte:action`.
+ * Detail payload for `aparte-action`.
  * Dispatched by a custom action button (registered via `AparteConfig.registerAction`)
  * in either the composer or a message-bubble toolbar. Apps listen (bubbling) and
  * dispatch on `actionId`. Mirrors the built-in bubble events (retry/feedback) so
  * custom actions are wired the same way in every framework and in vanilla.
  *
- * @event aparte:action
+ * @event aparte-action
  */
 export interface AparteActionEventDetail {
     /** The registered action's id (from `AparteAction.id`). */
@@ -332,11 +332,11 @@ export interface AparteActionEventDetail {
 }
 
 /**
- * Detail payload for `aparte:message-info`.
+ * Detail payload for `aparte-message-info`.
  * Dispatched by the assistant bubble's info ("i") action button. Apps
  * listen (bubbling) and present a stats popover for the completed response.
  *
- * @event aparte:message-info
+ * @event aparte-message-info
  */
 export interface AparteMessageInfoEventDetail {
     /** Message id whose stats should be shown. */

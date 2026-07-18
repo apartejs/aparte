@@ -37,7 +37,7 @@ function streamReply(text: string): void {
 }
 
 /** Human-in-the-loop: inject a tool_call segment awaiting approval. The default
- *  renderer shows Approve/Reject and dispatches `aparte:tool-decision`. */
+ *  renderer shows Approve/Reject and dispatches `aparte-tool-decision`. */
 function askApproval(): void {
     const id = `a-${++n}`;
     const segId = `seg-${n}`;
@@ -52,7 +52,7 @@ function askApproval(): void {
     pending = { messageId: id, segId };
 }
 
-document.addEventListener('aparte:tool-decision', (e) => {
+document.addEventListener('aparte-tool-decision', (e) => {
     if (!pending) return;
     const { approved } = (e as CustomEvent<{ approved: boolean }>).detail;
     vp()?.updateSegment(pending.messageId, pending.segId, { status: approved ? 'resolved' : 'rejected' });

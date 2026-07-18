@@ -45,7 +45,7 @@ In React that's just the `onMessageSent` prop:
 ```
 
 To observe the pending selection live (e.g. to enable a send button), listen for
-**`aparte:composer-change`** — its `detail.state.attachments` is the current `File[]`.
+**`aparte-composer-change`** — its `detail.state.attachments` is the current `File[]`.
 
 ## Reaching the model
 

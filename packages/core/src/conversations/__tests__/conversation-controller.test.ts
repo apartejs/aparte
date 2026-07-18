@@ -133,7 +133,7 @@ describe('AparteConversationController', () => {
             expect(ctrl.activeId).toBeNull();
         });
 
-        it('dispatches aparte:abort on switch while streaming', async () => {
+        it('dispatches aparte-abort on switch while streaming', async () => {
             const a = await manager.createNew('A');
             const b = await manager.createNew('B');
             const binding = makeBinding(host);
@@ -142,17 +142,17 @@ describe('AparteConversationController', () => {
             await ctrl.setConversationId(a.id);
 
             const abortSpy = vi.fn();
-            window.addEventListener('aparte:abort', abortSpy as EventListener);
+            window.addEventListener('aparte-abort', abortSpy as EventListener);
 
             // Start streaming on host → controller flips _isStreaming = true
-            host.dispatchEvent(new CustomEvent('apartemessagestart'));
+            host.dispatchEvent(new CustomEvent('aparte-message-start'));
             await ctrl.setConversationId(b.id);
 
             expect(abortSpy).toHaveBeenCalledTimes(1);
             const detail = (abortSpy.mock.calls[0][0] as CustomEvent).detail;
             expect(detail.targetId).toBe(binding.hostId);
 
-            window.removeEventListener('aparte:abort', abortSpy as EventListener);
+            window.removeEventListener('aparte-abort', abortSpy as EventListener);
         });
 
         it('does NOT abort on same-id reload', async () => {
@@ -163,13 +163,13 @@ describe('AparteConversationController', () => {
             await ctrl.setConversationId(a.id);
 
             const abortSpy = vi.fn();
-            window.addEventListener('aparte:abort', abortSpy as EventListener);
+            window.addEventListener('aparte-abort', abortSpy as EventListener);
 
-            host.dispatchEvent(new CustomEvent('apartemessagestart'));
+            host.dispatchEvent(new CustomEvent('aparte-message-start'));
             await ctrl.setConversationId(a.id);
 
             expect(abortSpy).not.toHaveBeenCalled();
-            window.removeEventListener('aparte:abort', abortSpy as EventListener);
+            window.removeEventListener('aparte-abort', abortSpy as EventListener);
         });
     });
 
@@ -252,7 +252,7 @@ describe('AparteConversationController', () => {
     // ─── Stream terminal events trigger persistence ───────────────────────
 
     describe('persistence on stream completion', () => {
-        it('persists messages on apartemessagedone', async () => {
+        it('persists messages on aparte-message-done', async () => {
             const conv = await manager.createNew();
             const binding = makeBinding(host);
             const ctrl = new AparteConversationController(binding, { manager });
@@ -262,7 +262,7 @@ describe('AparteConversationController', () => {
             // Simulate a streamed assistant turn finishing.
             binding.appendMessage(userMsg('user q'));
             binding.appendMessage({ id: crypto.randomUUID(), role: 'assistant', content: 'assistant a', timestamp: Date.now() });
-            host.dispatchEvent(new CustomEvent('apartemessagedone'));
+            host.dispatchEvent(new CustomEvent('aparte-message-done'));
             await flush();
             await flush();
 
@@ -279,20 +279,20 @@ describe('AparteConversationController', () => {
             await ctrl.setConversationId(conv.id);
 
             binding.appendMessage(userMsg('q1'));
-            host.dispatchEvent(new CustomEvent('apartemessageerror'));
+            host.dispatchEvent(new CustomEvent('aparte-message-error'));
             await flush(); await flush();
             expect(manager.conversations[0].messages).toHaveLength(1);
 
             binding.appendMessage(userMsg('q2'));
-            host.dispatchEvent(new CustomEvent('apartemessageaborted'));
+            host.dispatchEvent(new CustomEvent('aparte-message-aborted'));
             await flush(); await flush();
             expect(manager.conversations[0].messages).toHaveLength(2);
         });
     });
 
-    // ─── Global aparte:select-conversation listener ─────────────────────────
+    // ─── Global aparte-select-conversation listener ─────────────────────────
 
-    describe('aparte:select-conversation window event', () => {
+    describe('aparte-select-conversation window event', () => {
         it('switches active conversation on event', async () => {
             const a = await manager.createNew('A');
             const b = await manager.createNew('B');
@@ -303,7 +303,7 @@ describe('AparteConversationController', () => {
             ctrl.bind();
             await ctrl.setConversationId(a.id);
 
-            window.dispatchEvent(new CustomEvent('aparte:select-conversation', { detail: { id: b.id } }));
+            window.dispatchEvent(new CustomEvent('aparte-select-conversation', { detail: { id: b.id } }));
             await flush();
 
             expect(ctrl.activeId).toBe(b.id);
@@ -316,7 +316,7 @@ describe('AparteConversationController', () => {
             const ctrl = new AparteConversationController(binding, { manager });
             ctrl.bind();
 
-            window.dispatchEvent(new CustomEvent('aparte:select-conversation', {
+            window.dispatchEvent(new CustomEvent('aparte-select-conversation', {
                 detail: { id: a.id, targetId: 'someone-else' },
             }));
             await flush();
@@ -497,7 +497,7 @@ describe('AparteConversationController', () => {
             expect(manager.conversations[0].messages.length).toBe(before);
 
             // window event must also be ignored.
-            window.dispatchEvent(new CustomEvent('aparte:select-conversation', { detail: { id: null } }));
+            window.dispatchEvent(new CustomEvent('aparte-select-conversation', { detail: { id: null } }));
             await flush();
             expect(ctrl.activeId).toBe(conv.id);
         });

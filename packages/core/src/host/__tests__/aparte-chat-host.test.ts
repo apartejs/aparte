@@ -130,7 +130,7 @@ describe('AparteChatHost', () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('u1', 'user', { content: 'first' }));
         h.ctl.appendMessage(msg('a1', 'assistant', { content: '' }));
-        h.host.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { messageId: 'a1' } }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'a1' } }));
         h.ctl.updateLastMessage('hel', { append: true });
         h.ctl.updateLastMessage('lo', { append: true });
         const msgs = h.getMessages();
@@ -142,7 +142,7 @@ describe('AparteChatHost', () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('uA', 'user', { content: 'hi' }));
         h.ctl.appendMessage(msg('aA', 'assistant', { content: '' }));
-        h.host.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { messageId: 'aA' } }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'aA' } }));
         expect(h.ctl.streamingId).toBe('aA');
 
         // Conversation switch: a different user message becomes the last one.
@@ -158,7 +158,7 @@ describe('AparteChatHost', () => {
         expect(last.segments ?? []).toHaveLength(0);
     });
 
-    it('re-populates bubbles + carries usage forward on aparte:path-changed (branch nav)', () => {
+    it('re-populates bubbles + carries usage forward on aparte-path-changed (branch nav)', () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('m1', 'user', { content: 'q', usage: { tokens: 5 } as never }));
 
@@ -172,7 +172,7 @@ describe('AparteChatHost', () => {
                 { id: 'm2', count: 2, index: 1 },
             ],
         };
-        h.viewport.dispatchEvent(new CustomEvent('aparte:path-changed', { detail }));
+        h.viewport.dispatchEvent(new CustomEvent('aparte-path-changed', { detail }));
         h.ctl.syncBubbles(); // framework's reactive hook
 
         const msgs = h.getMessages();
@@ -183,14 +183,14 @@ describe('AparteChatHost', () => {
         expect(h.bubbleFor('m2').setSiblings).toHaveBeenCalledWith(2, 1);
     });
 
-    it('persists usage + clears streaming/typing on apartemessagedone', () => {
+    it('persists usage + clears streaming/typing on aparte-message-done', () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('a', 'assistant', { content: 'x' }));
-        h.host.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { messageId: 'a' } }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'a' } }));
         expect(h.ctl.isStreaming).toBe(true);
 
         const usage = { tokens: 42, durationMs: 100 } as never;
-        h.host.dispatchEvent(new CustomEvent('apartemessagedone', { detail: { messageId: 'a', usage } }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'a', usage } }));
 
         expect(h.ctl.isStreaming).toBe(false);
         expect(h.getMessages()[0].usage).toEqual(usage);
@@ -248,7 +248,7 @@ describe('AparteChatHost', () => {
     it('teardown unbinds host + viewport listeners', () => {
         const h = makeHarness();
         h.teardown();
-        h.host.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { messageId: 'z' } }));
+        h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'z' } }));
         expect(h.ctl.streamingId).toBeNull();
     });
 });

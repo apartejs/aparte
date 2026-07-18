@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  *
  * Focus: MessageRepository integration — addBranch(), addSiblingOf(),
  * navigateBranch(), truncateFrom(), appendToken(), appendMessage(),
- * updateLastMessage(), aparte:path-changed.
+ * updateLastMessage(), aparte-path-changed.
  *
  * The component uses Light DOM and requires a connected element; we
  * attach a real instance to document.body for each test and clean up after.
@@ -304,16 +304,16 @@ describe('AparteChatViewport', () => {
         });
     });
 
-    // ─── aparte:path-changed dispatch ───────────────────────────────────────
+    // ─── aparte-path-changed dispatch ───────────────────────────────────────
 
-    describe('aparte:path-changed event', () => {
+    describe('aparte-path-changed event', () => {
         it('dispatches path-changed in framework-managed mode on addBranch', () => {
             viewport.setFrameworkManagedDOM(true);
             const msg = makeMsg();
             viewport.addMessage(msg);
 
             let receivedMessages: AparteMessage[] | null = null;
-            viewport.addEventListener('aparte:path-changed', (e: Event) => {
+            viewport.addEventListener('aparte-path-changed', (e: Event) => {
                 receivedMessages = (e as CustomEvent).detail.messages;
             });
 
@@ -329,7 +329,7 @@ describe('AparteChatViewport', () => {
             viewport.addSiblingOf(msg.id, sibling);
 
             let pathChangedCount = 0;
-            viewport.addEventListener('aparte:path-changed', () => pathChangedCount++);
+            viewport.addEventListener('aparte-path-changed', () => pathChangedCount++);
 
             viewport.navigateBranch(sibling.id, 'prev');
             expect(pathChangedCount).toBe(1);
@@ -585,7 +585,7 @@ describe('AparteChatViewport', () => {
     //
     // The two reconciliation paths must stay in lockstep. `_reRenderActivePath`
     // computes the active-path messages + sibling metadata ONCE and dispatches
-    // the same `aparte:path-changed`, rendering the DOM itself only in native mode
+    // the same `aparte-path-changed`, rendering the DOM itself only in native mode
     // (framework-managed mode leaves that to the wrapper's `syncBubbles`, which
     // consumes the very same payload). This guards them from silently diverging.
     describe('native ↔ framework-managed parity', () => {
@@ -603,7 +603,7 @@ describe('AparteChatViewport', () => {
             // Attach AFTER the appends so we compare only the reconciliation events
             // (addSiblingOf + navigateBranch), which both go through _reRenderActivePath.
             const events: Array<{ ids: string[]; siblings: string }> = [];
-            vp.addEventListener('aparte:path-changed', (e) => {
+            vp.addEventListener('aparte-path-changed', (e) => {
                 const d = (e as CustomEvent).detail as { messages: AparteMessage[]; siblings: unknown };
                 events.push({ ids: d.messages.map((m) => m.id), siblings: JSON.stringify(d.siblings) });
             });
@@ -612,7 +612,7 @@ describe('AparteChatViewport', () => {
             return { vp, events };
         }
 
-        it('emits an identical aparte:path-changed sequence regardless of DOM mode', () => {
+        it('emits an identical aparte-path-changed sequence regardless of DOM mode', () => {
             const nat = run(false);
             const man = run(true);
             // The mode gates DOM rendering only — never the payload computation.

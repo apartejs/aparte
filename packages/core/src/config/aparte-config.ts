@@ -660,7 +660,7 @@ export class AparteConfigClass {
         // resolving to a different instance (or the global) skip the rebuild
         // instead of every bubble on the page reacting to every config's change.
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('aparte:config-change', {
+            window.dispatchEvent(new CustomEvent('aparte-config-change', {
                 detail: { config: this, modelConfig: this._modelConfig },
             }));
         }

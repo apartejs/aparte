@@ -107,7 +107,7 @@ export interface AparteChatHostOptions {
  * the Angular wrapper: it installs the imperative method surface `AparteClient`
  * calls onto the host element, tracks the streaming target id from
  * `apartemessage*` lifecycle events, guards writes against orphan streams (late
- * SSE after a conversation switch), handles `aparte:path-changed` branch
+ * SSE after a conversation switch), handles `aparte-path-changed` branch
  * navigation, keeps the viewport's repo in sync before branch ops, and
  * reconciles bubbles via `populateBubbleFromMessage`.
  *
@@ -586,15 +586,15 @@ export class AparteChatHost {
             this.binding.onTypingChange?.(false);
             this._setStreamingId(null);
         };
-        host.addEventListener('apartemessagestart', onStart);
-        host.addEventListener('apartemessagedone', onDone);
-        host.addEventListener('apartemessageerror', onEnd);
-        host.addEventListener('apartemessageaborted', onEnd);
+        host.addEventListener('aparte-message-start', onStart);
+        host.addEventListener('aparte-message-done', onDone);
+        host.addEventListener('aparte-message-error', onEnd);
+        host.addEventListener('aparte-message-aborted', onEnd);
         this._teardown.push(() => {
-            host.removeEventListener('apartemessagestart', onStart);
-            host.removeEventListener('apartemessagedone', onDone);
-            host.removeEventListener('apartemessageerror', onEnd);
-            host.removeEventListener('apartemessageaborted', onEnd);
+            host.removeEventListener('aparte-message-start', onStart);
+            host.removeEventListener('aparte-message-done', onDone);
+            host.removeEventListener('aparte-message-error', onEnd);
+            host.removeEventListener('aparte-message-aborted', onEnd);
         });
     }
 
@@ -608,7 +608,7 @@ export class AparteChatHost {
             // New bubbles created by the framework's diff are empty; force a
             // full re-sync so segments/content land on the right elements.
             this._renderedIds.clear();
-            // `usage` lives on the framework state (written by `apartemessagedone`)
+            // `usage` lives on the framework state (written by `aparte-message-done`)
             // and may not have reached the rebuilt path — carry it forward by id
             // so the stats popover survives every branch / retry / edit.
             const prev = this.binding.getMessages();
@@ -628,11 +628,11 @@ export class AparteChatHost {
         // repo is fresh when the navigate op reads it.
         const onBranchNavigate = () => this.syncRepoFromMessages();
 
-        vp.addEventListener('aparte:path-changed', onPathChanged);
-        vp.addEventListener('aparte:branch-navigate', onBranchNavigate, { capture: true });
+        vp.addEventListener('aparte-path-changed', onPathChanged);
+        vp.addEventListener('aparte-branch-navigate', onBranchNavigate, { capture: true });
         this._teardown.push(() => {
-            vp.removeEventListener('aparte:path-changed', onPathChanged);
-            vp.removeEventListener('aparte:branch-navigate', onBranchNavigate, { capture: true });
+            vp.removeEventListener('aparte-path-changed', onPathChanged);
+            vp.removeEventListener('aparte-branch-navigate', onBranchNavigate, { capture: true });
         });
     }
 }

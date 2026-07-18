@@ -77,7 +77,7 @@ export interface AparteAttachment {
  *   (siblings under the same parent node). This in-message versioning struct is
  *   kept only for backwards compatibility with existing serialised payloads.
  *   New code should rely on viewport methods `addSiblingOf` / `navigateBranch`
- *   and on the `aparte:path-changed` event payload to drive the branch picker UI.
+ *   and on the `aparte-path-changed` event payload to drive the branch picker UI.
  */
 export interface AparteMessageBranch {
     /** Unique identifier for this branch */
@@ -172,7 +172,7 @@ export interface AparteMessage {
      *
      * @deprecated Use the tree-based branching exposed by `MessageRepository`
      *   (siblings under the same parent). The bubble no longer reads this field
-     *   — sibling counts come from `aparte:path-changed` event metadata.
+     *   — sibling counts come from `aparte-path-changed` event metadata.
      */
     branches?: AparteMessageBranch[];
 

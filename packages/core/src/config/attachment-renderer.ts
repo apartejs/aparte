@@ -10,7 +10,7 @@ import type { AparteAttachment } from '../types/models.js';
  * card. Called once per attachment.
  *
  * When you provide a renderer you own the markup AND the interactions: the
- * built-in image-tile click that dispatches `aparte:attachment-preview` is NOT
+ * built-in image-tile click that dispatches `aparte-attachment-preview` is NOT
  * wired for custom output — dispatch it yourself (bubbles, composed) or handle
  * clicks your own way.
  *

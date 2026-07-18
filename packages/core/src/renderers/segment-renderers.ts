@@ -538,11 +538,11 @@ const toolCallRenderer: AparteSegmentRenderer = {
         `;
     },
     setup: (element: HTMLElement, segment: any) => {
-        // Built-in approval gate: wire Approve/Reject → aparte:tool-decision.
+        // Built-in approval gate: wire Approve/Reject → aparte-tool-decision.
         if (segment.status === 'awaiting-approval') {
             const toolCallId = segment.toolCall?.id;
             if (!toolCallId) return;
-            const decide = (approved: boolean) => element.dispatchEvent(new CustomEvent('aparte:tool-decision', {
+            const decide = (approved: boolean) => element.dispatchEvent(new CustomEvent('aparte-tool-decision', {
                 bubbles: true, composed: true, detail: { toolCallId, approved }
             }));
             element.querySelector('[data-tool-decision="approve"]')?.addEventListener('click', () => decide(true));
@@ -696,7 +696,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         // Binary file kinds (xlsx/pdf/docx) follow a separate UX track : the
         // generated JS is implementation noise the user doesn't care about,
         // so we hide it. Streaming → terminal-like progress, then
-        // `aparte:file-gen-ready` swaps to a file card with download + preview.
+        // `aparte-file-gen-ready` swaps to a file card with download + preview.
         if (BINARY_FILE_KINDS.has(kind)) {
             return renderBinaryFileArtifact(segment, kind);
         }
@@ -803,7 +803,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             });
         }
 
-        // Download — emits aparte:artifact-download for the host app to handle
+        // Download — emits aparte-artifact-download for the host app to handle
         // (binary kinds are handled by FileGenService side-channel; for
         // previewable/text kinds we trigger a download from raw content).
         const dlBtn = element.querySelector<HTMLButtonElement>('[data-action="download"]');
@@ -815,7 +815,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                 if (isBinary) {
                     // Re-dispatch the artifact-ready event so FileGenService
                     // re-runs the sandbox and downloads the file.
-                    element.dispatchEvent(new CustomEvent('aparte:artifact-redownload', {
+                    element.dispatchEvent(new CustomEvent('aparte-artifact-redownload', {
                         bubbles: true,
                         composed: true,
                         detail: {
@@ -1181,7 +1181,7 @@ const _binaryArtifactCache = new Map<string, CachedPreview>();
 const _fileGenHandlers = new Map<string, () => void>();
 
 /**
- * Tracks when an `aparte:artifact-ready` was last dispatched per segment, so
+ * Tracks when an `aparte-artifact-ready` was last dispatched per segment, so
  * setup() rehydration doesn't fire a duplicate dispatch while a previous
  * sandbox run is still in flight (would trigger "Sandbox is busy" errors).
  * Populated both by aparte-client's natural dispatch (hook below) AND by our
@@ -1219,8 +1219,8 @@ function debounceHighlight(
 
 if (typeof window !== 'undefined') {
     // Single shared hook — runs once on module load. Records every
-    // `aparte:artifact-ready` whoever dispatched it.
-    window.addEventListener('aparte:artifact-ready', (event: Event) => {
+    // `aparte-artifact-ready` whoever dispatched it.
+    window.addEventListener('aparte-artifact-ready', (event: Event) => {
         const segId = (event as CustomEvent).detail?.segmentId as string | undefined;
         if (segId) _lastDispatchAt.set(segId, Date.now());
     });
@@ -1305,8 +1305,8 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
         // the detached element leaks (its handlers keep it referenced forever).
         _fileGenHandlers.get(segment.id)?.();
         const cleanup = (): void => {
-            window.removeEventListener('aparte:file-gen-ready', onReady);
-            window.removeEventListener('aparte:file-gen-error', onError);
+            window.removeEventListener('aparte-file-gen-ready', onReady);
+            window.removeEventListener('aparte-file-gen-error', onError);
             _fileGenHandlers.delete(segment.id);
         };
 
@@ -1330,7 +1330,7 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
             swapToPreview(element, detail, kind);
             cleanup(); // terminal — generation delivered
         };
-        window.addEventListener('aparte:file-gen-ready', onReady);
+        window.addEventListener('aparte-file-gen-ready', onReady);
 
         // Sandbox failed — show an inline error in the card so the user gets
         // feedback instead of an indefinite "Running sandbox…" spinner. The
@@ -1346,7 +1346,7 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
             showSandboxError(element, detail.phase ?? 'exec', detail.error ?? 'Unknown error');
             cleanup(); // terminal — generation failed
         };
-        window.addEventListener('aparte:file-gen-error', onError);
+        window.addEventListener('aparte-file-gen-error', onError);
         _fileGenHandlers.set(segment.id, cleanup);
 
         element.addEventListener('click', (ev) => {
@@ -1398,7 +1398,7 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
     // its `${msgId}::${segId}` dedupe so the event always reaches us.
     const reloadMessageId = `__reload__${Date.now()}`;
     queueMicrotask(() => {
-        window.dispatchEvent(new CustomEvent('aparte:artifact-ready', {
+        window.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
             detail: {
                 messageId: reloadMessageId,
                 segmentId: segment.id,
@@ -1439,7 +1439,7 @@ function updateBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactS
     if (!isStreaming && state === 'streaming') {
         element.setAttribute('data-state', 'compiling');
         // Re-highlight once the code is final. The pane stays visible until
-        // `aparte:file-gen-ready` fires and swapToPreview() flips it.
+        // `aparte-file-gen-ready` fires and swapToPreview() flips it.
         const wrapper = element.querySelector<HTMLElement>('[data-role="code-pane"]');
         if (wrapper) {
             contextConfig(element).highlightCode(cleanContent, 'js').then(html => {

@@ -19,7 +19,7 @@ export type AparteComposerEventType = keyof AparteComposerEventMap;
 
 /**
  * Public snapshot of the composer's observable state. Delivered on every
- * `aparte:composer-change` DOM event and available synchronously via
+ * `aparte-composer-change` DOM event and available synchronously via
  * {@link AparteComposer.getState}. Lets an element OUTSIDE the composer package
  * (a custom send button, a footer control) mirror the composer's live state
  * without the internal `_on`/`_emit` bus.
@@ -35,7 +35,7 @@ export interface AparteComposerState {
     submitEnabled: boolean;
 }
 
-/** Detail of the public `aparte:composer-change` DOM event. */
+/** Detail of the public `aparte-composer-change` DOM event. */
 export interface AparteComposerChangeEventDetail {
     state: AparteComposerState;
     composer: AparteComposer;
@@ -67,8 +67,8 @@ export class AparteComposer extends HTMLElement {
     private _panelOnSubmit: (() => void) | null = null;
 
     // Internal bus events that represent an observable STATE change — these are
-    // mirrored to the public `aparte:composer-change` DOM event. `submit`/`cancel`
-    // are actions, not state, and are covered by `aparte-send`/`aparte:cancel`.
+    // mirrored to the public `aparte-composer-change` DOM event. `submit`/`cancel`
+    // are actions, not state, and are covered by `aparte-send`/`aparte-cancel`.
     private static readonly _STATE_EVENTS: ReadonlySet<AparteComposerEventType> = new Set([
         'value-change', 'streaming-change', 'disabled-change', 'attachments-change', 'panel-change',
     ]);
@@ -89,10 +89,10 @@ export class AparteComposer extends HTMLElement {
     }
 
     connectedCallback(): void {
-        window.addEventListener('apartemessagestart', this._onMessageStart);
-        window.addEventListener('apartemessagedone', this._onMessageDone);
-        window.addEventListener('apartemessageerror', this._onMessageDone);
-        window.addEventListener('apartemessageaborted', this._onMessageDone);
+        window.addEventListener('aparte-message-start', this._onMessageStart);
+        window.addEventListener('aparte-message-done', this._onMessageDone);
+        window.addEventListener('aparte-message-error', this._onMessageDone);
+        window.addEventListener('aparte-message-aborted', this._onMessageDone);
         // Model-selection gate (opt-in via AparteConfig.setRequireModelSelection).
         this._cfg = resolveConfig(this);
         this._configUnsub = this._cfg.subscribe(this._onConfigChange);
@@ -100,10 +100,10 @@ export class AparteComposer extends HTMLElement {
     }
 
     disconnectedCallback(): void {
-        window.removeEventListener('apartemessagestart', this._onMessageStart);
-        window.removeEventListener('apartemessagedone', this._onMessageDone);
-        window.removeEventListener('apartemessageerror', this._onMessageDone);
-        window.removeEventListener('apartemessageaborted', this._onMessageDone);
+        window.removeEventListener('aparte-message-start', this._onMessageStart);
+        window.removeEventListener('aparte-message-done', this._onMessageDone);
+        window.removeEventListener('aparte-message-error', this._onMessageDone);
+        window.removeEventListener('aparte-message-aborted', this._onMessageDone);
         this._configUnsub?.();
         this._configUnsub = null;
         this._listeners.clear();
@@ -134,14 +134,14 @@ export class AparteComposer extends HTMLElement {
 
     /**
      * Snapshot of the composer's observable state. Pair with the
-     * `aparte:composer-change` DOM event to drive a custom send button or footer
+     * `aparte-composer-change` DOM event to drive a custom send button or footer
      * control that lives outside the composer package:
      *
      * @example
      * // A custom send button. Keep it CLICKABLE while streaming — submit()
      * // routes to cancel() when a response is in flight, so one button is
      * // Send/Stop. Disabling it on `streaming` would make "stop" unreachable.
-     * composer.addEventListener('aparte:composer-change', (e) => {
+     * composer.addEventListener('aparte-composer-change', (e) => {
      *   const { streaming, disabled, value, attachments } = e.detail.state;
      *   myButton.textContent = streaming ? 'Stop' : 'Send';
      *   myButton.disabled = disabled || (!streaming && !value.trim() && attachments.length === 0);
@@ -271,14 +271,14 @@ export class AparteComposer extends HTMLElement {
         this._emit('cancel', {});
         // Public, element-scoped signal — symmetric with `aparte-send` on submit,
         // for consumers that want to observe cancel on the composer itself.
-        this.dispatchEvent(new CustomEvent('aparte:cancel', { bubbles: true, composed: true }));
-        // aparte:abort → tells AparteClient to actually stop the stream
-        // apartemessageaborted → resets the composer's own streaming state
+        this.dispatchEvent(new CustomEvent('aparte-cancel', { bubbles: true, composed: true }));
+        // aparte-abort → tells AparteClient to actually stop the stream
+        // aparte-message-aborted → resets the composer's own streaming state
         // Scope the abort to this composer's host so cancelling one chat doesn't
         // abort every scoped client / reset every composer on the page.
         const abortDetail = { targetId: this.targetId ?? undefined };
-        window.dispatchEvent(new CustomEvent('aparte:abort', { bubbles: false, detail: abortDetail }));
-        window.dispatchEvent(new CustomEvent('apartemessageaborted', { bubbles: false, detail: abortDetail }));
+        window.dispatchEvent(new CustomEvent('aparte-abort', { bubbles: false, detail: abortDetail }));
+        window.dispatchEvent(new CustomEvent('aparte-message-aborted', { bubbles: false, detail: abortDetail }));
     }
 
     /**
@@ -305,7 +305,7 @@ export class AparteComposer extends HTMLElement {
         // Mirror state changes to a public DOM event so elements outside the
         // composer package can observe them without the private bus.
         if (AparteComposer._STATE_EVENTS.has(event)) {
-            this.dispatchEvent(new CustomEvent<AparteComposerChangeEventDetail>('aparte:composer-change', {
+            this.dispatchEvent(new CustomEvent<AparteComposerChangeEventDetail>('aparte-composer-change', {
                 bubbles: true,
                 composed: true,
                 detail: { state: this.getState(), composer: this },

@@ -191,7 +191,7 @@ import '../styles/landing.css';
       // Retry forks a BRANCH instead of appending: addSiblingOf() creates a new
       // sibling of the retried answer, and the built-in ‹1/2› picker appears so
       // you can flip between versions — what a real app gets from AparteClient.
-      document.addEventListener('aparte:retry', (e) => {
+      document.addEventListener('aparte-retry', (e) => {
         if (busy) return;
         const messageId = (e as any).detail?.messageId;
         const id = viewport.addSiblingOf(messageId, { id: 'a' + ++msgId, role: 'assistant', content: '', timestamp: Date.now() });

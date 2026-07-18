@@ -90,7 +90,7 @@ export class ConversationManagerService implements OnDestroy {
     // The active conversation is owned exclusively by AparteConversationController
     // (inside <aparte-chat>). To switch conversations, either bind
     // `[conversationId]` on <aparte-chat> or dispatch a window event:
-    //   window.dispatchEvent(new CustomEvent('aparte:select-conversation', {
+    //   window.dispatchEvent(new CustomEvent('aparte-select-conversation', {
     //     detail: { id, targetId? },
     //   }));
     // The `activeId` signal here is read-only and stays in sync via subscribe().

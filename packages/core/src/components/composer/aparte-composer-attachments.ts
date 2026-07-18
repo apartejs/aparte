@@ -12,7 +12,7 @@ const REMOVE_ICON =
  * Renders a square thumbnail tile for each file attached to the root composer.
  * Image files show the actual picture; other files show an extension badge.
  * The filename and a remove (✗) button surface on hover; clicking an image
- * opens it full-size (dispatches `aparte:attachment-preview`).
+ * opens it full-size (dispatches `aparte-attachment-preview`).
  * Automatically hidden when there are no attachments.
  * Must be a descendant of <aparte-composer>.
  */
@@ -94,7 +94,7 @@ export class AparteComposerAttachments extends HTMLElement {
             tile.addEventListener('click', () => {
                 const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
                 if (!img) return;
-                this.dispatchEvent(new CustomEvent('aparte:attachment-preview', {
+                this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
                     bubbles: true,
                     composed: true,
                     detail: { url: img.src, name: tile.getAttribute('title') ?? '' },

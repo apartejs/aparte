@@ -5,10 +5,10 @@
  * JS property and the `active-id` attribute; the component renders the
  * list and fires events for user interactions.
  *
- * @fires {CustomEvent<AparteConversationSelectDetail>} aparte:select-conversation
- * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte:delete-conversation
- * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte:archive-conversation
- * @fires {CustomEvent<AparteConversationUnarchiveDetail>} aparte:unarchive-conversation
+ * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-select-conversation
+ * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-archive-conversation
+ * @fires {CustomEvent<AparteConversationUnarchiveDetail>} aparte-unarchive-conversation
  */
 
 import { resolveConfig } from '../../config/index.js';
@@ -148,8 +148,8 @@ export class AparteConversationList extends HTMLElement {
             const id = archiveBtn.dataset['archiveId']!;
             const action = archiveBtn.dataset['archiveAction'];
             const eventName = action === 'unarchive'
-                ? 'aparte:unarchive-conversation'
-                : 'aparte:archive-conversation';
+                ? 'aparte-unarchive-conversation'
+                : 'aparte-archive-conversation';
             this.dispatchEvent(new CustomEvent<AparteConversationArchiveDetail>(
                 eventName,
                 { detail: { id }, bubbles: true, composed: true }
@@ -161,7 +161,7 @@ export class AparteConversationList extends HTMLElement {
             e.stopPropagation();
             const id = deleteBtn.dataset['deleteId']!;
             this.dispatchEvent(new CustomEvent<AparteConversationDeleteDetail>(
-                'aparte:delete-conversation',
+                'aparte-delete-conversation',
                 { detail: { id }, bubbles: true, composed: true }
             ));
             return;
@@ -170,7 +170,7 @@ export class AparteConversationList extends HTMLElement {
         if (item) {
             const id = item.dataset['convId']!;
             this.dispatchEvent(new CustomEvent<AparteConversationSelectDetail>(
-                'aparte:select-conversation',
+                'aparte-select-conversation',
                 { detail: { id }, bubbles: true, composed: true }
             ));
         }

@@ -211,7 +211,7 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(emitted).toEqual(detail);
     });
 
-    it('emits action for a bubbling aparte:action DOM event', async () => {
+    it('emits action for a bubbling aparte-action DOM event', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         const component = fixture.componentInstance;
 
@@ -223,11 +223,11 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         await fixture.whenStable();
 
         // A custom bubble action (registerAction with zones:['bubble']) dispatches
-        // aparte:action, which bubbles to the host — the wrapper re-emits it as the
+        // aparte-action, which bubbles to the host — the wrapper re-emits it as the
         // typed `action` output.
         const bubble = fixture.nativeElement.querySelector('aparte-chat-bubble') as HTMLElement;
         expect(bubble).not.toBeNull();
-        bubble.dispatchEvent(new CustomEvent('aparte:action', {
+        bubble.dispatchEvent(new CustomEvent('aparte-action', {
             detail: { actionId: 'share', messageId: '1', role: 'user' },
             bubbles: true, composed: true,
         }));
@@ -306,7 +306,7 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
     // for those that re-entered. Those new bubbles are EMPTY: only the
     // [attr.content] binding propagates synchronously; segments must be
     // re-injected via setSegments().
-    it('repopulates re-created bubbles after a aparte:path-changed event (segments restored)', async () => {
+    it('repopulates re-created bubbles after a aparte-path-changed event (segments restored)', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         const initial: AparteMessage[] = [
             { id: 'u1', role: 'user', content: 'q1', timestamp: 1 },
@@ -335,7 +335,7 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         };
         const newPath: AparteMessage[] = [initial[0], a1bis];
         const viewportEl: HTMLElement = fixture.nativeElement.querySelector('aparte-chat-viewport');
-        viewportEl.dispatchEvent(new CustomEvent('aparte:path-changed', {
+        viewportEl.dispatchEvent(new CustomEvent('aparte-path-changed', {
             bubbles: true,
             composed: true,
             detail: {
@@ -475,7 +475,7 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
 
         // AparteClient announces the start of the assistant stream — this is the
         // event the host uses to lock the target id.
-        host.dispatchEvent(new CustomEvent('apartemessagestart', {
+        host.dispatchEvent(new CustomEvent('aparte-message-start', {
             detail: { messageId: assistantPendingA.id, role: 'assistant' },
             bubbles: true,
         }));
@@ -522,7 +522,7 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
 
         // Streaming has started — emulate the messagestart lifecycle event.
         const host = fixture.nativeElement as HTMLElement;
-        host.dispatchEvent(new CustomEvent('apartemessagestart', {
+        host.dispatchEvent(new CustomEvent('aparte-message-start', {
             detail: { messageId: assistMsg.id, role: 'assistant' },
             bubbles: true,
         }));

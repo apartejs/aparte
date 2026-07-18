@@ -6,7 +6,7 @@ export type AparteActionZone = 'composer' | 'bubble';
  * and placed in one or more zones — the composer toolbar and/or the message
  * (bubble) toolbar — via `zones`.
  *
- * Declarative and framework-agnostic: clicking it emits an `aparte:action`
+ * Declarative and framework-agnostic: clicking it emits an `aparte-action`
  * CustomEvent (bubbles, composed) carrying `{ actionId, zone, … }`, exactly like
  * the built-in retry/feedback buttons — so you wire it the same way in
  * React/Vue/Svelte/Angular and in vanilla. An optional `onClick` callback fires
@@ -17,12 +17,12 @@ export type AparteActionZone = 'composer' | 'bubble';
  *   id: 'share', icon: '<svg>…</svg>', label: 'Share',
  *   zones: ['bubble'], bubble: { roles: ['assistant'] },
  * });
- * chatEl.addEventListener('aparte:action', (e) => {
+ * chatEl.addEventListener('aparte-action', (e) => {
  *   if (e.detail.actionId === 'share') share(e.detail.messageId);
  * });
  */
 export interface AparteAction {
-    /** Stable id — echoed as `actionId` in the `aparte:action` event. */
+    /** Stable id — echoed as `actionId` in the `aparte-action` event. */
     id: string;
     /**
      * Icon for the button:
@@ -54,6 +54,6 @@ export interface AparteAction {
         /** Bubble roles this action shows on. Default: both user and assistant. */
         roles?: ('user' | 'assistant')[];
     };
-    /** Optional imperative callback, fired alongside the `aparte:action` event. */
+    /** Optional imperative callback, fired alongside the `aparte-action` event. */
     onClick?: (event: Event, context?: unknown) => void;
 }

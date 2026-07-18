@@ -165,15 +165,15 @@ describe('AparteChat React Wrapper', () => {
         expect(mockOnMessageSent).toHaveBeenCalledWith(detail);
     });
 
-    it('forwards the bubbling aparte:action DOM event as the typed onAction prop', () => {
+    it('forwards the bubbling aparte-action DOM event as the typed onAction prop', () => {
         const onAction = vi.fn();
         const { container } = render(
             <AparteChat messages={mockMessages} onMessageSent={mockOnMessageSent} onAction={onAction} />,
         );
         // A custom bubble action (registerAction with zones: ['bubble']) dispatches
-        // aparte:action, which bubbles to the host root — the wrapper surfaces it as onAction.
+        // aparte-action, which bubbles to the host root — the wrapper surfaces it as onAction.
         const bubble = container.querySelector('aparte-chat-bubble')!;
-        bubble.dispatchEvent(new CustomEvent('aparte:action', {
+        bubble.dispatchEvent(new CustomEvent('aparte-action', {
             detail: { actionId: 'share', messageId: '1', role: 'user', zone: 'bubble' },
             bubbles: true, composed: true,
         }));

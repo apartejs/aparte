@@ -53,7 +53,7 @@ const emit = defineEmits<{
    * into your own `messages`). For side-effects: scroll, analytics, send.
    */
   messageSent: [event: AparteSendEventDetail];
-  /** A custom bubble action (registerBubbleAction) was clicked — typed aparte:action. */
+  /** A custom bubble action (registerBubbleAction) was clicked — typed aparte-action. */
   action: [detail: AparteActionEventDetail];
   /** Active path changed (branch nav/edit/retry/streaming) — bind back to `messages`. */
   messagesChange: [messages: AparteMessage[]];
@@ -81,7 +81,7 @@ function onSend(e: Event) {
   emit('messageSent', (e as CustomEvent<AparteSendEventDetail>).detail);
 }
 
-// Custom bubble actions bubble to the root as `aparte:action` — surface them typed.
+// Custom bubble actions bubble to the root as `aparte-action` — surface them typed.
 function onAction(e: Event) {
   emit('action', (e as CustomEvent<AparteActionEventDetail>).detail);
 }
@@ -112,12 +112,12 @@ onMounted(() => {
   teardown = host.bind();
   host.syncBubbles();
   composerRef.value?.addEventListener('aparte-send', onSend);
-  rootRef.value?.addEventListener('aparte:action', onAction);
+  rootRef.value?.addEventListener('aparte-action', onAction);
 });
 
 onBeforeUnmount(() => {
   composerRef.value?.removeEventListener('aparte-send', onSend);
-  rootRef.value?.removeEventListener('aparte:action', onAction);
+  rootRef.value?.removeEventListener('aparte-action', onAction);
   teardown?.();
   teardown = null;
   host = null;

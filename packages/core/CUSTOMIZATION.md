@@ -9,7 +9,7 @@ Three primitives, repeated everywhere:
 1. **Render hooks** — a function `region → string | HTMLElement`. Return a string
    for simple markup, or a ready DOM element to mount live, interactive content
    (event listeners, framework nodes) with no `innerHTML` XSS surface.
-2. **DOM CustomEvents** — public, bubbling events (`aparte:action`, `aparte:retry`, …)
+2. **DOM CustomEvents** — public, bubbling events (`aparte-action`, `aparte-retry`, …)
    so you wire behavior the same way in every framework and in vanilla.
 3. **Registries** — register renderers/providers by type (segments, icons,
    markdown, …).
@@ -31,7 +31,7 @@ All render hooks below are **opt-in and non-breaking**: unset, you get the defau
 | Bubble skeleton | `AparteConfig.setBubbleShellRenderer(fn)` | `string \| HTMLElement` |
 | Avatar | `AparteConfig.setAvatarProvider({ render })` | mounts into host + cleanup |
 | A segment type | `registerSegmentRenderer({ type, render })` | `string \| HTMLElement` |
-| A toolbar action | `AparteConfig.registerBubbleAction({...})` → `aparte:action` | — |
+| A toolbar action | `AparteConfig.registerBubbleAction({...})` → `aparte-action` | — |
 | Inline reasoning tags | `new AparteStreamParser({ thinkingDelimiters })` | — |
 | Whole bubble (per framework) | wrapper `renderBubble` / `bubble` slot / `[bubbleTemplate]` | framework node |
 | Empty state (per framework) | wrapper `emptyState` / `empty-state` slot | framework node |
@@ -86,7 +86,7 @@ AparteConfig.setErrorRenderer(({ message }) => {
 Replaces the chip rendered for each attachment on a user message (default: image
 thumbnail or file chip). Called once per attachment. When you provide a renderer
 you own the markup **and** the interactions (the built-in image-tile
-`aparte:attachment-preview` click is not wired for custom output).
+`aparte-attachment-preview` click is not wired for custom output).
 
 ```ts
 AparteConfig.setAttachmentRenderer((att) => {
@@ -106,7 +106,7 @@ AparteConfig.setAttachmentRenderer((att) => {
 ### Branch indicator — `setSiblingNavRenderer`
 
 Replaces the `‹ N / M ›` counter between the prev/next arrows — e.g. a row of dots.
-The arrows keep their behavior (they dispatch `aparte:branch-navigate`). A string may
+The arrows keep their behavior (they dispatch `aparte-branch-navigate`). A string may
 have multiple roots (set via innerHTML).
 
 ```ts
@@ -204,10 +204,10 @@ registerSegmentRenderer({
 
 ---
 
-## Custom toolbar actions — `registerBubbleAction` + `aparte:action`
+## Custom toolbar actions — `registerBubbleAction` + `aparte-action`
 
 Add a button to the message toolbar beyond the built-in copy/retry/edit/feedback.
-It's declarative (no `onClick`); clicking it emits a bubbling `aparte:action`
+It's declarative (no `onClick`); clicking it emits a bubbling `aparte-action`
 CustomEvent — the same DOM-event contract as the built-in actions.
 
 ```ts
@@ -219,7 +219,7 @@ AparteConfig.registerBubbleAction({
 });
 
 // Vanilla:
-chatElement.addEventListener('aparte:action', (e) => {
+chatElement.addEventListener('aparte-action', (e) => {
   const { actionId, messageId, role } = e.detail;   // AparteActionEventDetail
   if (actionId === 'share') share(messageId);
 });
@@ -246,7 +246,7 @@ entire region with your own framework component, the wrappers expose:
   · Angular `[bubbleTemplate]` (`TemplateRef`). Driven by the reactive message list,
   so it updates live during streaming (re-render from `message.content` /
   `message.segments` — no imperative interface to implement). A custom bubble owns
-  whatever it wires (it can dispatch `aparte:retry` etc. or call the wrapper's
+  whatever it wires (it can dispatch `aparte-retry` etc. or call the wrapper's
   imperative API).
 - **Empty state** — content shown inside the viewport while the list is empty.
   React `emptyState` prop · Vue/Svelte `#empty-state` slot · Angular

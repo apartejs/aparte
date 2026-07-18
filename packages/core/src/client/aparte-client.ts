@@ -83,7 +83,7 @@ export interface AparteClientOptions {
 
     /**
      * Custom human-in-the-loop approval resolver for tools marked
-     * `needsApproval`. Defaults to a global `document` `aparte:tool-decision`
+     * `needsApproval`. Defaults to a global `document` `aparte-tool-decision`
      * listener (the built-in Approve/Reject gate). Inject this to run multiple
      * isolated clients on one page, or to drive approval from a headless source
      * (CLI / webhook) with no DOM.
@@ -140,8 +140,8 @@ export interface AparteClientOptions {
 
     /**
      * Scope this client to a specific target element id.
-     * When set, the client will only handle `aparte-send`, `aparte:retry`, `aparte:edit`
-     * and `aparte:abort` events whose `detail.targetId` matches this id.
+     * When set, the client will only handle `aparte-send`, `aparte-retry`, `aparte-edit`
+     * and `aparte-abort` events whose `detail.targetId` matches this id.
      * This allows multiple AparteClient instances (one per conversation) to coexist
      * on the same page without interfering with each other.
      *
@@ -283,11 +283,11 @@ export class AparteClient {
                 this.abort();
             };
         }
-        window.addEventListener('aparte:abort', this._boundAbortHandler);
+        window.addEventListener('aparte-abort', this._boundAbortHandler);
         if (!this._boundCompactHandler) {
             this._boundCompactHandler = () => { void this.compact(); };
         }
-        window.addEventListener('aparte:compact', this._boundCompactHandler);
+        window.addEventListener('aparte-compact', this._boundCompactHandler);
 
         if (!this._boundRetryHandler) {
             this._boundRetryHandler = (e: Event) => {
@@ -299,7 +299,7 @@ export class AparteClient {
                 void this._handleRetry(evt);
             };
         }
-        window.addEventListener('aparte:retry', this._boundRetryHandler);
+        window.addEventListener('aparte-retry', this._boundRetryHandler);
 
         if (!this._boundEditHandler) {
             this._boundEditHandler = (e: Event) => {
@@ -311,7 +311,7 @@ export class AparteClient {
                 void this._handleEdit(evt);
             };
         }
-        window.addEventListener('aparte:edit', this._boundEditHandler);
+        window.addEventListener('aparte-edit', this._boundEditHandler);
     }
 
     /**
@@ -322,26 +322,26 @@ export class AparteClient {
         window.removeEventListener('aparte-send', this._boundHandler);
         this._boundHandler = null;
         if (this._boundAbortHandler) {
-            window.removeEventListener('aparte:abort', this._boundAbortHandler);
+            window.removeEventListener('aparte-abort', this._boundAbortHandler);
             this._boundAbortHandler = null;
         }
         if (this._boundCompactHandler) {
-            window.removeEventListener('aparte:compact', this._boundCompactHandler);
+            window.removeEventListener('aparte-compact', this._boundCompactHandler);
             this._boundCompactHandler = null;
         }
         if (this._boundRetryHandler) {
-            window.removeEventListener('aparte:retry', this._boundRetryHandler);
+            window.removeEventListener('aparte-retry', this._boundRetryHandler);
             this._boundRetryHandler = null;
         }
         if (this._boundEditHandler) {
-            window.removeEventListener('aparte:edit', this._boundEditHandler);
+            window.removeEventListener('aparte-edit', this._boundEditHandler);
             this._boundEditHandler = null;
         }
     }
 
     /**
      * Abort the current streaming response and all active tool calls.
-     * Dispatches `apartemessageaborted` on the target element.
+     * Dispatches `aparte-message-aborted` on the target element.
      */
     abort(): void {
         this._isAborted = true;
@@ -353,7 +353,7 @@ export class AparteClient {
     }
 
     /**
-     * Human-in-the-loop: wait for an `aparte:tool-decision` event matching this
+     * Human-in-the-loop: wait for an `aparte-tool-decision` event matching this
      * tool call (dispatched by the built-in Approve/Reject UI or an app-level
      * approval surface). Resolves `{ approved, payload }` — `approved` is `true`
      * only on an explicit approve, and `payload` carries any arbitrary data a
@@ -367,7 +367,7 @@ export class AparteClient {
         return new Promise<{ approved: boolean; payload?: unknown }>((resolve) => {
             if (signal.aborted) { resolve({ approved: false }); return; }
             const cleanup = () => {
-                document.removeEventListener('aparte:tool-decision', onDecision as EventListener);
+                document.removeEventListener('aparte-tool-decision', onDecision as EventListener);
                 signal.removeEventListener('abort', onAbort);
             };
             const onDecision = (e: Event) => {
@@ -377,7 +377,7 @@ export class AparteClient {
                 resolve({ approved: detail?.approved === true, payload: detail?.payload });
             };
             const onAbort = () => { cleanup(); resolve({ approved: false }); };
-            document.addEventListener('aparte:tool-decision', onDecision as EventListener);
+            document.addEventListener('aparte-tool-decision', onDecision as EventListener);
             signal.addEventListener('abort', onAbort, { once: true });
         });
     }
@@ -400,8 +400,8 @@ export class AparteClient {
      * Compact the current conversation: summarize all messages via the AI,
      * clear the viewport, then inject the summary as a single context message.
      *
-     * Triggered programmatically or by dispatching `window.dispatchEvent(new CustomEvent('aparte:compact'))`.
-     * Dispatches `aparte:compact-done` on window when complete, or `aparte:compact-error` on failure.
+     * Triggered programmatically or by dispatching `window.dispatchEvent(new CustomEvent('aparte-compact'))`.
+     * Dispatches `aparte-compact-done` on window when complete, or `aparte-compact-error` on failure.
      */
     async compact(): Promise<void> {
         // 1. Resolve target element
@@ -424,13 +424,13 @@ export class AparteClient {
             }
         }
         if (!target) {
-            window.dispatchEvent(new CustomEvent('aparte:compact-error', { detail: { error: 'No aparte-chat target found' } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: 'No aparte-chat target found' } }));
             return;
         }
 
         const messages: AparteMessage[] = target.getMessages?.() ?? [];
         if (messages.length === 0) {
-            window.dispatchEvent(new CustomEvent('aparte:compact-done', { detail: { skipped: true } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { skipped: true } }));
             return;
         }
 
@@ -441,7 +441,7 @@ export class AparteClient {
         const { keep, drop } = selector(messages);
         if (drop.length === 0) {
             // Nothing old enough to summarize (e.g. already within budget).
-            window.dispatchEvent(new CustomEvent('aparte:compact-done', { detail: { skipped: true } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { skipped: true } }));
             return;
         }
 
@@ -449,17 +449,17 @@ export class AparteClient {
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
         if (!providerId) {
-            window.dispatchEvent(new CustomEvent('aparte:compact-error', { detail: { error: 'No provider configured' } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: 'No provider configured' } }));
             return;
         }
         const provider = this._config.getAIProvider(providerId);
         if (!provider) {
-            window.dispatchEvent(new CustomEvent('aparte:compact-error', { detail: { error: `Provider '${providerId}' not found` } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: `Provider '${providerId}' not found` } }));
             return;
         }
 
         // 3. Dispatch start so host can show loading state
-        window.dispatchEvent(new CustomEvent('aparte:compact-start'));
+        window.dispatchEvent(new CustomEvent('aparte-compact-start'));
 
         try {
             // 4. Resolve auth
@@ -517,7 +517,7 @@ export class AparteClient {
             }
 
             // 7. Clear viewport and inject summary
-            window.dispatchEvent(new CustomEvent('aparte:reset'));
+            window.dispatchEvent(new CustomEvent('aparte-reset'));
 
             // Small delay to let clearAll() finish DOM cleanup
             await new Promise<void>(resolve => setTimeout(resolve, 50));
@@ -537,16 +537,16 @@ export class AparteClient {
             }
 
             // 8. Done
-            window.dispatchEvent(new CustomEvent('aparte:compact-done', { detail: { summary, kept: keep.length } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary, kept: keep.length } }));
 
         } catch (err: any) {
             console.error('[AparteClient] compact() failed:', err);
-            window.dispatchEvent(new CustomEvent('aparte:compact-error', { detail: { error: err?.message ?? String(err) } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: err?.message ?? String(err) } }));
         }
     }
 
     /**
-     * Handle aparte:retry — add a sibling branch to the assistant message and re-stream
+     * Handle aparte-retry — add a sibling branch to the assistant message and re-stream
      * using the same conversation history minus the retried reply.
      */
     /**
@@ -575,7 +575,7 @@ export class AparteClient {
 
         const targetElement = this._resolveTarget<RetryTarget>(targetId);
         if (!targetElement) {
-            console.warn('[AparteClient] aparte:retry — no target found');
+            console.warn('[AparteClient] aparte-retry — no target found');
             return;
         }
 
@@ -636,11 +636,11 @@ export class AparteClient {
         }
 
         this._isAborted = false;
-        this._dispatchLifecycleEvent(targetElement, 'apartemessagestart', { messageId: newMessageId, role: 'assistant' });
+        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId: newMessageId, role: 'assistant' });
 
         try {
             const usage = await this._streamLoop(targetElement, newMessageId, provider, baseRequest, authConfig);
-            this._dispatchLifecycleEvent(targetElement, 'apartemessagedone', { messageId: newMessageId, role: 'assistant', usage });
+            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId: newMessageId, role: 'assistant', usage });
         } catch (error: any) {
             const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
             this._handleLifecycleError(targetElement, newMessageId, aparteError);
@@ -648,7 +648,7 @@ export class AparteClient {
     }
 
     /**
-     * Handle aparte:edit — update the user message in place, truncate all subsequent
+     * Handle aparte-edit — update the user message in place, truncate all subsequent
      * messages, then re-stream a fresh assistant response.
      */
     private async _handleEdit(event: CustomEvent): Promise<void> {
@@ -666,7 +666,7 @@ export class AparteClient {
 
         const targetElement = this._resolveTarget<EditTarget>(targetId);
         if (!targetElement) {
-            console.warn('[AparteClient] aparte:edit — no target found');
+            console.warn('[AparteClient] aparte-edit — no target found');
             return;
         }
 
@@ -734,11 +734,11 @@ export class AparteClient {
         }
 
         this._isAborted = false;
-        this._dispatchLifecycleEvent(targetElement, 'apartemessagestart', { messageId: newMessageId, role: 'assistant' });
+        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId: newMessageId, role: 'assistant' });
 
         try {
             const usage = await this._streamLoop(targetElement, newMessageId, provider, baseRequest, authConfig);
-            this._dispatchLifecycleEvent(targetElement, 'apartemessagedone', { messageId: newMessageId, role: 'assistant', usage });
+            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId: newMessageId, role: 'assistant', usage });
         } catch (error: any) {
             const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
             this._handleLifecycleError(targetElement, newMessageId, aparteError);
@@ -912,7 +912,7 @@ export class AparteClient {
         });
 
         // Notify Start
-        this._dispatchLifecycleEvent(targetElement, 'apartemessagestart', { messageId, role: 'assistant' });
+        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
 
         try {
             // 3. Resolve Keys
@@ -961,7 +961,7 @@ export class AparteClient {
             const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
 
             // Notify Done
-            this._dispatchLifecycleEvent(targetElement, 'apartemessagedone', { messageId, role: 'assistant', usage });
+            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
 
         } catch (error: any) {
             console.error('[AparteClient] Chat failed:', error);
@@ -1330,7 +1330,7 @@ export class AparteClient {
 
         while (continueLoop) {
             if (this._isAborted) {
-                this._dispatchLifecycleEvent(targetElement, 'apartemessageaborted', { messageId });
+                this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 break;
             }
 
@@ -1382,7 +1382,7 @@ export class AparteClient {
             const streamingSegmentIds = new Set<string>();
             /**
              * Lifecycle bookkeeping for artifact segments. Maps a segment id to the
-             * length of content already broadcast via `aparte:artifact-delta`. Used to
+             * length of content already broadcast via `aparte-artifact-delta`. Used to
              * compute incremental chunks without forcing the parser to expose deltas.
              */
             const artifactProgress = new Map<string, number>();
@@ -1430,14 +1430,14 @@ export class AparteClient {
                 while (true) {
                     // Honor abort INSIDE the SSE event loop too (not only between
                     // tool-call turns). Without this, late events buffered after
-                    // a `aparte:abort` (e.g. after the user switches conversation
+                    // a `aparte-abort` (e.g. after the user switches conversation
                     // mid-stream) keep mutating the target's last message — which
                     // may now belong to a different conversation, causing the
                     // user message in the new conv to be overwritten by the
                     // assistant reply from the old one.
                     if (this._isAborted) {
                         try { reader.cancel(); } catch { /* best effort */ }
-                        this._dispatchLifecycleEvent(targetElement, 'apartemessageaborted', { messageId });
+                        this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                         continueLoop = false;
                         break;
                     }
@@ -1644,7 +1644,7 @@ export class AparteClient {
                                     const approvalController = new AbortController();
                                     this._activeToolControllers.add(approvalController);
                                     targetElement.updateSegment?.(toolSeg.id, { status: 'awaiting-approval' });
-                                    targetElement.dispatchEvent?.(new CustomEvent('aparte:tool-approval-request', {
+                                    targetElement.dispatchEvent?.(new CustomEvent('aparte-tool-approval-request', {
                                         bubbles: true, composed: true,
                                         detail: { toolCallId: event.id, toolName: event.name, input: event.input }
                                     }));
@@ -1834,7 +1834,7 @@ export class AparteClient {
         this._updateMessage(targetElement, messageId, { status: 'completed' });
         // Push usage onto the live bubble so the info action (stats popover)
         // is available immediately, even for consumers that don't listen for
-        // `apartemessagedone`.
+        // `aparte-message-done`.
         if (lastUsage) {
             try {
                 (targetElement as { setUsage?: (id: string, u: AparteUsage) => void })
@@ -1925,7 +1925,7 @@ export class AparteClient {
     private _handleLifecycleError(target: AparteChatTargetElement, messageId: string, error: AparteError) {
         // A valid AparteErrorSegment: the renderer keys off `id` + `content`, so the
         // old `code`/`data` fields were dead here (the full error — including
-        // `error.data` — still reaches consumers via the `apartemessageerror` event
+        // `error.data` — still reaches consumers via the `aparte-message-error` event
         // below). The error code is preserved as `details`.
         const errorSegment: AparteErrorSegment = {
             id: `error-${crypto.randomUUID()}`,
@@ -1951,7 +1951,7 @@ export class AparteClient {
             });
         }
 
-        this._dispatchLifecycleEvent(target, 'apartemessageerror', { messageId, error });
+        this._dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
     }
 
     private _dispatchLifecycleEvent(target: HTMLElement, name: string, detail: any) {
@@ -1966,7 +1966,7 @@ export class AparteClient {
     }
 
     /**
-     * Dispatch the artifact lifecycle (`aparte:artifact-start` / `delta` / `ready`)
+     * Dispatch the artifact lifecycle (`aparte-artifact-start` / `delta` / `ready`)
      * on the host bubble element. Idempotent for `start` (fires once per segment id)
      * and emits `delta` only when the body actually grew. `isFinal=true` fires `ready`.
      */
@@ -1983,7 +1983,7 @@ export class AparteClient {
 
         if (seen === undefined) {
             // First time we see this artifact → start
-            target.dispatchEvent(new CustomEvent('aparte:artifact-start', {
+            target.dispatchEvent(new CustomEvent('aparte-artifact-start', {
                 bubbles: true,
                 composed: true,
                 detail: {
@@ -2000,7 +2000,7 @@ export class AparteClient {
         const lastLen = progress.get(id) ?? 0;
         if (content.length > lastLen) {
             const chunk = content.slice(lastLen);
-            target.dispatchEvent(new CustomEvent('aparte:artifact-delta', {
+            target.dispatchEvent(new CustomEvent('aparte-artifact-delta', {
                 bubbles: true,
                 composed: true,
                 detail: { segmentId: id, chunk },
@@ -2009,7 +2009,7 @@ export class AparteClient {
         }
 
         if (isFinal) {
-            target.dispatchEvent(new CustomEvent('aparte:artifact-ready', {
+            target.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
                 bubbles: true,
                 composed: true,
                 detail: {

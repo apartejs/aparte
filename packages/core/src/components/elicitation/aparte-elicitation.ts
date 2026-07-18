@@ -4,7 +4,7 @@
  * Registers itself as the presenter for the config governing its subtree
  * (`resolveConfig(this)`), so `requestUserInput()` from a tool handler is routed
  * here WITHOUT any window events — the typed presenter contract replaces the
- * stringly-typed `aparte:ask-question-*` events that drifted in Phase 1.
+ * stringly-typed `aparte-ask-question-*` events that drifted in Phase 1.
  *
  * On a request it builds the schema-appropriate panel (enum / boolean / string /
  * object) and mounts it inside the nearest `<aparte-composer>` (or
@@ -44,15 +44,15 @@ export class AparteElicitation extends HTMLElement {
         // Safety net: if the turn is stopped/errored while a request is open,
         // resolve it as cancelled so the client loop unblocks and the composer
         // input is restored.
-        window.addEventListener('apartemessageaborted', this._onTurnEnd);
-        window.addEventListener('apartemessageerror', this._onTurnEnd);
+        window.addEventListener('aparte-message-aborted', this._onTurnEnd);
+        window.addEventListener('aparte-message-error', this._onTurnEnd);
     }
 
     disconnectedCallback(): void {
         const cfg = resolveConfig(this);
         if (cfg.getElicitationPresenter() === this._present) cfg.setElicitationPresenter(null);
-        window.removeEventListener('apartemessageaborted', this._onTurnEnd);
-        window.removeEventListener('apartemessageerror', this._onTurnEnd);
+        window.removeEventListener('aparte-message-aborted', this._onTurnEnd);
+        window.removeEventListener('aparte-message-error', this._onTurnEnd);
         this._cancelPending();
     }
 

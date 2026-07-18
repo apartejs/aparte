@@ -144,7 +144,7 @@ with two things and let **`AparteClient`** drive the streaming loop for you:
      server-side.
 
 Once a provider and transport are set, **construct an `AparteClient` and call `.start()`** —
-it then listens for `aparte-send` (and `aparte:retry`, `aparte:edit`) globally and streams
+it then listens for `aparte-send` (and `aparte-retry`, `aparte-edit`) globally and streams
 the assistant's typed segments into your bubbles for you (no manual `appendToken`):
 
 ```ts
