@@ -143,10 +143,16 @@ with two things and let **`AparteClient`** drive the streaming loop for you:
    - **`BackendTransport`** — the browser calls *your* endpoint, and the key stays
      server-side.
 
-Once a provider and transport are set, **constructing an `AparteClient` is enough** —
-it listens for `aparte-send` (and `aparte:retry`, `aparte:edit`) globally and streams
-typed segments from the provider into your bubbles. No `aparte-send` handler of your
-own, no manual `appendToken`.
+Once a provider and transport are set, **construct an `AparteClient` and call `.start()`** —
+it then listens for `aparte-send` (and `aparte:retry`, `aparte:edit`) globally and streams
+the assistant's typed segments into your bubbles for you (no manual `appendToken`):
+
+```ts
+new AparteClient().start();   // .start() attaches the listeners — without it nothing streams
+```
+
+The client owns the **assistant** turn; keep appending the user's own message on
+`aparte-send` as [above](#make-it-stream) — the framework wrappers do even that for you.
 
 Provider adapters ship as opt-in `@aparte/provider-*` packages — see the
 **[Providers](/providers/)** section for the OpenAI-compatible adapter (OpenAI, Mistral, OpenRouter,

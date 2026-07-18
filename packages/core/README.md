@@ -22,9 +22,10 @@ import { registerDefaultRenderers, AparteClient } from '@aparte/core';
 registerDefaultRenderers();
 // Drop the shell in your HTML:  <aparte-chat placeholder="Ask anything…"></aparte-chat>
 
-// Give it a provider + transport (see the docs), then just construct the client — it
-// listens for the composer's events and streams the reply into the conversation.
-new AparteClient();
+// Give it a provider + transport (see the docs), then construct the client and call
+// .start() — it listens for the composer's events and streams the reply into the
+// conversation. (Without .start(), no listeners are attached and nothing streams.)
+new AparteClient().start();
 ```
 
 ## What's in it

@@ -23,7 +23,7 @@ import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-com
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
 AparteConfig.setTransport(new DirectTransport({ byok: true }));   // browser → provider, your key
-new AparteClient();                                                // drives the streaming loop
+new AparteClient().start();                                        // .start() drives the streaming loop
 ```
 
 ## Which one?
