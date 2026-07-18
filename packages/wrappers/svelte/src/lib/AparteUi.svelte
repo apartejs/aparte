@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+  import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
 
   /** The custom element tag name (e.g. 'aparte-chat-input'). */
   export let name: string;
@@ -7,54 +8,26 @@
   export let props: Record<string, unknown> = {};
   /**
    * Which custom events to forward through `elementEvent`. Defaults to the
-   * interactive aparté surface (DEFAULT_EVENTS); pass your own list to listen to
+   * interactive aparté surface (DEFAULT_UI_EVENTS); pass your own list to listen to
    * other events (e.g. ['aparte:composer-change'] for attachments).
    */
   export let events: string[] | undefined = undefined;
 
   const dispatch = createEventDispatcher<{ elementEvent: CustomEvent }>();
 
-  /** The custom events aparté elements actually dispatch (verified against core). */
-  const DEFAULT_EVENTS = [
-    'aparte-send',
-    'aparte:action',
-    'aparte:retry',
-    'aparte:edit',
-    'aparte:branch-navigate',
-    'aparte:composer-change',
-    'aparte:path-changed',
-  ];
-
   let host: HTMLElement;
   let el: HTMLElement | null = null;
   let cleanups: Array<() => void> = [];
 
-  /**
-   * aparté elements are **attribute-driven** (`observedAttributes`): assigning a
-   * property is either a silent no-op (nothing observes it) or throws outright on
-   * a getter-only accessor — `<aparte-composer>`'s `placeholder`/`disabled` are
-   * exactly that. So primitives go through `setAttribute`; only values an
-   * attribute cannot carry (objects, functions) are handed over as properties.
-   */
   function applyProps() {
-    if (!el) return;
-    for (const [key, value] of Object.entries(props)) {
-      if (key.startsWith('--')) el.style.setProperty(key, String(value));
-      else if (key.startsWith('on') && typeof value === 'function') {
-        // Event handlers belong on `events` + on:elementEvent, not here.
-      } else if (value === null || value === undefined || value === false) el.removeAttribute(key);
-      else if (value === true) el.setAttribute(key, '');
-      else if (typeof value === 'object' || typeof value === 'function') {
-        (el as unknown as Record<string, unknown>)[key] = value;
-      } else el.setAttribute(key, String(value));
-    }
+    if (el) applyElementProps(el, props);
   }
 
   function create() {
     if (!host) return;
     el = document.createElement(name);
     applyProps();
-    for (const ev of events ?? DEFAULT_EVENTS) {
+    for (const ev of events ?? DEFAULT_UI_EVENTS) {
       const listener = (e: Event) => dispatch('elementEvent', e as CustomEvent);
       el.addEventListener(ev, listener);
       cleanups.push(() => el?.removeEventListener(ev, listener));
@@ -75,9 +48,9 @@
   // Recreate the element when `name` (or the forwarded event set) changes. A
   // joined key so a fresh inline `events` array doesn't thrash the element.
   let lastName = name;
-  let lastEvtsKey = (events ?? DEFAULT_EVENTS).join('|');
+  let lastEvtsKey = (events ?? DEFAULT_UI_EVENTS).join('|');
   $: {
-    const evtsKey = (events ?? DEFAULT_EVENTS).join('|');
+    const evtsKey = (events ?? DEFAULT_UI_EVENTS).join('|');
     if (el && (name !== lastName || evtsKey !== lastEvtsKey)) {
       lastName = name;
       lastEvtsKey = evtsKey;

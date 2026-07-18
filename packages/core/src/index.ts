@@ -146,6 +146,9 @@ export { DEFAULT_ICON_FALLBACKS, DEFAULT_SKELETON_FALLBACKS, DEFAULT_LOCALE, def
 
 // Export Client
 export { AparteClient } from './client/aparte-client.js';
+
+// Custom-element interop helpers shared by the framework wrappers' AparteUi.
+export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';

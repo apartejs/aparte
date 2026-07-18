@@ -12,17 +12,7 @@ import {
     Renderer2,
     inject
 } from '@angular/core';
-
-/** The custom events aparté elements actually dispatch (verified against core). */
-const DEFAULT_EVENTS = [
-    'aparte-send',
-    'aparte:action',
-    'aparte:retry',
-    'aparte:edit',
-    'aparte:branch-navigate',
-    'aparte:composer-change',
-    'aparte:path-changed',
-];
+import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
 
 /**
  * AparteUiComponent - Universal UI Proxy
@@ -46,7 +36,7 @@ const DEFAULT_EVENTS = [
  * @description
  * - Keys starting with `--` are applied as CSS Variables
  * - Other keys are set as DOM properties on the element
- * - The events in `events` (default: {@link DEFAULT_EVENTS}) bubble up via `elementEvent`
+ * - The events in `events` (default: {@link DEFAULT_UI_EVENTS}) bubble up via `elementEvent`
  */
 @Component({
     selector: 'aparte-ui',
@@ -76,7 +66,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     /**
      * Which custom events to forward through `elementEvent`. Defaults to the
-     * interactive aparté surface ({@link DEFAULT_EVENTS}); pass your own list to
+     * interactive aparté surface ({@link DEFAULT_UI_EVENTS}); pass your own list to
      * listen to other events (e.g. `['aparte:composer-change']` for attachments).
      */
     @Input() events?: string[];
@@ -138,7 +128,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy {
     // ─────────────────────────────────────────────────────────────
 
     private eventsKey(): string {
-        return (this.events ?? DEFAULT_EVENTS).join('|');
+        return (this.events ?? DEFAULT_UI_EVENTS).join('|');
     }
 
     private createElement(): void {
@@ -177,33 +167,14 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy {
      * attribute cannot carry (objects, functions) are handed over as properties.
      */
     private applyProps(): void {
-        if (!this.element) return;
-
-        Object.entries(this.props).forEach(([key, value]) => {
-            if (key.startsWith('--')) {
-                // CSS Variable: apply to element style
-                this.element!.style.setProperty(key, String(value));
-            } else if (key.startsWith('on') && typeof value === 'function') {
-                // Event handler: belongs on `events` + (elementEvent), not here
-            } else if (value === null || value === undefined || value === false) {
-                this.element!.removeAttribute(key);
-            } else if (value === true) {
-                this.element!.setAttribute(key, '');
-            } else if (typeof value === 'object' || typeof value === 'function') {
-                // Not serialisable to an attribute — hand it over as a property.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (this.element as any)[key] = value;
-            } else {
-                this.element!.setAttribute(key, String(value));
-            }
-        });
+        if (this.element) applyElementProps(this.element, this.props);
     }
 
     private setupEventListeners(): void {
         if (!this.element) return;
 
         this.lastEventsKey = this.eventsKey();
-        (this.events ?? DEFAULT_EVENTS).forEach(eventName => {
+        (this.events ?? DEFAULT_UI_EVENTS).forEach(eventName => {
             const listener = (event: Event) => {
                 this.elementEvent.emit(event as CustomEvent);
             };
