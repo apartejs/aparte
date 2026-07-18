@@ -6,11 +6,12 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => ({
     base: './',
     plugins: [react()],
-    ...(mode === 'development'
-        ? {
-              resolve: {
-                  conditions: ['@aparte-workspace/source', 'module', 'browser', 'development|production'],
-              },
-          }
-        : {}),
+    resolve: {
+        // Dedupe React so the source-consumed @aparte/react wrapper and the app
+        // share ONE React instance (else "Invalid hook call" → blank page).
+        dedupe: ['react', 'react-dom'],
+        ...(mode === 'development'
+            ? { conditions: ['@aparte-workspace/source', 'module', 'browser', 'development|production'] }
+            : {}),
+    },
 }));

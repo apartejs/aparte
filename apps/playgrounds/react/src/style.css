@@ -84,7 +84,9 @@ body {
 .aparte-chat-container {
     flex: 1;
     min-height: 0;
+    /* Override core's height:100% on [data-aparte-chat] — it fights flex:1 in a
+       column that also has a topbar (100% ignores the topbar → overflow, no scroll). */
+    height: auto;
     border: 1px solid var(--aparte-border, #3a3229);
     border-radius: 12px;
-    overflow: hidden;
 }

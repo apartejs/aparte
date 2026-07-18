@@ -84,6 +84,8 @@ body {
 .aparte-chat-container {
     flex: 1;
     min-height: 0;
+    /* Override core's height:100% — it fights flex:1 in a column with a header. */
+    height: auto;
     border: 1px solid var(--aparte-border, #3a3229);
     border-radius: 12px;
     overflow: hidden;
