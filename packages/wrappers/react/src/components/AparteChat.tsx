@@ -263,6 +263,18 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         return () => composer.removeEventListener('aparte-send', onSend);
     }, []);
 
+    // aparte-composer exposes `placeholder`/`disabled` as GETTER-ONLY accessors.
+    // React 19 sets matching props as PROPERTIES on custom elements, which throws
+    // ("Cannot set property placeholder ... which has only a getter"). Set them as
+    // attributes imperatively instead (the getter reads the attribute).
+    useEffect(() => {
+        const composer = composerRef.current;
+        if (!composer) return;
+        composer.setAttribute('placeholder', placeholder);
+        if (disabled) composer.setAttribute('disabled', '');
+        else composer.removeAttribute('disabled');
+    }, [placeholder, disabled]);
+
     // Custom bubble actions bubble to the host root as `aparte:action`; surface them
     // as a typed prop.
     useEffect(() => {
@@ -328,8 +340,6 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
             <aparte-composer
                 ref={composerRef as React.Ref<HTMLElement>}
                 target={hostId}
-                placeholder={placeholder}
-                disabled={disabled ? '' : undefined}
                 submit-on-enter={submitOnEnter ? undefined : 'false'}
             >
                 {composer ?? (
