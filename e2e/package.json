@@ -1,0 +1,20 @@
+{
+  "name": "@aparte-workspace/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser smoke E2E (Playwright) — drives every playground against a deterministic, network-mocked model. The regression net for the framework boundary.",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit",
+    "install-browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "20.11.0",
+    "typescript": "~5.7.0"
+  }
+}

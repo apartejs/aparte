@@ -23,6 +23,12 @@ vite.config.*.timestamp*
 coverage
 __screenshots__/
 
+# Playwright (browser E2E)
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
 # Claude Code local state — NEVER commit
 .claude/
 

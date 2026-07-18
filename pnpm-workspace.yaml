@@ -12,3 +12,6 @@ packages:
   # Apps: docs (Starlight), playgrounds (one runnable example per framework)
   - 'apps/*'
   - 'apps/playgrounds/*'
+
+  # Browser smoke E2E (Playwright) — drives the playgrounds in a real browser
+  - 'e2e'
