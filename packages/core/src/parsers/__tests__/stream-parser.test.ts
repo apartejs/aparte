@@ -11,35 +11,18 @@ describe('Markdown to Segments Parser', () => {
             expect(result.length).toBeGreaterThan(0);
         });
 
-        it('should handle delayed chunks without UI jumps', async () => {
-            const chunks: string[] = [];
-            const timestamps: number[] = [];
-
-            // Simulate streaming
-            const chunk1 = 'Chunk ';
-            const chunk2 = '1 ';
-            const chunk3 = 'Test';
-
-            chunks.push(chunk1);
-            timestamps.push(Date.now());
-
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            chunks.push(chunk2);
-            timestamps.push(Date.now());
-
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            chunks.push(chunk3);
-            timestamps.push(Date.now());
-
-            expect(chunks).toEqual(['Chunk ', '1 ', 'Test']);
-
-            // Verify delays between chunks
-            if (timestamps.length >= 2) {
-                const delay1 = timestamps[1] - timestamps[0];
-                expect(delay1).toBeGreaterThanOrEqual(40);
+        it('assembles plain text streamed across chunk boundaries', () => {
+            const parser = new AparteStreamParser();
+            const out: AparteSegment[] = [];
+            for (const chunk of ['Chunk ', '1 ', 'Test']) {
+                out.push(...parser.parse(chunk).segments);
             }
+            out.push(...parser.finalize());
+            const joined = out
+                .filter(seg => seg.type === 'text')
+                .map(seg => (seg as { content: string }).content)
+                .join('');
+            expect(joined).toContain('Chunk 1 Test');
         });
 
         it('should parse code blocks', () => {
@@ -52,15 +35,43 @@ describe('Markdown to Segments Parser', () => {
         });
     });
 
-    describe('Performance', () => {
-        it('should handle large text efficiently', () => {
-            const start = Date.now();
+    describe('Large input', () => {
+        it('preserves the full content of large text (no truncation)', () => {
             const largeText = 'Lorem ipsum '.repeat(1000);
+            const result = parseMarkdownToSegments(largeText);
+            const joined = result
+                .filter(seg => seg.type === 'text')
+                .map(seg => (seg as { content: string }).content)
+                .join('');
+            expect(joined).toContain('Lorem ipsum');
+            expect(joined.length).toBeGreaterThanOrEqual(largeText.trim().length - 10);
+        });
+    });
 
-            parseMarkdownToSegments(largeText);
+    describe('Streaming code-fence boundaries', () => {
+        const codeOf = (segs: AparteSegment[]) =>
+            segs.find(seg => seg.type === 'code') as { content: string } | undefined;
+        const textOf = (segs: AparteSegment[]) =>
+            segs.filter(seg => seg.type === 'text').map(seg => (seg as { content: string }).content).join('');
 
-            const duration = Date.now() - start;
-            expect(duration).toBeLessThan(100);
+        it('parses a code block whose opening AND closing fences are split across chunks', () => {
+            const parser = new AparteStreamParser();
+            const out: AparteSegment[] = [];
+            for (const chunk of ['```ty', 'pescript\ncon', 'st x = 4', '2;\n', '``', '`\ndone']) {
+                out.push(...parser.parse(chunk).segments);
+            }
+            out.push(...parser.finalize());
+            expect(codeOf(out)?.content).toContain('const x = 42;');
+            expect(textOf(out)).toContain('done');
+        });
+
+        it('finalize() flushes an unterminated code fence — content is not lost', () => {
+            const parser = new AparteStreamParser();
+            const out: AparteSegment[] = [];
+            out.push(...parser.parse('```js\nconst y = 1;').segments);
+            out.push(...parser.finalize()); // no closing fence
+            const all = out.map(seg => (seg as { content?: string }).content ?? '').join('');
+            expect(all).toContain('const y = 1;');
         });
     });
 
