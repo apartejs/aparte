@@ -189,8 +189,9 @@ function buildRequest(input: Record<string, unknown>): { message: string; schema
 
     if (Array.isArray(raw) && raw.length > 0) {
         const items = raw.map((q) => toItem((q ?? {}) as Record<string, unknown>));
-        if (items.length === 1) {
-            return { message: items[0].question, schema: enumField(items[0]) };
+        const [firstItem] = items;
+        if (items.length === 1 && firstItem) {
+            return { message: firstItem.question, schema: enumField(firstItem) };
         }
         const properties: Record<string, AparteElicitationEnumField> = {};
         items.forEach((it, i) => { properties[it.question || `q${i + 1}`] = enumField(it); });

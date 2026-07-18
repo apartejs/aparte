@@ -248,11 +248,12 @@ export class AparteModelSelector extends HTMLElement {
         // Determine current value
         let currentValue = this._currentModelId ? `${this._currentProviderId}::${this._currentModelId}` : '';
 
-        if (!currentValue && autoSelect && this._providerModels.length > 0) {
+        if (!currentValue && autoSelect) {
             const first = this._providerModels[0];
-            if (first.models.length > 0) {
+            const firstModel = first?.models[0];
+            if (first && firstModel) {
                 this._currentProviderId = first.provider.id;
-                this._currentModelId = first.models[0].id;
+                this._currentModelId = firstModel.id;
                 currentValue = `${this._currentProviderId}::${this._currentModelId}`;
                 // Emit the initial change once the element settles
                 setTimeout(() => this._emitChange(), 0);
@@ -260,10 +261,11 @@ export class AparteModelSelector extends HTMLElement {
         }
 
         // Build options HTML — single provider: flat list; multiple: grouped optgroups
+        const only = this._providerModels[0];
         const singleProvider = this._providerModels.length === 1;
-        const optionsHtml = singleProvider
-            ? this._providerModels[0].models.map(m => {
-                const key = `${this._providerModels[0].provider.id}::${m.id}`;
+        const optionsHtml = singleProvider && only
+            ? only.models.map(m => {
+                const key = `${only.provider.id}::${m.id}`;
                 return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
             }).join('')
             : this._providerModels.map(pm => {
