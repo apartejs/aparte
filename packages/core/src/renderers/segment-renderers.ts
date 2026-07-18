@@ -1177,6 +1177,18 @@ type CachedPreview = {
     previewHtml: string | null;
 };
 const _binaryArtifactCache = new Map<string, CachedPreview>();
+/** Cap the binary-artifact cache: each entry holds a full file buffer, so an
+ *  unbounded Map would grow for the page's lifetime over a long session. */
+const MAX_BINARY_ARTIFACTS = 24;
+function cacheBinaryArtifact(id: string, entry: CachedPreview): void {
+    // delete-then-set refreshes recency; evict the oldest (first) key when full.
+    _binaryArtifactCache.delete(id);
+    if (_binaryArtifactCache.size >= MAX_BINARY_ARTIFACTS) {
+        const oldest = _binaryArtifactCache.keys().next().value;
+        if (oldest !== undefined) _binaryArtifactCache.delete(oldest);
+    }
+    _binaryArtifactCache.set(id, entry);
+}
 /** segmentId → cleanup for the file-gen window listeners (one live pair/segment). */
 const _fileGenHandlers = new Map<string, () => void>();
 
@@ -1320,7 +1332,7 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
                 previewHtml: string | null;
             };
             if (!detail || detail.segmentId !== segment.id) return;
-            _binaryArtifactCache.set(segment.id, {
+            cacheBinaryArtifact(segment.id, {
                 buffer: detail.buffer,
                 mime: detail.mime,
                 name: detail.filename,
