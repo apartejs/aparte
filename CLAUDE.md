@@ -132,7 +132,8 @@ pnpm docs                    # apps/docs (Starlight dev)
 - `pnpm test` passes; `nx affected:build` for touched package(s) succeeds.
 - Don't add `console.log` in `packages/core/`.
 - A changeset entry for any package with an API/CSS change.
-- **A new package or feature lands behind a green gate**: tests + build + publint + a story + a docs page.
+- **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
+  (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).
 - Bundle-size-sensitive change? Check the `@aparte/core` size delta (badge must stay honest).
 
 ---
