@@ -8,12 +8,15 @@ pnpm --filter @aparte-workspace/playground-angular dev
 ```
 
 `provideAparte({ providers, plugins, clientOptions })` ([`src/main.ts`](./src/main.ts)) registers
-everything; `AppComponent` ([`src/app/app.component.ts`](./src/app/app.component.ts)) calls
-`AparteAiService.connect()` to start the client, then just renders `<aparte-chat>` — mounting it in a real
-Angular app also exercises core's `framework-managed` shell guard.
+everything **and auto-connects the client** — `AppComponent`
+([`src/app/app.component.ts`](./src/app/app.component.ts)) just renders `<aparte-chat>`, no manual
+`AparteAiService.connect()`. Mounting it in a real Angular app also exercises core's
+`framework-managed` shell guard.
 
 Built with the Angular CLI (`ng build` / `ng serve`) and consumes `@aparte/angular` from its published APF
-`dist`, like a real consumer.
+`dist`, like a real consumer. Because of that, the CLI's dependency prebundle can outlive a wrapper
+rebuild (the package version doesn't change) — if a fresh `@aparte/*` build doesn't show up, delete
+`.angular/` and restart the dev server.
 
 ## Talking to a model (BYOK / local)
 

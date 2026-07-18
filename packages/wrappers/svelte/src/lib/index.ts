@@ -13,6 +13,7 @@ export type { AparteChatStore, AparteChatInstance } from './stores/aparteChat.js
 export { createAparteClient } from './stores/aparteClient.js';
 export { createConversationManager } from './stores/conversationManager.js';
 export { default as AparteUi } from './AparteUi.svelte';
+export type { AparteUiProps, AparteUiHandle } from './types.js';
 
 export type {
     AparteMessage,

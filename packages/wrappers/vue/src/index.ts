@@ -15,6 +15,7 @@ export { useAparteClient } from './composables/useAparteClient.js';
 export { useConversationManager } from './composables/useConversationManager.js';
 import AparteUi from './components/AparteUi.vue';
 export { AparteUi };
+export type { AparteUiProps, AparteUiHandle } from './types.js';
 
 export type {
     AparteMessage,

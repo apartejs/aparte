@@ -61,14 +61,17 @@ bubble, pass a template instead:
 ```
 
 Outputs: `messageSent`, `messagesChange`, `messageAppended`, `action`, `typingChange`,
-`conversationCreated`. The imperative API (streaming, branch/edit, `scrollToBottom`) is on the
-component instance — grab it with a `@ViewChild`. `injectTokenStream` takes an RxJS
-`Observable<string>` (the Angular-idiomatic shape); everything else mirrors the other wrappers.
+`conversationCreated`. The imperative API (streaming, branch/edit, `scrollToBottom`,
+`getViewport`) is on the component instance — grab it with a `@ViewChild`. `injectTokenStream`
+takes the cross-wrapper `AsyncIterable<string>` — the exact call that works on React/Vue/Svelte —
+**or** an RxJS `Observable<string>` (the Angular-idiomatic shape); everything else mirrors the
+other wrappers.
 
 ## Wiring a real model
 
 The wrapper is **provider-agnostic**. `provideAparte()` registers your providers and client options
-at bootstrap, then `AparteAiService` bridges composer sends to the model:
+at bootstrap **and starts the client** (`autoConnect`, on by default) — composer sends stream
+replies with zero extra wiring:
 
 ```ts
 // main.ts
@@ -89,14 +92,17 @@ bootstrapApplication(App, {
 });
 ```
 
+That's it — no lifecycle wiring in your components. To own the client lifecycle yourself, pass
+`autoConnect: false` and use the service:
+
 ```ts
-// then, in the chat component
+// only with autoConnect: false — the manual escape hatch
 import { inject } from '@angular/core';
 import { AparteAiService } from '@aparte/angular';
 
 export class Chat {
   private ai = inject(AparteAiService);
-  ngOnInit() { this.ai.connect(); }   // streams replies from the configured provider
+  ngOnInit() { this.ai.connect(); }   // idempotent — safe even if already connected
   ngOnDestroy() { this.ai.disconnect(); }
 }
 ```

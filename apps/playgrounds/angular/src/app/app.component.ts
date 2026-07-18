@@ -1,5 +1,5 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal } from '@angular/core';
-import { AparteAiService, AparteChatComponent } from '@aparte/angular';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
 import { KEY_STORAGE, sendPrompt } from './aparte';
 
 const CHIPS = [
@@ -43,13 +43,10 @@ const CHIPS = [
     `,
 })
 export class AppComponent {
-    private readonly ai = inject(AparteAiService);
+    // No AparteAiService.connect() here: provideAparte() (main.ts) auto-connects
+    // the client on app init.
     protected readonly apiKey = signal(localStorage.getItem(KEY_STORAGE) ?? '');
     protected readonly chips = CHIPS;
-
-    constructor() {
-        this.ai.connect(); // start the AparteClient listening for aparte-send
-    }
 
     protected onKey(value: string): void {
         this.apiKey.set(value);

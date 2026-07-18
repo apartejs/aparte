@@ -6,8 +6,9 @@ import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-com
 import { AppComponent } from './app/app.component';
 import { KEY_STORAGE } from './app/aparte';
 
-// provideAparte registers the providers + plugins and wires the AparteClient
-// options; AppComponent calls AparteAiService.connect() to start it.
+// provideAparte registers the providers + plugins, wires the AparteClient
+// options and auto-connects the client on app init — no manual
+// AparteAiService.connect() anywhere.
 // Gate the composer until a model is selected.
 setupMarkedProvider();
 AparteConfig.setRequireModelSelection(true);

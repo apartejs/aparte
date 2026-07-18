@@ -46,6 +46,15 @@ describe('AparteChat.vue', () => {
         expect(bubbles[1].getAttribute('message-id')).toBe('2');
     });
 
+    it('exposes getViewport() (cross-wrapper accessor)', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const vm = wrapper.vm as unknown as { getViewport(): HTMLElement | null };
+        const viewport = vm.getViewport();
+        expect(viewport).not.toBeNull();
+        expect(viewport!.tagName.toLowerCase()).toBe('aparte-chat-viewport');
+    });
+
     it('adds --auto-center + data-aparte-empty only while centerWhenEmpty and empty', async () => {
         const wrapper = mount(AparteChat, { props: { messages: [], centerWhenEmpty: true } });
         const box = wrapper.element as HTMLElement;

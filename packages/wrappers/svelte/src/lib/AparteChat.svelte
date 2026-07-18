@@ -177,8 +177,8 @@
   }
   /**
    * The `<aparte-chat-viewport>` element — for custom scroll handling, an
-   * IntersectionObserver, etc. Parity with React's handle `viewport`, Vue's
-   * exposed `viewport` and Angular's `viewportRef`.
+   * IntersectionObserver, etc. Same `getViewport()` accessor on all four
+   * wrappers.
    */
   export function getViewport(): HTMLElement | null { return viewportRef ?? null; }
   export function focusInput() {

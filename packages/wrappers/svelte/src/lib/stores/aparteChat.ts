@@ -20,6 +20,10 @@ export interface AparteChatInstance {
     stopTokenStream(): void;
     setConversationId(id: string | null): Promise<void>;
     isStreaming(): boolean;
+    scrollToBottom(): void;
+    focusInput(): void;
+    /** The `<aparte-chat-viewport>` element — same accessor on all four wrappers. */
+    getViewport(): HTMLElement | null;
 }
 
 export interface AparteChatStore {

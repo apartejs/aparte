@@ -158,11 +158,15 @@ const scrollToBottom = () => (viewportRef.value as unknown as { scrollToBottom?:
 const focusInput = () => (composerRef.value as unknown as { focus?: () => void })?.focus?.();
 const isStreaming = () => host?.isStreaming ?? false;
 
+// `getViewport()` (not a raw `viewport` ref): the same accessor on all four
+// wrappers — Svelte 4 can only expose functions, so the shared name is one.
+const getViewport = () => viewportRef.value ?? null;
+
 defineExpose({
   appendMessage, updateMessage, updateLastMessage, addSegment, updateSegment, removeSegment,
   appendToSegment, getMessages, clearMessages, addBranch, addSiblingOf, truncateFrom,
   truncateResponsesAfter, injectTokenStream, stopTokenStream, setConversationId,
-  scrollToBottom, focusInput, isStreaming, viewport: viewportRef,
+  scrollToBottom, focusInput, isStreaming, getViewport,
 });
 </script>
 

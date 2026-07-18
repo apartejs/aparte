@@ -23,6 +23,10 @@ export class AparteAiService implements OnDestroy {
     /**
      * Start listening to `aparte-send` events globally.
      * This connects the <aparte-chat> components to the AI Providers.
+     *
+     * `provideAparte()` calls this for you on app init (its `autoConnect`,
+     * on by default). Idempotent — a manual call on top of that is a no-op,
+     * so it stays the escape hatch when configuring without `provideAparte`.
      */
     connect(): void {
         this._client.start();

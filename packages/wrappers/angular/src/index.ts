@@ -10,6 +10,7 @@ export type { ProvideAparteOptions, ApartePluginLoader } from './lib/provide-apa
 // Components (standalone — import them directly).
 export { AparteChatComponent } from './lib/aparte-chat.component';
 export { AparteUiComponent } from './lib/aparte-ui.component';
+export type { AparteUiHandle } from './lib/aparte-ui.component';
 
 // Annex: client lifecycle + reactive conversation manager.
 export { AparteAiService, APARTE_CLIENT_OPTIONS } from './lib/aparte-ai.service';

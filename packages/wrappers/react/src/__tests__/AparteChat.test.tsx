@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { AparteChat } from '../components/AparteChat';
+import { AparteChat, type AparteChatHandle } from '../components/AparteChat';
 import { registerAllComponents, resolveConfig, AparteConfig, AparteConfigClass } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
@@ -50,6 +50,14 @@ describe('AparteChat React Wrapper', () => {
         expect(bubbles.length).toBe(2);
         expect(bubbles[0].getAttribute('message-id')).toBe('1');
         expect(bubbles[1].getAttribute('message-id')).toBe('2');
+    });
+
+    it('exposes getViewport() on the handle (cross-wrapper accessor)', () => {
+        const ref = React.createRef<AparteChatHandle>();
+        const { container } = render(<AparteChat ref={ref} messages={[]} />);
+        const viewport = ref.current?.getViewport();
+        expect(viewport).not.toBeNull();
+        expect(viewport).toBe(container.querySelector('aparte-chat-viewport'));
     });
 
     it('shows emptyState inside the viewport when there are no messages, hides it once populated', () => {

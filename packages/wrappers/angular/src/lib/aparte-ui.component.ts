@@ -15,6 +15,15 @@ import {
 import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
 
 /**
+ * The imperative surface of the `AparteUi` proxy — the same
+ * `getElement`/`callMethod` contract on all four wrappers.
+ */
+export interface AparteUiHandle {
+    getElement<T extends HTMLElement = HTMLElement>(): T | null;
+    callMethod<T = unknown>(methodName: string, ...args: unknown[]): T | undefined;
+}
+
+/**
  * AparteUiComponent - Universal UI Proxy
  *
  * A pass-through proxy component that dynamically injects any aparté
@@ -50,7 +59,7 @@ import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
     }
   `]
 })
-export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, AparteUiHandle {
     private readonly renderer = inject(Renderer2);
     private readonly hostEl = inject(ElementRef);
 

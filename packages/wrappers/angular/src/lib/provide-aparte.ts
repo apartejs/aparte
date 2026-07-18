@@ -16,7 +16,7 @@ import {
     type AparteModelConfig,
     type AparteSkeletonProvider,
 } from '@aparte/core';
-import { APARTE_CLIENT_OPTIONS } from './aparte-ai.service';
+import { APARTE_CLIENT_OPTIONS, AparteAiService } from './aparte-ai.service';
 
 /**
  * Any function that initialises a plugin — sync or async, so it can wrap a
@@ -60,6 +60,15 @@ export interface ProvideAparteOptions {
 
     /** Options for the `AparteClient` mounted by {@link AparteAiService}. */
     clientOptions?: AparteClientOptions;
+
+    /**
+     * Start the {@link AparteAiService} client once the app initialises (after
+     * providers/plugins are registered), so sends stream without a manual
+     * `AparteAiService.connect()` — "wire the config and it works", same as the
+     * React/Vue/Svelte wrappers. Default `true`; set `false` to control the
+     * client lifecycle yourself.
+     */
+    autoConnect?: boolean;
 }
 
 /** Holds the resolved aparté config, for consumers that want to inject it. */
@@ -143,8 +152,10 @@ function applyThemeMode(mode: 'light' | 'dark' | 'auto', destroyRef: DestroyRef)
 
 /**
  * Configure aparté for a standalone Angular app. Registers your AI providers,
- * model config, locale and optional plugins on the global `AparteConfig`, and
- * provides {@link APARTE_CLIENT_OPTIONS} for {@link AparteAiService}.
+ * model config, locale and optional plugins on the global `AparteConfig`,
+ * provides {@link APARTE_CLIENT_OPTIONS} for {@link AparteAiService}, and
+ * starts the client (see `autoConnect`) — no manual
+ * `AparteAiService.connect()` needed.
  *
  * The components (`AparteChatComponent`, `AparteUiComponent`) are standalone and
  * work WITHOUT this — it is config sugar. You can equally call `AparteConfig.*`
@@ -166,6 +177,12 @@ export function provideAparte(options: ProvideAparteOptions = {}): EnvironmentPr
         { provide: APARTE_CLIENT_OPTIONS, useValue: options.clientOptions ?? {} },
         provideAppInitializer(async () => {
             const destroyRef = inject(DestroyRef);
+            // inject() only works before the first await — grab the service now,
+            // connect at the end (after plugins) so the first send already sees
+            // markdown/action providers. SSR-safe: no listener without a window.
+            const ai = options.autoConnect !== false && typeof window !== 'undefined'
+                ? inject(AparteAiService)
+                : null;
             if (options.providers?.length) {
                 AparteConfig.registerAIProvider(...options.providers);
             }
@@ -179,6 +196,7 @@ export function provideAparte(options: ProvideAparteOptions = {}): EnvironmentPr
             if (options.themeMode) {
                 applyThemeMode(options.themeMode, destroyRef);
             }
+            ai?.connect();
         }),
     ]);
 }

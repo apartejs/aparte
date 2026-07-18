@@ -139,7 +139,12 @@ export interface AparteChatHandle {
     scrollToBottom: () => void;
     focusInput: () => void;
     isStreaming: () => boolean;
-    viewport: HTMLElement | null;
+    /**
+     * The `<aparte-chat-viewport>` element — for custom scroll handling, an
+     * IntersectionObserver, etc. Same `getViewport()` accessor on all four
+     * wrappers.
+     */
+    getViewport: () => HTMLElement | null;
 }
 
 export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function AparteChat(
@@ -305,7 +310,7 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         scrollToBottom: () => (viewportRef.current as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.(),
         focusInput: () => (composerRef.current as unknown as { focus?: () => void })?.focus?.(),
         isStreaming: () => hostRef.current?.isStreaming ?? false,
-        viewport: viewportRef.current,
+        getViewport: () => viewportRef.current,
     }), []);
 
     return (

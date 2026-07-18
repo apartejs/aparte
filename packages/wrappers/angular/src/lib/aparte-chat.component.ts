@@ -378,6 +378,12 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
     scrollToBottom(): void {
         (this.viewportRef?.nativeElement as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.();
     }
+    /**
+     * The `<aparte-chat-viewport>` element — for custom scroll handling, an
+     * IntersectionObserver, etc. Same `getViewport()` accessor on all four
+     * wrappers.
+     */
+    getViewport(): HTMLElement | null { return this.viewportRef?.nativeElement ?? null; }
     /** Focus the composer input. */
     focusInput(): void {
         (this.inputRef?.nativeElement as unknown as { focus?: () => void })?.focus?.();
@@ -395,16 +401,24 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
         this._host?.truncateResponsesAfter(userMessageId);
     }
 
-    // ── Token streaming (Angular-idiomatic Observable adapter) ─────────────────
+    // ── Token streaming (cross-wrapper contract + Observable adapter) ──────────
 
     /**
-     * Inject a token stream for LLM streaming. Adapts the RxJS `Observable` into
-     * the host's agnostic `streamTokens(AsyncIterable)` so the orphan-stream
-     * guard + id tracking stay in one place (the host).
+     * Inject a token stream for LLM streaming. Takes the cross-wrapper
+     * `AsyncIterable<string>` contract (the exact call that works on
+     * React/Vue/Svelte) — or an Angular-idiomatic RxJS `Observable<string>`,
+     * adapted into the host's agnostic `streamTokens(AsyncIterable)` so the
+     * orphan-stream guard + id tracking stay in one place (the host).
      */
-    async injectTokenStream(messageId: string, stream: Observable<string>): Promise<void> {
+    async injectTokenStream(
+        messageId: string,
+        stream: Observable<string> | AsyncIterable<string>,
+    ): Promise<void> {
         if (!this._host) return;
-        await this._host.streamTokens(messageId, this._observableToAsyncIterable(stream));
+        const tokens = Symbol.asyncIterator in stream
+            ? (stream as AsyncIterable<string>)
+            : this._observableToAsyncIterable(stream as Observable<string>);
+        await this._host.streamTokens(messageId, tokens);
     }
 
     /** Stop any active token stream. */

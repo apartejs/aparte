@@ -42,6 +42,13 @@ describe('AparteChat.svelte', () => {
         vi.clearAllMocks();
     });
 
+    it('exposes getViewport() (cross-wrapper accessor)', () => {
+        const { component, container } = render(AparteChat, { messages: [] });
+        const viewport = (component as unknown as { getViewport(): HTMLElement | null }).getViewport();
+        expect(viewport).not.toBeNull();
+        expect(viewport).toBe(container.querySelector('aparte-chat-viewport'));
+    });
+
     it('renders correct number of messages', () => {
         const { container } = render(AparteChat, {
             messages: mockMessages

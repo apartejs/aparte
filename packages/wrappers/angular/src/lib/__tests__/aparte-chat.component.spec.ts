@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@angular/compiler';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { AparteChatComponent } from '../aparte-chat.component';
 import { registerAllComponents, type AparteMessage } from '@aparte/core';
 
@@ -263,6 +264,38 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         fixture.detectChanges();
         await fixture.whenStable();
         expect(() => { component.scrollToBottom(); component.focusInput(); }).not.toThrow();
+    });
+
+    it('getViewport() returns the <aparte-chat-viewport> element (cross-wrapper accessor)', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const viewport = fixture.componentInstance.getViewport();
+        expect(viewport).not.toBeNull();
+        expect(viewport!.tagName.toLowerCase()).toBe('aparte-chat-viewport');
+    });
+
+    it('injectTokenStream feeds the host from an AsyncIterable AND from an RxJS Observable', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const component = fixture.componentInstance;
+
+        // Intercept at the wrapper/host seam: what matters HERE is that both
+        // input shapes reach `streamTokens` as a working AsyncIterable (the
+        // streaming pipeline itself is covered by the core host suite).
+        const seen: string[][] = [];
+        (component as any)._host.streamTokens = vi.fn(async (_id: string, tokens: AsyncIterable<string>) => {
+            const got: string[] = [];
+            for await (const t of tokens) got.push(t);
+            seen.push(got);
+        });
+
+        async function* gen() { yield 'a'; yield 'b'; }
+        await component.injectTokenStream('m1', gen());       // cross-wrapper contract
+        await component.injectTokenStream('m1', of('c', 'd')); // Angular-idiomatic
+
+        expect(seen).toEqual([['a', 'b'], ['c', 'd']]);
     });
 
     // ─── Regression: Bug 1 — path-change must re-populate re-created bubbles ─
