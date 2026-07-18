@@ -283,6 +283,9 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
     /** The framework-agnostic chat-host orchestrator (created in ngAfterViewInit). */
     private _host?: AparteChatHost;
     private _unbindHost?: () => void;
+    /** QueryList.changes subscription — released in ngOnDestroy so SPA route
+     *  churn doesn't leak a live subscription per mount. */
+    private _bubbleRefsSub?: { unsubscribe(): void };
 
     ngAfterViewInit(): void {
         const host = this.elementRef.nativeElement as HTMLElement;
@@ -328,7 +331,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
 
         // Re-reconcile bubbles whenever Angular's @for materialises/destroys them.
         this._host.syncBubbles();
-        this.bubbleRefs.changes.subscribe(() => this._host?.syncBubbles());
+        this._bubbleRefsSub = this.bubbleRefs.changes.subscribe(() => this._host?.syncBubbles());
     }
 
     private readonly _onAction = (event: Event): void => {
@@ -341,6 +344,8 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy {
             this._syncRafId = null;
         }
         (this.elementRef.nativeElement as HTMLElement).removeEventListener('aparte:action', this._onAction);
+        this._bubbleRefsSub?.unsubscribe();
+        this._bubbleRefsSub = undefined;
         this._unbindHost?.();
         this._unbindHost = undefined;
         this._host = undefined;

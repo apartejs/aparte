@@ -209,6 +209,33 @@ describe('AparteChatHost', () => {
         expect(h.ctl.streamingId).toBeNull();
     });
 
+    it('stopTokenStream unwinds an IDLE source and runs its cleanup (no zombie subscription)', async () => {
+        const h = makeHarness();
+        h.ctl.appendMessage(msg('a', 'assistant', { content: '' }));
+        let cleanedUp = false;
+        // A source that emits one token then idles forever on next() — models the
+        // Angular Observable adapter parked on a pending next() with no emission.
+        const idle: AsyncIterable<string> = {
+            [Symbol.asyncIterator]() {
+                let sent = false;
+                return {
+                    next() {
+                        if (!sent) { sent = true; return Promise.resolve({ value: 't', done: false }); }
+                        return new Promise<IteratorResult<string>>(() => { /* never resolves */ });
+                    },
+                    return() { cleanedUp = true; return Promise.resolve({ value: undefined, done: true }); },
+                };
+            },
+        };
+        const done = h.ctl.streamTokens('a', idle);
+        await Promise.resolve(); // let the first token flush
+        h.ctl.stopTokenStream();
+        await done;
+        expect(cleanedUp).toBe(true);            // iterator.return() fired → subscription torn down
+        expect(h.ctl.streamingId).toBeNull();
+        expect(h.vpApi.completeMessage).not.toHaveBeenCalledWith('a'); // aborted, not completed
+    });
+
     it('addBranch / addSiblingOf sync the repo first then forward to the viewport', () => {
         const h = makeHarness();
         h.ctl.appendMessage(msg('m1', 'user', { content: 'q' }));

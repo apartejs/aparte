@@ -429,10 +429,21 @@ export class AparteChatHost {
         this._setStreamingId(messageId);
         const ac = new AbortController();
         this._streamAbort = ac;
+        const iterator = tokens[Symbol.asyncIterator]();
+        // Resolve as soon as the stream is aborted, so an IDLE source (e.g. the
+        // Angular Observable→AsyncIterable adapter parked on a pending next())
+        // still unwinds promptly: racing next() against this lets the loop break
+        // and call iterator.return() — which unsubscribes — instead of leaving a
+        // zombie subscription parked on a next() that never resolves.
+        const aborted = new Promise<'aborted'>((resolve) => {
+            if (ac.signal.aborted) { resolve('aborted'); return; }
+            ac.signal.addEventListener('abort', () => resolve('aborted'), { once: true });
+        });
         try {
-            for await (const chunk of tokens) {
-                if (ac.signal.aborted) return;
-                this._vp()?.appendToken?.(messageId, chunk);
+            for (;;) {
+                const res = await Promise.race([iterator.next(), aborted]);
+                if (res === 'aborted' || ac.signal.aborted || res.done) break;
+                this._vp()?.appendToken?.(messageId, res.value);
             }
             if (!ac.signal.aborted) this._vp()?.completeMessage?.(messageId);
             this._setStreamingId(null);
@@ -440,6 +451,9 @@ export class AparteChatHost {
             this._setStreamingId(null);
             throw err;
         } finally {
+            // On abort the source may still be mid-flight; return() triggers its
+            // cleanup (generator finally / subscription teardown).
+            if (ac.signal.aborted) { try { await iterator.return?.(); } catch { /* ignore */ } }
             if (this._streamAbort === ac) this._streamAbort = undefined;
         }
     }

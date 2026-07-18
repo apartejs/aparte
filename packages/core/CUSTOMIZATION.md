@@ -69,10 +69,14 @@ The bubble also carries `data-error` on its `.aparte-message` while errored, so 
 can theme the whole errored turn with `.aparte-message[data-error] { … }`.
 
 ```ts
-AparteConfig.setErrorRenderer(({ message, details }) => {
+AparteConfig.setErrorRenderer(({ message }) => {
   const el = document.createElement('div');
   el.className = 'my-error';
-  el.innerHTML = `<strong>Something went wrong.</strong><p>${message}</p>`;
+  const strong = document.createElement('strong');
+  strong.textContent = 'Something went wrong.';
+  const p = document.createElement('p');
+  p.textContent = message; // model/vendor-derived → textContent, NEVER innerHTML
+  el.append(strong, p);
   return el;
 });
 ```
@@ -86,10 +90,18 @@ you own the markup **and** the interactions (the built-in image-tile
 
 ```ts
 AparteConfig.setAttachmentRenderer((att) => {
-  if (att.type === 'application/pdf') return `<div class="pdf-chip">${att.name}</div>`;
-  return `<div class="file-chip">${att.name}</div>`;
+  const el = document.createElement('div');
+  el.className = att.type === 'application/pdf' ? 'pdf-chip' : 'file-chip';
+  el.textContent = att.name; // user-supplied filename → textContent, not an HTML string
+  return el;
 });
 ```
+
+> **Security:** a render hook that returns a **string** has its result assigned to
+> `innerHTML`. Never interpolate model- or user-supplied values (`message`, `att.name`,
+> a model-authored title) into that string — return an `HTMLElement` built with
+> `textContent` (as above), or escape first. To harden the whole markdown/HTML path,
+> swap in DOMPurify via `AparteConfig.setHtmlSanitizer(html => DOMPurify.sanitize(html))`.
 
 ### Branch indicator — `setSiblingNavRenderer`
 
@@ -144,6 +156,10 @@ AparteConfig.setBubbleShellRenderer(({ role, name, avatarInitial }) => `
     </div>
   </div>`);
 ```
+
+> **Security:** `role` is a fixed enum, but `name`/`avatarInitial` can carry
+> configured or model-influenced text — escape them before interpolating into this
+> string (or set them with `textContent` on the built nodes), per the caution above.
 
 ### Avatar — `setAvatarProvider`
 

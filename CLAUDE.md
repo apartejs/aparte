@@ -10,10 +10,10 @@
 > `DirectTransport` (browser-direct, BYOK/local) or `BackendTransport` (your
 > `/api/chat`, key stays server-side).
 >
-> **What this repo is NOT:** the product. The privacy-first, 100%-in-browser
-> assistant that used to live beside the library (*home*) **stays in its own repo**
-> and consumes `@aparte/*` from npm. The local-first / offline promise is the
-> **product's**, never the library's. No routing, settings, or persistence here.
+> **What this repo is NOT:** the product. A privacy-first, 100%-in-browser
+> assistant that consumes `@aparte/*` from npm **lives in its own separate repo**.
+> The local-first / offline promise is the **product's**, never the library's.
+> No routing, settings, or persistence here.
 >
 > Repo type: **NX monorepo + pnpm workspaces**. Default branch: `main`.
 
@@ -56,8 +56,8 @@ apartejs/
 - `providers/*` = pluggable LLM adapters (wire-format only; consumer opts in).
 - `wrappers/*` = thin framework bridges (React/Vue/Svelte/Angular).
 
-**Out of scope** (added only on real demand): the product *home*, the markdown/highlight
-micro-packages, `eval/`, voice.
+**Out of scope** (added only on real demand): the consuming product app, the
+markdown/highlight micro-packages, an eval harness, voice.
 
 ---
 

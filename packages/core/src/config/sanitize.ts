@@ -46,7 +46,7 @@ const GLOBAL_ATTRS = new Set([
 
 /** Extra attributes allowed on specific tags. */
 const TAG_ATTRS: Record<string, Set<string>> = {
-    a: new Set(['href', 'target', 'rel', 'name']),
+    a: new Set(['href', 'target', 'rel']), // legacy `name` dropped — obsolete + a DOM-clobbering vector
     img: new Set(['src', 'alt', 'width', 'height', 'loading', 'srcset', 'sizes', 'decoding']),
     source: new Set(['src', 'srcset', 'type', 'media', 'sizes']),
     input: new Set(['type', 'checked', 'disabled']),

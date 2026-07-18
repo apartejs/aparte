@@ -36,8 +36,13 @@ The provider owns its I/O (it runs inference locally), so `DirectTransport` just
 
 ## Managing downloads & cache
 
-- `prepareModel(modelId, onProgress)` — download + load a model, reporting progress.
-- `getModelStatus(modelId)` — `'ready'` \| `'cached'` \| `'not-downloaded'`.
+Downloading and status are **methods on the provider** you registered:
+
+- `TransformersProvider.prepareModel(modelId, onProgress)` — download + load a model, reporting progress.
+- `TransformersProvider.getModelStatus(modelId)` — `'ready'` \| `'cached'` \| `'not-downloaded'`.
+
+Cache and hardware are **standalone helpers** — import them from `@aparte/provider-transformers`:
+
 - `listCachedModels()` / `deleteCachedModel(modelId)` — inspect and clear the on-disk cache.
 - `setMaxCachedModels(n)` — cap how many models are kept (oldest evicted; `0` = unlimited).
 - `detectHardware()` / `setComputeDevice('auto' | 'webgpu' | 'wasm')` — pick a device / default model by tier.

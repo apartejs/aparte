@@ -1,5 +1,5 @@
 ---
-"@aparte/core": major
+"@aparte/core": minor
 ---
 
 Unify custom action registration into one zoned API.
