@@ -41,3 +41,44 @@ jobs:
 
       # Added as packages land: publint --strict, are-the-types-wrong,
       # docs build + link-check.
+
+  # Browser smoke E2E — drives every playground in a real browser against a
+  # network-mocked model (no key/LM Studio). Separate job: it boots six dev
+  # servers + a browser, so it is heavier and isolated from the fast gate above.
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # demo-vanilla consumes @aparte/core from its dist, so the packages must be
+      # built before the E2E dev servers boot.
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright (Chromium + OS deps)
+        run: pnpm --filter @aparte-workspace/e2e exec playwright install --with-deps chromium
+
+      - name: Browser smoke E2E
+        run: pnpm e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7

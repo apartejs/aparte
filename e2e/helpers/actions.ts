@@ -12,6 +12,22 @@ const EDITOR = 'aparte-composer-input [contenteditable="true"]';
 const SEND = 'aparte-composer-send button';
 
 /**
+ * Start collecting uncaught page errors, filtering the benign Chromium
+ * "ResizeObserver loop completed with undelivered notifications" notice — the
+ * viewport's layout-mutating ResizeObserver (auto-scroll) can emit it, and it
+ * would otherwise flake the mount test's "no errors" assertion. Returns the
+ * array, which fills as errors occur.
+ */
+export function collectPageErrors(page: Page): string[] {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => {
+        if (/ResizeObserver loop/i.test(e.message)) return;
+        errors.push(e.message);
+    });
+    return errors;
+}
+
+/**
  * Wait until the require-model gate opens — i.e. the selector fetched its list
  * and a model auto-selected. Until then `submit()` is blocked by core, so any
  * send would silently no-op.
@@ -31,8 +47,11 @@ export async function sendMessage(page: Page, text: string, opts: { gated?: bool
 
     const priorReplies = await page.locator('aparte-chat-bubble[data-role="assistant"]').count();
 
-    await page.locator(EDITOR).first().click();
-    await page.keyboard.type(text);
+    // pressSequentially is bound to the (re-resolved) editor locator, so a
+    // framework re-render between focus and typing can't drop the keystrokes.
+    const editor = page.locator(EDITOR).first();
+    await editor.click();
+    await editor.pressSequentially(text);
     await page.locator(SEND).first().click();
 
     // A NEW assistant bubble finishes streaming the canned reply.

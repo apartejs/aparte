@@ -33,8 +33,22 @@ pnpm build            # once — demo-vanilla consumes @aparte/core from dist
 pnpm e2e:install      # once — download the Chromium Playwright uses
 pnpm e2e              # all apps
 pnpm e2e --project=react           # one app
-E2E_ONLY=react pnpm e2e            # boot only that app's dev server (faster)
 pnpm e2e:ui           # interactive runner
+```
+
+Narrow to one app's dev server (faster) with the `E2E_ONLY` env var:
+
+```bash
+E2E_ONLY=react pnpm e2e                        # bash / POSIX
+$env:E2E_ONLY='react'; pnpm e2e                # PowerShell (Windows)
+```
+
+The opt-in real-model smoke (a live local server, CORS enabled) is skipped
+unless `E2E_REAL_MODEL=1`:
+
+```bash
+E2E_REAL_MODEL=1 E2E_ONLY=react pnpm e2e --project=react       # bash / POSIX
+$env:E2E_REAL_MODEL='1'; $env:E2E_ONLY='react'; pnpm e2e --project=react   # PowerShell
 ```
 
 The dev servers boot automatically (ports 5301-5306) and are reused if already

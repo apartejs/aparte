@@ -7,18 +7,21 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { collectPageErrors } from '../helpers/actions.js';
+
+async function ask(page: import('@playwright/test').Page, text: string): Promise<void> {
+    await expect(page.locator('aparte-chat')).toBeVisible();
+    const editor = page.locator('aparte-composer-input [contenteditable="true"]').first();
+    await editor.click();
+    await editor.pressSequentially(text);
+    await page.locator('aparte-composer-send button').first().click();
+}
 
 test('mounts and runs the human-in-the-loop tool approval', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(e.message));
+    const errors = collectPageErrors(page);
 
     await page.goto('/');
-    await expect(page.locator('aparte-chat')).toBeVisible();
-
-    // Typing something containing "delete" triggers an approval-gated tool call.
-    await page.locator('aparte-composer-input [contenteditable="true"]').first().click();
-    await page.keyboard.type('please delete my notes');
-    await page.locator('aparte-composer-send button').first().click();
+    await ask(page, 'please delete my notes');
 
     // The default tool_call renderer offers Approve / Reject.
     const approve = page.locator('[data-tool-decision="approve"]');
@@ -35,12 +38,10 @@ test('mounts and runs the human-in-the-loop tool approval', async ({ page }) => 
 });
 
 test('rejecting a tool call halts the action', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('aparte-chat')).toBeVisible();
+    const errors = collectPageErrors(page);
 
-    await page.locator('aparte-composer-input [contenteditable="true"]').first().click();
-    await page.keyboard.type('delete everything');
-    await page.locator('aparte-composer-send button').first().click();
+    await page.goto('/');
+    await ask(page, 'delete everything');
 
     const reject = page.locator('[data-tool-decision="reject"]');
     await expect(reject).toBeVisible({ timeout: 15_000 });
@@ -48,4 +49,6 @@ test('rejecting a tool call halts the action', async ({ page }) => {
 
     await expect(page.locator('.segment-tool-call[data-status="rejected"]')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').last()).toContainText('Rejected');
+
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });

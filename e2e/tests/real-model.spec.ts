@@ -25,17 +25,20 @@ test.describe('real model (local server)', () => {
         // The selector fetched the real model list and auto-selected one → gate opens.
         await waitUngated(page);
 
-        await page.locator('aparte-composer-input [contenteditable="true"]').first().click();
-        await page.keyboard.type('In one short sentence, say hello and name a JavaScript framework.');
+        const editor = page.locator('aparte-composer-input [contenteditable="true"]').first();
+        await editor.click();
+        await editor.pressSequentially('In one short sentence, say hello and name a JavaScript framework.');
         await page.locator('aparte-composer-send button').first().click();
 
-        // A real assistant reply streams in — assert the bubble's text grows well
-        // past the name/timestamp chrome (content is model-dependent, so we check
-        // length, not exact words). Generous timeout: local models can be slow.
+        // A real assistant reply streams in. Content is model-dependent, so we
+        // measure GROWTH past the bubble's own name/timestamp chrome (a fixed
+        // baseline captured once the bubble mounts) rather than a raw length that
+        // could pass on chrome alone. Generous timeout: local models can be slow.
         const assistant = page.locator('aparte-chat-bubble[data-role="assistant"]').last();
         await expect(assistant).toBeVisible({ timeout: 90_000 });
+        const baseline = (await assistant.textContent())?.trim().length ?? 0;
         await expect
             .poll(async () => (await assistant.textContent())?.trim().length ?? 0, { timeout: 90_000 })
-            .toBeGreaterThan(30);
+            .toBeGreaterThan(baseline + 15);
     });
 });
