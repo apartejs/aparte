@@ -8,7 +8,7 @@ import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteThinkingSegment } from '../types/segments.js';
 import type { AparteToolCallSegment } from '../types/segments.js';
 import type { AparteToolCall, AparteTool } from '../types/tools.js';
-import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, contentToText } from '../types/chat.js';
+import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 
 /**
@@ -1204,7 +1204,7 @@ export class AparteClient {
 
             // ── Build per-phase request when pipeline is active ───────────────
             let phaseMessages: AparteChatMessage[] = messages;
-            let phaseMeta: Record<string, unknown> | undefined = baseRequest._meta as Record<string, unknown> | undefined;
+            let phaseMeta: AparteRequestMeta | undefined = baseRequest._meta;
             if (pipeline && pipelineIndex < pipeline.length) {
                 const phase = pipeline[pipelineIndex]!;
                 phaseMessages = [{ role: 'system', content: phase.system } as AparteChatMessage, ...messages];

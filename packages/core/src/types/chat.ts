@@ -3,6 +3,7 @@
  */
 
 import type { AparteTool, AparteToolCall } from './tools.js';
+import type { AparteSegment } from './segments.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Content Parts — multimodal message content (Vercel AI SDK compatible)
@@ -126,20 +127,45 @@ export interface AparteChatRequest {
     fastStream?: boolean;
 
     /**
-     * Opaque metadata bag for passing context through the request pipeline
-     * (e.g. from a requestInterceptor to the _streamLoop post-processor).
-     * Never sent to the AI provider — stripped before the network call.
-     *
-     * Well-known keys:
-     *   - `artifactHint` `{ mimeType: string; kind: string }` — when set, the first
-     *     code-fence segment in the response is promoted to an artifact segment,
-     *     enabling small models that ignore the `<artifact>` XML format to still
-     *     produce openable artifacts.
-     *   - `prefixSegments` `AparteSegment[]` — segments injected into the bubble
-     *     before streaming begins (e.g. a collapsed thinking block showing the
-     *     orchestrator's plan). Never sent to the AI provider.
+     * Opaque metadata bag threaded through the request pipeline (e.g. from a
+     * requestInterceptor to the `_streamLoop` post-processor). Never sent to the
+     * AI provider — stripped before the network call. The well-known keys are
+     * typed; see {@link AparteRequestMeta}.
      */
-    _meta?: Record<string, unknown>;
+    _meta?: AparteRequestMeta;
+}
+
+/** One phase of a multi-turn `_meta.pipeline` run: each phase is a single LLM
+ *  turn whose reply becomes context for the next. */
+export type ApartePipelinePhase =
+    | { mode: 'text'; system: string }
+    | { mode: 'thinking'; system: string; label?: string }
+    | { mode: 'artifact'; system: string; mimeType: string; kind: string };
+
+/** A `{ mimeType, kind }` artifact hint for the `_meta` artifact modes. */
+export interface AparteArtifactHint {
+    mimeType: string;
+    kind: string;
+}
+
+/**
+ * Well-known keys of {@link AparteChatRequest._meta}, typed for discoverability.
+ * The index signature keeps it an open channel for consumer-specific context.
+ * None of these reach the provider — they're stripped before the network call.
+ */
+export interface AparteRequestMeta {
+    /** Multi-phase run — each phase is one LLM turn; reply N is context for N+1. */
+    pipeline?: ApartePipelinePhase[];
+    /** Segments injected into the bubble before streaming (e.g. a plan thinking block). */
+    prefixSegments?: AparteSegment[];
+    /** Promote the first code fence in the reply to an artifact (for small models that ignore `<artifact>` XML). */
+    artifactHint?: AparteArtifactHint;
+    /** Treat the WHOLE reply as a raw artifact of this kind. */
+    artifactRaw?: AparteArtifactHint;
+    /** Parse an `<artifact>` XML block of this kind out of the stream. */
+    artifactXml?: AparteArtifactHint;
+    /** Consumer-specific context (open channel). */
+    [key: string]: unknown;
 }
 
 /**
