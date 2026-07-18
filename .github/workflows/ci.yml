@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main ]
 
+# Superseded pushes to the same ref cancel their in-flight run instead of
+# queuing (main is never cancelled — its group is keyed by the unique SHA).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -47,6 +53,44 @@ jobs:
         run: pnpm test
 
       # Added as packages land: docs build + link-check.
+
+  # Portability guard: the packages declare engines.node ">=18" and the repo is
+  # developed on Windows, yet the authoritative gate above runs a single target.
+  # This job re-runs build + test across the supported Node range and on Windows
+  # so an incompatibility can't ship undetected. (Node 24 + the full lint/
+  # typecheck/packaging gate stay on the `ci` job to avoid duplicating them.)
+  test-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ['18', '20', '22']
+        include:
+          - os: windows-latest
+            node: '22'
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
 
   # Browser smoke E2E — drives every playground in a real browser against a
   # network-mocked model (no key/LM Studio). Separate job: it boots six dev
