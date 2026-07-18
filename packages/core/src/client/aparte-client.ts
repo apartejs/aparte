@@ -452,19 +452,15 @@ export class AparteClient {
      */
     async compact(): Promise<void> {
         // 1. Resolve target element
-        interface CompactTarget extends HTMLElement {
-            getMessages?(): AparteMessage[];
-            appendMessage?(msg: AparteMessage): void;
-        }
-        let target: CompactTarget | null = null;
+        let target: AparteChatTargetElement | null = null;
         if (this.options.targetResolver) {
-            target = this.options.targetResolver() as CompactTarget | null;
+            target = this.options.targetResolver() as AparteChatTargetElement | null;
         }
         if (!target) {
             // Walk the DOM for any element exposing getMessages
-            const candidates = document.querySelectorAll<CompactTarget>('aparte-chat, [data-aparte-chat]');
+            const candidates = document.querySelectorAll<AparteChatTargetElement>('aparte-chat, [data-aparte-chat]');
             for (const el of Array.from(candidates)) {
-                if (typeof (el as any).getMessages === 'function') {
+                if (typeof el.getMessages === 'function') {
                     target = el;
                     break;
                 }
@@ -586,9 +582,10 @@ export class AparteClient {
             // 8. Done
             window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary, kept: keep.length } }));
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('[AparteClient] compact() failed:', err);
-            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: err?.message ?? String(err) } }));
+            const message = err instanceof Error ? err.message : String(err);
+            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: message } }));
         }
     }
 
@@ -612,15 +609,7 @@ export class AparteClient {
         const { messageId, targetId } = event.detail ?? {};
         if (!messageId) return;
 
-        interface RetryTarget extends HTMLElement {
-            appendMessage?(msg: AparteMessage): void;
-            addSiblingOf?(existingId: string, newMsg: AparteMessage): string | null;
-            updateMessage?(id: string, updates: Partial<AparteMessage>): void;
-            addSegment?(seg: AparteSegment): void;
-            getMessages?(): AparteMessage[];
-        }
-
-        const targetElement = this._resolveTarget<RetryTarget>(targetId);
+        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
         if (!targetElement) {
             console.warn('[AparteClient] aparte-retry — no target found');
             return;
@@ -643,7 +632,7 @@ export class AparteClient {
             status: 'pending',
             timestamp: Date.now(),
         };
-        const newMessageId = (targetElement as any).addSiblingOf?.(messageId, newMsg) ?? newMsg.id;
+        const newMessageId = targetElement.addSiblingOf?.(messageId, newMsg) ?? newMsg.id;
 
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
@@ -678,23 +667,14 @@ export class AparteClient {
         const { messageId, content: newContent, targetId } = event.detail ?? {};
         if (!messageId || newContent === undefined) return;
 
-        interface EditTarget extends HTMLElement {
-            appendMessage?(msg: AparteMessage): void;
-            truncateFrom?(id: string): void;
-            truncateResponsesAfter?(userMessageId: string): void;
-            updateMessage?(id: string, updates: Partial<AparteMessage>): void;
-            addSegment?(seg: AparteSegment): void;
-            getMessages?(): AparteMessage[];
-        }
-
-        const targetElement = this._resolveTarget<EditTarget>(targetId);
+        const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
         if (!targetElement) {
             console.warn('[AparteClient] aparte-edit — no target found');
             return;
         }
 
         // 1. Update the user message content
-        (targetElement as any).updateMessage?.(messageId, { content: newContent });
+        targetElement.updateMessage?.(messageId, { content: newContent });
 
         // 2. Collect all messages, find index of edited message
         const allMessages: AparteMessage[] = targetElement.getMessages?.() ?? [];
@@ -704,14 +684,14 @@ export class AparteClient {
         //    truncateResponsesAfter clears every sibling branch so the new
         //    response starts as the only child (sibling count = 1).
         //    Fall back to truncateFrom on the active next message for older hosts.
-        if ((targetElement as any).truncateResponsesAfter) {
-            (targetElement as any).truncateResponsesAfter(messageId);
+        if (targetElement.truncateResponsesAfter) {
+            targetElement.truncateResponsesAfter(messageId);
         } else {
             const nextAssistantId = editIdx >= 0 && editIdx + 1 < allMessages.length
                 ? allMessages[editIdx + 1]?.id
                 : undefined;
             if (nextAssistantId) {
-                (targetElement as any).truncateFrom?.(nextAssistantId);
+                targetElement.truncateFrom?.(nextAssistantId);
             }
         }
 
@@ -807,25 +787,13 @@ export class AparteClient {
     private async _handleSend(event: CustomEvent): Promise<void> {
         const { content, modelId, providerId: explicitProviderId } = event.detail;
 
-        // Define interface for the target element (AparteChat)
-        interface AparteChatElement extends HTMLElement {
-            appendMessage(message: AparteMessage): void;
-            updateMessage?(id: string, updates: Partial<AparteMessage>): void;
-            updateLastMessage(content: string, options?: { append?: boolean }): void;
-            addSegment?(segment: AparteSegment): void;
-            updateSegment?(segmentId: string, updates: Partial<AparteSegment>): void;
-            removeSegment?(segmentId: string): void;
-            typeName?(text: string): void;
-            getMessages?(): AparteMessage[];
-        }
-
         // 1. Use targetId from event detail — the most reliable path.
         //    aparte-chat-input sets detail.targetId = host.id (set by AparteChatComponent).
         //    document.getElementById works even when aparte-chat-input is temporarily detached.
-        let targetElement: AparteChatElement | null = null;
+        let targetElement: AparteChatTargetElement | null = null;
         const targetId = (event.detail as any)?.targetId as string | undefined;
         if (targetId) {
-            const byId = document.getElementById(targetId) as AparteChatElement | null;
+            const byId = document.getElementById(targetId) as AparteChatTargetElement | null;
             if (byId && typeof byId.appendMessage === 'function') {
                 targetElement = byId;
             } else {
@@ -835,7 +803,7 @@ export class AparteClient {
 
         // 2. User-supplied resolver (e.g. provided via APARTE_CLIENT_OPTIONS)
         if (!targetElement && this.options.targetResolver) {
-            const resolved = this.options.targetResolver() as AparteChatElement | null;
+            const resolved = this.options.targetResolver() as AparteChatTargetElement | null;
             if (resolved && typeof resolved.appendMessage === 'function') {
                 targetElement = resolved;
             }
@@ -843,9 +811,9 @@ export class AparteClient {
 
         // 3. Walk up the event bubble chain as last resort
         if (!targetElement) {
-            let walker: AparteChatElement | null = event.target as any;
+            let walker: AparteChatTargetElement | null = event.target as AparteChatTargetElement | null;
             while (walker && typeof walker.appendMessage !== 'function') {
-                walker = walker.parentElement as any;
+                walker = walker.parentElement as AparteChatTargetElement | null;
             }
             if (walker) {
                 targetElement = walker;
@@ -868,7 +836,7 @@ export class AparteClient {
                 'aparte-chat, aparte-chat-viewport, [data-aparte-chat]',
             );
             for (const candidate of candidates) {
-                const resolved = this._asRenderTarget<AparteChatElement>(candidate);
+                const resolved = this._asRenderTarget<AparteChatTargetElement>(candidate);
                 if (resolved) {
                     targetElement = resolved;
                     break;
@@ -905,7 +873,7 @@ export class AparteClient {
         }
 
         // 2. Prepare Atomic Assistant Message
-        targetElement.appendMessage({
+        targetElement.appendMessage?.({
             id: messageId,
             role: 'assistant',
             content: '',
@@ -1004,7 +972,7 @@ export class AparteClient {
         if (!message.segments) return '';
         return message.segments
             .filter(s => s.type === 'text' || s.type === 'code')
-            .map(s => (s as any).content ?? '')
+            .map(s => (s as { content?: string }).content ?? '')
             .join('\n')
             .trim();
     }
@@ -1090,7 +1058,7 @@ export class AparteClient {
                             targetElement.addSegment?.(seg);
                             streamingSegmentIds.add(seg.id);
                         } else if ('content' in seg) {
-                            targetElement.updateSegment?.(seg.id, { content: (seg as any).content });
+                            targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
                         }
                     }
                     const active = textParser.getState().activeSegment;
@@ -1099,7 +1067,7 @@ export class AparteClient {
                             targetElement.addSegment?.(active);
                             streamingSegmentIds.add(active.id);
                         } else {
-                            targetElement.updateSegment?.(active.id, { content: (active as any).content });
+                            targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
                         }
                     } else if (!r.segments.length) {
                         if (targetElement.typeName) targetElement.typeName(remaining);
@@ -1247,8 +1215,8 @@ export class AparteClient {
             messages.push({ role: 'tool_result', content: result.content, toolCallId: syntheticId });
             // Strip toolChoice + tools from the follow-up LLM call — it should just answer.
             return { baseRequest: { ...baseRequest, toolChoice: 'none', tools: undefined }, skip: false };
-        } catch (err: any) {
-            if (err?.name === 'AbortError') {
+        } catch (err: unknown) {
+            if ((err as { name?: string })?.name === 'AbortError') {
                 targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
                 return { baseRequest, skip: true };
             }
@@ -1450,8 +1418,8 @@ export class AparteClient {
                     content: result.content,
                     toolCallId: event.id
                 });
-            } catch (err: any) {
-                if (err?.name === 'AbortError') {
+            } catch (err: unknown) {
+                if ((err as { name?: string })?.name === 'AbortError') {
                     targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
                     continueLoop = false;
                 } else {
@@ -1697,7 +1665,7 @@ export class AparteClient {
                                     streamingSegmentIds.add(segment.id);
                                 } else if ('content' in segment) {
                                     // Segment was already streaming — sync the final content
-                                    targetElement.updateSegment?.(segment.id, { content: (segment as any).content });
+                                    targetElement.updateSegment?.(segment.id, { content: (segment as { content?: string }).content });
                                 }
                                 if (segment.type === 'artifact') {
                                     this._dispatchArtifactLifecycle(targetElement, messageId, segment, artifactProgress, true);
@@ -1712,7 +1680,7 @@ export class AparteClient {
                                         this._dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
                                 } else {
-                                    targetElement.updateSegment?.(active.id, { content: (active as any).content });
+                                    targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
                                     if (active.type === 'artifact') {
                                         this._dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
@@ -1803,7 +1771,7 @@ export class AparteClient {
                         targetElement.addSegment?.(s);
                     } else if ('content' in s) {
                         // finalize() appended the residual buffer — sync to DOM
-                        targetElement.updateSegment?.(s.id, { content: (s as any).content });
+                        targetElement.updateSegment?.(s.id, { content: (s as { content?: string }).content });
                     }
                     if (s.type === 'artifact') {
                         this._dispatchArtifactLifecycle(targetElement, messageId, s, artifactProgress, true);
