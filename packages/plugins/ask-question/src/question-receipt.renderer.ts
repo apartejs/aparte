@@ -12,14 +12,15 @@ function esc(s: string): string {
     return s
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegment> = {
     type: 'question-receipt',
 
     render(seg) {
-        return `<div class="segment seg-qreceipt" data-segment-id="${seg.id}">
+        return `<div class="segment seg-qreceipt" data-segment-id="${esc(seg.id)}">
   <span class="qr-question">${esc(seg.question)}</span>
   <span class="qr-sep">→</span>
   <span class="qr-answer">${esc(seg.answer)}</span>

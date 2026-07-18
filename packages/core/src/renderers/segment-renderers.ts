@@ -202,7 +202,7 @@ type TextStreamHost = HTMLElement & {
 
 const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
     type: 'text',
-    render: (segment) => `<div class="segment segment-text" data-segment-id="${segment.id}"><div class="segment-content">${contextConfig().renderMarkdown(segment.content)}</div></div>`,
+    render: (segment) => `<div class="segment segment-text" data-segment-id="${escapeHtml(segment.id)}"><div class="segment-content">${contextConfig().renderMarkdown(segment.content)}</div></div>`,
     update: (el, segment) => {
         const contentEl = el.querySelector('.segment-content');
         if (!contentEl) return;
@@ -249,7 +249,7 @@ const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
 
 const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
     type: 'thinking',
-    render: (segment) => `<details class="segment segment-thinking" data-segment-id="${segment.id}" ${segment.collapsed ? '' : 'open'}><summary class="thinking-header"><span class="thinking-label">${segment.label || contextConfig().t('thinking')}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${escapeHtml(segment.content)}</div></details>`,
+    render: (segment) => `<details class="segment segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed ? '' : 'open'}><summary class="thinking-header"><span class="thinking-label">${segment.label || contextConfig().t('thinking')}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${escapeHtml(segment.content)}</div></details>`,
     update: (el, segment) => {
         // collapsed state is managed by _applySegmentUpdate based on explicit updates only —
         // never override what the user set by clicking <summary>
@@ -266,7 +266,7 @@ const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
 const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     type: 'code',
     render: (segment) => `
-        <div class="segment segment-code" data-segment-id="${segment.id}">
+        <div class="segment segment-code" data-segment-id="${escapeHtml(segment.id)}">
             <div class="code-header">
                 ${segment.filename
                     ? `<span class="code-filename">${escapeHtml(segment.filename)}</span>`
@@ -338,7 +338,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
 const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
     type: 'terminal',
     render: (segment) => `
-        <div class="segment segment-terminal" data-segment-id="${segment.id}">
+        <div class="segment segment-terminal" data-segment-id="${escapeHtml(segment.id)}">
             <div class="terminal-command-block">
                 <div class="terminal-icon">
                     ${contextConfig().getIcon('terminal')}
@@ -414,7 +414,7 @@ const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
             return out;
         }
         return `
-        <div class="segment segment-error" data-segment-id="${segment.id}">
+        <div class="segment segment-error" data-segment-id="${escapeHtml(segment.id)}">
             <div class="error-icon-wrapper">
                 ${contextConfig().getIcon('error') || '⚠'}
             </div>
@@ -438,7 +438,7 @@ const progressRenderer: AparteSegmentRenderer<AparteProgressSegment> = {
     render: (segment) => {
         const label = escapeHtml(segment.label || 'Progress');
         const pct = Math.round(segment.percent || 0);
-        return `<div class="segment segment-progress" data-segment-id="${segment.id}"><div class="progress-header"><span class="progress-label">${label}</span><span class="progress-value">${pct}%</span></div><div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${label}"><div class="progress-fill" style="width: ${pct}%"></div></div></div>`;
+        return `<div class="segment segment-progress" data-segment-id="${escapeHtml(segment.id)}"><div class="progress-header"><span class="progress-label">${label}</span><span class="progress-value">${pct}%</span></div><div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${label}"><div class="progress-fill" style="width: ${pct}%"></div></div></div>`;
     },
     getStyles: () => ``
 };
@@ -473,7 +473,7 @@ const fileTreeRenderer: AparteSegmentRenderer<AparteFileTreeSegment> = {
             }
         }
 
-        return `<div class="segment segment-file-tree" data-segment-id="${segment.id}">${segment.title ? `<div class="file-tree-title">${escapeHtml(segment.title)}</div>` : ''}<div class="file-tree-content">${filesHtml}</div></div>`;
+        return `<div class="segment segment-file-tree" data-segment-id="${escapeHtml(segment.id)}">${segment.title ? `<div class="file-tree-title">${escapeHtml(segment.title)}</div>` : ''}<div class="file-tree-content">${filesHtml}</div></div>`;
     },
     getStyles: () => ``
 };
@@ -500,7 +500,7 @@ const toolCallRenderer: AparteSegmentRenderer = {
             const approve = loc.approveTool ?? 'Approve';
             const reject = loc.rejectTool ?? 'Reject';
             return `
-            <div class="segment segment-tool-call" data-segment-id="${segment.id}" data-status="awaiting-approval" data-tool-call-id="${escapeAttr(toolCallId)}">
+            <div class="segment segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="awaiting-approval" data-tool-call-id="${escapeAttr(toolCallId)}">
                 <span class="tool-pill">
                     <span class="tool-pill-icon">${contextConfig().getIcon('tool')}</span>
                     <span class="tool-pill-name">${escapeHtml(name)}</span>
@@ -527,7 +527,7 @@ const toolCallRenderer: AparteSegmentRenderer = {
             ? `<span class="tool-pill-spinner" aria-hidden="true"></span>`
             : '';
         return `
-            <div class="segment segment-tool-call" data-segment-id="${segment.id}" data-status="${status}">
+            <div class="segment segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${status}">
                 <span class="tool-pill">
                     <span class="tool-pill-icon">${contextConfig().getIcon('tool')}</span>
                     <span class="tool-pill-name">${escapeHtml(name)}</span>
@@ -611,7 +611,7 @@ const pipelineWaitingRenderer: AparteSegmentRenderer = {
     type: 'pipeline-waiting',
     render: (segment) => {
         return `
-        <div class="segment segment-pipeline-waiting" data-segment-id="${segment.id}" aria-label="Generating…" role="status">
+        <div class="segment segment-pipeline-waiting" data-segment-id="${escapeHtml(segment.id)}" aria-label="Generating…" role="status">
             <span class="pw-dot"></span>
             <span class="pw-dot"></span>
             <span class="pw-dot"></span>

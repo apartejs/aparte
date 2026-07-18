@@ -181,6 +181,22 @@ describe('Segment Renderers', () => {
             expect(html).toContain('web_search');
         });
 
+        it('escapes a hostile tool-call id in data-segment-id (XSS)', () => {
+            const renderer = getSegmentRenderer('tool_call')!;
+            // segment.id is `tool-${toolCallId}`; toolCallId comes verbatim from the
+            // endpoint's SSE `delta.tool_calls[].id` — hostile-by-default.
+            const seg = {
+                id: 'tool-"><img src=x onerror=alert(1)>',
+                type: 'tool_call',
+                toolCall: { id: '"><img src=x onerror=alert(1)>', name: 'web_search', input: {} },
+                status: 'resolved',
+            };
+            const html = renderer.render(seg as any);
+            expect(html).not.toContain('<img src=x onerror=');
+            expect(html).not.toContain('"><img');
+            expect(html).toContain('&lt;img src=x onerror=');
+        });
+
         it('renders spinner for pending status', () => {
             const renderer = getSegmentRenderer('tool_call')!;
             const seg = {
