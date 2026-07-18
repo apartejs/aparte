@@ -13,9 +13,9 @@
  */
 
 // Structured-stream agent loop: runStreamAgent + its DOM-free events + the artifact-XML parser.
-export * from './agent/stream-events';
-export * from './agent/stream-run';
-export * from './agent/parsers/artifact-xml-state-machine';
+export * from './agent/stream-events.js';
+export * from './agent/stream-run.js';
+export * from './agent/parsers/artifact-xml-state-machine.js';
 
 // Conversation compactor (context-window budget + sliding-window assembly).
-export * from './conversation/compactor';
+export * from './conversation/compactor.js';

@@ -36,11 +36,17 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Publish-safety: publint (all 15 packages) + are-the-types-wrong (the 12
+      # non-SFC/APF packages; angular/svelte/vue carry an inherent attw node16
+      # limitation for their .svelte/.vue/APF type entrypoints — publint still
+      # covers them).
+      - name: Check packaging
+        run: pnpm check-packaging
+
       - name: Test
         run: pnpm test
 
-      # Added as packages land: publint --strict, are-the-types-wrong,
-      # docs build + link-check.
+      # Added as packages land: docs build + link-check.
 
   # Browser smoke E2E — drives every playground in a real browser against a
   # network-mocked model (no key/LM Studio). Separate job: it boots six dev

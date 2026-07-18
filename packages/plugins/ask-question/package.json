@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "The ask_question tool for aparté — the AI asks the user a structured choice, presented via the core elicitation panel.",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": true,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

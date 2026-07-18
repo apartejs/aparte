@@ -24,8 +24,8 @@ import type {
     StreamToolConfig,
     StreamApprovalResolver,
     StreamUsage,
-} from './stream-events';
-import { ArtifactXmlStateMachine, deriveArtifactKind, type XmlArtifactEvent } from './parsers/artifact-xml-state-machine';
+} from './stream-events.js';
+import { ArtifactXmlStateMachine, deriveArtifactKind, type XmlArtifactEvent } from './parsers/artifact-xml-state-machine.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
 const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;

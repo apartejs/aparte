@@ -23,6 +23,7 @@
     "e2e:install": "pnpm --filter @aparte-workspace/e2e install-browser",
     "e2e:ui": "pnpm --filter @aparte-workspace/e2e test:ui",
     "e2e:report": "pnpm --filter @aparte-workspace/e2e report",
+    "check-packaging": "pnpm -r --filter \"./packages/**\" exec publint && pnpm -r --filter \"./packages/**\" --filter \"!@aparte/angular\" --filter \"!@aparte/svelte\" --filter \"!@aparte/vue\" exec attw --pack --profile esm-only",
     "lint": "eslint .",
     "changeset": "changeset",
     "version-packages": "changeset version",
