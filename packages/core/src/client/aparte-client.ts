@@ -1931,7 +1931,10 @@ export class AparteClient {
         target.dispatchEvent(new CustomEvent(name, {
             bubbles: true,
             composed: true,
-            detail
+            // Tag every lifecycle event with the target's id so several chats on
+            // one page stay isolated — a composer reacts only to its own host's
+            // turn (id-less single-instance pages still broadcast).
+            detail: { targetId: target.id || undefined, ...detail },
         }));
     }
 

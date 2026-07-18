@@ -274,8 +274,11 @@ export class AparteComposer extends HTMLElement {
         this.dispatchEvent(new CustomEvent('aparte:cancel', { bubbles: true, composed: true }));
         // aparte:abort → tells AparteClient to actually stop the stream
         // apartemessageaborted → resets the composer's own streaming state
-        window.dispatchEvent(new CustomEvent('aparte:abort', { bubbles: false }));
-        window.dispatchEvent(new CustomEvent('apartemessageaborted', { bubbles: false }));
+        // Scope the abort to this composer's host so cancelling one chat doesn't
+        // abort every scoped client / reset every composer on the page.
+        const abortDetail = { targetId: this.targetId ?? undefined };
+        window.dispatchEvent(new CustomEvent('aparte:abort', { bubbles: false, detail: abortDetail }));
+        window.dispatchEvent(new CustomEvent('apartemessageaborted', { bubbles: false, detail: abortDetail }));
     }
 
     /**
@@ -318,12 +321,22 @@ export class AparteComposer extends HTMLElement {
 
     // ── Window events ───────────────────────────────────────────────────────
 
-    private _handleMessageStart(): void {
+    /** A window lifecycle event is for THIS composer when neither side is scoped
+     *  (single-instance broadcast) or the target ids match (multi-chat page).
+     *  Without this filter, streaming in one chat flips every composer's state. */
+    private _isForThisComposer(e: Event): boolean {
+        const evtTargetId = (e as CustomEvent).detail?.targetId as string | undefined;
+        return !evtTargetId || !this.targetId || evtTargetId === this.targetId;
+    }
+
+    private _handleMessageStart(e: Event): void {
+        if (!this._isForThisComposer(e)) return;
         this._streaming = true;
         this._emit('streaming-change', { streaming: true });
     }
 
-    private _handleMessageDone(): void {
+    private _handleMessageDone(e: Event): void {
+        if (!this._isForThisComposer(e)) return;
         this._streaming = false;
         this._emit('streaming-change', { streaming: false });
         // Always hide any active panel when a message lifecycle ends

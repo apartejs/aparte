@@ -154,3 +154,49 @@ describe('aparte-composer — model-selection gate (opt-in)', () => {
         expect(sendSpy).toHaveBeenCalledTimes(1);
     });
 });
+
+/**
+ * Multi-instance streaming isolation — lifecycle events carry the target host's
+ * id, and a composer only reacts to its own. Before this, streaming in one chat
+ * flipped every composer on the page to the "Stop" state (and cancel reset them
+ * all). Single-instance pages have no target id, so events still broadcast.
+ */
+describe('aparte-composer — multi-instance streaming isolation', () => {
+    let a: AparteComposer;
+    let b: AparteComposer;
+
+    beforeEach(() => {
+        a = document.createElement('aparte-composer') as AparteComposer;
+        a.setAttribute('target', 'chat-a');
+        b = document.createElement('aparte-composer') as AparteComposer;
+        b.setAttribute('target', 'chat-b');
+        document.body.append(a, b);
+    });
+    afterEach(() => {
+        a.remove();
+        b.remove();
+    });
+
+    it('only the targeted composer enters the streaming state', () => {
+        window.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { targetId: 'chat-a' } }));
+        expect(a.streaming).toBe(true);
+        expect(b.streaming).toBe(false); // was: the cross-talk flipped B too
+    });
+
+    it('only the targeted composer leaves the streaming state', () => {
+        window.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { targetId: 'chat-a' } }));
+        window.dispatchEvent(new CustomEvent('apartemessagestart', { detail: { targetId: 'chat-b' } }));
+        expect(a.streaming).toBe(true);
+        expect(b.streaming).toBe(true);
+
+        window.dispatchEvent(new CustomEvent('apartemessagedone', { detail: { targetId: 'chat-a' } }));
+        expect(a.streaming).toBe(false);
+        expect(b.streaming).toBe(true); // B's turn is untouched by A finishing
+    });
+
+    it('an untargeted (broadcast) lifecycle event still reaches every composer', () => {
+        window.dispatchEvent(new CustomEvent('apartemessagestart'));
+        expect(a.streaming).toBe(true);
+        expect(b.streaming).toBe(true);
+    });
+});
