@@ -575,7 +575,8 @@ aparte-chat-viewport {
    surface — these rules mirror .aparte-viewport-container + .aparte-messages-wrapper
    onto the host, and the bottom spacer becomes an additive padding (no element,
    so it can't collide with the framework's children). */
-aparte-chat-viewport.aparte-viewport--framework {
+aparte-chat-viewport.aparte-viewport--framework,
+aparte-chat-viewport[framework-managed] {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -586,6 +587,16 @@ aparte-chat-viewport.aparte-viewport--framework {
   padding-bottom: calc(var(--aparte-viewport-padding, 16px) + var(--aparte-fw-spacer, 0px));
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-neutral, #6b7280) transparent;
+}
+
+/* The framework wrapper renders bubbles as DIRECT flex children of the viewport
+   (no inner wrapper, unlike the vanilla path). With the viewport as a fixed-height
+   flex column, those children would `flex-shrink` to fit — compressing content
+   instead of overflowing, so nothing scrolls. Pin their size so the content grows
+   past the viewport and the scroll surface actually scrolls. */
+aparte-chat-viewport.aparte-viewport--framework > *,
+aparte-chat-viewport[framework-managed] > * {
+  flex-shrink: 0;
 }
 
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
