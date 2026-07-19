@@ -33,8 +33,8 @@ const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_TURNS = 10;
 
 /**
- * One phase of a multi-phase pipeline (mirrors `_streamLoop`'s local
- * `PipelinePhase`, aparte-client.ts :1026-1029). Supplied via
+ * One phase of a multi-phase pipeline (mirrors the shape of `ApartePipelinePhase`,
+ * the pipeline-phase type defined in core's `types/chat.ts`). Supplied via
  * `baseRequest._meta.pipeline`; each phase runs as one turn with its own system
  * message, and an `'artifact'` phase streams the whole turn into a raw artifact.
  */
@@ -108,7 +108,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     // Mutable history the loop enriches with tool_call/tool_result turns.
     const messages: StreamAgentMessage[] = [...baseRequest.messages];
 
-    // Pipeline mode (mirrors _streamLoop :1021-1032): each phase is one turn with
+    // Pipeline mode (mirrors _streamLoop): each phase is one turn with
     // its own system message; phase N's reply is appended before phase N+1.
     const pipeline = (baseRequest['_meta'] as Record<string, unknown> | undefined)?.['pipeline'] as
         | PipelinePhase[]
@@ -136,7 +136,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             break;
         }
 
-        // ── Synthetic toolChoice bypass (mirrors _streamLoop :1062-1121) ──────
+        // ── Synthetic toolChoice bypass (mirrors _streamLoop) ──────
         // toolChoice = { name, input } (orchestrator-forced): skip the LLM for
         // turn 1, run the handler directly, inject its result as a tool_result,
         // then strip toolChoice/tools and fall through to the transport call in
@@ -175,7 +175,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             baseRequest = { ...baseRequest, toolChoice: 'none', tools: undefined };
         }
 
-        // ── Per-phase request build when pipeline is active (:1123-1137) ──────
+        // ── Per-phase request build when pipeline is active ──────
         // Prepend the current phase's system message and, for an 'artifact'
         // phase, inject the artifactRaw hint the streaming loop below reads.
         let phaseMessages = messages;
@@ -211,7 +211,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         emitter({ type: 'turn-start' });
 
         // artifactRaw mode: the WHOLE turn's text streams into one artifact
-        // segment (mirrors _streamLoop :1172-1185). Open it up-front, before the
+        // segment (mirrors _streamLoop). Open it up-front, before the
         // first delta, exactly as _streamLoop does in its per-turn setup.
         const rawHint = (request['_meta'] as Record<string, unknown> | undefined)?.['artifactRaw'] as
             | { mimeType: string; kind: string }
@@ -269,14 +269,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     precedingText += event.delta;
                     if (rawSegId) {
                         // artifactRaw: route the whole delta into the artifact,
-                        // never through the text parser (mirrors :1254-1265).
+                        // never through the text parser (mirrors the raw-artifact path in _streamLoop).
                         rawContent += event.delta;
                         emitter({ type: 'artifact-chunk', id: rawSegId, content: rawContent });
                         continue;
                     }
                     if (xmlMachine) {
                         // artifactXml: run the delta through the state machine
-                        // (mirrors :1268-1392); it splits chat text from artifacts.
+                        // (mirrors the XML-artifact path in _streamLoop); it splits chat text from artifacts.
                         emitXml(xmlMachine.feed(event.delta));
                         continue;
                     }
@@ -299,7 +299,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
                 // Built-in create_artifact: bypass the generic tool path entirely
                 // (no tool-start, no approval, no handler) — build the artifact
-                // one-shot and inject a success tool_result (mirrors :1449-1487).
+                // one-shot and inject a success tool_result (mirrors the create_artifact fast-path in _streamLoop).
                 if (event.name === 'create_artifact') {
                     const input = (event.input ?? {}) as { mimeType?: string; title?: string; content?: string };
                     const mimeType = input.mimeType ?? 'text/plain';
@@ -369,19 +369,19 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             }
 
             // Turn boundary: finalize the parser (flush residual text). Mirrors
-            // `_streamLoop`'s `textParser.finalize()` at :1639 — runs on normal
+            // `_streamLoop`'s `textParser.finalize()` call — runs on normal
             // end AND abort-break, but NOT after a thrown `error` (which escapes
             // this try before reaching here, exactly like `_streamLoop`).
             emitter({ type: 'text-flush' });
 
             // artifactRaw close comes right after the parser flush, matching the
-            // finalize-block order in _streamLoop (:1639 then :1642-1651).
+            // finalize-block order in _streamLoop (text-flush, then artifact-close).
             if (rawSegId) {
                 const inline = rawContent.split('\n').length < 15;
                 emitter({ type: 'artifact-close', id: rawSegId, content: rawContent, inline });
             }
             // artifactXml finalize flushes a truncated (unclosed) artifact —
-            // after text-flush, mirroring the finalize-block order (:1658-1669).
+            // after text-flush, mirroring the finalize-block order in _streamLoop.
             if (xmlMachine) emitXml(xmlMachine.finalize());
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator.
@@ -389,7 +389,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         }
 
         // No tool calls this turn → final answer, OR advance to the next pipeline
-        // phase (mirrors _streamLoop :1709-1726).
+        // phase (mirrors _streamLoop).
         if (toolCallsThisTurn.length === 0) {
             if (pipeline && pipelineIndex < pipeline.length - 1) {
                 // Feed this phase's reply into history as context for the next.

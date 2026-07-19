@@ -46,6 +46,8 @@ Cache and hardware are **standalone helpers** — import them from `@aparte/prov
 - `listCachedModels()` / `deleteCachedModel(modelId)` — inspect and clear the on-disk cache.
 - `setMaxCachedModels(n)` — cap how many models are kept (oldest evicted; `0` = unlimited).
 - `detectHardware()` / `setComputeDevice('auto' | 'webgpu' | 'wasm')` — pick a device / default model by tier.
+  Call `setHardwareTierModels({ low, mid?, high })` first — otherwise `detectHardware()`'s
+  `recommendedModelId` is always `''`.
 
 :::note
 **Scope (v1):** generic text-generation streaming. Tool-calling for local models is model-specific

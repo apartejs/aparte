@@ -17,9 +17,9 @@ export default defineConfig({
       include: ['packages/core/src/**/*.ts', 'packages/engine/src/**/*.ts'],
       exclude: ['**/*.{test,spec}.ts', '**/__tests__/**', '**/*.d.ts', '**/*.contract.ts'],
       reporter: ['text-summary', 'html'],
-      // Floor (a ratchet against regressions), comfortably below the current
+      // Floor (a ratchet against regressions), a ~2-3pt margin under the current
       // ~68% lines / 77% branches / 75% functions. Raise as coverage grows.
-      thresholds: { lines: 65, statements: 65, functions: 70, branches: 72 },
+      thresholds: { lines: 66, statements: 66, functions: 72, branches: 74 },
     },
   },
 });

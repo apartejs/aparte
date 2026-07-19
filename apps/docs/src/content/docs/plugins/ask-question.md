@@ -42,4 +42,5 @@ import { AparteConfig } from '@aparte/core';
 import { askQuestionTool, askQuestionHandler } from '@aparte/plugin-ask-question';
 
 AparteConfig.registerTool(askQuestionTool, askQuestionHandler);
+AparteConfig.registerToolRenderer('ask_question', { render: () => '' }); // hide the tool-call pill
 ```

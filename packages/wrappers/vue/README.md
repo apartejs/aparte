@@ -1,6 +1,6 @@
 # @aparte/vue
 
-Vue 3 wrapper for [aparté](https://github.com/apartejs/aparte) — an ergonomic `<AparteChat>`
+Vue 3.5+ wrapper for [aparté](https://github.com/apartejs/aparte) — an ergonomic `<AparteChat>`
 component plus composables (`useAparteChat`, `useAparteClient`, `useConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 

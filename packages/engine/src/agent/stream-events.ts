@@ -111,23 +111,23 @@ export type StreamApprovalResolver = (
  * Mapping to `_streamLoop` (aparte-client.ts) for the adapter:
  * - `run-start`       → updateMessage(status:'streaming') once at loop entry (the leading write before turn 1)
  * - `turn-start`      → reset the per-turn parser / thinking / streaming-segment state (no DOM); one per turn
- * - `text-delta`      → parser-driven addSegment/updateSegment, else typeName/updateLastMessage (:1245-1440)
- * - `text-flush`      → textParser.finalize() then addSegment/updateSegment the finalized segments (:1639-1707);
+ * - `text-delta`      → parser-driven addSegment/updateSegment, else typeName/updateLastMessage
+ * - `text-flush`      → textParser.finalize() then addSegment/updateSegment the finalized segments;
  *                       one per turn, after the inner SSE loop ends (surfaced by the spike — a turn-boundary flush)
- * - `thinking-delta`  → addSegment('thinking') then updateSegment(content) (:1227-1244); first `text-delta` after
- *                       thinking collapses it (updateSegment collapsed:true, :1247-1250)
- * - `tool-start`      → renderer lookup + per-tool-name CSS inject into document.head + addSegment (:1490-1522)
- * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte-tool-approval-request` (:1544-1550)
- * - `tool-approved`   → updateSegment('pending') (:1580)
- * - `tool-rejected`   → updateSegment('rejected', result) (:1560)
- * - `tool-resolved`   → updateSegment('resolved', result) (:1588)
- * - `tool-aborted`    → updateSegment('aborted') (no-handler :1624, timeout/abort :1614, per-tool maxTurns :1528)
- * - `turn-limit-exceeded` scope:'global' → addSegment(error 'MAX_TURNS_EXCEEDED') (:1052-1058);
- *                         scope:'tool'   → updateSegment('aborted') (:1526-1531)
- * - `phase-advance`   → addSegment({type:'pipeline-waiting'}) (:1720-1721); the loop has already
+ * - `thinking-delta`  → addSegment('thinking') then updateSegment(content); first `text-delta` after
+ *                       thinking collapses it (updateSegment collapsed:true)
+ * - `tool-start`      → renderer lookup + per-tool-name CSS inject into document.head + addSegment
+ * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte-tool-approval-request`
+ * - `tool-approved`   → updateSegment('pending')
+ * - `tool-rejected`   → updateSegment('rejected', result)
+ * - `tool-resolved`   → updateSegment('resolved', result)
+ * - `tool-aborted`    → updateSegment('aborted') (no-handler path, timeout/abort path, or per-tool maxTurns path)
+ * - `turn-limit-exceeded` scope:'global' → addSegment(error 'MAX_TURNS_EXCEEDED');
+ *                         scope:'tool'   → updateSegment('aborted')
+ * - `phase-advance`   → addSegment({type:'pipeline-waiting'}); the loop has already
  *                       pushed the phase's reply into history and bumped the phase index
- * - `run-aborted`     → dispatch `aparte-message-aborted` (:1218-1221 / :1046)
- * - `run-done`        → updateMessage(status:'completed') always + setUsage if usage (:1733-1742)
+ * - `run-aborted`     → dispatch `aparte-message-aborted` (from the inner-loop abort check or the outer turn-boundary abort check)
+ * - `run-done`        → updateMessage(status:'completed') always + setUsage if usage
  */
 export type StreamRunEvent =
     | { type: 'run-start' }
@@ -141,13 +141,13 @@ export type StreamRunEvent =
     // Artifacts. `open`→addSegment(artifact)+dispatchArtifactLifecycle(final:false);
     // `chunk`→updateSegment(content)+lifecycle(false); `close`→updateSegment(
     // content,inline)+lifecycle(true). Raw mode (whole stream → one artifact,
-    // aparte-client.ts :1172-1185/:1254-1265/:1642-1651) and the XML state machine
+    // mirrors aparte-client.ts) and the XML state machine
     // (E2) both emit these; the adapter renders them identically.
     | { type: 'artifact-open'; id: string; mimeType: string; kind: string; title: string }
     | { type: 'artifact-chunk'; id: string; content: string }
     | { type: 'artifact-close'; id: string; content: string; inline: boolean }
     // One-shot artifact from the built-in `create_artifact` tool: full content
-    // up-front (aparte-client.ts :1449-1487) → a single addSegment + lifecycle(true),
+    // up-front (mirrors aparte-client.ts's create_artifact fast path) → a single addSegment + lifecycle(true),
     // NOT the streamed open/chunk/close dance.
     | { type: 'artifact-ready'; id: string; mimeType: string; kind: string; title: string; content: string }
     | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
@@ -158,7 +158,7 @@ export type StreamRunEvent =
     | { type: 'tool-aborted'; toolCallId: string }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
     // Pipeline: after a tool-less turn that is NOT the last phase, advance to the
-    // next phase (mirrors aparte-client.ts :1709-1726). The loop has already pushed
+    // next phase (mirrors aparte-client.ts). The loop has already pushed
     // this turn's reply into history as context and bumped the phase index;
     // `index` is the new (post-increment) index. The adapter shows a
     // `pipeline-waiting` segment while the next phase's turn runs.

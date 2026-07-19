@@ -11,6 +11,7 @@ import { resolveConfig } from '../../config/index.js';
 import { MessageRepository } from '../../runtime/message-repository.js';
 import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
 import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble-sync.js';
+import { cssEscape } from '../../utils/css-escape.js';
 
 /**
  * AparteChatViewport - The Core
@@ -524,7 +525,7 @@ export class AparteChatViewport extends HTMLElement {
                 const startIdx = prevMessages.findIndex(m => m.id === userMessageId);
                 const toRemove = startIdx >= 0 ? prevMessages.slice(startIdx + 1) : [];
                 for (const m of toRemove) {
-                    wrapper.querySelector(`aparte-chat-bubble[message-id="${m.id}"]`)?.remove();
+                    wrapper.querySelector(`aparte-chat-bubble[message-id="${cssEscape(m.id)}"]`)?.remove();
                 }
             }
         }
@@ -547,7 +548,7 @@ export class AparteChatViewport extends HTMLElement {
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
             for (const id of toRemove) {
-                wrapper?.querySelector(`aparte-chat-bubble[message-id="${id}"]`)?.remove();
+                wrapper?.querySelector(`aparte-chat-bubble[message-id="${cssEscape(id)}"]`)?.remove();
             }
         }
     }

@@ -23,6 +23,8 @@ package) in your chat to present the panel. `@aparte/core` is the only **peer de
 aborts the tool call. Improvised option shapes from smaller models (bare strings, `label`/`value`/`text`
 keys) are normalised so the panel renders real choices.
 
-You can wire it manually instead: `AparteConfig.registerTool(askQuestionTool, askQuestionHandler)`.
+You can wire it manually instead: `AparteConfig.registerTool(askQuestionTool, askQuestionHandler)` +
+`AparteConfig.registerToolRenderer('ask_question', { render: () => '' })` (the second call hides the
+tool-call pill).
 
 > ESM-only. Part of the aparté monorepo.

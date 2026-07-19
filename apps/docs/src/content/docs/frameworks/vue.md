@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-`@aparte/vue` wraps `@aparte/core` for Vue 3: an ergonomic `<AparteChat>` component, composables for
+`@aparte/vue` wraps `@aparte/core` for Vue 3.5+: an ergonomic `<AparteChat>` component, composables for
 state and the client, and a generic `<AparteUi>` escape hatch.
 
 ```bash

@@ -99,11 +99,11 @@ export class Chat {
 ```
 
 `provideAparte()` is **config sugar and fully optional** — the components work without it, and you
-can call `AparteConfig.*` directly exactly like the React/Vue/Svelte wrappers do. Its `plugins` /
-`locale` slots take **objects or loader functions** you supply (e.g.
-`locale: fr` from `@aparte/locale-fr`), never package-name strings — so this package stays a leaf
-with no plugin catalog. Pass a per-instance `[config]` to scope providers/transport to a single
-`<aparte-chat>` instead of the global `AparteConfig`.
+can call `AparteConfig.*` directly exactly like the React/Vue/Svelte wrappers do. Its `plugins` slots
+take **objects or loader functions** you supply, and `locale` takes an `AparteLocale` **object** (e.g.
+`locale: fr` from `@aparte/locale-fr`) — none of them take package-name strings — so this package
+stays a leaf with no plugin catalog. Pass a per-instance `[config]` to scope providers/transport to a
+single `<aparte-chat>` instead of the global `AparteConfig`.
 
 :::note
 `clientOptions` accepts the full `AparteClientOptions`. To drive the chat with the **standalone

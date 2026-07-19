@@ -14,6 +14,7 @@ import type {
 import { getSegmentRenderer } from '../../renderers/index.js';
 import { AparteConfigClass } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
+import { cssEscape } from '../../utils/css-escape.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 
 /**
@@ -228,7 +229,7 @@ export class AparteChatBubble extends HTMLElement {
     if (index !== -1) {
       this._segments.splice(index, 1);
     }
-    const el = this._segmentsEl?.querySelector(`[data-segment-id="${segmentId}"]`);
+    const el = this._segmentsEl?.querySelector(`[data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
   }
 
@@ -319,7 +320,7 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   private _applySegmentUpdate(segmentId: string, segment: AparteSegment, updates: Partial<AparteSegment>): void {
-    const el = this._segmentsEl?.querySelector(`[data-segment-id="${segmentId}"]`) as HTMLElement | null;
+    const el = this._segmentsEl?.querySelector(`[data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
     if (!el) {
       this._renderSegments();
       return;
