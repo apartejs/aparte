@@ -31,6 +31,9 @@ import type {
     AparteArtifactOpenEventDetail,
 } from './events.js';
 import type { AparteToolDecisionDetail, AparteToolApprovalRequestDetail } from './tools.js';
+// event-map is a top-level aggregator (imported by the barrel, never by a
+// component), so importing this component-coupled detail type is cycle-free.
+import type { AparteComposerChangeEventDetail } from '../components/composer/aparte-composer.js';
 
 declare global {
     interface HTMLElementEventMap {
@@ -50,6 +53,9 @@ declare global {
         'aparte-artifact-open': CustomEvent<AparteArtifactOpenEventDetail>;
         'aparte-tool-decision': CustomEvent<AparteToolDecisionDetail>;
         'aparte-tool-approval-request': CustomEvent<AparteToolApprovalRequestDetail>;
+        // Forwarded by the wrappers' AparteUi (in DEFAULT_UI_EVENTS); detail is
+        // component-coupled but event-map is a top-level aggregator, so typing it here.
+        'aparte-composer-change': CustomEvent<AparteComposerChangeEventDetail>;
     }
 }
 
