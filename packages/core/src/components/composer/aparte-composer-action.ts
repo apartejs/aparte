@@ -66,7 +66,10 @@ export class AparteComposerAction extends HTMLElement {
     private _render(): void {
         if (this.querySelector('.aparte-cact-button')) return;
 
-        const label = this.getAttribute('label') ?? '';
+        // `label` is a host-set attribute (often bound to dynamic/translated
+        // text by the consumer) — escape before it lands in a double-quoted
+        // attribute so a stray `"` can't break out and inject markup.
+        const label = this._escapeAttr(this.getAttribute('label') ?? '');
         const icon = this._resolveIcon(this.getAttribute('icon') ?? '');
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
@@ -110,6 +113,11 @@ export class AparteComposerAction extends HTMLElement {
         if (!icon) return '';
         if (icon.trimStart().startsWith('<')) return icon;
         return resolveConfig(this).getIcon(icon as AparteIconName) ?? icon;
+    }
+
+    /** Escape a value before it lands in a double-quoted HTML attribute. */
+    private _escapeAttr(str: string): string {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 }
 

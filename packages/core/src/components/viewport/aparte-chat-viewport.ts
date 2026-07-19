@@ -702,7 +702,7 @@ export class AparteChatViewport extends HTMLElement {
         // consumer can replace the bubble tag and still receive token/segment
         // pushes, not just a CSS restyle).
         const bubble = this.querySelector(
-            `aparte-chat-bubble[message-id="${messageId}"], [data-aparte-bubble][message-id="${messageId}"]`,
+            `aparte-chat-bubble[message-id="${cssEscape(messageId)}"], [data-aparte-bubble][message-id="${cssEscape(messageId)}"]`,
         ) as HTMLElement & {
             appendToken?: (chunk: string) => void;
             appendToSegment?: (segmentId: string, chunk: string) => void;

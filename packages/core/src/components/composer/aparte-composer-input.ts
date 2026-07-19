@@ -126,7 +126,10 @@ export class AparteComposerInput extends HTMLElement {
         if (this.querySelector('.aparte-ci-editor')) return;
 
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
-        const placeholder = this._getPlaceholder();
+        // `placeholder` may come straight from a host attribute (often bound to
+        // dynamic/translated text) — escape before it lands in a double-quoted
+        // attribute so a stray `"` can't break out and inject markup.
+        const placeholder = this._escapeAttr(this._getPlaceholder());
 
         this.innerHTML = `<div
             class="aparte-ci-editor"
@@ -301,6 +304,11 @@ export class AparteComposerInput extends HTMLElement {
         if (!this._editor) return;
         this._editor.setAttribute('contenteditable', String(!disabled));
         this._editor.setAttribute('aria-disabled', String(disabled));
+    }
+
+    /** Escape a value before it lands in a double-quoted HTML attribute. */
+    private _escapeAttr(str: string): string {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 }
 

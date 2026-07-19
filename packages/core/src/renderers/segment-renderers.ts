@@ -288,7 +288,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
         if (wrapper) {
             void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
                 wrapper.innerHTML = html;
-            });
+            }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
         }
 
         const copyBtn = element.querySelector('.code-copy');
@@ -296,7 +296,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — the ambient render config is
                 // gone; resolve from the connected element instead.
-                void navigator.clipboard.writeText(segment.content || '');
+                void navigator.clipboard.writeText(segment.content || '').catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
                 setTimeout(() => {
@@ -325,7 +325,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             if (wrapper) {
                 void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
                     wrapper.innerHTML = html;
-                });
+                }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
             }
         }
     },
@@ -366,7 +366,7 @@ const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
         if (copyBtn && command) {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — resolve from the element.
-                void navigator.clipboard.writeText(command.textContent || '');
+                void navigator.clipboard.writeText(command.textContent || '').catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
                 setTimeout(() => {
@@ -772,7 +772,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             const cleanContent = stripCodeFences(segment.content || '');
             void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
                 wrapper.innerHTML = html;
-            });
+            }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
         }
 
         // Tab switching
@@ -793,7 +793,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — resolve from the element.
                 const code = stripCodeFences(segment.content || '');
-                void navigator.clipboard.writeText(code);
+                void navigator.clipboard.writeText(code).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 const original = copyBtn.innerHTML;
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
@@ -872,7 +872,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                 const displayLang = languageForKind(kind);
                 void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
                     wrapper.innerHTML = html;
-                });
+                }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
             }
 
             // Enable previously-disabled buttons (download, preview tab)
@@ -1246,7 +1246,7 @@ function debounceHighlight(
     void contextConfig(element).highlightCode(content, lang).then(html => {
         const wrapper = element.querySelector<HTMLElement>(paneSelector);
         if (wrapper) wrapper.innerHTML = html;
-    });
+    }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
 }
 
 if (typeof window !== 'undefined') {
@@ -1453,7 +1453,7 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
         const cleanContent = stripCodeFences(segment.content || '');
         void contextConfig(element).highlightCode(cleanContent, 'js').then(html => {
             wrapper.innerHTML = html;
-        });
+        }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
     }
 }
 
@@ -1482,7 +1482,7 @@ function updateBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactS
         if (wrapper) {
             void contextConfig(element).highlightCode(cleanContent, 'js').then(html => {
                 wrapper.innerHTML = html;
-            });
+            }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
         }
         const sub = element.querySelector<HTMLElement>('[data-role="file-sub"]');
         if (sub) sub.textContent = 'Running sandbox…';
