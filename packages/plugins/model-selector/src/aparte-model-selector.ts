@@ -238,6 +238,14 @@ export class AparteModelSelector extends HTMLElement {
         if (this._isRendering) return;
         this._isRendering = true;
 
+        try {
+            this._renderImpl(keepOpen);
+        } finally {
+            this._isRendering = false;
+        }
+    }
+
+    private _renderImpl(keepOpen: boolean): void {
         // Attribute overrides locale
         const localePlaceholder = this._cfg.getLocale()['modelSelectorPlaceholder'] || 'Select a model...';
         const placeholder = this.getAttribute('placeholder') || localePlaceholder;
@@ -354,7 +362,6 @@ export class AparteModelSelector extends HTMLElement {
             this._aparteSelect = this.querySelector('aparte-select');
             this._setupEventListeners();
         }
-        this._isRendering = false;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

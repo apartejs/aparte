@@ -481,6 +481,17 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
                     },
                     return(): Promise<IteratorResult<string>> {
                         sub.unsubscribe();
+                        // If a consumer is mid-`await next()` on an empty buffer (e.g. the
+                        // orphan-stream guard calling `return()` on stop/teardown), settle
+                        // that pending promise now with done:true — otherwise it hangs
+                        // forever, since unsubscribing means `next` and `complete` will
+                        // never fire again to resolve it.
+                        if (pending) {
+                            const p = pending;
+                            pending = null;
+                            p.resolve({ value: undefined as unknown as string, done: true });
+                        }
+                        finished = true;
                         return Promise.resolve({ value: undefined as unknown as string, done: true });
                     },
                 };

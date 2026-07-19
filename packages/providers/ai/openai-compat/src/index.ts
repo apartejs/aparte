@@ -255,10 +255,11 @@ export function parseOpenAICompatStream(
     // Tool call accumulation state (keyed by index)
     const toolCallsById: Record<number, { id: string; name: string; args: string }> = {};
     let capturedUsage: AparteUsage | undefined;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
     return new ReadableStream<AparteStreamEvent>({
         async start(controller) {
-            const reader = stream.getReader();
+            reader = stream.getReader();
             try {
                 while (true) {
                     const { done, value } = await reader.read();
@@ -348,9 +349,18 @@ export function parseOpenAICompatStream(
             } catch (err: unknown) {
                 controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
             } finally {
-                reader.releaseLock();
+                reader?.releaseLock();
+                reader = null;
                 controller.close();
             }
+        },
+        // Consumer cancelled (e.g. user hit "stop"): cancel the underlying reader so
+        // the vendor response body stops being drained to its natural end instead of
+        // silently finishing the whole SSE stream in the background.
+        cancel(reason) {
+            const r = reader;
+            reader = null;
+            return r?.cancel(reason);
         },
     });
 }

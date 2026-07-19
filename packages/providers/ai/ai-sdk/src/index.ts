@@ -193,10 +193,20 @@ function toAparteUsage(u: { inputTokens?: number; outputTokens?: number; totalTo
 export function fullStreamToAparteEvents(
     fullStream: AsyncIterable<{ type: string } & Record<string, unknown>>,
 ): ReadableStream<AparteStreamEvent> {
+    // Held so `cancel()` can signal the AI SDK's iterator to stop (calling
+    // `.return()` propagates cancellation the same way breaking a `for await`
+    // loop would), instead of leaving `start()` draining `fullStream` to its
+    // natural end after the consumer has already walked away.
+    let iterator: AsyncIterator<{ type: string } & Record<string, unknown>> | undefined;
+
     return new ReadableStream<AparteStreamEvent>({
         async start(controller) {
+            iterator = fullStream[Symbol.asyncIterator]();
             try {
-                for await (const part of fullStream) {
+                while (true) {
+                    const { value: part, done } = await iterator.next();
+                    if (done) break;
+
                     switch (part.type) {
                         case 'text-delta':
                             controller.enqueue({ type: 'text', delta: part['text'] as string });
@@ -214,11 +224,14 @@ export function fullStreamToAparteEvents(
                             break;
                         case 'finish':
                             controller.enqueue({ type: 'done', usage: toAparteUsage(part['totalUsage'] as Parameters<typeof toAparteUsage>[0]) });
-                            break;
+                            // Terminal: stop reading `fullStream` so a stray second
+                            // finish/error part (if the SDK ever emits one) can't
+                            // enqueue past the done event.
+                            return;
                         case 'error': {
                             const err = part['error'];
                             controller.enqueue({ type: 'error', message: err instanceof Error ? err.message : String(err) });
-                            break;
+                            return;
                         }
                         // 'abort', step markers, tool-input-* deltas, sources… → dropped.
                     }
@@ -232,6 +245,9 @@ export function fullStreamToAparteEvents(
             } finally {
                 controller.close();
             }
+        },
+        async cancel(reason) {
+            await iterator?.return?.(reason);
         },
     });
 }
