@@ -1,0 +1,46 @@
+name: release
+
+# Opens/updates a single "Version Packages" PR that aggregates all pending
+# changesets (running `changeset version`): merging it bumps versions + writes
+# changelogs. Publishing to npm is deliberately NOT automated here — it stays a
+# manual `pnpm release` (or add a `publish:` step + an NPM_TOKEN secret when you
+# want CI to publish). For the first ALPHA, run `pnpm changeset pre enter alpha`
+# first so the versions resolve to `-alpha.N` rather than a stable bump.
+on:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # commit the version bump on the PR branch
+  pull-requests: write   # open/update the Version Packages PR
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create/update the Version Packages PR
+        uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          commit: "chore(release): version packages"
+          title: "chore(release): version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
