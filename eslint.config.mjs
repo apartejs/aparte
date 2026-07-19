@@ -35,13 +35,22 @@ export default tseslint.config(
     },
   },
 
-  // Library source: `any` at framework boundaries (event contexts, dynamic
-  // segment data) is tolerated as tech-debt for a later "strictest" pass — a
-  // warning, not a CI blocker. Must precede the test override below so tests win.
+  // Library source (non-test): type-aware linting so the async-heavy streaming
+  // code is guarded against unhandled promise rejections (`no-floating-promises`
+  // / `no-misused-promises`). `no-explicit-any` is `error` here — the backlog is
+  // zero and CI runs `--max-warnings 0`, so making it an error is just
+  // self-documenting and consistent in IDEs. Test files are excluded (their
+  // tsconfigs don't include them, and white-box tests fire promises freely).
   {
     files: ['packages/**/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**'],
+    languageOptions: {
+      parserOptions: { projectService: true },
+    },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
     },
   },
 

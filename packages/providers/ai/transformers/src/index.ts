@@ -406,7 +406,7 @@ export const TransformersProvider: AparteAIProvider = {
                     close: () => { /* no-op */ },
                 } as unknown as ReadableStreamDefaultController;
                 _pendingGenerates.set(requestId, fakeCtrl);
-                prevGenerate.then(postGenerate);
+                void prevGenerate.then(postGenerate);
             });
         }
 

@@ -62,7 +62,7 @@ export class AparteModelSelector extends HTMLElement {
 
     // Bound handlers for cleanup
     private _boundHandleChange = this._handleChange.bind(this);
-    private _handleOptgroupToggle = this._onOptgroupToggle.bind(this);
+    private _handleOptgroupToggle = (e: Event): void => { void this._onOptgroupToggle(e); };
 
     static get observedAttributes(): string[] {
         return ['persist', 'auto-select', 'searchable', 'placeholder'];
@@ -90,19 +90,21 @@ export class AparteModelSelector extends HTMLElement {
         this._render();
 
         // Listen for configuration changes (e.g. from an onboarding flow)
-        this._configUnsubscribe = this._cfg.subscribe(async () => {
-            const cfg = this._cfg.getModelConfig();
+        this._configUnsubscribe = this._cfg.subscribe(() => {
+            void (async () => {
+                const cfg = this._cfg.getModelConfig();
 
-            // Guard: only react if the model config actually changed relative to our state
-            if (cfg.defaultProvider === this._currentProviderId &&
-                cfg.defaultModel === this._currentModelId &&
-                this._providerModels.length > 0) {
-                return;
-            }
+                // Guard: only react if the model config actually changed relative to our state
+                if (cfg.defaultProvider === this._currentProviderId &&
+                    cfg.defaultModel === this._currentModelId &&
+                    this._providerModels.length > 0) {
+                    return;
+                }
 
-            this._loadPersistedSelection();
-            await this._loadAllProviderModels();
-            this._render();
+                this._loadPersistedSelection();
+                await this._loadAllProviderModels();
+                this._render();
+            })();
         });
     }
 

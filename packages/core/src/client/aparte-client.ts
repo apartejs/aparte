@@ -1,6 +1,7 @@
 import { AparteConfig, AparteConfigClass } from '../config/aparte-config.js';
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
 import { registerDefaultRenderers } from '../renderers/segment-renderers.js';
+import { assertNever } from '../utils/assert-never.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import type { AparteStreamRunner, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
@@ -244,7 +245,7 @@ export class AparteClient {
     private _setupListeners(): void {
         if (this._boundHandler) return; // Already set up
 
-        this._boundHandler = async (e: Event) => {
+        this._boundHandler = (e: Event) => {
             const event = e as CustomEvent;
             if (event.type !== 'aparte-send') return;
             // Scope guard: ignore events not for this instance
@@ -259,7 +260,7 @@ export class AparteClient {
             }
             this._activeToolControllers.clear();
 
-            await this._handleSend(event);
+            void this._handleSend(event);
         };
     }
 
@@ -1588,7 +1589,7 @@ export class AparteClient {
                     // user message in the new conv to be overwritten by the
                     // assistant reply from the old one.
                     if (this._isAborted) {
-                        try { reader.cancel(); } catch { /* best effort */ }
+                        try { void reader.cancel(); } catch { /* best effort */ }
                         this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                         continueLoop = false;
                         break;
@@ -1704,6 +1705,8 @@ export class AparteClient {
                         case 'done':
                             if (event.usage) lastUsage = event.usage;
                             break;
+                        default:
+                            assertNever(event);
                     }
                 }
 

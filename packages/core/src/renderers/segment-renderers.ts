@@ -286,7 +286,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
         // Async highlight: replace plain <pre><code> with highlighted HTML once ready
         const wrapper = element.querySelector('.code-content-wrapper');
         if (wrapper) {
-            contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
+            void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
                 wrapper.innerHTML = html;
             });
         }
@@ -296,7 +296,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — the ambient render config is
                 // gone; resolve from the connected element instead.
-                navigator.clipboard.writeText(segment.content || '');
+                void navigator.clipboard.writeText(segment.content || '');
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
                 setTimeout(() => {
@@ -323,7 +323,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             // Streaming complete — run the highlight provider for polished output.
             const wrapper = element.querySelector('.code-content-wrapper');
             if (wrapper) {
-                contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
+                void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
                     wrapper.innerHTML = html;
                 });
             }
@@ -366,7 +366,7 @@ const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
         if (copyBtn && command) {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — resolve from the element.
-                navigator.clipboard.writeText(command.textContent || '');
+                void navigator.clipboard.writeText(command.textContent || '');
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
                 setTimeout(() => {
@@ -770,7 +770,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         if (wrapper) {
             const displayLang = languageForKind(kind);
             const cleanContent = stripCodeFences(segment.content || '');
-            contextConfig().highlightCode(cleanContent, displayLang).then(html => {
+            void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
                 wrapper.innerHTML = html;
             });
         }
@@ -793,7 +793,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — resolve from the element.
                 const code = stripCodeFences(segment.content || '');
-                navigator.clipboard.writeText(code);
+                void navigator.clipboard.writeText(code);
                 const original = copyBtn.innerHTML;
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
@@ -870,7 +870,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             const wrapper = element.querySelector('.code-content-wrapper');
             if (wrapper) {
                 const displayLang = languageForKind(kind);
-                contextConfig().highlightCode(cleanContent, displayLang).then(html => {
+                void contextConfig().highlightCode(cleanContent, displayLang).then(html => {
                     wrapper.innerHTML = html;
                 });
             }
@@ -1192,6 +1192,10 @@ function cacheBinaryArtifact(id: string, entry: CachedPreview): void {
 }
 /** segmentId → cleanup for the file-gen window listeners (one live pair/segment). */
 const _fileGenHandlers = new Map<string, () => void>();
+/** Cap the live file-gen handler map: a generation that never terminates (the
+ *  conversation is cleared/switched mid-flight, or no FileGenService is wired) would
+ *  otherwise keep its two window listeners for the page's lifetime. */
+const MAX_FILE_GEN_HANDLERS = 32;
 
 /**
  * Tracks when an `aparte-artifact-ready` was last dispatched per segment, so
@@ -1239,7 +1243,7 @@ function debounceHighlight(
     if (now - last < HIGHLIGHT_DEBOUNCE_MS) return;
     markThrottle(_lastHighlightAt, segId, now);
     // May run from a window-event callback (late) — resolve from the element.
-    contextConfig(element).highlightCode(content, lang).then(html => {
+    void contextConfig(element).highlightCode(content, lang).then(html => {
         const wrapper = element.querySelector<HTMLElement>(paneSelector);
         if (wrapper) wrapper.innerHTML = html;
     });
@@ -1375,6 +1379,12 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
             cleanup(); // terminal — generation failed
         };
         window.addEventListener('aparte-file-gen-error', onError);
+        // Evict (and clean up the listeners of) the oldest handler when at capacity,
+        // so a never-terminating generation can't leak listeners without bound.
+        if (_fileGenHandlers.size >= MAX_FILE_GEN_HANDLERS) {
+            const oldest = _fileGenHandlers.keys().next().value;
+            if (oldest !== undefined) _fileGenHandlers.get(oldest)?.();
+        }
         _fileGenHandlers.set(segment.id, cleanup);
 
         element.addEventListener('click', (ev) => {
@@ -1441,7 +1451,7 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
     const wrapper = element.querySelector<HTMLElement>('[data-role="code-pane"]');
     if (wrapper) {
         const cleanContent = stripCodeFences(segment.content || '');
-        contextConfig(element).highlightCode(cleanContent, 'js').then(html => {
+        void contextConfig(element).highlightCode(cleanContent, 'js').then(html => {
             wrapper.innerHTML = html;
         });
     }
@@ -1470,7 +1480,7 @@ function updateBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactS
         // `aparte-file-gen-ready` fires and swapToPreview() flips it.
         const wrapper = element.querySelector<HTMLElement>('[data-role="code-pane"]');
         if (wrapper) {
-            contextConfig(element).highlightCode(cleanContent, 'js').then(html => {
+            void contextConfig(element).highlightCode(cleanContent, 'js').then(html => {
                 wrapper.innerHTML = html;
             });
         }

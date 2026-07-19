@@ -467,7 +467,7 @@ export function readableToAsyncIterable(
     return {
         [Symbol.asyncIterator](): AsyncIterator<AparteStreamEvent> {
             const reader = stream.getReader();
-            const onAbort = () => { try { reader.cancel(); } catch { /* best effort */ } };
+            const onAbort = () => { try { void reader.cancel(); } catch { /* best effort */ } };
             if (signal.aborted) onAbort();
             else signal.addEventListener('abort', onAbort, { once: true });
             return {
