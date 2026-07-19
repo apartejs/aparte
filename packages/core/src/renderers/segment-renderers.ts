@@ -250,7 +250,7 @@ const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
 
 const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
     type: 'thinking',
-    render: (segment) => `<details class="segment segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed ? '' : 'open'}><summary class="thinking-header"><span class="thinking-label">${segment.label || contextConfig().t('thinking')}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${escapeHtml(segment.content)}</div></details>`,
+    render: (segment) => `<details class="segment segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed ? '' : 'open'}><summary class="thinking-header"><span class="thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${escapeHtml(segment.content)}</div></details>`,
     update: (el, segment) => {
         // collapsed state is managed by _applySegmentUpdate based on explicit updates only —
         // never override what the user set by clicking <summary>

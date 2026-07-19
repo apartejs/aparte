@@ -127,6 +127,14 @@ describe('Segment Renderers', () => {
             const html = renderer.render(seg as any);
             expect(html).toContain('Let me think...');
         });
+
+        it('escapes a hostile label (XSS) — a host may render a non-hardcoded label', () => {
+            const renderer = getSegmentRenderer('thinking')!;
+            const seg = { id: 's4', type: 'thinking', label: '<img src=x onerror=alert(1)>', content: 'x', collapsed: false };
+            const html = renderer.render(seg as any);
+            expect(html).not.toContain('<img src=x onerror=');
+            expect(html).toContain('&lt;img src=x onerror=');
+        });
     });
 
     describe('default renderer: error', () => {

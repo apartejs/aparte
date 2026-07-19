@@ -57,9 +57,9 @@ sends to the model:
 
 ```svelte
 <script lang="ts">
+  import { AparteChat, createAparteChat, createAparteClient, type AparteChatInstance } from '@aparte/svelte';
   import { AparteConfig, DirectTransport } from '@aparte/core';
   import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
-  import { createAparteChat, createAparteClient } from '@aparte/svelte';
 
   AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
   AparteConfig.setTransport(new DirectTransport({ byok: true }));
@@ -67,6 +67,8 @@ sends to the model:
   const chat = createAparteChat();
   createAparteClient();          // streams replies from the configured provider
   const { messages } = chat;
+  let comp: AparteChatInstance | null = null;
+  $: chat.connect(comp);
 </script>
 
 <AparteChat bind:this={comp} messages={$messages} on:messagesChange={(e) => chat.onMessagesChange(e.detail)} />

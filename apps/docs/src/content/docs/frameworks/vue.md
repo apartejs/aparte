@@ -58,7 +58,7 @@ sends to the model:
 <script setup lang="ts">
 import { AparteConfig, DirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
-import { useAparteChat, useAparteClient } from '@aparte/vue';
+import { AparteChat, useAparteChat, useAparteClient } from '@aparte/vue';
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
 AparteConfig.setTransport(new DirectTransport({ byok: true }));
