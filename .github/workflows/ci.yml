@@ -49,8 +49,8 @@ jobs:
       - name: Check packaging
         run: pnpm check-packaging
 
-      - name: Test
-        run: pnpm test
+      - name: Test (with coverage gate)
+        run: pnpm test:coverage
 
       # Added as packages land: docs build + link-check.
 

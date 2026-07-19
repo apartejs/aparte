@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "docs": "pnpm --filter @aparte-workspace/docs dev",
     "playground:vanilla": "pnpm --filter @aparte-workspace/playground-vanilla dev",
     "playground:react": "pnpm --filter @aparte-workspace/playground-react dev",
@@ -37,6 +38,7 @@
     "@nx/vite": "20.3.0",
     "@types/node": "20.11.0",
     "@typescript-eslint/utils": "^8.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
     "@vitest/ui": "^2.0.0",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^9.0.0",
@@ -56,6 +58,9 @@
     "overrides": {
       "@types/node": "20.11.0"
     },
-    "onlyBuiltDependencies": ["esbuild", "nx"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "nx"
+    ]
   }
 }
