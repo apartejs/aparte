@@ -1,6 +1,6 @@
 {
   "name": "@aparte/angular",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Angular 19 wrapper for aparté — an ergonomic <aparte-chat> component plus services over the framework-agnostic web components.",
   "type": "module",
   "sideEffects": false,
@@ -8,7 +8,9 @@
   "module": "./dist/fesm2022/aparte-angular.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
-    "./package.json": { "default": "./package.json" },
+    "./package.json": {
+      "default": "./package.json"
+    },
     ".": {
       "@aparte-workspace/source": "./src/index.ts",
       "types": "./dist/index.d.ts",

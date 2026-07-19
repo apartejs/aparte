@@ -1,7 +1,7 @@
 {
   "name": "@aparte-workspace/docs",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
     "gen:css-vars": "node scripts/gen-css-vars.mjs",

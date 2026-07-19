@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/playground-angular",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "description": "Minimal Angular example — @aparte/angular + a real (BYOK / local) model.",

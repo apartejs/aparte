@@ -1,6 +1,6 @@
 {
   "name": "@aparte/react",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "React 18+ wrapper for aparté — an ergonomic <AparteChat> component plus hooks over the framework-agnostic web components.",
   "type": "module",
   "sideEffects": false,

@@ -1,6 +1,6 @@
 {
   "name": "@aparte/vue",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Vue 3 wrapper for aparté — an ergonomic <AparteChat> component plus composables over the framework-agnostic web components.",
   "type": "module",
   "sideEffects": false,
