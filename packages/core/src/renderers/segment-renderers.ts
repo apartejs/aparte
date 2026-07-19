@@ -1211,6 +1211,21 @@ const RE_DISPATCH_DEBOUNCE_MS = 30_000;
 const _lastHighlightAt = new Map<string, number>();
 const HIGHLIGHT_DEBOUNCE_MS = 400;
 
+/** Cap a segmentId→timestamp throttle map so a long session can't grow it without
+ *  bound (one entry per streamed segment). Values are timestamps (tiny), so the cap
+ *  is generous; delete-then-set refreshes recency, evict the oldest key when full.
+ *  Evicting a stale entry costs at most one extra highlight/dispatch — never
+ *  incorrect, since both debounce windows are far shorter than the cap horizon. */
+const MAX_THROTTLE_ENTRIES = 256;
+function markThrottle(map: Map<string, number>, id: string, at: number): void {
+    map.delete(id);
+    if (map.size >= MAX_THROTTLE_ENTRIES) {
+        const oldest = map.keys().next().value;
+        if (oldest !== undefined) map.delete(oldest);
+    }
+    map.set(id, at);
+}
+
 function debounceHighlight(
     element: HTMLElement,
     paneSelector: string,
@@ -1221,7 +1236,7 @@ function debounceHighlight(
     const now = Date.now();
     const last = _lastHighlightAt.get(segId) ?? 0;
     if (now - last < HIGHLIGHT_DEBOUNCE_MS) return;
-    _lastHighlightAt.set(segId, now);
+    markThrottle(_lastHighlightAt, segId, now);
     // May run from a window-event callback (late) — resolve from the element.
     contextConfig(element).highlightCode(content, lang).then(html => {
         const wrapper = element.querySelector<HTMLElement>(paneSelector);
@@ -1234,7 +1249,7 @@ if (typeof window !== 'undefined') {
     // `aparte-artifact-ready` whoever dispatched it.
     window.addEventListener('aparte-artifact-ready', (event: Event) => {
         const segId = (event as CustomEvent).detail?.segmentId as string | undefined;
-        if (segId) _lastDispatchAt.set(segId, Date.now());
+        if (segId) markThrottle(_lastDispatchAt, segId, Date.now());
     });
 }
 
@@ -1403,7 +1418,7 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
     // we'd hit "Sandbox is busy with a previous execution" errors.
     const lastAt = _lastDispatchAt.get(segment.id) ?? 0;
     if (Date.now() - lastAt < RE_DISPATCH_DEBOUNCE_MS) return;
-    _lastDispatchAt.set(segment.id, Date.now());
+    markThrottle(_lastDispatchAt, segment.id, Date.now());
 
     // First time we see this segment in the current page session : kick off
     // the sandbox via FileGenService. Date.now() in the messageId bypasses
