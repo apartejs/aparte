@@ -435,6 +435,36 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
         expect(t.calls).toHaveLength(0);
     });
 
+    it('propagates a non-abort synthetic-tool handler failure to the caller (never resolves it)', async () => {
+        const t = scriptedTransport([[{ type: 'done' }]]);
+        const rec = recorder();
+        // A consumer handler that throws for a NON-abort reason (a bug, a failed
+        // fetch) must surface to the caller — mirroring _streamLoop → _handleSend's
+        // catch — not be silently turned into a tool result.
+        await expect(runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            baseRequest: { messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'save', input: {} } },
+            toolLookup: () => async () => { throw new Error('handler boom'); },
+            idGen: (p) => `${p}-0`,
+        }))).rejects.toThrow('handler boom');
+        expect(rec.types()).toContain('tool-start');
+        expect(rec.types()).not.toContain('tool-resolved');
+    });
+
+    it('propagates a non-abort handler failure from a streamed tool_use to the caller', async () => {
+        const t = scriptedTransport([[
+            { type: 'tool_use', id: 'c1', name: 'save', input: {} },
+            { type: 'done' },
+        ]]);
+        const rec = recorder();
+        await expect(runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => async () => { throw new Error('handler boom'); },
+        }))).rejects.toThrow('handler boom');
+        expect(rec.types()).not.toContain('tool-resolved');
+        expect(rec.types()).not.toContain('run-done');
+    });
+
     it('does NOT trigger on a plain (non-object) toolChoice like "auto"', async () => {
         const t = scriptedTransport([[{ type: 'text', delta: 'hello' }, { type: 'done' }]]);
         const rec = recorder();

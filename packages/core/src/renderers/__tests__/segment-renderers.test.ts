@@ -162,6 +162,74 @@ describe('Segment Renderers', () => {
         });
     });
 
+    // ─── consumer-registered custom tool renderer (the VISUAL declaration) ───
+    // A consumer declares a tool's behaviour with registerTool() and its LOOK with
+    // registerToolRenderer(name, {render, setup, getStyles}). These prove the custom
+    // renderer is actually resolved + invoked when that tool renders — not just stored.
+
+    describe('custom tool renderer (consumer registerToolRenderer)', () => {
+        afterEach(() => {
+            AparteConfig.unregisterToolRenderer('visual_tool');
+        });
+
+        it('renders the consumer HTML in place of the default pill', () => {
+            AparteConfig.registerToolRenderer('visual_tool', {
+                render: () => `<div class="my-visual">searching the web…</div>`,
+            });
+            const seg = {
+                id: 'vt1', type: 'tool_call',
+                toolCall: { id: 'c1', name: 'visual_tool', input: {} },
+                status: 'pending',
+            };
+            const html = getSegmentRenderer('tool_call')!.render(seg as any);
+            expect(html).toContain('class="my-visual"');
+            expect(html).not.toContain('tool-pill-name'); // the default pill is bypassed
+        });
+
+        it('falls back to the default pill when the custom render returns empty', () => {
+            AparteConfig.registerToolRenderer('visual_tool', { render: () => '' });
+            const seg = {
+                id: 'vt2', type: 'tool_call',
+                toolCall: { id: 'c2', name: 'visual_tool', input: {} },
+                status: 'pending',
+            };
+            const html = getSegmentRenderer('tool_call')!.render(seg as any);
+            expect(html).toContain('tool-pill'); // empty custom output => hide-to-default
+        });
+
+        it('invokes the consumer setup() hook with the mounted element + segment', () => {
+            let seenEl: HTMLElement | null = null;
+            let seenSeg: unknown = null;
+            AparteConfig.registerToolRenderer('visual_tool', {
+                render: () => `<div class="my-visual"></div>`,
+                setup: (el, seg) => { seenEl = el; seenSeg = seg; },
+            });
+            const seg = {
+                id: 'vt3', type: 'tool_call',
+                toolCall: { id: 'c3', name: 'visual_tool', input: {} },
+                status: 'resolved',
+            };
+            const host = document.createElement('div');
+            getSegmentRenderer('tool_call')!.setup!(host, seg as any);
+            expect(seenEl).toBe(host);
+            expect(seenSeg).toBe(seg);
+        });
+
+        it('keeps the built-in Approve/Reject gate over the custom renderer while awaiting approval', () => {
+            AparteConfig.registerToolRenderer('visual_tool', {
+                render: () => `<div class="my-visual">SHOULD NOT SHOW YET</div>`,
+            });
+            const seg = {
+                id: 'vt4', type: 'tool_call',
+                toolCall: { id: 'c4', name: 'visual_tool', input: {} },
+                status: 'awaiting-approval',
+            };
+            const html = getSegmentRenderer('tool_call')!.render(seg as any);
+            expect(html).toContain('data-tool-decision="approve"');
+            expect(html).not.toContain('SHOULD NOT SHOW YET'); // custom only takes over AFTER approval
+        });
+    });
+
     // ─── default renderer: tool_call (Phase 1) ───────────────────────────
 
     describe('default renderer: tool_call', () => {
