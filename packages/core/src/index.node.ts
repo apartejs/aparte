@@ -86,7 +86,7 @@ export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
 // Custom-element TYPES (erased) — keep server consumers fully typed.
 export type { AparteSelectChangeDetail } from './primitives/index.js';
-export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType } from './components/index.js';
+export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
@@ -127,13 +127,23 @@ export {
 } from './host/index.js';
 
 // ── Parsers ─────────────────────────────────────────────────────────────────
-export { AparteStreamParser, parseMarkdownToSegments, deriveArtifactKind } from './parsers/index.js';
+export { AparteStreamParser, parseMarkdownToSegments, deriveArtifactKind, parseAparteEventStream } from './parsers/index.js';
 export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, AparteParserState, AparteParserResult } from './parsers/index.js';
 
-// Server-side `/api/chat` handler for BackendTransport — DOM-free, uses only the
-// Web fetch API, so it belongs on the Node/SSR surface (a browser never runs it).
-export { createAparteChatHandler } from './transport/backend-handler.js';
-export type { AparteChatHandlerOptions } from './transport/backend-handler.js';
+// Transport seam — DOM-free (fetch-based), so the whole seam is SSR-safe. The
+// server-side `/api/chat` handler AND both client transports live here; a browser
+// never runs the handler, and the transports touch no DOM at import. Mirrored in
+// full so a wrapper barrel re-exporting a transport can't crash under SSR.
+export { DirectTransport, BackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
+export type {
+    AparteTransport,
+    AparteTransportContext,
+    AparteFormatAdapter,
+    AparteVendorRequest,
+    BackendTransportOptions,
+    DirectTransportOptions,
+    AparteChatHandlerOptions,
+} from './transport/index.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 export { AparteConfig, AparteConfigClass } from './config/index.js';
@@ -151,6 +161,12 @@ export type {
     AparteActionZone,
     AparteIconProvider,
     AparteIconName,
+    AparteAvatarProvider,
+    AparteStatusRenderer,
+    AparteErrorRenderer,
+    AparteAttachmentRenderer,
+    AparteSiblingNavRenderer,
+    AparteBubbleShellRenderer,
     AparteModelPreference,
     AparteModelPreferenceProvider,
     AparteArtifactPreviewBuilder,
@@ -160,11 +176,19 @@ export { DEFAULT_ICON_FALLBACKS, DEFAULT_SKELETON_FALLBACKS, DEFAULT_LOCALE, def
 
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';
-export type { AparteClientOptions } from './client/aparte-client.js';
+export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 export { MessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
+
+// ── Wrapper interop (DOM-free helpers the four wrappers' AparteUi value-imports) ─
+// `applyElementProps`/`DEFAULT_UI_EVENTS` are pure (a string array + a function that
+// only touches its `HTMLElement` argument when CALLED, never at import). They MUST be
+// on the Node surface: every wrapper barrel re-exports `AparteUi`, which value-imports
+// these two — omit them here and any SSR toolchain resolving the `node` condition
+// crashes the whole barrel with "does not provide an export named 'applyElementProps'".
+export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
 
 // Elicitation (human-in-the-loop typed input) — DOM-free at import.
 export { requestUserInput, buildElicitationPanel } from './elicitation/index.js';
