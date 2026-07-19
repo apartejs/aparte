@@ -119,8 +119,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Install Playwright (Chromium + OS deps)
-        run: pnpm --filter @aparte-workspace/e2e exec playwright install --with-deps chromium
+      - name: Install Playwright (Chromium + WebKit + OS deps)
+        run: pnpm --filter @aparte-workspace/e2e exec playwright install --with-deps chromium webkit
 
       - name: Browser smoke E2E
         run: pnpm e2e

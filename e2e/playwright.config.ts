@@ -75,6 +75,12 @@ const SMOKE = /framework-smoke\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
 const DEMO = /demo-vanilla\.spec\.ts/;
 
+// Also run the pure web-component playgrounds under WebKit (Safari engine) — the
+// browser where custom-element upgrade / Shadow DOM / CSS-variable behavior is most
+// likely to diverge from Chromium. The framework wrappers just mount the same
+// elements, so covering vanilla + demo-vanilla exercises the core across engines.
+const WEBKIT_APPS: AppKey[] = ['vanilla', 'demo-vanilla'];
+
 export default defineConfig({
     testDir: './tests',
     fullyParallel: true,
@@ -86,7 +92,6 @@ export default defineConfig({
     expect: { timeout: 10_000 },
 
     use: {
-        ...devices['Desktop Chrome'],
         viewport: { width: 1000, height: 720 },
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
@@ -97,11 +102,19 @@ export default defineConfig({
 
     // One project per app; the five framework apps share the smoke suite,
     // demo-vanilla runs its human-in-the-loop suite.
-    projects: selected.map((k) => ({
-        name: k,
-        use: { baseURL: url(k) },
-        // Framework apps run the smoke suite + the opt-in real-model smoke (which
-        // self-skips unless E2E_REAL_MODEL=1); demo-vanilla runs its HITL suite.
-        testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL],
-    })),
+    projects: [
+        ...selected.map((k) => ({
+            name: k,
+            use: { ...devices['Desktop Chrome'], baseURL: url(k) },
+            // Framework apps run the smoke suite + the opt-in real-model smoke (which
+            // self-skips unless E2E_REAL_MODEL=1); demo-vanilla runs its HITL suite.
+            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL],
+        })),
+        // Same suites under WebKit, for the pure web-component playgrounds.
+        ...selected.filter((k) => WEBKIT_APPS.includes(k)).map((k) => ({
+            name: `${k}-webkit`,
+            use: { ...devices['Desktop Safari'], baseURL: url(k) },
+            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL],
+        })),
+    ],
 });
