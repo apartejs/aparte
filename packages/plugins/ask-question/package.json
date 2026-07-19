@@ -1,6 +1,6 @@
 {
   "name": "@aparte/plugin-ask-question",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.0",
   "description": "The ask_question tool for aparté — the AI asks the user a structured choice, presented via the core elicitation panel.",
   "type": "module",
   "sideEffects": true,

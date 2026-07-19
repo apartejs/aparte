@@ -1,6 +1,6 @@
 {
   "name": "@aparte/plugin-marked",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.0",
   "description": "Markdown rendering for aparté via marked — register it as the one-shot Markdown provider.",
   "type": "module",
   "sideEffects": false,

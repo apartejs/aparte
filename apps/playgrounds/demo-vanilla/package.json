@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/demo-vanilla",
-  "version": "0.0.0",
+  "version": "0.0.1-alpha.0",
   "private": true,
   "type": "module",
   "description": "Proof @aparte/core works standalone from its published dist — plus a human-in-the-loop tool-approval demo.",

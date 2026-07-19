@@ -1,6 +1,6 @@
 {
   "name": "@aparte-workspace/playground-vanilla",
-  "version": "0.0.0",
+  "version": "0.0.1-alpha.0",
   "private": true,
   "type": "module",
   "description": "Minimal vanilla example — @aparte/core web components + a real (BYOK / local) model.",

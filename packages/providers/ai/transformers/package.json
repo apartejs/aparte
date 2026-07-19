@@ -1,6 +1,6 @@
 {
   "name": "@aparte/provider-transformers",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.0",
   "description": "Run LLMs 100% in the browser via Transformers.js (WebGPU/WASM) — a local, keyless AI provider for aparté. Streams tokens off the main thread in a Web Worker.",
   "type": "module",
   "sideEffects": false,

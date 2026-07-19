@@ -1,6 +1,6 @@
 {
   "name": "@aparte/core",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.0",
   "description": "High-performance AI conversation engine - Zero-dependency Web Components",
   "type": "module",
   "main": "./dist/index.js",
