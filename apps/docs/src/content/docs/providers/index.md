@@ -22,9 +22,42 @@ import { AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));   // browser → provider, your key
-new AparteClient().start();                                        // .start() drives the streaming loop
+AparteConfig.setTransport(new DirectTransport({ byok: true }));   // browser → provider, key stays client-side
+new AparteClient({
+  // BYOK: hand the browser-held key to each request (see "Supplying the key" below).
+  keyResolver: () => localStorage.getItem('openrouter.key') ?? undefined,
+}).start();                                                        // .start() drives the streaming loop
 ```
+
+## Supplying the API key (BYOK)
+
+A **cloud** provider needs a key — without one it returns an empty model list and can't stream.
+With `DirectTransport({ byok: true })` the key lives in the **browser** (it's never sent to a
+server), and you hand it to each request via **`keyResolver`** on `AparteClient`:
+
+```ts
+new AparteClient({
+  // Called per request with the providerId; return the key (or undefined for none).
+  keyResolver: (providerId) => localStorage.getItem(`${providerId}.key`) ?? undefined,
+}).start();
+```
+
+The canonical BYOK flow: a small key `<input>` in your UI writes the value to `localStorage`,
+and `keyResolver` reads it back — so no key is ever hard-coded or committed:
+
+```ts
+keyInput.addEventListener('change', () => {
+  localStorage.setItem('openrouter.key', keyInput.value.trim());
+});
+```
+
+- **Local providers** (`presets.LMSTUDIO`, `presets.OLLAMA`) are keyless — they set `isLocal`, so
+  `keyResolver` can return `undefined` for them. Run one and you need no key at all.
+- Want the key **off the client** entirely? Use [`BackendTransport`](/guides/backend-transport/)
+  instead — the key stays on your server and never reaches the browser.
+- `keyResolver` may return a `Record<string, string>` (for providers needing several auth headers)
+  and may be async (fetch from your own vault). `AparteConfig.setKeyProvider(...)` is an alternative
+  channel if you'd rather register the key globally instead of per-client.
 
 ## Which one?
 
