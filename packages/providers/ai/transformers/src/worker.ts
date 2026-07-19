@@ -18,7 +18,7 @@
  * model-family specifics — just the high-level `pipeline()` + `TextStreamer`.
  */
 
-import { pipeline, TextStreamer, env, type TextGenerationPipeline } from '@huggingface/transformers';
+import { pipeline, TextStreamer, InterruptableStoppingCriteria, env, type TextGenerationPipeline } from '@huggingface/transformers';
 
 // Fetch weights from the Hugging Face hub (not local paths) and cache them in the
 // browser Cache API — this is what `listCachedModels()` scans on the main thread.
@@ -37,13 +37,18 @@ type SimpleMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
 type InMessage =
     | { type: 'prepare'; id: string; modelId: string; dtype?: Dtype; device?: Device }
-    | { type: 'generate'; id: string; modelId: string; messages: SimpleMessage[]; options: GenOptions; dtype?: Dtype; device?: Device };
+    | { type: 'generate'; id: string; modelId: string; messages: SimpleMessage[]; options: GenOptions; dtype?: Dtype; device?: Device }
+    | { type: 'cancel'; id: string };
 
 function post(message: unknown): void {
     ctx.postMessage(message);
 }
 
 let _current: { modelId: string; pipe: TextGenerationPipeline } | null = null;
+// Per-generate interrupts, so a consumer's stream-cancel actually STOPS the model
+// (not just detaches the reader) — otherwise generation runs to max_new_tokens
+// off-thread, wasting exactly the CPU/GPU/battery this provider exists to save.
+const _activeStops = new Map<string, InterruptableStoppingCriteria>();
 
 /**
  * Ensure the pipeline for `modelId` is loaded, reusing the current one when it
@@ -83,6 +88,8 @@ async function handlePrepare(msg: Extract<InMessage, { type: 'prepare' }>): Prom
 }
 
 async function handleGenerate(msg: Extract<InMessage, { type: 'generate' }>): Promise<void> {
+    const stoppingCriteria = new InterruptableStoppingCriteria();
+    _activeStops.set(msg.id, stoppingCriteria);
     try {
         const pipe = await ensurePipeline(msg.modelId, msg.dtype, msg.device, msg.id);
 
@@ -100,11 +107,14 @@ async function handleGenerate(msg: Extract<InMessage, { type: 'generate' }>): Pr
             do_sample: temperature > 0,
             temperature: temperature > 0 ? temperature : undefined,
             streamer,
+            stopping_criteria: stoppingCriteria,
         });
 
         post({ type: 'gen-done', id: msg.id });
     } catch (err) {
         post({ type: 'gen-error', id: msg.id, message: (err as Error)?.message ?? 'Generation failed' });
+    } finally {
+        _activeStops.delete(msg.id);
     }
 }
 
@@ -112,4 +122,5 @@ ctx.addEventListener('message', (event: MessageEvent<InMessage>) => {
     const msg = event.data;
     if (msg.type === 'prepare') void handlePrepare(msg);
     else if (msg.type === 'generate') void handleGenerate(msg);
+    else if (msg.type === 'cancel') _activeStops.get(msg.id)?.interrupt();
 });

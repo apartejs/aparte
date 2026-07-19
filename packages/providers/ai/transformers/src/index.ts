@@ -418,9 +418,11 @@ export const TransformersProvider: AparteAIProvider = {
             },
             cancel() {
                 _pendingGenerates.delete(requestId);
-                // Leave the serialization slot to be released by the eventual
-                // gen-done / gen-error / worker-error, so a queued generate can't
-                // start before the worker actually stopped this one.
+                // Actually STOP the model (not just detach the reader): tell the worker
+                // to interrupt this generate. The serialization slot is still released
+                // by the resulting gen-done/gen-error, so a queued generate can't start
+                // before the worker has stopped this one.
+                _getWorker().postMessage({ type: 'cancel', id: requestId });
             },
         });
     },
