@@ -30,7 +30,8 @@ Every new package or feature lands **behind a green gate**:
 - `pnpm build` and `pnpm typecheck` succeed for the touched package(s)
 - `pnpm lint` is clean
 - `pnpm e2e` (browser smoke across the playgrounds) passes for changes touching the
-  framework boundary or rendering — it also runs in CI
+  framework boundary or rendering — it also runs in CI (run `pnpm e2e:install` once
+  first to install the Playwright browser)
 - packaging is valid (`publint` + are-the-types-wrong) once the package is published
 - a docs page exists for public API
 

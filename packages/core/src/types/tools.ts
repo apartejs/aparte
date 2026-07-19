@@ -97,7 +97,7 @@ export type AparteToolHandler = (
  * When the AI calls a tool, this renderer controls what appears in the bubble
  * for that specific tool instead of the generic tool_call renderer.
  *
- * Return null from render() to render nothing (e.g. for UI-only tools like ask_question).
+ * Return an empty string from render() to render nothing (e.g. for UI-only tools like ask_question).
  */
 export interface AparteToolRenderer {
     /** HTML to render for the tool call segment. Return empty string to hide. */

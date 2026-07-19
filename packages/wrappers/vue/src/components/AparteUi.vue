@@ -9,7 +9,7 @@ const p = defineProps<{
   props?: Record<string, unknown>;
   /**
    * Which custom events to forward through `elementEvent`. Defaults to the
-   * interactive aparté surface (DEFAULT_EVENTS); pass your own list to listen to
+   * interactive aparté surface (DEFAULT_UI_EVENTS); pass your own list to listen to
    * other events (e.g. ['aparte-composer-change'] for attachments).
    */
   events?: string[];

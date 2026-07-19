@@ -10,7 +10,7 @@ export interface AparteUiProps {
     onElementEvent?: (event: CustomEvent) => void;
     /**
      * Which custom events to forward through `onElementEvent`. Defaults to the
-     * interactive aparté surface ({@link DEFAULT_EVENTS}); pass your own list to
+     * interactive aparté surface ({@link DEFAULT_UI_EVENTS}); pass your own list to
      * listen to other events (e.g. `['aparte-composer-change']` for attachments).
      */
     events?: string[];
