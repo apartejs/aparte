@@ -36,7 +36,7 @@ export class AparteComposerCancel extends HTMLElement {
     private _render(): void {
         if (this.querySelector('.aparte-cc-button')) return;
 
-        const label = resolveConfig(this).t('stopButton' as any) || 'Stop';
+        const label = resolveConfig(this).t('stopButton') || 'Stop';
         const icon = this._getStopIcon();
 
         this.innerHTML = `<button

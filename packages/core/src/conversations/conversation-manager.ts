@@ -304,7 +304,6 @@ export class ConversationManager {
             try {
                 l(snapshot);
             } catch (err) {
-                // eslint-disable-next-line no-console
                 console.error('[ConversationManager] listener threw:', err);
             }
         });

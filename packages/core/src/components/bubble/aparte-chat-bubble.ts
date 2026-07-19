@@ -9,6 +9,7 @@ import type {
   AparteActionEventDetail,
   AparteMessageInfoEventDetail,
   AparteUsage,
+  AparteMessage,
 } from '../../types/index.js';
 import { getSegmentRenderer } from '../../renderers/index.js';
 import { AparteConfigClass } from '../../config/aparte-config.js';
@@ -262,21 +263,21 @@ export class AparteChatBubble extends HTMLElement {
   /**
    * Atomic update for the message
    */
-  updateMessage(updates: any): void {
+  updateMessage(updates: Partial<AparteMessage>): void {
     if ('role' in updates) {
-      this._role = updates.role;
+      this._role = updates.role!;
       this._updateRole();
     }
     if ('content' in updates) {
-      this._content = updates.content;
+      this._content = updates.content!;
       this._updateContent();
     }
     if ('segments' in updates) {
-      this._segments = updates.segments;
+      this._segments = updates.segments!;
       this._renderSegments();
     }
     if ('timestamp' in updates) {
-      this._updateTimestamp(updates.timestamp);
+      this._updateTimestamp(updates.timestamp!);
     }
     if ('status' in updates) {
       const isStreaming = updates.status === 'streaming' || updates.status === 'pending';
@@ -339,7 +340,7 @@ export class AparteChatBubble extends HTMLElement {
     // Handle collapsed state only when explicitly provided in the update —
     // never override a state the user set by clicking <summary>.
     if ('collapsed' in updates) {
-      if ((updates as any).collapsed) {
+      if ((updates as { collapsed?: boolean }).collapsed) {
         el.removeAttribute('open');
       } else {
         el.setAttribute('open', '');
@@ -578,7 +579,7 @@ export class AparteChatBubble extends HTMLElement {
     else message.removeAttribute('data-error');
   }
 
-  private _updateTimestamp(value: string | null): void {
+  private _updateTimestamp(value: string | number | null): void {
     const timestampEl = this.querySelector('.aparte-timestamp');
     if (!timestampEl || !value) return;
 
@@ -868,7 +869,7 @@ export class AparteChatBubble extends HTMLElement {
 
     switch (action) {
       case 'copy': {
-        const text = this._content || this._segments.map(s => (s as any).content ?? '').join('\n');
+        const text = this._content || this._segments.map(s => (s as { content?: string }).content ?? '').join('\n');
         const icons = this._cfg.getIconProvider();
         const locale = this._cfg.getLocale();
         navigator.clipboard.writeText(text).then(() => {

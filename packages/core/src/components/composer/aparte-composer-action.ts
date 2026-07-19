@@ -1,4 +1,4 @@
-import { resolveConfig } from '../../config/index.js';
+import { resolveConfig, type AparteIconName } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 
 /**
@@ -109,7 +109,7 @@ export class AparteComposerAction extends HTMLElement {
     private _resolveIcon(icon: string): string {
         if (!icon) return '';
         if (icon.trimStart().startsWith('<')) return icon;
-        return resolveConfig(this).getIcon(icon as any) ?? icon;
+        return resolveConfig(this).getIcon(icon as AparteIconName) ?? icon;
     }
 }
 

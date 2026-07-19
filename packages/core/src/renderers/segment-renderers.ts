@@ -15,6 +15,7 @@ import type {
     AparteFileTreeSegment,
     AparteFileNode,
     AparteArtifactSegment,
+    AparteToolCallSegment,
 } from '../types/index.js';
 // Renderers are plain functions: they read the ambient config set by the
 // invoking component (runWithConfig), falling back to an element when one is
@@ -486,9 +487,9 @@ const fileTreeRenderer: AparteSegmentRenderer<AparteFileTreeSegment> = {
 // Tool Call Renderer (default — shown when no per-tool renderer is registered)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const toolCallRenderer: AparteSegmentRenderer = {
+const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
     type: 'tool_call',
-    render: (segment: any) => {
+    render: (segment) => {
         const name = segment.toolCall?.name ?? 'tool';
         const status = segment.status ?? 'pending';
         const toolCallId = segment.toolCall?.id ?? '';
@@ -537,7 +538,7 @@ const toolCallRenderer: AparteSegmentRenderer = {
             </div>
         `;
     },
-    setup: (element: HTMLElement, segment: any) => {
+    setup: (element, segment) => {
         // Built-in approval gate: wire Approve/Reject → aparte-tool-decision.
         if (segment.status === 'awaiting-approval') {
             const toolCallId = segment.toolCall?.id;

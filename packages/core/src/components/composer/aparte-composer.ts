@@ -61,7 +61,7 @@ export class AparteComposer extends HTMLElement {
     private _value = '';
     private _streaming = false;
     private _attachments: File[] = [];
-    private _listeners = new Map<string, Set<(payload: any) => void>>();
+    private _listeners = new Map<string, Set<(payload: unknown) => void>>();
     private _panelActive = false;
     private _panelSubmitEnabled = false;
     private _panelOnSubmit: (() => void) | null = null;
@@ -315,8 +315,8 @@ export class AparteComposer extends HTMLElement {
 
     _on<K extends AparteComposerEventType>(event: K, cb: (payload: AparteComposerEventMap[K]) => void): () => void {
         if (!this._listeners.has(event)) this._listeners.set(event, new Set());
-        this._listeners.get(event)!.add(cb as any);
-        return () => this._listeners.get(event)?.delete(cb as any);
+        this._listeners.get(event)!.add(cb as unknown as (payload: unknown) => void);
+        return () => this._listeners.get(event)?.delete(cb as unknown as (payload: unknown) => void);
     }
 
     // ── Window events ───────────────────────────────────────────────────────

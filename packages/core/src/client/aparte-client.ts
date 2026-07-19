@@ -249,7 +249,7 @@ export class AparteClient {
             if (event.type !== 'aparte-send') return;
             // Scope guard: ignore events not for this instance
             if (this.options.scopeToTargetId) {
-                const evtTargetId = (event.detail as any)?.targetId as string | undefined;
+                const evtTargetId = (event.detail as { targetId?: string })?.targetId as string | undefined;
                 if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
             }
             // Reset abort flag and cancel any tool calls from a previous turn
@@ -277,7 +277,7 @@ export class AparteClient {
             this._boundAbortHandler = (e?: Event) => {
                 // Scope guard
                 if (this.options.scopeToTargetId) {
-                    const evtTargetId = ((e as CustomEvent)?.detail as any)?.targetId as string | undefined;
+                    const evtTargetId = ((e as CustomEvent)?.detail as { targetId?: string })?.targetId as string | undefined;
                     if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
                 }
                 this.abort();
@@ -293,7 +293,7 @@ export class AparteClient {
             this._boundRetryHandler = (e: Event) => {
                 const evt = e as CustomEvent;
                 if (this.options.scopeToTargetId) {
-                    const evtTargetId = (evt.detail as any)?.targetId as string | undefined;
+                    const evtTargetId = (evt.detail as { targetId?: string })?.targetId as string | undefined;
                     if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
                 }
                 void this._handleRetry(evt);
@@ -305,7 +305,7 @@ export class AparteClient {
             this._boundEditHandler = (e: Event) => {
                 const evt = e as CustomEvent;
                 if (this.options.scopeToTargetId) {
-                    const evtTargetId = (evt.detail as any)?.targetId as string | undefined;
+                    const evtTargetId = (evt.detail as { targetId?: string })?.targetId as string | undefined;
                     if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
                 }
                 void this._handleEdit(evt);
@@ -791,7 +791,7 @@ export class AparteClient {
         //    The composer sets detail.targetId = host.id (set by AparteChatComponent).
         //    document.getElementById works even when the composer is temporarily detached.
         let targetElement: AparteChatTargetElement | null = null;
-        const targetId = (event.detail as any)?.targetId as string | undefined;
+        const targetId = (event.detail as { targetId?: string })?.targetId as string | undefined;
         if (targetId) {
             const byId = document.getElementById(targetId) as AparteChatTargetElement | null;
             if (byId && typeof byId.appendMessage === 'function') {
@@ -1136,7 +1136,7 @@ export class AparteClient {
                         title: xml.title, content: xml.content,
                         inline: isInline,
                     };
-                    targetElement.updateSegment?.(xml.segId!, { content: xml.content, inline: isInline } as any);
+                    targetElement.updateSegment?.(xml.segId!, { content: xml.content, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
                     this._dispatchArtifactLifecycle(targetElement, messageId, finalSeg, artifactProgress, true);
                     xml.state = 'normal';
                     xml.closeBuf = '';
@@ -1516,7 +1516,7 @@ export class AparteClient {
                     phaseMeta = { ...phaseMeta, artifactRaw: { mimeType: phase.mimeType, kind: phase.kind } };
                 } else {
                     // Ensure no stale artifactRaw leaks into a text phase
-                    const { artifactRaw: _dropped, pipeline: _p, ...restMeta } = (phaseMeta ?? {}) as any;
+                    const { artifactRaw: _dropped, pipeline: _p, ...restMeta } = (phaseMeta ?? {}) as AparteRequestMeta;
                     phaseMeta = restMeta;
                 }
             }
@@ -1714,7 +1714,7 @@ export class AparteClient {
                 if (artifactRawHint && rawSegId) {
                     const lineCount = rawContent.split('\n').length;
                     const isInline = lineCount < 15;
-                    targetElement.updateSegment?.(rawSegId, { content: rawContent, inline: isInline } as any);
+                    targetElement.updateSegment?.(rawSegId, { content: rawContent, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
                     this._dispatchArtifactLifecycle(targetElement, messageId, {
                         id: rawSegId, type: 'artifact',
                         mimeType: artifactRawHint.mimeType, artifactType: artifactRawHint.kind,
@@ -1731,7 +1731,7 @@ export class AparteClient {
                     xmlCtx.content += xmlCtx.closeBuf;
                     const lineCount = xmlCtx.content.split('\n').length;
                     const isInline = lineCount < 15;
-                    targetElement.updateSegment?.(xmlCtx.segId, { content: xmlCtx.content, inline: isInline } as any);
+                    targetElement.updateSegment?.(xmlCtx.segId, { content: xmlCtx.content, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
                     this._dispatchArtifactLifecycle(targetElement, messageId, {
                         id: xmlCtx.segId, type: 'artifact',
                         mimeType: xmlCtx.mime, artifactType: xmlCtx.kind,
@@ -1760,7 +1760,7 @@ export class AparteClient {
                         artifactPromoted = true;
                         // Already in DOM as code block → re-render as artifact pill
                         if (streamingSegmentIds.has(promoted.id)) {
-                            targetElement.updateSegment?.(promoted.id, promoted as any);
+                            targetElement.updateSegment?.(promoted.id, promoted);
                         }
                     }
                 }
@@ -1790,7 +1790,7 @@ export class AparteClient {
                         // The segment removes itself automatically via MutationObserver
                         // when the next segment appears — no manual cleanup needed.
                         const pwId = `pw-${crypto.randomUUID()}`;
-                        targetElement.addSegment?.({ id: pwId, type: 'pipeline-waiting' } as any);
+                        targetElement.addSegment?.({ id: pwId, type: 'pipeline-waiting' });
                         // continueLoop stays true — next iteration handles the new phase
                     } else {
                         continueLoop = false;
@@ -1925,7 +1925,7 @@ export class AparteClient {
         this._dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
     }
 
-    private _dispatchLifecycleEvent(target: HTMLElement, name: string, detail: any) {
+    private _dispatchLifecycleEvent(target: HTMLElement, name: string, detail: Record<string, unknown>) {
         target.dispatchEvent(new CustomEvent(name, {
             bubbles: true,
             composed: true,
@@ -1944,7 +1944,7 @@ export class AparteClient {
     private _dispatchArtifactLifecycle(
         target: HTMLElement,
         messageId: string,
-        segment: any,
+        segment: import('../types/segments.js').AparteArtifactSegment,
         progress: Map<string, number>,
         isFinal: boolean
     ): void {

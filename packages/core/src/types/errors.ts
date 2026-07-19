@@ -28,7 +28,7 @@ export class AparteError extends Error {
     constructor(
         public override message: string,
         public code: AparteErrorCode,
-        public data?: Record<string, any>,
+        public data?: Record<string, unknown>,
         public originalError?: unknown,
         public httpStatus?: number
     ) {
@@ -42,7 +42,7 @@ export class AparteError extends Error {
         const message = error instanceof Error ? error.message : String(error);
 
         // Try to infer status from error object if possible
-        const status = (error as any)?.status || (error as any)?.statusCode || defaultStatus;
+        const status = (error as { status?: number; statusCode?: number })?.status || (error as { status?: number; statusCode?: number })?.statusCode || defaultStatus;
 
         return new AparteError(message, defaultCode, undefined, error, status);
     }

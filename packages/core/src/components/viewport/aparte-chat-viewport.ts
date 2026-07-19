@@ -709,6 +709,7 @@ export class AparteChatViewport extends HTMLElement {
             updateSegment?: (segmentId: string, updates: Partial<AparteSegment>) => void;
             removeSegment?: (segmentId: string) => void;
             setUsage?: (usage: AparteUsage) => void;
+            updateMessage?: (updates: Partial<AparteMessage>) => void;
         };
 
         if (!bubble) return;
@@ -729,19 +730,19 @@ export class AparteChatViewport extends HTMLElement {
                 break;
             }
             case 'removeSegment':
-                (bubble as any).removeSegment?.(payload as string);
+                bubble.removeSegment?.(payload as string);
                 break;
             case 'setUsage':
                 bubble.setUsage?.(payload as AparteUsage);
                 break;
             case 'update':
                 // New atomic update for bubble
-                if ('status' in (payload as any) || 'segments' in (payload as any)) {
-                    (bubble as any).updateMessage?.(payload);
+                if ('status' in (payload as Record<string, unknown>) || 'segments' in (payload as Record<string, unknown>)) {
+                    bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 }
                 break;
             case 'complete':
-                (bubble as any).updateMessage?.(payload);
+                bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 break;
         }
     }

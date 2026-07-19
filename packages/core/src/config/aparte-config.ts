@@ -967,10 +967,10 @@ const GLOBAL_CONFIG_KEY = '__APARTE_CONFIG_SINGLETON__';
 
 function getGlobalConfig(): AparteConfigClass {
     if (typeof window !== 'undefined') {
-        if (!(window as any)[GLOBAL_CONFIG_KEY]) {
-            (window as any)[GLOBAL_CONFIG_KEY] = new AparteConfigClass();
+        if (!(window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY]) {
+            (window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY] = new AparteConfigClass();
         }
-        return (window as any)[GLOBAL_CONFIG_KEY];
+        return (window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY]!;
     }
     // Fallback for non-browser environments (e.g., SSR, tests)
     return new AparteConfigClass();

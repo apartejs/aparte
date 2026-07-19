@@ -51,8 +51,8 @@ export class AparteComposerAddAttachment extends HTMLElement {
     private _render(): void {
         if (this.querySelector('.aparte-caa-button')) return;
 
-        const label = resolveConfig(this).t('actionUpload' as any) || 'Attach file';
-        const icon = resolveConfig(this).getIcon('paperclip' as any) || this._defaultIcon();
+        const label = resolveConfig(this).t('actionUpload') || 'Attach file';
+        const icon = resolveConfig(this).getIcon('paperclip') || this._defaultIcon();
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
         this.innerHTML = `<button

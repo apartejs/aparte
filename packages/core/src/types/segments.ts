@@ -134,7 +134,7 @@ export interface AparteCustomSegment extends AparteSegmentBase {
     /** Unique string structure to identify the view (e.g. 'onboarding', 'webcontainer', 'weather-widget') */
     subType: string;
     /** Arbitrary data payload for the component */
-    data?: any;
+    data?: unknown;
     /** Optional fallback text representation */
     fallback?: string;
 }
