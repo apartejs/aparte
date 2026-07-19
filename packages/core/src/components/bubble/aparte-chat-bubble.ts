@@ -403,7 +403,7 @@ export class AparteChatBubble extends HTMLElement {
         <div class="aparte-avatar" data-role="${role}"></div>
         <div class="aparte-body">
           <div class="aparte-header">
-            <span class="aparte-name">${displayName}</span>
+            <span class="aparte-name">${this._escapeHtml(displayName)}</span>
             <span class="aparte-timestamp"></span>
           </div>
           <div class="aparte-attachments" hidden></div>

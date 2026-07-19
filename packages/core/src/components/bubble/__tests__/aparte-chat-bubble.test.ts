@@ -37,6 +37,17 @@ describe('AparteChatBubble', () => {
         bubble?.remove();
     });
 
+    describe('name attribute escaping (XSS)', () => {
+        it('escapes a hostile name attribute instead of rendering a live element', () => {
+            // `name` is a public author/display attribute an app may bind untrusted
+            // text into (persona, multi-user author). It must be inert, like the
+            // sibling fields already are.
+            bubble = createBubble({ name: '<img src=x onerror="window.__xss=1">', role: 'assistant' });
+            expect(bubble.querySelector('.aparte-name img')).toBeNull(); // no live element
+            expect(bubble.querySelector('.aparte-name')?.innerHTML).toContain('&lt;img');
+        });
+    });
+
     // ─── Role-based action bar ────────────────────────────────────────────
 
     describe('action bar — role set before connectedCallback', () => {
