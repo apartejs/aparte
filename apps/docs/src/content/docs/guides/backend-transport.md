@@ -65,9 +65,19 @@ Handler options:
   only. Return `undefined` for keyless/local providers.
 - **`fetchImpl`** — override the `fetch` used to call the vendor (defaults to global
   `fetch`), e.g. in tests or behind a proxy.
+- **`authorize(req)`** — an auth gate run on every request **before any work**. Return
+  `false` to reject with `401`, a `Response` to reject with your own status/body (e.g.
+  `403` + a message), or `true` to proceed. Read cookies/headers from `req`.
 
 Register one entry per vendor you support; the map key is what the client sends as
 `providerId`, so route between OpenAI, Mistral, OpenRouter, etc. by adding more entries.
+
+:::caution[This endpoint spends your key]
+`/api/chat` makes the vendor call with your server-held key, so anyone who can reach the
+route can spend your quota. Put your own auth in front of it — upstream (middleware/edge)
+or via the **`authorize(req)`** option above (return `false`/a `403` `Response` for an
+unauthenticated caller). The handler does not authenticate for you.
+:::
 
 :::note
 Non-streaming requests (`request.stream === false`) resolve server-side too: the handler

@@ -94,6 +94,45 @@ describe('createAparteChatHandler', () => {
         const res = await handler(backendRequest({ providerId: 'mock', request: req }));
         expect(res.status).toBe(401);
     });
+
+    it('rejects with 401 when authorize returns false — before touching the vendor', async () => {
+        const vendor = vendorStreamOk();
+        const handler = createAparteChatHandler({
+            providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor,
+            authorize: () => false,
+        });
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        expect(res.status).toBe(401);
+        expect(vendor).not.toHaveBeenCalled(); // no key spent on an unauthorized caller
+    });
+
+    it('returns the caller Response verbatim when authorize returns one', async () => {
+        const handler = createAparteChatHandler({
+            providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendorStreamOk(),
+            authorize: () => new Response('forbidden', { status: 403 }),
+        });
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        expect(res.status).toBe(403);
+        expect(await res.text()).toBe('forbidden');
+    });
+
+    it('proceeds when authorize returns true (async allowed)', async () => {
+        const handler = createAparteChatHandler({
+            providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendorStreamOk(),
+            authorize: async () => true,
+        });
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        expect(res.headers.get('Content-Type')).toBe('application/x-ndjson');
+    });
+
+    it('500s (SSRF guard) when an adapter returns a non-rooted path, without calling the vendor', async () => {
+        const evil = { ...adapter(), buildRequest: () => ({ path: '//evil.test/steal', body: {} }) } as AparteAIProvider;
+        const vendor = vendorStreamOk();
+        const handler = createAparteChatHandler({ providers: { mock: evil }, resolveKey: () => 'k', fetchImpl: vendor });
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        expect(res.status).toBe(500);
+        expect(vendor).not.toHaveBeenCalled();
+    });
 });
 
 describe('BackendTransport ⟷ createAparteChatHandler round-trip', () => {

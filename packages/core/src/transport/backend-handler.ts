@@ -10,6 +10,13 @@ export interface AparteChatHandlerOptions {
      */
     providers: Record<string, AparteAIProvider>;
     /**
+     * Optional gate run on EVERY request before any work — this endpoint spends
+     * your server-held vendor key, so put your own auth in front of it. Return
+     * `false` to reject with 401, a `Response` to reject with your own status/body
+     * (e.g. 403 + a message), or `true` to proceed. Reads cookies/headers via `req`.
+     */
+    authorize?: (req: Request) => boolean | Response | Promise<boolean | Response>;
+    /**
      * Resolve the vendor API key for a providerId — from env / a secret store.
      * Runs server-side only. Return `undefined` for keyless/local providers.
      */
@@ -49,6 +56,14 @@ export function createAparteChatHandler(
     const doFetch = options.fetchImpl ?? fetch;
 
     return async function handler(req: Request): Promise<Response> {
+        // Auth gate first: this route spends the server-held key, so reject
+        // unauthorized callers before parsing or doing any work.
+        if (options.authorize) {
+            const verdict = await options.authorize(req);
+            if (verdict instanceof Response) return verdict;
+            if (!verdict) return jsonError(401, 'Unauthorized.');
+        }
+
         let providerId: string;
         let request: AparteChatRequest;
         try {
@@ -71,6 +86,12 @@ export function createAparteChatHandler(
         }
 
         const built = adapter.buildRequest(request);
+        // Guard against an adapter returning a non-rooted path that could redirect
+        // this server-key'd call to another origin (SSRF): require a single-rooted
+        // path — never protocol-relative (`//host`) nor an absolute URL.
+        if (!built.path.startsWith('/') || built.path.startsWith('//')) {
+            return jsonError(500, `Provider "${providerId}" produced a non-rooted request path.`);
+        }
         const key = await options.resolveKey?.(providerId);
 
         let url = `${adapter.defaultEndpoint}${built.path}`;
