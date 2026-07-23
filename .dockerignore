@@ -1,0 +1,11 @@
+# Keep the Docker build context small + force a clean install/build inside the image.
+.git
+**/node_modules
+**/dist
+**/.astro
+**/.nx
+**/coverage
+**/*.tsbuildinfo
+**/.angular
+**/playwright-report
+**/test-results

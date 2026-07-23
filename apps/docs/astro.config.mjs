@@ -7,6 +7,9 @@ const isDev = process.env.npm_lifecycle_event === 'dev';
 
 // https://astro.build/config
 export default defineConfig({
+  // The canonical site URL — enables the sitemap + correct canonical/OG links.
+  // Change this one string if the docs move to another domain.
+  site: 'https://apartejs.dev',
   integrations: [
     starlight({
       title: 'aparté',

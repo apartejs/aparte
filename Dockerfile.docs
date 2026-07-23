@@ -1,0 +1,22 @@
+# Build + serve the Starlight docs (apps/docs) as a static site — for Coolify.
+#
+# The build context MUST be the repo root: the docs' `gen` scripts read
+# packages/*/src (CSS vars, custom-elements manifest, engine TypeDoc), and the
+# site resolves the built @aparte/* packages. So we install the whole workspace,
+# build the packages, then generate + build the site, and serve the static output.
+#
+# Coolify setup: Build Pack = Dockerfile · Dockerfile Location = /Dockerfile.docs
+#                Port = 80 · Domain = apartejs.dev
+FROM node:22-slim AS build
+ENV NX_DAEMON=false CI=true
+RUN corepack enable && corepack prepare pnpm@10.4.1 --activate
+WORKDIR /app
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm build                                   # build the @aparte/* packages the docs import
+RUN pnpm --filter @aparte-workspace/docs build   # gen (CSS vars / CEM / engine API) + astro build -> apps/docs/dist
+
+FROM nginx:alpine AS serve
+# Starlight is a static MPA; nginx's default config serves the per-route index.html fine.
+COPY --from=build /app/apps/docs/dist /usr/share/nginx/html
+EXPOSE 80
