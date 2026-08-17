@@ -17,6 +17,10 @@ RUN pnpm build                                   # build the @aparte/* packages 
 RUN pnpm --filter @aparte-workspace/docs build   # gen (CSS vars / CEM / engine API) + astro build -> apps/docs/dist
 
 FROM nginx:alpine AS serve
-# Starlight is a static MPA; nginx's default config serves the per-route index.html fine.
+# Starlight is a static MPA. The custom nginx config replaces the stock default so
+# the trailing-slash redirect stays RELATIVE (same scheme) behind Coolify's
+# TLS-terminating proxy — otherwise nginx downgrades https->http and strict clients
+# (crawlers, link previews, LLM doc fetchers) read it as a redirect loop.
+COPY nginx.docs.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/docs/dist /usr/share/nginx/html
 EXPOSE 80
