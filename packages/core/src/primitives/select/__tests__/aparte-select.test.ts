@@ -130,3 +130,19 @@ describe('AparteSelect — keyboard navigation', () => {
         expect(el.querySelector('.aparte-select-trigger')!.hasAttribute('aria-activedescendant')).toBe(false);
     });
 });
+
+describe('AparteSelect — accessible name (axe aria-input-field-name)', () => {
+    it('names the combobox trigger after the placeholder by default', () => {
+        const el = mountSelect([{ value: 'one' }]);
+        expect(el.querySelector('.aparte-select-trigger')!.getAttribute('aria-label')).toBe('Pick');
+    });
+
+    it('a host aria-label overrides the placeholder as the accessible name', () => {
+        const el = document.createElement('aparte-select');
+        el.setAttribute('placeholder', 'Pick');
+        el.setAttribute('aria-label', 'Choose a model');
+        document.body.appendChild(el);
+        mounted.push(el);
+        expect(el.querySelector('.aparte-select-trigger')!.getAttribute('aria-label')).toBe('Choose a model');
+    });
+});

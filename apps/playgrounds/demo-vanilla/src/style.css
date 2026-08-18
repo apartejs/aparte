@@ -25,7 +25,7 @@ body {
     font-size: 1.05rem;
 }
 .brand span {
-    opacity: 0.55;
+    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
     font-weight: 500;
 }
 .hint {

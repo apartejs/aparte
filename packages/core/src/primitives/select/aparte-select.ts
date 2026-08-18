@@ -130,6 +130,10 @@ export class AparteSelect extends HTMLElement {
         trigger.setAttribute('role', 'combobox');
         trigger.setAttribute('aria-haspopup', 'listbox');
         trigger.setAttribute('aria-expanded', 'false');
+        // Accessible name (axe aria-input-field-name): the visible label span is
+        // the combobox VALUE, not its name — name it from the host's aria-label
+        // when provided, else the placeholder ("Select model…" etc.).
+        trigger.setAttribute('aria-label', this.getAttribute('aria-label') || placeholder);
         // The label is placeholder text (consumer/attribute-supplied) → textContent,
         // same path as _updateTriggerLabel(), never innerHTML. Only the static SVG
         // chevron uses innerHTML.

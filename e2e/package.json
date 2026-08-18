@@ -13,6 +13,7 @@
     "install-browser": "playwright install chromium webkit"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.49.0",
     "@types/node": "20.11.0",
     "typescript": "~5.7.0"

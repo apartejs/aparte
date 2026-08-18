@@ -74,6 +74,7 @@ const selected = (Object.keys(APPS) as AppKey[]).filter((k) => !only || only.inc
 const SMOKE = /framework-smoke\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
 const DEMO = /demo-vanilla\.spec\.ts/;
+const AXE = /a11y\.spec\.ts/;
 
 // Also run the pure web-component playgrounds under WebKit (Safari engine) — the
 // browser where custom-element upgrade / Shadow DOM / CSS-variable behavior is most
@@ -108,13 +109,13 @@ export default defineConfig({
             use: { ...devices['Desktop Chrome'], baseURL: url(k) },
             // Framework apps run the smoke suite + the opt-in real-model smoke (which
             // self-skips unless E2E_REAL_MODEL=1); demo-vanilla runs its HITL suite.
-            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL],
+            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL, AXE],
         })),
         // Same suites under WebKit, for the pure web-component playgrounds.
         ...selected.filter((k) => WEBKIT_APPS.includes(k)).map((k) => ({
             name: `${k}-webkit`,
             use: { ...devices['Desktop Safari'], baseURL: url(k) },
-            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL],
+            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL, AXE],
         })),
     ],
 });
