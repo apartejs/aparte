@@ -28,7 +28,21 @@ export interface AparteChatImperativeApi {
     truncateFrom: (messageId: string) => void;
     truncateResponsesAfter: (userMessageId: string) => void;
     // ── manual token streaming (agnostic AsyncIterable) ──
+    /**
+     * Stream tokens into a message from your own loop (no `AparteClient`
+     * involved) — the display-only / bring-your-own-loop mode. Resolves when
+     * the iterable completes; the message is then marked complete.
+     *
+     * If `messageId` doesn't exist the viewport auto-creates an empty
+     * assistant message — but only in its internal repo, NOT in the
+     * framework's message state. In a wrapper, call
+     * `appendMessage({ id, role: 'assistant', content: '' , timestamp: Date.now() })`
+     * first so both stay in sync. Starting a new stream cancels the previous
+     * one; {@link stopTokenStream} cancels explicitly. See the
+     * "Bring your own loop" guide.
+     */
     injectTokenStream: (messageId: string, tokens: AsyncIterable<string>) => Promise<void>;
+    /** Abort an in-flight {@link injectTokenStream} loop (the source iterable is `return()`ed). */
     stopTokenStream: () => void;
     // ── conversation lifecycle ──
     setConversationId: (id: string | null) => Promise<void>;
