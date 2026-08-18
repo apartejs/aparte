@@ -76,13 +76,26 @@ const REAL = /real-model\.spec\.ts/;
 const DEMO = /demo-vanilla\.spec\.ts/;
 const AXE = /a11y\.spec\.ts/;
 const LAYOUT = /bubble-layout\.spec\.ts/;
+const STREAMING = /streaming-lifecycle\.spec\.ts/;
+const ERRORS = /errors\.spec\.ts/;
 
-// Which specs a given app runs: demo-vanilla owns the HITL suite; the pure
-// web-component playground additionally carries the core-CSS layout invariants
-// (same CSS everywhere, so one app proves it).
-const suiteFor = (k: AppKey) =>
-    k === 'demo-vanilla' ? DEMO :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT] :
+// Which specs a given app runs.
+//
+// - Every framework app runs the boundary smoke + the a11y scan: those are about
+//   the wrapper boundary, so they must run five times.
+// - The deep behaviour suites (turn lifecycle, failure paths) exercise core's own
+//   DOM/CSS, which is identical everywhere. Running them on `vanilla` (core raw)
+//   and `react` (the reference wrapper, and what the first real consumer uses)
+//   proves them without paying five times the wall clock.
+// - `bubble-layout` stays vanilla-only: it injects a message straight into the
+//   viewport to assert core's CSS geometry, and in framework-managed mode the
+//   framework owns the DOM, so such an injection renders no bubble by design.
+// - demo-vanilla owns the human-in-the-loop suite and consumes core's built dist.
+const DEEP: RegExp[] = [STREAMING, ERRORS];
+const suiteFor = (k: AppKey): RegExp[] =>
+    k === 'demo-vanilla' ? [DEMO] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, ...DEEP] :
     [SMOKE, REAL, AXE];
 
 // Also run the pure web-component playgrounds under WebKit (Safari engine) — the

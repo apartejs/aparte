@@ -433,6 +433,12 @@ export class AparteChatBubble extends HTMLElement {
     this._setupBranchPickerListeners();
     this._updateActionBar();
     this._renderAvatar();
+    // Re-apply the streaming state onto the freshly-built `.aparte-message`.
+    // Framework wrappers create the element with its attributes already set, so
+    // `streaming` arrives BEFORE this render and `_updateStreaming()` had nothing
+    // to write to — leaving a pending assistant bubble without `aria-busy` and
+    // with its action bar exposed (copy/retry on an empty, still-streaming reply).
+    if (this._streaming) this._updateStreaming(true);
   }
 
   /**

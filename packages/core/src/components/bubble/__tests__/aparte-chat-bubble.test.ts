@@ -33,6 +33,42 @@ function createBubble(attrs: Record<string, string> = {}): BubbleEl {
     return el;
 }
 
+describe('AparteChatBubble — streaming attribute set BEFORE the inner DOM exists', () => {
+    // A framework wrapper (React/Vue/Svelte/Angular) creates the element with its
+    // attributes already set, so `streaming` lands before `_render()` builds
+    // `.aparte-message`. The state must survive that ordering: it drives
+    // `aria-busy` and the CSS that hides the action bar, so losing it shows
+    // copy/retry on an EMPTY, still-pending assistant bubble.
+    it('reflects the streaming state onto .aparte-message once rendered', () => {
+        const el = document.createElement('aparte-chat-bubble') as BubbleEl;
+        el.setAttribute('role', 'assistant');
+        el.setAttribute('streaming', '');
+        document.body.appendChild(el);
+        mountedForStreaming.push(el);
+
+        const message = el.querySelector('.aparte-message')!;
+        expect(message.getAttribute('data-streaming')).toBe('true');
+        expect(message.getAttribute('aria-busy')).toBe('true');
+        expect(message.classList.contains('aparte-message-streaming')).toBe(true);
+    });
+
+    it('leaves a non-streaming bubble untouched', () => {
+        const el = document.createElement('aparte-chat-bubble') as BubbleEl;
+        el.setAttribute('role', 'assistant');
+        document.body.appendChild(el);
+        mountedForStreaming.push(el);
+
+        const message = el.querySelector('.aparte-message')!;
+        expect(message.classList.contains('aparte-message-streaming')).toBe(false);
+        expect(message.hasAttribute('aria-busy')).toBe(false);
+    });
+});
+
+const mountedForStreaming: HTMLElement[] = [];
+afterEach(() => {
+    while (mountedForStreaming.length) mountedForStreaming.pop()!.remove();
+});
+
 describe('AparteChatBubble', () => {
     let bubble: BubbleEl;
 

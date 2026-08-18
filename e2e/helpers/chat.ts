@@ -92,6 +92,16 @@ export class ChatPage {
         return bubble.locator(`.aparte-action-btn[data-action="${action}"]`);
     }
 
+    /**
+     * Messages currently streaming. Note the `="true"`: core sets
+     * `data-streaming="false"` when a turn ends rather than removing the
+     * attribute, so a bare `[data-streaming]` matches settled bubbles too — a
+     * trap worth encapsulating once here instead of in every spec.
+     */
+    streaming(scope: Locator = this.scope): Locator {
+        return scope.locator('.aparte-message[data-streaming="true"]');
+    }
+
     /** The ‹n/m› sibling picker of a branched message. */
     branchPicker(bubble: Locator): Locator {
         return bubble.locator('.aparte-branch-picker');
