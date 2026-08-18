@@ -6,11 +6,12 @@
 
 import { test, expect } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
+import { ChatPage } from '../helpers/chat.js';
 
 test.beforeEach(async ({ page }) => {
     await installLlmMock(page);
     await page.goto('/');
-    await expect(page.locator('aparte-chat-viewport')).toBeAttached();
+    await expect(new ChatPage(page).viewport).toBeAttached();
 });
 
 test('a user attachment strip is anchored to the same edge as the bubble', async ({ page }) => {

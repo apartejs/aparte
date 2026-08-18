@@ -7,8 +7,8 @@
 
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { installLlmMock } from '../helpers/mock-llm.js';
-import { sendMessage } from '../helpers/actions.js';
+import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
+import { ChatPage } from '../helpers/chat.js';
 
 const GATED_IMPACTS = ['critical', 'serious'];
 
@@ -29,17 +29,18 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('idle chat has no critical/serious axe violations', async ({ page }) => {
+    const chat = new ChatPage(page);
     await page.goto('/');
-    await expect(page.locator('aparte-composer-input')).toBeVisible();
+    await expect(chat.editor).toBeVisible();
 
     const violations = await gatedViolations(page);
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
 });
 
 test('a streamed exchange has no critical/serious axe violations', async ({ page }) => {
+    const chat = new ChatPage(page);
     await page.goto('/');
-    await sendMessage(page, 'accessibility probe');
-    await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').first()).toBeVisible();
+    await chat.sendAndSettle('accessibility probe', { expect: MOCK_REPLY_MARK });
 
     const violations = await gatedViolations(page);
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);

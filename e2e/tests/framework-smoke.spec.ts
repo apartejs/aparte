@@ -7,7 +7,8 @@
 
 import { test, expect } from '@playwright/test';
 import { installLlmMock, MOCK_REPLY_MARK, MOCK_MODEL_ID, type LlmMock } from '../helpers/mock-llm.js';
-import { sendMessage, bubbleRoles, collectPageErrors } from '../helpers/actions.js';
+import { collectPageErrors } from '../helpers/actions.js';
+import { ChatPage } from '../helpers/chat.js';
 
 let mock: LlmMock;
 
@@ -19,13 +20,14 @@ test('mounts without runtime errors, and the idle status reserves no height', as
     // Catches the React-19 getter-only throw and the Angular double-`define`
     // crash — both surfaced as an uncaught error that blanked the page.
     const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
 
     await page.goto('/');
 
     // Universal "the app rendered" markers — present whether the wrapper emits an
     // <aparte-chat> host (vanilla) or mounts the pieces directly (React/Vue/Svelte).
-    await expect(page.locator('aparte-composer-input')).toBeVisible();
-    await expect(page.locator('aparte-chat-viewport')).toBeAttached();
+    await expect(chat.editor).toBeVisible();
+    await expect(chat.viewport).toBeAttached();
 
     // The idle typing indicator must not reserve vertical space (an M6 regression
     // where aparte-chat-status stayed laid-out while invisible). Best-effort:
@@ -40,14 +42,15 @@ test('mounts without runtime errors, and the idle status reserves no height', as
 });
 
 test('model selector populates and ungates the composer', async ({ page }) => {
+    const chat = new ChatPage(page);
     await page.goto('/');
 
     // Options render (empty on the async-race bug where subscribe ran after the
     // provider notify).
-    await expect(page.locator('aparte-model-selector aparte-option').first()).toBeAttached({ timeout: 20_000 });
+    await expect(chat.modelOptions.first()).toBeAttached({ timeout: 20_000 });
 
     // The require-model gate opens only once a model auto-selects.
-    await expect(page.locator('aparte-composer:not([data-model-gated])').first()).toBeAttached({ timeout: 20_000 });
+    await chat.waitUngated();
 });
 
 test('a gated composer blocks send until a model is selected', async ({ page }) => {
@@ -56,39 +59,37 @@ test('a gated composer blocks send until a model is selected', async ({ page }) 
     // pass the positive test above) and the model-gate CSS fix (dimmed opacity).
     await page.unrouteAll();
     mock = await installLlmMock(page, { emptyModels: true });
+    const chat = new ChatPage(page);
     await page.goto('/');
 
-    const gated = page.locator('aparte-composer[data-model-gated]').first();
-    await expect(gated).toBeVisible({ timeout: 20_000 });
-    await expect(gated).toHaveCSS('opacity', '0.55');
+    await expect(chat.gatedComposer).toBeVisible({ timeout: 20_000 });
+    await expect(chat.gatedComposer).toHaveCSS('opacity', '0.55');
 
     // Typing + Enter must NOT send: core's submit() bails on the gate, so no
     // bubble appears and the input is NOT cleared (a real send clears it).
-    const editor = page.locator('aparte-composer-input [contenteditable="true"]').first();
-    await editor.click();
-    await editor.pressSequentially('should stay blocked');
-    await editor.press('Enter');
+    await chat.type('should stay blocked');
+    await chat.editor.press('Enter');
 
-    await expect(page.locator('aparte-chat-bubble')).toHaveCount(0);
-    await expect(editor).toContainText('should stay blocked');
+    await expect(chat.bubbles()).toHaveCount(0);
+    await expect(chat.editor).toContainText('should stay blocked');
 });
 
 test('a sent message streams a reply, ordered after the user bubble, with the selected model in the request', async ({ page }) => {
+    const chat = new ChatPage(page);
     await page.goto('/');
-    await sendMessage(page, 'ordering probe');
+    await chat.sendAndSettle('ordering probe', { expect: MOCK_REPLY_MARK });
 
-    await expect(page.locator('aparte-chat-bubble[data-role="user"]')).toContainText('ordering probe');
+    await expect(chat.bubbles('user')).toContainText('ordering probe');
 
     // The user bubble must precede the assistant bubble in the DOM (React once
     // appended the assistant first). No playground seeds a chat bubble before the
     // first send, so indices 0/1 are user/assistant.
-    const roles = await bubbleRoles(page);
+    const roles = await chat.roles();
     expect(roles[0]).toBe('user');
     expect(roles[1]).toBe('assistant');
 
     // Markdown ran: the mock's `**aparte e2e mock**` rendered as <strong>.
-    await expect(page.locator('aparte-chat-bubble[data-role="assistant"] strong').first())
-        .toContainText(MOCK_REPLY_MARK);
+    await expect(chat.lastReply.locator('strong').first()).toContainText(MOCK_REPLY_MARK);
 
     // The REAL request half ran end to end: the auto-selected model id and the
     // typed message actually reached the transport (not just the canned reply).
@@ -98,10 +99,11 @@ test('a sent message streams a reply, ordered after the user bubble, with the se
 });
 
 test('the transcript scrolls once messages overflow', async ({ page }) => {
+    const chat = new ChatPage(page);
     await page.goto('/');
 
     // Enough turns to exceed the viewport height.
-    for (let i = 0; i < 7; i++) await sendMessage(page, `overflow turn ${i}`);
+    for (let i = 0; i < 7; i++) await chat.sendAndSettle(`overflow turn ${i}`, { expect: MOCK_REPLY_MARK });
 
     // The scroll container differs by mode: framework-managed scrolls the
     // <aparte-chat-viewport> itself; the vanilla shell scrolls the inner

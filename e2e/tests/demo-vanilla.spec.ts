@@ -8,13 +8,12 @@
 
 import { test, expect } from '@playwright/test';
 import { collectPageErrors } from '../helpers/actions.js';
+import { ChatPage } from '../helpers/chat.js';
 
+/** This app has no model gate (bare shell + a local echo), hence `gated: false`. */
 async function ask(page: import('@playwright/test').Page, text: string): Promise<void> {
     await expect(page.locator('aparte-chat')).toBeVisible();
-    const editor = page.locator('aparte-composer-input [contenteditable="true"]').first();
-    await editor.click();
-    await editor.pressSequentially(text);
-    await page.locator('aparte-composer-send button').first().click();
+    await new ChatPage(page).send(text, { gated: false });
 }
 
 test('mounts and runs the human-in-the-loop tool approval', async ({ page }) => {
