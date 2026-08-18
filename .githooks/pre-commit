@@ -1,0 +1,24 @@
+#!/bin/sh
+# aparte pre-commit gate — the fast half of `pnpm gate`: lint + typecheck.
+#
+# Installed by `pnpm install` (the root `prepare` script points
+# core.hooksPath at this directory). See CONTRIBUTING.md "The gate".
+#
+# Both commands are nx-cached / incremental, so a no-op commit costs seconds.
+# If one fails, FIX IT — `--no-verify` defeats the entire point of this file.
+
+set -e
+
+printf '\n[aparte] pre-commit: lint + typecheck\n'
+
+if ! pnpm lint; then
+    printf '\n[aparte] FAIL: lint. Fix it before committing (not --no-verify).\n\n'
+    exit 1
+fi
+
+if ! pnpm typecheck; then
+    printf '\n[aparte] FAIL: typecheck. Fix it before committing (not --no-verify).\n\n'
+    exit 1
+fi
+
+printf '[aparte] OK: lint + typecheck clean\n\n'

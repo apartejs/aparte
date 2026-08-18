@@ -1,0 +1,40 @@
+#!/bin/sh
+# aparte pre-push gate — the slower half of `pnpm gate`: unit tests + build,
+# plus a guard against pushing straight to `main`.
+#
+# Installed by `pnpm install` (root `prepare` -> core.hooksPath=.githooks).
+# E2E stays out of here on purpose (it boots six dev servers); CI runs it, and
+# `pnpm gate:full` runs it locally before a release.
+
+set -e
+
+# --- refuse a direct push to main -------------------------------------------
+# Feature work belongs on a branch + PR, so CI gates it before it lands. The
+# release flow legitimately pushes main: export APARTE_ALLOW_MAIN_PUSH=1 for it.
+pushing_main=0
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+    case "$remote_ref" in
+        refs/heads/main) pushing_main=1 ;;
+    esac
+done
+
+if [ "$pushing_main" = "1" ] && [ "$APARTE_ALLOW_MAIN_PUSH" != "1" ]; then
+    printf '\n[aparte] FAIL: direct push to main.\n'
+    printf '  Push a branch and open a PR so CI gates it first.\n'
+    printf '  Release flow only: APARTE_ALLOW_MAIN_PUSH=1 git push ...\n\n'
+    exit 1
+fi
+
+printf '\n[aparte] pre-push: test + build\n'
+
+if ! pnpm test; then
+    printf '\n[aparte] FAIL: unit tests. Fix them before pushing.\n\n'
+    exit 1
+fi
+
+if ! pnpm build; then
+    printf '\n[aparte] FAIL: build. Fix it before pushing.\n\n'
+    exit 1
+fi
+
+printf '[aparte] OK: tests + build green\n\n'

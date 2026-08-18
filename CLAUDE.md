@@ -125,6 +125,11 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 
 ## ✅ Conventions & before you ship
 
+- **`pnpm gate` before every commit** (lint · typecheck · test · build · packaging);
+  `pnpm gate:full` adds `pnpm e2e` — required for anything touching the framework boundary
+  or rendering. Git hooks in `.githooks/` enforce the halves automatically (pre-commit:
+  lint+typecheck, pre-push: test+build **and no direct push to `main`**). `--no-verify` is
+  never the answer; feature work goes on a branch + PR.
 - **Conventional commits**, one concern per commit. Tests green before each commit.
 - **Never commit** `dist/`, `*.tsbuildinfo`, or `.claude/` — gitignored from day 1.
   Stage explicit files; don't `git add -A`.
