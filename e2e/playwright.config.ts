@@ -78,6 +78,7 @@ const AXE = /a11y\.spec\.ts/;
 const LAYOUT = /bubble-layout\.spec\.ts/;
 const STREAMING = /streaming-lifecycle\.spec\.ts/;
 const ERRORS = /errors\.spec\.ts/;
+const ACTIONS = /bubble-actions\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -91,7 +92,7 @@ const ERRORS = /errors\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - demo-vanilla owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, ERRORS];
+const DEEP: RegExp[] = [STREAMING, ERRORS, ACTIONS];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'demo-vanilla' ? [DEMO] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, ...DEEP] :

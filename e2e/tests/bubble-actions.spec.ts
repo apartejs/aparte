@@ -1,0 +1,114 @@
+/**
+ * The bubble action bar — copy, retry (which forks a branch) and edit.
+ *
+ * These are the buttons a user reaches for most, and not one of them had any
+ * browser coverage: the unit tests assert the events fire, nothing proved the
+ * click-to-outcome path works once a real client and a real transport are wired.
+ *
+ * Defaults under test: `copy`/`retry`/`edit` on, `feedback` off
+ * (AparteConfig._bubbleActionsConfig), so `feedback-*` is deliberately absent.
+ */
+
+import { test, expect } from '@playwright/test';
+import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
+import { collectPageErrors } from '../helpers/actions.js';
+import { ChatPage } from '../helpers/chat.js';
+
+test.beforeEach(async ({ page }) => {
+    await installLlmMock(page);
+});
+
+test('the settled reply offers copy + retry, and the user bubble offers copy + edit', async ({ page }) => {
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.sendAndSettle('action bar probe', { expect: MOCK_REPLY_MARK });
+
+    await expect(chat.action(chat.lastReply, 'copy')).toBeVisible();
+    await expect(chat.action(chat.lastReply, 'retry')).toBeVisible();
+    // feedback is opt-in, so it must NOT be rendered by default.
+    await expect(chat.action(chat.lastReply, 'feedback-positive')).toHaveCount(0);
+
+    const userBubble = chat.bubbles('user').last();
+    await expect(chat.action(userBubble, 'copy')).toBeAttached();
+    await expect(chat.action(userBubble, 'edit')).toBeAttached();
+    // Retrying is an assistant-side affordance.
+    await expect(chat.action(userBubble, 'retry')).toHaveCount(0);
+});
+
+test('copy puts the reply on the clipboard and confirms it in the button', async ({ page, context, browserName }) => {
+    const chat = new ChatPage(page);
+    // Reading the clipboard needs a permission Chromium supports and WebKit doesn't.
+    const canReadClipboard = browserName === 'chromium';
+    if (canReadClipboard) await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+
+    await page.goto('/');
+    await chat.sendAndSettle('copy me', { expect: MOCK_REPLY_MARK });
+
+    const copy = chat.action(chat.lastReply, 'copy');
+    await copy.click();
+
+    // The button confirms with a checkmark — the feedback every user relies on.
+    await expect(copy.locator('svg polyline')).toBeVisible({ timeout: 5_000 });
+
+    if (canReadClipboard) {
+        const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+        expect(clipboard).toContain(MOCK_REPLY_MARK);
+    }
+});
+
+test('retry forks a branch and the ‹1/2› picker navigates between versions', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.sendAndSettle('retry probe', { expect: MOCK_REPLY_MARK });
+
+    const readRetries = await chat.recordEvents<{ messageId: string }>('aparte-retry');
+    await chat.action(chat.lastReply, 'retry').click();
+
+    // The client picked the event up (not just a DOM dispatch into the void).
+    await expect.poll(async () => (await readRetries()).length, { timeout: 10_000 }).toBeGreaterThan(0);
+
+    // A retry must FORK, not overwrite: the sibling picker appears on the reply…
+    const picker = chat.branchPicker(chat.lastReply);
+    await expect(picker).toBeVisible({ timeout: 20_000 });
+    await expect(picker).toContainText('2');
+
+    // …and the transcript still holds exactly one visible reply (the active branch).
+    await expect(chat.bubbles('assistant')).toHaveCount(1);
+
+    // Navigating back shows version 1 again.
+    await picker.locator('.aparte-branch-prev').click();
+    await expect(picker).toContainText('1');
+
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});
+
+test('editing a user message re-sends it and reports the new text', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.sendAndSettle('first wording', { expect: MOCK_REPLY_MARK });
+
+    const readEdits = await chat.recordEvents<{ messageId: string; content: string }>('aparte-edit');
+    const userBubble = chat.bubbles('user').last();
+    await chat.action(userBubble, 'edit').click();
+
+    // Edit mode swaps in the composer primitive, seeded with the original text.
+    const inlineEditor = userBubble.locator('[contenteditable="true"]').first();
+    await expect(inlineEditor).toBeVisible({ timeout: 10_000 });
+    await expect(inlineEditor).toContainText('first wording');
+
+    await inlineEditor.click();
+    await page.keyboard.press('ControlOrMeta+a');
+    await inlineEditor.pressSequentially('second wording');
+    await userBubble.locator('.aparte-action-btn[data-action="edit-save"]').click();
+
+    // The edit reached the app with the NEW content…
+    await expect.poll(async () => (await readEdits()).at(-1)?.content, { timeout: 10_000 })
+        .toContain('second wording');
+    // …the bubble shows it, and the inline editor is gone.
+    await expect(userBubble).toContainText('second wording');
+    await expect(inlineEditor).toBeHidden();
+
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});

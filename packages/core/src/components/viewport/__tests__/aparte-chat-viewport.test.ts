@@ -288,6 +288,21 @@ describe('AparteChatViewport', () => {
             expect(strip?.querySelectorAll('.aparte-thumb')).toHaveLength(1);
         });
 
+        it('propagates a content-only update to the rendered bubble', () => {
+            // What an edit does: AparteClient calls updateMessage(id, { content }).
+            // The viewport used to forward updates to the bubble only when the
+            // payload carried `status` or `segments`, so the transcript kept
+            // showing the OLD wording while the new one was sent to the model.
+            const msg = makeMsg({ id: 'edit-1', role: 'user', content: 'first wording' });
+            viewport.appendMessage(msg);
+
+            viewport.updateMessage('edit-1', { content: 'second wording' });
+
+            const bubble = viewport.querySelector('aparte-chat-bubble[message-id="edit-1"]');
+            expect(bubble?.textContent).toContain('second wording');
+            expect(bubble?.textContent).not.toContain('first wording');
+        });
+
         it('renders the segments of an appended message', () => {
             const segments: AparteSegment[] = [{ id: 's1', type: 'text', content: 'from a segment' }];
             const msg = makeMsg({ role: 'assistant', content: '', segments });

@@ -740,12 +740,19 @@ export class AparteChatViewport extends HTMLElement {
             case 'setUsage':
                 bubble.setUsage?.(payload as AparteUsage);
                 break;
-            case 'update':
-                // New atomic update for bubble
-                if ('status' in (payload as Record<string, unknown>) || 'segments' in (payload as Record<string, unknown>)) {
+            case 'update': {
+                // Atomic update: forward it when it carries anything the bubble
+                // renders. `content` and `attachments` used to be filtered out
+                // here, so an edit (which sends `{ content }`) updated the repo —
+                // and therefore the history sent to the model — while the bubble
+                // kept displaying the old text.
+                const updates = payload as Record<string, unknown>;
+                const renderable = ['status', 'segments', 'content', 'attachments', 'usage'];
+                if (renderable.some((key) => key in updates)) {
                     bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 }
                 break;
+            }
             case 'complete':
                 bubble.updateMessage?.(payload as Partial<AparteMessage>);
                 break;
