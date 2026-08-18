@@ -30,26 +30,43 @@ export type {
 } from './types.js';
 
 // Custom-element type declarations for TypeScript/JSX.
+//
+// Declared ONCE here, then merged into both JSX namespaces below: React 18
+// resolves intrinsics through the legacy GLOBAL `JSX` namespace, React 19
+// dropped it and resolves `React.JSX` instead. The peer range supports both,
+// so both augmentations ship — with only one the other major silently loses
+// every `aparte-*` element in JSX (TS2339).
+interface AparteIntrinsicElements {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-chat-viewport': any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-chat-bubble': any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-chat-status': any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-composer': any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-composer-attachments': any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-composer-add-attachment': any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-composer-input': any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    'aparte-composer-send': any;
+}
+
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-namespace -- JSX augmentation requires a namespace
     namespace JSX {
-        interface IntrinsicElements {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-chat-viewport': any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-chat-bubble': any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-chat-status': any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-composer': any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-composer-attachments': any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-composer-add-attachment': any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-composer-input': any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            'aparte-composer-send': any;
-        }
+        // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges the shared list in
+        interface IntrinsicElements extends AparteIntrinsicElements {}
+    }
+}
+
+declare module 'react' {
+    // eslint-disable-next-line @typescript-eslint/no-namespace -- React 19 resolves React.JSX
+    namespace JSX {
+        // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges the shared list in
+        interface IntrinsicElements extends AparteIntrinsicElements {}
     }
 }
