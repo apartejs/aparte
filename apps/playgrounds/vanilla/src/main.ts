@@ -55,16 +55,21 @@ if (keyInput) {
 type ChatViewport = { appendMessage(m: { id: string; role: string; content: string; timestamp: number }): void };
 const chat = document.querySelector('aparte-chat') as (HTMLElement & { viewport?: ChatViewport | null }) | null;
 
-if (chat) {
-    chat.addEventListener('aparte-send', (e) => {
+/** Append the optimistic USER bubble for one chat element. */
+function wireOptimisticUserBubble(el: HTMLElement & { viewport?: ChatViewport | null }): void {
+    el.addEventListener('aparte-send', (e) => {
         const detail = (e as CustomEvent<{ content: string }>).detail;
-        chat.viewport?.appendMessage({
-            id: `u-${Date.now()}`,
+        el.viewport?.appendMessage({
+            id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             role: 'user',
             content: detail.content,
             timestamp: Date.now(),
         });
     });
+}
+
+if (chat) {
+    wireOptimisticUserBubble(chat);
 
     // Welcome suggestion chips → dispatch a send from the chat element.
     document.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
@@ -81,4 +86,32 @@ if (chat) {
 
     // Hide the suggestions once the conversation starts.
     chat.addEventListener('aparte-send', () => document.getElementById('welcome')?.remove(), { once: true });
+}
+
+// ── Two chats on one page (`?chats=2`) ───────────────────────────────────────
+// Off by default, so the playground stays the single-chat reference. It shows the
+// multi-instance wiring: each chat carries an id, each composer points at it via
+// `target`, and ONE AparteClient serves both — it resolves the target per event,
+// so a reply can only land in the chat that sent it. The E2E multi-chat suite
+// drives this; the model gate is satisfied globally by the first selector, which
+// is why the second chat needs no selector of its own.
+if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
+    chat.id = 'chat-a';
+    chat.querySelector('aparte-composer')?.setAttribute('target', 'chat-a');
+
+    const second = document.createElement('aparte-chat') as HTMLElement & { viewport?: ChatViewport | null };
+    second.id = 'chat-b';
+    second.setAttribute('center-empty', '');
+    second.innerHTML = `
+      <aparte-chat-viewport></aparte-chat-viewport>
+      <aparte-composer target="chat-b">
+        <div class="aparte-composer-shell">
+          <div class="aparte-composer-row">
+            <aparte-composer-input placeholder="Second chat…"></aparte-composer-input>
+            <aparte-composer-send></aparte-composer-send>
+          </div>
+        </div>
+      </aparte-composer>`;
+    chat.parentElement?.appendChild(second);
+    wireOptimisticUserBubble(second);
 }

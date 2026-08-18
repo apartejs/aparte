@@ -896,6 +896,57 @@ describe('AparteClient — API key resolution', () => {
         };
     }
 
+    /**
+     * A shell like `<aparte-chat>`: it owns NO appendMessage and delegates
+     * rendering to its `.viewport`. Two of these on a page is the multi-chat
+     * case, and `target`/`targetId` is how a send says which one it came from.
+     */
+    function makeShellTarget(id: string): { shell: HTMLElement; viewport: { appendMessage: ReturnType<typeof vi.fn> } } {
+        // A real element, so the client can dispatch its lifecycle events on it
+        // the way it does on a real viewport. The spies are kept as their own
+        // object and merged in, which keeps them typed without casting the element.
+        const spies = {
+            appendMessage: vi.fn(),
+            updateMessage: vi.fn(),
+            addSegment: vi.fn(),
+            getMessages: vi.fn(() => []),
+        };
+        const viewport = document.createElement('div');
+        Object.assign(viewport, spies);
+        const shell = document.createElement('div');
+        shell.id = id;
+        (shell as unknown as { viewport: unknown }).viewport = viewport;
+        shell.appendChild(viewport);
+        document.body.appendChild(shell);
+        return { shell, viewport: spies };
+    }
+
+    it('routes a send by targetId to that host viewport, not to the first chat on the page', async () => {
+        // Regression: _handleSend resolved targetId by requiring appendMessage ON
+        // the element, which an <aparte-chat> shell doesn't have — so the id path
+        // warned and fell through to a DOM scan that picks the FIRST chat. With two
+        // chats, chat B's reply rendered inside chat A.
+        vi.spyOn(console, 'error').mockImplementation(() => undefined); // chat rejects on purpose
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const cfg = new AparteConfigClass();
+        cfg.registerAIProvider(makeMockProvider(vi.fn().mockRejectedValue(new Error('stop after routing'))));
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+
+        const a = makeShellTarget('chat-a');
+        const b = makeShellTarget('chat-b');
+        client = new AparteClient({ config: cfg, autoRegister: false });
+        client.start();
+
+        window.dispatchEvent(new CustomEvent('aparte-send', { detail: { content: 'hi B', targetId: 'chat-b' } }));
+        await vi.waitFor(() => expect(b.viewport.appendMessage).toHaveBeenCalled());
+
+        expect(a.viewport.appendMessage, 'the other chat must stay untouched').not.toHaveBeenCalled();
+        expect(warn.mock.calls.flat().join(' ')).not.toContain('targetId present but element not found');
+
+        a.shell.remove();
+        b.shell.remove();
+    });
+
     it('falls back to AparteConfig.getKey() when no keyResolver is set', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined); // chat rejects on purpose
         const cfg = new AparteConfigClass();

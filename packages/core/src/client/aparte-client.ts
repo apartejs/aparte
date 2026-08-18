@@ -807,9 +807,16 @@ export class AparteClient {
         let targetElement: AparteChatTargetElement | null = null;
         const targetId = (event.detail as { targetId?: string })?.targetId as string | undefined;
         if (targetId) {
-            const byId = document.getElementById(targetId) as AparteChatTargetElement | null;
-            if (byId && typeof byId.appendMessage === 'function') {
-                targetElement = byId;
+            // Resolve through the shared helper: an `<aparte-chat>` shell carries
+            // the id but owns no appendMessage (it delegates to `.viewport`), so
+            // requiring the method ON the element made every `target`-attributed
+            // send fall through to the DOM scan below — which returns the FIRST
+            // chat on the page. With two chats, one chat's reply landed in the
+            // other. retry/edit already used this helper; send had drifted.
+            const byId = document.getElementById(targetId) as HTMLElement | null;
+            const resolved = this._asRenderTarget<HTMLElement>(byId) as AparteChatTargetElement | null;
+            if (resolved) {
+                targetElement = resolved;
             } else {
                 console.warn('[AparteClient] ⚠️ targetId present but element not found or missing appendMessage:', targetId);
             }

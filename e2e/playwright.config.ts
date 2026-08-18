@@ -79,6 +79,7 @@ const LAYOUT = /bubble-layout\.spec\.ts/;
 const STREAMING = /streaming-lifecycle\.spec\.ts/;
 const ERRORS = /errors\.spec\.ts/;
 const ACTIONS = /bubble-actions\.spec\.ts/;
+const MULTICHAT = /multi-chat\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -95,7 +96,7 @@ const ACTIONS = /bubble-actions\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, ERRORS, ACTIONS];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'demo-vanilla' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, ...DEEP] :
     [SMOKE, REAL, AXE];
 
