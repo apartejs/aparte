@@ -122,7 +122,7 @@ Runnable examples for every framework (plus vanilla) live in
 ## Documentation
 
 The docs are a [Starlight](https://starlight.astro.build/) site in
-[`apps/docs`](./apps/docs) (run `pnpm docs` locally):
+[`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
 - **[Getting started](./apps/docs/src/content/docs/guides/getting-started.md)** — your first streaming chat, no framework
 - **[Providers](./apps/docs/src/content/docs/providers/index.md)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
@@ -147,7 +147,7 @@ pnpm install
 pnpm build        # all packages
 pnpm test         # unit suite (Vitest)
 pnpm e2e          # browser smoke E2E (Playwright; run pnpm e2e:install once)
-pnpm docs         # the docs site
+pnpm run docs     # the docs site (bare `pnpm docs` triggers npm's builtin instead)
 ```
 
 ## License

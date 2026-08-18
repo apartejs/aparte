@@ -118,7 +118,7 @@ nx test  @aparte/core
 nx affected:test             # when touching shared packages
 nx affected:build
 
-pnpm docs                    # apps/docs (Starlight dev)
+pnpm run docs                # apps/docs (Starlight dev) — `run` required: bare `pnpm docs` hits npm's builtin `docs` command (opens the browser), which shadows the script
 ```
 
 ---
