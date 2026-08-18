@@ -1,5 +1,37 @@
 # @aparte/core
 
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- d4c448b: New `fileInjectFilter` on `AparteClientOptions`: a per-file veto on top of the
+  `rawFileInject` mode. Called for each attached file the mode would inline into
+  the request; return `false` to keep it out (the file still rides on the
+  `aparte-send` event for the application layer). Lets a host keep the default
+  inline UX while blocking sensitive names (`.env`, keys, certs).
+- 7227dee: New `AparteConfig.resetLocale()`: restores the built-in English locale after a
+  `setLocale(...)` call, without having to import `DEFAULT_LOCALE` yourself.
+  Notifies mounted components like every other live setter.
+- 7227dee: `AparteAIProvider.getModels()` is now typed **synchronous-only** (`AparteAIModel[]`).
+  The `Promise<AparteAIModel[]>` form was silently ignored by `getCurrentModel()`: an
+  async provider lost its capability list (e.g. `function_calling`), which disabled
+  tools with no error or warning. Async model fetching belongs in `fetchModels()`
+  (consumed by `AparteConfig.refreshProviderModels()` and the model-selector).
+  Plain-JS consumers that still return a Promise now get an explicit `console.warn`
+  instead of a silent failure. All bundled providers already complied.
+
+### Patch Changes
+
+- 0192d63: `injectTokenStream` / `stopTokenStream` now carry real JSDoc on the canonical
+  `AparteChatImperativeApi` (shipped in the `.d.ts`, so it surfaces in every
+  wrapper): the viewport auto-creates a missing assistant message internally
+  only, so wrappers should `appendMessage` explicitly before injecting. A new
+  "Bring your own loop" docs guide covers the display-only mode end to end.
+- 622dc78: `<aparte-select>`'s combobox trigger now carries an accessible name (axe
+  `aria-input-field-name`, serious): the host's `aria-label` when provided,
+  falling back to the `placeholder`. Screen readers previously announced the
+  model selector as an unnamed combobox.
+
 ## 0.2.0-alpha.0
 
 ### Minor Changes
