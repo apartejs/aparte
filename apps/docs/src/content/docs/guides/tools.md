@@ -122,6 +122,15 @@ new AparteClient({
 }).start();
 ```
 
+:::caution[Approval is UX, not authorization]
+`needsApproval` runs **in the browser** — it protects the user from surprising tool runs,
+not your system from a malicious client. Anything a tool actually does against your backend
+must be re-validated server-side as if the approval never happened: is the caller
+authenticated, allowed to use this tool, allowed on *this* resource, and are the arguments
+valid? If you proxy through `createAparteChatHandler`, its
+[`authorize()` hook](/guides/backend-transport/) is the place for that check.
+:::
+
 ## Custom tool renderer
 
 Replace the generic pill for a specific tool name with `registerToolRenderer`. `render`
