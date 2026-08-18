@@ -16,6 +16,7 @@ export default defineConfig({
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero dependencies.',
       customCss: ['./src/styles/palette.css', './src/styles/aparte-theme.css'],
       sidebar: [
+        { label: 'Why aparté', link: '/why/' },
         { label: 'Guides', autogenerate: { directory: 'guides' } },
         {
           label: 'Providers',
