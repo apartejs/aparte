@@ -51,9 +51,9 @@ export class ChatPage {
         return this.scope.locator('aparte-composer-send button').first();
     }
 
-    /** The attachment picker's hidden file input (for `setInputFiles`). */
-    get fileInput(): Locator {
-        return this.scope.locator('aparte-composer-add-attachment input[type="file"]').first();
+    /** The attachment picker button. */
+    get attachButton(): Locator {
+        return this.scope.locator('aparte-composer-add-attachment').first();
     }
 
     /** Pending attachment tiles in the composer (before send). */
@@ -141,6 +141,20 @@ export class ChatPage {
     async waitUngated(): Promise<void> {
         await expect(this.scope.locator('aparte-composer:not([data-model-gated])').first())
             .toBeAttached({ timeout: 20_000 });
+    }
+
+    /**
+     * Attach files through the real picker. The component creates its `<input
+     * type="file">` on demand, appends it to `document.body` and removes it after
+     * the change event, so there is no stable input to target — the file-chooser
+     * event is the only reliable hook.
+     */
+    async attachFiles(files: { name: string; mimeType: string; buffer: Buffer }[]): Promise<void> {
+        const [chooser] = await Promise.all([
+            this.page.waitForEvent('filechooser'),
+            this.attachButton.click(),
+        ]);
+        await chooser.setFiles(files);
     }
 
     /** Type into the composer without sending (for gate / draft assertions). */

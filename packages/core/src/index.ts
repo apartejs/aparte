@@ -153,6 +153,10 @@ export { AparteClient } from './client/aparte-client.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
 export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
+// Turns the `File[]` an `aparte-send` carries into renderable attachments — the
+// same conversion ConversationController does, for consumers driving the
+// imperative API themselves.
+export { filesToAttachments } from './utils/files-to-attachments.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';

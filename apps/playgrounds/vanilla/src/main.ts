@@ -2,7 +2,13 @@ import '@aparte/core'; // registers the <aparte-*> custom elements
 import '@aparte/core/styles.css'; // theme variables + component styles
 import './style.css';
 
-import { registerDefaultRenderers, AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
+import {
+    registerDefaultRenderers,
+    AparteConfig,
+    AparteClient,
+    DirectTransport,
+    filesToAttachments,
+} from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 
@@ -52,18 +58,24 @@ if (keyInput) {
 // The bare <aparte-chat> shell doesn't own a ConversationController (that's the
 // framework wrappers' job), so we add the optimistic USER bubble ourselves; the
 // AparteClient appends and streams the ASSISTANT reply.
-type ChatViewport = { appendMessage(m: { id: string; role: string; content: string; timestamp: number }): void };
+type ChatViewport = { appendMessage(m: Record<string, unknown>): void };
 const chat = document.querySelector('aparte-chat') as (HTMLElement & { viewport?: ChatViewport | null }) | null;
 
-/** Append the optimistic USER bubble for one chat element. */
+/**
+ * Append the optimistic USER bubble for one chat element. Attached files ride on
+ * the event as raw `File`s; `filesToAttachments` turns them into what a bubble
+ * renders (this is the conversion the framework wrappers' ConversationController
+ * does for you).
+ */
 function wireOptimisticUserBubble(el: HTMLElement & { viewport?: ChatViewport | null }): void {
     el.addEventListener('aparte-send', (e) => {
-        const detail = (e as CustomEvent<{ content: string }>).detail;
+        const detail = (e as CustomEvent<{ content: string; files?: File[] }>).detail;
         el.viewport?.appendMessage({
             id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             role: 'user',
             content: detail.content,
             timestamp: Date.now(),
+            ...(detail.files?.length ? { attachments: filesToAttachments(detail.files) } : {}),
         });
     });
 }

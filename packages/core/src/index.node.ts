@@ -189,6 +189,9 @@ export type { ExportedMessageRepository } from './runtime/message-repository.js'
 // these two — omit them here and any SSR toolchain resolving the `node` condition
 // crashes the whole barrel with "does not provide an export named 'applyElementProps'".
 export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
+// Same rule: DOM-free at import (it only reaches for `URL.createObjectURL` when
+// CALLED, which is a browser-side concern), so it belongs on the SSR surface too.
+export { filesToAttachments } from './utils/files-to-attachments.js';
 
 // Elicitation (human-in-the-loop typed input) — DOM-free at import.
 export { requestUserInput, buildElicitationPanel } from './elicitation/index.js';

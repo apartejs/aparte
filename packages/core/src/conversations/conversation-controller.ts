@@ -3,6 +3,7 @@ import type { ConversationManager } from './conversation-manager.js';
 import type { AparteConversation } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { resolveConfig } from '../config/config-context.js';
+import { filesToAttachments } from '../utils/files-to-attachments.js';
 
 /**
  * Abstract binding between a chat UI and the conversation lifecycle.
@@ -128,17 +129,11 @@ export class AparteConversationController {
 
             const content = evt.detail?.content ?? '';
             const files = evt.detail?.files;
+            // Shared with raw-core consumers via the exported `filesToAttachments`
+            // (it carries the raw File so a storage adapter can persist it and
+            // rebuild `url` on reload).
             const attachments: AparteAttachment[] | undefined = files?.length
-                ? files.map(f => ({
-                    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-                    name: f.name,
-                    type: f.type || 'application/octet-stream',
-                    url: URL.createObjectURL(f),
-                    size: f.size,
-                    // Carry the raw File so the storage adapter can persist it
-                    // to its attachments table; reload reconstructs `url`.
-                    blob: f,
-                }))
+                ? filesToAttachments(files)
                 : undefined;
             const userMsg: AparteMessage = {
                 id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
