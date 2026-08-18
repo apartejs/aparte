@@ -131,6 +131,69 @@ describe('AparteSelect — keyboard navigation', () => {
     });
 });
 
+describe('AparteSelect — listbox wiring (axe aria-required-attr / -children / -input-field-name)', () => {
+    // The dropdown used to BE the listbox while also containing the search input,
+    // which makes a listbox with invalid children; and the combobox trigger
+    // declared no `aria-controls`. axe reports both as critical.
+    it('puts the listbox on the options container, not on the dropdown shell', () => {
+        const el = mountSelect([{ value: 'one' }]);
+        const dropdown = el.querySelector('.aparte-select-dropdown')!;
+        const list = el.querySelector('.aparte-select-options')!;
+
+        expect(dropdown.getAttribute('role')).toBeNull();
+        expect(list.getAttribute('role')).toBe('listbox');
+        // The listbox needs its own accessible name.
+        expect(list.getAttribute('aria-label')).toBe('Pick');
+    });
+
+    it('points the combobox at the listbox with aria-controls', () => {
+        const el = mountSelect([{ value: 'one' }]);
+        const trigger = el.querySelector('.aparte-select-trigger')!;
+        const list = el.querySelector('.aparte-select-options')!;
+
+        expect(list.id, 'the listbox needs an id to be referenced').toBeTruthy();
+        expect(trigger.getAttribute('aria-controls')).toBe(list.id);
+    });
+
+    it('keeps the search field OUT of the listbox', () => {
+        const el = document.createElement('aparte-select');
+        el.setAttribute('placeholder', 'Pick');
+        el.setAttribute('searchable', '');
+        document.body.appendChild(el);
+        mounted.push(el);
+
+        const search = el.querySelector('.aparte-select-search')!;
+        const list = el.querySelector('.aparte-select-options')!;
+        expect(search).not.toBeNull();
+        expect(list.contains(search), 'a listbox may only contain options/groups').toBe(false);
+    });
+});
+
+describe('AparteOptgroup — group naming inside a listbox', () => {
+    // The header used to carry `aria-label`, which turned a generic div into a
+    // named node — and a named non-option node is an invalid child of a listbox
+    // (axe: aria-required-children, critical). The GROUP must be named instead.
+    it('names the group via aria-labelledby and leaves the header generic', async () => {
+        const group = document.createElement('aparte-optgroup');
+        group.setAttribute('label', 'Ollama');
+        group.setAttribute('collapsible', '');
+        const option = document.createElement('aparte-option');
+        option.setAttribute('value', 'o1');
+        group.appendChild(option);
+        document.body.appendChild(group);
+        mounted.push(group);
+
+        const header = group.querySelector('.aparte-optgroup-header')!;
+        const labelSpan = group.querySelector('.aparte-optgroup-label')!;
+
+        expect(group.getAttribute('role')).toBe('group');
+        expect(header.hasAttribute('aria-label'), 'the header must stay a generic node').toBe(false);
+        expect(labelSpan.id, 'the label needs an id to be referenced').toBeTruthy();
+        expect(group.getAttribute('aria-labelledby')).toBe(labelSpan.id);
+        expect(labelSpan.textContent).toBe('Ollama');
+    });
+});
+
 describe('AparteSelect — accessible name (axe aria-input-field-name)', () => {
     it('names the combobox trigger after the placeholder by default', () => {
         const el = mountSelect([{ value: 'one' }]);

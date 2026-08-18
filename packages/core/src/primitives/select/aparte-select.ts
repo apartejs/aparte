@@ -28,6 +28,8 @@ export interface AparteSelectChangeDetail {
 
 export class AparteSelect extends HTMLElement {
     private static _optIdSeq = 0;
+    /** Fallback ids for the listbox `aria-controls` target when the host has no id. */
+    private static _listboxSeq = 0;
 
     private _value = '';
     private _isOpen = false;
@@ -145,9 +147,11 @@ export class AparteSelect extends HTMLElement {
         chevronSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`;
         trigger.append(labelSpan, chevronSpan);
 
+        // The dropdown is a plain shell: it also holds the search field, and a
+        // `listbox` may only contain options/groups (axe: aria-required-children,
+        // critical). The listbox lives on the options container below.
         const dropdown = document.createElement('div');
         dropdown.className = 'aparte-select-dropdown';
-        dropdown.setAttribute('role', 'listbox');
         dropdown.hidden = !this._isOpen;
 
         if (searchable) {
@@ -155,11 +159,19 @@ export class AparteSelect extends HTMLElement {
             searchInput.type = 'text';
             searchInput.className = 'aparte-select-search';
             searchInput.placeholder = 'Search...';
+            searchInput.setAttribute('aria-label', 'Search options');
             dropdown.appendChild(searchInput);
         }
 
         const optionsContainer = document.createElement('div');
         optionsContainer.className = 'aparte-select-options';
+        optionsContainer.setAttribute('role', 'listbox');
+        // A listbox is an ARIA input field, so it needs its own name; reuse the
+        // combobox's (axe: aria-input-field-name).
+        optionsContainer.setAttribute('aria-label', trigger.getAttribute('aria-label') ?? placeholder);
+        // `role="combobox"` REQUIRES aria-controls (axe: aria-required-attr).
+        optionsContainer.id = this.id ? `${this.id}-listbox` : `aparte-listbox-${++AparteSelect._listboxSeq}`;
+        trigger.setAttribute('aria-controls', optionsContainer.id);
 
         // Move slotted children (aparte-option, aparte-optgroup) into options container
         slottedChildren.forEach(child => {

@@ -118,9 +118,15 @@ aparte-option[data-active] {
     box-shadow: inset 0 0 0 2px var(--aparte-primary, #3b82f6);
 }
 
+/* Selected option: an accent TINT plus an accent bar, keeping the theme's own
+   text colour. A solid `--aparte-primary` fill with white text failed WCAG AA in
+   both themes (the brass accent is mid-luminance, so white sits around 3.4:1),
+   and an unreadable selected row is the one row that must be readable. Both
+   tokens stay overridable for a design that wants the solid fill back. */
 aparte-option[selected] {
-    background: var(--aparte-select-option-selected, var(--aparte-primary, #3b82f6));
-    color: var(--aparte-select-option-selected-text, #fff);
+    background: var(--aparte-select-option-selected, color-mix(in srgb, var(--aparte-primary, #3b82f6) 18%, transparent));
+    color: var(--aparte-select-option-selected-text, var(--aparte-select-text, var(--aparte-text, #1e293b)));
+    box-shadow: inset 2px 0 0 var(--aparte-primary, #3b82f6);
 }
 
 aparte-option[disabled] {

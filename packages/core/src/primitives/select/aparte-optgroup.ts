@@ -10,6 +10,9 @@
  */
 
 export class AparteOptgroup extends HTMLElement {
+    /** Ids for the label span the group points `aria-labelledby` at. */
+    private static _labelIdSeq = 0;
+
     static get observedAttributes(): string[] {
         return ['label', 'collapsible', 'collapsed', 'loading'];
     }
@@ -71,13 +74,19 @@ export class AparteOptgroup extends HTMLElement {
             if (!existingHeader) {
                 const header = document.createElement('div');
                 header.className = 'aparte-optgroup-header';
-                header.setAttribute('aria-label', this.label);
+                // The header stays a GENERIC node on purpose: naming it (it used to
+                // carry `aria-label`) makes it a real element inside a `listbox`,
+                // where only options and groups may live (axe:
+                // aria-required-children, critical). The name belongs on the group,
+                // via aria-labelledby below.
                 // `label` is an attribute value — with the model-selector it carries a
                 // provider-supplied name — so it goes through textContent, never
                 // innerHTML (a hostile name would otherwise inject here).
                 const labelSpan = document.createElement('span');
                 labelSpan.className = 'aparte-optgroup-label';
+                labelSpan.id = `aparte-optgroup-label-${++AparteOptgroup._labelIdSeq}`;
                 labelSpan.textContent = this.label;
+                this.setAttribute('aria-labelledby', labelSpan.id);
                 header.appendChild(labelSpan);
 
                 if (this.collapsible) {

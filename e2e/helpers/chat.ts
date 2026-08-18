@@ -131,6 +131,41 @@ export class ChatPage {
         return this.modelSelector.locator('aparte-option');
     }
 
+    get modelDropdown(): Locator {
+        return this.modelSelector.locator('.aparte-select-dropdown');
+    }
+
+    /**
+     * Provider groups. With more than one provider registered the selector groups
+     * models into `<aparte-optgroup collapsed>`, so their options are
+     * `display:none` until a group is expanded — open the dropdown, then expand.
+     */
+    get modelGroups(): Locator {
+        return this.modelSelector.locator('aparte-optgroup');
+    }
+
+    /**
+     * Open the dropdown and expand the first (or named) provider group.
+     *
+     * Returns the scope holding the now-visible options: the expanded group, or
+     * the whole selector when a single provider renders a flat list. Scope option
+     * lookups to it — the same model id exists under every provider, and options
+     * in the other, still-collapsed groups are present but hidden.
+     */
+    async openModelList(groupLabel?: string): Promise<Locator> {
+        await this.modelTrigger.click();
+        await expect(this.modelDropdown).toBeVisible();
+        if ((await this.modelGroups.count()) === 0) return this.modelSelector; // flat list
+        const group = groupLabel
+            ? this.modelGroups.filter({ hasText: groupLabel }).first()
+            : this.modelGroups.first();
+        if (await group.evaluate((el) => el.hasAttribute('collapsed'))) {
+            await group.locator('.aparte-optgroup-header').first().click();
+        }
+        await expect(group.locator('aparte-option').first()).toBeVisible();
+        return group;
+    }
+
     // ── actions ─────────────────────────────────────────────────────────────
 
     /**
@@ -155,6 +190,30 @@ export class ChatPage {
             this.attachButton.click(),
         ]);
         await chooser.setFiles(files);
+    }
+
+    /**
+     * Pick a model with the keyboard: open the list, walk the roving highlight to
+     * the option whose label matches, then Enter.
+     *
+     * Clicking works too, but the selector re-renders whenever the config
+     * notifies, so a click can chase a moving target ("element is not stable").
+     * Keyboard selection is both a real user path and immune to that churn.
+     */
+    async selectModelByKeyboard(label: string | RegExp, maxSteps = 20): Promise<void> {
+        await this.openModelList();
+        const matcher = typeof label === 'string' ? (t: string) => t.includes(label) : (t: string) => label.test(t);
+        for (let i = 0; i < maxSteps; i++) {
+            await this.page.keyboard.press('ArrowDown');
+            const active = this.modelSelector.locator('aparte-option[data-active]');
+            const text = (await active.count()) ? ((await active.first().textContent()) ?? '') : '';
+            if (matcher(text)) {
+                await this.page.keyboard.press('Enter');
+                await expect(this.modelDropdown).toBeHidden();
+                return;
+            }
+        }
+        throw new Error(`no option matching ${String(label)} within ${maxSteps} keyboard steps`);
     }
 
     /** Type into the composer without sending (for gate / draft assertions). */

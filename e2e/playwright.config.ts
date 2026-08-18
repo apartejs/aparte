@@ -82,6 +82,8 @@ const ACTIONS = /bubble-actions\.spec\.ts/;
 const MULTICHAT = /multi-chat\.spec\.ts/;
 const SEGMENTS = /segments\.spec\.ts/;
 const ATTACH = /attachments\.spec\.ts/;
+const SELECTOR = /model-selector\.spec\.ts/;
+const RESPONSIVE = /responsive\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -95,7 +97,7 @@ const ATTACH = /attachments\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - demo-vanilla owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, ERRORS, ACTIONS, SEGMENTS, ATTACH];
+const DEEP: RegExp[] = [STREAMING, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'demo-vanilla' ? [DEMO] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, ...DEEP] :
