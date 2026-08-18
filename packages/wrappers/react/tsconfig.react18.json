@@ -1,0 +1,36 @@
+{
+  // Type-checks this wrapper against **React 18** as well.
+  //
+  // The peer range is `^18 || ^19`, but the package develops against @types/react
+  // 19 — and a JSX-augmentation bug once shipped precisely because only ONE major
+  // was ever compiled: React 19 dropped the global `JSX` namespace, so the
+  // wrapper's custom elements were invisible to every React 19 consumer while CI
+  // stayed green on 18. Compiling both majors closes that blind spot.
+  //
+  // What this pass proves, precisely: the wrapper's own source compiles under an
+  // 18.x type surface (so a React-19-only API can't slip in unnoticed). It does
+  // NOT prove the legacy global `JSX` augmentation is still load-bearing — from
+  // @types/react 18.2 on, `React.JSX` exists, so the `declare module 'react'` form
+  // satisfies 18 too. That augmentation stays as cheap insurance for consumers
+  // pinned to 18.0/18.1; pinning those two-year-old types here to test it would
+  // cost more than it proves.
+  //
+  // `@types/react18` is an alias dev dep (npm:@types/react@^18); the paths below
+  // point the `react` type resolution at it for this pass only.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "declarationDir": null,
+    "composite": false,
+    "baseUrl": ".",
+    "paths": {
+      "react": ["./node_modules/@types/react18"],
+      "react/*": ["./node_modules/@types/react18/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"]
+}

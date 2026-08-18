@@ -46,6 +46,11 @@ jobs:
       - name: Typecheck tests
         run: pnpm typecheck:tests
 
+      # Both React majors the wrapper's peer range advertises. Developing against
+      # one only is how the React 19 JSX augmentation shipped broken.
+      - name: Typecheck type matrix
+        run: pnpm typecheck:matrix
+
       - name: Build
         run: pnpm build
 
