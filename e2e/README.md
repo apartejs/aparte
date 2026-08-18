@@ -43,9 +43,19 @@ run right after a core edit is usually a **stale dev server**, not a real failur
 | Spec | Scope |
 |---|---|
 | `framework-smoke` | mount, model gate, send/stream ordering, transcript scroll — all 5 framework apps |
-| `a11y` | axe-core scan (no critical/serious) idle and after an exchange |
+| `a11y` | axe-core scan (no critical/serious): idle, after an exchange, **open dropdown, mid-stream, failed turn**, plus a keyboard-only journey |
+| `streaming-lifecycle` | the turn while in flight: streaming flags, `aria-busy`, action bar out of reach, send↔stop, cancel and recovery |
+| `errors` | vendor 500, malformed SSE, empty stream — each must end the turn, stay usable, never throw — and the next send must work |
+| `bubble-actions` | copy (clipboard), retry → branch + `‹1/2›` picker, inline edit → re-send, default action set per role |
+| `segments` | thinking `<details>` open/close, code segment + copy yields source, no horizontal overflow |
+| `attachments` | real picker → chip → remove → sent bubble → file content in the request, image thumbnail + preview event, strip/bubble alignment |
+| `model-selector` | dropdown, collapsed provider groups, keyboard roving highlight, search filter, hostile model id |
+| `multi-chat` | two chats on one page: replies land only in the sender, retry/streaming don't leak (vanilla `?chats=2`) |
+| `responsive` | 390×844: usable composer, no sideways page scroll, dropdown inside the viewport |
 | `bubble-layout` | real-geometry invariants of the bubble (vanilla, incl. WebKit) |
 | `demo-vanilla` | human-in-the-loop tool approval, against core's published `dist` |
 | `real-model` | opt-in un-mocked smoke against a local model (`E2E_REAL_MODEL=1`) |
 
-Which spec runs on which app is decided by `suiteFor()` in `playwright.config.ts`.
+Which spec runs on which app is decided by `suiteFor()` in `playwright.config.ts`: the
+boundary suites run on all five framework apps, the deep behaviour suites on `vanilla`
+(core raw) and `react` (reference wrapper). WebKit covers every app except Angular.

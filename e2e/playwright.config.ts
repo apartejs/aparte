@@ -104,11 +104,13 @@ const suiteFor = (k: AppKey): RegExp[] =>
     k === 'react' ? [SMOKE, REAL, AXE, ...DEEP] :
     [SMOKE, REAL, AXE];
 
-// Also run the pure web-component playgrounds under WebKit (Safari engine) — the
-// browser where custom-element upgrade / Shadow DOM / CSS-variable behavior is most
-// likely to diverge from Chromium. The framework wrappers just mount the same
-// elements, so covering vanilla + demo-vanilla exercises the core across engines.
-const WEBKIT_APPS: AppKey[] = ['vanilla', 'demo-vanilla'];
+// Also run under WebKit (Safari engine) — the browser where custom-element
+// upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from
+// Chromium. The framework wrappers are included: "they only mount the same
+// elements" is exactly the assumption that keeps being wrong at the framework
+// boundary, which is where every browser-only bug in this project has lived.
+// Angular stays Chromium-only (its dev server is slow enough to dominate the run).
+const WEBKIT_APPS: AppKey[] = ['vanilla', 'demo-vanilla', 'react', 'vue', 'svelte'];
 
 export default defineConfig({
     testDir: './tests',
