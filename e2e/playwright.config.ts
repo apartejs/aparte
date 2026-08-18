@@ -75,6 +75,15 @@ const SMOKE = /framework-smoke\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
 const DEMO = /demo-vanilla\.spec\.ts/;
 const AXE = /a11y\.spec\.ts/;
+const LAYOUT = /bubble-layout\.spec\.ts/;
+
+// Which specs a given app runs: demo-vanilla owns the HITL suite; the pure
+// web-component playground additionally carries the core-CSS layout invariants
+// (same CSS everywhere, so one app proves it).
+const suiteFor = (k: AppKey) =>
+    k === 'demo-vanilla' ? DEMO :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT] :
+    [SMOKE, REAL, AXE];
 
 // Also run the pure web-component playgrounds under WebKit (Safari engine) — the
 // browser where custom-element upgrade / Shadow DOM / CSS-variable behavior is most
@@ -109,13 +118,13 @@ export default defineConfig({
             use: { ...devices['Desktop Chrome'], baseURL: url(k) },
             // Framework apps run the smoke suite + the opt-in real-model smoke (which
             // self-skips unless E2E_REAL_MODEL=1); demo-vanilla runs its HITL suite.
-            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL, AXE],
+            testMatch: suiteFor(k),
         })),
         // Same suites under WebKit, for the pure web-component playgrounds.
         ...selected.filter((k) => WEBKIT_APPS.includes(k)).map((k) => ({
             name: `${k}-webkit`,
             use: { ...devices['Desktop Safari'], baseURL: url(k) },
-            testMatch: k === 'demo-vanilla' ? DEMO : [SMOKE, REAL, AXE],
+            testMatch: suiteFor(k),
         })),
     ],
 });

@@ -11,8 +11,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  * attach a real instance to document.body for each test and clean up after.
  */
 
-// Register the element before importing (setup order matters in JSDOM)
+// Register the elements before importing (setup order matters in JSDOM). The
+// bubble is registered too: appendMessage() creates real bubbles, so the tests
+// that assert what a bubble renders need the definition present.
 import '../aparte-chat-viewport.js';
+import '../../bubble/aparte-chat-bubble.js';
 import type { AparteMessage, AparteSegment } from '../../../types/index.js';
 
 type ViewportEl = HTMLElement & {
@@ -255,17 +258,42 @@ describe('AparteChatViewport', () => {
             expect(bubble).not.toBeNull();
         });
 
-        it('sets the role attribute on the created bubble', () => {
+        it('marks the created bubble with the message role', () => {
             const msg = makeMsg({ role: 'user', content: '' });
             viewport.appendMessage(msg);
             const bubble = viewport.querySelector(`aparte-chat-bubble[message-id="${msg.id}"]`);
-            expect(bubble?.getAttribute('role')).toBe('user');
+            // The bubble replaces the host's `role` with the ARIA `article` by
+            // design (see AparteChatBubble.observedAttributes) and carries the
+            // message role in `data-role` — what the CSS and the E2E assert on.
+            expect(bubble?.getAttribute('data-role')).toBe('user');
+            expect(bubble?.getAttribute('role')).toBe('article');
         });
 
         it('multiple calls create multiple messages', () => {
             viewport.appendMessage(makeMsg({ role: 'user', content: 'q' }));
             viewport.appendMessage(makeMsg({ role: 'assistant', content: 'a' }));
             expect(viewport.getMessages()).toHaveLength(2);
+        });
+
+        it('renders the attachments of a user message (not only its attributes)', () => {
+            const msg = makeMsg({
+                role: 'user',
+                content: 'voila',
+                attachments: [{ id: 'att-1', name: 'data.json', type: 'application/json', url: '' }],
+            });
+            viewport.appendMessage(msg);
+            const bubble = viewport.querySelector(`aparte-chat-bubble[message-id="${msg.id}"]`);
+            const strip = bubble?.querySelector('.aparte-attachments');
+            expect(strip?.hasAttribute('hidden')).toBe(false);
+            expect(strip?.querySelectorAll('.aparte-thumb')).toHaveLength(1);
+        });
+
+        it('renders the segments of an appended message', () => {
+            const segments: AparteSegment[] = [{ id: 's1', type: 'text', content: 'from a segment' }];
+            const msg = makeMsg({ role: 'assistant', content: '', segments });
+            viewport.appendMessage(msg);
+            const bubble = viewport.querySelector(`aparte-chat-bubble[message-id="${msg.id}"]`);
+            expect(bubble?.querySelector('.aparte-segments')?.children.length).toBeGreaterThan(0);
         });
     });
 

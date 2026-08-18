@@ -712,8 +712,8 @@ aparte-chat-bubble {
   min-width: 0;
 }
 
-/* The message bubble — the surface fills ONLY the content (attachments +
-   segments + text). The sender name (above) and the action bar (below) are
+/* The message bubble — the surface fills ONLY the content (segments + text).
+   The sender name and attachment strip (above) and the action bar (below) are
    siblings in .aparte-body, so they stay OUTSIDE the coloured surface. */
 .aparte-message-content {
   border-radius: var(--aparte-message-content-radius, 0);
@@ -782,8 +782,11 @@ aparte-chat-bubble {
 .aparte-attachments {
   display: flex;
   flex-wrap: wrap;
-  /* Bubble attachments only ever render for user messages — anchor right. */
-  justify-content: flex-end;
+  /* The strip sits directly above the message bubble and belongs to it, so it
+     must share the bubble's edge. The user bubble hugs its text on the LEADING
+     edge (AI-chat convention, see .aparte-message-content below), so anchoring
+     the strip to the trailing edge would split one message across both sides. */
+  justify-content: flex-start;
   gap: var(--aparte-space-3, 6px);
   margin-bottom: var(--aparte-space-4, 8px);
   /* Really small tiles inside the conversation. */

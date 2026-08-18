@@ -397,6 +397,10 @@ export class AparteChatViewport extends HTMLElement {
                 } else {
                     wrapper.appendChild(bubble);
                 }
+                // Attributes alone can't carry segments / attachments / usage —
+                // push them through the same helper the full render path uses,
+                // or an imperatively appended message renders text-only.
+                populateBubbleFromMessage(bubble as unknown as SyncableBubble, message);
             }
         }
         this._pruneRenderedBubbles();
