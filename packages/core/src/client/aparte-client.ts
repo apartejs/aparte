@@ -182,6 +182,19 @@ export interface AparteClientOptions {
     rawFileInject?: 'all' | 'images-only' | 'none';
 
     /**
+     * Per-file veto on top of {@link rawFileInject}: called for each file the
+     * mode would inject; return `false` to keep that file out of the request.
+     * The file still rides on the `aparte-send` event for the application
+     * layer (upload, RAG). Use it to block sensitive names while keeping the
+     * default inline UX:
+     *
+     * ```ts
+     * fileInjectFilter: (f) => !/(^|\.)env$|\.(pem|key)$/i.test(f.name)
+     * ```
+     */
+    fileInjectFilter?: (file: File) => boolean;
+
+    /**
      * Config this client reads (providers, model selection, tools, system
      * prompt). Defaults to the global `AparteConfig` singleton. Pass a host's
      * instance config when scoping a client to one chat among several
@@ -891,14 +904,7 @@ export class AparteClient {
             authConfig = await this._resolveAuth(providerId);
 
             const rawFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
-            // rawFileInject controls what reaches the LLM as raw content:
-            //   'none'        → nothing inline. RAG handles all file types (incl. images).
-            //   'images-only' → images inline, text/docs to RAG via requestInterceptor.
-            //   'all' (default) → images + text files inline. Default for cloud SaaS providers.
-            const filesToInject =
-                this.options.rawFileInject === 'none' ? [] :
-                this.options.rawFileInject === 'images-only' ? rawFiles.filter(f => f.type.startsWith('image/')) :
-                rawFiles;
+            const filesToInject = this._selectFilesToInject(rawFiles);
             const contentParts = filesToInject.length > 0 ? await this._filesToContentParts(filesToInject) : [];
             messages = this._buildMessages(content, targetElement, contentParts.length > 0 ? contentParts : undefined);
         } catch (error: unknown) {
@@ -976,6 +982,23 @@ export class AparteClient {
             .map(s => (s as { content?: string }).content ?? '')
             .join('\n')
             .trim();
+    }
+
+    /**
+     * Which of the send's pending files get inlined into the request: the
+     * `rawFileInject` mode first —
+     *   'none'        → nothing inline (RAG handles all file types),
+     *   'images-only' → images inline, text/docs to the app layer,
+     *   'all' (default) → images + text files inline —
+     * then the optional per-file `fileInjectFilter` veto.
+     */
+    private _selectFilesToInject(rawFiles: File[]): File[] {
+        const byMode =
+            this.options.rawFileInject === 'none' ? [] :
+            this.options.rawFileInject === 'images-only' ? rawFiles.filter(f => f.type.startsWith('image/')) :
+            rawFiles;
+        const filter = this.options.fileInjectFilter;
+        return filter ? byMode.filter(f => filter(f)) : byMode;
     }
 
     /**

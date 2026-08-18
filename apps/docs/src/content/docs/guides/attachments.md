@@ -63,8 +63,19 @@ the request, via its `rawFileInject` option:
 In the default `'all'` mode a dropped text file — a `.env` or a log included — goes to the
 model verbatim. That's the intended batteries-included behavior for a user deliberately
 attaching a file; if your host shouldn't forward such content (secrets, PII), pick
-`'images-only'` or `'none'`, or vet files in a `requestInterceptor`.
+`'images-only'` or `'none'`, or veto individual files with `fileInjectFilter` (below).
 :::
+
+For per-file control on top of the mode, `fileInjectFilter` is called for each file the mode
+would inject — return `false` to keep it out of the request (the file still rides on the
+`aparte-send` event for your upload/RAG layer):
+
+```ts
+new AparteClient({
+  // keep the inline UX, but never forward env files or keys
+  fileInjectFilter: (f) => !/(^|\.)env$|\.(pem|key)$/i.test(f.name),
+});
+```
 
 ## Reaching the model
 

@@ -327,6 +327,46 @@ describe('AparteClient', () => {
         });
     });
 
+    // ─── _selectFilesToInject (rawFileInject mode + fileInjectFilter veto) ──
+
+    describe('_selectFilesToInject', () => {
+        const img = new File([new Blob(['x'], { type: 'image/png' })], 'a.png', { type: 'image/png' });
+        const md = new File([new Blob(['# hi'], { type: 'text/markdown' })], 'notes.md', { type: 'text/markdown' });
+        const env = new File([new Blob(['KEY=1'])], '.env', { type: '' });
+
+        it("keeps everything in the default 'all' mode", () => {
+            client = new AparteClient({ autoRegister: false });
+            expect((client as any)._selectFilesToInject([img, md, env])).toEqual([img, md, env]);
+        });
+
+        it("keeps only images in 'images-only' mode", () => {
+            client = new AparteClient({ autoRegister: false, rawFileInject: 'images-only' });
+            expect((client as any)._selectFilesToInject([img, md])).toEqual([img]);
+        });
+
+        it("keeps nothing in 'none' mode", () => {
+            client = new AparteClient({ autoRegister: false, rawFileInject: 'none' });
+            expect((client as any)._selectFilesToInject([img, md])).toEqual([]);
+        });
+
+        it('fileInjectFilter vetoes individual files after the mode', () => {
+            client = new AparteClient({
+                autoRegister: false,
+                fileInjectFilter: (f: File) => !f.name.endsWith('.env'),
+            });
+            expect((client as any)._selectFilesToInject([md, env])).toEqual([md]);
+        });
+
+        it('fileInjectFilter also applies to images', () => {
+            client = new AparteClient({
+                autoRegister: false,
+                rawFileInject: 'images-only',
+                fileInjectFilter: () => false,
+            });
+            expect((client as any)._selectFilesToInject([img])).toEqual([]);
+        });
+    });
+
     // ─── aparte-retry / aparte-edit listener registration ─────────────────────
 
     describe('aparte-retry + aparte-edit listeners', () => {
