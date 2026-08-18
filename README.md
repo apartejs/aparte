@@ -8,9 +8,9 @@ variables. **Zero dependencies** at the core.
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-> 🚧 **Pre-alpha.** The API is stabilising and the first `0.0.x` alpha is not on
-> npm yet — the `npm install` lines below are how it will work at release. Watch
-> the repo to follow along.
+> 🚀 **Alpha on npm.** Every `@aparte/*` package ships as `0.2.0-alpha.0` under
+> the `alpha` tag — `npm i @aparte/core@alpha`. The API is still stabilising
+> before the first stable cut; docs live at **[apartejs.dev](https://apartejs.dev/)**.
 
 <sub>pronounced *ah-par-té* — French *aparté*: a line spoken aside, a private word taken "in aparté". Also reads as *a part*: one composable piece.</sub>
 
@@ -121,8 +121,8 @@ Runnable examples for every framework (plus vanilla) live in
 
 ## Documentation
 
-The docs are a [Starlight](https://starlight.astro.build/) site in
-[`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
+Live at **[apartejs.dev](https://apartejs.dev/)** — a [Starlight](https://starlight.astro.build/)
+site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 
 - **[Getting started](./apps/docs/src/content/docs/guides/getting-started.md)** — your first streaming chat, no framework
 - **[Providers](./apps/docs/src/content/docs/providers/index.md)** — connect a real model (OpenAI-compatible, AI SDK, Transformers.js)
@@ -130,12 +130,16 @@ The docs are a [Starlight](https://starlight.astro.build/) site in
 - **[Customization](./apps/docs/src/content/docs/guides/customization.md)** — icons, render hooks, action registries
 - **[Conversations & branching](./apps/docs/src/content/docs/guides/conversations-branching.md)** — retry, edit, branches, persistence
 - **[The agent engine](./apps/docs/src/content/docs/guides/engine.md)** — the headless `runStreamAgent` loop
+- **[Tools & human-in-the-loop](./apps/docs/src/content/docs/guides/tools.md)** — function calling with an approve/reject gate
+- **[Backend transport](./apps/docs/src/content/docs/guides/backend-transport.md)** — your `/api/chat`, key stays server-side
+- **[Bring your own loop](./apps/docs/src/content/docs/guides/bring-your-own-loop.md)** — display-only mode for an external agent loop
 
 ## Status
 
-Built in the open. The core, engine, four wrappers, providers, plugins and six
-runnable playgrounds are in place and green (unit tests + a browser E2E suite
-across every framework). Next up: the first coordinated `0.0.x` alpha on npm.
+Alpha, built in the open. The core, engine, four wrappers, providers, plugins and
+six runnable playgrounds are **on npm as `0.2.0-alpha.0`**, green across the unit
+suite and a browser E2E suite (Chromium + WebKit, accessibility gated with
+axe-core). The API may still move before the first stable release.
 
 ## Contributing
 
