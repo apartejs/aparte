@@ -11,13 +11,23 @@ const V3_USAGE = {
     outputTokens: { total: 2, text: 2, reasoning: undefined },
 } as const;
 
-type V3Chunk = Parameters<typeof simulateReadableStream>[0] extends { chunks: Array<infer C> } ? C : never;
+/**
+ * The stream-part type the mock model expects, read off its own `doStream`
+ * signature. Deriving it from `simulateReadableStream`'s parameter instead gave
+ * `unknown` (its chunk type is a free generic), which silently produced a
+ * `ReadableStream<unknown>` the mock doesn't accept.
+ */
+type V3Chunk = MockLanguageModelV3['doStream'] extends
+    (...args: never[]) => PromiseLike<{ stream: ReadableStream<infer C> }> ? C : never;
 
 /** A mock LanguageModel replaying the given V3 spec stream parts. */
 function mockModel(chunks: unknown[], opts: { delayInMs?: number } = {}) {
     return new MockLanguageModelV3({
         doStream: {
-            stream: simulateReadableStream({ chunks: chunks as V3Chunk[], chunkDelayInMs: opts.delayInMs ?? 0 }),
+            stream: simulateReadableStream<V3Chunk>({
+                chunks: chunks as V3Chunk[],
+                chunkDelayInMs: opts.delayInMs ?? 0,
+            }),
         },
     });
 }

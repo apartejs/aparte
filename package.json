@@ -7,7 +7,8 @@
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "gate": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check-packaging",
+    "gate": "pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm test && pnpm build && pnpm check-packaging",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit && pnpm --filter @aparte/vue --filter @aparte/svelte --filter @aparte/angular run typecheck:tests",
     "gate:full": "pnpm gate && pnpm e2e",
     "build": "nx run-many -t build",
     "typecheck": "nx run-many -t typecheck",

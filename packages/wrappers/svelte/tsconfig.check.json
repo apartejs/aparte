@@ -1,0 +1,27 @@
+{
+  // Config for `svelte-check` (the `typecheck:tests` script). Two things the
+  // package's `tsc` build never sees are checked here:
+  //   1. the `.svelte` components themselves — tsc only parses `.ts`;
+  //   2. the test files, which tsconfig.json excludes so they stay out of dist.
+  //
+  // `noUnusedLocals` is off for this pass only: AparteChat.svelte carries a
+  // deliberately never-called `_assertImperativeParity()` whose whole purpose is
+  // to type-check the exported surface against AparteChatImperativeApi (Svelte 4
+  // can't annotate `export function`s generically). Real dead code is still
+  // caught by ESLint's no-unused-vars on the `.ts` sources.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "declarationDir": null,
+    "composite": false,
+    "types": ["vitest/globals", "node"],
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -13,47 +13,52 @@
  * });
  */
 export interface AparteIconProvider {
+    // EVERY key is optional: `AparteConfig.getIcon()` falls back to
+    // `DEFAULT_ICON_FALLBACKS` for any name a provider doesn't implement, so an
+    // icon pack may cover just the icons it cares about (as the example above
+    // shows). Requiring the full set made the type contradict the runtime and
+    // forced consumers — and this repo's own tests — into `as any`.
     /** Copy button icon */
-    copy: () => string;
+    copy?: () => string;
     /** Success/check icon */
-    check: () => string;
+    check?: () => string;
     /** Send message icon */
-    send: () => string;
+    send?: () => string;
     /** Loading/spinner indicator */
-    loading: () => string;
+    loading?: () => string;
     /** Error indicator */
-    error: () => string;
+    error?: () => string;
     /** Expand/show more icon */
-    expand: () => string;
+    expand?: () => string;
     /** Collapse/show less icon */
-    collapse: () => string;
+    collapse?: () => string;
     /** Terminal/command prompt icon */
-    terminal: () => string;
+    terminal?: () => string;
     /** File attachment / paperclip icon (used by upload plugin) */
-    paperclip: () => string;
+    paperclip?: () => string;
     /** Image file icon (used by upload plugin) */
-    image: () => string;
+    image?: () => string;
     /** Generic file icon (used by upload plugin) */
-    file: () => string;
+    file?: () => string;
     /** Scroll to bottom button icon */
-    scrollDown: () => string;
+    scrollDown?: () => string;
     /** Retry / regenerate icon */
-    retry: () => string;
+    retry?: () => string;
     /** Edit / pencil icon */
-    edit: () => string;
+    edit?: () => string;
     /** Thumbs up / positive feedback icon */
-    thumbUp: () => string;
+    thumbUp?: () => string;
     /** Thumbs down / negative feedback icon */
-    thumbDown: () => string;
+    thumbDown?: () => string;
     /** Previous branch arrow */
-    prevBranch: () => string;
+    prevBranch?: () => string;
     /** Next branch arrow */
-    nextBranch: () => string;
-    /** Tool call indicator (wrench) — optional so existing providers stay valid */
+    nextBranch?: () => string;
+    /** Tool call indicator (wrench) */
     tool?: () => string;
-    /** Close / failed / rejected (✕) — optional so existing providers stay valid */
+    /** Close / failed / rejected (✕) */
     close?: () => string;
-    /** Stop / halt streaming (■) — optional so existing providers stay valid */
+    /** Stop / halt streaming (■) */
     stop?: () => string;
 }
 

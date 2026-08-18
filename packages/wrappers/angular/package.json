@@ -29,6 +29,7 @@
   "scripts": {
     "build": "ng-packagr -p ng-package.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.spec.json --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"

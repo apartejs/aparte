@@ -14,11 +14,14 @@ import { describe, it, expect, afterEach } from 'vitest';
 import '../aparte-chat-bubble.js';
 import { AparteConfig } from '../../../config/aparte-config.js';
 import { registerSegmentRenderer, unregisterSegmentRenderer } from '../../../renderers/index.js';
+import type { AparteMessage, AparteSegment } from '../../../types/index.js';
 
 type BubbleEl = HTMLElement & {
     setContent(content: string): void;
     getContent(): string;
     setSiblings(count: number, index: number): void;
+    setSegments(segments: AparteSegment[]): void;
+    updateMessage(updates: Partial<AparteMessage>): void;
 };
 
 function createBubble(attrs: Record<string, string> = {}): BubbleEl {

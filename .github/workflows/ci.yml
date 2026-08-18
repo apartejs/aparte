@@ -39,6 +39,13 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Test files are excluded from every package's build tsconfig (they must not
+      # ship in dist), which left them unchecked by `tsc` entirely. This pass puts
+      # them in a type program — and covers the `.svelte` components, which plain
+      # tsc never parses.
+      - name: Typecheck tests
+        run: pnpm typecheck:tests
+
       - name: Build
         run: pnpm build
 

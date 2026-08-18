@@ -82,7 +82,7 @@ describe('AparteConfig', () => {
         it('falls back for optional icon keys a provider does not implement', () => {
             // A provider without the optional `tool` / `close` / `stop` keys (all
             // pre-existing icon packs) must fall back to the default SVG icons.
-            AparteConfig.setIconProvider({ copy: () => '<svg data-x></svg>' } as any);
+            AparteConfig.setIconProvider({ copy: () => '<svg data-x></svg>' });
 
             expect(AparteConfig.getIcon('copy')).toBe('<svg data-x></svg>');
             expect(AparteConfig.getIcon('tool')).toContain('<svg');
@@ -90,6 +90,22 @@ describe('AparteConfig', () => {
             // `stop` is a typed optional key: its fallback is the square SVG, so the
             // composer stop button renders an icon (not the literal text "stop").
             expect(AparteConfig.getIcon('stop')).toContain('<svg');
+        });
+
+        it('getIconProvider() completes a partial provider with the built-in fallbacks', () => {
+            // getIcon() has always tolerated a partial provider, but the action
+            // bar reads getIconProvider() and CALLS each icon directly — so a
+            // provider covering only `copy` used to crash on `icons.retry()`.
+            const c = new AparteConfigClass();
+            c.setIconProvider({ copy: () => '<svg data-x></svg>' });
+
+            const icons = c.getIconProvider();
+            expect(icons.copy()).toBe('<svg data-x></svg>');
+            // Every other name must still be callable, returning the default SVG.
+            for (const name of ['retry', 'edit', 'thumbUp', 'thumbDown', 'prevBranch', 'nextBranch'] as const) {
+                expect(typeof icons[name], `icons.${name} must be callable`).toBe('function');
+                expect(icons[name]()).toContain('<svg');
+            }
         });
 
         it('should set skeleton provider', () => {

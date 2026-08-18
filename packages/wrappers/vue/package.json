@@ -27,6 +27,7 @@
     "dev": "vite",
     "build": "vite build && vue-tsc -b --emitDeclarationOnly --force",
     "typecheck": "vue-tsc -b --emitDeclarationOnly --force",
+    "typecheck:tests": "vue-tsc -p tsconfig.test.json --noEmit",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",

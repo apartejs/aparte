@@ -44,8 +44,9 @@ export default tseslint.config(
   // code is guarded against unhandled promise rejections (`no-floating-promises`
   // / `no-misused-promises`). `no-explicit-any` is `error` here — the backlog is
   // zero and CI runs `--max-warnings 0`, so making it an error is just
-  // self-documenting and consistent in IDEs. Test files are excluded (their
-  // tsconfigs don't include them, and white-box tests fire promises freely).
+  // self-documenting and consistent in IDEs. Test files are excluded here
+  // (white-box tests fire promises freely); their types are checked by
+  // `pnpm typecheck:tests` instead.
   {
     files: ['packages/**/src/**/*.{ts,tsx}'],
     ignores: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**'],

@@ -585,6 +585,9 @@ describe('Segment Renderers', () => {
         it('renders three pulsing dots with a status role and aria-label', () => {
             const renderer = getSegmentRenderer('pipeline-waiting')!;
             const html = renderer.render({ id: 'pw1', type: 'pipeline-waiting' } as any);
+            // A renderer may return an element; this one returns markup, and the
+            // assertions below are string-only — narrow instead of casting.
+            if (typeof html !== 'string') throw new Error('expected HTML markup, got an element');
             expect(html).toContain('role="status"');
             expect(html).toContain('aria-label="Generating…"');
             expect((html.match(/pw-dot/g) || []).length).toBe(3);

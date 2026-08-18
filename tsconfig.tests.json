@@ -1,0 +1,52 @@
+{
+  // Type-checks the TEST files, which every package's build tsconfig excludes on
+  // purpose (they must not ship in `dist`). Without this program, test code is
+  // never seen by `tsc` — only transpiled by vitest — so it drifts: unsound
+  // casts, `.foo` read off a union that lacks it, unchecked index access. Those
+  // errors then surface only in an editor, never in the gate.
+  //
+  // One program covers every package whose tests are plain TS/TSX. The three
+  // framework wrappers need their own tool (vue-tsc / svelte-check / the Angular
+  // spec config) and carry a `typecheck:tests` script instead; the root
+  // `typecheck:tests` script runs all of them.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Check only — this program emits nothing, so the build-oriented options
+    // from the base config are turned off here.
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "composite": false,
+    "importHelpers": false,
+    // Tests touch the DOM (jsdom) and React JSX; vitest globals + node for the
+    // handful of specs that read process/env.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": ["vitest/globals", "node"],
+    // A test may keep a fixture around for readability; unused *code* is caught
+    // by lint. Every soundness rule of `strict` stays on.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    // The one rule deliberately relaxed here. In production code an unchecked
+    // `xs[0]` is a real bug class; in a test it sits right after
+    // `expect(xs).toHaveLength(n)`, and an out-of-range read fails the test
+    // loudly on the next line anyway. Keeping it on bought 92 ceremonial `!`
+    // assertions (which then need their own lint exemption) and zero defects
+    // found — while the errors that DO matter here are the unsound ones:
+    // reading a property off a union member that lacks it, bad casts,
+    // mismatched fixture shapes. Those all still fail.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": [
+    "packages/core/src/**/*",
+    "packages/engine/src/**/*",
+    "packages/locales/*/src/**/*",
+    "packages/plugins/*/src/**/*",
+    "packages/providers/ai/*/src/**/*",
+    "packages/wrappers/react/src/**/*"
+  ],
+  "exclude": ["**/node_modules/**", "**/dist/**"]
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
 import { AparteConfigClass } from '../../config/index.js';
+import type { AparteMessage } from '../../types/index.js';
 
 /**
  * AparteClient tests
@@ -1000,11 +1001,13 @@ describe('AparteClient — compaction selector', () => {
     });
 
     it('summarizes only the dropped turns and re-appends the kept ones verbatim', async () => {
-        const oldMsgs = [
+        const oldMsgs: AparteMessage[] = [
             { id: 'u1', role: 'user', content: 'old question', timestamp: 1, status: 'completed' },
             { id: 'a1', role: 'assistant', content: 'old answer', timestamp: 2, status: 'completed' },
         ];
-        const recent = [{ id: 'u2', role: 'user', content: 'recent question', timestamp: 3, status: 'completed' }];
+        const recent: AparteMessage[] = [
+            { id: 'u2', role: 'user', content: 'recent question', timestamp: 3, status: 'completed' },
+        ];
         const target = makeCompactTarget([...oldMsgs, ...recent]);
         const { cfg, captured } = makeCapturingConfig();
         const detail = done();

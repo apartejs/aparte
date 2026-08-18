@@ -37,7 +37,9 @@ function adapter(events: AparteStreamEvent[] = [{ type: 'text', delta: 'hi' } as
 
 /** A mock vendor endpoint returning a streaming 200 (bytes are irrelevant here). */
 function vendorStreamOk() {
-    return vi.fn(async () => new Response(
+    // Declared with the real fetch args so `vendor.mock.calls[0]` is typed as
+    // [input, init] — asserting on them needed an unsound cast otherwise.
+    return vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => new Response(
         new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new Uint8Array([1])); c.close(); } }),
         { status: 200 },
     ));
@@ -61,9 +63,10 @@ describe('createAparteChatHandler', () => {
         expect(lines).toEqual([{ type: 'text', delta: 'hi' }, { type: 'done' }]);
 
         // the vendor was called with the key server-side (via authHeaders)
-        const [vurl, vinit] = vendor.mock.calls[0] as [string, RequestInit];
+        const [vurl, vinit] = vendor.mock.calls[0];
         expect(vurl).toBe('https://vendor.test/v1/chat');
-        expect((vinit.headers as Record<string, string>).Authorization).toBe('Bearer sk-secret');
+        expect(vinit, 'the vendor call must carry an init with auth headers').toBeDefined();
+        expect((vinit?.headers as Record<string, string>).Authorization).toBe('Bearer sk-secret');
     });
 
     it('resolves a non-streaming request to { text } via parseText', async () => {

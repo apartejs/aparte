@@ -30,9 +30,10 @@ function bubbleIn(parent: HTMLElement, attrs: Record<string, string> = {}): Bubb
 
 function cfgWithCopyIcon(marker: string): AparteConfigClass {
     const cfg = new AparteConfigClass();
-    // Spread the full fallback provider — getIconProvider() returns the raw
-    // provider (no per-key fallback), so a partial one crashes other icons.
-    cfg.setIconProvider({ ...cfg.getIconProvider(), copy: () => `<svg data-marker="${marker}"></svg>` });
+    // A one-icon provider is enough: getIconProvider() completes it from the
+    // built-in fallbacks (it used to hand back the raw provider, so every other
+    // icon crashed and callers had to spread a full set in first).
+    cfg.setIconProvider({ copy: () => `<svg data-marker="${marker}"></svg>` });
     return cfg;
 }
 
@@ -125,8 +126,7 @@ describe('multi-instance config isolation', () => {
         attachConfig(hostA, cfgWithCopyIcon('instance'));
         const a = bubbleIn(hostA);
 
-        const full = AparteConfig.getIconProvider();
-        AparteConfig.setIconProvider({ ...full, copy: () => '<svg data-marker="global"></svg>' } as any);
+        AparteConfig.setIconProvider({ copy: () => '<svg data-marker="global"></svg>' });
 
         // The global notify rebuilds all action bars — but this bubble re-reads
         // ITS instance config, not the global.

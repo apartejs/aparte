@@ -345,14 +345,24 @@ export class AparteConfigClass {
     }
 
     /**
-     * Get the current icon provider, or a proxy that falls back to DEFAULT_ICON_FALLBACKS
+     * The icon set as a **complete** provider: every name resolves, falling back
+     * to `DEFAULT_ICON_FALLBACKS` for anything the registered provider doesn't
+     * implement. Callers (bubble action bar, composer controls) can therefore
+     * invoke `icons.copy()` unconditionally.
+     *
+     * It used to hand back the registered provider verbatim, so a provider that
+     * implemented a subset — which `getIcon()` has always supported, and which
+     * the type now states — crashed every other icon with
+     * "icons.retry is not a function".
      */
-    getIconProvider(): AparteIconProvider {
-        if (this._iconProvider) return this._iconProvider;
-        // Build a fallback provider from DEFAULT_ICON_FALLBACKS
-        return Object.fromEntries(
-            Object.entries(DEFAULT_ICON_FALLBACKS).map(([k, v]) => [k, () => v])
-        ) as unknown as AparteIconProvider;
+    getIconProvider(): Required<AparteIconProvider> {
+        const registered = this._iconProvider;
+        const complete = {} as Required<AparteIconProvider>;
+        for (const name of Object.keys(DEFAULT_ICON_FALLBACKS) as AparteIconName[]) {
+            const fn = registered?.[name];
+            complete[name] = fn ?? (() => DEFAULT_ICON_FALLBACKS[name]);
+        }
+        return complete;
     }
 
     /**
@@ -497,9 +507,8 @@ export class AparteConfigClass {
      * Falls back to textual representation if no provider is set
      */
     getIcon(name: AparteIconName): string {
-        if (this._iconProvider && this._iconProvider[name]) {
-            return this._iconProvider[name]();
-        }
+        const icon = this._iconProvider?.[name];
+        if (icon) return icon();
         return DEFAULT_ICON_FALLBACKS[name];
     }
 

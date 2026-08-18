@@ -1,0 +1,20 @@
+{
+  // Type-checks this wrapper's TESTS, which tsconfig.json excludes (they must
+  // not ship in dist). They import `.vue` SFCs, so this runs through vue-tsc —
+  // see the root `typecheck:tests` script. Rationale in ../../../tsconfig.tests.json.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "declarationDir": null,
+    "composite": false,
+    "types": ["vitest/globals", "node"],
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
