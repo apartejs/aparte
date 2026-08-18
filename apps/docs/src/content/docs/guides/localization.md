@@ -28,6 +28,16 @@ AparteConfig.setLocale(fr);
 Set it once at startup, before the chat mounts. `AparteConfig.getLocale()` returns the active locale, and
 `DEFAULT_LOCALE` (exported from `@aparte/core`) is the English baseline.
 
+A locale switch is live: mounted components re-render immediately. To go back to English — say, in a
+language toggle — call `AparteConfig.resetLocale()`:
+
+```ts
+function setLanguage(lang: 'fr' | 'en') {
+  if (lang === 'fr') AparteConfig.setLocale(fr);
+  else AparteConfig.resetLocale();
+}
+```
+
 ## Writing your own locale
 
 An `AparteLocale` is a flat record of string keys. The simplest custom locale starts from the English

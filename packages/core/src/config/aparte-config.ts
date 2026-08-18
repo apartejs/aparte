@@ -466,6 +466,16 @@ export class AparteConfigClass {
     }
 
     /**
+     * Restore the built-in English locale (the same `DEFAULT_LOCALE` core ships
+     * with). Counterpart of {@link setLocale} for language toggles — avoids
+     * having to import `DEFAULT_LOCALE` yourself.
+     */
+    resetLocale(): void {
+        this._locale = DEFAULT_LOCALE;
+        this._notify();
+    }
+
+    /**
      * Get the current locale
      */
     getLocale(): AparteLocale {
@@ -712,8 +722,17 @@ export class AparteConfigClass {
         const provider = this._aiProviders.get(defaultProvider);
         if (!provider) return undefined;
         const models = provider.getModels();
-        if (models instanceof Promise) return undefined;
-        return (models as AparteAIModel[]).find(m => m.id === defaultModel);
+        if (models instanceof Promise) {
+            // Contract violation kept survivable for plain-JS consumers: the
+            // type is sync-only, async lists belong in fetchModels().
+            console.warn(
+                `[AparteConfig] Provider "${defaultProvider}".getModels() returned a Promise — it is ignored here, ` +
+                'so model capabilities (e.g. function_calling) resolve to none and tools are disabled. ' +
+                'getModels() must return the list synchronously; implement fetchModels() for async fetching.'
+            );
+            return undefined;
+        }
+        return models.find(m => m.id === defaultModel);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

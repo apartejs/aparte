@@ -345,4 +345,39 @@ describe('AparteConfig', () => {
             expect(c.renderMarkdown('x')).not.toContain('onerror');
         });
     });
+
+    // ─── getCurrentModel: async getModels() is a contract violation ────────
+
+    describe('getCurrentModel — async getModels() guard', () => {
+        it('warns and returns undefined when getModels() returns a Promise', () => {
+            const c = new AparteConfigClass();
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            c.registerAIProvider({
+                id: 'async-p',
+                getModels: () => Promise.resolve([{ id: 'm1', name: 'M1' }]),
+            } as any);
+            c.setModelConfig({ defaultProvider: 'async-p', defaultModel: 'm1' });
+
+            expect(c.getCurrentModel()).toBeUndefined();
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('fetchModels'));
+            warn.mockRestore();
+        });
+    });
+
+    // ─── resetLocale ────────────────────────────────────────────────────────
+
+    describe('resetLocale', () => {
+        it('restores the built-in English locale and notifies subscribers', () => {
+            const c = new AparteConfigClass();
+            c.setLocale({ ...DEFAULT_LOCALE, sendButton: 'Envoyer' });
+            expect(c.getLocale().sendButton).toBe('Envoyer');
+
+            const listener = vi.fn();
+            c.subscribe(listener);
+            c.resetLocale();
+
+            expect(c.getLocale().sendButton).toBe(DEFAULT_LOCALE.sendButton);
+            expect(listener).toHaveBeenCalled();
+        });
+    });
 });

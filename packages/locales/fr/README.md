@@ -14,6 +14,16 @@ import { fr } from '@aparte/locale-fr';
 AparteConfig.setLocale(fr);
 ```
 
+To toggle back and forth at runtime (e.g. a language switcher), use
+`resetLocale()` to return to the built-in English:
+
+```ts
+function setLanguage(lang: 'fr' | 'en') {
+    if (lang === 'fr') AparteConfig.setLocale(fr);
+    else AparteConfig.resetLocale();
+}
+```
+
 `@aparte/core` is a **peer dependency**. See the [Localization guide](https://github.com/apartejs/aparte)
 for the full `AparteLocale` surface.
 

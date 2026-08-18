@@ -179,10 +179,16 @@ export interface AparteAIProvider {
     getMetadata(): AparteAIProviderMetadata;
 
     /**
-     * Returns the list of available models.
-     * Can be synchronous (static list) or async (API fetch).
+     * Returns the list of available models **synchronously** (static or cached
+     * list). Never return a Promise here — it would be ignored by
+     * `getCurrentModel()`, silently disabling capability gates such as
+     * `function_calling` (tools). For async fetching implement
+     * {@link fetchModels} instead, which `AparteConfig.refreshProviderModels()`
+     * and the model-selector consume. Note: a provider without `fetchModels`
+     * shows no models in the model-selector — `getModels()` is only read for
+     * the current-model lookup.
      */
-    getModels(): AparteAIModel[] | Promise<AparteAIModel[]>;
+    getModels(): AparteAIModel[];
 
     /**
      * Optional: Fetch models dynamically from an API.
