@@ -63,6 +63,28 @@ only in its **internal** repo, not in your framework's message state. In a wrapp
 `appendMessage` explicitly first (step 2 above) so both stay in sync.
 :::
 
+:::caution[The default composer accepts attachments]
+The default composer shell includes the attachment picker, so users *can* attach files — and
+those files arrive on the send event as `detail.files` (`event.files` in the wrappers). With
+no `AparteClient` in the page, nothing consumes them for you: a loop that forwards only
+`content` **discards them silently** while the UI suggests they were sent. Either handle
+`files` in your loop, or replace the `composer` slot with a shell that omits
+`<aparte-composer-attachments>` and `<aparte-composer-add-attachment>`:
+
+```tsx
+<AparteChat
+  composer={
+    <div className="aparte-composer-shell">
+      <div className="aparte-composer-row">
+        <aparte-composer-input />
+        <aparte-composer-send />
+      </div>
+    </div>
+  }
+/>
+```
+:::
+
 ## Push-based sources: the queue adapter
 
 `injectTokenStream` *pulls* from an iterable, but IPC-style sources *push* events at you
