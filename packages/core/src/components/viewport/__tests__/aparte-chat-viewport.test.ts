@@ -340,14 +340,16 @@ describe('AparteChatViewport', () => {
             const msg = makeMsg();
             viewport.addMessage(msg);
 
-            let receivedMessages: AparteMessage[] | null = null;
+            // Collected rather than assigned to a nullable: TS can't narrow a
+            // variable written inside a listener, which forced a bogus cast.
+            const emitted: AparteMessage[][] = [];
             viewport.addEventListener('aparte-path-changed', (e: Event) => {
-                receivedMessages = (e as CustomEvent).detail.messages;
+                emitted.push((e as CustomEvent).detail.messages);
             });
 
             viewport.addBranch(msg.id);
-            expect(receivedMessages).not.toBeNull();
-            expect((receivedMessages as AparteMessage[])[0].id).not.toBe(msg.id);
+            expect(emitted).toHaveLength(1);
+            expect(emitted[0]?.[0]?.id).not.toBe(msg.id);
         });
 
         it('dispatches path-changed on navigateBranch', () => {
@@ -501,6 +503,12 @@ describe('AparteChatViewport', () => {
         // object = segment → operate on the head message).
         const seg = (id: string, content: string): AparteSegment =>
             ({ id, type: 'text', content } as AparteSegment);
+        // `content` lives on most AparteSegment members but not all (a diff
+        // segment carries hunks), so narrow instead of reading it off the union.
+        const firstSegContent = (messageId: string): string | undefined => {
+            const s = viewport.getMessage(messageId)?.segments?.[0];
+            return s && 'content' in s ? s.content : undefined;
+        };
         type SegAPI = {
             addSegment(s: AparteSegment): void;
             updateSegment(segmentId: string, updates: Partial<AparteSegment>): void;
@@ -512,20 +520,20 @@ describe('AparteChatViewport', () => {
             const before = viewport.getMessages().length;
             (viewport as unknown as SegAPI).addSegment(seg('s1', 'hello'));
             expect(viewport.getMessages().length).toBe(before); // no phantom
-            expect(viewport.getMessage('m1')?.segments?.[0]?.content).toBe('hello');
+            expect(firstSegContent('m1')).toBe('hello');
         });
 
         it('still supports the explicit addSegment(messageId, segment) form', () => {
             viewport.appendMessage(makeMsg({ id: 'm2', role: 'assistant', content: '' }));
             (viewport as unknown as { addSegment(id: string, s: AparteSegment): void }).addSegment('m2', seg('s2', 'world'));
-            expect(viewport.getMessage('m2')?.segments?.[0]?.content).toBe('world');
+            expect(firstSegContent('m2')).toBe('world');
         });
 
         it('updateSegment(segmentId, updates) updates the head message segment', () => {
             viewport.appendMessage(makeMsg({ id: 'm3', role: 'assistant', content: '' }));
             (viewport as unknown as SegAPI).addSegment(seg('s3', 'a'));
             (viewport as unknown as SegAPI).updateSegment('s3', { content: 'ab' } as Partial<AparteSegment>);
-            expect(viewport.getMessage('m3')?.segments?.[0]?.content).toBe('ab');
+            expect(firstSegContent('m3')).toBe('ab');
         });
 
         it('removeSegment(segmentId) removes from the head message', () => {
