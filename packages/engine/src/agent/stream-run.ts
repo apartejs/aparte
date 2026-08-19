@@ -70,6 +70,21 @@ export interface StreamRunOptions {
     /** Per-tool-call handler timeout in ms. @default 300000 */
     toolTimeoutMs?: number;
     /**
+     * Called for every turn the loop appends to the history — the grouped
+     * `tool_call` envelope, each `tool_result` (resolved or rejected), and a
+     * pipeline phase's reply — in order, and always before the transport call that
+     * would carry it. Never called for the messages you passed in `baseRequest`.
+     *
+     * For hosts that own their own transcript. The loop re-sends its `messages`
+     * array every turn, which suits stateless message APIs but not a **prefix
+     * cache** (llama.cpp slots, vLLM), where turn N+1 must EXTEND turn N byte for
+     * byte. Such a host builds its own request in {@link transportCall} — ignoring
+     * `request.messages` — and mirrors these notifications into its append-only
+     * log, instead of reimplementing the loop's tool bookkeeping. Synchronous and
+     * ordered, like {@link emitter}.
+     */
+    onHistoryAppend?: (message: StreamAgentMessage) => void;
+    /**
      * Generates artifact segment ids (`prefix` is e.g. `'artifact-raw'`). The
      * default is a deterministic per-run counter; the adapter injects a
      * crypto-based one to match `_streamLoop`'s `artifact-*-<uuid>`. (Tool ids
@@ -105,8 +120,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     let idSeq = 0;
     const idGen = opts.idGen ?? ((prefix: string) => `${prefix}-${idSeq++}`);
 
-    // Mutable history the loop enriches with tool_call/tool_result turns.
+    // Mutable history the loop enriches with tool_call/tool_result turns. Every
+    // enrichment goes through `append`, so a caller owning its own transcript sees
+    // the same turns in the same order (see `onHistoryAppend`).
     const messages: StreamAgentMessage[] = [...baseRequest.messages];
+    const append = (message: StreamAgentMessage): void => {
+        messages.push(message);
+        opts.onHistoryAppend?.(message);
+    };
 
     // Pipeline mode (mirrors _streamLoop): each phase is one turn with
     // its own system message; phase N's reply is appended before phase N+1.
@@ -170,8 +191,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 continue;
             }
             emitter({ type: 'tool-resolved', toolCallId: syntheticId, result: outcome.content });
-            messages.push({ role: 'tool_call', content: '', toolCalls: [{ id: syntheticId, name: tc.name, input: tc.input }] });
-            messages.push({ role: 'tool_result', content: outcome.content, toolCallId: syntheticId });
+            append({ role: 'tool_call', content: '', toolCalls: [{ id: syntheticId, name: tc.name, input: tc.input }] });
+            append({ role: 'tool_result', content: outcome.content, toolCallId: syntheticId });
             baseRequest = { ...baseRequest, toolChoice: 'none', tools: undefined };
         }
 
@@ -305,8 +326,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     const mimeType = input.mimeType ?? 'text/plain';
                     const kind = deriveArtifactKind(mimeType, 'text');
                     emitter({ type: 'artifact-ready', id: `artifact-${event.id}`, mimeType, kind, title: input.title ?? kind, content: input.content ?? '' });
-                    messages.push({ role: 'tool_call', content: '', toolCalls: [{ id: event.id, name: event.name, input: event.input }] });
-                    messages.push({ role: 'tool_result', content: 'Artifact created successfully.', toolCallId: event.id });
+                    append({ role: 'tool_call', content: '', toolCalls: [{ id: event.id, name: event.name, input: event.input }] });
+                    append({ role: 'tool_result', content: 'Artifact created successfully.', toolCallId: event.id });
                     continue;
                 }
 
@@ -340,8 +361,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     if (!decision.approved) {
                         const rejection = 'Tool execution was rejected by the user.';
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
-                        pushToolCallEnvelope(messages, toolCallsThisTurn, precedingText);
-                        messages.push({ role: 'tool_result', content: rejection, toolCallId: event.id });
+                        pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
+                        append({ role: 'tool_result', content: rejection, toolCallId: event.id });
                         continueLoop = false;
                         break;
                     }
@@ -363,8 +384,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     continueLoop = false;
                 } else {
                     emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content });
-                    pushToolCallEnvelope(messages, toolCallsThisTurn, precedingText);
-                    messages.push({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
+                    pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
+                    append({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
                 }
             }
 
@@ -394,7 +415,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             if (pipeline && pipelineIndex < pipeline.length - 1) {
                 // Feed this phase's reply into history as context for the next.
                 if (precedingText.trim()) {
-                    messages.push({ role: 'assistant', content: precedingText.trim() });
+                    append({ role: 'assistant', content: precedingText.trim() });
                 }
                 pipelineIndex++;
                 emitter({ type: 'phase-advance', index: pipelineIndex });
@@ -413,10 +434,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 /**
  * Push the single grouped `tool_call` envelope for the turn — but only once,
  * even when the turn has several tool calls (each call's `tool_result` is pushed
- * separately). Mirrors `_streamLoop`'s `existingToolCallMsg` guard.
+ * separately). Mirrors `_streamLoop`'s `existingToolCallMsg` guard. Reads
+ * `messages` for that guard and writes through `append`, so the duplicate
+ * suppression also applies to the `onHistoryAppend` notification.
  */
 function pushToolCallEnvelope(
     messages: StreamAgentMessage[],
+    append: (message: StreamAgentMessage) => void,
     toolCallsThisTurn: StreamToolCall[],
     precedingText: string,
 ): void {
@@ -424,7 +448,7 @@ function pushToolCallEnvelope(
         m => m.role === 'tool_call' && m.toolCalls?.some(tc => toolCallsThisTurn.some(t => t.id === tc.id)),
     );
     if (exists) return;
-    messages.push({
+    append({
         role: 'tool_call',
         content: '',
         toolCalls: toolCallsThisTurn,

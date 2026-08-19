@@ -5,6 +5,7 @@ import type {
     StreamRunEvent,
     StreamChatRequest,
     StreamToolHandler,
+    StreamAgentMessage,
 } from '../stream-events';
 
 // ─── harness (mirrors agent-loop.test.ts scripted()/recorder()) ──────────────
@@ -524,5 +525,125 @@ describe('runStreamAgent — multi-phase pipeline', () => {
         expect((rec.events.find(e => e.type === 'artifact-close') as { content: string }).content).toBe('<h1>Hi</h1>');
         expect(rec.types()).not.toContain('phase-advance');
         expect(t.calls[0]!.messages[0]).toEqual({ role: 'system', content: 'MAKE' });
+    });
+});
+
+describe('runStreamAgent — onHistoryAppend (the caller can own the history)', () => {
+    // The loop keeps its own `messages` array and re-sends it every turn. A host
+    // with a prefix cache (llama.cpp slots, vLLM) needs the opposite: an
+    // append-only prompt whose turn N+1 EXTENDS turn N byte for byte. It can
+    // already build its own request in `transportCall` — what it could not do was
+    // learn which turns the loop appended without reimplementing the loop's
+    // tool_call/tool_result bookkeeping. This hook is that missing half.
+
+    it('notifies the tool_call envelope then the tool_result, before the next turn goes out', async () => {
+        const t = scriptedTransport([
+            [
+                { type: 'text', delta: 'let me look' },
+                { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } },
+                { type: 'done' },
+            ],
+            [{ type: 'text', delta: 'found it' }, { type: 'done' }],
+        ]);
+        // Interleave the two channels so ordering is observable, not just contents.
+        const log: string[] = [];
+        const appended: StreamAgentMessage[] = [];
+        const transportCall: StreamRunOptions['transportCall'] = (request) => {
+            log.push('call');
+            return t.transportCall(request);
+        };
+
+        await runStreamAgent(baseOpts({
+            transportCall,
+            toolLookup: () => async () => ({ content: 'result text' }),
+            onHistoryAppend: (m) => { log.push(`append:${m.role}`); appended.push(m); },
+        }));
+
+        expect(log).toEqual(['call', 'append:tool_call', 'append:tool_result', 'call']);
+        expect(appended[0]).toEqual({
+            role: 'tool_call',
+            content: '',
+            toolCalls: [{ id: 'c1', name: 'search', input: { q: 'x' } }],
+            precedingText: 'let me look',
+        });
+        expect(appended[1]).toEqual({ role: 'tool_result', content: 'result text', toolCallId: 'c1' });
+    });
+
+    it('never notifies the caller of its own baseRequest messages', async () => {
+        const appended: StreamAgentMessage[] = [];
+        await runStreamAgent(baseOpts({
+            baseRequest: { messages: [{ role: 'system', content: 'sys' }, { role: 'user', content: 'hi' }] },
+            transportCall: async () => streamOf([{ type: 'text', delta: 'yo' }, { type: 'done' }]),
+            onHistoryAppend: (m) => appended.push(m),
+        }));
+        expect(appended).toEqual([]);
+    });
+
+    it('reproduces the loop\'s own history from the notifications alone', async () => {
+        // The bonaparte scenario: ignore `request.messages`, rebuild from the hook.
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'a', input: {} }, { type: 'done' }],
+            [{ type: 'tool_use', id: 'c2', name: 'b', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'done' }, { type: 'done' }],
+        ]);
+        const mine: StreamAgentMessage[] = [{ role: 'user', content: 'hi' }];
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall,
+            toolLookup: (name) => async () => ({ content: `r-${name}` }),
+            onHistoryAppend: (m) => mine.push(m),
+        }));
+        // Last turn's request is the loop's full history — ours must match it.
+        expect(mine).toEqual(t.calls.at(-1)!.messages);
+    });
+
+    it('notifies a rejected tool call and a pipeline phase reply too', async () => {
+        const rejected: StreamAgentMessage[] = [];
+        await runStreamAgent(baseOpts({
+            transportCall: async () => streamOf([{ type: 'tool_use', id: 'c1', name: 'rm', input: {} }, { type: 'done' }]),
+            toolLookup: () => async () => ({ content: 'never runs' }),
+            toolConfigLookup: () => ({ needsApproval: true }),
+            approvalResolver: async () => ({ approved: false }),
+            onHistoryAppend: (m) => rejected.push(m),
+        }));
+        expect(rejected.map(m => m.role)).toEqual(['tool_call', 'tool_result']);
+        expect(rejected[1]!.content).toContain('rejected by the user');
+
+        const phases: StreamAgentMessage[] = [];
+        await runStreamAgent(baseOpts({
+            transportCall: async () => streamOf([{ type: 'text', delta: 'reply1' }, { type: 'done' }]),
+            baseRequest: {
+                messages: [{ role: 'user', content: 'go' }],
+                _meta: { pipeline: [{ mode: 'text', system: 'P1' }, { mode: 'text', system: 'P2' }] },
+            },
+            onHistoryAppend: (m) => phases.push(m),
+        }));
+        expect(phases).toEqual([{ role: 'assistant', content: 'reply1' }]);
+    });
+
+    it('changes nothing when it is not supplied', async () => {
+        // Non-regression guard for the 1.0 story: same events, same history, hook
+        // or no hook. The suites above assert the no-hook behaviour in detail; this
+        // pins that adding the hook did not perturb it.
+        const withHook = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'a', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'end' }, { type: 'done' }],
+        ]);
+        const without = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'a', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'end' }, { type: 'done' }],
+        ]);
+        const recA = recorder();
+        const recB = recorder();
+        await runStreamAgent(baseOpts({
+            transportCall: withHook.transportCall, emitter: recA.emitter,
+            toolLookup: () => async () => ({ content: 'r' }),
+            onHistoryAppend: () => { /* observing only */ },
+        }));
+        await runStreamAgent(baseOpts({
+            transportCall: without.transportCall, emitter: recB.emitter,
+            toolLookup: () => async () => ({ content: 'r' }),
+        }));
+        expect(recA.events).toEqual(recB.events);
+        expect(withHook.calls).toEqual(without.calls);
     });
 });

@@ -17,4 +17,36 @@ transport and asserts identical output).
 `@aparte/core` is an **optional peer** — `runStreamAgent` and its parsers import nothing from
 it; the orchestrator/memory helpers use core's config/types when present.
 
+## Owning the history (prefix-cache hosts)
+
+By default the loop keeps the message list and re-sends it every turn, enriched with the
+`tool_call` / `tool_result` turns it produced. That is right for a stateless message API, and
+wrong for a **prefix cache** — llama.cpp slots, vLLM — where turn N+1 must *extend* turn N
+byte for byte or the cache is thrown away.
+
+Such a host owns its own transcript. It already controls the request (`transportCall` receives
+the built request and may ignore `request.messages`); `onHistoryAppend` is the other half —
+it reports each turn the loop appends, in order, before the call that would carry it, so you
+don't reimplement the loop's tool bookkeeping:
+
+```ts
+const log = new PromptLog();                       // your append-only transcript
+
+await runStreamAgent({
+  // …messageId, emitter, signal, toolLookup
+  baseRequest: { messages: [] },                   // unused by your transport
+  onHistoryAppend: (turn) => log.append(turn),     // tool_call · tool_result · phase reply
+  transportCall: () => myCompletion(log.render()), // your own bytes, extended not rebuilt
+});
+```
+
+Wiring it through core's seam needs no core change — augment the options at injection:
+
+```ts
+new AparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, onHistoryAppend }) });
+```
+
+Serializing tool inventories/calls/results into a raw prompt is still yours to write: the
+providers that do it target message-based APIs.
+
 > Part of the [aparté](https://github.com/apartejs/aparte) monorepo. ESM-only.
