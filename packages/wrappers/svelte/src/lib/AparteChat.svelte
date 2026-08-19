@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
 
   export let messages: AparteMessage[] = [];
@@ -232,7 +232,7 @@
           data-role={m.role}
           timestamp={m.timestamp}
           content={m.content}
-          streaming={(m.status === 'streaming' || m.status === 'pending') ? '' : null}
+          streaming={isAwaitingReply(m) ? '' : null}
         />
       </slot>
     {/each}

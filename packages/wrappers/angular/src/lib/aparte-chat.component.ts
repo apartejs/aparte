@@ -29,7 +29,7 @@ import type {
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
-import { AparteChatHost } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply } from '@aparte/core';
 
 /**
  * AparteChatComponent — Angular 19 Wrapper
@@ -79,7 +79,7 @@ import { AparteChatHost } from '@aparte/core';
               [attr.data-role]="message.role"
               [attr.timestamp]="message.timestamp"
               [attr.content]="message.content"
-              [attr.streaming]="(message.status === 'streaming' || message.status === 'pending') ? '' : null"
+              [attr.streaming]="awaitingReply(message) ? '' : null"
             ></aparte-chat-bubble>
           }
         }
@@ -167,6 +167,13 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     }
 
     private elementRef = inject(ElementRef);
+
+    /**
+     * Template bridge to core's shared `isAwaitingReply` (an Angular template can't
+     * call an imported function). One rule for the four wrappers and core itself,
+     * so "is this bubble in flight" can't drift between them.
+     */
+    readonly awaitingReply = isAwaitingReply;
 
     // ── Input Signals ────────────────────────────────────────────────────────
 

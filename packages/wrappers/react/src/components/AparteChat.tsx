@@ -8,7 +8,7 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from 'react';
-import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
@@ -318,7 +318,7 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
                                 data-role={m.role}
                                 timestamp={m.timestamp}
                                 content={m.content}
-                                streaming={m.status === 'streaming' || m.status === 'pending' ? '' : undefined}
+                                streaming={isAwaitingReply(m) ? '' : undefined}
                             />
                         )
                 ))}

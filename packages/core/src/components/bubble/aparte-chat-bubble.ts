@@ -191,12 +191,14 @@ export class AparteChatBubble extends HTMLElement {
   setSegments(segments: AparteSegment[]): void {
     this._segments = segments;
     this._renderSegments();
+    this._updateWaiting();
   }
 
   /** Add a segment */
   addSegment(segment: AparteSegment): void {
     this._segments.push(segment);
     this._appendSegmentEl(segment);
+    this._updateWaiting();
   }
 
   /** Update a specific segment */
@@ -231,6 +233,7 @@ export class AparteChatBubble extends HTMLElement {
     }
     const el = this._segmentsEl?.querySelector(`[data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
+    this._updateWaiting();
   }
 
   /** Set attachments (chips shown above message content, user role only) */
@@ -410,6 +413,10 @@ export class AparteChatBubble extends HTMLElement {
           <div class="aparte-message-content">
             <div class="aparte-segments"></div>
             <div class="aparte-content"></div>
+            <div class="aparte-waiting" hidden>
+              <span class="aparte-dots" aria-hidden="true"><span class="aparte-dot"></span><span class="aparte-dot"></span><span class="aparte-dot"></span></span>
+              <span class="aparte-sr-only"></span>
+            </div>
           </div>
           <div class="aparte-footer">
             <div class="aparte-branch-picker" hidden>
@@ -439,6 +446,31 @@ export class AparteChatBubble extends HTMLElement {
     // to write to — leaving a pending assistant bubble without `aria-busy` and
     // with its action bar exposed (copy/retry on an empty, still-streaming reply).
     if (this._streaming) this._updateStreaming(true);
+    this._updateWaiting();
+  }
+
+  /**
+   * Show the built-in waiting indicator while this bubble is in flight and has
+   * nothing to show yet — the gap between "user sends" and the first token, which
+   * used to be a bubble with a name and an empty body.
+   *
+   * The dots are CSS (no per-token work, themable, honours reduced-motion); the
+   * accessible name is `locale.typing`, next to the `aria-busy` the streaming state
+   * already sets. A custom bubble shell without the region simply has no indicator
+   * (same null-guarded degradation as the other region hooks).
+   */
+  private _updateWaiting(): void {
+    const el = this.querySelector('.aparte-waiting') as HTMLElement | null;
+    if (!el) return;
+    const waiting = this._streaming
+      && this._role !== 'user'
+      && this._segments.length === 0
+      && !this._content.trim();
+    el.hidden = !waiting;
+    if (!waiting) return;
+    const label = this._cfg.getLocale().typing;
+    const sr = el.querySelector('.aparte-sr-only');
+    if (sr && sr.textContent !== label) sr.textContent = label;
   }
 
   /**
@@ -502,11 +534,15 @@ export class AparteChatBubble extends HTMLElement {
     // If we have segments, don't render simple content
     if (this._segments.length > 0) {
       this._contentEl.style.display = 'none';
+      this._updateWaiting();
       return;
     }
 
     this._contentEl.style.display = '';
     this._contentEl.innerHTML = this._cfg.renderMarkdown(this._content);
+    // The first token retires the waiting indicator (and a cleared content brings
+    // it back, e.g. a retry that resets the bubble before re-streaming).
+    this._updateWaiting();
     // The Markdown provider only emits plain <pre><code>; apply the registered
     // syntax highlighter (if any) to those blocks. Skipped while streaming —
     // re-run once on completion (see _updateStreaming) to avoid per-token churn.
@@ -1062,6 +1098,7 @@ export class AparteChatBubble extends HTMLElement {
         message.classList.remove('aparte-message-streaming');
       }
     }
+    this._updateWaiting();
     // Streaming just finished: highlight the final content once (skipped during
     // streaming to avoid re-highlighting on every token).
     if (wasStreaming && !streaming) this._highlightContentCode();

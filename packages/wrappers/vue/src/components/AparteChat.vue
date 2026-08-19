@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
-import { AparteChatHost, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
@@ -204,7 +204,7 @@ defineExpose({
             :data-role="m.role"
             :timestamp="m.timestamp"
             :content="m.content"
-            :streaming="(m.status === 'streaming' || m.status === 'pending') ? '' : null"
+            :streaming="isAwaitingReply(m) ? '' : null"
           />
         </slot>
       </template>

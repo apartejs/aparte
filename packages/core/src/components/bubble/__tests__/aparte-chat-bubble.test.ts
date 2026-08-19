@@ -541,6 +541,75 @@ describe('AparteChatBubble', () => {
     });
 
     // ─── Custom structural shell (setBubbleShellRenderer) ─────────────────
+    // ─── the waiting state ───────────────────────────────────────────────────
+    // Between "user sends" and the first token there was nothing: a name, an empty
+    // body, and (in the display-only path) copy/retry on a reply that doesn't
+    // exist. The bubble is where the user is already looking, so the indicator
+    // lives here — no app wiring, identical in raw core and every wrapper.
+    describe('waiting indicator', () => {
+        afterEach(() => AparteConfig.reset());
+
+        it('shows while an assistant bubble is streaming with nothing in it', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'w1', streaming: '' });
+            const waiting = bubble.querySelector('.aparte-waiting') as HTMLElement;
+            expect(waiting).not.toBeNull();
+            expect(waiting.hidden).toBe(false);
+            // The dots are decorative; the accessible name comes from the locale.
+            expect(waiting.querySelector('.aparte-dots')?.getAttribute('aria-hidden')).toBe('true');
+            expect(waiting.textContent).toContain(AparteConfig.getLocale().typing);
+        });
+
+        it('takes its label from the active locale, not a hardcoded string', () => {
+            // `locale.typing` shipped in DEFAULT_LOCALE and was read by nothing. A
+            // French app must not be told "Typing".
+            AparteConfig.setLocale({ ...AparteConfig.getLocale(), typing: 'Réflexion…' });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'w1b', streaming: '' });
+            expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Réflexion…');
+        });
+
+        it('disappears on the first token and stays gone', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'w2', streaming: '' });
+            const waiting = bubble.querySelector('.aparte-waiting') as HTMLElement;
+            expect(waiting.hidden).toBe(false);
+
+            (bubble as unknown as { appendToken(c: string): void }).appendToken('H');
+            expect(waiting.hidden).toBe(true);
+            (bubble as unknown as { appendToken(c: string): void }).appendToken('i');
+            expect(waiting.hidden).toBe(true);
+        });
+
+        it('never shows for a user bubble, nor for a finished one', () => {
+            bubble = createBubble({ role: 'user', 'message-id': 'w3', streaming: '' });
+            expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
+            bubble.remove();
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'w4', content: 'done' });
+            expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
+        });
+
+        it('yields to segments — a thinking block is content, not waiting', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'w5', streaming: '' });
+            bubble.setSegments([{ id: 's1', type: 'thinking', content: 'hmm' } as unknown as AparteSegment]);
+            expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
+        });
+
+        it('clears when streaming ends even if nothing ever arrived', () => {
+            // An empty reply (or an aborted turn) must not leave the dots pulsing.
+            bubble = createBubble({ role: 'assistant', 'message-id': 'w6', streaming: '' });
+            expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(false);
+            bubble.updateMessage({ status: 'completed' });
+            expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
+        });
+
+        it('is optional: a custom shell without the region simply has no indicator', () => {
+            AparteConfig.setBubbleShellRenderer(({ role }) =>
+                `<div class="aparte-message" data-role="${role}"><div class="aparte-content"></div></div>`);
+            bubble = createBubble({ role: 'assistant', 'message-id': 'w7', streaming: '' });
+            expect(bubble.querySelector('.aparte-waiting')).toBeNull();
+            expect(bubble.querySelector('.aparte-message')?.getAttribute('aria-busy')).toBe('true');
+        });
+    });
+
     describe('bubble shell renderer', () => {
         afterEach(() => AparteConfig.reset());
 

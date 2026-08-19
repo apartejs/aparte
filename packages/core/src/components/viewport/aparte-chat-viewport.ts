@@ -12,6 +12,7 @@ import { MessageRepository } from '../../runtime/message-repository.js';
 import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
 import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble-sync.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
 
 /**
  * AparteChatViewport - The Core
@@ -388,7 +389,10 @@ export class AparteChatViewport extends HTMLElement {
                 bubble.setAttribute('role', message.role);
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
-                if (message.status === 'streaming' || message.status === 'pending') {
+                // Also true for an empty assistant message with no status: an
+                // imperative "the reply is coming" shell, which otherwise rendered
+                // as a finished answer (action bar and all) before a single token.
+                if (isAwaitingReply(message)) {
                     bubble.setAttribute('streaming', '');
                 }
                 // Insert before spacer so spacer stays last
@@ -799,7 +803,7 @@ export class AparteChatViewport extends HTMLElement {
             bubble.setAttribute('message-id', message.id);
             bubble.setAttribute('role', message.role);
             if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
-            if (message.status === 'streaming' || message.status === 'pending') {
+            if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');
             }
             wrapper.appendChild(bubble);

@@ -105,6 +105,17 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(box.getAttribute('data-aparte-empty')).toBeNull();
     });
 
+    // Parity across the four wrappers: an empty assistant message with NO status is
+    // a reply on its way (core's `isAwaitingReply`), so the bubble renders in-flight.
+    it('marks an empty assistant message (no status) as awaiting a reply', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', [{ id: 'a1', role: 'assistant', content: '', timestamp: 0 }]);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const bubble = fixture.nativeElement.querySelector('aparte-chat-bubble[message-id="a1"]');
+        expect(bubble.getAttribute('streaming')).toBe('');
+    });
+
     // Attachments are opt-in across core and all four wrappers: the picker is only
     // honest when the host consumes `detail.files` (an AparteClient does; a
     // hand-rolled loop must). Same three assertions in every wrapper's suite so a

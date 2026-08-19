@@ -1,62 +1,75 @@
 /**
- * THE WAITING STATE — a contract, not yet an implementation.
+ * THE WAITING STATE — between "user sends" and the first token.
  *
- * Between "user sends" and the first token there is today: an assistant bubble
- * with a name, an empty body, and nothing else. No indicator, no skeleton, no
- * announcement. Reported from bonaparte as "it says Assistant, you wait, and you
- * have no idea what is happening" — and in the display-only path (appendMessage
- * with no `status`) the copy/retry buttons show up on that empty bubble too.
+ * There used to be nothing there: an assistant bubble with a name, an empty body,
+ * and (in the display-only path) copy/retry on a reply that did not exist yet.
+ * Reported from bonaparte as "it says Assistant, you wait, and you have no idea
+ * what is happening".
  *
- * What core has today, verified in source: the client marks the message
- * `status: 'pending'` before the request is even sent; the bubble reflects
- * pending/streaming as `data-streaming` + `aria-busy` and CSS hides the footer;
- * `<aparte-chat-status>` exists, is mounted by all four wrappers, and is NEVER
- * switched on (`onTypingChange(true)` appears nowhere in the repo); the skeleton
- * provider is never invoked; `locale.typing` / `locale.thinking` are dead strings.
- *
- * These tests are `fixme` on purpose: they state the intended behaviour so the
- * design work has a target and can't quietly land half-done. Turning them on IS
- * the acceptance criterion of that work.
+ * These three specs were written `fixme` as the contract for that work. Two of
+ * them originally targeted `<aparte-chat-status>`; the built-in indicator ended up
+ * in the BUBBLE instead — it needs no wiring, it works identically in raw core and
+ * in every wrapper, and it sits where the user is already looking. The status
+ * element stays the application's own channel ("indexing your files"), which is why
+ * this suite no longer asserts on it.
  */
 
 import { test, expect } from '@playwright/test';
 import { installLlmMock } from '../helpers/mock-llm.js';
 import { ChatPage } from '../helpers/chat.js';
 
-test.fixme('a waiting turn shows a built-in indicator, with no app wiring', async ({ page }) => {
+test('a waiting turn shows a built-in indicator, with no app wiring', async ({ page }) => {
     await installLlmMock(page, { scenario: 'slow', delayMs: 6000 });
     const chat = new ChatPage(page);
     await page.goto('/');
 
     await chat.send('what happens while I wait');
 
-    // Something must say "working on it" by default — today nothing does.
-    await expect(chat.status).toBeVisible({ timeout: 10_000 });
-    await expect(chat.status).not.toBeEmpty();
+    // The bubble says "working on it" by itself — nothing in the page configures it.
+    const waiting = chat.bubbles('assistant').last().locator('.aparte-waiting');
+    await expect(waiting).toBeVisible({ timeout: 10_000 });
+    // And it is not just decoration: the action bar stays away until there is a
+    // reply to act on.
+    await expect(chat.bubbles('assistant').last().locator('.aparte-action-bar')).toBeHidden();
 });
 
-test.fixme('the waiting indicator uses the active locale, not a hardcoded string', async ({ page }) => {
-    // `locale.typing` exists and is never read; a French app must not be told
-    // "Typing" in English.
+test('the waiting indicator announces itself to assistive tech', async ({ page }) => {
+    // The dots are decorative, so the state must also exist as text and as
+    // `aria-busy`. That the text comes from `locale.typing` (and follows a
+    // `setLocale`) is asserted in the bubble's unit tests, where the locale is
+    // reachable — here we only require that it is not empty: a page with animated
+    // dots and nothing to announce is the failure mode this guards.
     await installLlmMock(page, { scenario: 'slow', delayMs: 6000 });
     const chat = new ChatPage(page);
     await page.goto('/');
 
     await chat.send('locale probe');
-    await expect(chat.status).toBeVisible({ timeout: 10_000 });
+    const bubble = chat.bubbles('assistant').last();
+    const waiting = bubble.locator('.aparte-waiting');
+    await expect(waiting).toBeVisible({ timeout: 10_000 });
 
-    const localized = await page.evaluate(() => {
-        const cfg = (window as unknown as { AparteConfig?: { getLocale(): Record<string, string> } }).AparteConfig;
-        return cfg?.getLocale().typing ?? null;
-    });
-    if (localized) await expect(chat.status).toContainText(localized);
+    const announced = (await waiting.textContent())?.trim() ?? '';
+    expect(announced, 'the indicator must carry announceable text').not.toBe('');
+    await expect(bubble.locator('[aria-busy="true"]')).toHaveCount(1);
 });
 
-test.fixme('an imperatively appended assistant message can declare itself pending', async ({ page }) => {
-    // The bring-your-own-loop path: appendMessage() with no `status` leaves the
-    // bubble looking finished — action bar and all — before a single token
-    // arrives. Pending must be expressible (and ideally the default for an empty
-    // assistant message that a token stream is about to fill).
+test('the indicator goes away as soon as the reply starts', async ({ page }) => {
+    await installLlmMock(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+
+    await chat.sendAndSettle('and then it answers');
+
+    const bubble = chat.bubbles('assistant').last();
+    await expect(bubble.locator('.aparte-waiting')).toBeHidden();
+    // The finished turn gets its action bar back.
+    await expect(bubble.locator('.aparte-action-bar')).toBeVisible();
+});
+
+test('an imperatively appended assistant message declares itself waiting', async ({ page }) => {
+    // The bring-your-own-loop path: appendMessage() with no `status` used to leave
+    // the bubble looking finished — action bar and all — before a single token
+    // arrived. An empty assistant message with no status IS a reply on its way.
     await installLlmMock(page);
     const chat = new ChatPage(page);
     await page.goto('/');
@@ -71,4 +84,5 @@ test.fixme('an imperatively appended assistant message can declare itself pendin
     const bubble = chat.bubbles('assistant').first();
     await expect(bubble.locator('.aparte-action-bar')).toBeHidden();
     await expect(chat.streaming(bubble)).toHaveCount(1);
+    await expect(bubble.locator('.aparte-waiting')).toBeVisible();
 });

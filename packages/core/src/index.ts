@@ -157,6 +157,9 @@ export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js
 // same conversion ConversationController does, for consumers driving the
 // imperative API themselves.
 export { filesToAttachments } from './utils/files-to-attachments.js';
+// Is a message waiting for a reply? Shared by the viewport, the four wrappers and
+// any consumer rendering its own bubble — one rule, so they can't disagree.
+export { isAwaitingReply } from './utils/is-awaiting-reply.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';

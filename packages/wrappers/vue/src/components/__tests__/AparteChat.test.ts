@@ -142,6 +142,16 @@ describe('AparteChat.vue', () => {
         expect(composer.querySelector('.aparte-composer-shell')).toBeNull();
     });
 
+    // Parity across the four wrappers: an empty assistant message with NO status is
+    // a reply on its way (core's `isAwaitingReply`), so the bubble renders in-flight.
+    it('marks an empty assistant message (no status) as awaiting a reply', () => {
+        const wrapper = mount(AparteChat, {
+            props: { messages: [{ id: 'a1', role: 'assistant', content: '', timestamp: 0 }] },
+        });
+        const bubble = wrapper.element.querySelector('aparte-chat-bubble[message-id="a1"]')!;
+        expect(bubble.getAttribute('streaming')).toBe('');
+    });
+
     // Attachments are opt-in across core and all four wrappers: the picker is only
     // honest when the host consumes `detail.files` (an AparteClient does; a
     // hand-rolled loop must). Same three assertions in every wrapper's suite so a

@@ -68,6 +68,7 @@ describe('@aparte/core public API', () => {
             "detachConfig",
             "filesToAttachments",
             "getSegmentRenderer",
+            "isAwaitingReply",
             "isFormatAdapter",
             "isSafeUrl",
             "parseAparteEventStream",

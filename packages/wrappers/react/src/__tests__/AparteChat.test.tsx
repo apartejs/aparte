@@ -123,6 +123,18 @@ describe('AparteChat React Wrapper', () => {
         expect(container.querySelector('aparte-composer-add-attachment')).toBeNull();
     });
 
+    // Parity across the four wrappers: an empty assistant message with NO status is
+    // a reply on its way, so the bubble must render as in-flight (waiting indicator,
+    // no action bar) instead of as a finished, empty answer. One rule, core's
+    // `isAwaitingReply`, asserted in all four suites so it can't drift.
+    it('marks an empty assistant message (no status) as awaiting a reply', () => {
+        const { container } = render(
+            <AparteChat messages={[{ id: 'a1', role: 'assistant', content: '', timestamp: 0 }]} />,
+        );
+        const bubble = container.querySelector('aparte-chat-bubble[message-id="a1"]')!;
+        expect(bubble.getAttribute('streaming')).toBe('');
+    });
+
     it('feeds a custom bubble from injectTokenStream (state is the wrapper contract)', async () => {
         // A custom bubble gets NO imperative push: the viewport looks bubbles up by
         // `message-id` (or `data-aparte-bubble`), and a user-rendered node has
