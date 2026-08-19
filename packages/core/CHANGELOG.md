@@ -1,5 +1,118 @@
 # @aparte/core
 
+## 0.5.0-alpha.0
+
+### Minor Changes
+
+- cd7adfc: **Only the affordances core can honour end-to-end are enabled by default.** A button
+  that answers to nobody is worse than a missing feature — the user clicks it and
+  concludes the app is broken. Six controls were in that state, and the proof it had
+  gone unnoticed is that not one of our own six playgrounds handled
+  `aparte-message-info`, `aparte-attachment-preview` or `aparte-terminal-run`.
+
+  Core copies text on its own, so `copy` stays on. Everything else now waits for the
+  app to say it is there:
+
+  | Control                         | Needs                          | Was                     | Now |
+  | ------------------------------- | ------------------------------ | ----------------------- | --- |
+  | `retry`                         | a host that re-sends           | on                      | off |
+  | `edit`                          | a host that keeps the new text | on                      | off |
+  | `info` (ⓘ)                      | your stats popover             | on, **and unremovable** | off |
+  | image-tile preview              | your lightbox                  | always                  | off |
+  | terminal `Run`                  | your executor                  | always                  | off |
+  | download on a _binary_ artifact | your file generator            | always                  | off |
+
+  Edit was the worst of them: it opened, accepted text, saved — and the original text
+  came back, because replacing it is the client's job.
+
+  **Migration** — if you run `AparteClient` (or handle the events yourself), one line
+  restores the action bar you had:
+
+  ```ts
+  AparteConfig.setBubbleActions({ retry: true, edit: true });
+  ```
+
+  and for the three affordances outside the bar, declare what you handle:
+
+  ```ts
+  AparteConfig.setHostHandlers({
+    attachmentPreview: true,
+    terminalRun: true,
+    artifactRedownload: true,
+  });
+  ```
+
+  No event and no API was removed — core just stops offering what nobody answers. Also
+  in this release:
+
+  - **`info` is a bubble action like the others.** It was pushed at the tail of the flag
+    branch: impossible to turn off, and impossible to request in an explicit per-role
+    list (`'info'` was not an `AparteBubbleActionName`). Both directions work now.
+  - **A declared image tile is a real button** — `role="button"`, a tab stop and
+    Enter/Space — instead of a `<div>` with a click listener. Undeclared, it carries no
+    role and no pointer cursor: half-signalling is the same lie in a quieter voice.
+  - **An empty action bar is no longer rendered.** With every action off it stayed as a
+    `role="toolbar"` holding nothing and still reserved 28px under every bubble. The
+    bar and the footer now follow their contents (a branch picker alone still gets its
+    row).
+  - New exports: `setHostHandlers` / `getHostHandlers`, `DEFAULT_BUBBLE_ACTIONS`,
+    `DEFAULT_HOST_HANDLERS` — read the defaults instead of hard-coding them.
+
+  Untouched on purpose: `copy` on a terminal segment, download on a **text** artifact,
+  the `‹1/2›` branch picker, the waiting indicator, the stop button and the model
+  selector — core honours all of those itself.
+
+- 3edb766: **The built-in segment renderers install themselves the first time a segment needs
+  one.** `registerDefaultRenderers()` had exactly one caller: `new AparteClient()` —
+  the object the _bring your own loop_ guide tells you not to construct. A
+  display-only app therefore rendered `[Unknown segment type: text]` for every reply,
+  with working bubbles, working streaming and working scroll, so the only thing missing
+  was the content and it read as a bug in the consumer's own loop. The _bring your own loop_ guide never
+  mentioned the call either — it was documented as **required** on the Getting-started
+  page (and in both READMEs), so this was one path missing a note, not an undocumented
+  API. But a required call whose only correct answer is always "yes, call it" is
+  ceremony, not a decision: nobody wants `text` segments rendering as
+  `[Unknown segment type: text]`.
+
+  The sweep is **strictly additive**: a renderer you registered yourself is never
+  replaced, so a custom `text` renderer survives the install a `code` segment triggers.
+  `registerDefaultRenderers()` still works and is still what the examples do — it is
+  simply no longer the difference between a chat that renders and one that doesn't.
+
+  `AparteClient({ autoRegister: false })` still means what it says: declining is
+  remembered, so nothing installs the built-ins later. Do it at startup, before the
+  first segment renders.
+
+  The unknown-type warning now names the fix for the case that remains (a type core has
+  never heard of) instead of pointing at a call you no longer need.
+
+### Patch Changes
+
+- 3b026bb: **Fix: streaming a segment with `appendToSegment` wrote every chunk twice** — in the
+  message model and on screen ("BonjourBonjour le le monde"), which shows up as a word
+  appearing twice as the reply streams in.
+
+  One object, two writers. `addSegment` hands the **same segment object** to the
+  message model and to the bubble, and `appendToSegment` then advances it from both
+  ends: the viewport appended the chunk in place, and the bubble — holding that very
+  object — appended it again. On the framework-managed path a third writer joined in,
+  the coalesced once-per-frame state sync, which added the chunk on top of content
+  that already had it.
+
+  Both sides now own the value they advance: the viewport **replaces** the segment
+  instead of mutating it, and the per-frame sync writes an **absolute** target
+  (captured before the paint) rather than a delta. Same two writes, same single
+  render per frame — no shared mutable state between them.
+
+  Why no test caught it: `AparteClient` never calls `appendToSegment`. It writes
+  segment text with `updateSegment` (absolute content), so every path our own examples
+  and browser suite exercise went around this one — `appendToSegment` is the API a
+  caller driving its own loop uses. Its only unit coverage ran against a _mocked_
+  viewport, and a paint that writes nothing cannot double-count. The regression tests
+  added here drive the real viewport and the real bubble, on both the raw-core and the
+  framework-managed path, and assert exact text rather than a substring — the weakness
+  that also let the browser suite stay green.
+
 ## 0.4.0-alpha.0
 
 ### Minor Changes

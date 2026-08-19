@@ -1,5 +1,14 @@
 # @aparte/plugin-shiki
 
+## 0.5.0-alpha.0
+
+### Patch Changes
+
+- Updated dependencies [cd7adfc]
+- Updated dependencies [3edb766]
+- Updated dependencies [3b026bb]
+  - @aparte/core@0.5.0-alpha.0
+
 ## 0.4.0-alpha.0
 
 ### Patch Changes
