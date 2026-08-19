@@ -105,8 +105,18 @@ merged registry, a `zones` parameter picks where each appears.
 - `getActions(zone: AparteActionZone): AparteAction[]` — actions for a zone (`'composer' | 'bubble'`), sorted by `order`.
 - `unregisterAction(id: string): void` — remove an action from every zone.
 - `setActionHidden(id: string, hidden: boolean): void` — show/hide a composer action button at runtime.
-- `setBubbleActions(config: AparteBubbleActionsConfig): void` — configure which built-in buttons (`copy`/`retry`/`edit`/`feedback`) appear in bubbles, or set explicit per-role ordered lists.
-- `getBubbleActions(): { copy, retry, edit, feedback, user?, assistant? }` — the resolved bubble-actions config (defaults applied).
+- `setBubbleActions(config: AparteBubbleActionsConfig): void` — configure which built-in buttons (`copy`/`retry`/`edit`/`feedback`/`info`) appear in bubbles, or set explicit per-role ordered lists. Only `copy` is on by default; the others need a host to honour them (see [What ships enabled](/guides/customization/#what-ships-enabled)).
+- `getBubbleActions(): { copy, retry, edit, feedback, info, user?, assistant? }` — the resolved bubble-actions config (defaults applied).
+- `DEFAULT_BUBBLE_ACTIONS` — the shipped defaults, exported so you can read them instead of hard-coding them.
+
+### Host handlers
+
+The affordances core renders but cannot complete — it only asks, through a DOM event, and
+your app does the work. Declare what you handle; the rest isn't offered.
+
+- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare `attachmentPreview` (image tiles ask for a lightbox via `aparte-attachment-preview`), `terminalRun` (the Run button on a terminal segment → `aparte-terminal-run`), and/or `artifactRedownload` (the download button on a **binary** artifact → `aparte-artifact-redownload`). All default to `false`.
+- `getHostHandlers(): { attachmentPreview, terminalRun, artifactRedownload }` — the resolved declarations.
+- `DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.
 

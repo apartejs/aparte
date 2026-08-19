@@ -20,6 +20,18 @@ user: "Explain closures"
 what follows (it does *not* keep the old version as a branch). See
 [Editing a user message](#editing-a-user-message) below.
 
+:::caution[Retry and edit are opt-in]
+Both buttons need a host to mean anything, so core ships them **off**. One line turns them
+on, next to wherever you start your client:
+
+```ts
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+```
+
+Details — and the full list of what ships enabled — in
+[Customization](/guides/customization/#what-ships-enabled).
+:::
+
 ## Retry creates branches
 
 The built-in **retry** bubble action emits the public event `aparte-retry`. Handling it
@@ -39,11 +51,14 @@ autosize, IME, paste, and the same keys:
 
 - **Enter** saves · **Shift+Enter** inserts a newline · **Esc** cancels.
 
-Saving emits `aparte-edit` with `{ messageId, content, targetId }`. Unlike retry, the edit
-**does not branch**: the user message's text is replaced in place and the answer(s) below it
-are regenerated (the previous response is cleared, not kept as a sibling). With
-[`AparteClient`](/guides/getting-started) this is automatic; to wire it yourself, see
-[the manual way](#the-manual-way) below.
+Saving emits `aparte-edit` with `{ messageId, content, targetId }` — and that is *all* the
+bubble does. **The replacement is the handler's job**: the editor closes, and if nobody
+writes the new text back, the original text reappears. With
+[`AparteClient`](/guides/getting-started) it is automatic — the client replaces the message
+in place and regenerates the answer(s) below it (the previous response is cleared, not kept
+as a sibling). To wire it yourself, see [the manual way](#the-manual-way) below.
+
+Unlike retry, the edit **does not branch**.
 
 :::tip[Edit is just an event]
 The in-place replace is only `AparteClient`'s **default** — the bubble merely emits
@@ -115,6 +130,23 @@ document.addEventListener('aparte-edit', (e) => {
   viewport.completeMessage(id);
 });
 ```
+
+## Turning it off
+
+Both actions are off until you ask for them, so "turning it off" is usually just *not*
+opting in. To take one back after the fact:
+
+```ts
+AparteConfig.setBubbleActions({ retry: false });   // keep edit, drop retry
+AparteConfig.setBubbleActions({ user: ['copy'] }); // user bubbles: copy only, no editor
+```
+
+It applies live — already-rendered bubbles rebuild their action bar — and a bar left with
+nothing in it is not rendered at all, so no empty row remains.
+
+The **branch picker needs no switch**: it appears only when a message actually has a
+sibling, so a chat that never retries never shows it. If you want it styled away or
+replaced, that's [`setSiblingNavRenderer`](#customizing-the-picker).
 
 ## Persistence
 

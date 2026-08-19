@@ -304,8 +304,10 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * Persist token usage on a message and propagate to the live bubble so the
-     * perf chip (tokens/sec) renders in the action bar.
+     * Persist token usage on a message and propagate to the live bubble, which is
+     * what allows the info ("i") action to render — provided the app declared it
+     * with `AparteConfig.setBubbleActions({ info: true })`; it is off by default,
+     * since the popover it opens belongs to the app.
      */
     setUsage(messageId: string, usage: AparteUsage): void {
         const message = this._repo.getMessageById(messageId);

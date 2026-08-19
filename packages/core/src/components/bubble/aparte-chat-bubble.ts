@@ -245,8 +245,12 @@ export class AparteChatBubble extends HTMLElement {
 
   /**
    * Set token usage + timing for this message (assistant only).
-   * Renders the info ("i") action in the action bar; clicking it opens
-   * the app-owned stats popover (`aparte-message-info`).
+   *
+   * This is the *precondition* for the info ("i") action, not the trigger: the
+   * button appears only if the app also declared it wants it —
+   * `AparteConfig.setBubbleActions({ info: true })` — because the stats popover it
+   * opens (`aparte-message-info`) is the app's, and core has none. Without usage
+   * there is nothing to show, so the button never renders either way.
    */
   setUsage(usage: AparteUsage | null | undefined): void {
     this._usage = usage ?? null;

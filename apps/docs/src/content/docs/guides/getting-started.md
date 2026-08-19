@@ -156,6 +156,16 @@ new AparteClient().start();   // .start() attaches the listeners — without it 
 The client owns the **assistant** turn; keep appending the user's own message on
 `aparte-send` as [above](#make-it-stream) — the framework wrappers do even that for you.
 
+Now that something can honour them, switch the retry and edit buttons on — core ships them
+off precisely because without a client they would do nothing:
+
+```ts
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+```
+
+The full list of what ships enabled and why is in
+[Customization](/guides/customization/#what-ships-enabled).
+
 Provider adapters ship as opt-in `@aparte/provider-*` packages — see the
 **[Providers](/providers/)** section for the OpenAI-compatible adapter (OpenAI, Mistral, OpenRouter,
 Groq, LM Studio, Ollama…), the Vercel AI SDK bridge (Anthropic, Google, 25+ vendors), and the

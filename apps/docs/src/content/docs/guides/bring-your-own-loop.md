@@ -149,7 +149,21 @@ main process; forward its emitted text over your bridge and inject it here.
 ## What you give up
 
 Display-only means the pieces `AparteClient` orchestrates don't run in the page: no built-in
-tool-approval flow, no retry/edit re-sending, no request building. Your loop owns those. For
+tool-approval flow, no retry/edit re-sending, no request building. Your loop owns those.
+
+Concretely, for retry and edit: the **buttons exist**, and clicking one emits `aparte-retry`
+/ `aparte-edit` and nothing else. Nobody re-sends, and on edit the editor closes and the
+original text comes back. That is why core ships both **off** — so a display-only
+integration shows no button it can't honour. Either handle those two events in your loop and
+switch them on:
+
+```ts
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+```
+
+…or leave them off, which is the default and costs you nothing. Same story for the ⓘ details
+popover and the image-tile preview — see
+[What ships enabled](/guides/customization/#what-ships-enabled). For
 tool-call pills, thinking sections and other rich segments, `addSegment` / `appendToSegment` /
 `updateSegment` (same imperative API) stream structured segments the same way
 `injectTokenStream` streams plain text.
