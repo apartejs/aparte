@@ -144,6 +144,40 @@ export interface AparteBubbleActionsConfig {
 }
 
 /**
+ * The affordances core RENDERS but cannot COMPLETE — each one only asks, through a
+ * DOM event, and the app does the work. Declare what your app actually handles
+ * with `AparteConfig.setHostHandlers()`; everything else stays out of the UI
+ * rather than showing a control that answers to nobody.
+ *
+ * ```ts
+ * AparteConfig.setHostHandlers({ attachmentPreview: true });   // you open a lightbox
+ * ```
+ *
+ * These are declarations, not callbacks: the events (`aparte-attachment-preview`,
+ * `aparte-terminal-run`, `aparte-artifact-redownload`) are unchanged, and you keep
+ * listening for them wherever you already do.
+ */
+export interface AparteHostHandlersConfig {
+    /**
+     * Clicking an image attachment asks for a full-size preview
+     * (`aparte-attachment-preview`) — core owns no lightbox. Until declared, the
+     * tile is inert and is not signalled as a button. Default: false
+     */
+    attachmentPreview?: boolean;
+    /**
+     * The Run button on a `terminal` segment (`aparte-terminal-run`) — core never
+     * executes anything. Copy is unaffected. Default: false
+     */
+    terminalRun?: boolean;
+    /**
+     * The download button on a **binary** artifact, which asks the app to
+     * re-generate the file (`aparte-artifact-redownload`). Text artifacts keep
+     * their button: core writes those out itself. Default: false
+     */
+    artifactRedownload?: boolean;
+}
+
+/**
  * Core message structure for the chat
  * Supports both simple content and rich multi-segment content
  */

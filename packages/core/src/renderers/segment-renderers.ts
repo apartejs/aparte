@@ -348,7 +348,9 @@ const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
                 <div class="terminal-actions">
                     ${segment.isRunning
             ? `<span class="terminal-running"><span class="spinner"></span>${contextConfig().t('running')}</span>`
-            : `<button class="terminal-run-btn" data-action="run" aria-label="${contextConfig().t('run')}" title="${contextConfig().t('run')}">${contextConfig().t('run')}</button>`}
+            : contextConfig().getHostHandlers().terminalRun
+                ? `<button class="terminal-run-btn" data-action="run" aria-label="${contextConfig().t('run')}" title="${contextConfig().t('run')}">${contextConfig().t('run')}</button>`
+                : ''}
                     <button class="terminal-copy-btn" data-action="copy" aria-label="${contextConfig().t('copy')}" title="${contextConfig().t('copy')}">
                         ${contextConfig().getIcon('copy')}
                     </button>
@@ -1267,6 +1269,10 @@ function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: string):
     // render in 'ready' state with the preview HTML so the user sees the
     // file immediately — no setup() round-trip required, which matters when
     // Angular reuses the DOM via trackBy and our setup may not re-fire.
+    // Download on a binary artifact means "app, re-generate this file" — core holds
+    // no bytes for pdf/xlsx/docx. No declaration, no button.
+    const canRedownload = contextConfig().getHostHandlers().artifactRedownload;
+
     const cached = _binaryArtifactCache.get(segment.id);
     if (cached && !isStreaming) {
         const previewBody = cached.previewHtml
@@ -1284,7 +1290,7 @@ function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: string):
                         <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(formatBytes(cached.bytes))} · ${escapeHtml(kind.toUpperCase())}</div>
                     </div>
                     <div class="aparte-art-file__actions">
-                        <button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">Download</button>
+                        ${canRedownload ? '<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">Download</button>' : ''}
                     </div>
                 </div>
                 <div class="aparte-art-file__body">
@@ -1311,7 +1317,7 @@ function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: string):
                     <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(subText)}</div>
                 </div>
                 <div class="aparte-art-file__actions">
-                    <button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>Download</button>
+                    ${canRedownload ? '<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>Download</button>' : ''}
                 </div>
             </div>
             <div class="aparte-art-file__body">

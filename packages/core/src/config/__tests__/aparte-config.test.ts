@@ -307,6 +307,55 @@ describe('AparteConfig', () => {
         });
     });
 
+    // ─── setHostHandlers / getHostHandlers ─────────────────────────────────
+
+    describe('setHostHandlers / getHostHandlers', () => {
+        afterEach(() => AparteConfig.reset());
+
+        // Same rule as the bubble actions, for the affordances that live outside the
+        // action bar: core renders the trigger, the APP does the work. Nothing is
+        // declared until the app says so.
+        it('defaults to nothing declared', () => {
+            const h = AparteConfig.getHostHandlers();
+            expect(h.attachmentPreview).toBe(false);
+            expect(h.terminalRun).toBe(false);
+            expect(h.artifactRedownload).toBe(false);
+        });
+
+        it('merges partial declarations and keeps the rest undeclared', () => {
+            AparteConfig.setHostHandlers({ terminalRun: true });
+            const h = AparteConfig.getHostHandlers();
+            expect(h.terminalRun).toBe(true);
+            expect(h.attachmentPreview).toBe(false);
+            expect(h.artifactRedownload).toBe(false);
+        });
+
+        it('can be withdrawn again', () => {
+            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            AparteConfig.setHostHandlers({ attachmentPreview: false });
+            expect(AparteConfig.getHostHandlers().attachmentPreview).toBe(false);
+        });
+
+        it('notifies so mounted elements re-render', () => {
+            let fired = 0;
+            const onChange = () => { fired++; };
+            window.addEventListener('aparte-config-change', onChange);
+            AparteConfig.setHostHandlers({ terminalRun: true });
+            window.removeEventListener('aparte-config-change', onChange);
+            expect(fired).toBeGreaterThan(0);
+        });
+
+        it('is cleared by reset()', () => {
+            const c = new AparteConfigClass();
+            c.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
+            c.reset();
+            const h = c.getHostHandlers();
+            expect(h.attachmentPreview).toBe(false);
+            expect(h.terminalRun).toBe(false);
+            expect(h.artifactRedownload).toBe(false);
+        });
+    });
+
     // ─── HTML sanitization of provider output ──────────────────────────────
 
     describe('HTML sanitization', () => {

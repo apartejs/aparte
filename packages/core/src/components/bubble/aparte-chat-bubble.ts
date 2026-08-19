@@ -683,15 +683,28 @@ export class AparteChatBubble extends HTMLElement {
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');
 
-    // Image tiles open the full-size preview lightbox (app-owned modal).
+    // Image tiles ask for a full-size preview — but the lightbox is the app's, so
+    // the tile only becomes a button once the app declared it opens one. Otherwise
+    // it stays a plain picture: no role, no tab stop, no pointer (see the CSS,
+    // which keys the cursor off role="button").
+    if (!this._cfg.getHostHandlers().attachmentPreview) return;
     this._attachmentsEl.querySelectorAll('.aparte-thumb--image').forEach(tile => {
-      tile.addEventListener('click', () => {
+      tile.setAttribute('role', 'button');
+      tile.setAttribute('tabindex', '0');
+      const open = (): void => {
         const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
         if (!img) return;
         this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
           bubbles: true, composed: true,
           detail: { url: img.src, name: tile.getAttribute('title') ?? '' },
         }));
+      };
+      tile.addEventListener('click', open);
+      tile.addEventListener('keydown', (e) => {
+        const key = (e as KeyboardEvent).key;
+        if (key !== 'Enter' && key !== ' ') return;
+        e.preventDefault();
+        open();
       });
     });
   }

@@ -534,6 +534,72 @@ describe('AparteChatBubble', () => {
         });
     });
 
+    // ─── The image tile: interactive only when the app says it can preview ────
+    // Core owns no lightbox — the tile just asks, via `aparte-attachment-preview`.
+    // Until an app declares it handles that, a clickable-looking tile is a lie.
+    describe('image tile preview (setHostHandlers)', () => {
+        afterEach(() => AparteConfig.reset());
+
+        const imageBubble = (id: string) => {
+            const el = createBubble({ role: 'user', 'message-id': id });
+            el.updateMessage({
+                attachments: [{ id: 'i1', name: 'shot.png', type: 'image/png', url: 'blob:x' }],
+            });
+            return el;
+        };
+
+        it('is inert and not signalled as a button by default', () => {
+            bubble = imageBubble('t1');
+            const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
+            expect(tile).not.toBeNull();
+            expect(tile.getAttribute('role')).toBeNull();
+            expect(tile.hasAttribute('tabindex')).toBe(false);
+            let fired = false;
+            const onPreview = () => { fired = true; };
+            document.body.addEventListener('aparte-attachment-preview', onPreview);
+            tile.click();
+            document.body.removeEventListener('aparte-attachment-preview', onPreview);
+            expect(fired).toBe(false);
+        });
+
+        it('becomes a real button once attachmentPreview is declared', () => {
+            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            bubble = imageBubble('t2');
+            const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
+            expect(tile.getAttribute('role')).toBe('button');
+            expect(tile.getAttribute('tabindex')).toBe('0');
+
+            let name: string | undefined;
+            document.body.addEventListener('aparte-attachment-preview', (e: Event) => {
+                name = ((e as CustomEvent).detail as { name?: string }).name;
+            }, { once: true });
+            tile.click();
+            expect(name).toBe('shot.png');
+        });
+
+        it('opens on Enter too — a button you cannot reach by keyboard is not one', () => {
+            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            bubble = imageBubble('t3');
+            const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
+            let fired = 0;
+            const onPreview = () => { fired++; };
+            document.body.addEventListener('aparte-attachment-preview', onPreview);
+            tile.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            document.body.removeEventListener('aparte-attachment-preview', onPreview);
+            expect(fired).toBe(1);
+        });
+
+        it('leaves non-image tiles inert even when declared (nothing to preview)', () => {
+            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            bubble = createBubble({ role: 'user', 'message-id': 't4' });
+            bubble.updateMessage({
+                attachments: [{ id: 'f1', name: 'report.pdf', type: 'application/pdf', url: 'blob:x' }],
+            });
+            const tile = bubble.querySelector('.aparte-thumb--file') as HTMLElement;
+            expect(tile.getAttribute('role')).toBeNull();
+        });
+    });
+
     // ─── Custom sibling-nav indicator (setSiblingNavRenderer) ─────────────
     describe('sibling-nav renderer', () => {
         afterEach(() => AparteConfig.reset());

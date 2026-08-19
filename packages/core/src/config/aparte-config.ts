@@ -22,7 +22,7 @@ import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../type
 import type { AparteTransport } from '../transport/index.js';
 import { DirectTransport } from '../transport/index.js';
 import type { AparteTool, AparteToolHandler, AparteToolRenderer } from '../types/tools.js';
-import type { AparteBubbleActionsConfig, AparteBubbleActionName } from '../types/models.js';
+import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { ConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
@@ -53,6 +53,20 @@ export const DEFAULT_BUBBLE_ACTIONS = {
     edit: false,
     feedback: false,
     info: false,
+} as const;
+
+/**
+ * The host-handler declarations — nothing declared.
+ *
+ * Same rule as {@link DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
+ * image tile you can click, a Run button, a download button on a binary artifact
+ * are all requests core forwards to the app. Undeclared, they are not rendered
+ * (and the tile is not even signalled as clickable) instead of doing nothing.
+ */
+export const DEFAULT_HOST_HANDLERS = {
+    attachmentPreview: false,
+    terminalRun: false,
+    artifactRedownload: false,
 } as const;
 
 export interface AparteModelPreference {
@@ -143,6 +157,9 @@ export class AparteConfigClass {
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
 
+    // Host handlers — what the app declares it can actually complete.
+    private _hostHandlers: AparteHostHandlersConfig = { ...DEFAULT_HOST_HANDLERS };
+
     // Bubble Actions — DEFAULT_BUBBLE_ACTIONS is the single source of truth
     // (init here, restored by reset(), and the fallback in getBubbleActions()).
     private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
@@ -208,6 +225,27 @@ export class AparteConfigClass {
     setBubbleActions(config: AparteBubbleActionsConfig): void {
         this._bubbleActionsConfig = { ...this._bubbleActionsConfig, ...config };
         this._notify();
+    }
+
+    /**
+     * Declare which host-dependent affordances your app handles. Core renders the
+     * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
+     *
+     * @example
+     * AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+     */
+    setHostHandlers(config: AparteHostHandlersConfig): void {
+        this._hostHandlers = { ...this._hostHandlers, ...config };
+        this._notify();
+    }
+
+    /** Returns the resolved host-handler declarations (undeclared = false). */
+    getHostHandlers(): { attachmentPreview: boolean; terminalRun: boolean; artifactRedownload: boolean } {
+        return {
+            attachmentPreview: this._hostHandlers.attachmentPreview ?? DEFAULT_HOST_HANDLERS.attachmentPreview,
+            terminalRun: this._hostHandlers.terminalRun ?? DEFAULT_HOST_HANDLERS.terminalRun,
+            artifactRedownload: this._hostHandlers.artifactRedownload ?? DEFAULT_HOST_HANDLERS.artifactRedownload,
+        };
     }
 
     /** Returns the resolved bubble actions config (flag defaults applied; per-role sets passed through). */
@@ -969,6 +1007,7 @@ export class AparteConfigClass {
         this._requireModelSelection = false;
         this._modelPreferenceProvider = undefined;
         this._bubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
+        this._hostHandlers = { ...DEFAULT_HOST_HANDLERS };
         this._notify();
     }
 

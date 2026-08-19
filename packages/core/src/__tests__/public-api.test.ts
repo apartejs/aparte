@@ -50,6 +50,7 @@ describe('@aparte/core public API', () => {
             "BackendTransport",
             "ConversationManager",
             "DEFAULT_BUBBLE_ACTIONS",
+            "DEFAULT_HOST_HANDLERS",
             "DEFAULT_ICON_FALLBACKS",
             "DEFAULT_LOCALE",
             "DEFAULT_SKELETON_FALLBACKS",
