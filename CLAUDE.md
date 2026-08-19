@@ -88,6 +88,18 @@ markdown/highlight micro-packages, an eval harness, voice.
 6. **`_streamLoop` inline in core: KEPT** as the standalone default ("core works without
    engine" story). Engine via the seam = recommended path. Parity proven by the engine
    suite, not duplicated in maintenance.
+7. **Raw-prompt / prefix-cache serialization = a future `providers/*`, NOT a core or engine
+   primitive.** The loop half is done (`StreamRunOptions.onHistoryAppend` lets the caller own
+   the history, so a prefix-cache host — llama.cpp slots, vLLM — can drive the engine today).
+   What is deliberately NOT in the library is rendering a tool inventory / calls / results into
+   a **raw prompt**: that is per-model-family chat-template knowledge, i.e. wire format, and
+   wire format lives in a provider (anti-pattern #1). Two apps have written their own
+   (monaparte, bonaparte) and both target the same family, so a third duplication would teach
+   nothing new — but no provider **in this repo** would consume such a serializer today
+   (openai-compat and ai-sdk are message APIs, transformers has its own template), and a layer
+   with no in-repo consumer is a contract maintained for nobody. The trigger to build it is
+   shipping a raw-completion provider (`provider-llamacpp`), which gives it a consumer, a test
+   surface (byte-stable prefix across turns) and a home — not a duplication count.
 
 ---
 
