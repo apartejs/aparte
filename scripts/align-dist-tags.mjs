@@ -2,16 +2,16 @@
 /*
  * Point the `alpha` dist-tag at the version that was just published.
  *
- * Why this exists: `changeset publish` publishes a prerelease to **`latest`** and
- * leaves `alpha` on the previous version — three releases in a row (0.3.0, 0.4.0,
- * 0.5.0) shipped with `npm i @aparte/core@alpha` resolving to the version before.
- * And the obvious fix is refused: `changeset publish --tag alpha` errors with
- * "Releasing under custom tag is not allowed in pre mode", so the tag has to be
- * moved afterwards, on all fifteen packages.
+ * Why this exists: the dist-tags drifted on three releases in a row (0.3.0, 0.4.0,
+ * 0.5.0) — `changeset publish` was moving `latest` and leaving `alpha` on the version
+ * before, so `npm i @aparte/core@alpha` served stale bits. `pnpm release` now passes
+ * `--tag alpha` (possible again since the repo left changesets' pre mode), and this
+ * script is the check that both tags actually ended up on the version just built.
  *
- * `latest` is deliberately left where `changeset publish` put it: every version so
- * far is a prerelease, so there is no stable release for it to point at, and moving
- * it backwards would only make `npm i @aparte/core` resolve to something older.
+ * BOTH tags are aligned, on purpose. There is no stable line yet: `latest` already
+ * pointed at an alpha, so freezing it protects nobody and only serves older bits to
+ * a bare `npm i @aparte/core`. The day a stable line exists, `latest` stops following
+ * the alpha channel — and that is the day to change this script.
  *
  * Usage (part of `pnpm release`):
  *   node scripts/align-dist-tags.mjs [--dry]
@@ -36,7 +36,12 @@ const dry = process.argv.includes('--dry');
  */
 const npm = (args) => execSync(`npm ${args.join(' ')}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 
-const TAG = JSON.parse(readFileSync(join(root, '.changeset/pre.json'), 'utf8')).tag ?? 'alpha';
+/**
+ * The channel this repo publishes under, and the tags that must both point at it.
+ * `alpha` is the channel (`package.json`'s `release` script passes it to
+ * `changeset publish`); `latest` follows while no stable line exists — see above.
+ */
+const TAGS = ['alpha', 'latest'];
 
 /** Every publishable package in the workspace, at its current version. */
 function publishable() {
@@ -78,17 +83,19 @@ for (const pkg of packages) {
         failed.push(`${pkg.name} (not on npm yet?)`);
         continue;
     }
-    if (current[TAG] === pkg.version) {
-        already++;
-        continue;
-    }
-    console.log(`  ${TAG}: ${current[TAG] ?? '(none)'} -> ${pkg.version}  ${pkg.name}`);
-    if (dry) { moved++; continue; }
-    try {
-        npm(['dist-tag', 'add', spec, TAG]);
-        moved++;
-    } catch (err) {
-        failed.push(`${spec}: ${(err instanceof Error ? err.message : String(err)).split('\n')[0]}`);
+    for (const tag of TAGS) {
+        if (current[tag] === pkg.version) {
+            already++;
+            continue;
+        }
+        console.log(`  ${tag}: ${current[tag] ?? '(none)'} -> ${pkg.version}  ${pkg.name}`);
+        if (dry) { moved++; continue; }
+        try {
+            npm(['dist-tag', 'add', spec, tag]);
+            moved++;
+        } catch (err) {
+            failed.push(`${spec} (${tag}): ${(err instanceof Error ? err.message : String(err)).split('\n')[0]}`);
+        }
     }
 }
 

@@ -11,8 +11,10 @@ variables. **Zero dependencies** at the core.
 
 > 🚀 **Alpha on npm.** Every `@aparte/*` package ships **together at one version**
 > under the `alpha` tag — `npm i @aparte/core@alpha` (the badge above is the live
-> number). The API is still stabilising before the first stable cut; what changed
-> when is at **[apartejs.dev/changelog](https://apartejs.dev/changelog/)** (or
+> number). The number itself is a plain `0.x`: what says *alpha* is the npm tag, the
+> leading zero and this notice — not a `-alpha` suffix. The API is still stabilising
+> before the first stable cut; what changed when is at
+> **[apartejs.dev/changelog](https://apartejs.dev/changelog/)** (or
 > [CHANGELOG.md](./CHANGELOG.md) here), and the docs live at
 > **[apartejs.dev](https://apartejs.dev/)**.
 

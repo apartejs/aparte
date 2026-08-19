@@ -117,30 +117,28 @@ The flow:
 1. **Push to `main`** → `release.yml` opens/updates the *Version Packages* PR. It runs
    `pnpm version-packages`, i.e. `changeset version` **plus** the root-changelog generator, so
    the PR already carries both levels.
-   > ⚠️ **The number changesets proposes for a feature release is wrong, and structurally so.**
-   > The wrappers carry `@aparte/core` in `peerDependencies`, and for a package still in `0.x`
-   > changesets treats a **minor as breaking for its dependents** — so a minor on core makes
-   > the wrappers *major*, and `fixed` aligns all fifteen on the highest bump: it proposes
-   > `1.0.0`. Measured, not inferred: a `patch`-only changeset stays a patch, a `minor`-only
-   > one comes out major. (An earlier note here blamed `pre.json`/`initialVersions`; that was
-   > wrong — patching them changes nothing, and neither does
-   > `onlyUpdatePeerDependentsWhenOutOfRange`.)
+   > **Check the version anyway.** Every release up to 0.5.0-alpha.0 had to have its number
+   > corrected by hand (~46 files), because `changeset version` proposed `1.0.0` for any
+   > feature release. That is fixed — the three causes, all measured rather than inferred,
+   > are worth knowing so nobody reintroduces one:
    >
-   > So a minor release is versioned locally instead:
+   > 1. **`workspace:*` in `peerDependencies` is an exact pin to changesets**, not a wildcard
+   >    (its source: `case "*": versionRange = dependencyRelease.oldVersion`). Any bump left
+   >    the range, and a peer dependent leaving the range is bumped **major**. Fourteen
+   >    packages declare `@aparte/core` as a peer, so all fourteen majored, and `fixed`
+   >    aligned the group on the highest bump. They now carry a literal
+   >    `>=0.5.0-alpha.0 <1.0.0`, which a 0.x bump stays inside — and which is a better
+   >    published contract than a pin that forbade combinations that work.
+   > 2. **`onlyUpdatePeerDependentsWhenOutOfRange`** must be on (in
+   >    `.changeset/config.json`), or peer dependents are majored whether or not they left
+   >    the range.
+   > 3. **Prerelease versions cannot satisfy any range.** With `-alpha.N` numbers, semver's
+   >    prerelease rule makes `0.6.0-alpha.0` fail `*`, `0.x`, `>=0.5.0 <1.0.0` — every form —
+   >    so the escalation came back at the next minor no matter what. That is why the repo
+   >    **left changesets' pre mode**: versions are plain (`0.6.0`, `0.6.1`), and the alpha
+   >    channel lives in the npm dist-tag and in the README instead of in the number.
    >
-   > ```bash
-   > pnpm version-packages                          # changeset version + root changelog
-   > node scripts/force-version.mjs 0.5.0-alpha.0   # the number we actually want
-   > node scripts/gen-root-changelog.mjs            # regenerate: it reads the per-package files
-   > ```
-   >
-   > `force-version.mjs` rewrites every `package.json` and `CHANGELOG.md` the versioning just
-   > wrote, and **refuses to run once the release is committed** — a global replace of an
-   > already-released version would rewrite the historical `Updated dependencies` lines. It
-   > replaces what used to be ~46 hand edits, which were forgotten once (the private apps) and
-   > shipped a release carrying two different numbers.
-   >
-   > This disappears the day the group leaves `0.x`.
+   > Leaving pre mode also restored `changeset publish --tag alpha`, which pre mode refuses.
 2. **Merge it.**
 3. **`pnpm release`** locally — builds every package, `changeset publish` (npm + one git tag
    per package), **`scripts/align-dist-tags.mjs`**, then `scripts/tag-release.mjs` creates the
@@ -152,20 +150,20 @@ The flow:
    > push**, and `changeset publish` has just created fifteen — so `--tags` publishes them all
    > and triggers nothing, with no error anywhere. Push the umbrella tag on its own; the
    > per-package tags can follow in a second push.
-5. Verify the dist-tags: `npm view @aparte/core dist-tags`. Both must be the version you
+5. Verify the dist-tags: `npm view @aparte/core dist-tags`. **Both** must be the version you
    just shipped.
-   > ⚠️ `changeset publish` publishes a prerelease to **`latest`** and leaves **`alpha`** on
-   > the previous version — that shipped three times in a row (0.3.0, 0.4.0, 0.5.0) with
-   > `npm i @aparte/core@alpha` resolving to the version before. And the obvious fix is
-   > refused: `changeset publish --tag alpha` errors with *"Releasing under custom tag is not
-   > allowed in pre mode"*. So `pnpm release` moves the tag afterwards, on all fifteen
-   > packages, with `scripts/align-dist-tags.mjs` (it also prints what it moved, and fails
-   > loudly rather than reporting a clean run — the first version silently found nothing,
-   > because Node cannot spawn `npm.cmd` without a shell).
+   > The tags drifted on three releases in a row (0.3.0, 0.4.0, 0.5.0): `changeset publish`
+   > moved `latest` and left `alpha` behind, so `npm i @aparte/core@alpha` served the version
+   > before. `pnpm release` now passes `--tag alpha` **and** runs
+   > `scripts/align-dist-tags.mjs`, which checks both tags on all fifteen packages, prints
+   > what it moves, and exits non-zero on any failure — its first version silently reported
+   > "15 already correct" while doing nothing, because Node cannot spawn `npm.cmd` without a
+   > shell.
    >
-   > `latest` is left where `changeset publish` put it: every version so far is a prerelease,
-   > so there is no stable release for it to point at, and moving it backwards would only make
-   > `npm i @aparte/core` resolve to something older.
+   > `latest` follows the alpha channel on purpose: there is no stable line yet, `latest`
+   > already pointed at an alpha, and freezing it would only serve older bits to a bare
+   > `npm i @aparte/core`. The day a stable line exists, `latest` stops following — and
+   > that is the day to change that script.
 
 ## Anti-patterns
 
