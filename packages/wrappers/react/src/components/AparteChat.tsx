@@ -36,13 +36,24 @@ export interface AparteChatProps {
      */
     centerWhenEmpty?: boolean;
     /**
+     * Add the file picker + chips strip to the default composer shell. **Off by
+     * default**, because the capability needs a host that consumes the files: an
+     * `AparteClient` inlines them per its `rawFileInject` option, but if you drive
+     * your own loop you must read `event.files` in `onMessageSent` — otherwise the
+     * file the user deliberately attached is dropped in silence. No effect when you
+     * pass your own `composer` (drop `<aparte-composer-add-attachment>` and
+     * `<aparte-composer-attachments>` in it yourself).
+     */
+    attachments?: boolean;
+    /**
      * Active conversation id. When set, the wrapper loads/persists via the
      * `ConversationManager` registered in `AparteConfig` (set `null` to deselect).
      */
     conversationId?: string | null;
     /**
      * Custom composer content, rendered inside `<aparte-composer>` in place of the
-     * default shell (add-attachment · input · send). Compose the headless
+     * default shell (input · send, plus the attachment primitives when
+     * `attachments` is set). Compose the headless
      * `aparte-composer-*` primitives freely — e.g. a skin-specific layout. Omit for
      * the default shell. The `<aparte-composer>` element (and its placeholder /
      * disabled / submit-on-enter behaviour) is always provided by the wrapper.
@@ -130,6 +141,7 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         submitOnEnter = true,
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
+        attachments = false,
         conversationId = null,
         composer,
         renderBubble,
@@ -322,9 +334,9 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
             >
                 {composer ?? (
                     <div className="aparte-composer-shell">
-                        <aparte-composer-attachments />
+                        {attachments && <aparte-composer-attachments />}
                         <div className="aparte-composer-row">
-                            <aparte-composer-add-attachment />
+                            {attachments && <aparte-composer-add-attachment />}
                             <aparte-composer-input />
                             <aparte-composer-send />
                         </div>

@@ -99,13 +99,18 @@ import { AparteChatHost } from '@aparte/core';
         (aparte-send)="onAparteSend($event)"
       >
         <!-- Custom composer via [slot='composer']; falls back to the default
-             shell (add-attachment · input · send + footer slots). Project your
-             own aparte-composer-* layout for a skin-specific composer. -->
+             shell (input · send + footer slots, plus the attachment primitives
+             when the attachments input is set). Project your own
+             aparte-composer-* layout for a skin-specific composer. -->
         <ng-content select="[slot='composer']">
           <div class="aparte-composer-shell">
-            <aparte-composer-attachments></aparte-composer-attachments>
+            @if (attachments()) {
+              <aparte-composer-attachments></aparte-composer-attachments>
+            }
             <div class="aparte-composer-row">
-              <aparte-composer-add-attachment></aparte-composer-add-attachment>
+              @if (attachments()) {
+                <aparte-composer-add-attachment></aparte-composer-add-attachment>
+              }
               <aparte-composer-input></aparte-composer-input>
               <aparte-composer-send></aparte-composer-send>
             </div>
@@ -197,6 +202,18 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      */
     @Input({ alias: 'centerWhenEmpty', transform: booleanAttribute }) set centerWhenEmptyInput(val: boolean) { this.centerWhenEmpty.set(val); }
     readonly centerWhenEmpty = signal<boolean>(false);
+
+    /**
+     * Add the file picker + chips strip to the default composer shell. **Off by
+     * default**, because the capability needs a host that consumes the files: an
+     * `AparteClient` inlines them per its `rawFileInject` option, but if you drive
+     * your own loop you must read `event.files` on `(messageSent)` — otherwise the
+     * file the user deliberately attached is dropped in silence. No effect when you
+     * project a `[slot='composer']` (drop `<aparte-composer-add-attachment>` and
+     * `<aparte-composer-attachments>` in it yourself).
+     */
+    @Input({ alias: 'attachments', transform: booleanAttribute }) set attachmentsInput(val: boolean) { this.attachments.set(val); }
+    readonly attachments = signal<boolean>(false);
 
     /** Whether the assistant is currently typing/streaming */
     @Input({ alias: 'isTyping', transform: booleanAttribute }) set isTypingInput(val: boolean) { this.isTyping.set(val); }

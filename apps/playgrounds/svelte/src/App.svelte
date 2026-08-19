@@ -44,6 +44,7 @@
     messages={$messages}
     on:messagesChange={handleMessagesChange}
     centerWhenEmpty
+    attachments
     placeholder="Ask anything…"
   >
     <div slot="empty-state" class="welcome">

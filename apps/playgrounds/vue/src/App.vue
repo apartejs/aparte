@@ -39,6 +39,7 @@ function onKeyChange() {
             :messages="chat.messages.value"
             @messages-change="chat.onMessagesChange"
             center-when-empty
+            attachments
             placeholder="Ask anything…"
         >
             <template #empty-state>

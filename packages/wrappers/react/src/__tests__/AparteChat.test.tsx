@@ -93,6 +93,36 @@ describe('AparteChat React Wrapper', () => {
         expect(box.getAttribute('data-aparte-empty')).toBeNull();
     });
 
+    // Attachments are opt-in across core and all four wrappers: the picker is only
+    // honest when the host consumes `detail.files` (an AparteClient does; a
+    // hand-rolled loop must). Same three assertions in every wrapper's suite so a
+    // divergence in one of them fails the gate.
+    it('mounts no attachment primitives by default', () => {
+        const { container } = render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} />);
+        expect(container.querySelector('aparte-composer-add-attachment')).toBeNull();
+        expect(container.querySelector('aparte-composer-attachments')).toBeNull();
+    });
+
+    it('mounts the picker and the chips strip with attachments', () => {
+        const { container } = render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} attachments />);
+        expect(container.querySelector('.aparte-composer-shell > aparte-composer-attachments')).not.toBeNull();
+        const row = container.querySelector('.aparte-composer-row')!;
+        expect(row.firstElementChild!.tagName.toLowerCase()).toBe('aparte-composer-add-attachment');
+    });
+
+    it('leaves a custom composer alone even with attachments', () => {
+        const { container } = render(
+            <AparteChat
+                messages={[]}
+                onMessageSent={mockOnMessageSent}
+                attachments
+                composer={<div className="mine"><aparte-composer-input /></div>}
+            />,
+        );
+        expect(container.querySelector('.mine')).not.toBeNull();
+        expect(container.querySelector('aparte-composer-add-attachment')).toBeNull();
+    });
+
     it('renders a custom bubble via renderBubble in place of the native one', () => {
         const { container } = render(
             <AparteChat

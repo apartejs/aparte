@@ -17,6 +17,14 @@ registerAllComponents();
 })
 class CustomComposerHost { }
 
+// Same, with `attachments` set: the opt-in must not reach projected markup.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `<aparte-chat [messages]="[]" attachments><div slot="composer" class="my-custom-composer">custom</div></aparte-chat>`,
+})
+class AttachmentsWithCustomComposerHost { }
+
 // Host that renders a custom bubble per message via [bubbleTemplate].
 @Component({
     standalone: true,
@@ -95,6 +103,40 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         const box = fixture.nativeElement.querySelector('.aparte-chat-container') as HTMLElement;
         expect(box.classList.contains('aparte-chat-container--auto-center')).toBe(false);
         expect(box.getAttribute('data-aparte-empty')).toBeNull();
+    });
+
+    // Attachments are opt-in across core and all four wrappers: the picker is only
+    // honest when the host consumes `detail.files` (an AparteClient does; a
+    // hand-rolled loop must). Same three assertions in every wrapper's suite so a
+    // divergence in one of them fails the gate.
+    it('mounts no attachment primitives by default', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('aparte-composer-add-attachment')).toBeNull();
+        expect(fixture.nativeElement.querySelector('aparte-composer-attachments')).toBeNull();
+    });
+
+    it('mounts the picker and the chips strip with attachments', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        (fixture.componentRef as any).setInput('attachments', true);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelector('.aparte-composer-shell > aparte-composer-attachments')).not.toBeNull();
+        const row = host.querySelector('.aparte-composer-row')!;
+        expect(row.firstElementChild!.tagName.toLowerCase()).toBe('aparte-composer-add-attachment');
+    });
+
+    it('leaves a projected composer alone even with attachments', async () => {
+        const fixture = TestBed.createComponent(AttachmentsWithCustomComposerHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('.my-custom-composer')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector('aparte-composer-add-attachment')).toBeNull();
     });
 
     it('renders a custom bubble via [bubbleTemplate] in place of the native one', async () => {

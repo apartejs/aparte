@@ -51,3 +51,16 @@ test('rejecting a tool call halts the action', async ({ page }) => {
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
+
+test('the bare shell offers no attachment picker (opt-in capability)', async ({ page }) => {
+    // This app is a plain `<aparte-chat>` with no `attachments` attribute, read
+    // from core's built dist. A picker here would promise file support the host
+    // never wired: the files would ride on `aparte-send` and be dropped in
+    // silence. Asserted in a real browser because the default composition is
+    // built by core itself, at custom-element upgrade time.
+    await page.goto('/');
+    await expect(page.locator('aparte-chat')).toBeVisible();
+    await expect(page.locator('aparte-composer-input')).toBeVisible();
+    await expect(page.locator('aparte-composer-add-attachment')).toHaveCount(0);
+    await expect(page.locator('aparte-composer-attachments')).toHaveCount(0);
+});

@@ -142,6 +142,33 @@ describe('AparteChat.vue', () => {
         expect(composer.querySelector('.aparte-composer-shell')).toBeNull();
     });
 
+    // Attachments are opt-in across core and all four wrappers: the picker is only
+    // honest when the host consumes `detail.files` (an AparteClient does; a
+    // hand-rolled loop must). Same three assertions in every wrapper's suite so a
+    // divergence in one of them fails the gate.
+    it('mounts no attachment primitives by default', () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        expect(wrapper.element.querySelector('aparte-composer-add-attachment')).toBeNull();
+        expect(wrapper.element.querySelector('aparte-composer-attachments')).toBeNull();
+    });
+
+    it('mounts the picker and the chips strip with attachments', () => {
+        const wrapper = mount(AparteChat, { props: { messages: [], attachments: true } });
+        const root = wrapper.element as HTMLElement;
+        expect(root.querySelector('.aparte-composer-shell > aparte-composer-attachments')).not.toBeNull();
+        const row = root.querySelector('.aparte-composer-row')!;
+        expect(row.firstElementChild!.tagName.toLowerCase()).toBe('aparte-composer-add-attachment');
+    });
+
+    it('leaves a custom composer alone even with attachments', () => {
+        const wrapper = mount(AparteChat, {
+            props: { messages: [], attachments: true },
+            slots: { composer: '<div class="my-custom-composer">custom</div>' },
+        });
+        expect(wrapper.element.querySelector('.my-custom-composer')).not.toBeNull();
+        expect(wrapper.element.querySelector('aparte-composer-add-attachment')).toBeNull();
+    });
+
     it('renders a custom bubble via the `bubble` scoped slot in place of the native one', () => {
         const wrapper = mount(AparteChat, {
             props: { messages: [

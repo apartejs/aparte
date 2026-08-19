@@ -19,6 +19,16 @@
    * default — additive.
    */
   export let centerWhenEmpty = false;
+  /**
+   * Add the file picker + chips strip to the default composer shell. **Off by
+   * default**, because the capability needs a host that consumes the files: an
+   * `AparteClient` inlines them per its `rawFileInject` option, but if you drive
+   * your own loop you must read `event.files` on `messageSent` — otherwise the file
+   * the user deliberately attached is dropped in silence. No effect when you fill
+   * the `composer` slot (drop `<aparte-composer-add-attachment>` and
+   * `<aparte-composer-attachments>` in it yourself).
+   */
+  export let attachments = false;
   /** Active conversation id (loads/persists via the registered ConversationManager). */
   export let conversationId: string | null = null;
   /**
@@ -237,13 +247,14 @@
     on:aparte-send={handleSend}
   >
     <!-- Custom composer via the `composer` slot; falls back to the default
-         shell (add-attachment · input · send). Compose the headless
-         aparte-composer-* primitives freely for a skin-specific layout. -->
+         shell (input · send, plus the attachment primitives when `attachments` is
+         set). Compose the headless aparte-composer-* primitives freely for a
+         skin-specific layout. -->
     <slot name="composer">
       <div class="aparte-composer-shell">
-        <aparte-composer-attachments></aparte-composer-attachments>
+        {#if attachments}<aparte-composer-attachments></aparte-composer-attachments>{/if}
         <div class="aparte-composer-row">
-          <aparte-composer-add-attachment></aparte-composer-add-attachment>
+          {#if attachments}<aparte-composer-add-attachment></aparte-composer-add-attachment>{/if}
           <aparte-composer-input></aparte-composer-input>
           <aparte-composer-send></aparte-composer-send>
         </div>

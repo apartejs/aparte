@@ -40,6 +40,7 @@ export default function App() {
                 messages={chat.messages}
                 onMessagesChange={chat.setMessages}
                 centerWhenEmpty
+                attachments
                 placeholder="Ask anything…"
                 emptyState={
                     <div className="welcome">

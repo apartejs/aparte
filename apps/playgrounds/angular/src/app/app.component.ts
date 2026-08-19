@@ -28,7 +28,7 @@ const CHIPS = [
                 />
             </header>
 
-            <aparte-chat centerWhenEmpty placeholder="Ask anything…">
+            <aparte-chat centerWhenEmpty attachments placeholder="Ask anything…">
                 <div slot="empty-state" class="welcome">
                     <h2>Start a conversation</h2>
                     <div class="suggestions">
