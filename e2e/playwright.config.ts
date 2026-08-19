@@ -119,6 +119,13 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
+    // A retry that passes still reported the whole run as GREEN, so four flakes rode
+    // into main looking like a success — and one of them was a real defect (an
+    // options refresh threw away the keyboard highlight, fixed in `aparte-select`).
+    // Keep the retry, because the second run and its trace are what make a flake
+    // diagnosable; fail the job anyway, because "sometimes red" is a result, not
+    // noise. Locally retries are 0, so this changes nothing there.
+    failOnFlakyTests: !!process.env.CI,
     // Locally: 8, not the default half-the-machine. Each worker is a browser, and
     // they all share the six dev servers this config boots (five Vite + the Angular
     // CLI), so the default 16 saturates a 32-thread box for the whole run.

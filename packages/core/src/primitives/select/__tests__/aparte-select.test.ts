@@ -209,3 +209,90 @@ describe('AparteSelect — accessible name (axe aria-input-field-name)', () => {
         expect(el.querySelector('.aparte-select-trigger')!.getAttribute('aria-label')).toBe('Choose a model');
     });
 });
+
+// ─── the keyboard position must survive a refresh of the options ─────────────
+//
+// Any consumer can replace the options of an OPEN dropdown: the model selector
+// does exactly that whenever the provider list settles, writing straight into
+// `.aparte-select-options`. Until now that silently threw away the roving
+// highlight — `data-active` went with the removed elements while `_activeIndex`
+// still claimed a position, and `aria-activedescendant` kept pointing at an id
+// that no longer existed in the document (a broken reference for a screen reader).
+//
+// Three CI flakes lived here: "ArrowDown then expect one [data-active]" polled for
+// ten seconds and found none, because the refresh landed in between. On a fast
+// machine the refresh happens before the keystroke, on a slow one after.
+describe('AparteSelect — an options refresh while open', () => {
+    /** Replace the options the way a consumer does: innerHTML of the container. */
+    function refreshOptions(el: AparteSelect, values: string[]): void {
+        const container = el.querySelector('.aparte-select-options')!;
+        container.innerHTML = values
+            .map((v) => `<aparte-option value="${v}">${v}</aparte-option>`)
+            .join('');
+    }
+
+    const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+    it('keeps exactly one highlighted option', async () => {
+        const el = mountSelect([{ value: 'one' }, { value: 'two' }, { value: 'three' }]);
+        openViaTrigger(el);
+        key('ArrowDown');
+        expect(el.querySelectorAll('aparte-option[data-active]')).toHaveLength(1);
+
+        refreshOptions(el, ['one', 'two', 'three']);
+        await flush();
+
+        expect(el.querySelectorAll('aparte-option[data-active]')).toHaveLength(1);
+    });
+
+    it('leaves aria-activedescendant pointing at an option that exists', async () => {
+        const el = mountSelect([{ value: 'one' }, { value: 'two' }, { value: 'three' }]);
+        openViaTrigger(el);
+        key('ArrowDown');
+        key('ArrowDown');
+
+        refreshOptions(el, ['one', 'two', 'three']);
+        await flush();
+
+        const id = el.querySelector('.aparte-select-trigger')!.getAttribute('aria-activedescendant');
+        expect(id).toBeTruthy();
+        expect(el.querySelector(`#${id}`)).not.toBeNull();
+        expect(el.querySelector(`#${id}`)!.hasAttribute('data-active')).toBe(true);
+    });
+
+    it('clamps onto the last option when the refreshed list is shorter', async () => {
+        const el = mountSelect([{ value: 'one' }, { value: 'two' }, { value: 'three' }]);
+        openViaTrigger(el);
+        key('End');
+        expect(el.querySelectorAll('aparte-option[data-active]')).toHaveLength(1);
+
+        refreshOptions(el, ['only']);
+        await flush();
+
+        const active = el.querySelectorAll('aparte-option[data-active]');
+        expect(active).toHaveLength(1);
+        expect(active[0]!.getAttribute('value')).toBe('only');
+    });
+
+    it('resumes from where the user was, not from the top', async () => {
+        // Guards the lazy fix: restoring index 0 on every refresh would silently
+        // send the user back to the first option mid-navigation.
+        const el = mountSelect([{ value: 'one' }, { value: 'two' }, { value: 'three' }]);
+        openViaTrigger(el);
+        key('ArrowDown'); // 'one' -> 'two'
+        refreshOptions(el, ['one', 'two', 'three']);
+        await flush();
+        expect(el.querySelector('aparte-option[data-active]')!.getAttribute('value')).toBe('two');
+
+        key('ArrowDown');
+        expect(el.querySelector('aparte-option[data-active]')!.getAttribute('value')).toBe('three');
+    });
+
+    it('does not invent a highlight when the dropdown is closed', async () => {
+        const el = mountSelect([{ value: 'one' }, { value: 'two' }]);
+        // Never opened: a refresh must not start highlighting things.
+        refreshOptions(el, ['one', 'two']);
+        await flush();
+        expect(el.querySelectorAll('aparte-option[data-active]')).toHaveLength(0);
+    });
+});

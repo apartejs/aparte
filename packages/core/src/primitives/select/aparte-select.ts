@@ -203,9 +203,34 @@ export class AparteSelect extends HTMLElement {
     private _setupMutationObserver(): void {
         this._observer = new MutationObserver(() => {
             this._updateDropdownContent();
+            // The options may have just been replaced under an open dropdown —
+            // re-assert the keyboard position on the NEW elements. See
+            // {@link _restoreActive}.
+            this._restoreActive();
         });
 
-        this._observer.observe(this, { childList: true });
+        // `subtree` matters: a consumer refreshing a live list writes into
+        // `.aparte-select-options` (the model selector does exactly that when the
+        // provider list settles), which is a DESCENDANT. Watching only our own
+        // children missed it entirely — the highlight vanished with the removed
+        // elements and nothing here noticed. Our own writes disconnect the observer
+        // first, so this cannot loop.
+        this._observer.observe(this, { childList: true, subtree: true });
+    }
+
+    /**
+     * Put the roving highlight back after the options changed underneath it.
+     *
+     * `data-active` lives on an option ELEMENT, so replacing the list throws it
+     * away while `_activeIndex` still claims a position: the highlight disappeared,
+     * `aria-activedescendant` kept pointing at an id no longer in the document, and
+     * the next ArrowDown moved from the stale index — skipping an option. Only when
+     * open and only when a position was held, so a refresh never invents one.
+     */
+    private _restoreActive(): void {
+        if (!this._isOpen || this._activeIndex < 0) return;
+        if (this.querySelector('aparte-option[data-active]')) return;
+        this._setActive(this._activeIndex);
     }
 
     private _updateDropdownContent(): void {
@@ -244,10 +269,11 @@ export class AparteSelect extends HTMLElement {
 
         // Resume observer
         if (this.isConnected) {
-            this._observer?.observe(this, { childList: true });
+            this._observer?.observe(this, { childList: true, subtree: true });
         }
 
         this._updateTriggerLabel();
+        this._restoreActive();
     }
 
     private _setupEventListeners(): void {

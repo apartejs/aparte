@@ -115,4 +115,72 @@ describe('aparte-model-selector', () => {
 
         detachConfig(hostA);
     });
+
+    // ─── a re-render must not undo a user's pick ─────────────────────────────
+    //
+    // Written while chasing a CI flake where the request carried the default model
+    // instead of the selected one. It did NOT reproduce it: a render queues
+    // `select.value = <captured>`, but that write does not emit a change, so it
+    // cannot revert the config. The flake's cause is elsewhere (the lost keyboard
+    // highlight, fixed in `aparte-select`).
+    //
+    // Kept because the invariant is worth holding on its own: whatever a render has
+    // queued, the last word belongs to the user's pick.
+    describe('a queued re-render vs a fresh selection', () => {
+        /** Two providers so the list has more than one option to move between. */
+        const twoProviders = (): void => {
+            AparteConfig.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
+            AparteConfig.registerAIProvider(fakeProvider('beta', 'Beta One'));
+        };
+
+        /** Drive the select the way a click or Enter does. */
+        const selectValue = (sel: HTMLElement, value: string): void => {
+            sel.querySelector('aparte-select')?.dispatchEvent(
+                new CustomEvent('aparte-select-change', {
+                    bubbles: true,
+                    detail: { value },
+                }),
+            );
+        };
+
+        const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 10));
+
+        it("keeps the model the user picked, even when a render was already in flight", async () => {
+            twoProviders();
+            const sel = await mountSelector(document.createElement('div'));
+            sel.setAttribute('auto-select', '');
+            sel.setAttribute('persist', '');
+            await flush();
+
+            // A render starts (anything that re-renders: a config change, a new
+            // attribute, a refreshed model list)…
+            sel.setAttribute('placeholder', 'pick one');
+            // …and the user selects the OTHER model before its queued work runs.
+            selectValue(sel, 'beta::beta-model');
+            await flush();
+
+            expect(AparteConfig.getModelConfig().defaultModel).toBe('beta-model');
+            expect(AparteConfig.getModelConfig().defaultProvider).toBe('beta');
+        });
+
+        it('does not fire a change that puts the previous model back', async () => {
+            twoProviders();
+            const sel = await mountSelector(document.createElement('div'));
+            sel.setAttribute('auto-select', '');
+            sel.setAttribute('persist', '');
+            await flush();
+
+            const seen: string[] = [];
+            sel.addEventListener('aparte-model-change', (e) => {
+                seen.push((e as CustomEvent<AparteModelChangeEventDetail>).detail.modelId);
+            });
+
+            sel.setAttribute('placeholder', 'pick one');
+            selectValue(sel, 'beta::beta-model');
+            await flush();
+
+            // Whatever the sequence, the LAST thing anyone hears must be the pick.
+            expect(seen.at(-1)).toBe('beta-model');
+        });
+    });
 });
