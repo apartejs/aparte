@@ -27,13 +27,20 @@ Requires the pnpm version pinned in `package.json` (`packageManager`) and Node 2
 Every change lands **behind a green gate**. One command runs it:
 
 ```bash
-pnpm gate        # lint + typecheck + test + build + packaging (publint/attw)
+pnpm gate        # lint + typecheck + test + build + packaging + published READMEs
 pnpm gate:full   # the above + pnpm e2e (run `pnpm e2e:install` once first)
 ```
 
 Run `gate:full` for anything touching the framework boundary, rendering, or before a
 release; `pnpm gate` otherwise. A public API also needs a docs page, and any change to a
 package's public API or shipped CSS needs a changeset.
+
+`check:readmes` is the odd one out: `publint`/`attw` check a package's *shape*, and this
+checks its *claims* — a published README may not say "not yet published", "pre-alpha",
+"coming soon" or carry a TODO. `@aparte/core`'s README announced "🚧 Pre-alpha — not yet
+published to npm" across four npm releases, on the page npm itself was serving. Nothing
+was wrong with the package; the first line a visitor read was false, and no gate was
+looking at the words.
 
 ### It's enforced, not trusted
 

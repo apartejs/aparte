@@ -3,8 +3,10 @@
 Framework-agnostic AI-chat UI as **vanilla Web Components** — zero runtime dependencies,
 ESM-only, usable in any framework or none.
 
-> 🚧 **Pre-alpha** — not yet published to npm. Part of the
-> [aparté](https://github.com/apartejs/aparte) monorepo.
+> **Alpha.** On npm, released in lockstep with every other `@aparte/*` package — the
+> version number is a plain `0.x` and the API can still change before the first stable
+> cut. Part of the [aparté](https://github.com/apartejs/aparte) monorepo; what changed
+> when is at [apartejs.dev/changelog](https://apartejs.dev/changelog/).
 
 ## Install
 
@@ -17,16 +19,23 @@ npm install @aparte/core
 ```ts
 import '@aparte/core';               // registers the <aparte-*> custom elements
 import '@aparte/core/styles.css';    // theme variables + component styles
-import { registerDefaultRenderers, AparteClient } from '@aparte/core';
+import { AparteConfig, AparteClient } from '@aparte/core';
 
-registerDefaultRenderers();
 // Drop the shell in your HTML:  <aparte-chat placeholder="Ask anything…"></aparte-chat>
 
 // Give it a provider + transport (see the docs), then construct the client and call
 // .start() — it listens for the composer's events and streams the reply into the
 // conversation. (Without .start(), no listeners are attached and nothing streams.)
 new AparteClient().start();
+
+// The retry / edit buttons only do something with a host like the client above, so
+// core ships them off. One line turns them on:
+AparteConfig.setBubbleActions({ retry: true, edit: true });
 ```
+
+The built-in segment renderers install themselves the first time a segment needs one, so
+there is nothing to call for text, code or thinking blocks to appear. Calling
+`registerDefaultRenderers()` yourself still works and makes the moment explicit.
 
 ## Node / SSR
 
@@ -68,9 +77,11 @@ ESM-only (CJS consumers use `await import()`).
 
 ## Docs
 
-Guides + a generated API reference live in the monorepo under
-[`apps/docs`](https://github.com/apartejs/aparte/tree/main/apps/docs): Getting started, Theming,
-Customization, Conversations &amp; branching, and The agent engine.
+Full guides and a generated API reference are at
+**[apartejs.dev](https://apartejs.dev/)** — Getting started, Theming, Customization,
+Attachments, Conversations & branching, Tools, Backend transport, Bring your own loop,
+The agent engine, and Troubleshooting. Source under
+[`apps/docs`](https://github.com/apartejs/aparte/tree/main/apps/docs).
 
 ## License
 
