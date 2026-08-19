@@ -13,6 +13,12 @@ import '../styles/landing.css';
       name="description"
       content="A framework-agnostic AI-chat library — vanilla web components, zero runtime dependencies. Drop it into React, Vue, Svelte, Angular, or nothing at all."
     />
+    <!-- This page is `/`, which is where a crawler looks for the site's icon — so the
+         links live here too, not only in the Starlight config (that one covers the
+         docs pages). SVG for browsers, .ico as the raster search engines prefer. -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48 32x32 16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <script is:inline>
       // Shared light/dark with the Starlight docs: read the SAME localStorage key
       // Starlight uses (`starlight-theme`) and apply `data-theme` before paint, so

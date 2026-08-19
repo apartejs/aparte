@@ -51,5 +51,7 @@ Cache and hardware are **standalone helpers** — import them from `@aparte/prov
 
 :::note
 **Scope (v1):** generic text-generation streaming. Tool-calling for local models is model-specific
-(each family has its own format) and is out of scope for now.
+(each family has its own format) and is out of scope for now. A conversation that already contains
+`tool_call` / `tool_result` turns still runs — those turns are **dropped** from what the model sees,
+with one `console.warn` per session so the omission isn't silent.
 :::

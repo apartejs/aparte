@@ -14,6 +14,14 @@ export default defineConfig({
     starlight({
       title: 'aparté',
       description: 'Framework-agnostic AI-chat library — vanilla web components, zero dependencies.',
+      // The mascot: `( '.' )` — the wordmark's brass parentheses, with a face.
+      // SVG for browsers; the raster set below is for search engines and older
+      // clients (both generated from the SVG by scripts/gen-favicon.mjs).
+      favicon: '/favicon.svg',
+      head: [
+        { tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '48x48 32x32 16x16' } },
+        { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' } },
+      ],
       customCss: ['./src/styles/palette.css', './src/styles/aparte-theme.css'],
       sidebar: [
         { label: 'Why aparté', link: '/why/' },

@@ -59,6 +59,38 @@ const client = new AparteClient({
 With no `streamRunner`, the inline loop runs (the default). With one, the engine runs the loop and
 core renders it — same messages, same events, same DOM output.
 
+## Owning the history yourself (prefix-cache hosts)
+
+By default the loop holds the message list and re-sends it each turn, enriched with the
+`tool_call` / `tool_result` turns it produced. That is what a stateless message API wants, and the
+opposite of what a **prefix cache** wants — llama.cpp slots, vLLM — where turn N+1 has to *extend*
+turn N byte for byte or the cache is thrown away.
+
+Such a host owns its own transcript. Half of that already worked: `transportCall` receives the
+request the loop built and may ignore its `messages` entirely. The other half is
+**`onHistoryAppend`** — it reports each turn the loop appends, in order, before the call that would
+carry it, so you don't reimplement the loop's tool bookkeeping:
+
+```ts
+const log = new PromptLog();                       // your append-only transcript
+
+await runStreamAgent({
+  // …messageId, emitter, signal, toolLookup
+  baseRequest: { messages: [] },                   // your transport doesn't read this
+  onHistoryAppend: (turn) => log.append(turn),     // tool_call · tool_result · phase reply
+  transportCall: () => myCompletion(log.render()), // your own bytes, extended not rebuilt
+});
+```
+
+Through the `streamRunner` seam it needs no change in core — augment the options at injection:
+
+```ts
+new AparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, onHistoryAppend }) });
+```
+
+Serializing a tool inventory, its calls and their results into a raw prompt is still yours to
+write: the providers that do it target message-based APIs.
+
 ## Proven parity
 
 The two paths aren't "meant" to match — it's tested. The engine's **`stream-parity`** suite drives

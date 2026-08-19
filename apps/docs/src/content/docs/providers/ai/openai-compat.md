@@ -61,4 +61,29 @@ Ollama is used through its OpenAI-compat `/v1` endpoint, **not** its native `/ap
 native-only niceties (inline base64 images, Ollama-shaped tool calls, `keep_alive`) don't apply.
 :::
 
+## As a pure format adapter (bring your own `fetch`)
+
+The provider separates **wire format** from **transport**, so you can take the first and keep the
+second. `createOpenAICompatProvider` returns an `OpenAICompatProvider` — the provider type *plus*
+the format-adapter surface, with `buildRequest` / `parseStream` / `authHeaders` / `parseText`
+guaranteed present (the base `AparteAIProvider` declares them optional, since a provider may do its
+own I/O):
+
+```ts
+import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
+
+const provider = createOpenAICompatProvider(presets.MISTRAL);
+
+// You own the call: your URL, your headers, your AbortSignal, your retries.
+const { path, body, headers } = provider.buildRequest(request, auth);
+const res = await myFetch(`${baseURL}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+
+for await (const event of provider.parseStream(res.body)) {
+  // text · thinking · tool_use · done{usage} — typed, vendor quirks already handled
+}
+```
+
+No transport, no `AparteClient`, no DOM: useful when the loop lives somewhere else entirely (a
+separate process, a server route, an Electron main process).
+
 For vendors outside this family (Anthropic, Gemini…), use the [AI SDK bridge](/providers/ai/ai-sdk/).
