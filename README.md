@@ -6,11 +6,14 @@ wire it to any LLM through a pluggable transport, and restyle everything with CS
 variables. **Zero dependencies** at the core.
 
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
+[![npm (alpha)](https://img.shields.io/npm/v/@aparte/core/alpha?label=npm%20alpha&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/alpha)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-> 🚀 **Alpha on npm.** Every `@aparte/*` package ships as `0.2.0-alpha.0` under
-> the `alpha` tag — `npm i @aparte/core@alpha`. The API is still stabilising
-> before the first stable cut; docs live at **[apartejs.dev](https://apartejs.dev/)**.
+> 🚀 **Alpha on npm.** Every `@aparte/*` package ships **together at one version**
+> under the `alpha` tag — `npm i @aparte/core@alpha` (the badge above is the live
+> number). The API is still stabilising before the first stable cut; what changed
+> when is in [CHANGELOG.md](./CHANGELOG.md), and the docs live at
+> **[apartejs.dev](https://apartejs.dev/)**.
 
 <sub>pronounced *ah-par-té* — French *aparté*: a line spoken aside, a private word taken "in aparté". Also reads as *a part*: one composable piece.</sub>
 
