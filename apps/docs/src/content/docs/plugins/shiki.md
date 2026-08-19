@@ -1,6 +1,6 @@
 ---
 title: Syntax highlighting (shiki)
-description: Highlight code blocks in aparté via shiki — a single lazily-created highlighter, grammars loaded on demand, so you pay only for the languages you render.
+description: Highlight code blocks in aparté via shiki — one lazily-created highlighter, grammars loaded on demand, and a second entry point for shipping only the languages you use.
 sidebar:
   order: 4
   label: shiki
@@ -25,15 +25,18 @@ await setupShikiProvider({ theme: 'github-dark' });
 `setupShikiProvider` is **async** — `await` it once at startup before highlighted messages render. It
 fills the `AparteConfig.setHighlightProvider` seam.
 
-## Bundle — runtime cost and shipped weight are two different things
+## Bundle — two different costs
 
-**At runtime**, nothing is eager: each grammar is dynamically imported the first time that language
-appears, so you only *execute* what you render, and an unknown language degrades to plain text instead
-of throwing.
+Shiki knows ~300 languages. The question is not *when* a grammar loads, it is *how many of them end up in
+the files you distribute*.
 
-**What you ship is another matter.** The import above pulls in `shiki`, whose bundle maps *every* known
-language to a dynamic import — so your bundler emits one chunk per grammar. Measured on a build whose
-only import was `setupShikiProvider`:
+- **Loading is lazy.** A grammar is fetched the first time that language appears in a message. You only
+  ever *run* the ones you render, and an unknown language degrades to plain text instead of throwing.
+- **Shipping is not.** `import { setupShikiProvider } from '@aparte/plugin-shiki'` pulls in `shiki`,
+  whose bundle names every one of those languages in a dynamic import. Your bundler cannot know which
+  ones you will need, so it prepares **all of them** — one file each, in your build output.
+
+Measured on a build whose only import was `setupShikiProvider`:
 
 | entry point | files emitted | weight |
 | --- | --- | --- |
