@@ -11,7 +11,14 @@ export default defineConfig({
         emptyOutDir: true,
         outDir: resolve(__dirname, 'dist'),
         lib: {
-            entry: { index: resolve(__dirname, 'src/index.ts') },
+            // Two entries on purpose: `core` must be reachable WITHOUT pulling
+            // `shiki`'s full bundle into the consumer's graph (302 chunks / 11 MB
+            // measured). One shared chunk between them is fine — it carries no
+            // shiki import.
+            entry: {
+                index: resolve(__dirname, 'src/index.ts'),
+                core: resolve(__dirname, 'src/core.ts'),
+            },
             name: 'ApartePluginShiki',
             fileName: (_format, entryName) => `${entryName}.js`,
             formats: ['es'],
@@ -21,7 +28,7 @@ export default defineConfig({
         sourcemap: true,
         reportCompressedSize: false,
         rollupOptions: {
-            external: ['@aparte/core', 'shiki'],
+            external: ['@aparte/core', 'shiki', 'shiki/core'],
         },
     },
 });

@@ -113,6 +113,20 @@ markdown/highlight micro-packages, an eval harness, voice.
    stop, no pointer. The rule was discovered the hard way — attachments were made opt-in in
    0.4.0 for exactly this reason, and the sweep that followed found six more cases, none of
    which our own playgrounds handled.
+9. **A capability is never hostage to `AparteClient`, and never hostage to a bundle.**
+   Two halves of the same rule, both learned from the first external consumer:
+   (a) *reachability* — every capability ships as a standalone function
+   (`setupMarkedProvider`, `setupShikiProvider`, `registerDefaultRenderers`, and the
+   built-ins that now install themselves), because the guide that says "bring your own
+   loop" cannot then require the object it told you not to construct; the client is one
+   caller of a capability, never its gatekeeper. Corollary: make the wiring
+   *introspectable* (`renderMarkdown`, `hasHighlightProvider`,
+   `createStreamingMarkdownRenderer` returning `null`) so a consumer can test its setup
+   in Node, without a DOM. (b) *weight* — a consumer must be able to control what a
+   plugin makes their bundler emit. Runtime laziness is not distribution weight: a
+   static import of a full grammar bundle costs every consumer 302 chunks whatever the
+   options say, so the lever is a **separate entry point**
+   (`@aparte/plugin-shiki/core`), not a flag. Measure before claiming either.
 
 ---
 

@@ -14,7 +14,10 @@ export interface ShikiProviderOptions {
     theme?: BundledTheme | string;
 }
 
-const PLAINTEXT = new Set(['text', 'plaintext', 'txt', 'ansi', '']);
+import { PLAINTEXT } from './core.js';
+
+export { setupShikiProviderFromHighlighter } from './core.js';
+export type { ShikiCoreProviderOptions, ShikiHighlighterLike } from './core.js';
 
 /**
  * Register [shiki](https://shiki.style) as aparté's syntax-highlight provider.
@@ -25,9 +28,18 @@ const PLAINTEXT = new Set(['text', 'plaintext', 'txt', 'ansi', '']);
  * `codeToHtml` shorthand, which can re-initialise a highlighter per call — the
  * cost we control here is why the plugin exists.
  *
- * Bundle note: nothing is eagerly bundled. Grammars/themes are dynamically
- * imported from shiki's bundle the first time they are seen, so the highlighted
- * languages a consumer actually renders are what they pay for.
+ * **Bundle note — runtime cost and distribution cost are not the same thing.**
+ * At runtime nothing is eager: a grammar is fetched the first time a language is
+ * seen, so you only *execute* what you render. But this entry imports `shiki`,
+ * whose bundle maps every known language to a dynamic import, so your bundler
+ * **emits one chunk per grammar** — measured on a build whose only import was this
+ * function: **302 files, 11 MB** (`emacs-lisp` alone is 780 kB). Restricting the
+ * language list would not help; a static import is a static import.
+ *
+ * If the size of what you ship matters — an app delivered by `npx`, a desktop
+ * bundle — use {@link setupShikiProviderFromHighlighter} from
+ * `@aparte/plugin-shiki/core` and build the highlighter yourself: same plugin,
+ * same behaviour, **1 file / 560 kB** for three grammars.
  *
  * Framework-agnostic — vanilla, no framework imports. Call once at startup.
  */
