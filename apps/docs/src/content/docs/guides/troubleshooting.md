@@ -99,6 +99,24 @@ is attached to a request.
 
 Keyless local providers never trigger this warning — there's no key to expose.
 
+## `[Unknown segment type: …]` in the bubbles
+
+The bubble found no renderer for that segment type.
+
+- **A built-in type** (`text`, `thinking`, `code`, `terminal`, `tool_call`, `artifact`,
+  …) should never show this: core installs its built-in renderers the first time a
+  segment needs one. If you see it anyway, something declined them — a
+  `new AparteClient({ autoRegister: false })` somewhere, which is remembered on
+  purpose. Drop the option, or register what you need with `registerSegmentRenderer`.
+  On **0.4.x and earlier** the built-ins only came with `new AparteClient()`, so a
+  display-only app had to call `registerDefaultRenderers()` itself — that's the fix
+  there.
+- **Your own type** — that's the expected fallback: register a renderer for it (see
+  [Custom segment types](/guides/customization/#custom-segment-types)).
+
+The symptom is easy to misread, because everything else works: bubbles, streaming,
+auto-scroll, the composer. Only the content is missing.
+
 ## The retry / edit / ⓘ buttons aren't there
 
 They ship **off**. Core can only render them; re-sending a message, keeping edited text and

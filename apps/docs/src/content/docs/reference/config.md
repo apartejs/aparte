@@ -188,7 +188,7 @@ Constructor options (all optional):
 | `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: drop everything. |
 | `streamRunner` | `AparteStreamRunner` | Delegate the agentic loop to a headless runner (e.g. `@aparte/engine`'s `runStreamAgent`) instead of the built-in inline loop. |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |
-| `autoRegister` | `boolean` (default `true`) | Auto-register the default segment renderers. |
+| `autoRegister` | `boolean` (default `true`) | Register core's default segment renderers. Rarely needed either way — the built-ins install themselves on first use; set `false` (at startup) to keep them out and register your own. |
 | `history` | `'viewport' \| 'none' \| ((viewportMessages: AparteMessage[]) => AparteChatMessage[])` | Conversation-history strategy for new sends. |
 | `targetResolver` | `() => HTMLElement \| null` | Resolve the render target when the default event-bubble walk / DOM scan can't reach it. |
 | `scopeToTargetId` | `string` | Scope this client instance to one target id, for multiple independent conversations on one page. |

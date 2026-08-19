@@ -31,9 +31,12 @@ import { registerDefaultRenderers } from '@aparte/core';
 registerDefaultRenderers();          // turns raw text/markdown into rendered bubbles
 ```
 
-:::caution
-`registerDefaultRenderers()` is **required** when you use core on its own —
-without it, bubbles render empty.
+:::note[It's optional now]
+Core installs its built-in renderers the first time a segment needs one, so a chat
+renders out of the box whichever path you take. Calling `registerDefaultRenderers()`
+explicitly is still fine — it just makes the moment visible, and it's what the
+examples do. `AparteClient({ autoRegister: false })` still keeps the built-ins out
+if you mean to bring your own.
 :::
 
 ## Add the markup

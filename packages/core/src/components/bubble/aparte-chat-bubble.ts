@@ -11,22 +11,35 @@ import type {
   AparteUsage,
   AparteMessage,
 } from '../../types/index.js';
-import { getSegmentRenderer } from '../../renderers/index.js';
+import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 import { AparteConfigClass } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 
 /**
- * Warn ONCE when a segment has no registered renderer — the classic
- * "I forgot registerDefaultRenderers()" trap that otherwise fails silently as a
- * `[Unknown segment type]` box.
+ * Warn ONCE when a segment has no renderer — now only for types core has never
+ * heard of, since the built-ins install themselves on first use.
  */
 let _warnedNoRenderer = false;
 function warnMissingRenderer(type: string): void {
     if (_warnedNoRenderer) return;
     _warnedNoRenderer = true;
-    console.warn(`[aparte] No renderer for segment "${type}". Did you call registerDefaultRenderers() from @aparte/core?`);
+    console.warn(`[aparte] No renderer for segment "${type}". Register one with registerSegmentRenderer({ type: '${type}', render }) from @aparte/core — see https://apartejs.dev/guides/customization/#custom-segment-types`);
+}
+
+/**
+ * The renderer for `type`, installing core's built-ins the first time a segment
+ * finds the registry empty of its type. `registerDefaultRenderers()` therefore
+ * becomes optional rather than a call you discover by seeing
+ * `[Unknown segment type: text]` on screen (it is still honoured, and
+ * `AparteClient({ autoRegister: false })` still keeps the built-ins out).
+ */
+function resolveSegmentRenderer(type: string): ReturnType<typeof getSegmentRenderer> {
+    const renderer = getSegmentRenderer(type);
+    if (renderer) return renderer;
+    installDefaultRenderersOnce();
+    return getSegmentRenderer(type);
 }
 
 /**
@@ -307,7 +320,7 @@ export class AparteChatBubble extends HTMLElement {
         console.warn(`[AparteChatBubble] _appendSegmentEl ABORT: _segmentsEl is null`);
         return;
     }
-    const renderer = getSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type);
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
       // this bubble's config as the ambient render config for the duration.
@@ -333,7 +346,7 @@ export class AparteChatBubble extends HTMLElement {
       this._renderSegments();
       return;
     }
-    const renderer = getSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type);
     if (!renderer) return;
 
     if (renderer.update) {
@@ -589,7 +602,7 @@ export class AparteChatBubble extends HTMLElement {
     this._segmentsEl.innerHTML = '';
 
     for (const segment of this._segments) {
-      const renderer = getSegmentRenderer(segment.type);
+      const renderer = resolveSegmentRenderer(segment.type);
       if (renderer) {
         const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
         if (el) {

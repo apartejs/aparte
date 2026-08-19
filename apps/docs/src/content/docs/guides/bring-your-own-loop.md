@@ -19,6 +19,27 @@ No `AparteClient`, no provider, no transport. Two methods from the
   token by token, with the live-streaming UI (cursor, auto-scroll). Resolves when the iterable
   completes; `stopTokenStream()` cancels.
 
+:::note[Renderers install themselves]
+Rich replies are made of **segments** (text, thinking, code, tool calls…), and each
+one needs a renderer. Core installs its built-in set the first time a segment
+arrives, so this path needs no setup call — you'll see the real content, not
+`[Unknown segment type: text]`.
+
+This used to be a trap worth naming: `registerDefaultRenderers()` had exactly one
+caller, `new AparteClient()` — the object this page tells you not to construct. A
+display-only app got working bubbles, working streaming, working scroll, and no
+content, which reads as a bug in your own loop. If you're on an older version, call
+it once at startup:
+
+```ts
+import { registerDefaultRenderers } from '@aparte/core';
+registerDefaultRenderers();
+```
+
+Registering your own renderer for a type still wins — the built-in sweep only fills
+what nobody claimed. See [Custom segment types](/guides/customization/#custom-segment-types).
+:::
+
 ## The pattern
 
 1. Listen to `onMessageSent` for the user's message and forward it to your loop. The user bubble

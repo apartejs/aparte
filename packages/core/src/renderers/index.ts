@@ -8,5 +8,7 @@ export {
     getSegmentRenderer,
     getAllRenderers,
     collectRendererStyles,
-    registerDefaultRenderers
+    registerDefaultRenderers,
+    installDefaultRenderersOnce,
+    declineDefaultRenderers
 } from './segment-renderers.js';
