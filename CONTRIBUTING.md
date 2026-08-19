@@ -40,13 +40,46 @@ package's public API or shipped CSS needs a changeset.
 `pnpm install` points git at `.githooks/` (via the root `prepare` script), so:
 
 - **pre-commit** — `lint` + `typecheck` (both incremental; a no-op commit costs seconds)
-- **pre-push** — `test` + `build`, and it **refuses a direct push to `main`**
+- **pre-push** — `test` + `build` (scoped to what the diff affects on a branch, full on
+  `main` — see below), and it **refuses a direct push to `main`**
 
 Feature work goes on a branch and lands through a PR, so CI gates it before it reaches
 `main`. The release flow is the one legitimate exception:
 `APARTE_ALLOW_MAIN_PUSH=1 git push --follow-tags origin main`.
 
 `--no-verify` is not a workflow. If a hook fails, the code is wrong, not the hook.
+
+### What the hooks actually run
+
+A push to `main` (the release flow) runs the full `test` + `build`. A **branch** push runs only
+what the diff can break — CI runs the full matrix on the PR anyway, so a docs-only push should
+not cost 1053 tests and 22 builds. Concretely: the unit suite is skipped when no package with
+tests is affected, and the build goes through `nx affected`.
+
+### Making it fit on your machine
+
+The suites are parallel by default, which on a big machine means *very* parallel. Measured on a
+32-thread box:
+
+| | default | capped | why |
+|---|---|---|---|
+| unit (`pnpm test`) | 31 child processes, 13s | 16 processes, 15s | vitest 2 runs each file in a **fork** with its own jsdom; the suite is startup-bound (~7s of actual tests), so the extra workers buy seconds and cost gigabytes |
+| e2e (`pnpm e2e`) | 16 browsers, 77s | 8 browsers, ~82s | each worker is a browser, on top of the six dev servers the config boots |
+| build (`pnpm build`) | 97s | **3s** | `build` was not a cached nx target: 22 projects rebuilt on every push and every gate |
+
+The caps are in `vitest.config.ts` and `e2e/playwright.config.ts`, and they apply **locally
+only** — CI runners have 2-4 cores, where a percentage cap is harmful. Knobs when you want them:
+
+```bash
+pnpm exec vitest run --maxWorkers 4 --minWorkers 1   # lower still (min must move too)
+E2E_ONLY=react pnpm e2e                              # one playground: one dev server
+pnpm exec nx affected -t build --base=origin/main     # what the hook does
+```
+
+If a build ever looks suspiciously fast, that is the nx cache doing its job — `nx reset` clears
+it. The cache key covers each project's own files, its dependencies' files, and the root
+`tsconfig.base.json` / `pnpm-lock.yaml` / `nx.json` (`sharedGlobals`), so touching any of those
+invalidates everything, deliberately.
 
 > **Maintainers:** the client-side hook is a courtesy, not a guarantee — `main` must also
 > carry a GitHub ruleset (Settings → Rules → Rulesets): require a PR, require the `ci`,

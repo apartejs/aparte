@@ -1,6 +1,6 @@
 #!/bin/sh
-# aparte pre-push gate — the slower half of `pnpm gate`: unit tests + build,
-# plus a guard against pushing straight to `main`.
+# aparte pre-push gate — the slower half of `pnpm gate`, plus a guard against
+# pushing straight to `main`.
 #
 # Installed by `pnpm install` (root `prepare` -> core.hooksPath=.githooks).
 # E2E stays out of here on purpose (it boots six dev servers); CI runs it, and
@@ -25,16 +25,49 @@ if [ "$pushing_main" = "1" ] && [ "$APARTE_ALLOW_MAIN_PUSH" != "1" ]; then
     exit 1
 fi
 
-printf '\n[aparte] pre-push: test + build\n'
-
-if ! pnpm test; then
-    printf '\n[aparte] FAIL: unit tests. Fix them before pushing.\n\n'
-    exit 1
+# --- what to run -------------------------------------------------------------
+# A push to main (the release flow) runs everything. A branch push runs what the
+# diff can actually break: CI still runs the full matrix on the PR, so paying the
+# whole suite locally on every branch push is a tax on contributors — a docs-only
+# push used to cost 1053 tests and 22 builds.
+#
+# `origin/main` is the reference. If it is missing (a clone that never fetched),
+# fall back to the full run rather than silently testing nothing.
+base=origin/main
+if [ "$pushing_main" = "1" ] || ! git rev-parse --verify --quiet "$base" >/dev/null; then
+    scope=full
+else
+    scope=affected
 fi
 
-if ! pnpm build; then
-    printf '\n[aparte] FAIL: build. Fix it before pushing.\n\n'
-    exit 1
+if [ "$scope" = "full" ]; then
+    printf '\n[aparte] pre-push: test + build (full)\n'
+    pnpm test || { printf '\n[aparte] FAIL: unit tests. Fix them before pushing.\n\n'; exit 1; }
+    pnpm build || { printf '\n[aparte] FAIL: build. Fix it before pushing.\n\n'; exit 1; }
+    printf '[aparte] OK: tests + build green\n\n'
+    exit 0
 fi
 
-printf '[aparte] OK: tests + build green\n\n'
+printf '\n[aparte] pre-push: affected vs %s (CI runs the full matrix on the PR)\n' "$base"
+
+# `--withTarget` keeps this honest: nx exits non-zero when a target matches
+# nothing, so ask first whether anything affected even HAS the target.
+testable=$(pnpm exec nx show projects --affected --base="$base" --withTarget test:run 2>/dev/null || true)
+if [ -n "$testable" ]; then
+    # One root vitest run, not one per package: every package depends on core, so
+    # `affected` rarely narrows the FILES — but a single pool is ~2x faster than
+    # fifteen (13s vs 26s measured), and this still skips the suite entirely when
+    # nothing testable changed.
+    pnpm test || { printf '\n[aparte] FAIL: unit tests. Fix them before pushing.\n\n'; exit 1; }
+else
+    printf '[aparte] no package with tests affected — skipping the unit suite\n'
+fi
+
+buildable=$(pnpm exec nx show projects --affected --base="$base" --withTarget build 2>/dev/null || true)
+if [ -n "$buildable" ]; then
+    pnpm exec nx affected -t build --base="$base" || { printf '\n[aparte] FAIL: build. Fix it before pushing.\n\n'; exit 1; }
+else
+    printf '[aparte] nothing buildable affected — skipping the build\n'
+fi
+
+printf '[aparte] OK: affected tests + build green\n\n'

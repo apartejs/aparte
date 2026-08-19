@@ -203,17 +203,28 @@ export class ChatPage {
     async selectModelByKeyboard(label: string | RegExp, maxSteps = 20): Promise<void> {
         await this.openModelList();
         const matcher = typeof label === 'string' ? (t: string) => t.includes(label) : (t: string) => label.test(t);
+        const seen: string[] = [];
         for (let i = 0; i < maxSteps; i++) {
             await this.page.keyboard.press('ArrowDown');
             const active = this.modelSelector.locator('aparte-option[data-active]');
-            const text = (await active.count()) ? ((await active.first().textContent()) ?? '') : '';
-            if (matcher(text)) {
+            // Bound this READ. `count()` then `textContent()` is a race on an element
+            // the selector re-renders under us: when the highlight vanishes in
+            // between, an unbounded `textContent()` waits for it to come back and
+            // burns the whole 45s test timeout in one iteration (seen once on
+            // react-webkit). A vanished highlight is just "not it yet" — take the
+            // empty string and press ArrowDown again.
+            const text = await active.first().textContent({ timeout: 1_000 }).catch(() => '');
+            if (text) seen.push(text.trim());
+            if (matcher(text ?? '')) {
                 await this.page.keyboard.press('Enter');
                 await expect(this.modelDropdown).toBeHidden();
                 return;
             }
         }
-        throw new Error(`no option matching ${String(label)} within ${maxSteps} keyboard steps`);
+        throw new Error(
+            `no option matching ${String(label)} within ${maxSteps} keyboard steps.`
+            + ` Highlighted along the way: ${seen.length ? seen.join(' | ') : '(nothing — the list never took focus)'}`,
+        );
     }
 
     /** Type into the composer without sending (for gate / draft assertions). */

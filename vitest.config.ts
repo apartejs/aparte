@@ -6,6 +6,18 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Vitest 2 runs each file in a CHILD PROCESS (the `forks` pool became the
+    // default in 2.0), and each one boots its own jsdom. Unbounded, that is
+    // `cpus - 1` processes — 31 on a 32-thread machine, for a suite whose actual
+    // test time is ~7s: the rest is per-worker startup, so the extra workers buy
+    // seconds and cost gigabytes. Measured here: 31 workers 13s · 16 workers 15s ·
+    // 8 workers 17s · 4 workers 24s. Half the machine is the sweet spot and leaves
+    // the other half to the human running it.
+    //
+    // CI is left unbounded: the runner exists to run this, and its 2-4 cores make
+    // a percentage cap actively harmful. `minWorkers` must be lowered too — vitest
+    // errors out if the default minimum ends up above the maximum.
+    ...(process.env.CI ? {} : { minWorkers: 1, maxWorkers: '50%' }),
     include: ['packages/**/*.{test,spec}.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     passWithNoTests: true,

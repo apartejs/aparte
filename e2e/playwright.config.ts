@@ -84,8 +84,7 @@ const SEGMENTS = /segments\.spec\.ts/;
 const ATTACH = /attachments\.spec\.ts/;
 const SELECTOR = /model-selector\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
-// The waiting-state CONTRACT: written, `fixme`, and waiting for the design work
-// that turns it on (see the file header).
+// The waiting-state contract (was `fixme` until the built-in indicator landed).
 const PENDING = /pending-state\.spec\.ts/;
 
 // Which specs a given app runs.
@@ -120,7 +119,12 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
-    workers: process.env.CI ? 2 : undefined,
+    // Locally: 8, not the default half-the-machine. Each worker is a browser, and
+    // they all share the six dev servers this config boots (five Vite + the Angular
+    // CLI), so the default 16 saturates a 32-thread box for the whole run.
+    // Measured: 16 workers 77s -> 6 workers 87s. A tenth of the wall clock buys
+    // back half the machine. CI keeps 2 (its runners have 2-4 cores).
+    workers: process.env.CI ? 2 : 8,
     reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
     timeout: 45_000,
     expect: { timeout: 10_000 },
