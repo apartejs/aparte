@@ -2,6 +2,11 @@
   "compileOnSave": false,
   "compilerOptions": {
     "outDir": "./dist/out-tsc",
+    // Declared explicitly, not inferred: TS warns (ts6/`--noEmit` editors included)
+    // that a future release will stop guessing the common source directory from the
+    // input set, which would silently change the output layout. Every publishable
+    // package here already pins it; this playground was the one that didn't.
+    "rootDir": "./src",
     "strict": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,

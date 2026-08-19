@@ -501,11 +501,17 @@ export class AparteChatViewport extends HTMLElement {
         const targetIdx = direction === 'prev' ? currentIdx - 1 : currentIdx + 1;
         if (targetIdx < 0 || targetIdx >= siblings.length) return;
 
-        // Branch navigation is a deliberate user action — do not scroll to the
-        // bottom. Disable auto-scroll so neither the spacer recalculation nor
-        // the MutationObserver callback fires _scrollToBottom() after the DOM
-        // rebuilds. The user can re-enable auto-scroll by scrolling to the bottom.
-        this._isAutoScrollEnabled = false;
+        // Branch navigation is a deliberate user action, so it must not yank a user
+        // who is reading mid-transcript: auto-scroll goes off and neither the spacer
+        // recalculation nor the MutationObserver callback will scroll them away.
+        //
+        // But if they were already AT the bottom, staying there IS the expected
+        // behaviour — and switching auto-follow off there is what left the
+        // scroll-to-bottom button offering to scroll nowhere (bonaparte, React). It
+        // also protects the swap itself: a rebuild's height flickers (measured on
+        // React: 1730 → 1934 → 1730px as the new bubble renders and settles), so a
+        // reader pinned to the bottom would drift up by whatever the flicker was.
+        this._isAutoScrollEnabled = this._isAtBottom();
         this._updateScrollButton();
 
         this._repo.switchToBranch(siblings[targetIdx]!);
@@ -817,12 +823,12 @@ export class AparteChatViewport extends HTMLElement {
         this._dispatchPathChanged(activeMessages, siblingsInfo);
         this._recalculateSpacer();
 
-        // The path swap rebuilt the DOM without firing a `scroll` event, so the
-        // auto-scroll flag (and the scroll-to-bottom button that mirrors it) can
-        // be stale — e.g. navigating from a long branch to one that fits entirely
-        // would leave the button showing with nothing to scroll. Re-derive both
-        // from the real post-layout geometry.
-        requestAnimationFrame(() => this._handleScroll());
+        // No post-swap re-measure of the auto-scroll INTENT here, deliberately: a
+        // rebuild's height flickers, and a one-shot measurement that lands mid-flicker
+        // can only get it wrong (it would disarm auto-follow for a reader who is
+        // pinned to the bottom). The intent is decided once, in `navigateBranch`, from
+        // the position the user was actually in; the button re-derives itself from
+        // geometry on every scroll and on every post-mutation frame.
     }
 
     private _dispatchPathChanged(messages: AparteMessage[], siblings: AparteSiblingInfo[]): void {
@@ -1040,13 +1046,18 @@ export class AparteChatViewport extends HTMLElement {
         }
     }
 
+    /** Is the scroll surface within `_scrollThreshold` of its bottom, right now? */
+    private _isAtBottom(): boolean {
+        if (!this._container) return true;
+        const { scrollTop, scrollHeight, clientHeight } = this._container;
+        return scrollHeight - scrollTop - clientHeight <= this._scrollThreshold;
+    }
+
     private _handleScroll(): void {
         if (!this._container) return;
-
-        const { scrollTop, scrollHeight, clientHeight } = this._container;
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-
-        this._isAutoScrollEnabled = distanceFromBottom <= this._scrollThreshold;
+        // A scroll IS the user's intent: reaching the bottom re-arms auto-follow,
+        // leaving it disarms it.
+        this._isAutoScrollEnabled = this._isAtBottom();
         this._updateScrollButton();
     }
 
@@ -1074,11 +1085,20 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
-     * Show/hide the scroll-to-bottom button based on the current auto-scroll state.
-     * Hidden when already at bottom (_isAutoScrollEnabled = true).
+     * Show/hide the scroll-to-bottom button from the **current geometry**, not from
+     * `_isAutoScrollEnabled`.
+     *
+     * The two answer different questions: the flag is intent ("should new content
+     * pull the view down"), the button is a fact ("is there anything below the
+     * fold"). Mirroring the flag made the button lie whenever the two diverged —
+     * `navigateBranch` deliberately disarms auto-follow, so swapping a branch while
+     * already at the bottom of a scrollable transcript left the button offering to
+     * scroll nowhere (reported from bonaparte, React). Re-derived on scroll, on the
+     * post-mutation frame and after a path swap, so it converges to the truth
+     * whatever a framework's render timing does in between.
      */
     private _updateScrollButton(): void {
-        this._scrollBtn?.classList.toggle('aparte-scroll-btn--hidden', this._isAutoScrollEnabled);
+        this._scrollBtn?.classList.toggle('aparte-scroll-btn--hidden', this._isAtBottom());
     }
 
     /**
@@ -1179,6 +1199,9 @@ export class AparteChatViewport extends HTMLElement {
         this._spacerRafId = requestAnimationFrame(() => {
             this._spacerRafId = null;
             this._recalculateSpacer();
+            // The DOM just changed (new bubble, streamed token, framework re-render):
+            // whether anything sits below the fold changed with it.
+            this._updateScrollButton();
         });
     }
 

@@ -323,15 +323,91 @@ describe('Navigation boundary conditions', () => {
         vp.addSiblingOf(v1.id, v2); // active = v2
 
         vp.navigateBranch(v2.id, 'prev');
-        // navigateBranch deliberately disables auto-scroll, which shows the button…
+        // navigateBranch deliberately disables auto-scroll (so the rebuild doesn't
+        // yank the view), but the BUTTON is a geometry question, not an intent one:
+        // there is nothing to scroll here, so it must stay hidden — before AND after
+        // the post-layout pass.
         const btn = vp.querySelector('.aparte-scroll-btn')!;
-        expect(btn.classList.contains('aparte-scroll-btn--hidden')).toBe(false);
-
-        // …then the post-layout pass re-derives it from real geometry: here the
-        // container has nothing to scroll (we're "at the bottom"), so it must
-        // hide again instead of staying stale.
-        await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
         expect(btn.classList.contains('aparte-scroll-btn--hidden')).toBe(true);
+
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))));
+        expect(btn.classList.contains('aparte-scroll-btn--hidden')).toBe(true);
+    });
+
+    // The same re-derive, in FRAMEWORK-MANAGED mode — where it was missing. There,
+    // `_reRenderActivePath` returns right after dispatching `aparte-path-changed`
+    // (the framework owns the DOM), so the post-layout pass never ran: swapping a
+    // branch left auto-scroll off and the scroll-to-bottom button showing, on a
+    // transcript the user was already at the bottom of. Reported from bonaparte
+    // (React) on a conversation long enough to scroll.
+    describe('scroll button after a branch swap in framework-managed mode', () => {
+        /** Pin the scroll geometry jsdom doesn't compute (all zeros by default). */
+        function stubGeometry(el: HTMLElement, geo: { scrollTop: number; scrollHeight: number; clientHeight: number }) {
+            for (const [prop, value] of Object.entries(geo)) {
+                Object.defineProperty(el, prop, { value, configurable: true });
+            }
+        }
+
+        /**
+         * A viewport in the mode the wrappers really use: `framework-managed` is a
+         * declarative ATTRIBUTE, read before `_render()`, so the host itself is the
+         * scroll container (no internal wrapper div). Setting the flag after connect
+         * — as `createViewport(true)` does — leaves the internal container in place,
+         * which would make the geometry stub below measure the wrong element.
+         */
+        function frameworkViewport(): ViewportEl {
+            const el = document.createElement('aparte-chat-viewport') as ViewportEl;
+            el.setAttribute('framework-managed', '');
+            document.body.appendChild(el);
+            return el;
+        }
+
+        function twoBranches(v: ViewportEl) {
+            const v1 = msg({ content: 'v1' });
+            const v2 = msg({ content: 'v2' });
+            v.appendMessage(v1);
+            v.addSiblingOf(v1.id, v2);
+            return v2;
+        }
+
+        const nextFrames = () => new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))));
+
+        it('hides it again when the user is at the bottom of a scrollable transcript', async () => {
+            const fw = frameworkViewport();
+            // Scrollable (1000 > 400) and scrolled to the very bottom.
+            stubGeometry(fw, { scrollTop: 600, scrollHeight: 1000, clientHeight: 400 });
+            const btn = fw.querySelector('.aparte-scroll-btn')!;
+            const active = twoBranches(fw);
+
+            fw.navigateBranch(active.id, 'prev');
+            // Not even for one frame: the button never mirrors the auto-scroll flag
+            // that navigateBranch just turned off.
+            expect(
+                btn.classList.contains('aparte-scroll-btn--hidden'),
+                'at the bottom after the swap → nothing to scroll to',
+            ).toBe(true);
+
+            await nextFrames();
+            expect(btn.classList.contains('aparte-scroll-btn--hidden'), 'still nothing').toBe(true);
+            fw.remove();
+        });
+
+        it('keeps it when the swap really left the user mid-transcript', async () => {
+            const fw = frameworkViewport();
+            // Scrolled up: 600px of content below the fold.
+            stubGeometry(fw, { scrollTop: 0, scrollHeight: 1000, clientHeight: 400 });
+            const btn = fw.querySelector('.aparte-scroll-btn')!;
+            const active = twoBranches(fw);
+
+            fw.navigateBranch(active.id, 'prev');
+            await nextFrames();
+            expect(
+                btn.classList.contains('aparte-scroll-btn--hidden'),
+                'far from the bottom → the button is the honest answer',
+            ).toBe(false);
+            fw.remove();
+        });
     });
 
     it('multi-turn conversation: navigation preserves full path depth', () => {

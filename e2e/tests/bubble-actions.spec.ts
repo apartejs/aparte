@@ -112,3 +112,38 @@ test('editing a user message re-sends it and reports the new text', async ({ pag
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
+
+test('swapping a branch at the bottom of a scrollable transcript leaves no scroll button', async ({ page }) => {
+    // Reported from bonaparte: on a conversation long enough to scroll, navigating a
+    // branch on the LAST message showed the scroll-to-bottom button even though the
+    // user was already at the bottom. Cause: `navigateBranch` deliberately turns
+    // auto-scroll off (so the rebuild doesn't yank the view), and in
+    // framework-managed mode the post-swap geometry re-derive never ran - no scroll
+    // event fires when a swap rebuilds the DOM, so the flag and the button stayed
+    // stale. Needs a real browser: the whole thing is scroll geometry.
+    const errors = collectPageErrors(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+
+    // Enough turns to overflow the viewport, so the button is even possible.
+    for (let i = 0; i < 6; i++) await chat.sendAndSettle(`filler turn ${i}`, { expect: MOCK_REPLY_MARK });
+
+    const scrollBtn = page.locator('.aparte-scroll-btn').first();
+    await expect(scrollBtn, 'settled at the bottom: no button before we start')
+        .toHaveClass(/aparte-scroll-btn--hidden/);
+
+    // Fork the last reply, then swap between the two versions.
+    await chat.action(chat.lastReply, 'retry').click();
+    const picker = chat.branchPicker(chat.lastReply);
+    await expect(picker).toBeVisible({ timeout: 20_000 });
+    await picker.locator('.aparte-branch-prev').click();
+    await expect(picker).toContainText('1');
+
+    // Still at the bottom → still nothing to offer. (The class is re-derived a
+    // couple of frames after the swap, hence the retrying assertion.)
+    await expect(scrollBtn, 'a branch swap must not invent a scroll-to-bottom button')
+        .toHaveClass(/aparte-scroll-btn--hidden/);
+
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});
+
