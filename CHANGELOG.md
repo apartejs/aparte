@@ -4,6 +4,26 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.6.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### @aparte/core
+
+#### Patch Changes
+
+- [2075f9b](https://github.com/apartejs/aparte/commit/2075f9b): README fix: the npm page announced "🚧 **Pre-alpha** — not yet published to npm" —
+  false on the very page npm was serving, and it had been through four releases. It now
+  states what the package is (alpha, plain `0.x`, lockstep, API can still change) and
+  links the changelog.
+
+  The quick start went with it: it showed `registerDefaultRenderers()` as a required
+  step (the built-ins install themselves since 0.5.0-alpha.0) and stopped before the one
+  line that makes the retry/edit buttons appear now that they ship off. It also pointed
+  at the docs _sources_ in the monorepo rather than at apartejs.dev.
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-transformers`, `@aparte/plugin-ask-question`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`.</sub>
+
 ## 0.6.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
