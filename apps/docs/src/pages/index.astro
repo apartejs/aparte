@@ -157,7 +157,26 @@ import '../styles/landing.css';
       // Stream text into an EXISTING assistant message (fresh replies and retry
       // branches share this).
       function streamInto(id: string, text: string, done?: () => void) {
-        if (reduce) { viewport.appendToken(id, text); viewport.completeMessage(id); done?.(); return; }
+        // Reduced motion means "stop moving things", NOT "stop showing progress":
+        // dumping the whole reply at once removed the two things this page exists to
+        // demonstrate — the waiting state and the streaming — for every visitor with
+        // the setting on. So keep both, minus the motion: the same opening pause (so
+        // the built-in waiting indicator is seen; core already freezes its dots via
+        // its own reduced-motion rule), then three steady chunks instead of ~40
+        // jittered tokens.
+        if (reduce) {
+          const cuts = [Math.floor(text.length / 3), Math.floor((text.length * 2) / 3), text.length];
+          let c = 0, from = 0;
+          const step = () => {
+            if (c < cuts.length) {
+              viewport.appendToken(id, text.slice(from, cuts[c]));
+              from = cuts[c++];
+              setTimeout(step, 180);
+            } else { viewport.completeMessage(id); done?.(); }
+          };
+          setTimeout(step, 320);
+          return;
+        }
         const toks = text.split(/(\s+)/); let i = 0;
         const tick = () => {
           if (i < toks.length) { viewport.appendToken(id, toks[i++]); setTimeout(tick, 30 + Math.random() * 48); }
