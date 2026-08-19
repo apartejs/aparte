@@ -4,6 +4,56 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.6.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### @aparte/plugin-shiki
+
+#### Minor Changes
+
+- [583840f](https://github.com/apartejs/aparte/commit/583840f): **New entry point `@aparte/plugin-shiki/core`, for control over what you ship.**
+
+  The convenience entry imports `shiki`, whose bundle maps every known language to a
+  dynamic import — so a bundler emits one chunk per grammar. Measured on a build whose
+  only import was `setupShikiProvider`: **302 files, 11 MB** (`emacs-lisp` alone is
+  780 kB, plus `wasm`, `wolfram`, `vue-vine`… for a chat that will show twenty
+  languages). The same build against a highlighter carrying three grammars: **1 file,
+  560 kB**.
+
+  No runtime option can fix that — verified rather than assumed: restricting shiki's
+  `langs` still emitted all 302 files, because a static import is a static import. So
+  the fix is an entry point that never imports the bundle:
+
+  ```ts
+  import { createHighlighterCore } from "shiki/core";
+  import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+  import ts from "@shikijs/langs/typescript";
+  import githubDark from "@shikijs/themes/github-dark";
+  import { setupShikiProviderFromHighlighter } from "@aparte/plugin-shiki/core";
+
+  setupShikiProviderFromHighlighter(
+    await createHighlighterCore({
+      themes: [githubDark],
+      langs: [ts],
+      engine: createJavaScriptRegexEngine(),
+    })
+  );
+  ```
+
+  `@aparte/plugin-shiki/core` imports nothing from `shiki` at runtime (types only, and
+  those are erased). The trade is stated where you make it: your highlighter's grammars
+  are fixed, so a language it does not carry renders as plain text — there is no
+  on-demand load to fall back on. Everything else matches the convenience entry,
+  plaintext aliases and case-insensitive matching included.
+
+  Nothing is removed and no default changes: `setupShikiProvider` behaves exactly as
+  before. Its JSDoc — and the plugin's docs page — stop implying that lazy loading also
+  means a small package: "you pay only for the languages you render" was true of
+  _runtime_, never of _distribution_.
+
+<sub>Version-only bumps (no changes of their own): `@aparte/core`, `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-transformers`, `@aparte/plugin-ask-question`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`.</sub>
+
 ## 0.5.0-alpha.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

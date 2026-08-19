@@ -1,7 +1,7 @@
 {
   "name": "@aparte/plugin-model-selector",
-  "version": "0.5.0-alpha.0",
-  "description": "Provider + model selector web component (<aparte-model-selector>) for apart\u00e9 \u2014 grouped dropdown, BYOK.",
+  "version": "0.6.0",
+  "description": "Provider + model selector web component (<aparte-model-selector>) for aparté — grouped dropdown, BYOK.",
   "type": "module",
   "sideEffects": true,
   "main": "./dist/index.js",

@@ -1,7 +1,7 @@
 {
   "name": "@aparte/engine",
-  "version": "0.5.0-alpha.0",
-  "description": "Framework-agnostic AI agent loop (runStreamAgent) + parsers/orchestrator \u2014 zero runtime deps, headless (browser or Node).",
+  "version": "0.6.0",
+  "description": "Framework-agnostic AI agent loop (runStreamAgent) + parsers/orchestrator — zero runtime deps, headless (browser or Node).",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",

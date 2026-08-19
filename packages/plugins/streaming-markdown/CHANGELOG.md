@@ -1,5 +1,7 @@
 # @aparte/plugin-streaming-markdown
 
+## 0.6.0
+
 ## 0.5.0-alpha.0
 
 ### Patch Changes
