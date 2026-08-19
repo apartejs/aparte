@@ -1,0 +1,49 @@
+name: release-notes
+
+# Turns a pushed umbrella tag into the GitHub Release for that version.
+#
+# Every `@aparte/*` package ships at one version (`fixed` in
+# .changeset/config.json), so a release has a single identity: `v0.4.0-alpha.0`.
+# `changeset publish` also tags each package individually — those are ignored here
+# on purpose, one Release per version rather than fifteen.
+#
+# The body is the matching section of the root CHANGELOG.md, i.e. exactly what was
+# committed with the version bump. No install step: the extractor is dependency-free
+# and the runner already has Node.
+on:
+  push:
+    tags: [ 'v*' ]
+
+concurrency:
+  group: release-notes-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # create the Release
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Extract the section for this tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          node scripts/gen-root-changelog.mjs --section "$version" > "$RUNNER_TEMP/notes.md"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          wc -l < "$RUNNER_TEMP/notes.md"
+        id: notes
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Anything with a hyphen in its version is a prerelease (-alpha.N, -rc.N):
+          # mark it as such so it never shows up as "Latest" on the repo home.
+          prerelease=''
+          case "${{ steps.notes.outputs.version }}" in *-*) prerelease='--prerelease' ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            --title "aparté ${{ steps.notes.outputs.version }}" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag \
+            $prerelease

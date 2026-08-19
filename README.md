@@ -137,9 +137,13 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 ## Status
 
 Alpha, built in the open. The core, engine, four wrappers, providers, plugins and
-six runnable playgrounds are **on npm as `0.2.0-alpha.0`**, green across the unit
-suite and a browser E2E suite (Chromium + WebKit, accessibility gated with
-axe-core). The API may still move before the first stable release.
+six runnable playgrounds are **on npm**, green across the unit suite and a browser
+E2E suite (Chromium + WebKit, accessibility gated with axe-core). The API may still
+move before the first stable release.
+
+Every `@aparte/*` package is released **together, at one version** — install any of
+them at the same number. What shipped when: **[CHANGELOG.md](./CHANGELOG.md)** (the
+aggregate), or a package's own `CHANGELOG.md` for its detail.
 
 ## Contributing
 

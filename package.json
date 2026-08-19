@@ -34,8 +34,8 @@
     "check-packaging": "pnpm -r --filter \"./packages/**\" exec publint && pnpm -r --filter \"./packages/**\" --filter \"!@aparte/angular\" --filter \"!@aparte/svelte\" --filter \"!@aparte/vue\" exec attw --pack --profile esm-only",
     "lint": "eslint . --max-warnings 0",
     "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "pnpm -r --filter \"./packages/**\" run build && changeset publish"
+    "version-packages": "changeset version && node scripts/gen-root-changelog.mjs",
+    "release": "pnpm -r --filter \"./packages/**\" run build && changeset publish && node scripts/tag-release.mjs"
   },
   "devDependencies": {
     "@aparte/core": "workspace:*",

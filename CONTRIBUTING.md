@@ -61,6 +61,39 @@ Feature work goes on a branch and lands through a PR, so CI gates it before it r
   ```
 - Never commit `dist/`, `*.tsbuildinfo`, or `.claude/` — they're gitignored; stage explicit files.
 
+## Releasing
+
+Every `@aparte/*` package moves **together, at one version** (`fixed` in
+`.changeset/config.json`). Two consequences worth knowing before you write a changeset: the
+bump type is the **highest** one in the whole group — a single `minor` anywhere makes all
+fifteen minor — and packages with no change of their own are still republished.
+
+That lockstep is why there are two levels of changelog. Each package keeps its own (npm reads
+it), and the root **`CHANGELOG.md`** is the human aggregate: one section per version, grouped
+by package, with the `Updated dependencies` noise dropped and the along-for-the-ride packages
+reduced to a footnote. It is generated — never hand-edited:
+
+```bash
+node scripts/gen-root-changelog.mjs          # the current version (part of `pnpm version-packages`)
+node scripts/gen-root-changelog.mjs --all    # rebuild every version from the per-package files
+```
+
+The flow:
+
+1. **Push to `main`** → `release.yml` opens/updates the *Version Packages* PR. It runs
+   `pnpm version-packages`, i.e. `changeset version` **plus** the root-changelog generator, so
+   the PR already carries both levels.
+   > ⚠️ In pre-release mode (`.changeset/pre.json`), `changeset version` computes from
+   > `initialVersions` and applies the group's highest bump — it has proposed a wrong number
+   > before. **Check the version in that PR** and correct it there if needed.
+2. **Merge it.**
+3. **`pnpm release`** locally — builds every package, `changeset publish` (npm + one git tag
+   per package), then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.
+4. **`git push origin v<version>`** → `release-notes.yml` creates the **one** GitHub Release
+   for that version, with the matching root-changelog section as its body.
+5. Verify the dist-tags — `changeset publish` has left `alpha` pointing at the previous version
+   before: `npm view @aparte/core dist-tags`.
+
 ## Anti-patterns
 
 - No dependencies in `@aparte/core` (the zero-dep promise).
