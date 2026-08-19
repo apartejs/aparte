@@ -42,4 +42,8 @@ if (onRemote.includes(tag)) {
     console.log('');
     console.log('That fires .github/workflows/release-notes.yml, which creates the GitHub Release');
     console.log(`from the "## ${version}" section of CHANGELOG.md.`);
+    console.log('');
+    console.log('Push it ALONE. GitHub drops the tag-push event past three tags in one push, so');
+    console.log('`git push --tags` (16 tags here) publishes them and triggers nothing — silently.');
+    console.log('The per-package tags can go after, in their own push.');
 }

@@ -35,7 +35,7 @@
     "lint": "eslint . --max-warnings 0",
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/gen-root-changelog.mjs",
-    "release": "pnpm -r --filter \"./packages/**\" run build && changeset publish && node scripts/tag-release.mjs"
+    "release": "pnpm -r --filter \"./packages/**\" run build && changeset publish --tag alpha && node scripts/tag-release.mjs"
   },
   "devDependencies": {
     "@aparte/core": "workspace:*",

@@ -122,10 +122,18 @@ The flow:
 2. **Merge it.**
 3. **`pnpm release`** locally — builds every package, `changeset publish` (npm + one git tag
    per package), then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.
-4. **`git push origin v<version>`** → `release-notes.yml` creates the **one** GitHub Release
-   for that version, with the matching root-changelog section as its body.
-5. Verify the dist-tags — `changeset publish` has left `alpha` pointing at the previous version
-   before: `npm view @aparte/core dist-tags`.
+4. **`git push origin v<version>`** — that tag, **alone** → `release-notes.yml` creates the
+   **one** GitHub Release for that version, with the matching root-changelog section as its
+   body.
+   > ⚠️ Not `git push --tags`. GitHub drops the tag-push event past **three tags in a single
+   > push**, and `changeset publish` has just created fifteen — so `--tags` publishes them all
+   > and triggers nothing, with no error anywhere. Push the umbrella tag on its own; the
+   > per-package tags can follow in a second push.
+5. Verify the dist-tags: `npm view @aparte/core dist-tags`. `release` publishes with
+   `--tag alpha`, so `alpha` moves and `latest` stays put — which is what we want while every
+   version is a prerelease (`npm i @aparte/core` must not hand someone an alpha by surprise).
+   Without that flag, `changeset publish` moved `latest` and left `alpha` on the previous
+   version, on all fifteen packages, twice.
 
 ## Anti-patterns
 
