@@ -774,7 +774,8 @@ export class AparteChatBubble extends HTMLElement {
         // Explicit ordered set replaces the flag defaults for user bubbles.
         for (const a of config.user) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
-        // Default user set: copy + edit.
+        // Flag-driven set. Only `copy` is on by default — see
+        // DEFAULT_BUBBLE_ACTIONS: edit needs a host to keep the new text.
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.edit) buttons.push(this._actionButtonHtml('edit', icons, locale));
       }
@@ -783,7 +784,8 @@ export class AparteChatBubble extends HTMLElement {
         // Explicit ordered set replaces the flag defaults (incl. the info button).
         for (const a of config.assistant) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
-        // Default assistant set: copy + retry + feedback (+ info when usage present).
+        // Flag-driven set. Only `copy` is on by default — retry, feedback and
+        // info all need a host or a listener to mean anything.
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.retry) buttons.push(this._actionButtonHtml('retry', icons, locale));
         if (config.feedback) {

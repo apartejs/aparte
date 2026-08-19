@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 /**
  * AparteChatBubble — unit tests
@@ -90,6 +90,11 @@ describe('AparteChatBubble', () => {
     // ─── Role-based action bar ────────────────────────────────────────────
 
     describe('action bar — role set before connectedCallback', () => {
+        // retry/edit are opt-in (they need a host to honor them), so the suites that
+        // test their ROUTING and their events turn them on the way an app does.
+        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => AparteConfig.reset());
+
         it('user bubble has "Edit" button, NOT "Retry"', () => {
             bubble = createBubble({ role: 'user', 'message-id': 'u1' });
             expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
@@ -104,6 +109,11 @@ describe('AparteChatBubble', () => {
     });
 
     describe('action bar — role set AFTER connectedCallback (Angular timing)', () => {
+        // retry/edit are opt-in (they need a host to honor them), so the suites that
+        // test their ROUTING and their events turn them on the way an app does.
+        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => AparteConfig.reset());
+
         it('user bubble gets Edit after role attribute is set post-connection', () => {
             // Simulate Angular: element connected WITHOUT role, then role is set
             bubble = createBubble({ 'message-id': 'u2' }); // no role → default assistant
@@ -224,6 +234,11 @@ describe('AparteChatBubble', () => {
     // ─── aparte-retry event ─────────────────────────────────────────────────
 
     describe('aparte-retry event', () => {
+        // retry/edit are opt-in (they need a host to honor them), so the suites that
+        // test their ROUTING and their events turn them on the way an app does.
+        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => AparteConfig.reset());
+
         it('retry button on assistant bubble fires aparte-retry with correct messageId', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'r1' });
             let retryDetail: any = null;
@@ -555,6 +570,12 @@ describe('AparteChatBubble', () => {
                 .map((b) => b.getAttribute('data-action'));
         const withUsage = (el: HTMLElement) =>
             (el as unknown as { setUsage(u: unknown): void }).setUsage({ inputTokens: 3, outputTokens: 5 });
+
+        it('is off by default, usage or not — nobody in core opens the popover', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i0', content: 'hi' });
+            withUsage(bubble);
+            expect(actionsOf(bubble)).toEqual(['copy']);
+        });
 
         it('is requestable in an explicit per-role set', () => {
             AparteConfig.setBubbleActions({ assistant: ['copy', 'info'] });

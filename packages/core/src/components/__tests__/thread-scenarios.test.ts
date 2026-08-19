@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
  */
 
 import '../viewport/aparte-chat-viewport.js';
+import { AparteConfig } from '../../config/aparte-config.js';
 import type { AparteMessage } from '../../types/index.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -786,6 +787,8 @@ describe('Thread scenarios — full spec', () => {
 // The client destructures `content` — if key is wrong, guard exits silently.
 
 describe('aparte-edit event payload', () => {
+    afterEach(() => AparteConfig.reset());
+
     it('bubble dispatches detail.content (not detail.newContent)', async () => {
         await import('../bubble/aparte-chat-bubble.js');
         // The inline editor is the composer's contenteditable primitive — import it
@@ -794,6 +797,9 @@ describe('aparte-edit event payload', () => {
         const bubble = document.createElement('aparte-chat-bubble') as HTMLElement & {
             setContent(c: string): void;
         };
+        // `edit` is opt-in (a host has to keep the new text) — this test drives the
+        // real button, so it opts in first.
+        AparteConfig.setBubbleActions({ edit: true });
         bubble.setAttribute('role', 'user');
         bubble.setAttribute('message-id', 'edit-test');
         document.body.appendChild(bubble);

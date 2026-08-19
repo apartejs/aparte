@@ -35,6 +35,26 @@ export type AparteSystemPromptVarsProvider = () => Record<string, string>;
 export type AparteLocaleProvider = AparteLocale;
 export type AparteKeyProvider = (providerId: string) => string | Promise<string | undefined> | undefined;
 
+/**
+ * The bubble-action defaults — `copy` on, everything else off.
+ *
+ * The rule: an affordance core cannot honor end-to-end does not appear by
+ * default. Core can copy text by itself; retry and edit only do something when a
+ * host (`AparteClient`) re-sends and rewrites, and feedback/info only when the app
+ * listens for `aparte-feedback` / `aparte-message-info`. Rendering them
+ * unconditionally showed dead buttons in every display-only integration — ours
+ * included, which is how we found it.
+ *
+ * Exported so a consumer can read the defaults instead of hard-coding them.
+ */
+export const DEFAULT_BUBBLE_ACTIONS = {
+    copy: true,
+    retry: false,
+    edit: false,
+    feedback: false,
+    info: false,
+} as const;
+
 export interface AparteModelPreference {
     provider: string;
     model: string;
@@ -123,8 +143,9 @@ export class AparteConfigClass {
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
 
-    // Bubble Actions
-    private _bubbleActionsConfig: AparteBubbleActionsConfig = { copy: true, retry: true, edit: true, feedback: false, info: true };
+    // Bubble Actions — DEFAULT_BUBBLE_ACTIONS is the single source of truth
+    // (init here, restored by reset(), and the fallback in getBubbleActions()).
+    private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
 
     // ─────────────────────────────────────────────────────────────────────────
     // Provider Setters (Dependency Injection)
@@ -174,12 +195,13 @@ export class AparteConfigClass {
 
     /**
      * Configure which action buttons appear in message bubbles.
-     * Unset keys keep their defaults (copy=true, retry=true, edit=true, feedback=false).
+     * Unset keys keep their defaults — see {@link DEFAULT_BUBBLE_ACTIONS}: `copy`
+     * only, because every other button needs a host to honor it.
      *
      * @example
-     * AparteConfig.setBubbleActions({ feedback: true })        // enable feedback, keep rest
-     * AparteConfig.setBubbleActions({ retry: false })          // disable retry only
-     * AparteConfig.setBubbleActions({ copy: false, retry: false, edit: false }) // hide all
+     * AparteConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
+     * AparteConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
+     * AparteConfig.setBubbleActions({ copy: false })             // hide everything
      * // Explicit per-role ordered sets (replace the flag defaults for that role):
      * AparteConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
      */
@@ -199,11 +221,11 @@ export class AparteConfigClass {
         assistant?: AparteBubbleActionName[];
     } {
         return {
-            copy: this._bubbleActionsConfig.copy ?? true,
-            retry: this._bubbleActionsConfig.retry ?? true,
-            edit: this._bubbleActionsConfig.edit ?? true,
-            feedback: this._bubbleActionsConfig.feedback ?? false,
-            info: this._bubbleActionsConfig.info ?? true,
+            copy: this._bubbleActionsConfig.copy ?? DEFAULT_BUBBLE_ACTIONS.copy,
+            retry: this._bubbleActionsConfig.retry ?? DEFAULT_BUBBLE_ACTIONS.retry,
+            edit: this._bubbleActionsConfig.edit ?? DEFAULT_BUBBLE_ACTIONS.edit,
+            feedback: this._bubbleActionsConfig.feedback ?? DEFAULT_BUBBLE_ACTIONS.feedback,
+            info: this._bubbleActionsConfig.info ?? DEFAULT_BUBBLE_ACTIONS.info,
             user: this._bubbleActionsConfig.user,
             assistant: this._bubbleActionsConfig.assistant,
         };
@@ -946,7 +968,7 @@ export class AparteConfigClass {
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._modelPreferenceProvider = undefined;
-        this._bubbleActionsConfig = { copy: true, retry: true, edit: true, feedback: false };
+        this._bubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
         this._notify();
     }
 

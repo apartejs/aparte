@@ -49,6 +49,7 @@ describe('@aparte/core public API', () => {
             "AparteStreamParser",
             "BackendTransport",
             "ConversationManager",
+            "DEFAULT_BUBBLE_ACTIONS",
             "DEFAULT_ICON_FALLBACKS",
             "DEFAULT_LOCALE",
             "DEFAULT_SKELETON_FALLBACKS",

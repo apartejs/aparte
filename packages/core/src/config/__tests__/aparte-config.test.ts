@@ -228,24 +228,39 @@ describe('AparteConfig', () => {
     // ─── setBubbleActions / getBubbleActions ───────────────────────────────
 
     describe('setBubbleActions / getBubbleActions', () => {
-        it('returns defaults when never configured', () => {
+        // The defaults ARE the contract, so they get an exact assertion rather
+        // than a few spot checks. Only `copy` is honored by core alone; retry,
+        // edit, feedback and info all need a host (AparteClient, or an app
+        // listening for the event) to mean anything, so they ship off. Flipping
+        // one back on is a deliberate decision — this test is what makes it one.
+        it('defaults to copy only — every host-dependent action ships off', () => {
             const actions = AparteConfig.getBubbleActions();
             expect(actions.copy).toBe(true);
-            expect(actions.retry).toBe(true);
-            expect(actions.edit).toBe(true);
+            expect(actions.retry).toBe(false);
+            expect(actions.edit).toBe(false);
             expect(actions.feedback).toBe(false);
+            expect(actions.info).toBe(false);
         });
 
         it('merges partial overrides and keeps untouched defaults', () => {
             AparteConfig.setBubbleActions({ feedback: true });
             const actions = AparteConfig.getBubbleActions();
             expect(actions.feedback).toBe(true);
-            expect(actions.copy).toBe(true);   // unchanged
-            expect(actions.retry).toBe(true);  // unchanged
-            expect(actions.edit).toBe(true);   // unchanged
+            expect(actions.copy).toBe(true);    // unchanged
+            expect(actions.retry).toBe(false);  // unchanged
+            expect(actions.edit).toBe(false);   // unchanged
+        });
+
+        it('can enable individual actions', () => {
+            AparteConfig.setBubbleActions({ retry: true, edit: true });
+            const actions = AparteConfig.getBubbleActions();
+            expect(actions.retry).toBe(true);
+            expect(actions.edit).toBe(true);
+            expect(actions.copy).toBe(true);
         });
 
         it('can disable individual actions', () => {
+            AparteConfig.setBubbleActions({ retry: true, edit: true });
             AparteConfig.setBubbleActions({ retry: false, edit: false });
             const actions = AparteConfig.getBubbleActions();
             expect(actions.retry).toBe(false);
@@ -278,6 +293,9 @@ describe('AparteConfig', () => {
             expect(actions.assistant).toEqual(['copy', 'thumbUp', 'thumbDown', 'retry']);
             // Flag defaults still resolve alongside the per-role sets.
             expect(actions.copy).toBe(true);
+            // An explicit list is its own opt-in: asking for 'retry' by name works
+            // even though the flag is off — the bubble reads the list, not the flag.
+            expect(actions.retry).toBe(false);
         });
 
         it('clears per-role sets when explicitly set to undefined', () => {
@@ -350,12 +368,17 @@ describe('AparteConfig', () => {
 
         it('restores locale, bubble actions and sanitizer defaults', () => {
             const c = new AparteConfigClass();
-            c.setBubbleActions({ copy: false, retry: false, edit: false });
+            c.setBubbleActions({ copy: false, retry: true, edit: true, feedback: true, info: true });
             c.setHtmlSanitizer(null);
             c.reset();
             const actions = c.getBubbleActions();
+            // Back to the shipped set: copy only. reset() used to forget `info`
+            // entirely — DEFAULT_BUBBLE_ACTIONS is now the one source for both.
             expect(actions.copy).toBe(true);
-            expect(actions.retry).toBe(true);
+            expect(actions.retry).toBe(false);
+            expect(actions.edit).toBe(false);
+            expect(actions.feedback).toBe(false);
+            expect(actions.info).toBe(false);
             // sanitizer restored → provider HTML is scrubbed again
             c.setMarkdownProvider(() => '<img src=x onerror="alert(1)">');
             expect(c.renderMarkdown('x')).not.toContain('onerror');
