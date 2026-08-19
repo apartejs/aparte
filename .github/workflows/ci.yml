@@ -115,6 +115,19 @@ jobs:
   # servers + a browser, so it is heavier and isolated from the fast gate above.
   e2e:
     runs-on: ubuntu-latest
+    # Runs INSIDE Playwright's own image: the browsers and the system libraries
+    # WebKit needs are already there, so this job stops apt-getting them on every
+    # run. That step cost 0.9 min on a good day, 3.2 min on a worse one, and 20+
+    # when the Azure Ubuntu mirror refuses the request (`Ign:` lines in the log) and
+    # apt falls back to archive.ubuntu.com. None of it was cacheable: browser
+    # binaries could be, but system packages install into the runner's OS, which is
+    # thrown away after every job.
+    #
+    # The tag MUST track `@playwright/test` in pnpm-lock.yaml (1.61.1 today). A
+    # mismatch fails loudly on the first launch ("Executable doesn't exist"), never
+    # silently — but bump both together.
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
     permissions:
       contents: read
     steps:
@@ -136,9 +149,6 @@ jobs:
       # built before the E2E dev servers boot.
       - name: Build
         run: pnpm build
-
-      - name: Install Playwright (Chromium + WebKit + OS deps)
-        run: pnpm --filter @aparte-workspace/e2e exec playwright install --with-deps chromium webkit
 
       - name: Browser smoke E2E
         run: pnpm e2e

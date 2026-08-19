@@ -65,6 +65,7 @@ The suites are parallel by default, which on a big machine means *very* parallel
 |---|---|---|---|
 | unit (`pnpm test`) | 31 child processes, 13s | 16 processes, 15s | vitest 2 runs each file in a **fork** with its own jsdom; the suite is startup-bound (~7s of actual tests), so the extra workers buy seconds and cost gigabytes |
 | e2e (`pnpm e2e`) | 16 browsers, 77s | 8 browsers, ~82s | each worker is a browser, on top of the six dev servers the config boots |
+| e2e **in CI** | 3-24 min | ~2.5 min | the job now runs inside `mcr.microsoft.com/playwright:<version>-noble`, so it stops installing browsers and their apt dependencies on every run |
 | build (`pnpm build`) | 97s | **3s** | `build` was not a cached nx target: 22 projects rebuilt on every push and every gate |
 
 The caps are in `vitest.config.ts` and `e2e/playwright.config.ts`, and they apply **locally
