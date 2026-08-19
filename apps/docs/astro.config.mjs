@@ -10,6 +10,9 @@ export default defineConfig({
   // The canonical site URL — enables the sitemap + correct canonical/OG links.
   // Change this one string if the docs move to another domain.
   site: 'https://apartejs.dev',
+  // /changelog is the guessable URL; the first release of this page used
+  // /reference/release-notes/, which is already in the sitemap. Keep it alive.
+  redirects: { '/reference/release-notes': '/changelog/' },
   integrations: [
     starlight({
       title: 'aparté',
@@ -36,6 +39,10 @@ export default defineConfig({
         { label: 'Frameworks', autogenerate: { directory: 'frameworks' } },
         { label: 'Plugins', autogenerate: { directory: 'plugins' } },
         { label: 'Reference', autogenerate: { directory: 'reference' } },
+        // Top level, and labelled with the word people scan for. It lived under
+        // Reference for a few hours and nobody found it — including an AI asked to
+        // check it, which went straight to /changelog.
+        { label: 'Changelog', link: '/changelog/' },
       ],
     }),
   ],

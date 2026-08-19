@@ -10,7 +10,12 @@
  * per-package ones by scripts/gen-root-changelog.mjs). This only adds frontmatter
  * and rewrites the heading levels, so nothing is maintained twice.
  *
- * Output (git-ignored, always regenerated): src/content/docs/reference/release-notes.md
+ * Output (git-ignored, always regenerated): src/content/docs/changelog.md
+ *
+ * At the guessable URL — /changelog — because that is what a person (and an AI asked
+ * to check it) types. It first shipped under /reference/release-notes/, where the
+ * taxonomy said it belonged and where nobody looked; astro.config keeps that path
+ * alive as a redirect.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -18,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(here, '../../../CHANGELOG.md');
-const OUT = resolve(here, '../src/content/docs/reference/release-notes.md');
+const OUT = resolve(here, '../src/content/docs/changelog.md');
 
 const raw = readFileSync(SRC, 'utf8');
 
@@ -28,10 +33,8 @@ const firstVersion = raw.indexOf('\n## ');
 const body = firstVersion === -1 ? raw : raw.slice(firstVersion + 1);
 
 const page = `---
-title: Release notes
+title: Changelog
 description: What shipped in each version of the @aparte/* packages — they are released together, at one version.
-sidebar:
-  order: 5
 ---
 
 Every \`@aparte/*\` package is released **together at one version**, so a single entry
@@ -44,4 +47,4 @@ ${body.trimEnd()}
 
 writeFileSync(OUT, page, 'utf8');
 const versions = [...page.matchAll(/^## /gm)].length;
-console.log(`[gen-release-notes] ${versions} version(s) → src/content/docs/reference/release-notes.md`);
+console.log(`[gen-release-notes] ${versions} version(s) → src/content/docs/changelog.md`);

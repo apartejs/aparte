@@ -12,7 +12,8 @@ variables. **Zero dependencies** at the core.
 > 🚀 **Alpha on npm.** Every `@aparte/*` package ships **together at one version**
 > under the `alpha` tag — `npm i @aparte/core@alpha` (the badge above is the live
 > number). The API is still stabilising before the first stable cut; what changed
-> when is in [CHANGELOG.md](./CHANGELOG.md), and the docs live at
+> when is at **[apartejs.dev/changelog](https://apartejs.dev/changelog/)** (or
+> [CHANGELOG.md](./CHANGELOG.md) here), and the docs live at
 > **[apartejs.dev](https://apartejs.dev/)**.
 
 <sub>pronounced *ah-par-té* — French *aparté*: a line spoken aside, a private word taken "in aparté". Also reads as *a part*: one composable piece.</sub>
