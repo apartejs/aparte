@@ -105,6 +105,55 @@ document.addEventListener('aparte-action', (e) => {
 - The **built-in** bubble actions (copy / retry / edit / feedback) are toggled per role
   with `AparteConfig.setBubbleActions({ … })`.
 
+## The waiting state
+
+While a reply is in flight and the bubble has nothing in it yet, the bubble shows a
+**built-in indicator** — animated dots plus a screen-reader label taken from
+`locale.typing`, alongside the `aria-busy` the streaming state already sets. No wiring:
+it behaves the same in a plain `<aparte-chat>`, in the four wrappers, and when you drive
+your own loop. It retires itself as soon as there is content or a segment.
+
+A bubble is considered in flight when `isAwaitingReply(message)` says so: either the
+message states it (`status: 'streaming' | 'pending'`), or it is an **assistant message
+with no `status` at all and nothing in it** — the empty shell a token stream is about to
+fill. Only silence is interpreted; an explicit status is believed, so a deliberately
+empty *finished* message needs `status: 'completed'` (otherwise it waits forever).
+
+Restyle it with `--aparte-waiting-height` / `--aparte-waiting-dot-gap` and the shared
+`--aparte-status-color` / `--aparte-status-dot-size` (see [Theming](/guides/theming/)); it
+already honours `prefers-reduced-motion`.
+
+:::note[`<aparte-chat-status>` is yours]
+The separate status element — and the wrappers' `isTyping` / `typingText` props — is **not**
+driven by the library: it is the channel for **your** status ("indexing your files",
+"searching the web"). Two indicators for the same moment would just be noise, so the
+built-in one lives in the bubble and that one stays yours. `setStatusRenderer` replaces its
+markup.
+:::
+
+## Custom bubbles
+
+Replacing the whole bubble has two levels:
+
+- **`setBubbleShellRenderer`** (above) keeps the native `<aparte-chat-bubble>` and swaps
+  its inner structure. The machinery — action bar, streaming pushes, segments — keeps
+  working, as long as your shell carries the region hooks.
+- **Your own element per message** (`renderBubble` in React, the `bubble` slot in
+  Vue/Svelte, `[bubbleTemplate]` in Angular) replaces the element itself. In a wrapper
+  that node is driven by the **reactive message list**: re-render from `message.content`
+  and `message.segments` — during streaming they update live, no imperative interface to
+  implement.
+
+In **raw core** there is no reactive list, so a replacement element opts into the
+imperative pushes instead: give it `data-aparte-bubble` and `message-id="…"`, and the
+viewport will call `appendToken` / `appendToSegment` / `updateMessage` on it exactly as it
+does on the native bubble.
+
+```html
+<!-- raw core: a custom element that still receives live streaming -->
+<my-bubble data-aparte-bubble message-id="m-42"></my-bubble>
+```
+
 ## Custom segment types
 
 Streamed replies are split into typed **segments** (text, code, thinking, terminal, …).

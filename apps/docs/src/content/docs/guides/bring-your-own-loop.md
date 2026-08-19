@@ -57,6 +57,13 @@ export function Chat() {
 `myAgentLoop` is any `AsyncIterable<string>` — an async generator over a fetch stream, a model
 SDK, whatever produces tokens.
 
+That empty assistant message from step 2 needs no `status`: an assistant message with no status
+and nothing in it *is* a reply on its way, so the bubble shows the [waiting
+indicator](/guides/customization/#the-waiting-state) and keeps its action bar away until the
+first token. As the stream runs, your framework's message list is kept in sync (once per frame),
+so `getMessages()`, persistence and a [custom bubble](/guides/customization/#custom-bubbles) all
+see the text — not just the DOM.
+
 :::caution[Append before injecting]
 If the `messageId` doesn't exist yet, the viewport auto-creates an empty assistant message — but
 only in its **internal** repo, not in your framework's message state. In a wrapper, always

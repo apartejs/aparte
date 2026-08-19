@@ -41,8 +41,9 @@ The user's message is appended to the thread **automatically** on send — don't
 a backend call).
 
 Slots are plain props: `emptyState`, `composer`, `aboveComposer`, `footerLeft/Center/Right`, and
-`renderBubble` for a fully custom bubble. The imperative handle (`chat.ref`) exposes streaming,
-branch/edit and `scrollToBottom`.
+`renderBubble` for a fully custom bubble — driven by the reactive `messages` list, so re-render
+from `message.content` / `message.segments` and it streams live ([details](/guides/customization/#custom-bubbles)).
+The imperative handle (`chat.ref`) exposes streaming, branch/edit and `scrollToBottom`.
 
 ## Wiring a real model
 

@@ -216,6 +216,10 @@
   --aparte-status-bg: transparent;
   --aparte-status-dot-size: 6px;
 
+  /* Waiting Indicator (the bubble's own dots, before the first token) */
+  --aparte-waiting-height: 1.5em;
+  --aparte-waiting-dot-gap: 4px;
+
   /* Thinking Segment */
   --aparte-thinking-border: var(--aparte-border);
   --aparte-thinking-bg: var(--aparte-surface-2);
