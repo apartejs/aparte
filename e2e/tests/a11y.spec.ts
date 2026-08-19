@@ -12,7 +12,31 @@ import { ChatPage } from '../helpers/chat.js';
 
 const GATED_IMPACTS = ['critical', 'serious'];
 
+/**
+ * Let CSS transitions land before scanning.
+ *
+ * axe computes contrast from the **composited** colors, so a scan taken mid-fade
+ * sees a half-transparent foreground and reports a violation that does not exist
+ * once the animation settles. That is what made the idle scan fail intermittently
+ * on the welcome block's fade-in (`#878387 on #f7f3ea`, 3.37:1 — a blend, not a
+ * declared colour).
+ *
+ * Infinite animations are skipped on purpose: the typing dots and the spinners
+ * never finish, by design.
+ */
+async function settleTransitions(page: import('@playwright/test').Page) {
+    await page.evaluate(() => Promise.all(
+        document.getAnimations()
+            .filter((a) => {
+                const iterations = (a.effect as KeyframeEffect | null)?.getTiming?.().iterations;
+                return a.playState === 'running' && iterations !== Infinity;
+            })
+            .map((a) => a.finished.catch(() => undefined)),
+    ));
+}
+
 async function gatedViolations(page: import('@playwright/test').Page) {
+    await settleTransitions(page);
     const results = await new AxeBuilder({ page }).analyze();
     return results.violations
         .filter((v) => v.impact && GATED_IMPACTS.includes(v.impact))
