@@ -84,6 +84,9 @@ const SEGMENTS = /segments\.spec\.ts/;
 const ATTACH = /attachments\.spec\.ts/;
 const SELECTOR = /model-selector\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
+// The waiting-state CONTRACT: written, `fixme`, and waiting for the design work
+// that turns it on (see the file header).
+const PENDING = /pending-state\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -100,7 +103,7 @@ const RESPONSIVE = /responsive\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'demo-vanilla' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, ...DEEP] :
     [SMOKE, REAL, AXE];
 
