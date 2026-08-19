@@ -36,7 +36,34 @@ something consumes the files. An `AparteClient` does (see [What gets sent](#what
 but an app driving [its own loop](/guides/bring-your-own-loop/) has to read them from the send
 event — and a loop that forwards only `content` drops them in silence, with the UI still showing
 the file went out. Setting `attachments` is you saying the files are handled.
+
+It's the same rule everywhere in aparté — see
+[What ships enabled](/guides/customization/#what-ships-enabled).
 :::
+
+## Clicking a picture — the preview is yours
+
+An image attachment renders as a thumbnail, in the composer and in the sent message. Clicking
+one **asks** for a full-size view by emitting `aparte-attachment-preview` — core has no
+lightbox, no modal, no opinion about how a picture should open.
+
+So the tile is inert until you say you can open something:
+
+```ts
+AparteConfig.setHostHandlers({ attachmentPreview: true });
+
+document.addEventListener('aparte-attachment-preview', (e) => {
+  const { url, name } = e.detail;      // open your own dialog / router / gallery
+});
+```
+
+Declared, the tile is a real button — `role="button"`, a tab stop, Enter and Space. Undeclared,
+it is a plain picture: no role, no tab stop, not even a pointer cursor, because looking
+clickable is the same promise in a quieter voice. The event itself is always public; the
+declaration only decides whether the trigger is rendered.
+
+The vanilla and React playgrounds do exactly this in ~15 lines with a `<dialog>` — see
+[`apps/playgrounds`](https://github.com/apartejs/aparte/tree/main/apps/playgrounds).
 
 ## Programmatic API
 

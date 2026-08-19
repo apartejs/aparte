@@ -117,9 +117,30 @@ The flow:
 1. **Push to `main`** → `release.yml` opens/updates the *Version Packages* PR. It runs
    `pnpm version-packages`, i.e. `changeset version` **plus** the root-changelog generator, so
    the PR already carries both levels.
-   > ⚠️ In pre-release mode (`.changeset/pre.json`), `changeset version` computes from
-   > `initialVersions` and applies the group's highest bump — it has proposed a wrong number
-   > before. **Check the version in that PR** and correct it there if needed.
+   > ⚠️ **The number changesets proposes for a feature release is wrong, and structurally so.**
+   > The wrappers carry `@aparte/core` in `peerDependencies`, and for a package still in `0.x`
+   > changesets treats a **minor as breaking for its dependents** — so a minor on core makes
+   > the wrappers *major*, and `fixed` aligns all fifteen on the highest bump: it proposes
+   > `1.0.0`. Measured, not inferred: a `patch`-only changeset stays a patch, a `minor`-only
+   > one comes out major. (An earlier note here blamed `pre.json`/`initialVersions`; that was
+   > wrong — patching them changes nothing, and neither does
+   > `onlyUpdatePeerDependentsWhenOutOfRange`.)
+   >
+   > So a minor release is versioned locally instead:
+   >
+   > ```bash
+   > pnpm version-packages                          # changeset version + root changelog
+   > node scripts/force-version.mjs 0.5.0-alpha.0   # the number we actually want
+   > node scripts/gen-root-changelog.mjs            # regenerate: it reads the per-package files
+   > ```
+   >
+   > `force-version.mjs` rewrites every `package.json` and `CHANGELOG.md` the versioning just
+   > wrote, and **refuses to run once the release is committed** — a global replace of an
+   > already-released version would rewrite the historical `Updated dependencies` lines. It
+   > replaces what used to be ~46 hand edits, which were forgotten once (the private apps) and
+   > shipped a release carrying two different numbers.
+   >
+   > This disappears the day the group leaves `0.x`.
 2. **Merge it.**
 3. **`pnpm release`** locally — builds every package, `changeset publish` (npm + one git tag
    per package), then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.

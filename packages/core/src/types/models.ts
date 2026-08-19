@@ -100,33 +100,81 @@ export interface AparteMessageBranch {
  * Names of the individual action-bar buttons, used for explicit per-role
  * ordered configuration (see `AparteBubbleActionsConfig.user` / `.assistant`).
  */
-export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'thumbDown';
+export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'thumbDown' | 'info';
 
 /**
  * Controls which action buttons are rendered in message bubbles.
  * Pass to `AparteConfig.setBubbleActions()` to customise or disable actions.
  *
+ * **Only `copy` is on by default.** Core can copy text on its own; every other
+ * button needs someone outside core to honor it — `AparteClient` (retry, edit) or
+ * your own listener (feedback, info). A button nobody answers is a lie told to the
+ * user, so aparté ships them off and you turn on what you handle:
+ *
+ * ```ts
+ * AparteConfig.setBubbleActions({ retry: true, edit: true });   // you run AparteClient
+ * ```
+ *
  * Two ways to configure:
- * - Global flags (`copy`/`retry`/`edit`/`feedback`) — role-aware defaults, the
- *   original behaviour.
+ * - Global flags (`copy`/`retry`/`edit`/`feedback`/`info`) — role-aware defaults.
  * - Explicit per-role ordered sets (`user`/`assistant`) — when provided for a
  *   role, they fully replace the flag-derived set for that role: buttons render
- *   in exactly the given order and nothing is auto-appended (not even the usage
- *   "info" button). Lets a theme match a specific product 1:1.
+ *   in exactly the given order, and naming a button there IS the opt-in (the flag
+ *   is not consulted). Lets a theme match a specific product 1:1.
  */
 export interface AparteBubbleActionsConfig {
-    /** Copy message text to clipboard. Default: true */
+    /** Copy message text to clipboard — the one action core honors alone. Default: true */
     copy?: boolean;
-    /** Retry / regenerate the response (assistant bubbles). Default: true */
+    /** Retry / regenerate the response (assistant bubbles). Needs a host to re-send. Default: false */
     retry?: boolean;
-    /** Edit the sent message inline (user bubbles). Default: true */
+    /** Edit the sent message inline (user bubbles). Needs a host to keep the new text. Default: false */
     edit?: boolean;
-    /** Thumbs-up / thumbs-down feedback (assistant bubbles). Default: false */
+    /** Thumbs-up / thumbs-down feedback (assistant bubbles). Needs a listener. Default: false */
     feedback?: boolean;
+    /**
+     * The details ("i") button, which opens the **app-owned** stats popover by
+     * emitting `aparte-message-info` (assistant bubbles). Rendered only when the
+     * message also carries a `usage` — no numbers, nothing to show. Default: false
+     */
+    info?: boolean;
     /** Explicit, ordered action set for USER bubbles. Example: `['edit', 'copy']`. */
     user?: AparteBubbleActionName[];
     /** Explicit, ordered action set for ASSISTANT bubbles. Example: `['copy', 'thumbUp', 'thumbDown', 'retry']`. */
     assistant?: AparteBubbleActionName[];
+}
+
+/**
+ * The affordances core RENDERS but cannot COMPLETE — each one only asks, through a
+ * DOM event, and the app does the work. Declare what your app actually handles
+ * with `AparteConfig.setHostHandlers()`; everything else stays out of the UI
+ * rather than showing a control that answers to nobody.
+ *
+ * ```ts
+ * AparteConfig.setHostHandlers({ attachmentPreview: true });   // you open a lightbox
+ * ```
+ *
+ * These are declarations, not callbacks: the events (`aparte-attachment-preview`,
+ * `aparte-terminal-run`, `aparte-artifact-redownload`) are unchanged, and you keep
+ * listening for them wherever you already do.
+ */
+export interface AparteHostHandlersConfig {
+    /**
+     * Clicking an image attachment asks for a full-size preview
+     * (`aparte-attachment-preview`) — core owns no lightbox. Until declared, the
+     * tile is inert and is not signalled as a button. Default: false
+     */
+    attachmentPreview?: boolean;
+    /**
+     * The Run button on a `terminal` segment (`aparte-terminal-run`) — core never
+     * executes anything. Copy is unaffected. Default: false
+     */
+    terminalRun?: boolean;
+    /**
+     * The download button on a **binary** artifact, which asks the app to
+     * re-generate the file (`aparte-artifact-redownload`). Text artifacts keep
+     * their button: core writes those out itself. Default: false
+     */
+    artifactRedownload?: boolean;
 }
 
 /**

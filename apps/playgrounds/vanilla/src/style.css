@@ -95,3 +95,22 @@ aparte-chat {
     border-radius: 12px;
     overflow: hidden;
 }
+
+/* The attachment lightbox this app opens when core asks for a preview
+   (aparte-attachment-preview). Core owns no modal — this is ours. */
+.lightbox {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+.lightbox::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+.lightbox img {
+  display: block;
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 10px;
+}

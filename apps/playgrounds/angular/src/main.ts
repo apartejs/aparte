@@ -12,6 +12,10 @@ import { KEY_STORAGE } from './app/aparte';
 // Gate the composer until a model is selected.
 setupMarkedProvider();
 AparteConfig.setRequireModelSelection(true);
+// Retry and edit need a host to re-send and rewrite - provideAparte wires exactly
+// that client below, so this app opts in. Anything it does not handle (the details
+// popover, the image-tile preview) stays hidden.
+AparteConfig.setBubbleActions({ retry: true, edit: true });
 
 bootstrapApplication(AppComponent, {
     providers: [

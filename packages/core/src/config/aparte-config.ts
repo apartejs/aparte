@@ -22,7 +22,7 @@ import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../type
 import type { AparteTransport } from '../transport/index.js';
 import { DirectTransport } from '../transport/index.js';
 import type { AparteTool, AparteToolHandler, AparteToolRenderer } from '../types/tools.js';
-import type { AparteBubbleActionsConfig, AparteBubbleActionName } from '../types/models.js';
+import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { ConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
@@ -34,6 +34,40 @@ export type AparteHighlightProvider =
 export type AparteSystemPromptVarsProvider = () => Record<string, string>;
 export type AparteLocaleProvider = AparteLocale;
 export type AparteKeyProvider = (providerId: string) => string | Promise<string | undefined> | undefined;
+
+/**
+ * The bubble-action defaults — `copy` on, everything else off.
+ *
+ * The rule: an affordance core cannot honor end-to-end does not appear by
+ * default. Core can copy text by itself; retry and edit only do something when a
+ * host (`AparteClient`) re-sends and rewrites, and feedback/info only when the app
+ * listens for `aparte-feedback` / `aparte-message-info`. Rendering them
+ * unconditionally showed dead buttons in every display-only integration — ours
+ * included, which is how we found it.
+ *
+ * Exported so a consumer can read the defaults instead of hard-coding them.
+ */
+export const DEFAULT_BUBBLE_ACTIONS = {
+    copy: true,
+    retry: false,
+    edit: false,
+    feedback: false,
+    info: false,
+} as const;
+
+/**
+ * The host-handler declarations — nothing declared.
+ *
+ * Same rule as {@link DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
+ * image tile you can click, a Run button, a download button on a binary artifact
+ * are all requests core forwards to the app. Undeclared, they are not rendered
+ * (and the tile is not even signalled as clickable) instead of doing nothing.
+ */
+export const DEFAULT_HOST_HANDLERS = {
+    attachmentPreview: false,
+    terminalRun: false,
+    artifactRedownload: false,
+} as const;
 
 export interface AparteModelPreference {
     provider: string;
@@ -123,8 +157,12 @@ export class AparteConfigClass {
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
 
-    // Bubble Actions
-    private _bubbleActionsConfig: AparteBubbleActionsConfig = { copy: true, retry: true, edit: true, feedback: false };
+    // Host handlers — what the app declares it can actually complete.
+    private _hostHandlers: AparteHostHandlersConfig = { ...DEFAULT_HOST_HANDLERS };
+
+    // Bubble Actions — DEFAULT_BUBBLE_ACTIONS is the single source of truth
+    // (init here, restored by reset(), and the fallback in getBubbleActions()).
+    private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
 
     // ─────────────────────────────────────────────────────────────────────────
     // Provider Setters (Dependency Injection)
@@ -174,12 +212,13 @@ export class AparteConfigClass {
 
     /**
      * Configure which action buttons appear in message bubbles.
-     * Unset keys keep their defaults (copy=true, retry=true, edit=true, feedback=false).
+     * Unset keys keep their defaults — see {@link DEFAULT_BUBBLE_ACTIONS}: `copy`
+     * only, because every other button needs a host to honor it.
      *
      * @example
-     * AparteConfig.setBubbleActions({ feedback: true })        // enable feedback, keep rest
-     * AparteConfig.setBubbleActions({ retry: false })          // disable retry only
-     * AparteConfig.setBubbleActions({ copy: false, retry: false, edit: false }) // hide all
+     * AparteConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
+     * AparteConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
+     * AparteConfig.setBubbleActions({ copy: false })             // hide everything
      * // Explicit per-role ordered sets (replace the flag defaults for that role):
      * AparteConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
      */
@@ -188,20 +227,43 @@ export class AparteConfigClass {
         this._notify();
     }
 
+    /**
+     * Declare which host-dependent affordances your app handles. Core renders the
+     * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
+     *
+     * @example
+     * AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+     */
+    setHostHandlers(config: AparteHostHandlersConfig): void {
+        this._hostHandlers = { ...this._hostHandlers, ...config };
+        this._notify();
+    }
+
+    /** Returns the resolved host-handler declarations (undeclared = false). */
+    getHostHandlers(): { attachmentPreview: boolean; terminalRun: boolean; artifactRedownload: boolean } {
+        return {
+            attachmentPreview: this._hostHandlers.attachmentPreview ?? DEFAULT_HOST_HANDLERS.attachmentPreview,
+            terminalRun: this._hostHandlers.terminalRun ?? DEFAULT_HOST_HANDLERS.terminalRun,
+            artifactRedownload: this._hostHandlers.artifactRedownload ?? DEFAULT_HOST_HANDLERS.artifactRedownload,
+        };
+    }
+
     /** Returns the resolved bubble actions config (flag defaults applied; per-role sets passed through). */
     getBubbleActions(): {
         copy: boolean;
         retry: boolean;
         edit: boolean;
         feedback: boolean;
+        info: boolean;
         user?: AparteBubbleActionName[];
         assistant?: AparteBubbleActionName[];
     } {
         return {
-            copy: this._bubbleActionsConfig.copy ?? true,
-            retry: this._bubbleActionsConfig.retry ?? true,
-            edit: this._bubbleActionsConfig.edit ?? true,
-            feedback: this._bubbleActionsConfig.feedback ?? false,
+            copy: this._bubbleActionsConfig.copy ?? DEFAULT_BUBBLE_ACTIONS.copy,
+            retry: this._bubbleActionsConfig.retry ?? DEFAULT_BUBBLE_ACTIONS.retry,
+            edit: this._bubbleActionsConfig.edit ?? DEFAULT_BUBBLE_ACTIONS.edit,
+            feedback: this._bubbleActionsConfig.feedback ?? DEFAULT_BUBBLE_ACTIONS.feedback,
+            info: this._bubbleActionsConfig.info ?? DEFAULT_BUBBLE_ACTIONS.info,
             user: this._bubbleActionsConfig.user,
             assistant: this._bubbleActionsConfig.assistant,
         };
@@ -944,7 +1006,8 @@ export class AparteConfigClass {
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._modelPreferenceProvider = undefined;
-        this._bubbleActionsConfig = { copy: true, retry: true, edit: true, feedback: false };
+        this._bubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
+        this._hostHandlers = { ...DEFAULT_HOST_HANDLERS };
         this._notify();
     }
 

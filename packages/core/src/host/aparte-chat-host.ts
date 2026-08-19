@@ -136,7 +136,18 @@ export class AparteChatHost {
     /** Abort handle for an in-flight {@link streamTokens} loop. */
     private _streamAbort?: AbortController;
     /** Segment chunks written to the bubble, awaiting one coalesced state sync. */
-    private readonly _segmentBuffer = new Map<string, string>();
+    /**
+     * Buffered segment text, per segment id, as `base + text` — an **absolute**
+     * target, never a delta.
+     *
+     * Why absolute: the immediate paint (`appendToSegment` below) writes through the
+     * viewport into the very segment object the framework list holds — they are the
+     * same object, handed to both by `addSegment`. A delta added at flush time would
+     * therefore land on content that already contains it, and every chunk came out
+     * doubled. `base` is captured before the paint, so whoever mutates the shared
+     * object in between cannot change the result.
+     */
+    private readonly _segmentBuffer = new Map<string, { base: string; text: string }>();
     /** {@link streamTokens} text written to the bubble, awaiting the same sync. */
     private _tokenBuffer: { messageId: string; text: string } | null = null;
     /** Handle of the scheduled coalesced sync, or null when none is pending. */
@@ -400,11 +411,21 @@ export class AparteChatHost {
         if (!last || !last.segments) return;
         if (this._isOrphan(last.id)) return;
 
+        // (2a) Record where this batch starts — BEFORE the paint below, which writes
+        // into the segment object the list shares. See {@link _segmentBuffer}.
+        let buffered = this._segmentBuffer.get(segmentId);
+        if (!buffered) {
+            const segment = last.segments.find((s) => s.id === segmentId);
+            const base = segment && 'content' in segment ? (segment as { content?: string }).content ?? '' : '';
+            buffered = { base, text: '' };
+            this._segmentBuffer.set(segmentId, buffered);
+        }
+        buffered.text += content;
+
         // (1) Immediate, per-chunk: the viewport writes into the bubble in place.
         this._vp()?.appendToSegment?.(last.id, segmentId, content);
 
-        // (2) Deferred, coalesced: one state sync per frame.
-        this._segmentBuffer.set(segmentId, (this._segmentBuffer.get(segmentId) ?? '') + content);
+        // (2b) Deferred, coalesced: one state sync per frame.
         this._scheduleStreamFlush();
     }
 
@@ -462,9 +483,12 @@ export class AparteChatHost {
             const last = msgs[msgs.length - 1];
             if (last?.segments) {
                 const segments = last.segments.map((s) => {
-                    const chunk = pending.get(s.id);
-                    return chunk !== undefined && 'content' in s
-                        ? ({ ...s, content: (s as { content: string }).content + chunk } as AparteSegment)
+                    const buffered = pending.get(s.id);
+                    // Absolute, not `s.content + chunk`: `s` may be the object the
+                    // paint already appended to (they are shared), so adding the
+                    // chunk again is what doubled every chunk.
+                    return buffered !== undefined && 'content' in s
+                        ? ({ ...s, content: buffered.base + buffered.text } as AparteSegment)
                         : s;
                 });
                 msgs = [...msgs.slice(0, -1), { ...last, segments }];

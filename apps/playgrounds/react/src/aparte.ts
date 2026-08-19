@@ -30,10 +30,39 @@ export function setupAparte(): void {
 
     AparteConfig.setTransport(new DirectTransport({ byok: true }));
 
+    // Opt into what this app can honor: retry/edit go through the client below,
+    // and the image tile opens the lightbox wired at the end of this function.
+    // The ⓘ details popover isn't implemented here, so it stays hidden.
+    AparteConfig.setBubbleActions({ retry: true, edit: true });
+    AparteConfig.setHostHandlers({ attachmentPreview: true });
+
     new AparteClient({
         keyResolver: (providerId) =>
             providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
     }).start();
+
+    wireAttachmentLightbox();
+}
+
+/**
+ * The image-tile preview: core only ASKS (`aparte-attachment-preview`), the modal
+ * is the app's. So we declare it AND actually open something — a declaration with
+ * no listener behind it is the dead button we just removed from core.
+ */
+function wireAttachmentLightbox(): void {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'lightbox';
+    dialog.innerHTML = '<img alt="" />';
+    dialog.addEventListener('click', () => dialog.close());
+    document.body.appendChild(dialog);
+
+    document.addEventListener('aparte-attachment-preview', (e) => {
+        const { url, name } = (e as CustomEvent<{ url: string; name: string }>).detail;
+        const img = dialog.querySelector('img')!;
+        img.src = url;
+        img.alt = name;
+        dialog.showModal();
+    });
 }
 
 /** Dispatch a send from the composer so the client (and the optimistic user bubble) both fire. */

@@ -1,6 +1,6 @@
 import { AparteConfig, AparteConfigClass } from '../config/aparte-config.js';
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
-import { registerDefaultRenderers } from '../renderers/segment-renderers.js';
+import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { assertNever } from '../utils/assert-never.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import type { AparteStreamRunner, StreamAdapterTarget } from './stream-adapter.js';
@@ -116,7 +116,13 @@ export interface AparteClientOptions {
     requestInterceptor?: (request: AparteChatRequest) => AparteChatRequest | Promise<AparteChatRequest>;
 
     /**
-     * Whether to automatically register default segment renderers.
+     * Whether to register core's default segment renderers.
+     *
+     * Rarely needed either way: the built-ins install themselves the first time a
+     * segment needs one, so leaving this alone just works. Set it to `false` to
+     * keep them out entirely — a decision that is remembered, so nothing installs
+     * them later; register your own with `registerSegmentRenderer`. Do it at
+     * startup, before the first segment renders.
      * @default true
      */
     autoRegister?: boolean;
@@ -246,6 +252,10 @@ export class AparteClient {
 
         if (this.options.autoRegister) {
             registerDefaultRenderers();
+        } else {
+            // Explicit: keep core's built-ins out, including the lazy install the
+            // bubble would otherwise do on first render.
+            declineDefaultRenderers();
         }
 
         this._setupListeners();

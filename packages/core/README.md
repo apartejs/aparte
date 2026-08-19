@@ -53,8 +53,11 @@ every CI run.
 
 - **`<aparte-chat>`** — a drop-in shell (viewport + composer), or compose the primitives
   yourself (`<aparte-chat-viewport>`, `<aparte-composer>`, `<aparte-chat-bubble>`, …).
-- **`AparteClient`** — an optional driver that turns composer events into a streamed reply.
-  Retry / edit fork the conversation into **branches** with a built-in `‹ 1/2 ›` picker.
+- **`AparteClient`** — an optional driver that turns composer events into a streamed reply,
+  and the host that makes the retry / edit buttons real: retry forks the conversation into a
+  **branch** (with a built-in `‹ 1/2 ›` picker), edit rewrites the message in place. Both
+  buttons are **off by default** — without a host they would answer to nobody — so switch
+  them on next to the client: `AparteConfig.setBubbleActions({ retry: true, edit: true })`.
 - **Transports** — `DirectTransport` (browser → provider, BYOK / local model) or
   `BackendTransport` (browser → your endpoint, API key stays server-side).
 - **Theming** — restyle everything through `--aparte-*` CSS variables (Light DOM, no forking).

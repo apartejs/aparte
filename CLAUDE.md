@@ -100,6 +100,19 @@ markdown/highlight micro-packages, an eval harness, voice.
    with no in-repo consumer is a contract maintained for nobody. The trigger to build it is
    shipping a raw-completion provider (`provider-llamacpp`), which gives it a consumer, a test
    surface (byte-stable prefix across turns) and a home — not a duplication count.
+8. **A visible affordance core cannot honour end-to-end is not enabled by default.** Three
+   tiers decide it: (a) honoured by core alone → **on** (`copy`, the `‹1/2›` picker, the
+   waiting indicator, the stop button, the model selector); (b) honoured only by an optional
+   host — `AparteClient` or an app listening for the event → **off**, with one lever to turn
+   it on (`setBubbleActions` for the action bar, `setHostHandlers` for everything else);
+   (c) rendered only inside content the app produced (segments) → follows (b): a model
+   emitting a terminal segment does not mean the app can run the command. `aparte-send` is
+   the deliberate exception — without a host nothing answers a send either, but that is the
+   primary function, and the failure is immediate and visible to the *developer*, not a lie
+   told to the user. An undeclared affordance is not half-rendered either: no role, no tab
+   stop, no pointer. The rule was discovered the hard way — attachments were made opt-in in
+   0.4.0 for exactly this reason, and the sweep that followed found six more cases, none of
+   which our own playgrounds handled.
 
 ---
 

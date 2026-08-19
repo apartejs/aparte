@@ -146,7 +146,7 @@ export type {
 } from './transport/index.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
-export { AparteConfig, AparteConfigClass } from './config/index.js';
+export { AparteConfig, AparteConfigClass, DEFAULT_BUBBLE_ACTIONS, DEFAULT_HOST_HANDLERS } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export type {
     AparteMarkdownProvider,

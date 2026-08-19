@@ -1,4 +1,4 @@
-export { AparteConfig, AparteConfigClass } from './aparte-config.js';
+export { AparteConfig, AparteConfigClass, DEFAULT_BUBBLE_ACTIONS, DEFAULT_HOST_HANDLERS } from './aparte-config.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config-context.js';
 export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder } from './aparte-config.js';
 export type { AparteSanitizer } from './sanitize.js';

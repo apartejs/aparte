@@ -11,22 +11,35 @@ import type {
   AparteUsage,
   AparteMessage,
 } from '../../types/index.js';
-import { getSegmentRenderer } from '../../renderers/index.js';
+import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
 import { AparteConfigClass } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 
 /**
- * Warn ONCE when a segment has no registered renderer — the classic
- * "I forgot registerDefaultRenderers()" trap that otherwise fails silently as a
- * `[Unknown segment type]` box.
+ * Warn ONCE when a segment has no renderer — now only for types core has never
+ * heard of, since the built-ins install themselves on first use.
  */
 let _warnedNoRenderer = false;
 function warnMissingRenderer(type: string): void {
     if (_warnedNoRenderer) return;
     _warnedNoRenderer = true;
-    console.warn(`[aparte] No renderer for segment "${type}". Did you call registerDefaultRenderers() from @aparte/core?`);
+    console.warn(`[aparte] No renderer for segment "${type}". Register one with registerSegmentRenderer({ type: '${type}', render }) from @aparte/core — see https://apartejs.dev/guides/customization/#custom-segment-types`);
+}
+
+/**
+ * The renderer for `type`, installing core's built-ins the first time a segment
+ * finds the registry empty of its type. `registerDefaultRenderers()` therefore
+ * becomes optional rather than a call you discover by seeing
+ * `[Unknown segment type: text]` on screen (it is still honoured, and
+ * `AparteClient({ autoRegister: false })` still keeps the built-ins out).
+ */
+function resolveSegmentRenderer(type: string): ReturnType<typeof getSegmentRenderer> {
+    const renderer = getSegmentRenderer(type);
+    if (renderer) return renderer;
+    installDefaultRenderersOnce();
+    return getSegmentRenderer(type);
 }
 
 /**
@@ -61,6 +74,7 @@ export class AparteChatBubble extends HTMLElement {
   private _attachmentsEl: HTMLDivElement | null = null;
   private _actionBarEl: HTMLDivElement | null = null;
   private _branchPickerEl: HTMLDivElement | null = null;
+  private _footerEl: HTMLDivElement | null = null;
   private _content = '';
   private _streaming = false;
   private _segments: AparteSegment[] = [];
@@ -244,8 +258,12 @@ export class AparteChatBubble extends HTMLElement {
 
   /**
    * Set token usage + timing for this message (assistant only).
-   * Renders the info ("i") action in the action bar; clicking it opens
-   * the app-owned stats popover (`aparte-message-info`).
+   *
+   * This is the *precondition* for the info ("i") action, not the trigger: the
+   * button appears only if the app also declared it wants it —
+   * `AparteConfig.setBubbleActions({ info: true })` — because the stats popover it
+   * opens (`aparte-message-info`) is the app's, and core has none. Without usage
+   * there is nothing to show, so the button never renders either way.
    */
   setUsage(usage: AparteUsage | null | undefined): void {
     this._usage = usage ?? null;
@@ -302,7 +320,7 @@ export class AparteChatBubble extends HTMLElement {
         console.warn(`[AparteChatBubble] _appendSegmentEl ABORT: _segmentsEl is null`);
         return;
     }
-    const renderer = getSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type);
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
       // this bubble's config as the ambient render config for the duration.
@@ -328,7 +346,7 @@ export class AparteChatBubble extends HTMLElement {
       this._renderSegments();
       return;
     }
-    const renderer = getSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type);
     if (!renderer) return;
 
     if (renderer.update) {
@@ -436,6 +454,7 @@ export class AparteChatBubble extends HTMLElement {
     this._attachmentsEl = this.querySelector('.aparte-attachments');
     this._actionBarEl = this.querySelector('.aparte-action-bar');
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
+    this._footerEl = this.querySelector('.aparte-footer');
 
     this._setupBranchPickerListeners();
     this._updateActionBar();
@@ -583,7 +602,7 @@ export class AparteChatBubble extends HTMLElement {
     this._segmentsEl.innerHTML = '';
 
     for (const segment of this._segments) {
-      const renderer = getSegmentRenderer(segment.type);
+      const renderer = resolveSegmentRenderer(segment.type);
       if (renderer) {
         const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
         if (el) {
@@ -683,15 +702,28 @@ export class AparteChatBubble extends HTMLElement {
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');
 
-    // Image tiles open the full-size preview lightbox (app-owned modal).
+    // Image tiles ask for a full-size preview — but the lightbox is the app's, so
+    // the tile only becomes a button once the app declared it opens one. Otherwise
+    // it stays a plain picture: no role, no tab stop, no pointer (see the CSS,
+    // which keys the cursor off role="button").
+    if (!this._cfg.getHostHandlers().attachmentPreview) return;
     this._attachmentsEl.querySelectorAll('.aparte-thumb--image').forEach(tile => {
-      tile.addEventListener('click', () => {
+      tile.setAttribute('role', 'button');
+      tile.setAttribute('tabindex', '0');
+      const open = (): void => {
         const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
         if (!img) return;
         this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
           bubbles: true, composed: true,
           detail: { url: img.src, name: tile.getAttribute('title') ?? '' },
         }));
+      };
+      tile.addEventListener('click', open);
+      tile.addEventListener('keydown', (e) => {
+        const key = (e as KeyboardEvent).key;
+        if (key !== 'Enter' && key !== ' ') return;
+        e.preventDefault();
+        open();
       });
     });
   }
@@ -730,9 +762,11 @@ export class AparteChatBubble extends HTMLElement {
     if (!this._branchPickerEl) return;
     if (this._siblingCount <= 1 || this._role !== 'assistant') {
       this._branchPickerEl.hidden = true;
+      this._syncFooterVisibility();
       return;
     }
     this._branchPickerEl.hidden = false;
+    this._syncFooterVisibility();
     const label = this._branchPickerEl.querySelector('.aparte-branch-label');
     if (label) {
       // Custom position indicator (AparteConfig.setSiblingNavRenderer) — e.g. dots —
@@ -774,7 +808,8 @@ export class AparteChatBubble extends HTMLElement {
         // Explicit ordered set replaces the flag defaults for user bubbles.
         for (const a of config.user) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
-        // Default user set: copy + edit.
+        // Flag-driven set. Only `copy` is on by default — see
+        // DEFAULT_BUBBLE_ACTIONS: edit needs a host to keep the new text.
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.edit) buttons.push(this._actionButtonHtml('edit', icons, locale));
       }
@@ -783,23 +818,15 @@ export class AparteChatBubble extends HTMLElement {
         // Explicit ordered set replaces the flag defaults (incl. the info button).
         for (const a of config.assistant) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
-        // Default assistant set: copy + retry + feedback (+ info when usage present).
+        // Flag-driven set. Only `copy` is on by default — retry, feedback and
+        // info all need a host or a listener to mean anything.
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.retry) buttons.push(this._actionButtonHtml('retry', icons, locale));
         if (config.feedback) {
           buttons.push(this._actionButtonHtml('thumbUp', icons, locale));
           buttons.push(this._actionButtonHtml('thumbDown', icons, locale));
         }
-
-        // Info button — opens the stats popover. The popover UI itself is
-        // owned by the app layer (it listens for `aparte-message-info`); the
-        // bubble only renders the trigger and forwards the usage payload.
-        if (this._usage) {
-          const infoLabel = locale.messageInfo ?? 'Details';
-          buttons.push(`<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${infoLabel}" title="${infoLabel}">
-          ${INFO_ICON_SVG}
-        </button>`);
-        }
+        if (config.info) buttons.push(this._actionButtonHtml('info', icons, locale));
       }
     }
 
@@ -815,6 +842,23 @@ export class AparteChatBubble extends HTMLElement {
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
+
+    this._syncFooterVisibility();
+  }
+
+  /**
+   * An empty action bar is not a bar: with every action off it was still a
+   * `role="toolbar"` with nothing in it (announced as such), and it still reserved
+   * its fixed height plus the footer's under every bubble. So both follow their
+   * contents — the footer stays as long as the branch picker or the bar has
+   * something to show.
+   */
+  private _syncFooterVisibility(): void {
+    if (this._actionBarEl) this._actionBarEl.hidden = this._actionBarEl.children.length === 0;
+    if (!this._footerEl) return;
+    const barEmpty = !this._actionBarEl || this._actionBarEl.hidden;
+    const pickerHidden = !this._branchPickerEl || this._branchPickerEl.hidden;
+    this._footerEl.hidden = barEmpty && pickerHidden;
   }
 
   /** Append the registered custom action buttons for this bubble's role. */
@@ -865,6 +909,13 @@ export class AparteChatBubble extends HTMLElement {
         const l = locale.feedbackNegative ?? 'Bad response';
         return `<button class="aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${l}" title="${l}">${icons.thumbDown()}</button>`;
       }
+      case 'info': {
+        // Only when there are numbers to show: a details button over nothing is a
+        // dead button. The popover itself is the app's (see `aparte-message-info`).
+        if (!this._usage) return '';
+        const l = locale.messageInfo ?? 'Details';
+        return `<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${l}" title="${l}">${INFO_ICON_SVG}</button>`;
+      }
       default:
         return '';
     }
@@ -884,6 +935,8 @@ export class AparteChatBubble extends HTMLElement {
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
+    // Save/cancel must show even when every action flag is off.
+    this._syncFooterVisibility();
   }
 
   private _handleActionClick(e: MouseEvent): void {

@@ -64,6 +64,9 @@ AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.LMSTUDIO));
 AparteConfig.setTransport(new DirectTransport({ byok: true }));
 new AparteClient().start();            // listens for sends, streams the reply into the chat
 
+// Retry/edit only work with a host like the client above, so core ships them off:
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+
 // The bare shell streams the assistant reply; echo the user's own message in:
 const chat = document.querySelector('aparte-chat');
 chat.addEventListener('aparte-send', (e) =>

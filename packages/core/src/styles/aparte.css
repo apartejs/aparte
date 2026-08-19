@@ -822,8 +822,14 @@ aparte-chat-bubble {
   border: var(--aparte-border-width, 1px) solid var(--aparte-attachment-chip-border, var(--aparte-border));
 }
 
-.aparte-thumb--image {
+/* Only an image tile the app declared it can preview is a button — see
+   AparteConfig.setHostHandlers(). Undeclared, it is a picture, not a control. */
+.aparte-thumb--image[role='button'] {
   cursor: pointer;
+}
+
+.aparte-thumb--image[role='button']:focus-visible {
+  box-shadow: var(--aparte-focus-ring, 0 0 0 3px rgba(99, 102, 241, 0.15));
 }
 
 .aparte-thumb__img {
@@ -967,7 +973,14 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   gap: var(--aparte-branch-picker-gap, 4px);
 }
 
-/* [hidden] is overridden by display:flex — force it back */
+/* [hidden] is overridden by display:flex — force it back. The bar and the footer
+   hide themselves when they hold nothing (see _syncFooterVisibility): an empty
+   toolbar is announced to screen readers and reserves height for nothing. */
+.aparte-action-bar[hidden],
+.aparte-footer[hidden] {
+  display: none;
+}
+
 .aparte-branch-picker[hidden] {
   display: none;
 }

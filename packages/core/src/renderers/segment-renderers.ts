@@ -115,6 +115,10 @@ function findClosingFence(s: string): number {
 
 const renderers = new Map<string, AparteSegmentRenderer>();
 let styleElement: HTMLStyleElement | null = null;
+/** Set once the built-ins have been filled in, so the sweep runs at most once. */
+let defaultsInstalled = false;
+/** Set when an app explicitly said it brings its own (AparteClient autoRegister: false). */
+let defaultsDeclined = false;
 
 /**
  * Register a segment renderer
@@ -123,6 +127,40 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
     renderer: AparteSegmentRenderer<T>
 ): void {
     renderers.set(renderer.type, renderer as AparteSegmentRenderer);
+    injectRendererStyles();
+}
+
+/**
+ * Remember that the app declined the built-in renderers, so
+ * {@link installDefaultRenderersOnce} stays out of the way for good.
+ *
+ * `AparteClient({ autoRegister: false })` is the one caller. Without this latch the
+ * lazy install below would quietly turn that option into a no-op.
+ */
+export function declineDefaultRenderers(): void {
+    defaultsDeclined = true;
+}
+
+/**
+ * Fill in the built-in renderers for the types nobody has claimed — called by the
+ * bubble the first time a segment has no renderer.
+ *
+ * Why lazily and not at import time: **`registerDefaultRenderers()` used to have
+ * exactly one caller, `new AparteClient()`.** An app on the bring-your-own-loop
+ * path — the one the guide tells you not to construct a client on — rendered
+ * `[Unknown segment type: text]` for every reply. Bubbles, streaming and scrolling
+ * all worked; only the content was missing, which reads as a bug in the consumer's
+ * own loop, not as a missing call.
+ *
+ * Strictly additive: a type someone registered themselves is never replaced, so a
+ * custom `text` renderer survives the sweep triggered by a `code` segment.
+ */
+export function installDefaultRenderersOnce(): void {
+    if (defaultsInstalled || defaultsDeclined) return;
+    defaultsInstalled = true;
+    for (const renderer of DEFAULT_RENDERERS) {
+        if (!renderers.has(renderer.type)) renderers.set(renderer.type, renderer);
+    }
     injectRendererStyles();
 }
 
@@ -348,7 +386,9 @@ const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
                 <div class="terminal-actions">
                     ${segment.isRunning
             ? `<span class="terminal-running"><span class="spinner"></span>${contextConfig().t('running')}</span>`
-            : `<button class="terminal-run-btn" data-action="run" aria-label="${contextConfig().t('run')}" title="${contextConfig().t('run')}">${contextConfig().t('run')}</button>`}
+            : contextConfig().getHostHandlers().terminalRun
+                ? `<button class="terminal-run-btn" data-action="run" aria-label="${contextConfig().t('run')}" title="${contextConfig().t('run')}">${contextConfig().t('run')}</button>`
+                : ''}
                     <button class="terminal-copy-btn" data-action="copy" aria-label="${contextConfig().t('copy')}" title="${contextConfig().t('copy')}">
                         ${contextConfig().getIcon('copy')}
                     </button>
@@ -659,16 +699,8 @@ const pipelineWaitingRenderer: AparteSegmentRenderer = {
 };
 
 export function registerDefaultRenderers(): void {
-    registerSegmentRenderer(textRenderer);
-    registerSegmentRenderer(thinkingRenderer);
-    registerSegmentRenderer(codeRenderer);
-    registerSegmentRenderer(terminalRenderer);
-    registerSegmentRenderer(errorRenderer);
-    registerSegmentRenderer(progressRenderer);
-    registerSegmentRenderer(fileTreeRenderer);
-    registerSegmentRenderer(toolCallRenderer);
-    registerSegmentRenderer(artifactRenderer);
-    registerSegmentRenderer(pipelineWaitingRenderer);
+    defaultsInstalled = true;
+    for (const renderer of DEFAULT_RENDERERS) registerSegmentRenderer(renderer);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1267,6 +1299,10 @@ function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: string):
     // render in 'ready' state with the preview HTML so the user sees the
     // file immediately — no setup() round-trip required, which matters when
     // Angular reuses the DOM via trackBy and our setup may not re-fire.
+    // Download on a binary artifact means "app, re-generate this file" — core holds
+    // no bytes for pdf/xlsx/docx. No declaration, no button.
+    const canRedownload = contextConfig().getHostHandlers().artifactRedownload;
+
     const cached = _binaryArtifactCache.get(segment.id);
     if (cached && !isStreaming) {
         const previewBody = cached.previewHtml
@@ -1284,7 +1320,7 @@ function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: string):
                         <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(formatBytes(cached.bytes))} · ${escapeHtml(kind.toUpperCase())}</div>
                     </div>
                     <div class="aparte-art-file__actions">
-                        <button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">Download</button>
+                        ${canRedownload ? '<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">Download</button>' : ''}
                     </div>
                 </div>
                 <div class="aparte-art-file__body">
@@ -1311,7 +1347,7 @@ function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: string):
                     <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(subText)}</div>
                 </div>
                 <div class="aparte-art-file__actions">
-                    <button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>Download</button>
+                    ${canRedownload ? '<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>Download</button>' : ''}
                 </div>
             </div>
             <div class="aparte-art-file__body">
@@ -1708,3 +1744,25 @@ function escapeClosingScriptTag(body: string): string {
     }
     return out;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The built-in set
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Every renderer core ships. One list, read by both the explicit
+ * `registerDefaultRenderers()` and the lazy {@link installDefaultRenderersOnce} —
+ * so a new built-in type cannot be added to one path and forgotten in the other.
+ */
+const DEFAULT_RENDERERS = [
+    textRenderer,
+    thinkingRenderer,
+    codeRenderer,
+    terminalRenderer,
+    errorRenderer,
+    progressRenderer,
+    fileTreeRenderer,
+    toolCallRenderer,
+    artifactRenderer,
+    pipelineWaitingRenderer,
+] as readonly AparteSegmentRenderer[];

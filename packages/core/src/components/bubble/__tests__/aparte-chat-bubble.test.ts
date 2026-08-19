@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 /**
  * AparteChatBubble — unit tests
@@ -12,6 +12,9 @@ import { describe, it, expect, afterEach } from 'vitest';
  */
 
 import '../aparte-chat-bubble.js';
+// The inline editor mounts the composer's contenteditable primitive — register it
+// so a bubble entering edit mode gets a real element, not an unupgraded tag.
+import '../../composer/aparte-composer-input.js';
 import { AparteConfig } from '../../../config/aparte-config.js';
 import { registerSegmentRenderer, unregisterSegmentRenderer } from '../../../renderers/index.js';
 import type { AparteMessage, AparteSegment } from '../../../types/index.js';
@@ -90,6 +93,11 @@ describe('AparteChatBubble', () => {
     // ─── Role-based action bar ────────────────────────────────────────────
 
     describe('action bar — role set before connectedCallback', () => {
+        // retry/edit are opt-in (they need a host to honor them), so the suites that
+        // test their ROUTING and their events turn them on the way an app does.
+        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => AparteConfig.reset());
+
         it('user bubble has "Edit" button, NOT "Retry"', () => {
             bubble = createBubble({ role: 'user', 'message-id': 'u1' });
             expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
@@ -104,6 +112,11 @@ describe('AparteChatBubble', () => {
     });
 
     describe('action bar — role set AFTER connectedCallback (Angular timing)', () => {
+        // retry/edit are opt-in (they need a host to honor them), so the suites that
+        // test their ROUTING and their events turn them on the way an app does.
+        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => AparteConfig.reset());
+
         it('user bubble gets Edit after role attribute is set post-connection', () => {
             // Simulate Angular: element connected WITHOUT role, then role is set
             bubble = createBubble({ 'message-id': 'u2' }); // no role → default assistant
@@ -224,6 +237,11 @@ describe('AparteChatBubble', () => {
     // ─── aparte-retry event ─────────────────────────────────────────────────
 
     describe('aparte-retry event', () => {
+        // retry/edit are opt-in (they need a host to honor them), so the suites that
+        // test their ROUTING and their events turn them on the way an app does.
+        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => AparteConfig.reset());
+
         it('retry button on assistant bubble fires aparte-retry with correct messageId', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'r1' });
             let retryDetail: any = null;
@@ -519,6 +537,141 @@ describe('AparteChatBubble', () => {
         });
     });
 
+    // ─── An empty action bar is not a bar ─────────────────────────────────────
+    // With every action off, the toolbar stayed in the DOM: an empty `role=toolbar`
+    // announced to screen readers, and 28px of reserved height (the bar's fixed
+    // height plus the footer's min-height) under every single bubble.
+    describe('empty action bar', () => {
+        afterEach(() => AparteConfig.reset());
+
+        const bar = (el: HTMLElement) => el.querySelector('.aparte-action-bar') as HTMLElement;
+        const footer = (el: HTMLElement) => el.querySelector('.aparte-footer') as HTMLElement;
+
+        it('hides the bar and the footer when no action is enabled', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e1', content: 'hi' });
+            expect(bar(bubble).children.length).toBe(0);
+            expect(bar(bubble).hidden).toBe(true);
+            expect(footer(bubble).hidden).toBe(true);
+        });
+
+        it('keeps both visible for the default set (copy)', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e2', content: 'hi' });
+            expect(bar(bubble).hidden).toBe(false);
+            expect(footer(bubble).hidden).toBe(false);
+        });
+
+        it('shows them again as soon as an action is turned back on', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e3', content: 'hi' });
+            expect(bar(bubble).hidden).toBe(true);
+            AparteConfig.setBubbleActions({ retry: true });
+            expect(bar(bubble).hidden).toBe(false);
+            expect(footer(bubble).hidden).toBe(false);
+        });
+
+        it('keeps the footer when the branch picker is the only thing in it', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e4', content: 'hi' });
+            bubble.setSiblings(2, 0);
+            expect(bar(bubble).hidden).toBe(true);
+            expect(footer(bubble).hidden).toBe(false);
+        });
+
+        it('hides the footer again when the last sibling disappears', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e5', content: 'hi' });
+            bubble.setSiblings(2, 0);
+            bubble.setSiblings(1, 0);
+            expect(footer(bubble).hidden).toBe(true);
+        });
+
+        it('a custom registered action alone is enough to keep the bar', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            AparteConfig.registerAction({
+                id: 'star', icon: '<svg></svg>', label: 'Star',
+                zones: ['bubble'], bubble: { roles: ['assistant'] },
+            });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e6', content: 'hi' });
+            expect(bar(bubble).children.length).toBe(1);
+            expect(bar(bubble).hidden).toBe(false);
+        });
+
+        it('shows the bar in edit mode even with every action off', () => {
+            AparteConfig.setBubbleActions({ copy: false, edit: true });
+            bubble = createBubble({ role: 'user', 'message-id': 'e7', content: 'hi' });
+            (bubble.querySelector('.aparte-action-edit') as HTMLButtonElement).click();
+            expect(bar(bubble).hidden).toBe(false);
+            expect(bubble.querySelector('.aparte-action-edit-save')).not.toBeNull();
+        });
+    });
+
+    // ─── The image tile: interactive only when the app says it can preview ────
+    // Core owns no lightbox — the tile just asks, via `aparte-attachment-preview`.
+    // Until an app declares it handles that, a clickable-looking tile is a lie.
+    describe('image tile preview (setHostHandlers)', () => {
+        afterEach(() => AparteConfig.reset());
+
+        const imageBubble = (id: string) => {
+            const el = createBubble({ role: 'user', 'message-id': id });
+            el.updateMessage({
+                attachments: [{ id: 'i1', name: 'shot.png', type: 'image/png', url: 'blob:x' }],
+            });
+            return el;
+        };
+
+        it('is inert and not signalled as a button by default', () => {
+            bubble = imageBubble('t1');
+            const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
+            expect(tile).not.toBeNull();
+            expect(tile.getAttribute('role')).toBeNull();
+            expect(tile.hasAttribute('tabindex')).toBe(false);
+            let fired = false;
+            const onPreview = () => { fired = true; };
+            document.body.addEventListener('aparte-attachment-preview', onPreview);
+            tile.click();
+            document.body.removeEventListener('aparte-attachment-preview', onPreview);
+            expect(fired).toBe(false);
+        });
+
+        it('becomes a real button once attachmentPreview is declared', () => {
+            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            bubble = imageBubble('t2');
+            const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
+            expect(tile.getAttribute('role')).toBe('button');
+            expect(tile.getAttribute('tabindex')).toBe('0');
+
+            let name: string | undefined;
+            document.body.addEventListener('aparte-attachment-preview', (e: Event) => {
+                name = ((e as CustomEvent).detail as { name?: string }).name;
+            }, { once: true });
+            tile.click();
+            expect(name).toBe('shot.png');
+        });
+
+        it('opens on Enter too — a button you cannot reach by keyboard is not one', () => {
+            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            bubble = imageBubble('t3');
+            const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
+            let fired = 0;
+            const onPreview = () => { fired++; };
+            document.body.addEventListener('aparte-attachment-preview', onPreview);
+            tile.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            document.body.removeEventListener('aparte-attachment-preview', onPreview);
+            expect(fired).toBe(1);
+        });
+
+        it('leaves non-image tiles inert even when declared (nothing to preview)', () => {
+            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            bubble = createBubble({ role: 'user', 'message-id': 't4' });
+            bubble.updateMessage({
+                attachments: [{ id: 'f1', name: 'report.pdf', type: 'application/pdf', url: 'blob:x' }],
+            });
+            const tile = bubble.querySelector('.aparte-thumb--file') as HTMLElement;
+            expect(tile.getAttribute('role')).toBeNull();
+        });
+    });
+
     // ─── Custom sibling-nav indicator (setSiblingNavRenderer) ─────────────
     describe('sibling-nav renderer', () => {
         afterEach(() => AparteConfig.reset());
@@ -541,6 +694,48 @@ describe('AparteChatBubble', () => {
     });
 
     // ─── Custom structural shell (setBubbleShellRenderer) ─────────────────
+    // ─── the info (ⓘ) action ───────────────────────────────────────────────────
+    // It used to be pushed at the end of the flag branch, outside the action
+    // registry: impossible to remove through the flags, and impossible to REQUEST in
+    // an explicit per-role list (`'info'` was not even in AparteBubbleActionName).
+    // It is a button like the others now — with one precondition kept: no usage, no
+    // details to show, no button.
+    describe('info action', () => {
+        afterEach(() => AparteConfig.reset());
+
+        const actionsOf = (el: HTMLElement) =>
+            [...el.querySelectorAll('.aparte-action-bar .aparte-action-btn')]
+                .map((b) => b.getAttribute('data-action'));
+        const withUsage = (el: HTMLElement) =>
+            (el as unknown as { setUsage(u: unknown): void }).setUsage({ inputTokens: 3, outputTokens: 5 });
+
+        it('is off by default, usage or not — nobody in core opens the popover', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i0', content: 'hi' });
+            withUsage(bubble);
+            expect(actionsOf(bubble)).toEqual(['copy']);
+        });
+
+        it('is requestable in an explicit per-role set', () => {
+            AparteConfig.setBubbleActions({ assistant: ['copy', 'info'] });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i1', content: 'hi' });
+            withUsage(bubble);
+            expect(actionsOf(bubble)).toEqual(['copy', 'info']);
+        });
+
+        it('is removable through the flag, even with usage present', () => {
+            AparteConfig.setBubbleActions({ info: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i2', content: 'hi' });
+            withUsage(bubble);
+            expect(actionsOf(bubble)).not.toContain('info');
+        });
+
+        it('needs usage: asking for it without any shows nothing', () => {
+            AparteConfig.setBubbleActions({ assistant: ['copy', 'info'] });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i3', content: 'hi' });
+            expect(actionsOf(bubble)).toEqual(['copy']);
+        });
+    });
+
     // ─── the waiting state ───────────────────────────────────────────────────
     // Between "user sends" and the first token there was nothing: a name, an empty
     // body, and (in the display-only path) copy/retry on a reply that doesn't

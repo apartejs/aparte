@@ -102,8 +102,69 @@ document.addEventListener('aparte-action', (e) => {
   `bubble: { roles: [...] }` refine placement; `order` sorts custom actions.
 - An `onClick(event)` callback is optional and fires alongside the event.
 - Hide/show at runtime with `AparteConfig.setActionHidden(id, hidden)`.
-- The **built-in** bubble actions (copy / retry / edit / feedback) are toggled per role
-  with `AparteConfig.setBubbleActions({ … })`.
+- The **built-in** bubble actions (copy / retry / edit / feedback / info) are toggled per
+  role with `AparteConfig.setBubbleActions({ … })` — see
+  [What ships enabled](#what-ships-enabled) just below, because most of them are **off**
+  until you ask.
+
+## What ships enabled
+
+The rule aparté follows: **a visible control that core cannot honour end-to-end is not
+rendered by default.** A button that answers to nobody is worse than a missing feature —
+the user clicks it and concludes the app is broken.
+
+Core can copy text to the clipboard by itself, so `copy` ships on. Everything else needs
+someone outside core — `AparteClient`, or your own event listener — so it waits for you to
+say you're there:
+
+| Control | Needs | Default |
+| --- | --- | --- |
+| `copy` | nothing (core does it) | **on** |
+| `retry` | a host that re-sends (`aparte-retry`) | off |
+| `edit` | a host that keeps the new text (`aparte-edit`) | off |
+| `feedback` (👍/👎) | your listener (`aparte-feedback`) | off |
+| `info` (ⓘ details) | your popover (`aparte-message-info`) | off |
+| image-tile preview | your lightbox (`aparte-attachment-preview`) | off |
+| terminal `Run` | your executor (`aparte-terminal-run`) | off |
+| download on a *binary* artifact | your generator (`aparte-artifact-redownload`) | off |
+
+Two levers, one for the action bar and one for everything else:
+
+```ts
+// You run an AparteClient, so retry and edit do something:
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+
+// You handle these events yourself:
+AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+```
+
+The **branch picker** `‹ 1/2 ›`, the waiting indicator, the stop button and the model
+selector are all in the first category — core honours them itself, so they need no
+declaration (and the picker hides itself as soon as a message has no sibling left).
+
+Nothing is removed by these flags: the events are unchanged and always public. An
+undeclared affordance simply isn't offered — and an undeclared image tile isn't even
+signalled as clickable (no `role="button"`, no tab stop, no pointer cursor), because
+half-signalling is the same lie in a quieter voice.
+
+`aparte-send` is the exception that proves the rule: with no host, nothing answers a send
+either — but that's the primary function, the failure is immediate and it's the developer,
+not the user, who sees it.
+
+The **tool-approval gate** (Approve / Reject on a `tool_call` segment) needs no declaration
+either, for a different reason: it renders only while the segment says
+`status: 'awaiting-approval'`, and only a loop that is actually waiting for the verdict sets
+that. The affordance declares itself. A `terminal` segment is the opposite — a model
+narrating a command doesn't mean anybody in the page can run it, which is why `Run` waits for
+`terminalRun`.
+
+:::tip[An explicit list is its own opt-in]
+`setBubbleActions({ assistant: ['copy', 'retry', 'info'] })` renders exactly those, in that
+order, whatever the flags say. Naming a button in a per-role list *is* declaring it.
+:::
+
+Defaults are readable at runtime — `DEFAULT_BUBBLE_ACTIONS` and `DEFAULT_HOST_HANDLERS` are
+exported from `@aparte/core`, so you never hard-code them.
 
 ## The waiting state
 

@@ -31,9 +31,12 @@ import { registerDefaultRenderers } from '@aparte/core';
 registerDefaultRenderers();          // turns raw text/markdown into rendered bubbles
 ```
 
-:::caution
-`registerDefaultRenderers()` is **required** when you use core on its own —
-without it, bubbles render empty.
+:::note[It's optional now]
+Core installs its built-in renderers the first time a segment needs one, so a chat
+renders out of the box whichever path you take. Calling `registerDefaultRenderers()`
+explicitly is still fine — it just makes the moment visible, and it's what the
+examples do. `AparteClient({ autoRegister: false })` still keeps the built-ins out
+if you mean to bring your own.
 :::
 
 ## Add the markup
@@ -155,6 +158,16 @@ new AparteClient().start();   // .start() attaches the listeners — without it 
 
 The client owns the **assistant** turn; keep appending the user's own message on
 `aparte-send` as [above](#make-it-stream) — the framework wrappers do even that for you.
+
+Now that something can honour them, switch the retry and edit buttons on — core ships them
+off precisely because without a client they would do nothing:
+
+```ts
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+```
+
+The full list of what ships enabled and why is in
+[Customization](/guides/customization/#what-ships-enabled).
 
 Provider adapters ship as opt-in `@aparte/provider-*` packages — see the
 **[Providers](/providers/)** section for the OpenAI-compatible adapter (OpenAI, Mistral, OpenRouter,

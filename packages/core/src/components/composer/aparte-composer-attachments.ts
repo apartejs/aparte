@@ -1,4 +1,5 @@
 import type { AparteComposer } from './aparte-composer.js';
+import { resolveConfig } from '../../config/config-context.js';
 
 /** ✗ glyph for the hover remove button. */
 const REMOVE_ICON =
@@ -11,8 +12,9 @@ const REMOVE_ICON =
  *
  * Renders a square thumbnail tile for each file attached to the root composer.
  * Image files show the actual picture; other files show an extension badge.
- * The filename and a remove (✗) button surface on hover; clicking an image
- * opens it full-size (dispatches `aparte-attachment-preview`).
+ * The filename and a remove (✗) button surface on hover. Clicking an image asks
+ * the app to open it full-size (`aparte-attachment-preview`) — only when the app
+ * declared `attachmentPreview` via `AparteConfig.setHostHandlers()`.
  * Automatically hidden when there are no attachments.
  * Must be a descendant of <aparte-composer>.
  */
@@ -89,9 +91,13 @@ export class AparteComposerAttachments extends HTMLElement {
             });
         });
 
-        // Image tiles → open the full-size preview lightbox.
+        // Image tiles ask for the full-size preview — only when the app declared it
+        // opens one (same rule as the sent-message strip in the bubble).
+        if (!resolveConfig(this).getHostHandlers().attachmentPreview) return;
         this.querySelectorAll('.aparte-thumb--image').forEach(tile => {
-            tile.addEventListener('click', () => {
+            tile.setAttribute('role', 'button');
+            tile.setAttribute('tabindex', '0');
+            const open = (): void => {
                 const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
                 if (!img) return;
                 this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
@@ -99,6 +105,13 @@ export class AparteComposerAttachments extends HTMLElement {
                     composed: true,
                     detail: { url: img.src, name: tile.getAttribute('title') ?? '' },
                 }));
+            };
+            tile.addEventListener('click', open);
+            tile.addEventListener('keydown', (e) => {
+                const key = (e as KeyboardEvent).key;
+                if (key !== 'Enter' && key !== ' ') return;
+                e.preventDefault();
+                open();
             });
         });
     }

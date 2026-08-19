@@ -99,6 +99,53 @@ is attached to a request.
 
 Keyless local providers never trigger this warning — there's no key to expose.
 
+## `[Unknown segment type: …]` in the bubbles
+
+The bubble found no renderer for that segment type.
+
+- **A built-in type** (`text`, `thinking`, `code`, `terminal`, `tool_call`, `artifact`,
+  …) should never show this: core installs its built-in renderers the first time a
+  segment needs one. If you see it anyway, something declined them — a
+  `new AparteClient({ autoRegister: false })` somewhere, which is remembered on
+  purpose. Drop the option, or register what you need with `registerSegmentRenderer`.
+  On **0.4.x and earlier** the built-ins only came with `new AparteClient()`, so a
+  display-only app had to call `registerDefaultRenderers()` itself — that's the fix
+  there.
+- **Your own type** — that's the expected fallback: register a renderer for it (see
+  [Custom segment types](/guides/customization/#custom-segment-types)).
+
+The symptom is easy to misread, because everything else works: bubbles, streaming,
+auto-scroll, the composer. Only the content is missing.
+
+## The retry / edit / ⓘ buttons aren't there
+
+They ship **off**. Core can only render them; re-sending a message, keeping edited text and
+opening a stats popover all need someone outside core, so aparté waits for you to say you're
+there rather than showing a button that answers to nobody:
+
+```ts
+AparteConfig.setBubbleActions({ retry: true, edit: true });   // you run an AparteClient
+AparteConfig.setBubbleActions({ feedback: true, info: true }); // you handle these events
+```
+
+Same for the three affordances outside the action bar — the clickable image tile, the `Run`
+button on a terminal segment, the download button on a **binary** artifact:
+
+```ts
+AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
+```
+
+Two things that are *not* the cause, before you go looking:
+
+- **The bar hides itself while a reply streams** (and reappears when the turn ends) — by
+  design, so copy/retry never sit on an empty bubble.
+- **An action bar with nothing in it isn't rendered at all**, so if you disabled every action
+  the whole row is gone rather than blank.
+
+Coming from 0.4.x and the buttons vanished? That's this change — one line brings them back.
+The full table of what ships enabled and why is in
+[Customization](/guides/customization/#what-ships-enabled).
+
 ## Errors: `AparteError` / `AparteErrorCode`
 
 Every failure that reaches the UI — a bad request, a rate limit, a network drop, an

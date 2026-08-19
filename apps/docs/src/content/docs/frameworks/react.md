@@ -72,7 +72,10 @@ the global `AparteConfig`.
 `useAparteClient` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
 agent loop** instead of core's inline one, inject it:
 `useAparteClient({ streamRunner: runStreamAgent })` from [`@aparte/engine`](/guides/engine/) — an
-optional swap-in, not required. For file uploads add the `attachments` prop (off by default) —
+optional swap-in, not required. With the client mounted, switch the retry/edit buttons on —
+`AparteConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
+host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
+For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
 :::
 

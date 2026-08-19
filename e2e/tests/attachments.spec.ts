@@ -110,6 +110,11 @@ test('an image attachment renders a thumbnail and asks the host for a preview', 
     await expect(tile).toHaveClass(/aparte-thumb--image/);
     await expect(tile.locator('img')).toBeVisible();
 
+    // This app declared `attachmentPreview`, so the tile is a real button —
+    // reachable by keyboard, not a div with a click listener.
+    await expect(tile).toHaveAttribute('role', 'button');
+    await expect(tile).toHaveAttribute('tabindex', '0');
+
     // Clicking asks the app to open its own lightbox (core owns no modal).
     await tile.click();
     await expect.poll(async () => (await readPreviews()).at(-1)?.name, { timeout: 10_000 })

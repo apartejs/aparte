@@ -19,6 +19,27 @@ No `AparteClient`, no provider, no transport. Two methods from the
   token by token, with the live-streaming UI (cursor, auto-scroll). Resolves when the iterable
   completes; `stopTokenStream()` cancels.
 
+:::note[Renderers install themselves]
+Rich replies are made of **segments** (text, thinking, code, tool calls…), and each
+one needs a renderer. Core installs its built-in set the first time a segment
+arrives, so this path needs no setup call — you'll see the real content, not
+`[Unknown segment type: text]`.
+
+This used to be a trap worth naming: `registerDefaultRenderers()` had exactly one
+caller, `new AparteClient()` — the object this page tells you not to construct. A
+display-only app got working bubbles, working streaming, working scroll, and no
+content, which reads as a bug in your own loop. If you're on an older version, call
+it once at startup:
+
+```ts
+import { registerDefaultRenderers } from '@aparte/core';
+registerDefaultRenderers();
+```
+
+Registering your own renderer for a type still wins — the built-in sweep only fills
+what nobody claimed. See [Custom segment types](/guides/customization/#custom-segment-types).
+:::
+
 ## The pattern
 
 1. Listen to `onMessageSent` for the user's message and forward it to your loop. The user bubble
@@ -149,7 +170,21 @@ main process; forward its emitted text over your bridge and inject it here.
 ## What you give up
 
 Display-only means the pieces `AparteClient` orchestrates don't run in the page: no built-in
-tool-approval flow, no retry/edit re-sending, no request building. Your loop owns those. For
+tool-approval flow, no retry/edit re-sending, no request building. Your loop owns those.
+
+Concretely, for retry and edit: the **buttons exist**, and clicking one emits `aparte-retry`
+/ `aparte-edit` and nothing else. Nobody re-sends, and on edit the editor closes and the
+original text comes back. That is why core ships both **off** — so a display-only
+integration shows no button it can't honour. Either handle those two events in your loop and
+switch them on:
+
+```ts
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+```
+
+…or leave them off, which is the default and costs you nothing. Same story for the ⓘ details
+popover and the image-tile preview — see
+[What ships enabled](/guides/customization/#what-ships-enabled). For
 tool-call pills, thinking sections and other rich segments, `addSegment` / `appendToSegment` /
 `updateSegment` (same imperative API) stream structured segments the same way
 `injectTokenStream` streams plain text.
