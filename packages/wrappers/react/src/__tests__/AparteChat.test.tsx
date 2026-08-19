@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, act } from '@testing-library/react';
 import { AparteChat, type AparteChatHandle } from '../components/AparteChat';
 import { registerAllComponents, resolveConfig, AparteConfig, AparteConfigClass } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
@@ -121,6 +121,31 @@ describe('AparteChat React Wrapper', () => {
         );
         expect(container.querySelector('.mine')).not.toBeNull();
         expect(container.querySelector('aparte-composer-add-attachment')).toBeNull();
+    });
+
+    it('feeds a custom bubble from injectTokenStream (state is the wrapper contract)', async () => {
+        // A custom bubble gets NO imperative push: the viewport looks bubbles up by
+        // `message-id` (or `data-aparte-bubble`), and a user-rendered node has
+        // neither. In a wrapper that is by design — the bubble re-renders from the
+        // message list. Which only works because streamTokens now syncs that list;
+        // before, the DOM had the reply and React state still had `content: ''`.
+        const ref = React.createRef<AparteChatHandle>();
+        const { container } = render(
+            <AparteChat
+                ref={ref}
+                messages={[{ id: 'a1', role: 'assistant', content: '', timestamp: 0 }]}
+                renderBubble={(m) => <div className="mine">{m.content}</div>}
+            />,
+        );
+        expect(container.querySelector('.mine')?.textContent).toBe('');
+
+        await act(async () => {
+            await ref.current?.injectTokenStream('a1', (async function* () {
+                yield 'Hel'; yield 'lo';
+            })());
+        });
+
+        expect(container.querySelector('.mine')?.textContent).toBe('Hello');
     });
 
     it('renders a custom bubble via renderBubble in place of the native one', () => {

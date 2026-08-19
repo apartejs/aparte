@@ -137,8 +137,10 @@ export class AparteChatHost {
     private _streamAbort?: AbortController;
     /** Segment chunks written to the bubble, awaiting one coalesced state sync. */
     private readonly _segmentBuffer = new Map<string, string>();
+    /** {@link streamTokens} text written to the bubble, awaiting the same sync. */
+    private _tokenBuffer: { messageId: string; text: string } | null = null;
     /** Handle of the scheduled coalesced sync, or null when none is pending. */
-    private _segmentFlushHandle: number | null = null;
+    private _flushHandle: number | null = null;
 
     private _conversationId: string | null = null;
     private _controller?: AparteConversationController;
@@ -266,10 +268,11 @@ export class AparteChatHost {
 
     /** Drop transient streaming state so a new conversation starts clean. */
     private _beginConversationSwap(): void {
-        // Drop pending segment chunks: they belong to the conversation being left,
+        // Drop pending stream chunks: they belong to the conversation being left,
         // and its bubbles already show them.
         this._segmentBuffer.clear();
-        this._flushSegmentBuffer();
+        this._tokenBuffer = null;
+        this._flushStreamState();
         this.stopTokenStream();
         this._setStreamingId(null);
         this.binding.onTypingChange?.(false);
@@ -293,7 +296,7 @@ export class AparteChatHost {
      * is the append-specific signal instead.
      */
     appendMessage(message: AparteMessage): void {
-        this._flushSegmentBuffer(); // the previous message's chunks land first
+        this._flushStreamState(); // the previous message's chunks land first
         if (message.role === 'user') this._vp()?.setAutoScroll?.(true);
         this.binding.setMessages([...this.binding.getMessages(), message]);
         this.binding.onMessageAppended?.(message);
@@ -301,7 +304,7 @@ export class AparteChatHost {
 
     /** Atomic partial update of a message by id. */
     updateMessage(messageId: string, updates: Partial<AparteMessage>): void {
-        this._flushSegmentBuffer();
+        this._flushStreamState();
         const msgs = this.binding.getMessages();
         const index = msgs.findIndex((m) => m.id === messageId);
         if (index === -1) return;
@@ -330,7 +333,7 @@ export class AparteChatHost {
 
     /** Add a segment to the last message (immediate bubble + state sync). */
     addSegment(segment: AparteSegment): void {
-        this._flushSegmentBuffer(); // buffered chunks belong before a new segment
+        this._flushStreamState(); // buffered chunks belong before a new segment
         const msgs = this.binding.getMessages();
         const last = msgs[msgs.length - 1];
         if (last && this._isOrphan(last.id)) return;
@@ -345,7 +348,7 @@ export class AparteChatHost {
 
     /** Update a segment in the last message in place. */
     updateSegment(segmentId: string, updates: Partial<AparteSegment>): void {
-        this._flushSegmentBuffer(); // an update must not overwrite buffered text
+        this._flushStreamState(); // an update must not overwrite buffered text
         const msgs = this.binding.getMessages();
         const last = msgs[msgs.length - 1];
         if (last && this._isOrphan(last.id)) return;
@@ -361,7 +364,7 @@ export class AparteChatHost {
 
     /** Remove a transient segment (e.g. pipeline-waiting indicator). */
     removeSegment(segmentId: string): void {
-        this._flushSegmentBuffer();
+        this._flushStreamState();
         this._lastBubble()?.removeSegment?.(segmentId);
         const msgs = this.binding.getMessages();
         const last = msgs[msgs.length - 1];
@@ -389,7 +392,7 @@ export class AparteChatHost {
      * more than `injectTokenStream`. Consumers had to write their own rAF batcher.
      *
      * Any structural change flushes the buffer first (see
-     * {@link _flushSegmentBuffer}), so ordering is never observable.
+     * {@link _flushStreamState}), so ordering is never observable.
      */
     appendToSegment(segmentId: string, content: string): void {
         const msgs = this.binding.getMessages();
@@ -402,51 +405,76 @@ export class AparteChatHost {
 
         // (2) Deferred, coalesced: one state sync per frame.
         this._segmentBuffer.set(segmentId, (this._segmentBuffer.get(segmentId) ?? '') + content);
-        this._scheduleSegmentFlush();
+        this._scheduleStreamFlush();
     }
 
     /** Schedule the coalesced segment-state sync (idempotent within a frame). */
-    private _scheduleSegmentFlush(): void {
-        if (this._segmentFlushHandle !== null) return;
+    private _scheduleStreamFlush(): void {
+        if (this._flushHandle !== null) return;
         const run = () => {
-            this._segmentFlushHandle = null;
-            this._flushSegmentBuffer();
+            this._flushHandle = null;
+            this._flushStreamState();
         };
         // rAF paces the sync with rendering; without it (SSR, jsdom without the
         // polyfill) fall back to a macrotask so the batching still happens.
-        this._segmentFlushHandle = typeof requestAnimationFrame === 'function'
+        this._flushHandle = typeof requestAnimationFrame === 'function'
             ? requestAnimationFrame(run)
             : (setTimeout(run, 0) as unknown as number);
     }
 
     /**
-     * Write every buffered segment chunk into the framework's message list in one
-     * update. Called by the scheduled frame, and eagerly by any mutation that would
-     * otherwise observe a stale list (a new segment, a new message, a conversation
-     * swap): flushing first keeps the emitted order identical to the call order.
+     * Write every buffered stream chunk — segment chunks and {@link streamTokens}
+     * text alike — into the framework's message list in **one** update. Called by
+     * the scheduled frame, and eagerly by any mutation that would otherwise observe
+     * a stale list (a new segment, a new message, a conversation swap): flushing
+     * first keeps the emitted order identical to the call order.
      */
-    private _flushSegmentBuffer(): void {
-        if (this._segmentFlushHandle !== null) {
-            if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._segmentFlushHandle);
-            else clearTimeout(this._segmentFlushHandle);
-            this._segmentFlushHandle = null;
+    private _flushStreamState(): void {
+        if (this._flushHandle !== null) {
+            if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._flushHandle);
+            else clearTimeout(this._flushHandle);
+            this._flushHandle = null;
         }
-        if (this._segmentBuffer.size === 0) return;
-        const pending = new Map(this._segmentBuffer);
+        const tokens = this._tokenBuffer;
+        const pending = this._segmentBuffer.size > 0 ? new Map(this._segmentBuffer) : null;
+        if (!tokens && !pending) return;
+        this._tokenBuffer = null;
         this._segmentBuffer.clear();
 
-        const msgs = this.binding.getMessages();
-        const last = msgs[msgs.length - 1];
-        if (!last?.segments) return;
-        const segments = last.segments.map((s) => {
-            const chunk = pending.get(s.id);
-            return chunk !== undefined && 'content' in s
-                ? ({ ...s, content: (s as { content: string }).content + chunk } as AparteSegment)
-                : s;
-        });
-        const next = [...msgs.slice(0, -1), { ...last, segments }];
-        this.binding.setMessages(next);
-        this.binding.onMessagesChange?.(next);
+        // Both channels fold into a single list, so a frame that carried tokens AND
+        // segment chunks still costs the framework exactly one render.
+        let msgs = this.binding.getMessages();
+        let changed = false;
+
+        if (tokens) {
+            // By id, not "the last message": a manual stream keeps writing to its
+            // own message even if something was appended after it.
+            const index = msgs.findIndex((m) => m.id === tokens.messageId);
+            if (index !== -1) {
+                const next = [...msgs];
+                next[index] = { ...next[index]!, content: (next[index]!.content ?? '') + tokens.text };
+                msgs = next;
+                changed = true;
+            }
+        }
+
+        if (pending) {
+            const last = msgs[msgs.length - 1];
+            if (last?.segments) {
+                const segments = last.segments.map((s) => {
+                    const chunk = pending.get(s.id);
+                    return chunk !== undefined && 'content' in s
+                        ? ({ ...s, content: (s as { content: string }).content + chunk } as AparteSegment)
+                        : s;
+                });
+                msgs = [...msgs.slice(0, -1), { ...last, segments }];
+                changed = true;
+            }
+        }
+
+        if (!changed) return;
+        this.binding.setMessages(msgs);
+        this.binding.onMessagesChange?.(msgs);
     }
 
     /** Read the current message list. */
@@ -498,6 +526,13 @@ export class AparteChatHost {
      * appends each token, completes the message at the end. Per-framework
      * wrappers adapt their native stream type (RxJS Observable, AsyncIterable,
      * ReadableStream) into this.
+     *
+     * Each token reaches the bubble immediately and the framework's message list
+     * is synced **once per frame** (same discipline as {@link appendToSegment}),
+     * with a guaranteed flush before completion and on abort. Before that sync
+     * existed the two disagreed: the DOM had the reply, the framework list still
+     * held `content: ''` — so any re-render from state wiped it, and a custom
+     * bubble (which renders from that state) showed nothing at all.
      */
     async streamTokens(messageId: string, tokens: AsyncIterable<string>): Promise<void> {
         this.stopTokenStream();
@@ -519,10 +554,16 @@ export class AparteChatHost {
                 const res = await Promise.race([iterator.next(), aborted]);
                 if (res === 'aborted' || ac.signal.aborted || res.done) break;
                 this._vp()?.appendToken?.(messageId, res.value);
+                this._bufferToken(messageId, res.value);
             }
+            // The state must carry the text BEFORE the message is marked complete —
+            // completion is a structural change, and a consumer reacting to it would
+            // otherwise read a message that is finished and empty.
+            this._flushStreamState();
             if (!ac.signal.aborted) this._vp()?.completeMessage?.(messageId);
             this._setStreamingId(null);
         } catch (err) {
+            this._flushStreamState();
             this._setStreamingId(null);
             throw err;
         } finally {
@@ -533,11 +574,27 @@ export class AparteChatHost {
         }
     }
 
+    /**
+     * Buffer a streamed token for the coalesced state sync. A different message id
+     * (a second stream started without stopping the first) flushes the previous
+     * one, so text never migrates between messages.
+     */
+    private _bufferToken(messageId: string, chunk: string): void {
+        if (this._tokenBuffer && this._tokenBuffer.messageId !== messageId) this._flushStreamState();
+        this._tokenBuffer = this._tokenBuffer
+            ? { messageId, text: this._tokenBuffer.text + chunk }
+            : { messageId, text: chunk };
+        this._scheduleStreamFlush();
+    }
+
     /** Abort an in-flight {@link streamTokens} loop. */
     stopTokenStream(): void {
         if (this._streamAbort) {
             this._streamAbort.abort();
             this._streamAbort = undefined;
+            // Keep whatever was already streamed: the bubble shows it, so the state
+            // must agree — an aborted turn is truncated, not erased.
+            this._flushStreamState();
             this._setStreamingId(null);
         }
     }

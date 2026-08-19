@@ -324,4 +324,123 @@ describe('AparteChatHost', () => {
             frames.raf.mockRestore();
         });
     });
+
+    // ─── streamTokens: the state channel was missing entirely ────────────────
+    // `injectTokenStream` pushed every token to the viewport and NEVER told the
+    // framework, so after a manual stream the React/Vue/Svelte list still held
+    // `content: ''` — the DOM and the state disagreed, a re-render from state wiped
+    // the reply, and a custom bubble (driven by that state) showed nothing at all.
+    // Same coalescing discipline as appendToSegment: per-token DOM, one sync/frame.
+    describe('streamTokens state sync', () => {
+        function withFakeFrames() {
+            const frames: FrameRequestCallback[] = [];
+            const raf = vi.spyOn(window, 'requestAnimationFrame')
+                .mockImplementation((cb: FrameRequestCallback) => { frames.push(cb); return frames.length; });
+            return { frames, raf, flush: () => { const due = [...frames]; frames.length = 0; due.forEach((cb) => cb(0)); } };
+        }
+
+        /** An async iterable that yields on demand, so the test controls the pacing. */
+        function controllable(): { tokens: AsyncIterable<string>; push: (t: string) => Promise<void>; end: () => void } {
+            let resolveNext: ((r: IteratorResult<string>) => void) | null = null;
+            const queue: IteratorResult<string>[] = [];
+            const iterable: AsyncIterable<string> = {
+                [Symbol.asyncIterator]: () => ({
+                    next: () => new Promise<IteratorResult<string>>((resolve) => {
+                        const queued = queue.shift();
+                        if (queued) resolve(queued);
+                        else resolveNext = resolve;
+                    }),
+                }),
+            };
+            const deliver = (r: IteratorResult<string>) => {
+                if (resolveNext) { const f = resolveNext; resolveNext = null; f(r); }
+                else queue.push(r);
+            };
+            return {
+                tokens: iterable,
+                push: async (t) => { deliver({ value: t, done: false }); await Promise.resolve(); await Promise.resolve(); },
+                end: () => deliver({ value: undefined as unknown as string, done: true }),
+            };
+        }
+
+        function harnessStreaming() {
+            const h = makeHarness();
+            h.ctl.appendMessage(msg('a1', 'assistant', { content: '' }));
+            h.emitted.change.length = 0;
+            return h;
+        }
+
+        it('pushes every token to the viewport but syncs framework state once per frame', async () => {
+            const frames = withFakeFrames();
+            const h = harnessStreaming();
+            const src = controllable();
+
+            const run = h.ctl.streamTokens('a1', src.tokens);
+            await src.push('Hel');
+            await src.push('lo');
+            await src.push(' world');
+
+            expect(h.vpApi.appendToken).toHaveBeenCalledTimes(3);
+            expect(h.emitted.change, 'no framework render before the frame fires').toHaveLength(0);
+
+            frames.flush();
+            expect(h.emitted.change).toHaveLength(1);
+            expect(h.emitted.change[0]?.[0]?.content).toBe('Hello world');
+
+            src.end();
+            await run;
+            frames.raf.mockRestore();
+        });
+
+        it('flushes what was streamed before completing the message', async () => {
+            const frames = withFakeFrames();
+            const h = harnessStreaming();
+            const src = controllable();
+
+            const run = h.ctl.streamTokens('a1', src.tokens);
+            await src.push('final answer');
+            src.end();
+            await run;
+
+            // No frame fired: completion must not lose the tokens, and the state
+            // must be written BEFORE the viewport is told the message is done.
+            expect(h.getMessages()[0]?.content).toBe('final answer');
+            expect(h.vpApi.completeMessage).toHaveBeenCalledWith('a1');
+            frames.raf.mockRestore();
+        });
+
+        it('keeps what was streamed when the stream is stopped mid-flight', async () => {
+            const frames = withFakeFrames();
+            const h = harnessStreaming();
+            const src = controllable();
+
+            const run = h.ctl.streamTokens('a1', src.tokens);
+            await src.push('half a repl');
+            h.ctl.stopTokenStream();
+            await run;
+
+            expect(h.getMessages()[0]?.content).toBe('half a repl');
+            expect(h.vpApi.completeMessage).not.toHaveBeenCalled();
+            frames.raf.mockRestore();
+        });
+
+        it('targets the stream\'s message id, not whatever is last', async () => {
+            const frames = withFakeFrames();
+            const h = harnessStreaming();
+            const src = controllable();
+
+            const run = h.ctl.streamTokens('a1', src.tokens);
+            await src.push('for a1');
+            // A message appended mid-stream flushes first (structural change), so
+            // the buffered text can't land on the newcomer.
+            h.ctl.appendMessage(msg('u2', 'user', { content: 'interrupting' }));
+            src.end();
+            await run;
+
+            const msgs = h.getMessages();
+            expect(msgs.find((m) => m.id === 'a1')?.content).toBe('for a1');
+            expect(msgs.find((m) => m.id === 'u2')?.content).toBe('interrupting');
+            frames.raf.mockRestore();
+        });
+    });
 });
