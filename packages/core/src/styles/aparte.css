@@ -973,7 +973,14 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   gap: var(--aparte-branch-picker-gap, 4px);
 }
 
-/* [hidden] is overridden by display:flex — force it back */
+/* [hidden] is overridden by display:flex — force it back. The bar and the footer
+   hide themselves when they hold nothing (see _syncFooterVisibility): an empty
+   toolbar is announced to screen readers and reserves height for nothing. */
+.aparte-action-bar[hidden],
+.aparte-footer[hidden] {
+  display: none;
+}
+
 .aparte-branch-picker[hidden] {
   display: none;
 }

@@ -12,6 +12,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
  */
 
 import '../aparte-chat-bubble.js';
+// The inline editor mounts the composer's contenteditable primitive — register it
+// so a bubble entering edit mode gets a real element, not an unupgraded tag.
+import '../../composer/aparte-composer-input.js';
 import { AparteConfig } from '../../../config/aparte-config.js';
 import { registerSegmentRenderer, unregisterSegmentRenderer } from '../../../renderers/index.js';
 import type { AparteMessage, AparteSegment } from '../../../types/index.js';
@@ -531,6 +534,75 @@ describe('AparteChatBubble', () => {
             expect((custom[0] as HTMLElement).dataset['type']).toBe('application/pdf');
             // The built-in chip markup is not used.
             expect(attsEl.querySelector('.aparte-thumb')).toBeNull();
+        });
+    });
+
+    // ─── An empty action bar is not a bar ─────────────────────────────────────
+    // With every action off, the toolbar stayed in the DOM: an empty `role=toolbar`
+    // announced to screen readers, and 28px of reserved height (the bar's fixed
+    // height plus the footer's min-height) under every single bubble.
+    describe('empty action bar', () => {
+        afterEach(() => AparteConfig.reset());
+
+        const bar = (el: HTMLElement) => el.querySelector('.aparte-action-bar') as HTMLElement;
+        const footer = (el: HTMLElement) => el.querySelector('.aparte-footer') as HTMLElement;
+
+        it('hides the bar and the footer when no action is enabled', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e1', content: 'hi' });
+            expect(bar(bubble).children.length).toBe(0);
+            expect(bar(bubble).hidden).toBe(true);
+            expect(footer(bubble).hidden).toBe(true);
+        });
+
+        it('keeps both visible for the default set (copy)', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e2', content: 'hi' });
+            expect(bar(bubble).hidden).toBe(false);
+            expect(footer(bubble).hidden).toBe(false);
+        });
+
+        it('shows them again as soon as an action is turned back on', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e3', content: 'hi' });
+            expect(bar(bubble).hidden).toBe(true);
+            AparteConfig.setBubbleActions({ retry: true });
+            expect(bar(bubble).hidden).toBe(false);
+            expect(footer(bubble).hidden).toBe(false);
+        });
+
+        it('keeps the footer when the branch picker is the only thing in it', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e4', content: 'hi' });
+            bubble.setSiblings(2, 0);
+            expect(bar(bubble).hidden).toBe(true);
+            expect(footer(bubble).hidden).toBe(false);
+        });
+
+        it('hides the footer again when the last sibling disappears', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e5', content: 'hi' });
+            bubble.setSiblings(2, 0);
+            bubble.setSiblings(1, 0);
+            expect(footer(bubble).hidden).toBe(true);
+        });
+
+        it('a custom registered action alone is enough to keep the bar', () => {
+            AparteConfig.setBubbleActions({ copy: false });
+            AparteConfig.registerAction({
+                id: 'star', icon: '<svg></svg>', label: 'Star',
+                zones: ['bubble'], bubble: { roles: ['assistant'] },
+            });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'e6', content: 'hi' });
+            expect(bar(bubble).children.length).toBe(1);
+            expect(bar(bubble).hidden).toBe(false);
+        });
+
+        it('shows the bar in edit mode even with every action off', () => {
+            AparteConfig.setBubbleActions({ copy: false, edit: true });
+            bubble = createBubble({ role: 'user', 'message-id': 'e7', content: 'hi' });
+            (bubble.querySelector('.aparte-action-edit') as HTMLButtonElement).click();
+            expect(bar(bubble).hidden).toBe(false);
+            expect(bubble.querySelector('.aparte-action-edit-save')).not.toBeNull();
         });
     });
 

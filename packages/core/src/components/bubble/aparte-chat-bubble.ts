@@ -61,6 +61,7 @@ export class AparteChatBubble extends HTMLElement {
   private _attachmentsEl: HTMLDivElement | null = null;
   private _actionBarEl: HTMLDivElement | null = null;
   private _branchPickerEl: HTMLDivElement | null = null;
+  private _footerEl: HTMLDivElement | null = null;
   private _content = '';
   private _streaming = false;
   private _segments: AparteSegment[] = [];
@@ -436,6 +437,7 @@ export class AparteChatBubble extends HTMLElement {
     this._attachmentsEl = this.querySelector('.aparte-attachments');
     this._actionBarEl = this.querySelector('.aparte-action-bar');
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
+    this._footerEl = this.querySelector('.aparte-footer');
 
     this._setupBranchPickerListeners();
     this._updateActionBar();
@@ -743,9 +745,11 @@ export class AparteChatBubble extends HTMLElement {
     if (!this._branchPickerEl) return;
     if (this._siblingCount <= 1 || this._role !== 'assistant') {
       this._branchPickerEl.hidden = true;
+      this._syncFooterVisibility();
       return;
     }
     this._branchPickerEl.hidden = false;
+    this._syncFooterVisibility();
     const label = this._branchPickerEl.querySelector('.aparte-branch-label');
     if (label) {
       // Custom position indicator (AparteConfig.setSiblingNavRenderer) — e.g. dots —
@@ -821,6 +825,23 @@ export class AparteChatBubble extends HTMLElement {
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
+
+    this._syncFooterVisibility();
+  }
+
+  /**
+   * An empty action bar is not a bar: with every action off it was still a
+   * `role="toolbar"` with nothing in it (announced as such), and it still reserved
+   * its fixed height plus the footer's under every bubble. So both follow their
+   * contents — the footer stays as long as the branch picker or the bar has
+   * something to show.
+   */
+  private _syncFooterVisibility(): void {
+    if (this._actionBarEl) this._actionBarEl.hidden = this._actionBarEl.children.length === 0;
+    if (!this._footerEl) return;
+    const barEmpty = !this._actionBarEl || this._actionBarEl.hidden;
+    const pickerHidden = !this._branchPickerEl || this._branchPickerEl.hidden;
+    this._footerEl.hidden = barEmpty && pickerHidden;
   }
 
   /** Append the registered custom action buttons for this bubble's role. */
@@ -897,6 +918,8 @@ export class AparteChatBubble extends HTMLElement {
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
+    // Save/cancel must show even when every action flag is off.
+    this._syncFooterVisibility();
   }
 
   private _handleActionClick(e: MouseEvent): void {
