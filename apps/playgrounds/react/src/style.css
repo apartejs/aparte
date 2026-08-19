@@ -90,3 +90,22 @@ body {
     border: 1px solid var(--aparte-border, #3a3229);
     border-radius: 12px;
 }
+
+/* The attachment lightbox this app opens when core asks for a preview
+   (aparte-attachment-preview). Core owns no modal — this is ours. */
+.lightbox {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+.lightbox::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+.lightbox img {
+  display: block;
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 10px;
+}

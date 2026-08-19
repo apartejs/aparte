@@ -32,6 +32,13 @@ AparteConfig.setRequireModelSelection(true);
 
 AparteConfig.setTransport(new DirectTransport({ byok: true }));
 
+// 4. Opt into the affordances THIS app can honor. Retry and edit need the client
+//    below to re-send and rewrite; the image tile needs the lightbox we wire at
+//    the bottom of this file. What we don't handle (the ⓘ details popover, running
+//    a terminal command) stays out of the UI rather than showing a dead button.
+AparteConfig.setBubbleActions({ retry: true, edit: true });
+AparteConfig.setHostHandlers({ attachmentPreview: true });
+
 const client = new AparteClient({
     keyResolver: (providerId) =>
         providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
@@ -127,3 +134,26 @@ if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
     chat.parentElement?.appendChild(second);
     wireOptimisticUserBubble(second);
 }
+
+/**
+ * The image-tile preview: core only ASKS (`aparte-attachment-preview`), the modal
+ * is the app's. So we declare it AND actually open something — a declaration with
+ * no listener behind it is the dead button we just removed from core.
+ */
+function wireAttachmentLightbox(): void {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'lightbox';
+    dialog.innerHTML = '<img alt="" />';
+    dialog.addEventListener('click', () => dialog.close());
+    document.body.appendChild(dialog);
+
+    document.addEventListener('aparte-attachment-preview', (e) => {
+        const { url, name } = (e as CustomEvent<{ url: string; name: string }>).detail;
+        const img = dialog.querySelector('img')!;
+        img.src = url;
+        img.alt = name;
+        dialog.showModal();
+    });
+}
+
+wireAttachmentLightbox();

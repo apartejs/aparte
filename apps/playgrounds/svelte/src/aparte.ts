@@ -30,6 +30,11 @@ export function setupAparte(): void {
 
     AparteConfig.setTransport(new DirectTransport({ byok: true }));
 
+    // Retry and edit need someone to re-send and rewrite - that's the client just
+    // below, so this app opts in. The details popover and the image-tile preview
+    // are not implemented here, so they stay hidden (see setHostHandlers).
+    AparteConfig.setBubbleActions({ retry: true, edit: true });
+
     new AparteClient({
         keyResolver: (providerId) =>
             providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,

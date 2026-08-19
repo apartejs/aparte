@@ -5,8 +5,11 @@
  * browser coverage: the unit tests assert the events fire, nothing proved the
  * click-to-outcome path works once a real client and a real transport are wired.
  *
- * Defaults under test: `copy`/`retry`/`edit` on, `feedback` off
- * (AparteConfig._bubbleActionsConfig), so `feedback-*` is deliberately absent.
+ * What is under test is the OPT-IN, not a default: core ships `copy` alone, and
+ * these playgrounds call `setBubbleActions({ retry: true, edit: true })` because
+ * they run an AparteClient that can honor both. `feedback` and the details (ⓘ)
+ * button are never declared, so they must stay absent — even though the mocked
+ * reply carries a `usage`, which is what would otherwise summon the ⓘ.
  */
 
 import { test, expect } from '@playwright/test';
@@ -25,8 +28,11 @@ test('the settled reply offers copy + retry, and the user bubble offers copy + e
 
     await expect(chat.action(chat.lastReply, 'copy')).toBeVisible();
     await expect(chat.action(chat.lastReply, 'retry')).toBeVisible();
-    // feedback is opt-in, so it must NOT be rendered by default.
+    // Undeclared actions must NOT be rendered — feedback, and the details button
+    // even though this reply carries a usage payload. Nothing here listens for
+    // `aparte-message-info`, so an ⓘ would open nothing.
     await expect(chat.action(chat.lastReply, 'feedback-positive')).toHaveCount(0);
+    await expect(chat.action(chat.lastReply, 'info')).toHaveCount(0);
 
     const userBubble = chat.bubbles('user').last();
     await expect(chat.action(userBubble, 'copy')).toBeAttached();

@@ -119,6 +119,9 @@ import '../styles/landing.css';
       import '@aparte/core/styles.css';
       import { registerDefaultRenderers } from '@aparte/core';
       registerDefaultRenderers();
+      // No setBubbleActions() here on purpose: this demo is a scripted stand-in, not
+      // a real client, so it can honor `copy` and nothing else - and copy is the one
+      // action core ships enabled. Retry/edit/details would answer to nobody.
 
       // ── theme toggle — shared with the docs via the `starlight-theme` key ──
       // The inline <head> script already applied the persisted theme; here we
