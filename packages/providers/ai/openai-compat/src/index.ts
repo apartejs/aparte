@@ -30,6 +30,7 @@ import type {
     AparteContentPart,
     AparteStreamEvent,
     AparteUsage,
+    AparteFormatAdapter,
 } from '@aparte/core';
 import { contentToText } from '@aparte/core';
 
@@ -130,6 +131,24 @@ const DEFAULT_CONFIG_SCHEMA = (opts: OpenAICompatProviderOptions): AparteAIProvi
 // ─── The factory ─────────────────────────────────────────────────────────────
 
 /**
+ * What {@link createOpenAICompatProvider} hands back: a provider whose whole
+ * format-adapter surface is guaranteed present.
+ *
+ * `AparteAIProvider` declares that surface optional — correct in general, since a
+ * provider may own its I/O through `chat()` instead — and `AparteFormatAdapter` keeps
+ * `authHeaders` / `parseText` optional because some vendors authenticate by query
+ * string or never answer non-streaming. THIS factory always supplies all of them, so
+ * saying so here is the difference between a caller writing
+ * `provider.buildRequest(req)` and a caller sprinkling `!` or writing a check that
+ * cannot fail. Useful to annotate with when you drive the adapter yourself (your own
+ * `fetch`, your own `AbortSignal`) from a server or an Electron main process.
+ */
+export type OpenAICompatProvider =
+    AparteAIProvider
+    & AparteFormatAdapter
+    & Required<Pick<AparteFormatAdapter, 'authHeaders' | 'parseText'>>;
+
+/**
  * Build an `AparteAIProvider` (full format-adapter surface) for one
  * OpenAI-compatible endpoint. Register it like any provider:
  *
@@ -139,8 +158,10 @@ const DEFAULT_CONFIG_SCHEMA = (opts: OpenAICompatProviderOptions): AparteAIProvi
  * // or any compat endpoint, no preset needed:
  * AparteConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
  * ```
+ *
+ * Returns {@link OpenAICompatProvider}: the full format-adapter surface, non-optional.
  */
-export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): AparteAIProvider {
+export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): OpenAICompatProvider {
     const displayName = opts.name ?? opts.id;
 
     return {

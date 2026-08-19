@@ -186,15 +186,32 @@ async function _refreshKnownModels(): Promise<void> {
     } catch { /* cache unavailable */ }
 }
 
+/** Warn at most once per session that tool turns were left out of the prompt. */
+let _warnedToolTurnsDropped = false;
+
 /** AparteChatMessage[] → plain chat turns (the tokenizer's chat template does the rest). */
 function toMessages(messages: AparteChatMessage[]): SimpleMessage[] {
     const result: SimpleMessage[] = [];
+    let droppedToolTurns = 0;
     for (const m of messages) {
         if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') {
             const text = contentToText(m.content);
             if (text) result.push({ role: m.role, content: text });
+        } else {
+            // tool_call / tool_result are not supported by this generic provider (v1):
+            // rendering them needs a model-specific tool syntax. Dropping them
+            // silently meant an app with registered tools got a model that never saw
+            // the call or its result, with nothing to explain the behaviour.
+            droppedToolTurns++;
         }
-        // tool_call / tool_result are not supported by this generic provider (v1).
+    }
+    if (droppedToolTurns > 0 && !_warnedToolTurnsDropped) {
+        _warnedToolTurnsDropped = true;
+        console.warn(
+            `[transformers] Dropped ${droppedToolTurns} tool turn(s) from the prompt: this provider ` +
+            'does not support tool calling (v1), so the model will not see the call or its result. ' +
+            'Use an OpenAI-compatible endpoint for tools, or render the turns yourself before sending.',
+        );
     }
     return result;
 }

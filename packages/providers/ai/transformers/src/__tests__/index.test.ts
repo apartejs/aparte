@@ -71,6 +71,39 @@ afterEach(() => {
 // getLoadedModelId
 // ─────────────────────────────────────────────────────────────────────────────
 
+describe('tool turns are dropped LOUDLY', () => {
+    // This provider doesn't support tools (v1) and silently filtered tool_call /
+    // tool_result turns out of the prompt: an app that registered tools got a model
+    // that never saw the call or its result, with nothing to explain why. Same class
+    // as the getModels() Promise trap — warn instead of swallowing.
+    it('warns once when a tool turn is filtered out of the prompt', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        vi.stubGlobal('crypto', { randomUUID: () => 'req-1' });
+
+        const request = {
+            modelId: 'm',
+            messages: [
+                { role: 'user', content: 'call the tool' },
+                { role: 'tool_call', content: '', toolCalls: [{ id: 'c1', name: 'search', input: {} }] },
+                { role: 'tool_result', content: 'result text', toolCallId: 'c1' },
+            ],
+        } as never;
+
+        // chat() converts the prompt first; the worker never has to answer for the
+        // conversion to have happened.
+        void TransformersProvider.chat?.(request);
+
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0]?.join(' ')).toMatch(/tool/i);
+
+        // A second conversion must stay quiet — one warning per session, not per turn.
+        void TransformersProvider.chat?.(request);
+        expect(warn).toHaveBeenCalledTimes(1);
+
+        warn.mockRestore();
+    });
+});
+
 describe('getLoadedModelId', () => {
     it('returns null when no model has been loaded', () => {
         expect(getLoadedModelId()).toBeNull();

@@ -137,6 +137,22 @@ describe.each(LOCAL_PRESETS)('local preset %s', (_label, preset, baseURL) => {
 
 // ─── factory behaviour (no preset needed) ────────────────────────────────────
 
+describe('createOpenAICompatProvider — declared guarantee', () => {
+    it('returns the format-adapter surface as non-optional', () => {
+        const provider = createOpenAICompatProvider({ id: 'x', baseURL: 'https://x.test/v1' });
+
+        // No `!`, no can't-fail guard: these calls must type-check on the returned
+        // value, because the factory ALWAYS supplies them. (`AparteAIProvider` alone
+        // declares them optional — correct for providers that own their I/O via
+        // chat(), wrong as this factory's contract.)
+        const built = provider.buildRequest({ messages: [], modelId: 'm', stream: true });
+        expect(built.path).toBe('/chat/completions');
+        expect(provider.authHeaders('k')).toMatchObject({ Authorization: 'Bearer k' });
+        expect(provider.defaultEndpoint).toBe('https://x.test/v1');
+        expect(typeof provider.parseStream).toBe('function');
+    });
+});
+
 describe('createOpenAICompatProvider — factory', () => {
     it('works for any compat endpoint with just id + baseURL (e.g. groq)', () => {
         const p = createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' });
