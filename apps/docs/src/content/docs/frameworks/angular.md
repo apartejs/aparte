@@ -111,6 +111,9 @@ agent loop** instead of core's inline one, inject it:
 `provideAparte({ clientOptions: { streamRunner: runStreamAgent } })` from
 [`@aparte/engine`](/guides/engine/) — an optional swap-in, not required. For file uploads add
 `attachments` to `<aparte-chat>` (off by default) — see [Attachments](/guides/attachments/).
+`provideAparte` wires the client, so switch the retry/edit buttons on with
+`AparteConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
+host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 :::
 
 ## Any element: `<aparte-ui>`

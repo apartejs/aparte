@@ -99,6 +99,35 @@ is attached to a request.
 
 Keyless local providers never trigger this warning — there's no key to expose.
 
+## The retry / edit / ⓘ buttons aren't there
+
+They ship **off**. Core can only render them; re-sending a message, keeping edited text and
+opening a stats popover all need someone outside core, so aparté waits for you to say you're
+there rather than showing a button that answers to nobody:
+
+```ts
+AparteConfig.setBubbleActions({ retry: true, edit: true });   // you run an AparteClient
+AparteConfig.setBubbleActions({ feedback: true, info: true }); // you handle these events
+```
+
+Same for the three affordances outside the action bar — the clickable image tile, the `Run`
+button on a terminal segment, the download button on a **binary** artifact:
+
+```ts
+AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
+```
+
+Two things that are *not* the cause, before you go looking:
+
+- **The bar hides itself while a reply streams** (and reappears when the turn ends) — by
+  design, so copy/retry never sit on an empty bubble.
+- **An action bar with nothing in it isn't rendered at all**, so if you disabled every action
+  the whole row is gone rather than blank.
+
+Coming from 0.4.x and the buttons vanished? That's this change — one line brings them back.
+The full table of what ships enabled and why is in
+[Customization](/guides/customization/#what-ships-enabled).
+
 ## Errors: `AparteError` / `AparteErrorCode`
 
 Every failure that reaches the UI — a bad request, a rate limit, a network drop, an

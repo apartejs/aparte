@@ -151,6 +151,13 @@ half-signalling is the same lie in a quieter voice.
 either — but that's the primary function, the failure is immediate and it's the developer,
 not the user, who sees it.
 
+The **tool-approval gate** (Approve / Reject on a `tool_call` segment) needs no declaration
+either, for a different reason: it renders only while the segment says
+`status: 'awaiting-approval'`, and only a loop that is actually waiting for the verdict sets
+that. The affordance declares itself. A `terminal` segment is the opposite — a model
+narrating a command doesn't mean anybody in the page can run it, which is why `Run` waits for
+`terminalRun`.
+
 :::tip[An explicit list is its own opt-in]
 `setBubbleActions({ assistant: ['copy', 'retry', 'info'] })` renders exactly those, in that
 order, whatever the flags say. Naming a button in a per-role list *is* declaring it.
