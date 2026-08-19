@@ -23,13 +23,21 @@ import type { AparteComposer } from '../composer/aparte-composer.js';
  * @attr placeholder  - Placeholder for the composer input (default composition)
  * @attr disabled     - Disables the composer
  * @attr center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
+ * @attr attachments  - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ['placeholder', 'disabled', 'center-empty'];
+    return ['placeholder', 'disabled', 'center-empty', 'attachments'];
   }
 
   private _observer: MutationObserver | null = null;
+
+  /**
+   * True only for the composition THIS element injected. An author-provided
+   * composer (or a `framework-managed` host) is never edited by the attachments
+   * toggle below — those own their own markup.
+   */
+  private _ownsShell = false;
 
   connectedCallback(): void {
     this._render();
@@ -47,6 +55,10 @@ export class AparteChat extends HTMLElement {
     if (oldValue === newValue) return;
     if (name === 'center-empty') {
       this._syncEmptyWatch();
+      return;
+    }
+    if (name === 'attachments') {
+      this._syncAttachments();
       return;
     }
     // placeholder / disabled forward to the inner composer. An explicit removal
@@ -88,17 +100,54 @@ export class AparteChat extends HTMLElement {
       (placeholder !== null ? ` placeholder="${this._escapeAttr(placeholder)}"` : '') +
       (this.hasAttribute('disabled') ? ' disabled' : '');
 
+    // Attachments are opt-in: the picker only makes sense when the host consumes
+    // the files (an `AparteClient` inlines them per `rawFileInject`; a hand-rolled
+    // loop must read `event.detail.files`). Offering it unconditionally would show
+    // a button that silently drops what the user attached.
+    const attachments = this.hasAttribute('attachments');
+
     this.innerHTML = `
       <aparte-chat-viewport></aparte-chat-viewport>
       <aparte-composer${composerAttrs}>
         <div class="aparte-composer-shell">
+          ${attachments ? '<aparte-composer-attachments></aparte-composer-attachments>' : ''}
           <div class="aparte-composer-row">
+            ${attachments ? '<aparte-composer-add-attachment></aparte-composer-add-attachment>' : ''}
             <aparte-composer-input></aparte-composer-input>
             <aparte-composer-send></aparte-composer-send>
           </div>
         </div>
       </aparte-composer>
     `;
+    this._ownsShell = true;
+  }
+
+  /**
+   * Add/remove the two attachment primitives on the composition we injected, so
+   * toggling the attribute after mount works like the wrappers' reactive prop
+   * (there, a re-render does it). Author-provided markup is left alone.
+   */
+  private _syncAttachments(): void {
+    if (!this._ownsShell) return;
+    const composer = this.composer;
+    const shell = composer?.querySelector('.aparte-composer-shell');
+    const row = shell?.querySelector('.aparte-composer-row');
+    if (!composer || !shell || !row) return;
+
+    const strip = shell.querySelector('aparte-composer-attachments');
+    const picker = row.querySelector('aparte-composer-add-attachment');
+
+    if (this.hasAttribute('attachments')) {
+      if (!strip) shell.insertBefore(document.createElement('aparte-composer-attachments'), row);
+      if (!picker) row.insertBefore(document.createElement('aparte-composer-add-attachment'), row.firstChild);
+      return;
+    }
+
+    strip?.remove();
+    picker?.remove();
+    // Files picked before the capability was withdrawn would otherwise ride on
+    // the next send with nothing in the UI showing them.
+    composer.clearAttachments();
   }
 
   /** Set an attribute on the inner composer only when the shell carries it. */

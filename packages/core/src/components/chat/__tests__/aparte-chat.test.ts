@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import '../aparte-chat.js';
 import '../../viewport/aparte-chat-viewport.js';
 import '../../composer/aparte-composer.js';
+import type { AparteComposer } from '../../composer/aparte-composer.js';
 
 function mount(attrs: Record<string, string> = {}): HTMLElement {
   const el = document.createElement('aparte-chat');
@@ -83,6 +84,85 @@ describe('AparteChat', () => {
     expect(el.querySelector('aparte-chat-viewport')!.hasAttribute('data-mine')).toBe(true);
     expect(el.querySelector('aparte-composer')!.hasAttribute('data-mine')).toBe(true);
     el.remove();
+  });
+
+  // ─── attachments (opt-in) ───────────────────────────────────────────────────
+  // File attachments are a capability the HOST must consume: with an AparteClient
+  // they ride to the model via `rawFileInject`, but a "bring your own loop" app
+  // that ignores `detail.files` drops them silently. So the default shell offers
+  // no picker at all, and `attachments` is the explicit opt-in.
+  describe('attachments', () => {
+    const pendingFiles = (el: HTMLElement): File[] =>
+      (el.querySelector('aparte-composer') as AparteComposer).attachments;
+
+    it('does not mount the attachment primitives by default', () => {
+      const el = mount();
+      expect(el.querySelector('aparte-composer-attachments')).toBeNull();
+      expect(el.querySelector('aparte-composer-add-attachment')).toBeNull();
+      el.remove();
+    });
+
+    it('mounts both primitives in canonical positions with [attachments]', () => {
+      const el = mount({ attachments: '' });
+      // The chips strip sits above the row; the picker button opens it.
+      const strip = el.querySelector('.aparte-composer-shell > aparte-composer-attachments');
+      expect(strip).not.toBeNull();
+      expect(strip!.nextElementSibling!.classList.contains('aparte-composer-row')).toBe(true);
+      // The picker leads the row, before the input.
+      const row = el.querySelector('.aparte-composer-row')!;
+      expect(row.firstElementChild!.tagName.toLowerCase()).toBe('aparte-composer-add-attachment');
+      expect(row.children[1]!.tagName.toLowerCase()).toBe('aparte-composer-input');
+      el.remove();
+    });
+
+    it('inserts them when the attribute is set after mount', () => {
+      const el = mount();
+      el.setAttribute('attachments', '');
+      expect(el.querySelectorAll('aparte-composer-attachments')).toHaveLength(1);
+      expect(el.querySelector('.aparte-composer-row')!.firstElementChild!.tagName.toLowerCase())
+        .toBe('aparte-composer-add-attachment');
+      // Idempotent: a redundant set must not duplicate them.
+      el.setAttribute('attachments', 'attachments');
+      expect(el.querySelectorAll('aparte-composer-attachments')).toHaveLength(1);
+      expect(el.querySelectorAll('aparte-composer-add-attachment')).toHaveLength(1);
+      el.remove();
+    });
+
+    it('removes them — and drops files already picked — when the attribute goes', () => {
+      const el = mount({ attachments: '' });
+      const composer = el.querySelector('aparte-composer') as AparteComposer;
+      composer.addAttachments([new File(['x'], 'staged.txt', { type: 'text/plain' })]);
+      expect(pendingFiles(el)).toHaveLength(1);
+
+      el.removeAttribute('attachments');
+      expect(el.querySelector('aparte-composer-attachments')).toBeNull();
+      expect(el.querySelector('aparte-composer-add-attachment')).toBeNull();
+      // Keeping them staged would send files with no UI showing them — the very
+      // silent drop this opt-in exists to prevent.
+      expect(pendingFiles(el)).toHaveLength(0);
+      el.remove();
+    });
+
+    it('never touches an author-provided composition', () => {
+      const el = document.createElement('aparte-chat');
+      el.setAttribute('attachments', '');
+      el.innerHTML = '<aparte-chat-viewport></aparte-chat-viewport><aparte-composer><div class="aparte-composer-shell"><div class="aparte-composer-row"><aparte-composer-input></aparte-composer-input></div></div></aparte-composer>';
+      document.body.appendChild(el);
+      expect(el.querySelector('aparte-composer-add-attachment')).toBeNull();
+
+      // Toggling afterwards must not start editing someone else's markup either.
+      el.removeAttribute('attachments');
+      el.setAttribute('attachments', '');
+      expect(el.querySelector('aparte-composer-add-attachment')).toBeNull();
+      el.remove();
+    });
+
+    it('never touches a [framework-managed] host', () => {
+      const el = mount({ 'framework-managed': '' });
+      el.setAttribute('attachments', '');
+      expect(el.innerHTML.trim()).toBe('');
+      el.remove();
+    });
   });
 
   it('marks itself empty with center-empty and no messages', () => {
