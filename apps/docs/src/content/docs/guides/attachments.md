@@ -5,17 +5,38 @@ sidebar:
   order: 6
 ---
 
-The composer handles **file attachments** out of the box — no extra wiring.
+The composer handles **file attachments** with one flag — and nothing shows the user a paperclip
+until you set it.
 
-## Built-in UI
+## Turning them on
 
-The default composer shell already renders the two attachment elements:
+Two elements make the UI:
 
 - **`<aparte-composer-add-attachment>`** — the picker button (opens the file dialog).
 - **`<aparte-composer-attachments>`** — the chips row showing the pending files.
 
-So a plain `<aparte-chat>` (or a framework `<AparteChat>`) supports attaching files with zero
-config. Composing your own composer? Drop those two elements in where you want them.
+The default composer shell mounts **neither**. Add `attachments` and it mounts both, in their
+canonical positions:
+
+```html
+<aparte-chat attachments></aparte-chat>
+```
+
+```tsx
+<AparteChat attachments />           {/* React · Svelte · Vue */}
+<aparte-chat attachments>            <!-- Angular -->
+```
+
+Composing your own composer? The flag doesn't apply — drop the two elements in wherever you
+want them, as with any other primitive.
+
+:::note[Why opt-in]
+A picker is a promise: whatever the user attaches gets used. That promise is only kept if
+something consumes the files. An `AparteClient` does (see [What gets sent](#what-gets-sent-to-the-model)),
+but an app driving [its own loop](/guides/bring-your-own-loop/) has to read them from the send
+event — and a loop that forwards only `content` drops them in silence, with the UI still showing
+the file went out. Setting `attachments` is you saying the files are handled.
+:::
 
 ## Programmatic API
 
@@ -46,6 +67,19 @@ In React that's just the `onMessageSent` prop:
 
 To observe the pending selection live (e.g. to enable a send button), listen for
 **`aparte-composer-change`** — its `detail.state.attachments` is the current `File[]`.
+
+Driving your own loop? `filesToAttachments(files)` converts that `File[]` into the
+`attachments` an `AparteChatMessage` renders — the same conversion the built-in send path
+does, so your user bubble shows the chips instead of a bare line of text:
+
+```ts
+import { filesToAttachments } from '@aparte/core';
+
+chat.appendMessage({
+  id, role: 'user', content,
+  ...(files?.length ? { attachments: filesToAttachments(files) } : {}),
+});
+```
 
 ## What gets sent to the model
 

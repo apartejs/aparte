@@ -43,7 +43,9 @@ as a flex column, and — with `center-empty` — keeps the composer centered as
 welcome state until the first message, then slides to the normal layout. Size it
 (a height, or let it fill a parent) and you're done.
 
-Left empty, it fills in a default composition:
+Left empty, it fills in a default composition — a viewport, and a composer with an input
+and a send button. Add `attachments` for the file picker too (opt-in, see
+[Attachments](/guides/attachments/)):
 
 ```html
 <aparte-chat center-empty placeholder="Say something…" style="height: 600px"></aparte-chat>

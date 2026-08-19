@@ -109,8 +109,8 @@ single `<aparte-chat>` instead of the global `AparteConfig`.
 `clientOptions` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
 agent loop** instead of core's inline one, inject it:
 `provideAparte({ clientOptions: { streamRunner: runStreamAgent } })` from
-[`@aparte/engine`](/guides/engine/) — an optional swap-in, not required. File uploads work through
-the composer — see [Attachments](/guides/attachments/).
+[`@aparte/engine`](/guides/engine/) — an optional swap-in, not required. For file uploads add
+`attachments` to `<aparte-chat>` (off by default) — see [Attachments](/guides/attachments/).
 :::
 
 ## Any element: `<aparte-ui>`
