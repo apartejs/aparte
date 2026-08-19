@@ -149,6 +149,14 @@ export default defineConfig({
             name: `${k}-webkit`,
             use: { ...devices['Desktop Safari'], baseURL: url(k) },
             testMatch: suiteFor(k),
+            // WebKit is the slow engine here, and it runs alongside five other dev
+            // servers. Three different specs have been seen failing ONCE each on
+            // whichever webkit project was scheduled last, then passing on re-run —
+            // always a locator waiting on a UI that arrived late, never a wrong
+            // assertion. A suite that fails by scheduling order teaches you to
+            // ignore it, so WebKit gets a longer wait rather than Chromium getting
+            // a weaker one.
+            expect: { timeout: 20_000 },
         })),
     ],
 });
