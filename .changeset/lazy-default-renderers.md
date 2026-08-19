@@ -7,8 +7,12 @@ one.** `registerDefaultRenderers()` had exactly one caller: `new AparteClient()`
 the object the *bring your own loop* guide tells you not to construct. A
 display-only app therefore rendered `[Unknown segment type: text]` for every reply,
 with working bubbles, working streaming and working scroll, so the only thing missing
-was the content and it read as a bug in the consumer's own loop. The guide never
-mentioned the call either.
+was the content and it read as a bug in the consumer's own loop. The *bring your own loop* guide never
+mentioned the call either — it was documented as **required** on the Getting-started
+page (and in both READMEs), so this was one path missing a note, not an undocumented
+API. But a required call whose only correct answer is always "yes, call it" is
+ceremony, not a decision: nobody wants `text` segments rendering as
+`[Unknown segment type: text]`.
 
 The sweep is **strictly additive**: a renderer you registered yourself is never
 replaced, so a custom `text` renderer survives the install a `code` segment triggers.
