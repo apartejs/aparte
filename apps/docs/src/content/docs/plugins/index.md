@@ -22,6 +22,13 @@ Every plugin lists `@aparte/core` as a peer dependency and, where it wraps a thi
 (marked, streaming-markdown, shiki), that library too — so you control its version and it is never
 bundled into core.
 
+:::note[Shiki ships in two flavours]
+`@aparte/plugin-shiki` is the convenience import: it knows ~300 languages, and your bundler prepares all
+of them (302 files, 11 MB measured). `@aparte/plugin-shiki/core` takes a highlighter you built with the
+grammars you actually use — 1 file, 560 kB. Same plugin, and the
+[page explains which to pick](/plugins/shiki/#bundle--two-different-costs).
+:::
+
 ## The shape of a plugin
 
 Most plugins register something on the config once, at startup:
