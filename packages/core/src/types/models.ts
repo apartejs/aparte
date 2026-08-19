@@ -100,7 +100,7 @@ export interface AparteMessageBranch {
  * Names of the individual action-bar buttons, used for explicit per-role
  * ordered configuration (see `AparteBubbleActionsConfig.user` / `.assistant`).
  */
-export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'thumbDown';
+export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'thumbDown' | 'info';
 
 /**
  * Controls which action buttons are rendered in message bubbles.
@@ -123,6 +123,12 @@ export interface AparteBubbleActionsConfig {
     edit?: boolean;
     /** Thumbs-up / thumbs-down feedback (assistant bubbles). Default: false */
     feedback?: boolean;
+    /**
+     * The details ("i") button, which opens the **app-owned** stats popover by
+     * emitting `aparte-message-info` (assistant bubbles). Rendered only when the
+     * message also carries a `usage` — no numbers, nothing to show. Default: true
+     */
+    info?: boolean;
     /** Explicit, ordered action set for USER bubbles. Example: `['edit', 'copy']`. */
     user?: AparteBubbleActionName[];
     /** Explicit, ordered action set for ASSISTANT bubbles. Example: `['copy', 'thumbUp', 'thumbDown', 'retry']`. */

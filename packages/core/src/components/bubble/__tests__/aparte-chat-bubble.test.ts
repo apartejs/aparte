@@ -541,6 +541,42 @@ describe('AparteChatBubble', () => {
     });
 
     // ─── Custom structural shell (setBubbleShellRenderer) ─────────────────
+    // ─── the info (ⓘ) action ───────────────────────────────────────────────────
+    // It used to be pushed at the end of the flag branch, outside the action
+    // registry: impossible to remove through the flags, and impossible to REQUEST in
+    // an explicit per-role list (`'info'` was not even in AparteBubbleActionName).
+    // It is a button like the others now — with one precondition kept: no usage, no
+    // details to show, no button.
+    describe('info action', () => {
+        afterEach(() => AparteConfig.reset());
+
+        const actionsOf = (el: HTMLElement) =>
+            [...el.querySelectorAll('.aparte-action-bar .aparte-action-btn')]
+                .map((b) => b.getAttribute('data-action'));
+        const withUsage = (el: HTMLElement) =>
+            (el as unknown as { setUsage(u: unknown): void }).setUsage({ inputTokens: 3, outputTokens: 5 });
+
+        it('is requestable in an explicit per-role set', () => {
+            AparteConfig.setBubbleActions({ assistant: ['copy', 'info'] });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i1', content: 'hi' });
+            withUsage(bubble);
+            expect(actionsOf(bubble)).toEqual(['copy', 'info']);
+        });
+
+        it('is removable through the flag, even with usage present', () => {
+            AparteConfig.setBubbleActions({ info: false });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i2', content: 'hi' });
+            withUsage(bubble);
+            expect(actionsOf(bubble)).not.toContain('info');
+        });
+
+        it('needs usage: asking for it without any shows nothing', () => {
+            AparteConfig.setBubbleActions({ assistant: ['copy', 'info'] });
+            bubble = createBubble({ role: 'assistant', 'message-id': 'i3', content: 'hi' });
+            expect(actionsOf(bubble)).toEqual(['copy']);
+        });
+    });
+
     // ─── the waiting state ───────────────────────────────────────────────────
     // Between "user sends" and the first token there was nothing: a name, an empty
     // body, and (in the display-only path) copy/retry on a reply that doesn't

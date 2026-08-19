@@ -790,16 +790,7 @@ export class AparteChatBubble extends HTMLElement {
           buttons.push(this._actionButtonHtml('thumbUp', icons, locale));
           buttons.push(this._actionButtonHtml('thumbDown', icons, locale));
         }
-
-        // Info button — opens the stats popover. The popover UI itself is
-        // owned by the app layer (it listens for `aparte-message-info`); the
-        // bubble only renders the trigger and forwards the usage payload.
-        if (this._usage) {
-          const infoLabel = locale.messageInfo ?? 'Details';
-          buttons.push(`<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${infoLabel}" title="${infoLabel}">
-          ${INFO_ICON_SVG}
-        </button>`);
-        }
+        if (config.info) buttons.push(this._actionButtonHtml('info', icons, locale));
       }
     }
 
@@ -864,6 +855,13 @@ export class AparteChatBubble extends HTMLElement {
       case 'thumbDown': {
         const l = locale.feedbackNegative ?? 'Bad response';
         return `<button class="aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${l}" title="${l}">${icons.thumbDown()}</button>`;
+      }
+      case 'info': {
+        // Only when there are numbers to show: a details button over nothing is a
+        // dead button. The popover itself is the app's (see `aparte-message-info`).
+        if (!this._usage) return '';
+        const l = locale.messageInfo ?? 'Details';
+        return `<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${l}" title="${l}">${INFO_ICON_SVG}</button>`;
       }
       default:
         return '';

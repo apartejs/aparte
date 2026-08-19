@@ -124,7 +124,7 @@ export class AparteConfigClass {
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
 
     // Bubble Actions
-    private _bubbleActionsConfig: AparteBubbleActionsConfig = { copy: true, retry: true, edit: true, feedback: false };
+    private _bubbleActionsConfig: AparteBubbleActionsConfig = { copy: true, retry: true, edit: true, feedback: false, info: true };
 
     // ─────────────────────────────────────────────────────────────────────────
     // Provider Setters (Dependency Injection)
@@ -194,6 +194,7 @@ export class AparteConfigClass {
         retry: boolean;
         edit: boolean;
         feedback: boolean;
+        info: boolean;
         user?: AparteBubbleActionName[];
         assistant?: AparteBubbleActionName[];
     } {
@@ -202,6 +203,7 @@ export class AparteConfigClass {
             retry: this._bubbleActionsConfig.retry ?? true,
             edit: this._bubbleActionsConfig.edit ?? true,
             feedback: this._bubbleActionsConfig.feedback ?? false,
+            info: this._bubbleActionsConfig.info ?? true,
             user: this._bubbleActionsConfig.user,
             assistant: this._bubbleActionsConfig.assistant,
         };
