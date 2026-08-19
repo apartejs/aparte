@@ -143,7 +143,8 @@ The flow:
    > This disappears the day the group leaves `0.x`.
 2. **Merge it.**
 3. **`pnpm release`** locally — builds every package, `changeset publish` (npm + one git tag
-   per package), then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.
+   per package), **`scripts/align-dist-tags.mjs`**, then `scripts/tag-release.mjs` creates the
+   umbrella tag `v<version>`.
 4. **`git push origin v<version>`** — that tag, **alone** → `release-notes.yml` creates the
    **one** GitHub Release for that version, with the matching root-changelog section as its
    body.
@@ -151,11 +152,20 @@ The flow:
    > push**, and `changeset publish` has just created fifteen — so `--tags` publishes them all
    > and triggers nothing, with no error anywhere. Push the umbrella tag on its own; the
    > per-package tags can follow in a second push.
-5. Verify the dist-tags: `npm view @aparte/core dist-tags`. `release` publishes with
-   `--tag alpha`, so `alpha` moves and `latest` stays put — which is what we want while every
-   version is a prerelease (`npm i @aparte/core` must not hand someone an alpha by surprise).
-   Without that flag, `changeset publish` moved `latest` and left `alpha` on the previous
-   version, on all fifteen packages, twice.
+5. Verify the dist-tags: `npm view @aparte/core dist-tags`. Both must be the version you
+   just shipped.
+   > ⚠️ `changeset publish` publishes a prerelease to **`latest`** and leaves **`alpha`** on
+   > the previous version — that shipped three times in a row (0.3.0, 0.4.0, 0.5.0) with
+   > `npm i @aparte/core@alpha` resolving to the version before. And the obvious fix is
+   > refused: `changeset publish --tag alpha` errors with *"Releasing under custom tag is not
+   > allowed in pre mode"*. So `pnpm release` moves the tag afterwards, on all fifteen
+   > packages, with `scripts/align-dist-tags.mjs` (it also prints what it moved, and fails
+   > loudly rather than reporting a clean run — the first version silently found nothing,
+   > because Node cannot spawn `npm.cmd` without a shell).
+   >
+   > `latest` is left where `changeset publish` put it: every version so far is a prerelease,
+   > so there is no stable release for it to point at, and moving it backwards would only make
+   > `npm i @aparte/core` resolve to something older.
 
 ## Anti-patterns
 
