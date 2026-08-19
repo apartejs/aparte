@@ -341,10 +341,15 @@ describe('Navigation boundary conditions', () => {
     // transcript the user was already at the bottom of. Reported from bonaparte
     // (React) on a conversation long enough to scroll.
     describe('scroll button after a branch swap in framework-managed mode', () => {
-        /** Pin the scroll geometry jsdom doesn't compute (all zeros by default). */
+        /**
+         * Pin the scroll geometry jsdom doesn't compute (all zeros by default).
+         * `writable` matters: auto-follow ASSIGNS `scrollTop`, and a read-only stub
+         * throws in strict mode — an unhandled error that vitest surfaces but that no
+         * assertion would have caught.
+         */
         function stubGeometry(el: HTMLElement, geo: { scrollTop: number; scrollHeight: number; clientHeight: number }) {
             for (const [prop, value] of Object.entries(geo)) {
-                Object.defineProperty(el, prop, { value, configurable: true });
+                Object.defineProperty(el, prop, { value, configurable: true, writable: true });
             }
         }
 
