@@ -34,6 +34,11 @@ Next.js route handler, Deno, Bun, or a Cloudflare Worker unchanged. It reads
 (one JSON object per line) — the exact wire format `BackendTransport` expects on the way
 back.
 
+Importing `@aparte/core` on the server is fine: a `node` export condition resolves to a
+DOM-free entry (no custom elements, no CSS), and the same holds for the format-adapter
+providers. See **[Node / SSR](https://www.npmjs.com/package/@aparte/core#node--ssr)** in the
+core README — the contract is enforced in CI by a real Node import, not just documented.
+
 ```ts
 // app/api/chat/route.ts (Next.js) — runs in the Node.js runtime
 import { createAparteChatHandler } from '@aparte/core';

@@ -7,7 +7,8 @@
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "gate": "pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm test && pnpm build && pnpm check-packaging",
+    "gate": "pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm test && pnpm build && pnpm check-packaging && pnpm check:node-import",
+    "check:node-import": "node scripts/check-node-import.mjs",
     "typecheck:matrix": "pnpm --filter @aparte/react run typecheck:react18",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit && pnpm --filter @aparte/vue --filter @aparte/svelte --filter @aparte/angular run typecheck:tests",
     "gate:full": "pnpm gate && pnpm e2e",
@@ -37,6 +38,9 @@
     "release": "pnpm -r --filter \"./packages/**\" run build && changeset publish"
   },
   "devDependencies": {
+    "@aparte/core": "workspace:*",
+    "@aparte/engine": "workspace:*",
+    "@aparte/provider-openai-compat": "workspace:*",
     "@arethetypeswrong/cli": "^0.18.4",
     "@changesets/cli": "^2.31.0",
     "@eslint/js": "^9.8.0",

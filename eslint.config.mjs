@@ -24,7 +24,9 @@ export default tseslint.config(
   },
 
   // Node build helpers (.mjs scripts) run in Node — expose its globals so
-  // `console`/`process` aren't flagged as undefined.
+  // `console`/`process` aren't flagged as undefined. The Web-standard half is
+  // listed too: the repo targets Node >= 18, where fetch/Request/Response/streams
+  // are global (the node-import contract script exercises exactly those).
   {
     files: ['**/*.mjs', '**/scripts/**/*.{js,cjs,mjs}'],
     languageOptions: {
@@ -33,9 +35,17 @@ export default tseslint.config(
         process: 'readonly',
         Buffer: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
         setTimeout: 'readonly',
+        fetch: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        ReadableStream: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
       },
     },
   },

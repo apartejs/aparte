@@ -17,5 +17,11 @@ AparteConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL
 `@aparte/core` is a **peer dependency**. For vendors outside the OpenAI-compat family
 (Anthropic, Gemini, …) use [`@aparte/provider-ai-sdk`](../ai-sdk) instead.
 
+**Works on the server too.** Nothing here touches the DOM, and core resolves its DOM-free
+entry under Node's export condition — so you can reuse this adapter from a backend, an
+Electron main process or an SSR pass instead of re-writing one. Pair `buildRequest` /
+`parseStream` with your own `fetch` when you already own the request (your `AbortSignal`,
+your headers), or hand it to `createAparteChatHandler` from core.
+
 > Part of the [aparté](https://github.com/apartejs/aparte) monorepo. ESM-only.
 > See the **Providers** guide in the docs for the full usage.

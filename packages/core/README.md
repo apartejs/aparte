@@ -28,6 +28,27 @@ registerDefaultRenderers();
 new AparteClient().start();
 ```
 
+## Node / SSR
+
+`@aparte/core` imports cleanly on the server. A `node` export condition resolves to a
+DOM-free entry, so `import '@aparte/core'` works in Node, an Electron **main** process,
+or an SSR pass (Next / Nuxt / SvelteKit / Angular Universal) without a DOM shim:
+
+```ts
+// Node — same specifier, DOM-free entry
+const { AparteClient, createAparteChatHandler, contentToText } = await import('@aparte/core');
+```
+
+**You keep** the client, the chat host, transports + `createAparteChatHandler`, the
+conversation/message runtime, config, parsers and every type. **You lose** the custom
+elements themselves — they extend `HTMLElement`, so they're browser-only, and
+`registerAllComponents()` is a safe no-op there.
+
+Reading `src/index.ts` is misleading on this point: that's the *browser* entry (it defines
+the custom elements), and the workspace resolves it first by design. The contract is
+enforced by `pnpm check:node-import`, which imports the built packages in real Node on
+every CI run.
+
 ## What's in it
 
 - **`<aparte-chat>`** — a drop-in shell (viewport + composer), or compose the primitives

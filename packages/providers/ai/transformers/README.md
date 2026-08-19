@@ -30,7 +30,10 @@ The provider owns its I/O (it runs inference locally), so `DirectTransport` just
 Model weights download once and persist in the Cache API; `prepareModel` reports progress, and
 `listCachedModels` / `deleteCachedModel` manage the on-disk cache.
 
-> **Scope (v1):** generic text-generation streaming. Tool-calling for local models is
-> model-specific and out of scope for now. Part of the
+> **Scope (v1):** generic text-generation streaming, **browser-only** (unlike the other
+> providers — it needs WebGPU/WASM, Workers and the Cache API, so it is the one adapter that
+> does not run in Node). Tool-calling for local models is model-specific and out of scope for
+> now: `tool_call` / `tool_result` turns are dropped from the prompt, with a one-time console
+> warning. Part of the
 > [aparté](https://github.com/apartejs/aparte) monorepo. ESM-only.
 > See the **Providers** guide in the docs for the full usage.

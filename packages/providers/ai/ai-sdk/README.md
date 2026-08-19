@@ -23,5 +23,9 @@ AparteConfig.registerAIProvider(createAiSdkProvider({
 `ai` is a **peerDependency pinned to the verified major** (`^7`) — this bridge is the only
 aparté module touching the SDK's types. `@aparte/core` is a **peer dependency**.
 
+**Works on the server too.** This bridge touches no DOM, and core resolves its DOM-free entry
+under Node's export condition — so it runs in a backend, an Electron main process or an SSR
+pass as well as in the browser.
+
 > Part of the [aparté](https://github.com/apartejs/aparte) monorepo. ESM-only.
 > See the **Providers** guide in the docs for the full usage.
