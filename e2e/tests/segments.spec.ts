@@ -12,7 +12,7 @@ import {
     installLlmMock,
     MOCK_CODE_MARK,
     MOCK_REPLY_MARK,
-    MOCK_THINKING_MARK,
+    MOCK_THINKING_FULL,
 } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
@@ -27,7 +27,9 @@ test('reasoning deltas render a thinking block the user can open and close', asy
 
     const thinking = chat.segment('thinking').first();
     await expect(thinking).toBeAttached();
-    await expect(thinking.locator('.thinking-content')).toContainText(MOCK_THINKING_MARK);
+    // EXACT, not `toContainText`: the reasoning arrives in three deltas, and a
+    // substring assertion stayed green while every chunk was being written twice.
+    await expect(thinking.locator('.thinking-content')).toHaveText(MOCK_THINKING_FULL);
     // A labelled summary is what makes it discoverable.
     await expect(thinking.locator('.thinking-label')).not.toBeEmpty();
 

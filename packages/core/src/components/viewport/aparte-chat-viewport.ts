@@ -183,9 +183,19 @@ export class AparteChatViewport extends HTMLElement {
             message.segments = [];
         }
 
-        const segment = message.segments.find(s => s.id === segmentId);
+        // REPLACE the segment, never mutate it in place. The bubble holds the very
+        // same object — `addSegment` handed one object to the repo and to the bubble —
+        // and it appends this chunk itself (see `_notifyBubble` below). Mutating here
+        // made the two writes land on one object, so every chunk appeared twice, in
+        // the model AND on screen ("BonjourBonjour le le monde"). Each view now owns
+        // the value it advances.
+        const index = message.segments.findIndex(s => s.id === segmentId);
+        const segment = index === -1 ? undefined : message.segments[index];
         if (segment && 'content' in segment) {
-            (segment as { content: string }).content += chunk;
+            message.segments[index] = {
+                ...segment,
+                content: (segment as { content: string }).content + chunk,
+            } as AparteSegment;
         }
 
         // Dispatch segment update event

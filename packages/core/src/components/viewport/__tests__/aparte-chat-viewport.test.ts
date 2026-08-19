@@ -25,6 +25,8 @@ type ViewportEl = HTMLElement & {
     getMessage(id: string): AparteMessage | undefined;
     getMessages(): AparteMessage[];
     appendToken(messageId: string, chunk: string): void;
+    addSegment(messageId: string, segment: AparteSegment): void;
+    appendToSegment(messageId: string, segmentId: string, chunk: string): void;
     addBranch(messageId: string): number;
     addSiblingOf(existingId: string, newMsg: AparteMessage): string | null;
     navigateBranch(messageId: string, direction: 'prev' | 'next'): void;
@@ -764,5 +766,62 @@ describe('aparte-chat-viewport — reduced motion', () => {
         viewport._smoothScrollToBottom();
         expect(container.scrollTo).not.toHaveBeenCalled();
         expect(container.scrollTop).toBe(400);
+    });
+});
+
+// ─── appendToSegment: one chunk, one append ──────────────────────────────────
+//
+// `addSegment` hands ONE object to the repo and to the bubble, and
+// `appendToSegment` then writes twice: into the repo, and into the bubble via
+// `_notifyBubble`. While the repo mutated that object in place, both writes landed
+// on it and every chunk appeared twice — in the model and on screen
+// ("BonjourBonjour le le monde"). Reported from a real app as "the first word shows
+// up twice".
+//
+// Nothing of ours had ever called this: `AparteClient` writes segment text with
+// `updateSegment` (absolute content), so all six playgrounds and the whole browser
+// suite go around it. `appendToSegment` is the bring-your-own-loop path, and its
+// only unit coverage ran against a MOCKED viewport — a paint that writes nothing
+// cannot double-count. Hence a real viewport and a real bubble here.
+describe('AparteChatViewport — appendToSegment does not double a chunk', () => {
+    let viewport: ViewportEl;
+
+    beforeEach(() => {
+        viewport = createViewport();
+    });
+
+    afterEach(() => {
+        viewport.remove();
+        document.body.innerHTML = '';
+    });
+
+    const stream = (chunks: string[]): { model: string; rendered: string } => {
+        viewport.appendMessage(makeMsg({ id: 'a1', content: '', status: 'streaming' }));
+        viewport.addSegment('a1', { id: 's1', type: 'text', content: '' } as AparteSegment);
+        for (const chunk of chunks) viewport.appendToSegment('a1', 's1', chunk);
+        const segment = viewport.getMessage('a1')?.segments?.[0] as { content?: string } | undefined;
+        const bubble = viewport.querySelector('aparte-chat-bubble');
+        return {
+            model: segment?.content ?? '',
+            rendered: (bubble?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        };
+    };
+
+    it('keeps the exact text in the message it streams into', () => {
+        expect(stream(['Bon', 'jour ', 'le monde']).model).toBe('Bonjour le monde');
+    });
+
+    it('renders that same text once in the bubble', () => {
+        const { rendered } = stream(['Bon', 'jour ', 'le monde']);
+        expect(rendered).toContain('Bonjour le monde');
+        expect(rendered).not.toContain('BonBon');
+    });
+
+    it('appends after content the segment already carried', () => {
+        viewport.appendMessage(makeMsg({ id: 'a2', content: '', status: 'streaming' }));
+        viewport.addSegment('a2', { id: 's1', type: 'text', content: 'Bonjour' } as AparteSegment);
+        viewport.appendToSegment('a2', 's1', ' le monde');
+        const segment = viewport.getMessage('a2')?.segments?.[0] as { content?: string } | undefined;
+        expect(segment?.content).toBe('Bonjour le monde');
     });
 });

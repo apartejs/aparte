@@ -37,6 +37,16 @@ export const MOCK_MODEL_ID = 'aparte-e2e-model';
 
 /** Marks in the scenario fixtures, so specs assert on a constant not a literal. */
 export const MOCK_THINKING_MARK = 'weighing the options';
+
+/**
+ * The reasoning arrives in three deltas, and the block must end up holding their
+ * concatenation EXACTLY — no chunk repeated. Exported as one derived string so a
+ * spec can assert the whole text instead of a substring: a substring assertion is
+ * what let a duplicated-chunk bug ship (every chunk landed twice, and
+ * `toContainText(MOCK_THINKING_MARK)` was still true).
+ */
+const THINKING_CHUNKS = ['Let me start by ', MOCK_THINKING_MARK, '.'];
+export const MOCK_THINKING_FULL = THINKING_CHUNKS.join('');
 export const MOCK_CODE_MARK = 'aparteCodeFixture';
 export const MOCK_TOOL_NAME = 'e2e_echo';
 
@@ -109,9 +119,7 @@ function bodyForScenario(scenario: LlmScenario): string {
     switch (scenario) {
         case 'thinking':
             return [
-                thinkingEvent('Let me start by '),
-                thinkingEvent(MOCK_THINKING_MARK),
-                thinkingEvent('.'),
+                ...THINKING_CHUNKS.map(thinkingEvent),
                 ...REPLY_CHUNKS.map(contentEvent),
                 finishEvent(), usageEvent(), DONE,
             ].join('');
