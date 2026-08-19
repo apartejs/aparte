@@ -263,4 +263,41 @@ describe('parseOpenAICompatStream', () => {
         )));
         expect(events.at(-1)).toEqual({ type: 'done', usage: undefined });
     });
+
+    // The two cases above were each covered; their INTERSECTION was not — and that
+    // is where the bug lived. `include_usage` (which buildRequest asks for) sends
+    // the usage-only chunk AFTER the finish chunk, so a turn ending in a tool call
+    // must keep reading to see it. On an agent, that is most turns.
+    it('keeps the usage chunk that follows a tool_calls finish', async () => {
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { content: 'Calling' } }] }),
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'search', arguments: '{"q":"x"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            JSON.stringify({ choices: [], usage: { prompt_tokens: 120, completion_tokens: 7, total_tokens: 127, prompt_tokens_details: { cached_tokens: 100 } } }),
+            '[DONE]',
+        )));
+
+        expect(events.filter(e => e.type === 'tool_use')).toEqual([
+            { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } },
+        ]);
+        // Exactly one `done`, carrying the usage that arrived after the finish.
+        const dones = events.filter(e => e.type === 'done');
+        expect(dones).toHaveLength(1);
+        expect(dones[0]).toEqual({
+            type: 'done',
+            usage: { inputTokens: 120, outputTokens: 7, totalTokens: 127, cacheReadTokens: 100 },
+        });
+    });
+
+    it('still emits exactly one done when a tool_calls turn ends without [DONE]', async () => {
+        // Socket closed after the finish chunk: the end-of-stream fallback must be
+        // the only `done` — not a second one on top of the branch's.
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c2', function: { name: 'ping', arguments: '{}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+        )));
+
+        expect(events.filter(e => e.type === 'tool_use')).toHaveLength(1);
+        expect(events.filter(e => e.type === 'done')).toHaveLength(1);
+    });
 });

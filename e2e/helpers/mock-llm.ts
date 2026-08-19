@@ -148,6 +148,10 @@ function bodyForScenario(scenario: LlmScenario): string {
                     }],
                 }),
                 finishEvent('tool_calls'),
+                // Real `include_usage` servers send usage AFTER the finish chunk —
+                // including on tool-call turns, which is where the provider used to
+                // stop reading and lose it.
+                usageEvent(),
                 DONE,
             ].join('');
 

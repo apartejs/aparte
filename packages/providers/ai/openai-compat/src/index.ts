@@ -253,7 +253,7 @@ export function parseOpenAICompatStream(
     let buffer = '';
 
     // Tool call accumulation state (keyed by index)
-    const toolCallsById: Record<number, { id: string; name: string; args: string }> = {};
+    let toolCallsById: Record<number, { id: string; name: string; args: string }> = {};
     let capturedUsage: AparteUsage | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
@@ -333,8 +333,17 @@ export function parseOpenAICompatStream(
                                     const toolCall: AparteToolCall = { id: entry.id, name: entry.name, input };
                                     controller.enqueue({ type: 'tool_use', ...toolCall });
                                 }
-                                controller.enqueue({ type: 'done', usage: capturedUsage });
-                                return;
+                                // Do NOT emit `done` or return here: under
+                                // `include_usage` (which buildRequest requests) the
+                                // usage-only chunk arrives AFTER this finish chunk, so
+                                // stopping now dropped usage on every tool-call turn —
+                                // i.e. most turns of an agent. Keep reading; the single
+                                // `done` comes from `[DONE]` below, or from the
+                                // end-of-stream fallback if the socket just closes.
+                                // The map is cleared so a server that repeats the finish
+                                // chunk can't re-emit the same calls now that we stay in
+                                // the loop.
+                                toolCallsById = {};
                             }
                         } catch {
                             // Every line here is a complete, newline-terminated SSE
