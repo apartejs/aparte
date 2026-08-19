@@ -1,5 +1,24 @@
 # @aparte/plugin-marked
 
+## 0.4.0-alpha.0
+
+### Patch Changes
+
+- Updated dependencies [358bc53]
+- Updated dependencies [801622a]
+- Updated dependencies [0d4945f]
+- Updated dependencies [de57a6a]
+- Updated dependencies [50d90a8]
+- Updated dependencies [cda5f54]
+- Updated dependencies [af5ed3d]
+- Updated dependencies [e9909c6]
+- Updated dependencies [2336bc5]
+- Updated dependencies [79b2795]
+- Updated dependencies [9f839e4]
+- Updated dependencies [80995ea]
+- Updated dependencies [118d4fb]
+  - @aparte/core@0.4.0-alpha.0
+
 ## 0.3.0-alpha.0
 
 ### Patch Changes

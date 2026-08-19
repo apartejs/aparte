@@ -1,5 +1,45 @@
 # @aparte/provider-openai-compat
 
+## 0.4.0-alpha.0
+
+### Patch Changes
+
+- 8286e3f: Two provider contracts now say what they actually do.
+
+  `createOpenAICompatProvider` returns `AparteAIProvider & AparteFormatAdapter`. The
+  factory has always supplied `buildRequest` / `parseStream` / `authHeaders` /
+  `defaultEndpoint`, but the declared type left them optional (right for
+  `AparteAIProvider` in general, since a provider may own its I/O through `chat()`) —
+  so callers driving the adapter themselves had to add `!` or write a check that
+  cannot fail.
+
+  `@aparte/provider-transformers` warns once when it drops `tool_call` / `tool_result`
+  turns from the prompt. Tool calling is out of scope for v1, but the turns were
+  filtered silently: an app with registered tools got a model that never saw the call
+  or its result, with nothing to explain it.
+
+- bebc201: Usage is no longer lost on a turn that ends with a tool call. `parseStream` emitted
+  `done` and returned as soon as it saw `finish_reason: 'tool_calls'` — but under
+  `include_usage` (which `buildRequest` requests) the usage-only chunk arrives _after_
+  the finish chunk, so `done.usage` was `undefined` for every tool-call turn. On a chat
+  that goes unnoticed; on an agent it is most turns. The parser now emits the
+  `tool_use` events and keeps reading, so the single `done` carries the usage (including
+  `cacheReadTokens`).
+- Updated dependencies [358bc53]
+- Updated dependencies [801622a]
+- Updated dependencies [0d4945f]
+- Updated dependencies [de57a6a]
+- Updated dependencies [50d90a8]
+- Updated dependencies [cda5f54]
+- Updated dependencies [af5ed3d]
+- Updated dependencies [e9909c6]
+- Updated dependencies [2336bc5]
+- Updated dependencies [79b2795]
+- Updated dependencies [9f839e4]
+- Updated dependencies [80995ea]
+- Updated dependencies [118d4fb]
+  - @aparte/core@0.4.0-alpha.0
+
 ## 0.3.0-alpha.0
 
 ### Patch Changes

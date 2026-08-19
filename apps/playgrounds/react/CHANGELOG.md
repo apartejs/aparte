@@ -1,5 +1,32 @@
 # @aparte-workspace/playground-react
 
+## 0.0.1-alpha.2
+
+### Patch Changes
+
+- Updated dependencies [358bc53]
+- Updated dependencies [801622a]
+- Updated dependencies [0d4945f]
+- Updated dependencies [de57a6a]
+- Updated dependencies [50d90a8]
+- Updated dependencies [cda5f54]
+- Updated dependencies [af5ed3d]
+- Updated dependencies [e9909c6]
+- Updated dependencies [8286e3f]
+- Updated dependencies [2336bc5]
+- Updated dependencies [bebc201]
+- Updated dependencies [73ecd4e]
+- Updated dependencies [79b2795]
+- Updated dependencies [9f839e4]
+- Updated dependencies [80995ea]
+- Updated dependencies [118d4fb]
+- Updated dependencies [0aa386e]
+  - @aparte/core@0.4.0-alpha.0
+  - @aparte/react@0.4.0-alpha.0
+  - @aparte/provider-openai-compat@0.4.0-alpha.0
+  - @aparte/plugin-marked@0.4.0-alpha.0
+  - @aparte/plugin-model-selector@0.4.0-alpha.0
+
 ## 0.0.1-alpha.1
 
 ### Patch Changes

@@ -4,6 +4,445 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.4.0-alpha.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### @aparte/core
+
+#### Minor Changes
+
+- [50d90a8](https://github.com/apartejs/aparte/commit/50d90a8): **The waiting state now exists.** Between "user sends" and the first token there was a bubble
+  with a name and an empty body — and, in the display-only path, copy/retry on a reply that
+  hadn't happened. The bubble now shows a built-in indicator while it is in flight with nothing
+  in it: animated dots (CSS, so no per-token work, themable via `--aparte-waiting-*`, and
+  already covered by the reduced-motion rule) plus a screen-reader label taken from
+  `locale.typing` — a string that shipped in `DEFAULT_LOCALE` and was read by nothing until now.
+
+  No wiring: it works in raw `<aparte-chat>`, in the four wrappers, and in a hand-rolled loop.
+  `<aparte-chat-status>` / `isTyping` stay **your** channel for your own status ("indexing your
+  files"), which is why they are not auto-driven.
+
+  New export **`isAwaitingReply(message)`** — the one rule core and all four wrappers now share
+  for "is this bubble in flight". Besides `status: 'streaming' | 'pending'`, it also covers an
+  **assistant message with no `status` at all and nothing in it**: the empty shell a token stream
+  is about to fill. That case used to render as a finished reply, action bar included. Only
+  silence is interpreted — an explicit status, `'completed'` on an empty message included, is
+  believed.
+
+  If you deliberately append empty assistant bubbles that no stream will fill, give them an
+  explicit `status` (e.g. `'completed'`) or they will show the indicator.
+
+- [cda5f54](https://github.com/apartejs/aparte/commit/cda5f54): `<aparte-chat>` gained an **`attachments`** attribute: it adds the file picker
+  (`<aparte-composer-add-attachment>`) and the chips strip (`<aparte-composer-attachments>`)
+  to the default composition, in their canonical positions. It is reactive — toggling it
+  after mount inserts or removes the two primitives, and removing it also drops any file
+  already staged in the composer (keeping them would send files with nothing in the UI
+  showing them).
+
+  Nothing changes without the attribute: the default composition is still
+  `viewport + composer(input · send)`. Attachments are **opt-in** because the capability
+  needs a host that consumes the files — an `AparteClient` inlines them per its
+  `rawFileInject` option, but a hand-rolled loop has to read `event.detail.files` or the
+  user's file is dropped in silence. Composing your own composer? Keep dropping the two
+  primitives in wherever you want them, as before.
+
+- [e9909c6](https://github.com/apartejs/aparte/commit/e9909c6): New exported helper `filesToAttachments(files)`: turns the `File[]` an
+  `aparte-send` event carries into the `AparteAttachment[]` a bubble renders (id,
+  MIME type, object URL, and the raw `File` kept for storage adapters).
+
+  This conversion already existed inside `ConversationController`, so framework
+  wrappers had it — but a raw-core consumer driving `appendMessage()` itself had to
+  hand-roll object URLs, and silently rendered attachment-less bubbles if it
+  didn't (the vanilla playground did exactly that). The controller now uses the
+  same helper, so there is one implementation.
+
+#### Patch Changes
+
+- [358bc53](https://github.com/apartejs/aparte/commit/358bc53): `appendToSegment` no longer costs a full framework render per token. It used to
+  rebuild the message list and call `setMessages` + `onMessagesChange` on every
+  chunk — while the plain-text path (`appendToken` / `injectTokenStream`) wrote
+  straight into the bubble. Streaming a thinking block or a tool pill from a fast
+  local model was therefore unusable, and nothing in the imperative API hinted that
+  the two methods differed so much.
+
+  Chunks now go straight to the bubble as before-and-immediately, and the framework
+  state is synced **once per frame** (`requestAnimationFrame`, falling back to a
+  macrotask where it doesn't exist). Any structural change — a new segment, a new
+  message, a conversation swap — flushes the buffer first, so ordering is never
+  observable. Consumers that wrote their own rAF batcher around this can drop it.
+
+  The JSDoc and the "Bring your own loop" guide also state what was undocumented:
+  segments and `content` are mutually exclusive at render time.
+
+- [801622a](https://github.com/apartejs/aparte/commit/801622a): Swapping a branch no longer conjures a scroll-to-bottom button on a transcript you are
+  already at the bottom of, and no longer drops you away from the bottom while the new version
+  renders.
+
+  Two things were wrong. `navigateBranch` turned auto-follow **off** unconditionally so a
+  rebuild wouldn't yank a reader who had scrolled up — but doing that to a reader who was at
+  the bottom left them behind (a rebuild's height flickers: measured at 1730 → 1934 → 1730px
+  on the React wrapper as the swapped-in bubble renders and settles) and, since the button
+  mirrored that flag, offered them a scroll to nowhere. It now keeps auto-follow when you were
+  at the bottom, and only disables it when you weren't.
+
+  And the button stopped mirroring the flag at all: it asks the geometry ("is anything below
+  the fold?") on every scroll and on every post-mutation frame. The flag is intent, the button
+  is a fact; mirroring one with the other made it lie whenever they diverged. This was most
+  visible in the four wrappers, where the post-swap re-derive never ran (the framework owns the
+  DOM, so that code path returned early), but the flag could go stale in raw core too.
+
+- [0d4945f](https://github.com/apartejs/aparte/commit/0d4945f): Two attachment-rendering fixes in the message bubble:
+
+  - **Alignment**: a user message's attachment strip was anchored to the trailing
+    edge while the user bubble hugs its text on the leading edge — one message
+    split across both sides of the transcript (a chip on the right, the text
+    bubble on the left). The strip now shares the bubble's edge.
+  - **Standalone `appendMessage()`**: the viewport created the bubble from
+    attributes only, silently dropping the message's `attachments`, `segments`
+    and `usage`. It now runs the same `populateBubbleFromMessage` sync the
+    framework-managed path uses, so an imperatively appended message renders in
+    full (bring-your-own-loop consumers were getting text-only bubbles).
+
+- [de57a6a](https://github.com/apartejs/aparte/commit/de57a6a): Fix a pending assistant bubble showing its action bar (copy/retry) and no busy
+  state in every framework wrapper. A wrapper creates `<aparte-chat-bubble>` with
+  its attributes already set, so `streaming` arrived _before_ the element rendered
+  its inner DOM — and `_updateStreaming()` had no `.aparte-message` to write to, so
+  `data-streaming`, `aria-busy="true"` and the class that hides the footer were
+  silently dropped for the whole turn. The state is now re-applied when the inner
+  DOM is built.
+
+  Visible effect: an empty, still-streaming reply no longer offers Copy/Retry, and
+  screen readers get `aria-busy` while the answer is being generated.
+
+- [af5ed3d](https://github.com/apartejs/aparte/commit/af5ed3d): `@aparte/core` now declares `sideEffects` (it was the only one of the 14 packages
+  without it, so bundlers had to treat every module as side-effectful and could not
+  tree-shake it). The browser entry and the CSS are listed as effectful — they define
+  the custom elements — and everything else, including the DOM-free Node entry, is
+  pure.
+
+  The README gains a **Node / SSR** section: the `node` export condition, what the
+  server entry keeps (client, host, transports, `createAparteChatHandler`, runtime,
+  types) and what it drops (the custom elements, with `registerAllComponents()` a safe
+  no-op). The capability already existed and was invisible — reading `src/index.ts`
+  shows the _browser_ entry, which is how a consumer concludes the opposite.
+
+- [2336bc5](https://github.com/apartejs/aparte/commit/2336bc5): A partial `AparteIconProvider` no longer breaks the bubble action bar. `getIcon()`
+  always fell back to the built-in SVGs for icons a provider didn't implement, but
+  `getIconProvider()` — what the action bar reads, calling each icon directly —
+  handed back the registered provider verbatim, so a provider covering only some
+  icons threw `icons.retry is not a function`. It now returns a complete set,
+  falling back per icon.
+
+  Consequently every key on `AparteIconProvider` is now optional, which is what the
+  runtime always supported (and what the interface's own example showed). Full
+  providers keep type-checking unchanged; partial ones stop needing `as any`.
+
+- [79b2795](https://github.com/apartejs/aparte/commit/79b2795): Accessibility fixes in `<aparte-select>` (and therefore the model selector), all
+  found by axe-core scanning an _open_ dropdown:
+
+  - the `listbox` role moved from the dropdown shell to the options container, so
+    the search field is no longer an invalid child of a listbox (critical);
+  - the `combobox` trigger now declares the `aria-controls` it is required to have,
+    and the listbox carries its own accessible name (critical / serious);
+  - `<aparte-optgroup>` names itself with `aria-labelledby` instead of putting
+    `aria-label` on its header div, which had turned a generic node into an invalid
+    listbox child (critical);
+  - the selected option no longer paints white text on the brass accent (≈3.4:1 in
+    light, worse in dark). It now uses an accent _tint_ plus an inset accent bar and
+    keeps the theme's text colour. `--aparte-select-option-selected` and
+    `--aparte-select-option-selected-text` still override both.
+
+  Known remaining gap: collapsing a provider group is pointer-only (the group
+  header is not focusable).
+
+- [9f839e4](https://github.com/apartejs/aparte/commit/9f839e4): Fix send routing when several chats share a page. `AparteClient._handleSend`
+  resolved the event's `targetId` by requiring `appendMessage` **on** that element,
+  but an `<aparte-chat>` shell owns no `appendMessage` — it delegates to its
+  `.viewport`. Every `target`-attributed send therefore logged a warning and fell
+  through to a DOM scan that returns the _first_ chat on the page, so with two
+  chats mounted one chat's reply rendered inside the other. Send now uses the same
+  resolver as retry/edit (which had already been fixed for this).
+
+- [80995ea](https://github.com/apartejs/aparte/commit/80995ea): `injectTokenStream` / `streamTokens` now keep the framework's message list in sync. They
+  pushed every token to the viewport and told the framework **nothing**: the DOM held the
+  reply while React/Vue/Svelte state still had `content: ''`. Anything re-rendering from state
+  wiped the visible answer, `getMessages()` lied, persistence saved an empty message — and a
+  custom bubble (`renderBubble`, driven by that state) showed nothing at all.
+
+  Same discipline as `appendToSegment`: each token reaches the bubble immediately, the state is
+  synced **once per frame**, and a flush is guaranteed before completion, on abort, and before
+  any structural change. Both stream channels now fold into a single list update, so a frame
+  carrying tokens _and_ segment chunks still costs one render. A stopped stream keeps what was
+  already streamed (truncated, not erased), and the sync targets the stream's own message id
+  rather than "the last message".
+
+- [118d4fb](https://github.com/apartejs/aparte/commit/118d4fb): Editing a message now updates the bubble that shows it. `AparteChatViewport`
+  forwarded an atomic `updateMessage()` to the rendered bubble only when the
+  payload carried `status` or `segments`, so an edit — which sends `{ content }` —
+  updated the message repo (and therefore the history sent to the model) while the
+  transcript kept displaying the old wording. `content`, `attachments` and `usage`
+  updates are forwarded too now.
+
+  Standalone/raw-core consumers were affected; framework wrappers re-render bubbles
+  from their own state, which masked it.
+
+### @aparte/engine
+
+#### Minor Changes
+
+- [fcacade](https://github.com/apartejs/aparte/commit/fcacade): `runStreamAgent` gained an optional **`onHistoryAppend`** hook: it reports every turn the loop
+  appends to the history — the grouped `tool_call` envelope, each `tool_result` (resolved or
+  rejected), and a pipeline phase's reply — in order, and always before the transport call that
+  would carry it. Messages you passed in `baseRequest` are never reported: you already have them.
+
+  This makes the loop usable by hosts that **own their own transcript**. It re-sends its message
+  array every turn, which fits a stateless message API but not a prefix cache (llama.cpp slots,
+  vLLM), where turn N+1 must _extend_ turn N byte for byte. Such a host already controlled the
+  request — `transportCall` may ignore `request.messages` — but had to reimplement the loop's
+  tool_call/tool_result bookkeeping to keep its own log in sync. Now it just mirrors the
+  notifications.
+
+  No core change is needed to use it through the `streamRunner` seam:
+  `streamRunner: (opts) => runStreamAgent({ ...opts, onHistoryAppend })`. Omitting the hook leaves
+  behaviour byte-identical — pinned by a test that compares the event stream and the per-turn
+  requests with and without it.
+
+### @aparte/provider-openai-compat
+
+#### Patch Changes
+
+- [8286e3f](https://github.com/apartejs/aparte/commit/8286e3f): Two provider contracts now say what they actually do.
+
+  `createOpenAICompatProvider` returns `AparteAIProvider & AparteFormatAdapter`. The
+  factory has always supplied `buildRequest` / `parseStream` / `authHeaders` /
+  `defaultEndpoint`, but the declared type left them optional (right for
+  `AparteAIProvider` in general, since a provider may own its I/O through `chat()`) —
+  so callers driving the adapter themselves had to add `!` or write a check that
+  cannot fail.
+
+  `@aparte/provider-transformers` warns once when it drops `tool_call` / `tool_result`
+  turns from the prompt. Tool calling is out of scope for v1, but the turns were
+  filtered silently: an app with registered tools got a model that never saw the call
+  or its result, with nothing to explain it.
+
+- [bebc201](https://github.com/apartejs/aparte/commit/bebc201): Usage is no longer lost on a turn that ends with a tool call. `parseStream` emitted
+  `done` and returned as soon as it saw `finish_reason: 'tool_calls'` — but under
+  `include_usage` (which `buildRequest` requests) the usage-only chunk arrives _after_
+  the finish chunk, so `done.usage` was `undefined` for every tool-call turn. On a chat
+  that goes unnoticed; on an agent it is most turns. The parser now emits the
+  `tool_use` events and keeps reading, so the single `done` carries the usage (including
+  `cacheReadTokens`).
+
+### @aparte/provider-transformers
+
+#### Patch Changes
+
+- [8286e3f](https://github.com/apartejs/aparte/commit/8286e3f): Two provider contracts now say what they actually do.
+
+  `createOpenAICompatProvider` returns `AparteAIProvider & AparteFormatAdapter`. The
+  factory has always supplied `buildRequest` / `parseStream` / `authHeaders` /
+  `defaultEndpoint`, but the declared type left them optional (right for
+  `AparteAIProvider` in general, since a provider may own its I/O through `chat()`) —
+  so callers driving the adapter themselves had to add `!` or write a check that
+  cannot fail.
+
+  `@aparte/provider-transformers` warns once when it drops `tool_call` / `tool_result`
+  turns from the prompt. Tool calling is out of scope for v1, but the turns were
+  filtered silently: an app with registered tools got a model that never saw the call
+  or its result, with nothing to explain it.
+
+### @aparte/angular
+
+#### Minor Changes
+
+- [0aa386e](https://github.com/apartejs/aparte/commit/0aa386e): **Behavior change:** the default composer shell no longer mounts the file picker. All four
+  wrappers gained an `attachments` prop (`false` by default) that adds
+  `<aparte-composer-add-attachment>` + `<aparte-composer-attachments>` back.
+
+  **Migration:** if your chat offers file attachments, add the prop —
+  `<AparteChat attachments />` (React/Svelte), `<AparteChat attachments />` /
+  `:attachments="true"` (Vue), `<aparte-chat attachments>` (Angular). Passing your own
+  `composer` is unaffected: you place the primitives yourself, as before.
+
+  Why: the picker was hard-coded in the four wrapper templates while core's own
+  `<aparte-chat>` default shell never had it — so "the default composer" meant two different
+  things depending on where you looked, and the docs described the wrong one. And the
+  capability is only real if the host consumes the files: an `AparteClient` inlines them per
+  its `rawFileInject` option, but an app driving its own loop must read `event.files` or the
+  file the user deliberately attached is dropped in silence, with the UI still showing it was
+  sent. Opting in is now that acknowledgement.
+
+#### Patch Changes
+
+- [50d90a8](https://github.com/apartejs/aparte/commit/50d90a8): **The waiting state now exists.** Between "user sends" and the first token there was a bubble
+  with a name and an empty body — and, in the display-only path, copy/retry on a reply that
+  hadn't happened. The bubble now shows a built-in indicator while it is in flight with nothing
+  in it: animated dots (CSS, so no per-token work, themable via `--aparte-waiting-*`, and
+  already covered by the reduced-motion rule) plus a screen-reader label taken from
+  `locale.typing` — a string that shipped in `DEFAULT_LOCALE` and was read by nothing until now.
+
+  No wiring: it works in raw `<aparte-chat>`, in the four wrappers, and in a hand-rolled loop.
+  `<aparte-chat-status>` / `isTyping` stay **your** channel for your own status ("indexing your
+  files"), which is why they are not auto-driven.
+
+  New export **`isAwaitingReply(message)`** — the one rule core and all four wrappers now share
+  for "is this bubble in flight". Besides `status: 'streaming' | 'pending'`, it also covers an
+  **assistant message with no `status` at all and nothing in it**: the empty shell a token stream
+  is about to fill. That case used to render as a finished reply, action bar included. Only
+  silence is interpreted — an explicit status, `'completed'` on an empty message included, is
+  believed.
+
+  If you deliberately append empty assistant bubbles that no stream will fill, give them an
+  explicit `status` (e.g. `'completed'`) or they will show the indicator.
+
+### @aparte/react
+
+#### Minor Changes
+
+- [0aa386e](https://github.com/apartejs/aparte/commit/0aa386e): **Behavior change:** the default composer shell no longer mounts the file picker. All four
+  wrappers gained an `attachments` prop (`false` by default) that adds
+  `<aparte-composer-add-attachment>` + `<aparte-composer-attachments>` back.
+
+  **Migration:** if your chat offers file attachments, add the prop —
+  `<AparteChat attachments />` (React/Svelte), `<AparteChat attachments />` /
+  `:attachments="true"` (Vue), `<aparte-chat attachments>` (Angular). Passing your own
+  `composer` is unaffected: you place the primitives yourself, as before.
+
+  Why: the picker was hard-coded in the four wrapper templates while core's own
+  `<aparte-chat>` default shell never had it — so "the default composer" meant two different
+  things depending on where you looked, and the docs described the wrong one. And the
+  capability is only real if the host consumes the files: an `AparteClient` inlines them per
+  its `rawFileInject` option, but an app driving its own loop must read `event.files` or the
+  file the user deliberately attached is dropped in silence, with the UI still showing it was
+  sent. Opting in is now that acknowledgement.
+
+#### Patch Changes
+
+- [50d90a8](https://github.com/apartejs/aparte/commit/50d90a8): **The waiting state now exists.** Between "user sends" and the first token there was a bubble
+  with a name and an empty body — and, in the display-only path, copy/retry on a reply that
+  hadn't happened. The bubble now shows a built-in indicator while it is in flight with nothing
+  in it: animated dots (CSS, so no per-token work, themable via `--aparte-waiting-*`, and
+  already covered by the reduced-motion rule) plus a screen-reader label taken from
+  `locale.typing` — a string that shipped in `DEFAULT_LOCALE` and was read by nothing until now.
+
+  No wiring: it works in raw `<aparte-chat>`, in the four wrappers, and in a hand-rolled loop.
+  `<aparte-chat-status>` / `isTyping` stay **your** channel for your own status ("indexing your
+  files"), which is why they are not auto-driven.
+
+  New export **`isAwaitingReply(message)`** — the one rule core and all four wrappers now share
+  for "is this bubble in flight". Besides `status: 'streaming' | 'pending'`, it also covers an
+  **assistant message with no `status` at all and nothing in it**: the empty shell a token stream
+  is about to fill. That case used to render as a finished reply, action bar included. Only
+  silence is interpreted — an explicit status, `'completed'` on an empty message included, is
+  believed.
+
+  If you deliberately append empty assistant bubbles that no stream will fill, give them an
+  explicit `status` (e.g. `'completed'`) or they will show the indicator.
+
+- [73ecd4e](https://github.com/apartejs/aparte/commit/73ecd4e): Fix the `aparte-*` JSX types under **React 19**. The wrapper declared its custom
+  elements only in the legacy _global_ `JSX` namespace, which React 19 no longer
+  consults (`React.JSX` replaced it) — so any React 19 consumer writing
+  `<aparte-composer-input />` (for instance to slot a custom composer) got
+  `TS2339: Property 'aparte-composer-input' does not exist on type
+'JSX.IntrinsicElements'`, despite the peer range advertising `^18 || ^19`. The
+  element list is now declared once and merged into both namespaces, so React 18
+  and 19 consumers both see it.
+
+  The blind spot is closed too: the package is developed against `@types/react` 19
+  (its own JSX would fail to compile without the augmentation), and the React
+  playground's typecheck — now part of the gate — covers the consumer-side case.
+
+### @aparte/svelte
+
+#### Minor Changes
+
+- [0aa386e](https://github.com/apartejs/aparte/commit/0aa386e): **Behavior change:** the default composer shell no longer mounts the file picker. All four
+  wrappers gained an `attachments` prop (`false` by default) that adds
+  `<aparte-composer-add-attachment>` + `<aparte-composer-attachments>` back.
+
+  **Migration:** if your chat offers file attachments, add the prop —
+  `<AparteChat attachments />` (React/Svelte), `<AparteChat attachments />` /
+  `:attachments="true"` (Vue), `<aparte-chat attachments>` (Angular). Passing your own
+  `composer` is unaffected: you place the primitives yourself, as before.
+
+  Why: the picker was hard-coded in the four wrapper templates while core's own
+  `<aparte-chat>` default shell never had it — so "the default composer" meant two different
+  things depending on where you looked, and the docs described the wrong one. And the
+  capability is only real if the host consumes the files: an `AparteClient` inlines them per
+  its `rawFileInject` option, but an app driving its own loop must read `event.files` or the
+  file the user deliberately attached is dropped in silence, with the UI still showing it was
+  sent. Opting in is now that acknowledgement.
+
+#### Patch Changes
+
+- [50d90a8](https://github.com/apartejs/aparte/commit/50d90a8): **The waiting state now exists.** Between "user sends" and the first token there was a bubble
+  with a name and an empty body — and, in the display-only path, copy/retry on a reply that
+  hadn't happened. The bubble now shows a built-in indicator while it is in flight with nothing
+  in it: animated dots (CSS, so no per-token work, themable via `--aparte-waiting-*`, and
+  already covered by the reduced-motion rule) plus a screen-reader label taken from
+  `locale.typing` — a string that shipped in `DEFAULT_LOCALE` and was read by nothing until now.
+
+  No wiring: it works in raw `<aparte-chat>`, in the four wrappers, and in a hand-rolled loop.
+  `<aparte-chat-status>` / `isTyping` stay **your** channel for your own status ("indexing your
+  files"), which is why they are not auto-driven.
+
+  New export **`isAwaitingReply(message)`** — the one rule core and all four wrappers now share
+  for "is this bubble in flight". Besides `status: 'streaming' | 'pending'`, it also covers an
+  **assistant message with no `status` at all and nothing in it**: the empty shell a token stream
+  is about to fill. That case used to render as a finished reply, action bar included. Only
+  silence is interpreted — an explicit status, `'completed'` on an empty message included, is
+  believed.
+
+  If you deliberately append empty assistant bubbles that no stream will fill, give them an
+  explicit `status` (e.g. `'completed'`) or they will show the indicator.
+
+### @aparte/vue
+
+#### Minor Changes
+
+- [0aa386e](https://github.com/apartejs/aparte/commit/0aa386e): **Behavior change:** the default composer shell no longer mounts the file picker. All four
+  wrappers gained an `attachments` prop (`false` by default) that adds
+  `<aparte-composer-add-attachment>` + `<aparte-composer-attachments>` back.
+
+  **Migration:** if your chat offers file attachments, add the prop —
+  `<AparteChat attachments />` (React/Svelte), `<AparteChat attachments />` /
+  `:attachments="true"` (Vue), `<aparte-chat attachments>` (Angular). Passing your own
+  `composer` is unaffected: you place the primitives yourself, as before.
+
+  Why: the picker was hard-coded in the four wrapper templates while core's own
+  `<aparte-chat>` default shell never had it — so "the default composer" meant two different
+  things depending on where you looked, and the docs described the wrong one. And the
+  capability is only real if the host consumes the files: an `AparteClient` inlines them per
+  its `rawFileInject` option, but an app driving its own loop must read `event.files` or the
+  file the user deliberately attached is dropped in silence, with the UI still showing it was
+  sent. Opting in is now that acknowledgement.
+
+#### Patch Changes
+
+- [50d90a8](https://github.com/apartejs/aparte/commit/50d90a8): **The waiting state now exists.** Between "user sends" and the first token there was a bubble
+  with a name and an empty body — and, in the display-only path, copy/retry on a reply that
+  hadn't happened. The bubble now shows a built-in indicator while it is in flight with nothing
+  in it: animated dots (CSS, so no per-token work, themable via `--aparte-waiting-*`, and
+  already covered by the reduced-motion rule) plus a screen-reader label taken from
+  `locale.typing` — a string that shipped in `DEFAULT_LOCALE` and was read by nothing until now.
+
+  No wiring: it works in raw `<aparte-chat>`, in the four wrappers, and in a hand-rolled loop.
+  `<aparte-chat-status>` / `isTyping` stay **your** channel for your own status ("indexing your
+  files"), which is why they are not auto-driven.
+
+  New export **`isAwaitingReply(message)`** — the one rule core and all four wrappers now share
+  for "is this bubble in flight". Besides `status: 'streaming' | 'pending'`, it also covers an
+  **assistant message with no `status` at all and nothing in it**: the empty shell a token stream
+  is about to fill. That case used to render as a finished reply, action bar included. Only
+  silence is interpreted — an explicit status, `'completed'` on an empty message included, is
+  believed.
+
+  If you deliberately append empty assistant bubbles that no stream will fill, give them an
+  explicit `status` (e.g. `'completed'`) or they will show the indicator.
+
+<sub>Version-only bumps (no changes of their own): `@aparte/provider-ai-sdk`, `@aparte/plugin-ask-question`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/locale-fr`.</sub>
+
 ## 0.3.0-alpha.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

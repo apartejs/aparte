@@ -1,5 +1,183 @@
 # @aparte/core
 
+## 0.4.0-alpha.0
+
+### Minor Changes
+
+- 50d90a8: **The waiting state now exists.** Between "user sends" and the first token there was a bubble
+  with a name and an empty body — and, in the display-only path, copy/retry on a reply that
+  hadn't happened. The bubble now shows a built-in indicator while it is in flight with nothing
+  in it: animated dots (CSS, so no per-token work, themable via `--aparte-waiting-*`, and
+  already covered by the reduced-motion rule) plus a screen-reader label taken from
+  `locale.typing` — a string that shipped in `DEFAULT_LOCALE` and was read by nothing until now.
+
+  No wiring: it works in raw `<aparte-chat>`, in the four wrappers, and in a hand-rolled loop.
+  `<aparte-chat-status>` / `isTyping` stay **your** channel for your own status ("indexing your
+  files"), which is why they are not auto-driven.
+
+  New export **`isAwaitingReply(message)`** — the one rule core and all four wrappers now share
+  for "is this bubble in flight". Besides `status: 'streaming' | 'pending'`, it also covers an
+  **assistant message with no `status` at all and nothing in it**: the empty shell a token stream
+  is about to fill. That case used to render as a finished reply, action bar included. Only
+  silence is interpreted — an explicit status, `'completed'` on an empty message included, is
+  believed.
+
+  If you deliberately append empty assistant bubbles that no stream will fill, give them an
+  explicit `status` (e.g. `'completed'`) or they will show the indicator.
+
+- cda5f54: `<aparte-chat>` gained an **`attachments`** attribute: it adds the file picker
+  (`<aparte-composer-add-attachment>`) and the chips strip (`<aparte-composer-attachments>`)
+  to the default composition, in their canonical positions. It is reactive — toggling it
+  after mount inserts or removes the two primitives, and removing it also drops any file
+  already staged in the composer (keeping them would send files with nothing in the UI
+  showing them).
+
+  Nothing changes without the attribute: the default composition is still
+  `viewport + composer(input · send)`. Attachments are **opt-in** because the capability
+  needs a host that consumes the files — an `AparteClient` inlines them per its
+  `rawFileInject` option, but a hand-rolled loop has to read `event.detail.files` or the
+  user's file is dropped in silence. Composing your own composer? Keep dropping the two
+  primitives in wherever you want them, as before.
+
+- e9909c6: New exported helper `filesToAttachments(files)`: turns the `File[]` an
+  `aparte-send` event carries into the `AparteAttachment[]` a bubble renders (id,
+  MIME type, object URL, and the raw `File` kept for storage adapters).
+
+  This conversion already existed inside `ConversationController`, so framework
+  wrappers had it — but a raw-core consumer driving `appendMessage()` itself had to
+  hand-roll object URLs, and silently rendered attachment-less bubbles if it
+  didn't (the vanilla playground did exactly that). The controller now uses the
+  same helper, so there is one implementation.
+
+### Patch Changes
+
+- 358bc53: `appendToSegment` no longer costs a full framework render per token. It used to
+  rebuild the message list and call `setMessages` + `onMessagesChange` on every
+  chunk — while the plain-text path (`appendToken` / `injectTokenStream`) wrote
+  straight into the bubble. Streaming a thinking block or a tool pill from a fast
+  local model was therefore unusable, and nothing in the imperative API hinted that
+  the two methods differed so much.
+
+  Chunks now go straight to the bubble as before-and-immediately, and the framework
+  state is synced **once per frame** (`requestAnimationFrame`, falling back to a
+  macrotask where it doesn't exist). Any structural change — a new segment, a new
+  message, a conversation swap — flushes the buffer first, so ordering is never
+  observable. Consumers that wrote their own rAF batcher around this can drop it.
+
+  The JSDoc and the "Bring your own loop" guide also state what was undocumented:
+  segments and `content` are mutually exclusive at render time.
+
+- 801622a: Swapping a branch no longer conjures a scroll-to-bottom button on a transcript you are
+  already at the bottom of, and no longer drops you away from the bottom while the new version
+  renders.
+
+  Two things were wrong. `navigateBranch` turned auto-follow **off** unconditionally so a
+  rebuild wouldn't yank a reader who had scrolled up — but doing that to a reader who was at
+  the bottom left them behind (a rebuild's height flickers: measured at 1730 → 1934 → 1730px
+  on the React wrapper as the swapped-in bubble renders and settles) and, since the button
+  mirrored that flag, offered them a scroll to nowhere. It now keeps auto-follow when you were
+  at the bottom, and only disables it when you weren't.
+
+  And the button stopped mirroring the flag at all: it asks the geometry ("is anything below
+  the fold?") on every scroll and on every post-mutation frame. The flag is intent, the button
+  is a fact; mirroring one with the other made it lie whenever they diverged. This was most
+  visible in the four wrappers, where the post-swap re-derive never ran (the framework owns the
+  DOM, so that code path returned early), but the flag could go stale in raw core too.
+
+- 0d4945f: Two attachment-rendering fixes in the message bubble:
+
+  - **Alignment**: a user message's attachment strip was anchored to the trailing
+    edge while the user bubble hugs its text on the leading edge — one message
+    split across both sides of the transcript (a chip on the right, the text
+    bubble on the left). The strip now shares the bubble's edge.
+  - **Standalone `appendMessage()`**: the viewport created the bubble from
+    attributes only, silently dropping the message's `attachments`, `segments`
+    and `usage`. It now runs the same `populateBubbleFromMessage` sync the
+    framework-managed path uses, so an imperatively appended message renders in
+    full (bring-your-own-loop consumers were getting text-only bubbles).
+
+- de57a6a: Fix a pending assistant bubble showing its action bar (copy/retry) and no busy
+  state in every framework wrapper. A wrapper creates `<aparte-chat-bubble>` with
+  its attributes already set, so `streaming` arrived _before_ the element rendered
+  its inner DOM — and `_updateStreaming()` had no `.aparte-message` to write to, so
+  `data-streaming`, `aria-busy="true"` and the class that hides the footer were
+  silently dropped for the whole turn. The state is now re-applied when the inner
+  DOM is built.
+
+  Visible effect: an empty, still-streaming reply no longer offers Copy/Retry, and
+  screen readers get `aria-busy` while the answer is being generated.
+
+- af5ed3d: `@aparte/core` now declares `sideEffects` (it was the only one of the 14 packages
+  without it, so bundlers had to treat every module as side-effectful and could not
+  tree-shake it). The browser entry and the CSS are listed as effectful — they define
+  the custom elements — and everything else, including the DOM-free Node entry, is
+  pure.
+
+  The README gains a **Node / SSR** section: the `node` export condition, what the
+  server entry keeps (client, host, transports, `createAparteChatHandler`, runtime,
+  types) and what it drops (the custom elements, with `registerAllComponents()` a safe
+  no-op). The capability already existed and was invisible — reading `src/index.ts`
+  shows the _browser_ entry, which is how a consumer concludes the opposite.
+
+- 2336bc5: A partial `AparteIconProvider` no longer breaks the bubble action bar. `getIcon()`
+  always fell back to the built-in SVGs for icons a provider didn't implement, but
+  `getIconProvider()` — what the action bar reads, calling each icon directly —
+  handed back the registered provider verbatim, so a provider covering only some
+  icons threw `icons.retry is not a function`. It now returns a complete set,
+  falling back per icon.
+
+  Consequently every key on `AparteIconProvider` is now optional, which is what the
+  runtime always supported (and what the interface's own example showed). Full
+  providers keep type-checking unchanged; partial ones stop needing `as any`.
+
+- 79b2795: Accessibility fixes in `<aparte-select>` (and therefore the model selector), all
+  found by axe-core scanning an _open_ dropdown:
+
+  - the `listbox` role moved from the dropdown shell to the options container, so
+    the search field is no longer an invalid child of a listbox (critical);
+  - the `combobox` trigger now declares the `aria-controls` it is required to have,
+    and the listbox carries its own accessible name (critical / serious);
+  - `<aparte-optgroup>` names itself with `aria-labelledby` instead of putting
+    `aria-label` on its header div, which had turned a generic node into an invalid
+    listbox child (critical);
+  - the selected option no longer paints white text on the brass accent (≈3.4:1 in
+    light, worse in dark). It now uses an accent _tint_ plus an inset accent bar and
+    keeps the theme's text colour. `--aparte-select-option-selected` and
+    `--aparte-select-option-selected-text` still override both.
+
+  Known remaining gap: collapsing a provider group is pointer-only (the group
+  header is not focusable).
+
+- 9f839e4: Fix send routing when several chats share a page. `AparteClient._handleSend`
+  resolved the event's `targetId` by requiring `appendMessage` **on** that element,
+  but an `<aparte-chat>` shell owns no `appendMessage` — it delegates to its
+  `.viewport`. Every `target`-attributed send therefore logged a warning and fell
+  through to a DOM scan that returns the _first_ chat on the page, so with two
+  chats mounted one chat's reply rendered inside the other. Send now uses the same
+  resolver as retry/edit (which had already been fixed for this).
+- 80995ea: `injectTokenStream` / `streamTokens` now keep the framework's message list in sync. They
+  pushed every token to the viewport and told the framework **nothing**: the DOM held the
+  reply while React/Vue/Svelte state still had `content: ''`. Anything re-rendering from state
+  wiped the visible answer, `getMessages()` lied, persistence saved an empty message — and a
+  custom bubble (`renderBubble`, driven by that state) showed nothing at all.
+
+  Same discipline as `appendToSegment`: each token reaches the bubble immediately, the state is
+  synced **once per frame**, and a flush is guaranteed before completion, on abort, and before
+  any structural change. Both stream channels now fold into a single list update, so a frame
+  carrying tokens _and_ segment chunks still costs one render. A stopped stream keeps what was
+  already streamed (truncated, not erased), and the sync targets the stream's own message id
+  rather than "the last message".
+
+- 118d4fb: Editing a message now updates the bubble that shows it. `AparteChatViewport`
+  forwarded an atomic `updateMessage()` to the rendered bubble only when the
+  payload carried `status` or `segments`, so an edit — which sends `{ content }` —
+  updated the message repo (and therefore the history sent to the model) while the
+  transcript kept displaying the old wording. `content`, `attachments` and `usage`
+  updates are forwarded too now.
+
+  Standalone/raw-core consumers were affected; framework wrappers re-render bubbles
+  from their own state, which masked it.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes
