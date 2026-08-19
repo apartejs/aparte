@@ -19,6 +19,19 @@ export interface AparteChatImperativeApi {
     addSegment: (segment: AparteSegment) => void;
     updateSegment: (segmentId: string, updates: Partial<AparteSegment>) => void;
     removeSegment: (segmentId: string) => void;
+    /**
+     * Append text to a segment of the last message — the streaming path for a
+     * thinking block, a tool pill, or any segment that grows token by token.
+     *
+     * Each chunk is written straight into the bubble, and the framework's message
+     * list is synced **once per frame** rather than per chunk, so streaming a
+     * segment costs about one render per frame instead of one per token.
+     *
+     * Note that segments and `content` are mutually exclusive at render time: as
+     * soon as a message has segments the bubble hides its plain `content`, so a
+     * message driven by `injectTokenStream` (which writes `content`) can't also show
+     * a `thinking` segment — put the text in a segment of its own instead.
+     */
     appendToSegment: (segmentId: string, content: string) => void;
     getMessages: () => AparteMessage[];
     clearMessages: () => void;

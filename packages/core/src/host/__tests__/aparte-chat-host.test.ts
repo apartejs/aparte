@@ -40,6 +40,7 @@ function makeHarness() {
 
     const vpApi = {
         appendToken: vi.fn(),
+        appendToSegment: vi.fn(),
         completeMessage: vi.fn(),
         addBranch: vi.fn(() => 1),
         addSiblingOf: vi.fn(() => 'sib-id'),
@@ -250,5 +251,77 @@ describe('AparteChatHost', () => {
         h.teardown();
         h.host.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'z' } }));
         expect(h.ctl.streamingId).toBeNull();
+    });
+
+    // ─── appendToSegment: cost, not just correctness ─────────────────────────
+    // Streaming a thinking block or a tool pill goes through appendToSegment, which
+    // used to rebuild the whole message list and call setMessages +
+    // onMessagesChange on EVERY chunk — one full framework render per token, where
+    // the token path (appendToken) writes straight into the bubble. At 60 tok/s on a
+    // local model that is unusable, and nothing in the API hints at the difference.
+    describe('appendToSegment coalescing', () => {
+        function withFakeFrames() {
+            const frames: FrameRequestCallback[] = [];
+            const raf = vi.spyOn(window, 'requestAnimationFrame')
+                .mockImplementation((cb: FrameRequestCallback) => { frames.push(cb); return frames.length; });
+            return { frames, raf, flush: () => { const due = [...frames]; frames.length = 0; due.forEach((cb) => cb(0)); } };
+        }
+
+        function harnessWithSegment() {
+            const h = makeHarness();
+            h.ctl.appendMessage(msg('m1', 'assistant', { segments: [seg('s1')] }));
+            h.emitted.change.length = 0; // ignore the append's own sync
+            return h;
+        }
+
+        it('pushes every chunk to the bubble but syncs framework state once per frame', () => {
+            const frames = withFakeFrames();
+            const h = harnessWithSegment();
+
+            h.ctl.appendToSegment('s1', 'a');
+            h.ctl.appendToSegment('s1', 'b');
+            h.ctl.appendToSegment('s1', 'c');
+
+            // The user sees each chunk immediately: the host pushed all three
+            // through the viewport's direct path (which writes into the bubble in
+            // place — covered by the viewport's own tests)…
+            expect(h.vpApi.appendToSegment).toHaveBeenCalledTimes(3);
+            expect(h.vpApi.appendToSegment).toHaveBeenLastCalledWith('m1', 's1', 'c');
+            // …while the framework has not been asked to re-render yet.
+            expect(h.emitted.change).toHaveLength(0);
+
+            frames.flush();
+            expect(h.emitted.change).toHaveLength(1);
+            const synced = h.emitted.change[0]?.[0]?.segments?.[0] as { content: string };
+            expect(synced.content, 'the coalesced sync carries every chunk').toBe('abc');
+            frames.raf.mockRestore();
+        });
+
+        it('flushes pending chunks before a structural change, preserving order', () => {
+            const frames = withFakeFrames();
+            const h = harnessWithSegment();
+
+            h.ctl.appendToSegment('s1', 'partial');
+            // A new segment arrives before the frame fired: the buffered text must
+            // land first, or the state would show the new segment with a stale one.
+            h.ctl.addSegment(seg('s2', 'next'));
+
+            const last = h.emitted.change.at(-1)?.[0]?.segments ?? [];
+            expect(last.map((s) => s.id)).toEqual(['s1', 's2']);
+            expect((last[0] as { content: string }).content).toBe('partial');
+            frames.raf.mockRestore();
+        });
+
+        it('leaves the framework state equal to what the bubble received', () => {
+            const frames = withFakeFrames();
+            const h = harnessWithSegment();
+
+            for (const chunk of ['1', '2', '3', '4']) h.ctl.appendToSegment('s1', chunk);
+            frames.flush();
+
+            const stateContent = (h.getMessages()[0]?.segments?.[0] as { content: string }).content;
+            expect(stateContent).toBe('1234');
+            frames.raf.mockRestore();
+        });
     });
 });

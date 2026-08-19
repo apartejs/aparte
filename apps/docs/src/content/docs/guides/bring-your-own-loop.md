@@ -85,6 +85,26 @@ no `AparteClient` in the page, nothing consumes them for you: a loop that forwar
 ```
 :::
 
+## Richer replies: segments instead of plain text
+
+`injectTokenStream` writes plain text into a message's `content`. For a thinking block,
+a tool pill or anything the bubble renders as a typed block, stream **segments** instead:
+
+```ts
+chat.ref.current?.addSegment({ id: 'think-1', type: 'thinking', content: '' });
+for await (const chunk of reasoning) chat.ref.current?.appendToSegment('think-1', chunk);
+```
+
+`appendToSegment` writes each chunk straight into the bubble and syncs the framework's
+message list once per frame, so a fast local model costs roughly one render per frame
+rather than one per token — you don't need your own batching layer.
+
+:::note[Segments and `content` don't mix]
+As soon as a message has segments, the bubble stops rendering its plain `content`. So a
+message you filled with `injectTokenStream` can't also show a `thinking` segment — give
+the answer its own `text` segment if you need both in one message.
+:::
+
 ## Push-based sources: the queue adapter
 
 `injectTokenStream` *pulls* from an iterable, but IPC-style sources *push* events at you
