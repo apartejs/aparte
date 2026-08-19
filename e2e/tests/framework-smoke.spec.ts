@@ -99,6 +99,13 @@ test('a sent message streams a reply, ordered after the user bubble, with the se
 });
 
 test('the transcript scrolls once messages overflow', async ({ page }) => {
+    // The only test here that drives SEVEN full turns; under WebKit + all six dev
+    // servers in parallel it was measured at 41s against a 45s default, and failed
+    // intermittently on whichever webkit project happened to be scheduled last.
+    // `slow()` triples the budget instead of trimming turns (fewer turns might not
+    // overflow the viewport, which is the whole assertion).
+    test.slow();
+
     const chat = new ChatPage(page);
     await page.goto('/');
 
