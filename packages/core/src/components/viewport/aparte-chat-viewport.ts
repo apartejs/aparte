@@ -90,9 +90,31 @@ export class AparteChatViewport extends HTMLElement {
         this._setupObservers();
         this._boundResetHandler = () => this.clearAll();
         window.addEventListener('aparte-reset', this._boundResetHandler);
+        window.addEventListener('aparte-config-change', this._onConfigChange);
+    }
+
+    /**
+     * A locale switch changes the reading direction, and `dir` was applied once at
+     * render — so a chat already on screen never flipped to RTL until a reload.
+     * Only OUR config: an instance-scoped change elsewhere must not touch us.
+     */
+    private _onConfigChange = (e: Event): void => {
+        const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
+        if (detail?.config && detail.config !== resolveConfig(this)) return;
+        this._applyDirection();
+    };
+
+    /** Mirror `locale.direction` onto the scroll container. */
+    private _applyDirection(): void {
+        const container = this.querySelector('.aparte-viewport-container');
+        if (!container) return;
+        const direction = resolveConfig(this).getLocale().direction;
+        if (direction) container.setAttribute('dir', direction);
+        else container.removeAttribute('dir');
     }
 
     disconnectedCallback(): void {
+        window.removeEventListener('aparte-config-change', this._onConfigChange);
         if (this._boundResetHandler) {
             window.removeEventListener('aparte-reset', this._boundResetHandler);
             this._boundResetHandler = null;
