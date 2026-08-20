@@ -115,7 +115,29 @@ export class AparteChatBubble extends HTMLElement {
     const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
     if (detail?.config && detail.config !== this._cfg) return;
     this._updateActionBar();
+    // Everything else the locale writes. A language switch is documented as live
+    // ("mounted components re-render immediately"), and rebuilding only the action
+    // bar delivered half of it: the labels changed language while the NAME still
+    // read "You" and the branch arrows kept their old `aria-label` — a bilingual
+    // bubble, fixed only by a reload (which rebuilds the element).
+    this._updateName();
+    this._updateLocalizedLabels();
+    this._updateWaiting();
   };
+
+  /**
+   * Re-apply the locale strings written straight into the markup by `_render()` —
+   * the accessible names a screen reader reads, which nothing else refreshes.
+   */
+  private _updateLocalizedLabels(): void {
+    const locale = this._cfg.getLocale();
+    const set = (selector: string, label: string): void => {
+      this.querySelector(selector)?.setAttribute('aria-label', label);
+    };
+    set('.aparte-branch-prev', locale.previousResponse ?? 'Previous response');
+    set('.aparte-branch-next', locale.nextResponse ?? 'Next response');
+    set('.aparte-action-bar', locale.messageActions ?? 'Message actions');
+  }
 
   /**
    * Config governing this bubble: the instance config of the nearest

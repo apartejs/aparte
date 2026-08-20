@@ -55,6 +55,11 @@ export class AparteConversationList extends HTMLElement {
             this.setAttribute('role', 'navigation');
         }
         this._render();
+        window.addEventListener('aparte-config-change', this._onConfigChange);
+    }
+
+    disconnectedCallback(): void {
+        window.removeEventListener('aparte-config-change', this._onConfigChange);
     }
 
     attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -64,6 +69,17 @@ export class AparteConversationList extends HTMLElement {
             this._updateActiveState();
         }
     }
+
+    /**
+     * Re-render on a locale switch: every row's title fallback and both button
+     * labels come from the locale, so without this the list stayed in the previous
+     * language until something else happened to re-render it. Only OUR config.
+     */
+    private _onConfigChange = (e: Event): void => {
+        const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
+        if (detail?.config && detail.config !== resolveConfig(this)) return;
+        this._render();
+    };
 
     // ─── Public API ───────────────────────────────────────────────────────
 
