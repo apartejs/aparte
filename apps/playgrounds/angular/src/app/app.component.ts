@@ -1,6 +1,17 @@
 import { Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
 import { AparteChatComponent } from '@aparte/angular';
+import { AparteConfig, DEFAULT_LOCALE } from '@aparte/core';
 import { KEY_STORAGE, sendPrompt } from './aparte';
+
+// A real control, not a decoration: switching the locale renames the bubbles live
+// AND flips the reading direction, composer included. A showcase button that changed
+// nothing would break the library's own rule (#8) in the library's own showcase.
+const RTL_LOCALE = {
+    ...DEFAULT_LOCALE,
+    direction: 'rtl' as const,
+    roleNameUser: 'أنت',
+    roleNameAssistant: 'المساعد',
+};
 
 const CHIPS = [
     { label: 'What is aparté?', prompt: 'Explain what aparté is in one sentence.' },
@@ -37,6 +48,10 @@ const CHIPS = [
                         }
                     </div>
                 </div>
+                <!-- Two children, and the placement is the DOM order: the second one carries
+                     margin-inline-start:auto, which pushes it -- logically, so it follows
+                     the reading direction -- to the end of the row. -->
+                <button slot="toolbar" class="chip" (click)="toggleLocale()">{{ rtl() ? 'English' : 'العربية' }}</button>
                 <aparte-model-selector slot="toolbar" style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
             </aparte-chat>
         </div>
@@ -47,6 +62,13 @@ export class AppComponent {
     // the client on app init.
     protected readonly apiKey = signal(localStorage.getItem(KEY_STORAGE) ?? '');
     protected readonly chips = CHIPS;
+    protected readonly rtl = signal(false);
+
+    protected toggleLocale(): void {
+        this.rtl.set(!this.rtl());
+        if (this.rtl()) AparteConfig.setLocale(RTL_LOCALE);
+        else AparteConfig.resetLocale();
+    }
 
     protected onKey(value: string): void {
         this.apiKey.set(value);

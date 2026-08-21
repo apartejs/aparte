@@ -117,6 +117,15 @@ export class ChatPage {
         return this.scope.locator(`.segment-${type}`);
     }
 
+    /**
+     * The composer's bottom row. One element in every playground -- vanilla writes it
+     * by hand, the four wrappers render it from their `toolbar` slot -- which is the
+     * whole point of the element replacing three positional slots per wrapper.
+     */
+    get composerToolbar(): Locator {
+        return this.scope.locator('aparte-composer-toolbar').first();
+    }
+
     // ── model selector ──────────────────────────────────────────────────────
 
     get modelSelector(): Locator {

@@ -83,6 +83,7 @@ const MULTICHAT = /multi-chat\.spec\.ts/;
 const SEGMENTS = /segments\.spec\.ts/;
 const ATTACH = /attachments\.spec\.ts/;
 const SELECTOR = /model-selector\.spec\.ts/;
+const TOOLBAR = /composer-toolbar\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
 // The waiting-state contract (was `fixme` until the built-in indicator landed).
 const PENDING = /pending-state\.spec\.ts/;
@@ -102,9 +103,13 @@ const PENDING = /pending-state\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'demo-vanilla' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, ...DEEP] :
-    [SMOKE, REAL, AXE];
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, ...DEEP] :
+    // TOOLBAR runs on all five: it measures the same row rendered by five different
+    // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
+    // content projection). Parity is exactly what it is for, so it does not get the
+    // "prove it twice and trust the rest" treatment the deep suites get.
+    [SMOKE, REAL, AXE, TOOLBAR];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from

@@ -181,12 +181,11 @@ describe('AparteChat.svelte', () => {
         // above-composer renders before the composer element.
         expect(banner.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-        // A Svelte named slot projects the consumer's own wrapper element, so the row
-        // holds that node -- which is also the node that would carry the push to the end.
+        // Projected with `svelte:fragment`, so the two nodes are DIRECT children of the
+        // row -- same shape as React and Vue, and the DOM order IS the placement.
         const toolbar = composer.querySelector('aparte-composer-toolbar')!;
         expect(toolbar).not.toBeNull();
-        expect(toolbar.querySelector('.mode')?.textContent).toBe('mode');
-        expect(toolbar.querySelector('.model')?.textContent).toBe('model');
+        expect([...toolbar.children].map((c) => c.className)).toEqual(['mode', 'model']);
     });
 
     it('renders no toolbar element at all when the slot is unused', () => {
