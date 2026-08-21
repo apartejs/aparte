@@ -1,0 +1,7 @@
+# Everything here is public documentation.
+User-agent: *
+Allow: /
+
+# The real reason this file exists: naming the sitemap. Crawlers assume "allowed"
+# without it, so the Allow line above is a courtesy, not the point.
+Sitemap: https://apartejs.dev/sitemap-index.xml

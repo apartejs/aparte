@@ -9,7 +9,8 @@
     "gen:engine-api": "node scripts/gen-engine-api.mjs",
     "gen:release-notes": "node scripts/gen-release-notes.mjs",
     "gen:wrapper-ref": "node scripts/gen-wrapper-ref.mjs",
-    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-release-notes.mjs && node scripts/gen-wrapper-ref.mjs",
+    "gen:llms": "node scripts/gen-llms-txt.mjs",
+    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-release-notes.mjs && node scripts/gen-wrapper-ref.mjs && node scripts/gen-llms-txt.mjs",
     "dev": "pnpm gen && astro dev",
     "build": "pnpm gen && astro build",
     "preview": "astro preview",
@@ -22,6 +23,8 @@
     "sharp": "^0.34.2"
   },
   "devDependencies": {
+    "astro-og-canvas": "^0.13.0",
+    "canvaskit-wasm": "^0.42.0",
     "typedoc": "^0.28.20",
     "typedoc-plugin-frontmatter": "^1.3.1",
     "typedoc-plugin-markdown": "^4.12.0"

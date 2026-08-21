@@ -25,6 +25,10 @@ export default defineConfig({
         { tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '48x48 32x32 16x16' } },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' } },
       ],
+      // Adds the `og:image` Starlight's own `twitter:card: summary_large_image`
+      // already asks for and never provided (see the component for why an override
+      // rather than a `head` entry).
+      components: { Head: './src/components/Head.astro' },
       customCss: ['./src/styles/palette.css', './src/styles/aparte-theme.css'],
       sidebar: [
         { label: 'Why aparté', link: '/why/' },
