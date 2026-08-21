@@ -50,6 +50,14 @@ describe('aparte-composer-toolbar', () => {
         expect(el.hasAttribute('data-empty')).toBe(true);
     });
 
+    it('is NOT empty when it holds bare text — a hand-written token count', () => {
+        // The rule is "no CONTENT", not "no element child". Someone writing the row by
+        // hand will put a plain number in it, and hiding that would be inexplicable.
+        const el = mount('1 240 tokens');
+
+        expect(el.hasAttribute('data-empty')).toBe(false);
+    });
+
     it('declares itself empty when it holds only a comment — framework anchors', () => {
         const el = mount('<!-- ng-content -->');
 

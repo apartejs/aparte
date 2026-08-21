@@ -52,12 +52,17 @@ export class AparteComposerToolbar extends HTMLElement {
      *
      * Not `:empty` in CSS: that selector does not match an element holding a whitespace
      * text node, so a template that indents its content keeps the row — separator,
-     * padding and all — while it looks empty to the user. Every framework template does
-     * indent, and Angular's `<ng-content>` row did exactly this. An empty row must not
-     * draw its own separator (the same rule as an empty bubble action bar).
+     * padding and all — while it looks empty to the user. Every framework template
+     * indents. An empty row must not draw its own separator (the same rule as an empty
+     * bubble action bar).
+     *
+     * Non-whitespace TEXT counts as content, not just an element child: a hand-written
+     * row holding a bare token count (`<aparte-composer-toolbar>1 240 tokens</…>`) is
+     * not empty, and hiding it would be a twenty-minute mystery for whoever wrote it.
      */
     private _syncEmpty(): void {
-        if (this.firstElementChild) this.removeAttribute('data-empty');
+        const hasContent = Boolean(this.firstElementChild) || this.textContent?.trim() !== '';
+        if (hasContent) this.removeAttribute('data-empty');
         else this.setAttribute('data-empty', '');
     }
 }

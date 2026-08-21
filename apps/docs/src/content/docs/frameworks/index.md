@@ -27,3 +27,7 @@ provider (or none) in the [config](/providers/); the wrapper streams whatever's 
 - **[Vue](/frameworks/vue/)** — `@aparte/vue` (Vue 3.5+).
 - **[Svelte](/frameworks/svelte/)** — `@aparte/svelte` (Svelte 4).
 - **[Angular](/frameworks/angular/)** — `@aparte/angular` (Angular 19, standalone).
+
+All four expose the **same slots** — that is checked mechanically, not promised — each in
+its own idiom. The table of every slot with its four syntaxes side by side is generated from
+the wrapper source: [Wrapper slots](/reference/wrappers/).

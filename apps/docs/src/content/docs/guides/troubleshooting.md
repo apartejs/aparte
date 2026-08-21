@@ -146,6 +146,29 @@ Coming from 0.4.x and the buttons vanished? That's this change — one line brin
 The full table of what ships enabled and why is in
 [Customization](/guides/customization/#what-ships-enabled).
 
+## The composer toolbar isn't showing
+
+Three causes, in the order they happen.
+
+**You are passing `footerLeft` / `footerCenter` / `footerRight`.** They were removed: the
+three positional slots became one `toolbar`. In React that is a type error; in Vue, Svelte
+and Angular an unknown slot name renders **nothing, silently**, which is why this entry
+exists. Pass one `toolbar` and order your controls yourself — see
+[The composer toolbar](/guides/customization/#the-composer-toolbar).
+
+**The row is empty.** `<aparte-composer-toolbar>` reflects `data-empty` while it holds no
+content, and the stylesheet hides it then — an empty row must not draw its separator. Text
+counts as content, so a bare token count is fine; whitespace and comments do not. If you
+expected something in it and see nothing, inspect the element: `data-empty` present means
+your content never arrived (a mistyped slot name, or a framework that rendered nothing).
+
+**The row is there but unstyled, and your control sits at the start.** Then the stylesheet
+did not reach the page: an undefined-looking custom element falls back to `display: inline`,
+so there is no flex container and `margin-inline-start: auto` does nothing. Check that you
+import `@aparte/core/styles.css`, and — if you work in this repo — that
+`packages/core/dist/index.css` is current: it is a build output, so a stale one can be
+served after a build that reported success.
+
 ## Errors: `AparteError` / `AparteErrorCode`
 
 Every failure that reaches the UI — a bad request, a rate limit, a network drop, an
