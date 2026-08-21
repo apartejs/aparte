@@ -42,6 +42,15 @@ test('the toolbar renders, and its control is pushed to the end of the row', asy
     await expect(chat.composerToolbar).toHaveCount(1);
     await expect(chat.composerToolbar).not.toHaveAttribute('data-empty', '');
 
+    // The stylesheet REACHED the page. Checked first and named for what it is, because
+    // this is how the row actually broke once: the built `dist/index.css` on disk was
+    // stale (it is an nx cache output, so a `pnpm build` that "succeeds" can restore an
+    // older one), the rule was missing, and an unstyled custom element falls back to
+    // `display: inline` -- no flex container, no auto margin, the control back at the
+    // start. The geometry assertions below did fail, but they failed with two numbers
+    // that say nothing about the cause.
+    await expect(chat.composerToolbar).toHaveCSS('display', 'flex');
+
     // The discriminating measurement: with the auto margin the free space is all on
     // the START side. Drop the margin and the control sits at the start instead, which
     // flips both numbers — so this fails on exactly the regression it is here for.
