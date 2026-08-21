@@ -1,5 +1,6 @@
 import { resolveConfig, type AparteIconName } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /**
  * @element aparte-composer-action
@@ -69,7 +70,7 @@ export class AparteComposerAction extends HTMLElement {
         // `label` is a host-set attribute (often bound to dynamic/translated
         // text by the consumer) — escape before it lands in a double-quoted
         // attribute so a stray `"` can't break out and inject markup.
-        const label = this._escapeAttr(this.getAttribute('label') ?? '');
+        const label = escapeAttr(this.getAttribute('label') ?? '');
         const icon = this._resolveIcon(this.getAttribute('icon') ?? '');
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
@@ -116,9 +117,6 @@ export class AparteComposerAction extends HTMLElement {
     }
 
     /** Escape a value before it lands in a double-quoted HTML attribute. */
-    private _escapeAttr(str: string): string {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    }
 }
 
 if (!customElements.get('aparte-composer-action')) {

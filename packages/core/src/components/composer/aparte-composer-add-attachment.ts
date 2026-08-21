@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /**
  * @element aparte-composer-add-attachment
@@ -68,8 +69,8 @@ export class AparteComposerAddAttachment extends HTMLElement {
 
         this.innerHTML = `<button
             class="aparte-caa-button aparte-action-button"
-            aria-label="${label}"
-            title="${label}"
+            aria-label="${escapeAttr(label)}"
+            title="${escapeAttr(label)}"
             type="button"
             ${disabled ? 'disabled' : ''}
         >${icon}</button>`;

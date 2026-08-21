@@ -23,24 +23,12 @@ import type {
 // see config-context.ts. `contextConfig()` with no element = ambient or global.
 import { contextConfig } from '../config/index.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
+import { escapeHtml, escapeAttr } from '../utils/escape.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
-function escapeHtml(str: string): string {
-    let out = '';
-    for (let i = 0; i < str.length; i++) {
-        const ch = str[i];
-        if (ch === '&') out += '&amp;';
-        else if (ch === '<') out += '&lt;';
-        else if (ch === '>') out += '&gt;';
-        else if (ch === '"') out += '&quot;';
-        else if (ch === "'") out += '&#039;';
-        else out += ch;
-    }
-    return out;
-}
 
 /**
  * Strip leading/trailing markdown code fences (``` or ~~~, optional lang tag).
@@ -311,7 +299,7 @@ const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                     ? `<span class="code-filename">${escapeHtml(segment.filename)}</span>`
                     : `<span class="code-header-filler"></span>`}
                 <span class="code-language">${escapeHtml(segment.language || '')}</span>
-                <button class="code-copy" data-action="copy" title="${contextConfig().t('copy')}">
+                <button class="code-copy" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}">
                     ${contextConfig().getIcon('copy')}
                 </button>
             </div>
@@ -387,9 +375,9 @@ const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
                     ${segment.isRunning
             ? `<span class="terminal-running"><span class="spinner"></span>${contextConfig().t('running')}</span>`
             : contextConfig().getHostHandlers().terminalRun
-                ? `<button class="terminal-run-btn" data-action="run" aria-label="${contextConfig().t('run')}" title="${contextConfig().t('run')}">${contextConfig().t('run')}</button>`
+                ? `<button class="terminal-run-btn" data-action="run" aria-label="${escapeAttr(contextConfig().t('run'))}" title="${escapeAttr(contextConfig().t('run'))}">${contextConfig().t('run')}</button>`
                 : ''}
-                    <button class="terminal-copy-btn" data-action="copy" aria-label="${contextConfig().t('copy')}" title="${contextConfig().t('copy')}">
+                    <button class="terminal-copy-btn" data-action="copy" aria-label="${escapeAttr(contextConfig().t('copy'))}" title="${escapeAttr(contextConfig().t('copy'))}">
                         ${contextConfig().getIcon('copy')}
                     </button>
                 </div>
@@ -568,7 +556,7 @@ const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             ? `<span class="tool-pill-spinner" aria-hidden="true"></span>`
             : '';
         return `
-            <div class="segment segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${status}">
+            <div class="segment segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}">
                 <span class="tool-pill">
                     <span class="tool-pill-icon">${contextConfig().getIcon('tool')}</span>
                     <span class="tool-pill-name">${escapeHtml(name)}</span>
@@ -764,7 +752,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                         ${isStreaming ? '<span class="aparte-art-card__pulse" aria-label="Streaming"></span>' : ''}
                     </div>
                     <div class="aparte-art-card__actions">
-                        <button type="button" class="aparte-art-card__btn" data-action="copy" title="${contextConfig().t('copy')}" aria-label="Copy">
+                        <button type="button" class="aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="Copy">
                             ${contextConfig().getIcon('copy')}
                         </button>
                         <button type="button" class="aparte-art-card__btn" data-action="download" title="Download" aria-label="Download" ${isStreaming ? 'disabled' : ''}>
@@ -1640,19 +1628,6 @@ function downloadTextArtifact(segment: AparteArtifactSegment): void {
 
 // ─── Char-based helpers (no regex) ───────────────────────────────────────────
 
-function escapeAttr(s: string): string {
-    let out = '';
-    for (let i = 0; i < s.length; i++) {
-        const ch = s[i];
-        if (ch === '&') out += '&amp;';
-        else if (ch === '"') out += '&quot;';
-        else if (ch === '<') out += '&lt;';
-        else if (ch === '>') out += '&gt;';
-        else if (ch === "'") out += '&#039;';
-        else out += ch;
-    }
-    return out;
-}
 
 function slugifyForFilename(text: string): string {
     const lower = text.trim().toLowerCase();

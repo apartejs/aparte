@@ -16,6 +16,7 @@
 
 import {
     AparteConfig,
+    escapeAttr,
     resolveConfig,
     type AparteConfigClass,
     AparteSelect,
@@ -38,11 +39,10 @@ interface ProviderModels {
  * and both flow through `innerHTML` when the option list is (re)built.
  */
 function esc(value: unknown): string {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    // Coerce, then delegate: core owns the escaping. This local copy used to
+    // inline it and, like two of its eight siblings across the scope, left the
+    // apostrophe through — enough to break out of a single-quoted attribute.
+    return escapeAttr(String(value ?? ''));
 }
 
 export class AparteModelSelector extends HTMLElement {

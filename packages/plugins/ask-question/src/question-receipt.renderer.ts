@@ -1,4 +1,5 @@
 import type { AparteSegmentRenderer } from '@aparte/core';
+import { escapeAttr } from '@aparte/core';
 
 export interface QuestionReceiptSegment {
     id: string;
@@ -8,13 +9,9 @@ export interface QuestionReceiptSegment {
     answer: string;
 }
 
-function esc(s: string): string {
-    return s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// Core owns the escaping; this alias keeps the call sites short. The inlined
+// copy that used to live here left the apostrophe through.
+const esc = escapeAttr;
 
 export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegment> = {
     type: 'question-receipt',

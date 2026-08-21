@@ -69,6 +69,8 @@ describe('@aparte/core public API', () => {
             "defaultSanitizer",
             "deriveArtifactKind",
             "detachConfig",
+            "escapeAttr",
+            "escapeHtml",
             "filesToAttachments",
             "getSegmentRenderer",
             "isAwaitingReply",

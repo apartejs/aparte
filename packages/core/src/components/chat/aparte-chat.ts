@@ -1,5 +1,6 @@
 import type { AparteChatViewport } from '../viewport/aparte-chat-viewport.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /**
  * AparteChat - The Shell
@@ -114,7 +115,7 @@ export class AparteChat extends HTMLElement {
     // time (no event), so it must be on the element in the initial markup.
     const placeholder = this.getAttribute('placeholder');
     const composerAttrs =
-      (placeholder !== null ? ` placeholder="${this._escapeAttr(placeholder)}"` : '') +
+      (placeholder !== null ? ` placeholder="${escapeAttr(placeholder)}"` : '') +
       (this.hasAttribute('disabled') ? ' disabled' : '');
 
     // Attachments are opt-in: the picker only makes sense when the host consumes
@@ -198,9 +199,6 @@ export class AparteChat extends HTMLElement {
     this.toggleAttribute('data-empty', empty);
   }
 
-  private _escapeAttr(value: string): string {
-    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  }
 }
 
 // Register the custom element

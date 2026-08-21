@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /**
  * @element aparte-composer-input
@@ -139,7 +140,7 @@ export class AparteComposerInput extends HTMLElement {
         // `placeholder` may come straight from a host attribute (often bound to
         // dynamic/translated text) — escape before it lands in a double-quoted
         // attribute so a stray `"` can't break out and inject markup.
-        const placeholder = this._escapeAttr(this._getPlaceholder());
+        const placeholder = escapeAttr(this._getPlaceholder());
 
         this.innerHTML = `<div
             class="aparte-ci-editor"
@@ -317,9 +318,6 @@ export class AparteComposerInput extends HTMLElement {
     }
 
     /** Escape a value before it lands in a double-quoted HTML attribute. */
-    private _escapeAttr(str: string): string {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    }
 }
 
 if (!customElements.get('aparte-composer-input')) {

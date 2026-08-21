@@ -12,6 +12,7 @@
  */
 
 import { resolveConfig } from '../../config/index.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -146,8 +147,8 @@ export class AparteConversationList extends HTMLElement {
     class="aparte-conv-item__archive"
     type="button"
     data-archive-id="${escapedId}"
-    data-archive-action="${archiveAction}"
-    aria-label="${archiveAriaLabel}"
+    data-archive-action="${escapeAttr(archiveAction)}"
+    aria-label="${escapeAttr(archiveAriaLabel)}"
     tabindex="0"
   >${archiveIcon}</button>
   <button

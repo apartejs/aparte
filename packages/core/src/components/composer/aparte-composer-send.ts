@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /**
  * @element aparte-composer-send
@@ -54,8 +55,8 @@ export class AparteComposerSend extends HTMLElement {
 
         this.innerHTML = `<button
             class="aparte-cs-button aparte-send-button"
-            aria-label="${label}"
-            title="${label}"
+            aria-label="${escapeAttr(label)}"
+            title="${escapeAttr(label)}"
             ${disabled ? 'disabled' : ''}
         >${icon}</button>`;
 

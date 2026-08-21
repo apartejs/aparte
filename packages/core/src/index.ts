@@ -168,6 +168,13 @@ export { filesToAttachments } from './utils/files-to-attachments.js';
 // Is a message waiting for a reply? Shared by the viewport, the four wrappers and
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';
+
+// HTML escaping — one implementation for the whole scope. Exported because the
+// plugins render their own HTML (they cannot reach into core's internals) and
+// because a consumer writing a render hook needs it for exactly the same reason.
+// Nine private copies existed before this line; three of them had drifted to
+// escape only four of the five characters that matter.
+export { escapeHtml, escapeAttr } from './utils/escape.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';

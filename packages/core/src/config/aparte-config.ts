@@ -26,6 +26,7 @@ import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandl
 import type { ConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
+import { escapeHtml } from '../utils/escape.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
 export type AparteHighlightProvider =
@@ -1017,13 +1018,13 @@ export class AparteConfigClass {
 
     private _defaultMarkdownRenderer(raw: string): string {
         // Simple security: Escape HTML tags
-        const escaped = this._escapeHtml(raw);
+        const escaped = escapeHtml(raw);
         // Convert newlines to breaks
         return escaped.replace(/\n/g, '<br>');
     }
 
     private _defaultHighlightRenderer(code: string): string {
-        return `<pre><code>${this._escapeHtml(code)}</code></pre>`;
+        return `<pre><code>${escapeHtml(code)}</code></pre>`;
     }
 
     private _defaultSkeletonRenderer(type: AparteSkeletonType): string {
@@ -1040,14 +1041,6 @@ export class AparteConfigClass {
         return fallbacks[type] || fallbacks.text;
     }
 
-    private _escapeHtml(text: string): string {
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import {
 } from '../conversations/conversation-controller.js';
 import type { AparteConfigClass } from '../config/aparte-config.js';
 import { attachConfig, detachConfig } from '../config/config-context.js';
+import { cssEscape } from '../utils/css-escape.js';
 
 /**
  * Imperative slice of `<aparte-chat-bubble>` the host mutates directly during
@@ -691,7 +692,7 @@ export class AparteChatHost {
         const vp = this.binding.viewport;
         if (!vp) return null;
         return vp.querySelector(
-            `aparte-chat-bubble[message-id="${id}"]`,
+            `aparte-chat-bubble[message-id="${cssEscape(id)}"]`,
         ) as unknown as StreamingBubble | null;
     }
 
