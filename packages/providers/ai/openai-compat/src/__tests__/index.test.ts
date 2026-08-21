@@ -317,3 +317,65 @@ describe('parseOpenAICompatStream', () => {
         expect(events.filter(e => e.type === 'done')).toHaveLength(1);
     });
 });
+
+// One complete SSE frame (a `data:` line terminated by a blank line).
+const SSE_PARTIAL = `data: {"choices":[{"delta":{"content":"Partial"}}]}
+
+`;
+
+describe('parseOpenAICompatStream — the caller aborts', () => {
+    /**
+     * An abort is a deliberate stop, not a stream failure. Reporting it as an
+     * `error` event makes the agent loop throw, and the loop's error handler
+     * replaces the message segments — erasing the answer the user was reading.
+     * ai-sdk already ends quietly here; this provider must agree, because it is
+     * the one every playground and every doc snippet uses.
+     */
+    it('ends quietly instead of emitting an error event', async () => {
+        const controller = new AbortController();
+        const upstream = new ReadableStream<Uint8Array>({
+            start(c) {
+                c.enqueue(new TextEncoder().encode(SSE_PARTIAL));
+                // The fetch body rejects with AbortError once the signal fires.
+                controller.signal.addEventListener('abort', () => {
+                    c.error(Object.assign(new Error('The user aborted a request.'), { name: 'AbortError' }));
+                });
+            },
+        });
+
+        const events: AparteStreamEvent[] = [];
+        const reader = parseOpenAICompatStream(upstream).getReader();
+        const first = await reader.read();
+        if (first.value) events.push(first.value);
+
+        controller.abort();
+
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) events.push(value);
+        }
+
+        expect(events.filter(e => e.type === 'text')).toHaveLength(1);
+        expect(
+            events.filter(e => e.type === 'error'),
+            'an aborted stream must not surface as an error event',
+        ).toHaveLength(0);
+    });
+
+    it('still reports a genuine stream failure as an error event', async () => {
+        const upstream = new ReadableStream<Uint8Array>({
+            start(c) { c.error(new Error('socket hang up')); },
+        });
+
+        const events: AparteStreamEvent[] = [];
+        const reader = parseOpenAICompatStream(upstream).getReader();
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) events.push(value);
+        }
+
+        expect(events.filter(e => e.type === 'error')).toHaveLength(1);
+    });
+});

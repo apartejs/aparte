@@ -460,7 +460,13 @@ export class AparteClient {
         this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
         try {
             const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
-            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
+            // A turn the user stopped already announced itself as `aborted` from
+            // inside the loop. Announcing `done` on top of it would report a
+            // deliberate stop as a normal completion — which is what a provider
+            // that ends quietly on abort (ai-sdk) used to produce.
+            if (!this._isAborted) {
+                this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
+            }
         } catch (error: unknown) {
             const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
             this._handleLifecycleError(targetElement, messageId, aparteError);
@@ -1619,22 +1625,35 @@ export class AparteClient {
             // Tool calls emitted during this turn
             const toolCallsThisTurn: AparteToolCall[] = [];
 
+            // Honor abort INSIDE the SSE event loop too (not only between tool-call
+            // turns). Without this, late events buffered after an `aparte-abort`
+            // (e.g. after the user switches conversation mid-stream) keep mutating
+            // the target's last message — which may now belong to a different
+            // conversation, causing the user message in the new conv to be
+            // overwritten by the assistant reply from the old one.
+            //
+            // Checked on BOTH sides of the read, and that is the whole point: the
+            // loop spends nearly all of its time parked on `reader.read()`, so an
+            // abort arriving while parked — the user pressing Stop while watching
+            // text stream, i.e. the only case that actually happens — is invisible
+            // to a check that only runs before the await. Checking after the read
+            // also covers both shapes a provider can take on abort: an `error`
+            // event (openai-compat) or a quiet close (ai-sdk). Miss it and the
+            // error branch throws, `_handleLifecycleError` REPLACES `segments`,
+            // and the answer the user was reading is erased and blamed on a fault.
+            const bailOnAbort = (): boolean => {
+                if (!this._isAborted) return false;
+                try { void reader.cancel(); } catch { /* best effort */ }
+                this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                continueLoop = false;
+                return true;
+            };
+
             try {
                 while (true) {
-                    // Honor abort INSIDE the SSE event loop too (not only between
-                    // tool-call turns). Without this, late events buffered after
-                    // a `aparte-abort` (e.g. after the user switches conversation
-                    // mid-stream) keep mutating the target's last message — which
-                    // may now belong to a different conversation, causing the
-                    // user message in the new conv to be overwritten by the
-                    // assistant reply from the old one.
-                    if (this._isAborted) {
-                        try { void reader.cancel(); } catch { /* best effort */ }
-                        this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
-                        continueLoop = false;
-                        break;
-                    }
+                    if (bailOnAbort()) break;
                     const { done, value: event } = await reader.read();
+                    if (bailOnAbort()) break;
                     if (done) break;
 
                     switch (event.type) {

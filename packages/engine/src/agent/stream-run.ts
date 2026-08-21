@@ -266,18 +266,28 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         let precedingText = '';
         const toolCallsThisTurn: StreamToolCall[] = [];
 
-        // ── inner (SSE) loop — manual iteration so we can abort before each read
+        // ── inner (SSE) loop — manual iteration so we can abort around each read.
+        // Checked on BOTH sides of the read, and the second check is the one that
+        // matters: the loop spends nearly all of its time parked on `next()`, so an
+        // abort arriving while parked — the user pressing Stop while watching text
+        // stream — is invisible to a check that only runs before the await. It also
+        // covers both shapes a provider takes on abort: an `error` event or a quiet
+        // close. Without it the `error` branch below throws and the caller reports a
+        // deliberate stop as a failure. Mirrors `_streamLoop`'s `bailOnAbort`.
         const iterator = response[Symbol.asyncIterator]();
+        const bailOnAbort = async (): Promise<boolean> => {
+            if (!signal.aborted) return false;
+            await iterator.return?.(undefined);
+            emitter({ type: 'run-aborted' });
+            continueLoop = false;
+            return true;
+        };
         try {
             while (true) {
-                if (signal.aborted) {
-                    await iterator.return?.(undefined);
-                    emitter({ type: 'run-aborted' });
-                    continueLoop = false;
-                    break;
-                }
+                if (await bailOnAbort()) break;
 
                 const step = await iterator.next();
+                if (await bailOnAbort()) break;
                 if (step.done) break;
                 const event = step.value;
 

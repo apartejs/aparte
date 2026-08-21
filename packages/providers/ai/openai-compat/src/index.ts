@@ -377,7 +377,15 @@ export function parseOpenAICompatStream(
                 }
                 controller.enqueue({ type: 'done', usage: capturedUsage });
             } catch (err: unknown) {
-                controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
+                // AbortError surfaces here when the caller's signal fires mid-stream:
+                // the consumer (agent loop) cancelled on purpose — end quietly, the
+                // same way the ai-sdk provider does. Reporting it as an `error` event
+                // makes a deliberate Stop indistinguishable from a network failure,
+                // and the loop's error branch then replaces the streamed answer with
+                // an error bubble.
+                if ((err as { name?: string } | undefined)?.name !== 'AbortError') {
+                    controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
+                }
             } finally {
                 reader?.releaseLock();
                 reader = null;
