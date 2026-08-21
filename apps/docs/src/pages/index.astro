@@ -13,6 +13,26 @@ import '../styles/landing.css';
       name="description"
       content="A framework-agnostic AI-chat library — vanilla web components, zero runtime dependencies. Drop it into React, Vue, Svelte, Angular, or nothing at all."
     />
+    <link rel="canonical" href="https://apartejs.dev/" />
+
+    <!-- This page is an Astro page, not a Starlight one, so it inherits none of the head
+         Starlight builds: it had NO Open Graph at all, while being the most-shared URL of
+         the site. Every link to it rendered as a bare line of text in Slack, Discord,
+         LinkedIn and X. The card itself is generated at build time like every docs page's
+         (src/pages/og/), so this stays a list of pointers, not a second design. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="aparté" />
+    <meta property="og:title" content="aparté — framework-agnostic AI chat" />
+    <meta property="og:description" content="A framework-agnostic AI-chat library — vanilla web components, zero runtime dependencies. Drop it into React, Vue, Svelte, Angular, or nothing at all." />
+    <meta property="og:url" content="https://apartejs.dev/" />
+    <meta property="og:image" content="https://apartejs.dev/og/index.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="aparté — framework-agnostic AI chat" />
+    <meta name="twitter:description" content="A framework-agnostic AI-chat library — vanilla web components, zero runtime dependencies. Drop it into React, Vue, Svelte, Angular, or nothing at all." />
+    <meta name="twitter:image" content="https://apartejs.dev/og/index.png" />
     <!-- This page is `/`, which is where a crawler looks for the site's icon — so the
          links live here too, not only in the Starlight config (that one covers the
          docs pages). SVG for browsers, .ico as the raster search engines prefer. -->

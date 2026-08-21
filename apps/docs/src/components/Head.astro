@@ -1,0 +1,28 @@
+---
+/*
+ * Starlight's own <Head>, plus the card it already promises.
+ *
+ * Starlight sets `twitter:card: summary_large_image` on every page — a request for a wide
+ * image — and shipped no `og:image` to satisfy it. The card rendered EMPTY, which reads
+ * worse than declaring nothing at all: the platform reserves the space and shows a blank.
+ *
+ * The image URL is derived from the page's own id, so it matches the route generated in
+ * `src/pages/og/[...slug].ts`. A component override rather than a `head` entry in the
+ * config, because a config entry is one constant for the whole site — every link would
+ * share the same picture, which is the failure this is meant to fix.
+ */
+import Default from '@astrojs/starlight/components/Head.astro';
+import type { Props } from '@astrojs/starlight/props';
+import { ogSlug } from '../lib/og-slug';
+
+const { entry } = Astro.locals.starlightRoute as Props;
+
+// The same rule the generating route uses — see src/lib/og-slug.ts for why it is shared.
+const image = new URL(`/og/${ogSlug(entry.id)}.png`, Astro.site).href;
+---
+
+<Default><slot /></Default>
+<meta property="og:image" content={image} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:image" content={image} />
