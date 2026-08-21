@@ -230,6 +230,9 @@ A second slot sits **between the transcript and the composer** — `aboveCompose
 `above-composer` elsewhere — for a banner, a suggestion row or a disclaimer. Same rule:
 nothing is rendered until you fill it.
 
+The full list, with every framework's syntax side by side, is generated from the wrapper
+source: [Wrapper slots](/reference/wrappers/).
+
 :::note[Upgrading from footerLeft / footerCenter / footerRight]
 Those three are gone. Pass one `toolbar` instead and order your controls yourself; a
 control that used to be in the right-hand slot gets `margin-inline-start: auto`. The
