@@ -32,6 +32,12 @@ blob-report/
 # Claude Code local state — NEVER commit
 .claude/
 
+# Per-agent copies of the charter. CLAUDE.md is the one tracked source; a second
+# copy (AGENTS.md and friends) drifts the moment a ratified decision is added, and
+# one already rode into a commit by accident. Keep yours locally, out of the repo.
+AGENTS.md
+.codex/
+
 # Editors
 .idea/
 .vscode/*
