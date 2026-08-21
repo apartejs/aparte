@@ -100,6 +100,11 @@ silently** while the UI suggests they were sent. When you do handle them,
 `filesToAttachments(files)` turns them into the `attachments` your user bubble renders.
 :::
 
+Your own controls go **in** the composer, not in a bar below the chat: the toolbar row takes
+a mode picker, a model selector or a token counter. Driving the loop yourself is exactly the
+case where you have such controls — see
+[The composer toolbar](/guides/customization/#the-composer-toolbar).
+
 ## Richer replies: segments instead of plain text
 
 `injectTokenStream` writes plain text into a message's `content`. For a thinking block,

@@ -43,7 +43,9 @@ The user's message is appended to the thread **automatically** on send — don't
 `@message-sent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
 a backend call).
 
-Slots are named slots: `empty-state`, `composer`, `above-composer`, `footer-left/center/right`, and
+Slots are named slots: `empty-state`, `composer`, `above-composer`,
+`toolbar` (the composer's bottom row — mode picker, model selector: see
+[The composer toolbar](/guides/customization/#the-composer-toolbar) for an example), and
 the scoped `bubble` slot (`#bubble="{ message }"`) for a fully custom bubble. The imperative handle
 (`chat.chatRef`) exposes streaming, branch/edit and `scrollToBottom` — also available as plain
 methods straight off the `chat` object.

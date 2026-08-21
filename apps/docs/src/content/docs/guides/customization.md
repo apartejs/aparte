@@ -166,6 +166,77 @@ order, whatever the flags say. Naming a button in a per-role list *is* declaring
 Defaults are readable at runtime — `DEFAULT_BUBBLE_ACTIONS` and `DEFAULT_HOST_HANDLERS` are
 exported from `@aparte/core`, so you never hard-code them.
 
+## The composer toolbar
+
+The composer has a **bottom row** — the strip a mode picker, a model selector or a token
+counter belongs in, rather than a bar of your own floating below the chat. It is an
+element, `<aparte-composer-toolbar>`, and it is the same name in vanilla and in every
+wrapper.
+
+**Placement is the DOM order.** There is no left/center/right slot: put your controls in
+the order you want them, and push one — with everything after it — to the end with
+`margin-inline-start: auto`. That is a *logical* property, so the row reads correctly in a
+right-to-left locale without you doing anything: the composer mirrors the locale's reading
+direction onto itself, and the push follows.
+
+The row is **not** part of the default `<aparte-chat>` shell. Nothing is drawn until you
+put something in it, and an empty row draws no separator either.
+
+```html
+<aparte-chat center-empty style="height: 600px">
+  <aparte-chat-viewport></aparte-chat-viewport>
+
+  <aparte-composer>
+    <div class="aparte-composer-shell">
+      <div class="aparte-composer-row">
+        <aparte-composer-input style="flex: 1"></aparte-composer-input>
+        <aparte-composer-send></aparte-composer-send>
+      </div>
+
+      <aparte-composer-toolbar>
+        <my-mode-picker></my-mode-picker>
+        <aparte-model-selector style="margin-inline-start: auto"></aparte-model-selector>
+      </aparte-composer-toolbar>
+    </div>
+  </aparte-composer>
+</aparte-chat>
+```
+
+(`<aparte-model-selector>` comes from
+[`@aparte/plugin-model-selector`](/plugins/model-selector/); anything of yours works just
+as well.)
+
+The wrappers render the element for you as soon as you fill their **one** `toolbar` slot:
+
+```tsx
+<AparteChat
+  messages={chat.messages}
+  onMessagesChange={chat.setMessages}
+  toolbar={<>
+    <ModePicker value={mode} onChange={setMode} />
+    <ModelSelector style={{ marginInlineStart: 'auto' }} />
+  </>}
+/>
+```
+
+| Wrapper | How you fill it |
+| --- | --- |
+| React | `toolbar={…}` |
+| Vue | `<template #toolbar>` |
+| Svelte | `<svelte:fragment slot="toolbar">` — a fragment projects several nodes with no wrapper element |
+| Angular | `slot="toolbar"` on each projected node |
+
+A second slot sits **between the transcript and the composer** — `aboveComposer` in React,
+`above-composer` elsewhere — for a banner, a suggestion row or a disclaimer. Same rule:
+nothing is rendered until you fill it.
+
+:::note[Upgrading from footerLeft / footerCenter / footerRight]
+Those three are gone. Pass one `toolbar` instead and order your controls yourself; a
+control that used to be in the right-hand slot gets `margin-inline-start: auto`. The
+positional names could not survive a right-to-left locale, and no other chat library
+exposes them — MUI X and Loquix both call this row the toolbar too.
+:::
+
 ## The waiting state
 
 While a reply is in flight and the bubble has nothing in it yet, the bubble shows a

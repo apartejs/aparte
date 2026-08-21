@@ -44,7 +44,10 @@ The user's message is appended to the thread **automatically** on send — don't
 `on:messageSent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
 a backend call).
 
-Slots are named slots: `empty-state`, `composer`, `above-composer`, `footer-left/center/right`, and
+Slots are named slots: `empty-state`, `composer`, `above-composer`,
+`toolbar` (the composer's bottom row — mode picker, model selector: see
+[The composer toolbar](/guides/customization/#the-composer-toolbar) for an example; use
+`<svelte:fragment slot="toolbar">` to project several nodes), and
 the `bubble` slot (`<div slot="bubble" let:message>`) for a fully custom bubble. Every imperative
 method (streaming, branch/edit, `scrollToBottom`) is mirrored on the `chat` store and reachable via
 `bind:this`.

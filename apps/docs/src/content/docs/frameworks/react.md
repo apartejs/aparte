@@ -40,7 +40,9 @@ The user's message is appended to the thread **automatically** on send — don't
 `onMessageSent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
 a backend call).
 
-Slots are plain props: `emptyState`, `composer`, `aboveComposer`, `footerLeft/Center/Right`, and
+Slots are plain props: `emptyState`, `composer`, `aboveComposer`,
+`toolbar` (the composer's bottom row — mode picker, model selector: see
+[The composer toolbar](/guides/customization/#the-composer-toolbar) for an example), and
 `renderBubble` for a fully custom bubble — driven by the reactive `messages` list, so re-render
 from `message.content` / `message.segments` and it streams live ([details](/guides/customization/#custom-bubbles)).
 The imperative handle (`chat.ref`) exposes streaming, branch/edit and `scrollToBottom`.
