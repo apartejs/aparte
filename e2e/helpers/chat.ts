@@ -163,6 +163,15 @@ export class ChatPage {
             await group.locator('.aparte-optgroup-header').first().click();
         }
         await expect(group.locator('aparte-option').first()).toBeVisible();
+        // Expanding a group starts a LAZY per-provider model fetch, and when it lands
+        // the selector rebuilds EVERY option element (`optionsContainer.innerHTML =
+        // …`). Returning while that is in flight left each caller racing a full
+        // re-render: the keyboard highlight is re-anchored onto a brand-new element,
+        // which mints a fresh `aparte-option-N` id — so any id read before the
+        // refresh is dead, on a highlight that never actually moved. That is the
+        // model-selector flake, reproduced. The group carries `loading` for the
+        // duration of the fetch; wait it out. Nothing lazy to load → already 0.
+        await expect(this.modelSelector.locator('aparte-optgroup[loading]')).toHaveCount(0);
         return group;
     }
 
