@@ -75,15 +75,40 @@ test('arrow keys move the active option and Enter selects it', async ({ page }) 
     await chat.openModelList();
 
     // A roving highlight, mirrored into aria-activedescendant for screen readers.
-    await page.keyboard.press('ArrowDown');
-    const active = chat.modelSelector.locator('aparte-option[data-active]');
-    await expect(active).toHaveCount(1);
-    const firstActiveId = await active.getAttribute('id');
-    await expect(chat.modelTrigger).toHaveAttribute('aria-activedescendant', firstActiveId ?? '');
+    //
+    // Read both halves in ONE DOM snapshot. The ids are minted per ELEMENT
+    // (`aparte-option-N`, on first activation), and the selector may rebuild every
+    // option element under us — so an id read a round-trip earlier can name an
+    // element that no longer exists while the highlight sits, correctly, on its
+    // replacement. Comparing the two reads reported an inconsistency that never
+    // existed. The invariant is what matters: the announced id IS the highlighted
+    // option's.
+    const highlight = () => chat.modelSelector.evaluate((selector) => {
+        const active = Array.from(selector.querySelectorAll('aparte-option[data-active]'));
+        const trigger = selector.querySelector('.aparte-select-trigger');
+        return {
+            count: active.length,
+            id: (active[0] as HTMLElement | undefined)?.id ?? null,
+            label: active[0]?.textContent?.trim() ?? null,
+            announced: trigger?.getAttribute('aria-activedescendant') ?? null,
+        };
+    });
 
     await page.keyboard.press('ArrowDown');
-    const secondActiveId = await chat.modelSelector.locator('aparte-option[data-active]').getAttribute('id');
-    expect(secondActiveId).not.toBe(firstActiveId);
+    await expect.poll(async () => {
+        const h = await highlight();
+        return h.count === 1 && h.id !== null && h.announced === h.id ? 'announced' : JSON.stringify(h);
+    }, { message: 'aria-activedescendant must name the one highlighted option' }).toBe('announced');
+
+    // ArrowDown moves the highlight to another MODEL. Compared by label, not by id:
+    // a rebuild re-mints the id of the very same position, so an id change proves
+    // nothing and an id match is not the contract.
+    const first = await highlight();
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(async () => {
+        const h = await highlight();
+        return h.label === first.label ? `still on "${h.label}"` : 'moved';
+    }, { message: 'ArrowDown must move the highlight off the first option' }).toBe('moved');
 
     await page.keyboard.press('Enter');
     await expect(chat.modelDropdown).toBeHidden();
