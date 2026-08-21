@@ -1,5 +1,24 @@
 import { AparteConfig, AparteConfigClass } from '../config/aparte-config.js';
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
+
+const XML_OPEN_TAG = '<artifact';
+
+/**
+ * Length of the longest suffix of text that is a PROPER prefix of the artifact
+ * open tag (0 when there is none). The angle bracket and the tag name are
+ * separate tokens in most vocabularies, so a delta ending mid-tag is routine;
+ * without this the fragment is emitted as chat text and the artifact loses its
+ * whole lifecycle.
+ *
+ * Mirrors partialOpenTagLength in the engine artifact-xml state machine.
+ */
+function partialXmlOpenTagLength(text: string): number {
+    const max = Math.min(text.length, XML_OPEN_TAG.length - 1);
+    for (let k = max; k > 0; k--) {
+        if (text.endsWith(XML_OPEN_TAG.slice(0, k))) return k;
+    }
+    return 0;
+}
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { assertNever } from '../utils/assert-never.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
@@ -456,7 +475,13 @@ export class AparteClient {
             baseRequest = { ...baseRequest, tools: undefined };
         }
 
-        this._isAborted = false;
+        // Stopped while we were resolving auth or reading attachments: the stream
+        // controller did not exist yet, so `abort()` had nothing to cancel — the
+        // flag is the only trace, and it must not be thrown away here.
+        if (this._isAborted) {
+            this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+            return;
+        }
         this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
         try {
             const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
@@ -637,6 +662,13 @@ export class AparteClient {
 
     private async _handleRetry(event: CustomEvent): Promise<void> {
         const { messageId, targetId } = event.detail ?? {};
+        // A fresh user action clears a previous turn's abort, the same way the
+        // `aparte-send` handler does. It has to happen HERE, at the start of the
+        // action, rather than inside `_streamTurn` — which runs after the auth and
+        // file-reading awaits, so a reset there erased an abort that arrived while
+        // the user was still waiting for a large attachment to be read.
+        this._isAborted = false;
+
         if (!messageId) return;
 
         const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
@@ -699,6 +731,13 @@ export class AparteClient {
      */
     private async _handleEdit(event: CustomEvent): Promise<void> {
         const { messageId, content: newContent, targetId } = event.detail ?? {};
+        // A fresh user action clears a previous turn's abort, the same way the
+        // `aparte-send` handler does. It has to happen HERE, at the start of the
+        // action, rather than inside `_streamTurn` — which runs after the auth and
+        // file-reading awaits, so a reset there erased an abort that arrived while
+        // the user was still waiting for a large attachment to be read.
+        this._isAborted = false;
+
         if (!messageId || newContent === undefined) return;
 
         const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
@@ -1098,49 +1137,52 @@ export class AparteClient {
         const { targetElement, messageId, textParser, streamingSegmentIds, artifactProgress, artifactXmlHint } = ctx;
         let remaining = delta;
 
+        // One emitter for chat text, used by all three exits below. There used to
+        // be two near-copies of this (one syncing the active segment, one not),
+        // and the back-out path added by the partial-tag fix would have made a
+        // third.
+        const emitChatText = (text: string): void => {
+            if (!text) return;
+            const r = textParser.parse(text);
+            for (const seg of r.segments) {
+                if (!streamingSegmentIds.has(seg.id)) {
+                    targetElement.addSegment?.(seg);
+                    streamingSegmentIds.add(seg.id);
+                } else if ('content' in seg) {
+                    targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
+                }
+            }
+            const active = textParser.getState().activeSegment;
+            if (active) {
+                if (!streamingSegmentIds.has(active.id)) {
+                    targetElement.addSegment?.(active);
+                    streamingSegmentIds.add(active.id);
+                } else {
+                    targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
+                }
+            } else if (!r.segments.length) {
+                if (targetElement.typeName) targetElement.typeName(text);
+                else targetElement.updateLastMessage?.(text, { append: true });
+            }
+        };
+
         while (remaining.length > 0) {
             if (xml.state === 'normal') {
-                const tagStart = remaining.indexOf('<artifact');
+                const tagStart = remaining.indexOf(XML_OPEN_TAG);
                 if (tagStart === -1) {
-                    // Pure chat text — route through normal text parser
-                    const r = textParser.parse(remaining);
-                    for (const seg of r.segments) {
-                        if (!streamingSegmentIds.has(seg.id)) {
-                            targetElement.addSegment?.(seg);
-                            streamingSegmentIds.add(seg.id);
-                        } else if ('content' in seg) {
-                            targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
-                        }
-                    }
-                    const active = textParser.getState().activeSegment;
-                    if (active) {
-                        if (!streamingSegmentIds.has(active.id)) {
-                            targetElement.addSegment?.(active);
-                            streamingSegmentIds.add(active.id);
-                        } else {
-                            targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
-                        }
-                    } else if (!r.segments.length) {
-                        if (targetElement.typeName) targetElement.typeName(remaining);
-                        else targetElement.updateLastMessage?.(remaining, { append: true });
+                    // No whole tag - but the delta may END on a piece of one.
+                    const held = partialXmlOpenTagLength(remaining);
+                    if (held > 0) {
+                        emitChatText(remaining.slice(0, remaining.length - held));
+                        xml.scanBuf = remaining.slice(remaining.length - held);
+                        xml.state = 'scanning';
+                    } else {
+                        emitChatText(remaining);
                     }
                     remaining = '';
                 } else {
                     // Emit chat text before the opening tag
-                    const before = remaining.slice(0, tagStart);
-                    if (before) {
-                        const r = textParser.parse(before);
-                        for (const seg of r.segments) {
-                            if (!streamingSegmentIds.has(seg.id)) {
-                                targetElement.addSegment?.(seg);
-                                streamingSegmentIds.add(seg.id);
-                            }
-                        }
-                        if (!r.segments.length && !textParser.getState().activeSegment) {
-                            if (targetElement.typeName) targetElement.typeName(before);
-                            else targetElement.updateLastMessage?.(before, { append: true });
-                        }
-                    }
+                    emitChatText(remaining.slice(0, tagStart));
                     xml.scanBuf = remaining.slice(tagStart);
                     remaining = '';
                     xml.state = 'scanning';
@@ -1149,6 +1191,15 @@ export class AparteClient {
                 // Accumulate until we have the full opening tag (ends with >)
                 xml.scanBuf += remaining;
                 remaining = '';
+                // Entered on a partial prefix that turns out to be a different tag
+                // (an <article> element, say): give the text back and return to normal.
+                const cmp = Math.min(xml.scanBuf.length, XML_OPEN_TAG.length);
+                if (xml.scanBuf.slice(0, cmp) !== XML_OPEN_TAG.slice(0, cmp)) {
+                    emitChatText(xml.scanBuf);
+                    xml.scanBuf = '';
+                    xml.state = 'normal';
+                    continue;
+                }
                 const gtIdx = xml.scanBuf.indexOf('>');
                 if (gtIdx !== -1) {
                     const tag = xml.scanBuf.slice(0, gtIdx + 1);
@@ -1651,12 +1702,16 @@ export class AparteClient {
                 return true;
             };
 
+            // Did the vendor stream reach its own end, or are we walking away from
+            // it? Only the second case needs a cancel (see the finally below).
+            let streamDrained = false;
+
             try {
                 while (true) {
                     if (bailOnAbort()) break;
                     const { done, value: event } = await reader.read();
                     if (bailOnAbort()) break;
-                    if (done) break;
+                    if (done) { streamDrained = true; break; }
 
                     switch (event.type) {
                         case 'thinking': {
@@ -1872,6 +1927,14 @@ export class AparteClient {
                 }
 
             } finally {
+                // Leaving before the stream ended on its own — a thrown error, a
+                // rejected tool, a per-tool turn limit — used to just release the
+                // lock, so the vendor happily kept generating (and billing) into a
+                // body nobody would ever read. Releasing a reader does not stop a
+                // stream; cancelling it does.
+                if (!streamDrained) {
+                    try { await reader.cancel(); } catch { /* best effort */ }
+                }
                 reader.releaseLock();
             }
         }

@@ -40,6 +40,19 @@ export type XmlArtifactEvent =
 
 const CLOSE_TAG = '</artifact>';
 const OPEN_TAG = '<artifact';
+
+/**
+ * Length of the longest suffix of `text` that is a PROPER prefix of `<artifact`
+ * (0 when there is none). Lets the machine hold `…<arti` back instead of
+ * emitting it as chat text and losing the artifact that follows it.
+ */
+function partialOpenTagLength(text: string): number {
+    const max = Math.min(text.length, OPEN_TAG.length - 1);
+    for (let k = max; k > 0; k--) {
+        if (text.endsWith(OPEN_TAG.slice(0, k))) return k;
+    }
+    return 0;
+}
 /** Artifacts under this many lines render inline (mirrors `lineCount < 15`). */
 const INLINE_MAX_LINES = 15;
 
@@ -105,7 +118,21 @@ export class ArtifactXmlStateMachine {
             if (this.state === 'normal') {
                 const tagStart = remaining.indexOf(OPEN_TAG);
                 if (tagStart === -1) {
-                    out.push({ type: 'chat-text', text: remaining });
+                    // No whole tag — but the delta may END on a piece of one. `<`
+                    // and `artifact` are separate tokens in most vocabularies, so
+                    // `<arti` closing a delta is routine, not exotic. Emitting it
+                    // as chat text loses the artifact entirely: the machine never
+                    // enters `scanning`, and the fallback path that then produces
+                    // the artifact emits no lifecycle events at all.
+                    const held = partialOpenTagLength(remaining);
+                    if (held > 0) {
+                        const before = remaining.slice(0, remaining.length - held);
+                        if (before) out.push({ type: 'chat-text', text: before, reduced: true });
+                        this.scanBuf = remaining.slice(remaining.length - held);
+                        this.state = 'scanning';
+                    } else {
+                        out.push({ type: 'chat-text', text: remaining });
+                    }
                     remaining = '';
                 } else {
                     const before = remaining.slice(0, tagStart);
@@ -118,6 +145,16 @@ export class ArtifactXmlStateMachine {
                 // Accumulate until we have the full opening tag (ends with `>`).
                 this.scanBuf += remaining;
                 remaining = '';
+                // We may have entered on a partial prefix that turns out to be a
+                // different tag (`<article>`). As soon as the buffer contradicts
+                // OPEN_TAG, give the text back and return to normal.
+                const cmp = Math.min(this.scanBuf.length, OPEN_TAG.length);
+                if (this.scanBuf.slice(0, cmp) !== OPEN_TAG.slice(0, cmp)) {
+                    out.push({ type: 'chat-text', text: this.scanBuf });
+                    this.scanBuf = '';
+                    this.state = 'normal';
+                    continue;
+                }
                 const gtIdx = this.scanBuf.indexOf('>');
                 if (gtIdx !== -1) {
                     const tag = this.scanBuf.slice(0, gtIdx + 1);
@@ -163,6 +200,15 @@ export class ArtifactXmlStateMachine {
      * `_streamLoop`'s finalize block (:1658-1669).
      */
     finalize(): XmlArtifactEvent[] {
+        // A stream that ends mid-tag — on a held `<arti`, or on an opening tag
+        // that never reached its `>` — must give that text back rather than
+        // swallow it. `scanBuf` is the only place it lives.
+        if (this.state === 'scanning') {
+            const text = this.scanBuf;
+            this.scanBuf = '';
+            this.state = 'normal';
+            return text ? [{ type: 'chat-text', text }] : [];
+        }
         if (this.state === 'in-artifact' && this.segId) {
             this.content += this.closeBuf;
             const inline = this.content.split('\n').length < INLINE_MAX_LINES;

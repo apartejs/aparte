@@ -113,3 +113,39 @@ describe('ArtifactXmlStateMachine', () => {
         expect(sm.finalize()).toEqual([]);
     });
 });
+
+describe('ArtifactXmlStateMachine — the opening tag arrives split', () => {
+    /**
+     * `<` and `artifact` are separate tokens in most vocabularies, so a provider
+     * routinely delivers `<arti` at the end of one delta and the rest in the next.
+     * `indexOf('<artifact')` misses that, the whole delta leaves as chat text, and
+     * the machine never enters `scanning` — so the artifact is produced by the
+     * fallback path, which emits no artifact lifecycle at all. Whether a
+     * consumer's artifact preview works then depends on where the tokenizer cut.
+     */
+    const chatText = (evts: XmlArtifactEvent[]) =>
+        evts.filter(e => e.type === 'chat-text').map(e => (e as { text: string }).text).join('');
+
+    it('recognises the artifact when the tag is split across deltas', () => {
+        const whole = run(['Sure!', '<artifact mimeType="text/html" title="T">', '<h1>x</h1>', '</artifact>']);
+        const split = run(['Sure!', '<arti', 'fact mimeType="text/html" title="T">', '<h1>x</h1>', '</artifact>']);
+
+        expect(whole.some(e => e.type === 'artifact-open')).toBe(true);
+        expect(
+            split.some(e => e.type === 'artifact-open'),
+            'a tag split across deltas was emitted as chat text instead of opening an artifact',
+        ).toBe(true);
+        expect(chatText(split), 'the raw tag leaked into the chat text').not.toContain('<arti');
+        expect(chatText(split)).toBe(chatText(whole));
+    });
+
+    it('does not swallow a tag that merely starts the same way', () => {
+        const out = run(['See the <article> element']);
+        expect(out.some(e => e.type === 'artifact-open')).toBe(false);
+        expect(chatText(out)).toBe('See the <article> element');
+    });
+
+    it('does not swallow a partial prefix that never completes', () => {
+        expect(chatText(run(['trailing <arti']))).toBe('trailing <arti');
+    });
+});

@@ -101,3 +101,39 @@ describe('AparteClient — pressing Stop mid-stream', () => {
         });
     }
 });
+
+describe('AparteClient — Stop during the pre-flight window', () => {
+    /**
+     * Between accepting a send and opening the stream, the client resolves auth
+     * and reads attachments. `_streamController` does not exist yet, so `abort()`
+     * has nothing to cancel and the flag is the only trace of the user's intent.
+     * `_streamTurn` used to clear that flag unconditionally, so a Stop pressed
+     * while a large file was being read was simply forgotten and the request went
+     * out anyway.
+     */
+    it('does not open a stream for a turn the user already stopped', async () => {
+        const chat = vi.fn(() => new ReadableStream({ start(c) { c.close(); } }));
+        const cfg = new AparteConfigClass();
+        cfg.registerAIProvider({
+            id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+        } as never);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        cfg.setTransport({ chat } as never);
+
+        const rec = makeRecorder();
+        const events: string[] = [];
+        rec.el.addEventListener('aparte-message-aborted', () => events.push('aborted'));
+        rec.el.addEventListener('aparte-message-start', () => events.push('start'));
+
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        client.abort();  // the user stopped while auth / FileReader was still running
+
+        await (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
+            ._streamTurn(rec.el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
+
+        expect(chat, 'the request went out despite the user stopping').not.toHaveBeenCalled();
+        expect(events).toEqual(['aborted']);
+    });
+});
