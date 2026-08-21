@@ -10,8 +10,14 @@ pnpm e2e                  # the suite (Chromium everywhere + WebKit where config
 pnpm e2e:ui               # interactive runner
 pnpm e2e:report           # last HTML report
 E2E_ONLY=react pnpm e2e   # narrow to one app (also skips the other dev servers)
+E2E_NO_WEBKIT=1 pnpm e2e  # Chromium only — 254 tests to 134, and no windows stealing focus
 pnpm e2e:flake            # repeat each test 3x — run before a release, not in the gate
 ```
+
+`E2E_NO_WEBKIT` is a **local** convenience and is ignored under CI. Playwright's WebKit
+build on Windows creates a real OS window even headless, so a full run pops several of them
+and pulls you off a fullscreen app. Use it while iterating; never to decide a change is
+safe — every browser-only bug this project has had was a WebKit one.
 
 Touching `@aparte/core`? Rebuild it first (`nx build @aparte/core`): the Svelte, Angular
 and demo-vanilla apps consume the built `dist`, and Angular additionally caches its

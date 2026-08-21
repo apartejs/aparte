@@ -119,6 +119,12 @@ const suiteFor = (k: AppKey): RegExp[] =>
 // Angular stays Chromium-only (its dev server is slow enough to dominate the run).
 const WEBKIT_APPS: AppKey[] = ['vanilla', 'demo-vanilla', 'react', 'vue', 'svelte'];
 
+// Local escape hatch: `E2E_NO_WEBKIT=1 pnpm e2e` drops the WebKit projects. Playwright's
+// WebKit build on Windows creates a real OS window even headless, so a full run pops
+// several of them and steals focus from whatever is fullscreen. Ignored under CI, which
+// must keep both engines: every browser-only bug in this project has been a WebKit one.
+const skipWebkit = !process.env.CI && process.env.E2E_NO_WEBKIT === '1';
+
 export default defineConfig({
     testDir: './tests',
     fullyParallel: true,
@@ -161,7 +167,7 @@ export default defineConfig({
             testMatch: suiteFor(k),
         })),
         // Same suites under WebKit, for the pure web-component playgrounds.
-        ...selected.filter((k) => WEBKIT_APPS.includes(k)).map((k) => ({
+        ...(skipWebkit ? [] : selected.filter((k) => WEBKIT_APPS.includes(k))).map((k) => ({
             name: `${k}-webkit`,
             use: { ...devices['Desktop Safari'], baseURL: url(k) },
             testMatch: suiteFor(k),
