@@ -82,7 +82,25 @@ export class AparteComposer extends HTMLElement {
     private _configUnsub: (() => void) | null = null;
     /** True while `requireModelSelection` is on AND no model is selected — blocks send. */
     private _modelGated = false;
-    private _onConfigChange = (): void => { this._evaluateModelGate(); };
+    private _onConfigChange = (): void => { this._evaluateModelGate(); this._applyDirection(); };
+
+    /**
+     * Mirror `locale.direction` onto ourselves, so everything inside — input, buttons,
+     * the toolbar row and whatever the consumer put in it — inherits it.
+     *
+     * The direction used to stop at the transcript: only the viewport applied `dir`, so
+     * an RTL locale flipped the conversation and left the composer left-to-right. It is
+     * also what makes the toolbar's placement idiom real: `margin-inline-start: auto` in
+     * a subtree that inherits no direction is just `margin-left`.
+     *
+     * One attribute on the host rather than a stamp per child: inheritance is the
+     * mechanism, so nothing needs to know about the consumer's markup.
+     */
+    private _applyDirection(): void {
+        const direction = (this._cfg ?? resolveConfig(this)).getLocale().direction;
+        if (direction) this.setAttribute('dir', direction);
+        else this.removeAttribute('dir');
+    }
 
     static get observedAttributes(): string[] {
         return ['placeholder', 'disabled', 'target'];
@@ -97,6 +115,7 @@ export class AparteComposer extends HTMLElement {
         this._cfg = resolveConfig(this);
         this._configUnsub = this._cfg.subscribe(this._onConfigChange);
         this._evaluateModelGate();
+        this._applyDirection();
     }
 
     disconnectedCallback(): void {
