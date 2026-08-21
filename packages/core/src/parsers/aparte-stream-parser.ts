@@ -262,16 +262,30 @@ export class AparteStreamParser {
             this._state.activeSegment = null;
         }
 
+        // Every branch below can fail to start its block because the opening line
+        // is not complete yet (a tokenizer routinely splits ``` from its language
+        // tag). When that happens the text segment detached above must go BACK —
+        // dropping it loses the prose that preceded the block, and the caller,
+        // seeing no segments at all, appends the raw delta to the bubble instead,
+        // which is how a literal ```python ends up in the rendered message.
         if (firstPattern.type === 'code') {
             const res = this._startCodeBlock(buffer);
-            return res ? { segment: segmentToEmit, remaining: res.remaining } : null;
+            if (!res) {
+                if (segmentToEmit) this._state.activeSegment = segmentToEmit;
+                return null;
+            }
+            return { segment: segmentToEmit, remaining: res.remaining };
         } else if (firstPattern.type === 'thinking') {
             const res = this._startThinkingBlock(buffer);
-            return res ? { segment: segmentToEmit, remaining: res.remaining } : null;
+            if (!res) {
+                if (segmentToEmit) this._state.activeSegment = segmentToEmit;
+                return null;
+            }
+            return { segment: segmentToEmit, remaining: res.remaining };
         } else {
             const res = this._startArtifactBlock(buffer);
             if (!res) {
-                // Opening tag incomplete — restore the text segment we were about to emit
+                // Opening tag incomplete — same restore as the two branches above.
                 if (segmentToEmit) this._state.activeSegment = segmentToEmit;
                 return null;
             }
