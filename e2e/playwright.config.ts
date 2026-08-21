@@ -31,13 +31,28 @@ type AppKey = keyof typeof PORTS;
 
 const url = (app: AppKey) => `http://localhost:${PORTS[app]}`;
 
-// Vite dev server for `app`, forcing the port. `exec vite --port` (not
-// `dev -- --port`) sidesteps pnpm swallowing the `--` separator.
-function viteServer(app: AppKey, pkg: string) {
+/** Where each dev server runs. Its own `node_modules/.bin` content is what we invoke. */
+const APP_DIRS: Record<AppKey, string> = {
+    react: 'apps/playgrounds/react',
+    vue: 'apps/playgrounds/vue',
+    svelte: 'apps/playgrounds/svelte',
+    vanilla: 'apps/playgrounds/vanilla',
+    'demo-vanilla': 'apps/playgrounds/demo-vanilla',
+    angular: 'apps/playgrounds/angular',
+};
+
+// Vite dev server for `app`, forcing the port.
+//
+// Invoked as `node <vite entry>` from the app's own directory rather than through
+// `pnpm --filter … exec vite`. Same server, one process instead of a chain of Windows
+// `.cmd` shims (pnpm, then vite) — each of which can flash a console window, six times
+// over, for every run. It also drops the reason the old form existed (`exec` was there to
+// stop pnpm swallowing the `--` separator): there is no pnpm left to swallow anything.
+function viteServer(app: AppKey) {
     return {
-        command: `pnpm --filter ${pkg} exec vite --port ${PORTS[app]} --strictPort`,
+        command: `node node_modules/vite/bin/vite.js --port ${PORTS[app]} --strictPort`,
         url: url(app),
-        cwd: rootDir,
+        cwd: resolve(rootDir, APP_DIRS[app]),
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
         stdout: 'pipe' as const,
@@ -47,19 +62,19 @@ function viteServer(app: AppKey, pkg: string) {
 
 // The apps under test. `E2E_ONLY=react,vanilla` narrows the boot set (and the
 // started servers) during local iteration; unset → all six.
-const APPS: Record<AppKey, { pkg: string; server: ReturnType<typeof viteServer> }> = {
-    react: { pkg: '@aparte-workspace/playground-react', server: viteServer('react', '@aparte-workspace/playground-react') },
-    vue: { pkg: '@aparte-workspace/playground-vue', server: viteServer('vue', '@aparte-workspace/playground-vue') },
-    svelte: { pkg: '@aparte-workspace/playground-svelte', server: viteServer('svelte', '@aparte-workspace/playground-svelte') },
-    vanilla: { pkg: '@aparte-workspace/playground-vanilla', server: viteServer('vanilla', '@aparte-workspace/playground-vanilla') },
-    'demo-vanilla': { pkg: '@aparte-workspace/demo-vanilla', server: viteServer('demo-vanilla', '@aparte-workspace/demo-vanilla') },
+const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
+    react: { server: viteServer('react') },
+    vue: { server: viteServer('vue') },
+    svelte: { server: viteServer('svelte') },
+    vanilla: { server: viteServer('vanilla') },
+    'demo-vanilla': { server: viteServer('demo-vanilla') },
     // Angular uses its own CLI dev server (no Vite).
     angular: {
-        pkg: '@aparte-workspace/playground-angular',
         server: {
-            command: `pnpm --filter @aparte-workspace/playground-angular exec ng serve --port ${PORTS.angular}`,
+            // Same reasoning as viteServer: the Angular CLI's own JS entry, no shim.
+            command: `node node_modules/@angular/cli/bin/ng.js serve --port ${PORTS.angular}`,
             url: url('angular'),
-            cwd: rootDir,
+            cwd: resolve(rootDir, APP_DIRS.angular),
             reuseExistingServer: !process.env.CI,
             timeout: 180_000,
             stdout: 'pipe' as const,
