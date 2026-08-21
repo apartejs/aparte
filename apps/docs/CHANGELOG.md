@@ -1,5 +1,12 @@
 # @aparte-workspace/docs
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [acb1e37]
+  - @aparte/core@0.7.0
+
 ## 0.0.2
 
 ### Patch Changes

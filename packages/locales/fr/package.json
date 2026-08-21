@@ -1,6 +1,6 @@
 {
   "name": "@aparte/locale-fr",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "French locale for aparté — pass to AparteConfig.setLocale() (core ships English by default).",
   "type": "module",
   "sideEffects": false,
