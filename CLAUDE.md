@@ -81,8 +81,15 @@ markdown/highlight micro-packages, an eval harness, voice.
 2. **Bubble**: both paths — `SyncableBubble` (full replacement, exists) + fine-grained
    hooks (`renderBubbleShell`/`renderAttachment`/`renderSiblingNav`) in V0.1.
 3. **Action registries** (composer/bubble) **merged** — one registry, zone parameter.
-4. **Wrapper slot parity** (footer-left/center/right + above-composer on React/Vue/Svelte,
-   today Angular-only) → **at LAUNCH**.
+4. **Wrapper slot parity — reached, and it taught something else.** `empty-state`,
+   `above-composer` and `footer-left/center/right` exist on **all four** wrappers (props in
+   React, named slots elsewhere); the "today Angular-only" this line used to carry was stale.
+   What was still missing was not the capability but its *teaching*: the footer slots were
+   named in one clause of one enumeration, on a page the first external consumer had read, and
+   he built a bar of his own under the chat rather than find them — the JSDoc naming his exact
+   case solved it the second he saw it. Hence the rule this line now carries: **a capability
+   cited in passing, with no example, is functionally invisible.** It ships documented with a
+   code block or it ships undiscovered (see also the reachability/weight halves in #9).
 5. **Docs EN-first** (FR is a post-launch port). Both `locale-en`/`locale-fr` packages
    stay — that's data, not docs.
 6. **`_streamLoop` inline in core: KEPT** as the standalone default ("core works without
