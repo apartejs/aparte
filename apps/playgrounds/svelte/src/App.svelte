@@ -1,23 +1,7 @@
 <script lang="ts">
   import { AparteChat, AparteUi, createAparteChat } from '@aparte/svelte';
-  import { AparteConfig, DEFAULT_LOCALE } from '@aparte/core';
   import { KEY_STORAGE, sendPrompt } from './aparte';
 
-  // A real control, not a decoration: switching the locale renames the bubbles live
-  // AND flips the reading direction, composer included. A showcase button that changed
-  // nothing would break the library's own rule (#8) in the library's own showcase.
-  const RTL_LOCALE = {
-    ...DEFAULT_LOCALE,
-    direction: 'rtl' as const,
-    roleNameUser: 'أنت',
-    roleNameAssistant: 'المساعد',
-  };
-  let rtl = false;
-  function toggleLocale(): void {
-    rtl = !rtl;
-    if (rtl) AparteConfig.setLocale(RTL_LOCALE);
-    else AparteConfig.resetLocale();
-  }
 
   const chat = createAparteChat();
   const { messages } = chat;
@@ -72,13 +56,7 @@
         {/each}
       </div>
     </div>
-    <!-- Two children, and the placement is the DOM order: the second one carries
-                     margin-inline-start:auto, which pushes it -- logically, so it follows
-                     the reading direction -- to the end of the row.
-         `svelte:fragment` projects both without a wrapper element, so the row's own
-         flex layout is what positions them. -->
     <svelte:fragment slot="toolbar">
-      <button class="chip" on:click={toggleLocale}>{rtl ? 'English' : 'العربية'}</button>
       <AparteUi name="aparte-model-selector" props={{ 'auto-select': true, persist: true, searchable: true, style: 'margin-inline-start:auto' }} />
     </svelte:fragment>
   </AparteChat>

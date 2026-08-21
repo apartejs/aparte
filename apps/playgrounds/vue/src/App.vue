@@ -1,26 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { AparteChat, AparteUi, useAparteChat } from '@aparte/vue';
-import { AparteConfig, DEFAULT_LOCALE } from '@aparte/core';
 import { KEY_STORAGE, sendPrompt } from './aparte';
 
 const chat = useAparteChat();
 
-// A real control, not a decoration: switching the locale renames the bubbles live
-// AND flips the reading direction, composer included. A showcase button that changed
-// nothing would break the library's own rule (#8) in the library's own showcase.
-const RTL_LOCALE = {
-    ...DEFAULT_LOCALE,
-    direction: 'rtl' as const,
-    roleNameUser: 'أنت',
-    roleNameAssistant: 'المساعد',
-};
-const rtl = ref(false);
-function toggleLocale(): void {
-    rtl.value = !rtl.value;
-    if (rtl.value) AparteConfig.setLocale(RTL_LOCALE);
-    else AparteConfig.resetLocale();
-}
 const apiKey = ref(localStorage.getItem(KEY_STORAGE) ?? '');
 
 const chips = [
@@ -70,10 +54,6 @@ function onKeyChange() {
                 </div>
             </template>
             <template #toolbar>
-                <!-- Two children, and the placement is the DOM order: the second one carries
-                     margin-inline-start:auto, which pushes it -- logically, so it follows
-                     the reading direction -- to the end of the row. -->
-                <button class="chip" @click="toggleLocale">{{ rtl ? 'English' : 'العربية' }}</button>
                 <AparteUi name="aparte-model-selector" :props="{ 'auto-select': true, persist: true, searchable: true, style: 'margin-inline-start:auto' }" />
             </template>
         </AparteChat>

@@ -5,7 +5,6 @@ import './style.css';
 import {
     registerDefaultRenderers,
     AparteConfig,
-    DEFAULT_LOCALE,
     AparteClient,
     DirectTransport,
     filesToAttachments,
@@ -67,25 +66,6 @@ if (keyInput) {
 // framework wrappers' job), so we add the optimistic USER bubble ourselves; the
 // AparteClient appends and streams the ASSISTANT reply.
 type ChatViewport = { appendMessage(m: Record<string, unknown>): void };
-// A real control in the composer toolbar, not a decoration: switching the locale
-// renames the bubbles live AND flips the reading direction, composer included. A
-// showcase button that changed nothing would break the library's own rule (#8) in the
-// library's own showcase.
-const RTL_LOCALE = {
-    ...DEFAULT_LOCALE,
-    direction: 'rtl' as const,
-    roleNameUser: 'أنت',
-    roleNameAssistant: 'المساعد',
-};
-const langButton = document.querySelector('#lang');
-let rtl = false;
-langButton?.addEventListener('click', () => {
-    rtl = !rtl;
-    if (rtl) AparteConfig.setLocale(RTL_LOCALE);
-    else AparteConfig.resetLocale();
-    langButton.textContent = rtl ? 'English' : 'العربية';
-});
-
 const chat = document.querySelector('aparte-chat') as (HTMLElement & { viewport?: ChatViewport | null }) | null;
 
 /**
