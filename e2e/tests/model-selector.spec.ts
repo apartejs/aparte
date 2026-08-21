@@ -120,9 +120,35 @@ test('a model id containing quotes and brackets selects without breaking', async
 
     // The trigger shows it, and the chat still works with it selected.
     await expect(chat.modelTrigger).toContainText('Hostile');
+
+    // Diagnostics, read BEFORE the send. This assertion has failed in CI and only in
+    // CI — the trigger said "Hostile" while the request carried the default model —
+    // and it resisted two reproduction attempts on a fast machine (8 parallel repeats,
+    // then a deliberately slowed `/models`). Rather than keep guessing, the failure
+    // now reports which half decoupled:
+    //   • `selectValue` already holds the hostile composite → the pick reached
+    //     <aparte-select>, and what did not follow is the model CONFIG the client
+    //     reads (so: <aparte-model-selector>'s change listener, or persistence);
+    //   • `selectValue` still holds the default → the pick never landed in the
+    //     select at all, and the trigger text is the stale half.
+    const state = await page.evaluate(() => {
+        const selector = document.querySelector('aparte-model-selector');
+        const select = selector?.querySelector('aparte-select');
+        return {
+            selectValue: select?.getAttribute('value') ?? null,
+            selectAttached: !!select && document.contains(select),
+            activeOptions: selector?.querySelectorAll('aparte-option[data-active]').length ?? -1,
+            triggerText: selector?.querySelector('.aparte-select-trigger')?.textContent?.trim() ?? null,
+        };
+    });
+
     await chat.sendAndSettle('hostile id probe', { expect: MOCK_REPLY_MARK });
-    expect(mock.lastChatRequest()?.model, 'the hostile id must reach the request')
-        .toBe(MOCK_HOSTILE_MODEL_ID);
+    expect(
+        mock.lastChatRequest()?.model,
+        `the hostile id must reach the request.\n`
+        + `  UI state before send: ${JSON.stringify(state)}\n`
+        + `  models seen in requests: ${JSON.stringify(mock.chatRequests.map((r) => r['model']))}`,
+    ).toBe(MOCK_HOSTILE_MODEL_ID);
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
