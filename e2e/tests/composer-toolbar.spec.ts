@@ -77,3 +77,35 @@ test('the push is logical — the control changes sides with the reading directi
     expect(rtl.end).toBeGreaterThan(rtl.start);
     expect(rtl.start).toBeLessThan(20);
 });
+
+test('the composer keeps its breathing room at the bottom edge', async ({ page }) => {
+    await installLlmMock(page);
+    const chat = new ChatPage(page);
+    await page.goto('/');
+    await chat.waitUngated();
+
+    // Paul saw this in two live apps: as soon as a conversation starts, `center-empty`
+    // stops centering the composer and it went flush against the bottom of the screen.
+    // The viewport gives 16px between the last bubble and the composer and there was
+    // nothing below it — an asymmetry in core's own spacing, not a layout choice, and one
+    // an app cannot fix from outside without shrinking the scroll area.
+    await chat.sendAndSettle('bottom gap probe');
+
+    const measure = () => chat.composer.evaluate((composer) => {
+        const shell = composer.closest('aparte-chat, [data-aparte-chat]');
+        if (!shell) throw new Error('no chat shell around the composer');
+        return Math.round(shell.getBoundingClientRect().bottom - composer.getBoundingClientRect().bottom);
+    });
+
+    // POLLED, not read once: `center-empty` animates `flex-grow` over 0.3s to slide the
+    // composer down on the first message, and a single read lands mid-slide — the first
+    // version of this test measured 168px on the four wrappers and looked like a layout
+    // bug in them. It was the transition, caught at `flex-grow: 0.11`.
+    //
+    // The window is the token's default, with 1px for sub-pixel rounding and no upper
+    // slack that would let the gap quietly vanish.
+    await expect
+        .poll(measure, { message: 'the composer should settle 16px above the shell edge' })
+        .toBeLessThanOrEqual(17);
+    expect(await measure()).toBeGreaterThanOrEqual(15);
+});
