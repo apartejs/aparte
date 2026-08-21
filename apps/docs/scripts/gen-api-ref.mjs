@@ -120,6 +120,23 @@ for (const el of elements) {
       md += `| ${s.name ? `\`${esc(s.name)}\`` : '_(default)_'} | ${esc(s.description)} |\n`;
     }
   }
+
+  // Examples last, and as code rather than a table row. A table of names is all this
+  // page could ever show, and a name with no usage is exactly what the first external
+  // consumer failed to find. `examples` is lifted out of the class and member JSDoc by
+  // the analyzer plugin in packages/core/custom-elements-manifest.config.mjs -- the CEM
+  // schema has no field for them, so nothing reached this page before.
+  const examples = [
+    ...(el.examples ?? []),
+    ...(el.members ?? []).flatMap((m) => m.examples ?? []),
+  ];
+  if (examples.length) {
+    md += `\n### Example${examples.length > 1 ? 's' : ''}\n`;
+    for (const ex of examples) {
+      const lang = ex.trimStart().startsWith('<') ? 'html' : 'ts';
+      md += `\n\`\`\`${lang}\n${ex}\n\`\`\`\n`;
+    }
+  }
 }
 
 write(md);
