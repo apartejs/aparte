@@ -35,6 +35,7 @@ describe('@aparte/core public API', () => {
             "AparteComposerCancel",
             "AparteComposerInput",
             "AparteComposerSend",
+            "AparteComposerToolbar",
             "AparteConfig",
             "AparteConfigClass",
             "AparteConversationController",

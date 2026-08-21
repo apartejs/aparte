@@ -11,3 +11,4 @@ export { AparteComposerCancel } from './aparte-composer-cancel.js';
 export { AparteComposerAttachments } from './aparte-composer-attachments.js';
 export { AparteComposerAddAttachment } from './aparte-composer-add-attachment.js';
 export { AparteComposerAction } from './aparte-composer-action.js';
+export { AparteComposerToolbar } from './aparte-composer-toolbar.js';

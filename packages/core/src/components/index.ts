@@ -6,7 +6,7 @@ export { AparteChatStatus } from './status/index.js';
 export { AparteChatViewport } from './viewport/index.js';
 
 // Composer primitives
-export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction } from './composer/index.js';
+export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './composer/index.js';
 export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail } from './composer/index.js';
 
 // Conversation list primitive
