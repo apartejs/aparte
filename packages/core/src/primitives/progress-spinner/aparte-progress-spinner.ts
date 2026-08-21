@@ -12,6 +12,11 @@
  * @cssvar --aparte-spinner-stroke  Stroke width in SVG units. Default: 2.5
  * @cssvar --aparte-spinner-color   Fill arc stroke color. Default: currentColor
  * @cssvar --aparte-spinner-track   Track arc stroke color. Default: 15% currentColor
+  *
+ * @example
+ * <!-- Omit `value` for the indeterminate spin; set it to show real progress. -->
+ * <aparte-progress-spinner></aparte-progress-spinner>
+ * <aparte-progress-spinner value="62"></aparte-progress-spinner>
  */
 export class AparteProgressSpinner extends HTMLElement {
     static get observedAttributes(): string[] { return ['value']; }

@@ -7,6 +7,17 @@
  * @attr {string} label - Group label
  * @attr {boolean} collapsible - Allow collapse/expand
  * @attr {boolean} collapsed - Collapsed state
+  *
+ * @example
+ * <!-- Collapsed groups keep a long list readable; the label is the group's header. -->
+ * <aparte-select grouped placeholder="Pick a model">
+ *   <aparte-optgroup label="Ollama" collapsible collapsed>
+ *     <aparte-option value="ollama::llama3">Llama 3</aparte-option>
+ *   </aparte-optgroup>
+ *   <aparte-optgroup label="OpenRouter" collapsible>
+ *     <aparte-option value="openrouter::gpt-4o-mini">GPT-4o mini</aparte-option>
+ *   </aparte-optgroup>
+ * </aparte-select>
  */
 
 export class AparteOptgroup extends HTMLElement {

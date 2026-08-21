@@ -8,6 +8,17 @@ import type { AparteComposer } from './aparte-composer.js';
  * Must be a descendant of <aparte-composer>.
  *
  * Hidden when not streaming. Visible only during active streaming.
+  *
+ * @example
+ * <!-- Only needed when you want a SEPARATE stop button: <aparte-composer-send> already
+ *      turns into one while streaming. This stays hidden until then. -->
+ * <aparte-composer>
+ *   <div class="aparte-composer-row">
+ *     <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *     <aparte-composer-cancel></aparte-composer-cancel>
+ *     <aparte-composer-send></aparte-composer-send>
+ *   </div>
+ * </aparte-composer>
  */
 export class AparteComposerCancel extends HTMLElement {
     private _button: HTMLButtonElement | null = null;

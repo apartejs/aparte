@@ -17,6 +17,20 @@ const REMOVE_ICON =
  * declared `attachmentPreview` via `AparteConfig.setHostHandlers()`.
  * Automatically hidden when there are no attachments.
  * Must be a descendant of <aparte-composer>.
+  *
+ * @example
+ * <!-- The strip hides itself while nothing is attached. Pair it with the picker, and
+ *      only if your loop actually reads the files from the send event. -->
+ * <aparte-composer>
+ *   <div class="aparte-composer-shell">
+ *     <aparte-composer-attachments></aparte-composer-attachments>
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-add-attachment></aparte-composer-add-attachment>
+ *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </div>
+ * </aparte-composer>
  */
 export class AparteComposerAttachments extends HTMLElement {
     private _unsubscribes: (() => void)[] = [];

@@ -26,6 +26,19 @@ export interface AparteSelectChangeDetail {
     previousValue: string;
 }
 
+/**
+ * @example
+ * <aparte-select placeholder="Pick a model" searchable value="gpt-4o-mini">
+ *   <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>
+ *   <aparte-option value="llama-3.1-8b">Llama 3.1 8B</aparte-option>
+ * </aparte-select>
+ *
+ * <script>
+ *   document.querySelector('aparte-select').addEventListener('aparte-select-change', (e) => {
+ *     console.log(e.detail.value, e.detail.label, e.detail.previousValue);
+ *   });
+ * </script>
+ */
 export class AparteSelect extends HTMLElement {
     private static _optIdSeq = 0;
     /** Fallback ids for the listbox `aria-controls` target when the host has no id. */

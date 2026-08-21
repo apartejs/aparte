@@ -9,6 +9,16 @@ import type { AparteComposer } from './aparte-composer.js';
  *
  * - Disabled when composer value is empty, composer is disabled, or streaming
  * - While streaming: shows stop icon and acts as cancel button
+  *
+ * @example
+ * <!-- One button for both halves of the turn: it submits, and while a reply streams it
+ *      becomes the stop button. Do not disable it on `streaming` or stop is unreachable. -->
+ * <aparte-composer>
+ *   <div class="aparte-composer-row">
+ *     <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *     <aparte-composer-send></aparte-composer-send>
+ *   </div>
+ * </aparte-composer>
  */
 export class AparteComposerSend extends HTMLElement {
     private _button: HTMLButtonElement | null = null;

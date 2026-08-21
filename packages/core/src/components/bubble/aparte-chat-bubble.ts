@@ -67,6 +67,19 @@ const INFO_ICON_SVG =
  * 
  * Message component supporting both simple content and rich segments.
  * Uses Light DOM for global CSS styling.
+  *
+ * @example
+ * <!-- Rendered for you by the viewport. Written by hand only when you drive the DOM
+ *      yourself: `message-id` is what streaming and the action bar address it by. -->
+ * <aparte-chat-bubble
+ *   message-id="a1"
+ *   data-role="assistant"
+ *   name="Assistant"
+ *   content="Hello."
+ * ></aparte-chat-bubble>
+ *
+ * <!-- While a reply is in flight: `streaming` hides the action bar and shows the caret. -->
+ * <aparte-chat-bubble message-id="a2" data-role="assistant" streaming></aparte-chat-bubble>
  */
 export class AparteChatBubble extends HTMLElement {
   private _contentEl: HTMLDivElement | null = null;

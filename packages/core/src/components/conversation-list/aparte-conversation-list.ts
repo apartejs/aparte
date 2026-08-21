@@ -17,7 +17,8 @@ export interface AparteConversationListItem {
     id: string;
     title: string;
     updatedAt?: number;
-    /** When set, the item renders the unarchive action instead of archive. */
+    /** When set, the item renders the unarchive action instead of archive.  *
+ */
     archivedAt?: number;
 }
 
@@ -37,6 +38,19 @@ export interface AparteConversationUnarchiveDetail {
     id: string;
 }
 
+/**
+ * @example
+ * // The host owns the data: set the `conversations` property, listen for the intent.
+ * const list = document.querySelector('aparte-conversation-list');
+ * list.conversations = [
+ *   { id: 'c1', title: 'Deploy checklist', updatedAt: Date.now() },
+ *   { id: 'c2', title: 'Old thread', updatedAt: 0, archivedAt: Date.now() },
+ * ];
+ * list.setAttribute('active-id', 'c1');
+ *
+ * list.addEventListener('aparte-select-conversation', (e) => load(e.detail.id));
+ * list.addEventListener('aparte-delete-conversation', (e) => remove(e.detail.id));
+ */
 export class AparteConversationList extends HTMLElement {
     private _conversations: AparteConversationListItem[] = [];
     private _activeId: string | null = null;

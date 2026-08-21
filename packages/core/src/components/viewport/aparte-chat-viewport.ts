@@ -27,6 +27,14 @@ import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
  * - appendToken(): For simple content streaming
  * - appendToSegment(): For segment-aware streaming (thinking, code, etc.)
  * - Internal message registry for memory management
+  *
+ * @example
+ * // Three calls are a whole streamed turn.
+ * const viewport = document.querySelector('aparte-chat-viewport');
+ *
+ * viewport.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: Date.now() });
+ * for await (const chunk of tokens) viewport.appendToken('a1', chunk);
+ * viewport.completeMessage('a1');   // stops the streaming caret
  */
 export class AparteChatViewport extends HTMLElement {
     // The scroll surface: an internal `.aparte-viewport-container` div (core mode)
