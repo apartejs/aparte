@@ -1,5 +1,17 @@
 # @aparte-workspace/playground-vanilla
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [2075f9b]
+- Updated dependencies [0c4c0e3]
+- Updated dependencies [6e0211c]
+  - @aparte/core@0.6.1
+  - @aparte/plugin-marked@0.6.1
+  - @aparte/plugin-model-selector@0.6.1
+  - @aparte/provider-openai-compat@0.6.1
+
 ## 0.0.1
 
 ### Patch Changes

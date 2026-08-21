@@ -1,5 +1,14 @@
 # @aparte-workspace/docs
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [2075f9b]
+- Updated dependencies [0c4c0e3]
+- Updated dependencies [6e0211c]
+  - @aparte/core@0.6.1
+
 ## 0.0.1
 
 ### Patch Changes

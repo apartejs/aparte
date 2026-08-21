@@ -1,5 +1,7 @@
 # @aparte/plugin-model-selector
 
+## 0.6.1
+
 ## 0.6.0
 
 ## 0.5.0-alpha.0

@@ -4,6 +4,66 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.6.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### @aparte/core
+
+#### Patch Changes
+
+- [2075f9b](https://github.com/apartejs/aparte/commit/2075f9b): README fix: the npm page announced "🚧 **Pre-alpha** — not yet published to npm" —
+  false on the very page npm was serving, and it had been through four releases. It now
+  states what the package is (alpha, plain `0.x`, lockstep, API can still change) and
+  links the changelog.
+
+  The quick start went with it: it showed `registerDefaultRenderers()` as a required
+  step (the built-ins install themselves since 0.5.0-alpha.0) and stopped before the one
+  line that makes the retry/edit buttons appear now that they ship off. It also pointed
+  at the docs _sources_ in the monorepo rather than at apartejs.dev.
+
+- [0c4c0e3](https://github.com/apartejs/aparte/commit/0c4c0e3): **Fix: a locale switch now reaches the components already on screen.** The docs say
+  it plainly — "a locale switch is live: mounted components re-render immediately" — and
+  `setLocale()` does notify. The components honoured only part of it, so switching
+  language left a **bilingual** interface until a reload rebuilt the elements:
+
+  - a **bubble** rebuilt its action-bar labels but kept its old name (`You` /
+    `Assistant`), its avatar initial, the `aria-label` of the `‹ ›` branch arrows and of
+    the action toolbar, and the waiting indicator's screen-reader label;
+  - a **viewport** applied `locale.direction` once at render, so a chat already mounted
+    never flipped to **RTL**;
+  - a **conversation list** kept its previous-language row labels (the delete/archive
+    buttons, and the fallback title of an untitled conversation) until something else
+    happened to re-render it.
+
+  All three now refresh on the config change, keeping the existing precedences: an
+  explicit `name` attribute still outranks the locale, and an instance-scoped config
+  change never touches a component resolving to another config.
+
+- [6e0211c](https://github.com/apartejs/aparte/commit/6e0211c): **Fix: refreshing a live option list no longer throws away the keyboard position.**
+
+  `aparte-select` keeps its roving highlight as a `data-active` attribute on an option
+  ELEMENT, so replacing the options of an open dropdown took it away — while the
+  component still believed it held a position. Consequences, all silent:
+
+  - the visible highlight disappeared mid-navigation;
+  - `aria-activedescendant` on the trigger kept pointing at an id no longer in the
+    document — a broken reference for a screen reader;
+  - the next arrow key moved from the stale index.
+
+  Worse, nothing noticed: a consumer refreshing a list writes into
+  `.aparte-select-options`, a **descendant**, and the observer watched only its own
+  children. It now watches the subtree and re-asserts the highlight on the new elements,
+  clamped to the new length, and only when the dropdown was already open with a position
+  held — a refresh never invents one, and navigation resumes where the user was rather
+  than jumping back to the top.
+
+  Found via three CI-only e2e flakes (a keyboard-navigation assertion polling ten seconds
+  for a highlight that a concurrent refresh had erased). `@aparte/plugin-model-selector`
+  is the in-repo consumer that triggers it, whenever the provider list settles.
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-transformers`, `@aparte/plugin-ask-question`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`.</sub>
+
 ## 0.6.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
