@@ -172,7 +172,7 @@ describe('AparteChat.svelte', () => {
         expect(container.querySelector('.my-bubble')?.textContent).toBe('Hello world');
     });
 
-    it('projects above-composer and footer slots into the default shell', () => {
+    it('projects above-composer and the toolbar into the default shell', () => {
         const { container } = render(SlotHost, { messages: [] });
 
         const banner = container.querySelector('.above-banner')!;
@@ -181,17 +181,18 @@ describe('AparteChat.svelte', () => {
         // above-composer renders before the composer element.
         expect(banner.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-        const footer = composer.querySelector('.aparte-composer-footer')!;
-        expect(footer).not.toBeNull();
-        expect(footer.querySelector('.fl')?.textContent).toBe('L');
-        expect(footer.querySelector('.fc')?.textContent).toBe('C');
-        expect(footer.querySelector('.fr')?.textContent).toBe('R');
+        // A Svelte named slot projects the consumer's own wrapper element, so the row
+        // holds that node -- which is also the node that would carry the push to the end.
+        const toolbar = composer.querySelector('aparte-composer-toolbar')!;
+        expect(toolbar).not.toBeNull();
+        expect(toolbar.querySelector('.mode')?.textContent).toBe('mode');
+        expect(toolbar.querySelector('.model')?.textContent).toBe('model');
     });
 
-    it('omits the footer row entirely when no footer slot is provided', () => {
+    it('renders no toolbar element at all when the slot is unused', () => {
         const { container } = render(AparteChat, { messages: [] });
         const composer = container.querySelector('aparte-composer');
-        expect(composer?.querySelector('.aparte-composer-footer')).toBeNull();
+        expect(composer?.querySelector('aparte-composer-toolbar')).toBeNull();
     });
 
     it('exposes scrollToBottom function', () => {

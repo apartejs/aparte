@@ -55,7 +55,7 @@
         {/each}
       </div>
     </div>
-    <div slot="footer-right">
+    <div slot="toolbar" style="margin-inline-start:auto">
       <AparteUi name="aparte-model-selector" props={{ 'auto-select': true, persist: true, searchable: true }} />
     </div>
   </AparteChat>

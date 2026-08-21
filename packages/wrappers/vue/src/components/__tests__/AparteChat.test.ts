@@ -205,14 +205,12 @@ describe('AparteChat.vue', () => {
         expect(wrapper.element.querySelector('.my-bubble')?.textContent).toBe('Hello world');
     });
 
-    it('projects above-composer and footer slots into the default shell', () => {
+    it('projects above-composer and the toolbar into the default shell', () => {
         const wrapper = mount(AparteChat, {
             props: { messages: [] },
             slots: {
                 'above-composer': '<div class="above-banner">banner</div>',
-                'footer-left': '<span class="fl">L</span>',
-                'footer-center': '<span class="fc">C</span>',
-                'footer-right': '<span class="fr">R</span>',
+                toolbar: '<span class="mode">mode</span><span class="model" style="margin-inline-start:auto">model</span>',
             },
         });
 
@@ -223,11 +221,17 @@ describe('AparteChat.vue', () => {
         // above-composer renders before the composer element.
         expect(banner.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-        const footer = composer.querySelector('.aparte-composer-footer')!;
-        expect(footer).not.toBeNull();
-        expect(footer.querySelector('.fl')?.textContent).toBe('L');
-        expect(footer.querySelector('.fc')?.textContent).toBe('C');
-        expect(footer.querySelector('.fr')?.textContent).toBe('R');
+        // Core's element holds the row, and the DOM order IS the placement -- the
+        // wrapper contributes no left/center/right of its own.
+        const toolbar = composer.querySelector('aparte-composer-toolbar')!;
+        expect(toolbar).not.toBeNull();
+        expect([...toolbar.children].map((c) => c.className)).toEqual(['mode', 'model']);
+    });
+
+    it('renders no toolbar element at all when the slot is unused', () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        const composer = (wrapper.element as HTMLElement).querySelector('aparte-composer')!;
+        expect(composer.querySelector('aparte-composer-toolbar')).toBeNull();
     });
 
     it('omits the footer row entirely when no footer slot is provided', () => {

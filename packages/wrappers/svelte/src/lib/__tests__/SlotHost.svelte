@@ -6,7 +6,8 @@
 
 <AparteChat {messages}>
   <div slot="above-composer" class="above-banner">banner</div>
-  <span slot="footer-left" class="fl">L</span>
-  <span slot="footer-center" class="fc">C</span>
-  <span slot="footer-right" class="fr">R</span>
+  <div slot="toolbar" class="toolbar-content">
+    <span class="mode">mode</span>
+    <span class="model" style="margin-inline-start:auto">model</span>
+  </div>
 </AparteChat>

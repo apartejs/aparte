@@ -52,8 +52,8 @@ function onKeyChange() {
                     </div>
                 </div>
             </template>
-            <template #footer-right>
-                <AparteUi name="aparte-model-selector" :props="{ 'auto-select': true, persist: true, searchable: true }" />
+            <template #toolbar>
+                <AparteUi name="aparte-model-selector" :props="{ 'auto-select': true, persist: true, searchable: true, style: 'margin-inline-start:auto' }" />
             </template>
         </AparteChat>
     </div>

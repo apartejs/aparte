@@ -82,12 +82,29 @@ export interface AparteChatProps {
      * custom `composer` replaces the shell.
      */
     aboveComposer?: React.ReactNode;
-    /** Footer content, left slot — rendered in the default shell's footer row. */
-    footerLeft?: React.ReactNode;
-    /** Footer content, center slot. */
-    footerCenter?: React.ReactNode;
-    /** Footer content, right slot (e.g. a model selector or token counter). */
-    footerRight?: React.ReactNode;
+    /**
+     * The composer's bottom row — a mode picker, a model selector, a token counter.
+     * Rendered inside core's `<aparte-composer-toolbar>`; nothing is rendered at all
+     * when you pass nothing, so an unused row never draws its separator.
+     *
+     * **Placement is the DOM order.** There is no left/center/right slot: put things in
+     * the order you want them, and push a control (with everything after it) to the end
+     * with `margin-inline-start: auto`. That is a logical property, so the row reads
+     * correctly in a right-to-left locale with no extra work.
+     *
+     * Ignored when a full custom `composer` replaces the shell.
+     *
+     * @example
+     * <AparteChat
+     *   messages={messages}
+     *   onMessagesChange={setMessages}
+     *   toolbar={<>
+     *     <ModePicker value={mode} onChange={setMode} />
+     *     <ModelSelector style={{ marginInlineStart: 'auto' }} />
+     *   </>}
+     * />
+     */
+    toolbar?: React.ReactNode;
 
     /**
      * Notification that the user submitted a message from the composer. The
@@ -147,9 +164,7 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         renderBubble,
         emptyState,
         aboveComposer,
-        footerLeft,
-        footerCenter,
-        footerRight,
+        toolbar,
         config,
         onMessageSent,
         onAction,
@@ -340,12 +355,8 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
                             <aparte-composer-input />
                             <aparte-composer-send />
                         </div>
-                        {(footerLeft != null || footerCenter != null || footerRight != null) && (
-                            <div className="aparte-composer-footer">
-                                {footerLeft}
-                                {footerCenter}
-                                {footerRight}
-                            </div>
+                        {toolbar != null && (
+                            <aparte-composer-toolbar>{toolbar}</aparte-composer-toolbar>
                         )}
                     </div>
                 )}

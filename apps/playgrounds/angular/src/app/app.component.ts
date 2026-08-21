@@ -37,7 +37,7 @@ const CHIPS = [
                         }
                     </div>
                 </div>
-                <aparte-model-selector slot="footer-right" auto-select persist searchable></aparte-model-selector>
+                <aparte-model-selector slot="toolbar" style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
             </aparte-chat>
         </div>
     `,

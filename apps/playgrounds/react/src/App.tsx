@@ -54,8 +54,8 @@ export default function App() {
                         </div>
                     </div>
                 }
-                footerRight={
-                    <AparteUi name="aparte-model-selector" props={{ 'auto-select': true, persist: true, searchable: true }} />
+                toolbar={
+                    <AparteUi name="aparte-model-selector" props={{ 'auto-select': true, persist: true, searchable: true, style: 'margin-inline-start:auto' }} />
                 }
             />
         </div>
