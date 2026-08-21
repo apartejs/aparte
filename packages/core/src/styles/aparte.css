@@ -299,6 +299,12 @@
 
   /* Viewport */
   --aparte-viewport-padding: 16px;
+  /* Breathing room UNDER the composer, so it does not sit flush against the bottom
+     edge of a full-height chat. Same 16px the viewport already puts between the last
+     bubble and the composer — this restores the symmetry rather than inventing a
+     value. Set it to 0 for a flush composer (a full-bleed mobile shell with a docked
+     keyboard is the legitimate case). */
+  --aparte-chat-bottom-gap: var(--aparte-space-8, 16px);
 
   /* Content */
   --aparte-content-line-height: var(--aparte-line-height-loose, 1.7);
@@ -435,6 +441,12 @@ aparte-chat,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* The composer used to touch the bottom edge as soon as a conversation started: the
+     viewport gives 16px above the composer and there was nothing below it. An app
+     cannot fix this from outside without padding the container, which also shrinks the
+     scroll area — so the transcript would stop before the edge instead of scrolling to
+     it. That makes the gap ours. */
+  padding-block-end: var(--aparte-chat-bottom-gap, var(--aparte-space-8, 16px));
 }
 
 /* The viewport takes the space left by the composer; the standalone height:100%
