@@ -114,11 +114,17 @@ import { AparteChatHost, isAwaitingReply } from '@aparte/core';
               <aparte-composer-input></aparte-composer-input>
               <aparte-composer-send></aparte-composer-send>
             </div>
-            <div class="aparte-composer-footer">
-              <ng-content select="[slot='footer-left']"></ng-content>
-              <ng-content select="[slot='footer-center']"></ng-content>
-              <ng-content select="[slot='footer-right']"></ng-content>
-            </div>
+            <!-- The composer's bottom row. ONE slot: placement is the DOM order of
+                 what you project, and margin-inline-start:auto pushes a control to the
+                 end (a logical property, so it reads correctly in RTL).
+                 Angular cannot test whether anything projects into an ng-content, so
+                 unlike the other three wrappers the element is always rendered -- but it
+                 declares itself data-empty when nothing lands in it, and the stylesheet
+                 hides it then. The guarantee no longer depends on Angular stripping
+                 template whitespace. -->
+            <aparte-composer-toolbar>
+              <ng-content select="[slot='toolbar']"></ng-content>
+            </aparte-composer-toolbar>
           </div>
         </ng-content>
       </aparte-composer>

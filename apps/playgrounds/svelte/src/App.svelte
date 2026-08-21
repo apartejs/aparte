@@ -2,6 +2,7 @@
   import { AparteChat, AparteUi, createAparteChat } from '@aparte/svelte';
   import { KEY_STORAGE, sendPrompt } from './aparte';
 
+
   const chat = createAparteChat();
   const { messages } = chat;
   let comp: AparteChat | null = null;
@@ -55,8 +56,8 @@
         {/each}
       </div>
     </div>
-    <div slot="footer-right">
-      <AparteUi name="aparte-model-selector" props={{ 'auto-select': true, persist: true, searchable: true }} />
-    </div>
+    <svelte:fragment slot="toolbar">
+      <AparteUi name="aparte-model-selector" props={{ 'auto-select': true, persist: true, searchable: true, style: 'margin-inline-start:auto' }} />
+    </svelte:fragment>
   </AparteChat>
 </div>

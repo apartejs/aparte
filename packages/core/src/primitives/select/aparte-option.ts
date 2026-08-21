@@ -7,6 +7,12 @@
  * @attr {string} value - Option value
  * @attr {boolean} disabled - Disabled state
  * @attr {boolean} selected - Selected state
+  *
+ * @example
+ * <aparte-select placeholder="Pick a model">
+ *   <aparte-option value="gpt-4o-mini" selected>GPT-4o mini</aparte-option>
+ *   <aparte-option value="o3" disabled>o3 (no access)</aparte-option>
+ * </aparte-select>
  */
 
 export class AparteOption extends HTMLElement {

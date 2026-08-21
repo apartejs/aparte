@@ -31,13 +31,28 @@ type AppKey = keyof typeof PORTS;
 
 const url = (app: AppKey) => `http://localhost:${PORTS[app]}`;
 
-// Vite dev server for `app`, forcing the port. `exec vite --port` (not
-// `dev -- --port`) sidesteps pnpm swallowing the `--` separator.
-function viteServer(app: AppKey, pkg: string) {
+/** Where each dev server runs. Its own `node_modules/.bin` content is what we invoke. */
+const APP_DIRS: Record<AppKey, string> = {
+    react: 'apps/playgrounds/react',
+    vue: 'apps/playgrounds/vue',
+    svelte: 'apps/playgrounds/svelte',
+    vanilla: 'apps/playgrounds/vanilla',
+    'demo-vanilla': 'apps/playgrounds/demo-vanilla',
+    angular: 'apps/playgrounds/angular',
+};
+
+// Vite dev server for `app`, forcing the port.
+//
+// Invoked as `node <vite entry>` from the app's own directory rather than through
+// `pnpm --filter … exec vite`. Same server, one process instead of a chain of Windows
+// `.cmd` shims (pnpm, then vite) — each of which can flash a console window, six times
+// over, for every run. It also drops the reason the old form existed (`exec` was there to
+// stop pnpm swallowing the `--` separator): there is no pnpm left to swallow anything.
+function viteServer(app: AppKey) {
     return {
-        command: `pnpm --filter ${pkg} exec vite --port ${PORTS[app]} --strictPort`,
+        command: `node node_modules/vite/bin/vite.js --port ${PORTS[app]} --strictPort`,
         url: url(app),
-        cwd: rootDir,
+        cwd: resolve(rootDir, APP_DIRS[app]),
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
         stdout: 'pipe' as const,
@@ -47,19 +62,19 @@ function viteServer(app: AppKey, pkg: string) {
 
 // The apps under test. `E2E_ONLY=react,vanilla` narrows the boot set (and the
 // started servers) during local iteration; unset → all six.
-const APPS: Record<AppKey, { pkg: string; server: ReturnType<typeof viteServer> }> = {
-    react: { pkg: '@aparte-workspace/playground-react', server: viteServer('react', '@aparte-workspace/playground-react') },
-    vue: { pkg: '@aparte-workspace/playground-vue', server: viteServer('vue', '@aparte-workspace/playground-vue') },
-    svelte: { pkg: '@aparte-workspace/playground-svelte', server: viteServer('svelte', '@aparte-workspace/playground-svelte') },
-    vanilla: { pkg: '@aparte-workspace/playground-vanilla', server: viteServer('vanilla', '@aparte-workspace/playground-vanilla') },
-    'demo-vanilla': { pkg: '@aparte-workspace/demo-vanilla', server: viteServer('demo-vanilla', '@aparte-workspace/demo-vanilla') },
+const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
+    react: { server: viteServer('react') },
+    vue: { server: viteServer('vue') },
+    svelte: { server: viteServer('svelte') },
+    vanilla: { server: viteServer('vanilla') },
+    'demo-vanilla': { server: viteServer('demo-vanilla') },
     // Angular uses its own CLI dev server (no Vite).
     angular: {
-        pkg: '@aparte-workspace/playground-angular',
         server: {
-            command: `pnpm --filter @aparte-workspace/playground-angular exec ng serve --port ${PORTS.angular}`,
+            // Same reasoning as viteServer: the Angular CLI's own JS entry, no shim.
+            command: `node node_modules/@angular/cli/bin/ng.js serve --port ${PORTS.angular}`,
             url: url('angular'),
-            cwd: rootDir,
+            cwd: resolve(rootDir, APP_DIRS.angular),
             reuseExistingServer: !process.env.CI,
             timeout: 180_000,
             stdout: 'pipe' as const,
@@ -83,6 +98,7 @@ const MULTICHAT = /multi-chat\.spec\.ts/;
 const SEGMENTS = /segments\.spec\.ts/;
 const ATTACH = /attachments\.spec\.ts/;
 const SELECTOR = /model-selector\.spec\.ts/;
+const TOOLBAR = /composer-toolbar\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
 // The waiting-state contract (was `fixme` until the built-in indicator landed).
 const PENDING = /pending-state\.spec\.ts/;
@@ -102,9 +118,13 @@ const PENDING = /pending-state\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'demo-vanilla' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, ...DEEP] :
-    [SMOKE, REAL, AXE];
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, ...DEEP] :
+    // TOOLBAR runs on all five: it measures the same row rendered by five different
+    // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
+    // content projection). Parity is exactly what it is for, so it does not get the
+    // "prove it twice and trust the rest" treatment the deep suites get.
+    [SMOKE, REAL, AXE, TOOLBAR];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from
@@ -113,6 +133,12 @@ const suiteFor = (k: AppKey): RegExp[] =>
 // boundary, which is where every browser-only bug in this project has lived.
 // Angular stays Chromium-only (its dev server is slow enough to dominate the run).
 const WEBKIT_APPS: AppKey[] = ['vanilla', 'demo-vanilla', 'react', 'vue', 'svelte'];
+
+// Local escape hatch: `E2E_NO_WEBKIT=1 pnpm e2e` drops the WebKit projects. Playwright's
+// WebKit build on Windows creates a real OS window even headless, so a full run pops
+// several of them and steals focus from whatever is fullscreen. Ignored under CI, which
+// must keep both engines: every browser-only bug in this project has been a WebKit one.
+const skipWebkit = !process.env.CI && process.env.E2E_NO_WEBKIT === '1';
 
 export default defineConfig({
     testDir: './tests',
@@ -156,7 +182,7 @@ export default defineConfig({
             testMatch: suiteFor(k),
         })),
         // Same suites under WebKit, for the pure web-component playgrounds.
-        ...selected.filter((k) => WEBKIT_APPS.includes(k)).map((k) => ({
+        ...(skipWebkit ? [] : selected.filter((k) => WEBKIT_APPS.includes(k))).map((k) => ({
             name: `${k}-webkit`,
             use: { ...devices['Desktop Safari'], baseURL: url(k) },
             testMatch: suiteFor(k),

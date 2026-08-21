@@ -2059,7 +2059,12 @@ aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
   justify-content: center;
 }
 
-/* Footer row below the input row (model selector etc.) */
+/* The composer's bottom row (mode picker, model selector, token counter…).
+   `aparte-composer-toolbar` is the element consumers write — one name for vanilla and
+   every wrapper. `.aparte-composer-footer` is the class the same row used to be built
+   with, kept so markup that predates the element keeps its styling instead of silently
+   rendering as a bare div. Removable at 1.0. */
+aparte-composer-toolbar,
 .aparte-composer-footer {
   display: flex;
   align-items: center;
@@ -2068,6 +2073,11 @@ aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
   border-top: var(--aparte-border-width, 1px) solid var(--aparte-border);
 }
 
+/* A row with nothing in it must not draw its separator. The element reflects
+   `data-empty` itself (see aparte-composer-toolbar.ts) because `:empty` is defeated by
+   the whitespace text node an indented template leaves behind; the legacy class keeps
+   `:empty`, which is all it ever had. */
+aparte-composer-toolbar[data-empty],
 .aparte-composer-footer:empty {
   display: none;
 }

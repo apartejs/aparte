@@ -18,6 +18,7 @@ import { describe, it, expect, afterEach } from 'vitest';
  */
 
 import '../../components/bubble/aparte-chat-bubble.js';
+import '../../components/composer/aparte-composer.js';
 import '../../components/viewport/aparte-chat-viewport.js';
 import '../../components/conversation-list/aparte-conversation-list.js';
 import { AparteConfig } from '../aparte-config.js';
@@ -119,6 +120,44 @@ describe('a live locale switch reaches a mounted viewport', () => {
         AparteConfig.setLocale(AR);
         AparteConfig.resetLocale();
         expect(vp.querySelector('.aparte-viewport-container')!.getAttribute('dir')).toBe('ltr');
+    });
+});
+
+describe('a live locale switch reaches a mounted composer', () => {
+    /**
+     * The direction stopped at the transcript: `dir` was applied by the viewport only,
+     * so an RTL locale flipped the conversation and left the composer left-to-right —
+     * input, send button and toolbar all on the wrong side. It is also what makes the
+     * toolbar's documented placement idiom (`margin-inline-start: auto`) actually work:
+     * a logical property in a subtree that inherits no direction is a no-op.
+     */
+    it('flips the composer to RTL without a reload', () => {
+        const composer = mount('aparte-composer');
+        expect(composer.getAttribute('dir')).toBe('ltr');
+
+        AparteConfig.setLocale(AR);
+
+        expect(composer.getAttribute('dir')).toBe('rtl');
+    });
+
+    it('and back to LTR', () => {
+        const composer = mount('aparte-composer');
+        AparteConfig.setLocale(AR);
+        AparteConfig.resetLocale();
+        expect(composer.getAttribute('dir')).toBe('ltr');
+    });
+
+    it('carries the direction to a toolbar inside it — the row the idiom targets', () => {
+        const composer = mount('aparte-composer');
+        const toolbar = document.createElement('aparte-composer-toolbar');
+        composer.appendChild(toolbar);
+
+        AparteConfig.setLocale(AR);
+
+        // Inherited, not stamped per element: one attribute on the composer is the
+        // whole mechanism, so anything the consumer puts in the row follows.
+        expect(composer.getAttribute('dir')).toBe('rtl');
+        expect(toolbar.closest('[dir="rtl"]')).toBe(composer);
     });
 });
 

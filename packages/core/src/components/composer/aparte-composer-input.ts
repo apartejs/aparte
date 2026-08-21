@@ -16,6 +16,16 @@ import type { AparteComposer } from './aparte-composer.js';
  *                      min-height governs (44px in aparte.css) — so themes can
  *                      resize the editor in pure CSS without being fought by
  *                      an inline height.
+  *
+ * @example
+ * <aparte-composer>
+ *   <div class="aparte-composer-shell">
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-input placeholder="Ask anything…" max-height="320" style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </div>
+ * </aparte-composer>
  */
 export class AparteComposerInput extends HTMLElement {
     private _editor: HTMLDivElement | null = null;

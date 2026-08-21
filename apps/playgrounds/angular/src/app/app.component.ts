@@ -2,6 +2,7 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
 import { AparteChatComponent } from '@aparte/angular';
 import { KEY_STORAGE, sendPrompt } from './aparte';
 
+
 const CHIPS = [
     { label: 'What is aparté?', prompt: 'Explain what aparté is in one sentence.' },
     { label: 'Write a haiku', prompt: 'Write a haiku about web components.' },
@@ -37,7 +38,7 @@ const CHIPS = [
                         }
                     </div>
                 </div>
-                <aparte-model-selector slot="footer-right" auto-select persist searchable></aparte-model-selector>
+                <aparte-model-selector slot="toolbar" style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
             </aparte-chat>
         </div>
     `,

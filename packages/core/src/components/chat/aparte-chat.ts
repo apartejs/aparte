@@ -24,6 +24,23 @@ import type { AparteComposer } from '../composer/aparte-composer.js';
  * @attr disabled     - Disables the composer
  * @attr center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
  * @attr attachments  - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
+  *
+ * @example
+ * <!-- Left empty it fills in a viewport, an input and a send button. -->
+ * <aparte-chat center-empty placeholder="Say something…" style="height: 600px"></aparte-chat>
+ *
+ * <!-- Or compose it yourself; the container still lays it out and runs center-empty. -->
+ * <aparte-chat center-empty attachments style="height: 600px">
+ *   <aparte-chat-viewport></aparte-chat-viewport>
+ *   <aparte-composer>
+ *     <div class="aparte-composer-shell">
+ *       <div class="aparte-composer-row">
+ *         <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *         <aparte-composer-send></aparte-composer-send>
+ *       </div>
+ *     </div>
+ *   </aparte-composer>
+ * </aparte-chat>
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {

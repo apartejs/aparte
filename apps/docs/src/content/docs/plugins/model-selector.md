@@ -38,6 +38,20 @@ The selector reads providers from the nearest instance config (via `attachConfig
 global `AparteConfig` — so multi-chat pages each drive their own model list.
 
 
+## Where to put it
+
+In the composer's bottom row — that is what the row is for, and it is one element:
+
+```html
+<aparte-composer-toolbar>
+  <aparte-model-selector style="margin-inline-start: auto"></aparte-model-selector>
+</aparte-composer-toolbar>
+```
+
+`margin-inline-start: auto` pushes it to the end of the row; drop it and the selector sits
+at the start. In the four wrappers the same thing goes through one `toolbar` slot — see
+[The composer toolbar](/guides/customization/#the-composer-toolbar).
+
 ## Gating the composer until a model is picked
 
 The model list loads asynchronously, so there's a window where the chat is mounted but no model is

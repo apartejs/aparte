@@ -261,15 +261,16 @@ describe('AparteChat React Wrapper', () => {
         expect(composer?.querySelector('.aparte-composer-shell')).toBeNull();
     });
 
-    it('projects above-composer and footer slots into the default shell', () => {
+    it('projects above-composer and the toolbar into the default shell', () => {
         const { container } = render(
             <AparteChat
                 messages={[]}
                 onMessageSent={mockOnMessageSent}
                 aboveComposer={<div className="above-banner">banner</div>}
-                footerLeft={<span className="fl">L</span>}
-                footerCenter={<span className="fc">C</span>}
-                footerRight={<span className="fr">R</span>}
+                toolbar={<>
+                    <span className="mode">mode</span>
+                    <span className="model" style={{ marginInlineStart: 'auto' }}>model</span>
+                </>}
             />,
         );
 
@@ -279,19 +280,21 @@ describe('AparteChat React Wrapper', () => {
         expect(banner).not.toBeNull();
         expect(banner!.compareDocumentPosition(composer!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-        // footer slots land inside the default shell's footer row, in order.
-        const footer = composer!.querySelector('.aparte-composer-footer');
-        expect(footer).not.toBeNull();
-        expect(footer!.querySelector('.fl')?.textContent).toBe('L');
-        expect(footer!.querySelector('.fc')?.textContent).toBe('C');
-        expect(footer!.querySelector('.fr')?.textContent).toBe('R');
+        // The toolbar lands in core's element, and the DOM order is the placement: the
+        // wrapper adds no left/center/right of its own.
+        const toolbar = composer!.querySelector('aparte-composer-toolbar');
+        expect(toolbar).not.toBeNull();
+        expect([...toolbar!.children].map((c) => c.className)).toEqual(['mode', 'model']);
     });
 
-    it('omits the footer row entirely when no footer slot is provided', () => {
+    it('renders no toolbar element at all when no toolbar is given', () => {
         const { container } = render(
             <AparteChat messages={[]} onMessageSent={mockOnMessageSent} />,
         );
         const composer = container.querySelector('aparte-composer');
+        // Not "rendered and hidden": absent. An empty row would still be a row in the
+        // accessibility tree and in anyone's querySelector.
+        expect(composer?.querySelector('aparte-composer-toolbar')).toBeNull();
         expect(composer?.querySelector('.aparte-composer-footer')).toBeNull();
     });
 

@@ -32,6 +32,21 @@ interface Pending {
     composer: ComposerEl;
 }
 
+/**
+ * @example
+ * <!-- Renders nothing by itself: it registers as the presenter for its subtree, so a
+ *      tool handler calling requestUserInput() gets its panel mounted in the composer. -->
+ * <aparte-chat>
+ *   <aparte-chat-viewport></aparte-chat-viewport>
+ *   <aparte-elicitation></aparte-elicitation>
+ *   <aparte-composer>
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </aparte-composer>
+ * </aparte-chat>
+ */
 export class AparteElicitation extends HTMLElement {
     private _pending: Pending | null = null;
     private _onTurnEnd = (): void => this._cancelPending();

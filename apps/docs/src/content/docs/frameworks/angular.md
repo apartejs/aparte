@@ -41,7 +41,9 @@ export class Chat {
 ```
 
 Slots are **content projection** by attribute: `[slot='empty-state']`, `[slot='composer']`,
-`[slot='above-composer']`, `[slot='footer-left'|'footer-center'|'footer-right']`. For a fully custom
+`[slot='above-composer']`, `[slot='toolbar']` — the last one being the composer's bottom
+row, with an example under
+[The composer toolbar](/guides/customization/#the-composer-toolbar). For a fully custom
 bubble, pass a template instead:
 
 ```html

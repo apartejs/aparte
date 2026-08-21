@@ -252,7 +252,11 @@ entire region with your own framework component, the wrappers expose:
   React `emptyState` prop · Vue/Svelte `#empty-state` slot · Angular
   `[slot=empty-state]`.
 - **Composer** — the `composer` slot replaces the default shell; `above-composer`
-  and `footer-left/center/right` slots project into it.
+  and one `toolbar` slot project into it. The toolbar is core's
+  `<aparte-composer-toolbar>` element (the composer's bottom row: mode picker, model
+  selector, token counter). Placement inside it is the DOM order, and
+  `margin-inline-start: auto` pushes a control to the end — a logical property, so the
+  row follows the reading direction.
 
 ---
 

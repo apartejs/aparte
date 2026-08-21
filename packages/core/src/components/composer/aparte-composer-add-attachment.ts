@@ -10,6 +10,17 @@ import type { AparteComposer } from './aparte-composer.js';
  *
  * @attr accept    - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
  * @attr multiple  - Allow multiple file selection (default: true)
+  *
+ * @example
+ * <!-- Opt-in: nothing consumes the files unless your host does (an AparteClient, or
+ *      your own listener reading `event.detail.files` off `aparte-send`). -->
+ * <aparte-composer>
+ *   <div class="aparte-composer-row">
+ *     <aparte-composer-add-attachment accept="image/*,.pdf"></aparte-composer-add-attachment>
+ *     <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *     <aparte-composer-send></aparte-composer-send>
+ *   </div>
+ * </aparte-composer>
  */
 export class AparteComposerAddAttachment extends HTMLElement {
     private _button: HTMLButtonElement | null = null;

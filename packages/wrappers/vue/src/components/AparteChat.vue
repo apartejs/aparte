@@ -237,16 +237,13 @@ defineExpose({
             <aparte-composer-input></aparte-composer-input>
             <aparte-composer-send></aparte-composer-send>
           </div>
-          <!-- Footer slots (model selector, token counter…). The row is
-               removed from view by .aparte-composer-footer:empty when unused. -->
-          <div
-            v-if="$slots['footer-left'] || $slots['footer-center'] || $slots['footer-right']"
-            class="aparte-composer-footer"
-          >
-            <slot name="footer-left" />
-            <slot name="footer-center" />
-            <slot name="footer-right" />
-          </div>
+          <!-- The composer's bottom row. ONE slot: placement is the DOM order, and
+               `margin-inline-start: auto` pushes a control to the end (a logical
+               property, so it reads correctly in RTL). Nothing is rendered at all when
+               the slot is unused. -->
+          <aparte-composer-toolbar v-if="$slots.toolbar">
+            <slot name="toolbar" />
+          </aparte-composer-toolbar>
         </div>
       </slot>
     </aparte-composer>

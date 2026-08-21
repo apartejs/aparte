@@ -203,24 +203,28 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(composer.hasAttribute('disabled')).toBe(true);
     });
 
-    it('leaves the composer footer row empty when no footer slot is projected', async () => {
-        // Angular divergence, deliberate: React/Vue/Svelte omit the footer NODE
-        // entirely (they can test slot presence — $slots / $$slots / props). Angular
-        // has no equivalent for `<ng-content select="[slot=…]">`: content queries match
-        // directives, not CSS selectors, and the projected nodes aren't attached until
-        // the ng-content itself renders (so a "does anything project?" check would be
-        // circular). The row is therefore always rendered but stays EMPTY, and core's
-        // `.aparte-composer-footer:empty { display: none }` hides it — same visual
-        // result. This test locks that it really is empty (Angular strips template
-        // whitespace by default, so `:empty` genuinely matches).
+    it('declares the toolbar empty when nothing is projected into it', async () => {
+        // Angular divergence, deliberate and now harmless: React/Vue/Svelte omit the
+        // toolbar NODE entirely (they can test slot presence — $slots / $$slots /
+        // props). Angular has no equivalent for `<ng-content select="[slot=…]">`:
+        // content queries match directives, not CSS selectors, and the projected nodes
+        // aren't attached until the ng-content itself renders, so a "does anything
+        // project?" check would be circular. The element is therefore always rendered.
+        //
+        // What changed with <aparte-composer-toolbar>: the row no longer depends on
+        // `:empty` — the element reflects `data-empty` from its own element children, so
+        // the stylesheet hides it whatever the whitespace situation. Asserting the
+        // ATTRIBUTE rather than `childNodes.length` also stops this test from resting on
+        // Angular's `preserveWhitespaces: false` default, which is a compiler setting a
+        // consumer can flip.
         const fixture = TestBed.createComponent(AparteChatComponent);
         (fixture.componentRef as any).setInput('messages', []);
         fixture.detectChanges();
         await fixture.whenStable();
 
-        const footer = fixture.nativeElement.querySelector('.aparte-composer-footer') as HTMLElement;
-        expect(footer).not.toBeNull();
-        expect(footer.childNodes.length).toBe(0);
+        const toolbar = fixture.nativeElement.querySelector('aparte-composer-toolbar') as HTMLElement;
+        expect(toolbar).not.toBeNull();
+        expect(toolbar.hasAttribute('data-empty')).toBe(true);
     });
 
     it('renders aparte-chat-status reflecting isTyping (parity with React/Vue/Svelte)', async () => {

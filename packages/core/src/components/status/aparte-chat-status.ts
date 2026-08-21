@@ -11,6 +11,12 @@
 import { AparteConfigClass } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 
+/**
+ * @example
+ * <!-- The app owns this indicator: core never turns it on by itself, so there is
+ *      never a second one competing with the bubble's built-in waiting state. -->
+ * <aparte-chat-status visible text="Searching the docs…"></aparte-chat-status>
+ */
 export class AparteChatStatus extends HTMLElement {
   static get observedAttributes(): string[] {
     return ['visible', 'text'];
