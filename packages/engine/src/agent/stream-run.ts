@@ -390,8 +390,12 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     toolTimeoutMs,
                 );
                 if (outcome.status === 'aborted') {
+                    // Same rule as the rejection / turn-limit / missing-handler
+                    // exits above, which this branch was missing: a stopped turn
+                    // must not go on running the tool calls that follow it.
                     emitter({ type: 'tool-aborted', toolCallId: event.id });
                     continueLoop = false;
+                    break;
                 } else {
                     emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content });
                     pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);

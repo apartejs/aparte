@@ -652,7 +652,11 @@ export class AparteClient {
         // For user messages: include the user message in history (AI needs to see the question).
         // For assistant messages: exclude it (we are regenerating that response).
         const sliceEnd = retryMsg?.role === 'user' ? retryIdx + 1 : retryIdx;
-        const historyMessages = retryIdx > 0 ? allMessages.slice(0, sliceEnd) : allMessages;
+        // `>= 0`, not `> 0`: index 0 is a legitimate retry target (a thread seeded
+        // with an assistant greeting), and treating it as "not found" discarded the
+        // computed slice and resent the ENTIRE transcript — including the reply
+        // being regenerated, so the retry produced a continuation, not a redo.
+        const historyMessages = retryIdx >= 0 ? allMessages.slice(0, sliceEnd) : allMessages;
 
         // Create new sibling message and get its ID for streaming
         const newMsg: AparteMessage = {
@@ -1311,15 +1315,13 @@ export class AparteClient {
                 content?: string;
             };
             const mimeType = input.mimeType ?? 'text/plain';
-            const kind = mimeType.includes('react') ? 'react'
-                : mimeType.includes('html') ? 'html'
-                : mimeType.includes('javascript') ? 'js'
-                : mimeType.includes('css') ? 'css'
-                : mimeType.includes('svg') ? 'svg'
-                : mimeType.includes('json') ? 'json'
-                : mimeType.includes('csv') ? 'csv'
-                : mimeType.includes('markdown') ? 'markdown'
-                : 'text';
+            // The canonical derivation, not a third hand-rolled copy: the inline
+            // chain that used to live here knew nothing of Anthropic's
+            // `application/vnd.ant.*` namespace, so the same create_artifact call
+            // rendered differently depending on whether the engine runner was
+            // injected. `deriveArtifactKind` is already imported at the top of
+            // this file, and engine's copy is locked to it by a parity test.
+            const kind = deriveArtifactKind(mimeType, 'text');
             const artifactSeg: import('../types/segments.js').AparteArtifactSegment = {
                 id: `artifact-${event.id}`,
                 type: 'artifact',
@@ -1767,6 +1769,16 @@ export class AparteClient {
                         default:
                             assertNever(event);
                     }
+
+                    // A `break` inside the switch above leaves the SWITCH, not this
+                    // loop. Without this line a turn the loop already decided to
+                    // stop — a tool the human rejected, a per-tool turn limit, a
+                    // missing handler — went on to execute every remaining tool
+                    // call of the same turn: side effects ran after an explicit
+                    // refusal, and their results were appended to a stopped loop's
+                    // history. `runStreamAgent` exits its inner loop for the same
+                    // reasons; this is the core side of that agreement.
+                    if (!continueLoop) break;
                 }
 
                 // Finalize text parser
