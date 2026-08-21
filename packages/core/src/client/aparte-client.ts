@@ -251,11 +251,34 @@ export interface AparteClientOptions {
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
-    private _boundCompactHandler: (() => void) | null = null;
+    private _boundCompactHandler: ((e: Event) => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
     private _activeToolControllers: Set<AbortController> = new Set();
     private _isAborted = false;
+
+    /**
+     * Does this window event belong to this client?
+     *
+     * One rule for all five handlers, because it used to be four near-copies and
+     * one omission: `aparte-compact` had no guard at all, so in the two-client
+     * layout the JSDoc documents, a single compact event made BOTH clients run —
+     * two paid summarisation calls against whichever chat the DOM scan found
+     * first, and a global reset that wiped the other conversation.
+     *
+     * A scoped client also answers only events ADDRESSED to it. The old guard let
+     * an untargeted event through to every scoped client, which turned one
+     * broadcast into an action on every chat on the page.
+     */
+    private _isForThisInstance(e?: Event): boolean {
+        const scope = this.options.scopeToTargetId;
+        if (!scope) return true;
+        // No event at all means a direct, programmatic call — not a broadcast, so
+        // the addressing rule does not apply to it.
+        if (!e) return true;
+        const detail = (e as CustomEvent).detail as { targetId?: string } | undefined;
+        return detail?.targetId === scope;
+    }
     /** Aborts the in-flight vendor/transport fetch when the user stops a stream. */
     private _streamController: AbortController | null = null;
     private options: AparteClientOptions;
@@ -291,10 +314,7 @@ export class AparteClient {
             const event = e as CustomEvent;
             if (event.type !== 'aparte-send') return;
             // Scope guard: ignore events not for this instance
-            if (this.options.scopeToTargetId) {
-                const evtTargetId = (event.detail as { targetId?: string })?.targetId as string | undefined;
-                if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-            }
+            if (!this._isForThisInstance(event)) return;
             // Reset abort flag and cancel any tool calls from a previous turn
             this._isAborted = false;
             for (const controller of this._activeToolControllers) {
@@ -319,26 +339,24 @@ export class AparteClient {
         if (!this._boundAbortHandler) {
             this._boundAbortHandler = (e?: Event) => {
                 // Scope guard
-                if (this.options.scopeToTargetId) {
-                    const evtTargetId = ((e as CustomEvent)?.detail as { targetId?: string })?.targetId as string | undefined;
-                    if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-                }
+                if (!this._isForThisInstance(e)) return;
                 this.abort();
             };
         }
         window.addEventListener('aparte-abort', this._boundAbortHandler);
         if (!this._boundCompactHandler) {
-            this._boundCompactHandler = () => { void this.compact(); };
+            this._boundCompactHandler = (e: Event) => {
+                if (!this._isForThisInstance(e)) return;
+                const detail = (e as CustomEvent).detail as { targetId?: string } | undefined;
+                void this.compact(detail?.targetId);
+            };
         }
         window.addEventListener('aparte-compact', this._boundCompactHandler);
 
         if (!this._boundRetryHandler) {
             this._boundRetryHandler = (e: Event) => {
                 const evt = e as CustomEvent;
-                if (this.options.scopeToTargetId) {
-                    const evtTargetId = (evt.detail as { targetId?: string })?.targetId as string | undefined;
-                    if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-                }
+                if (!this._isForThisInstance(evt)) return;
                 void this._handleRetry(evt);
             };
         }
@@ -347,10 +365,7 @@ export class AparteClient {
         if (!this._boundEditHandler) {
             this._boundEditHandler = (e: Event) => {
                 const evt = e as CustomEvent;
-                if (this.options.scopeToTargetId) {
-                    const evtTargetId = (evt.detail as { targetId?: string })?.targetId as string | undefined;
-                    if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-                }
+                if (!this._isForThisInstance(evt)) return;
                 void this._handleEdit(evt);
             };
         }
@@ -505,22 +520,13 @@ export class AparteClient {
      * Triggered programmatically or by dispatching `window.dispatchEvent(new CustomEvent('aparte-compact'))`.
      * Dispatches `aparte-compact-done` on window when complete, or `aparte-compact-error` on failure.
      */
-    async compact(): Promise<void> {
-        // 1. Resolve target element
-        let target: AparteChatTargetElement | null = null;
-        if (this.options.targetResolver) {
-            target = this.options.targetResolver() as AparteChatTargetElement | null;
-        }
-        if (!target) {
-            // Walk the DOM for any element exposing getMessages
-            const candidates = document.querySelectorAll<AparteChatTargetElement>('aparte-chat, [data-aparte-chat]');
-            for (const el of Array.from(candidates)) {
-                if (typeof el.getMessages === 'function') {
-                    target = el;
-                    break;
-                }
-            }
-        }
+    async compact(targetId?: string): Promise<void> {
+        // 1. Resolve target element — through the same resolver every other
+        // handler uses, so an explicit id wins over a document-wide scan. The
+        // scan alone meant a scoped client summarised whichever chat happened to
+        // come first in the DOM, not its own.
+        let target = this._resolveTarget<AparteChatTargetElement>(targetId);
+        if (target && typeof target.getMessages !== 'function') target = null;
         if (!target) {
             window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: 'No aparte-chat target found' } }));
             return;
@@ -614,8 +620,14 @@ export class AparteClient {
                 throw new Error('Empty summary returned by model');
             }
 
-            // 7. Clear viewport and inject summary
-            window.dispatchEvent(new CustomEvent('aparte-reset'));
+            // 7. Clear THIS viewport and inject the summary. The global
+            // `aparte-reset` used to go out instead, and every mounted viewport
+            // listens for it — so compacting one chat cleared the others too,
+            // with no summary injected into them. The broadcast remains only as
+            // the fallback for a host whose target exposes no clearAll.
+            const clearAll = (target as { clearAll?: () => void }).clearAll;
+            if (typeof clearAll === 'function') clearAll.call(target);
+            else window.dispatchEvent(new CustomEvent('aparte-reset'));
 
             // Small delay to let clearAll() finish DOM cleanup
             await new Promise<void>(resolve => setTimeout(resolve, 50));

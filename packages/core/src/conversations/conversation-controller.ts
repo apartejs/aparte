@@ -242,6 +242,9 @@ export class AparteConversationController {
     }
 
     /** Detach event listeners. */
+    /** Release handle for the hydration-retry subscription (see setConversationId). */
+    private _stopHydrationRetry: (() => void) | null = null;
+
     unbind(): void {
         // Persist current state before tearing down. This covers the case where
         // the host component is destroyed mid-stream (e.g. "New Chat" navigates
@@ -250,6 +253,8 @@ export class AparteConversationController {
         // _persistActive() is a no-op when _activeId is null, so this is safe
         // for new instances that were never given a conversation id.
         this._persistActive();
+        this._stopHydrationRetry?.();
+        this._stopHydrationRetry = null;
         const host = this._binding.host;
         if (this._onSendCapture) {
             host.removeEventListener('aparte-send', this._onSendCapture, { capture: true } as EventListenerOptions);
@@ -360,8 +365,14 @@ export class AparteConversationController {
             // that conflates "still hydrating" with "hydrated but empty"
             // (first-time user, no convs yet), which would defer forever.
             if (manager && !manager.initialized) {
+                // Held so `unbind()` can release it: a host destroyed while the
+                // manager is still hydrating used to leave this subscription
+                // alive, and the later emit then called `setConversationId` on an
+                // unbound controller — writing messages into a torn-down binding.
+                this._stopHydrationRetry?.();
                 const stop = manager.subscribe(() => {
                     stop();
+                    this._stopHydrationRetry = null;
                     // Only retry if the id has become known. Otherwise let the
                     // next emit (or a later setConversationId call) handle it.
                     if (manager.conversations.some((c: AparteConversation) => c.id === id)) {
@@ -374,6 +385,7 @@ export class AparteConversationController {
                         this._binding.clearMessages();
                     }
                 });
+                this._stopHydrationRetry = stop;
                 return;
             }
             console.warn('[ConversationController] unknown id or no manager — clearing. manager:', !!manager, 'conv:', !!conv);

@@ -1025,18 +1025,29 @@ export class AparteChatViewport extends HTMLElement {
         }
     }
 
+    // Bound fields, not inline arrows: a custom element is re-connected every
+    // time it is MOVED in the DOM (a portal, a dialog, a framework re-parenting),
+    // so `_setupEventListeners` runs again each time. An inline arrow can never
+    // be handed to `removeEventListener`, so it just accumulates — one branch
+    // click then ran N handlers, N active-path re-renders and N storage writes
+    // through the conversation controller. The window listeners next to these
+    // were always removed properly; these two, attached to `this`, were not.
+    private readonly _onScrollBtnClick = (): void => {
+        this._isAutoScrollEnabled = true;
+        this._smoothScrollToBottom();
+        this._updateScrollButton();
+    };
+
+    private readonly _onBranchNavigate = (e: Event): void => {
+        const evt = e as CustomEvent<{ messageId: string; direction: 'prev' | 'next' }>;
+        evt.stopPropagation();
+        this.navigateBranch(evt.detail.messageId, evt.detail.direction);
+    };
+
     private _setupEventListeners(): void {
         this._container?.addEventListener('scroll', this._handleScroll, { passive: true });
-        this._scrollBtn?.addEventListener('click', () => {
-            this._isAutoScrollEnabled = true;
-            this._smoothScrollToBottom();
-            this._updateScrollButton();
-        });
-        this.addEventListener('aparte-branch-navigate', (e: Event) => {
-            const evt = e as CustomEvent<{ messageId: string; direction: 'prev' | 'next' }>;
-            evt.stopPropagation();
-            this.navigateBranch(evt.detail.messageId, evt.detail.direction);
-        });
+        this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
+        this.addEventListener('aparte-branch-navigate', this._onBranchNavigate);
     }
 
     private _setupObservers(): void {
@@ -1280,6 +1291,8 @@ export class AparteChatViewport extends HTMLElement {
 
     private _cleanup(): void {
         this._container?.removeEventListener('scroll', this._handleScroll);
+        this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);
+        this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
         this._mutationObserver?.disconnect();
         this._resizeObserver = null;

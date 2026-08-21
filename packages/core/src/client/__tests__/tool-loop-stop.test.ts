@@ -14,7 +14,7 @@ import type { AparteTool } from '../../types/tools.js';
  * was already stopped.
  */
 const tool = (name: string, extra: Partial<AparteTool> = {}): AparteTool => ({
-    name, description: name, parameters: { type: 'object', properties: {} }, ...extra,
+    name, description: name, inputSchema: { type: 'object', properties: {} }, ...extra,
 });
 
 function harness(handlers: Record<string, () => void>, tools: AparteTool[], events: unknown[]) {
