@@ -102,7 +102,10 @@ export default defineConfig({
         // a threshold that gets lowered, and writing filler tests to reach 70 would
         // buy a number instead of coverage. What it does buy today is that this
         // number can no longer go DOWN, which it silently could before.
-        'packages/core/src/renderers/**': { lines: 56, statements: 56, functions: 73, branches: 72 },
+        // Raised 56 -> 58 when the nine built-ins became nine files: the split moved
+        // code out of one thinly-covered module into files the existing tests reach,
+        // and measured coverage went to 59.11%. The ratchet guard caught the slack.
+        'packages/core/src/renderers/**': { lines: 58, statements: 58, functions: 73, branches: 72 },
       },
     },
   },
