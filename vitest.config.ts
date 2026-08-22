@@ -18,6 +18,19 @@ export default defineConfig({
     // a percentage cap actively harmful. `minWorkers` must be lowered too — vitest
     // errors out if the default minimum ends up above the maximum.
     ...(process.env.CI ? {} : { minWorkers: 1, maxWorkers: '50%' }),
+    // Do NOT set `isolate: false`. The suite depends on per-file isolation, and
+    // that is measured rather than assumed: `vitest run --no-isolate` fails 6 tests
+    // across 4 files today — the two barrels' export-parity check, the lazy
+    // renderer install, the viewport's re-parent listener count, and the composer's
+    // drag-drop pair. None is a product bug; all four are state a previous file left
+    // behind in a shared worker (a registered renderer, an attached listener, a
+    // module registry seen once instead of twice).
+    //
+    // It is written down because an audit recorded one run with 74 failures across 8
+    // files — the four Angular specs among them — that was never reproduced in five
+    // reruns. Sharing a worker produces exactly that shape, and `isolate: false` is
+    // the switch that would cause it. If that run ever recurs, start here.
+
     include: ['packages/**/*.{test,spec}.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     passWithNoTests: true,
