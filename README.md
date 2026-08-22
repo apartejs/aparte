@@ -70,9 +70,9 @@ new AparteClient().start();            // listens for sends, streams the reply i
 AparteConfig.setBubbleActions({ retry: true, edit: true });
 
 // The bare shell streams the assistant reply; echo the user's own message in:
-const chat = document.querySelector('aparte-chat');
+const chat = document.querySelector('aparte-chat')!;
 chat.addEventListener('aparte-send', (e) =>
-  chat.viewport.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.detail.content, timestamp: Date.now() }),
+  chat.viewport?.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.detail.content, timestamp: Date.now() }),
 );
 ```
 

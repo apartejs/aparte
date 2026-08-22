@@ -99,6 +99,7 @@ Driving your own loop? `filesToAttachments(files)` converts that `File[]` into t
 `attachments` an `AparteChatMessage` renders — the same conversion the built-in send path
 does, so your user bubble shows the chips instead of a bare line of text:
 
+<!-- doc-check: skip excerpt — `chat`, `id`, `content` and `files` come from the surrounding send handler -->
 ```ts
 import { filesToAttachments } from '@aparte/core';
 

@@ -70,16 +70,31 @@ guaranteed present (the base `AparteAIProvider` declares them optional, since a 
 own I/O):
 
 ```ts
+import { readableToAsyncIterable } from '@aparte/core';
+import type { AparteChatRequest } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 const provider = createOpenAICompatProvider(presets.MISTRAL);
 
-// You own the call: your URL, your headers, your AbortSignal, your retries.
-const { path, body, headers } = provider.buildRequest(request, auth);
-const res = await myFetch(`${baseURL}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+const baseURL = 'https://api.mistral.ai/v1';
+const apiKey = process.env['MISTRAL_API_KEY'] ?? '';
+const request: AparteChatRequest = { messages: [{ role: 'user', content: 'hi' }], modelId: 'mistral-small-latest', stream: true };
 
-for await (const event of provider.parseStream(res.body)) {
+// You own the call: your URL, your headers, your AbortSignal, your retries.
+// `buildRequest` takes the request alone; the key goes through `authHeaders`.
+const { path, body, headers } = provider.buildRequest(request);
+const res = await fetch(`${baseURL}${path}`, {
+  method: 'POST',
+  headers: { ...headers, ...provider.authHeaders(apiKey) },
+  body: JSON.stringify(body),
+});
+
+// `parseStream` returns a ReadableStream, which is NOT async-iterable in Chromium
+// (or under `lib: DOM`). `readableToAsyncIterable` is core's adapter for exactly this.
+const controller = new AbortController(); // yours to abort — the helper honours it
+for await (const event of readableToAsyncIterable(provider.parseStream(res.body!), controller.signal)) {
   // text · thinking · tool_use · done{usage} — typed, vendor quirks already handled
+  void event;
 }
 ```
 

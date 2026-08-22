@@ -54,3 +54,6 @@ Thumbs.db
 
 # Angular CLI cache
 .angular/
+
+# Scratch dir for scripts/check-doc-snippets.mjs (kept only when a snippet fails).
+.doc-snippets/

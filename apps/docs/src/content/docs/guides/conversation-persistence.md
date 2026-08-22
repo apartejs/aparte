@@ -88,6 +88,7 @@ present.
 `ConversationManager` owns the in-memory list, mutates it, and calls your adapter — your
 app never calls the adapter directly.
 
+<!-- doc-check: skip excerpt — imports the adapter the reader writes in the fence above -->
 ```ts
 import { AparteConfig, ConversationManager } from '@aparte/core';
 import { LocalStorageAdapter } from './local-storage-adapter';

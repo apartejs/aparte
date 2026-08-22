@@ -331,6 +331,7 @@ Core is zero-dependency by default, so Markdown and syntax highlighting are **of
 until you inject a renderer — keeping the bundle honest:
 
 ```ts
+import { AparteConfig } from '@aparte/core';
 import { marked } from 'marked';
 import { codeToHtml } from 'shiki';
 

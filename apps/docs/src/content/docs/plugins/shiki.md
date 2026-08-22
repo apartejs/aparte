@@ -52,6 +52,12 @@ twenty languages. Restricting the language list does **not** help — a static i
 Build the highlighter yourself with shiki's fine-grained entry points, then hand it over. Same plugin,
 same behaviour, one chunk:
 
+Those fine-grained entry points live in **separate packages** — add them alongside `shiki`:
+
+```bash
+npm install @shikijs/langs @shikijs/themes
+```
+
 ```ts
 import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';

@@ -85,6 +85,7 @@ see [Attachments](/guides/attachments/).
 
 For an `<aparte-*>` element without a dedicated component, mount it generically:
 
+<!-- doc-check: skip excerpt — `onEvent` is the reader's handler -->
 ```tsx
 import { AparteUi } from '@aparte/react';
 

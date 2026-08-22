@@ -70,7 +70,25 @@ jobs:
       - name: Test (with coverage gate)
         run: pnpm test:coverage
 
-      # Added as packages land: docs build + link-check.
+      # The documentation, checked rather than assumed.
+      #
+      # A cold audit found FOUR broken snippets — including the headline
+      # `streamRunner: runStreamAgent` composition printed on five pages and a
+      # README, which did not typecheck at all. Every one was the direct
+      # consequence of nothing ever compiling them: the repo enforced that each
+      # element documents an example and that no README imports a removed symbol,
+      # and never checked whether the examples RUN.
+      - name: Compile the docs' self-contained snippets
+        run: pnpm check:doc-snippets
+
+      # The build also runs the four reference generators, so this is what proves
+      # they still produce a site — and it is the only place the generated pages
+      # exist for the link check below.
+      - name: Build the docs site
+        run: pnpm --filter @aparte-workspace/docs build
+
+      - name: Check internal links and anchors
+        run: pnpm check:doc-links
 
   # Portability guard: the packages declare engines.node ">=18" and the repo is
   # developed on Windows, yet the authoritative gate above runs a single target.

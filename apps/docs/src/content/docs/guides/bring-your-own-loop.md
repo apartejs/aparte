@@ -47,6 +47,7 @@ what nobody claimed. See [Custom segment types](/guides/customization/#custom-se
 2. When your loop starts answering, `appendMessage` an **empty assistant message** with a fresh id.
 3. `injectTokenStream(id, tokens)` with your token source.
 
+<!-- doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page -->
 ```tsx
 import { useCallback } from 'react';
 import { AparteChat, useAparteChat } from '@aparte/react';

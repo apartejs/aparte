@@ -139,6 +139,7 @@ after injection for listeners; `getStyles` is injected into `document.head` once
 For a `needsApproval` tool this only takes over *after* approval:
 
 ```ts
+import { AparteConfig } from '@aparte/core';
 import type { AparteToolRenderer } from '@aparte/core';
 
 const webSearchRenderer: AparteToolRenderer = {
