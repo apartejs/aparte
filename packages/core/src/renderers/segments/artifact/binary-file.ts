@@ -16,10 +16,10 @@
  * renderer-registration entry points rather than at module load — see its own comment
  * for why that matters to bundlers.
  */
-import { escapeHtml } from '../utils/escape.js';
-import { contextConfig } from '../config/index.js';
-import type { AparteArtifactSegment } from '../types/index.js';
-import { stripCodeFences, labelForKind, markThrottle, debounceHighlight } from './artifact-shared.js';
+import { escapeHtml } from '../../../utils/escape.js';
+import { contextConfig } from '../../../config/index.js';
+import type { AparteArtifactSegment } from '../../../types/index.js';
+import { stripCodeFences, labelForKind, markThrottle, debounceHighlight } from './shared.js';
 
 
 const FILE_ICON_LABEL: Record<string, string> = {

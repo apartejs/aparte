@@ -23,7 +23,7 @@
  *   • `escapeClosingScriptTag` is listed by NAME in `scripts/escaping-names.mjs`, so
  *     both escaping guards keep recognising it from its new home.
  */
-import { escapeHtml, escapeAttr } from '../utils/escape.js';
+import { escapeHtml, escapeAttr } from '../../../utils/escape.js';
 
 /**
  * What a previewed artifact is allowed to reach. Inline script and style are

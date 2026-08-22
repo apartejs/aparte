@@ -12,7 +12,7 @@
  * needs too), the kind→label map, and the throttle pair behind the debounced
  * re-highlight.
  */
-import { contextConfig } from '../config/index.js';
+import { contextConfig } from '../../../config/index.js';
 
 
 /**

@@ -6,7 +6,7 @@
  * renderer registry plus nine small renderers. It is that now.
  *
  * The card owns the previewable path. When a segment's kind is binary (pdf/xlsx/docx)
- * it DELEGATES to `artifact-binary-file.ts` — which is why `BINARY_FILE_KINDS` lives
+ * it DELEGATES to `./binary-file.ts` — which is why `BINARY_FILE_KINDS` lives
  * here despite the name: the card is what consults it to decide to hand over. A
  * call-site census settled that; grouping it as "shared" was the first draft's mistake.
  *
@@ -14,19 +14,19 @@
  * the user presses Preview (`mountPreviewFrame`), because a previewable artifact is
  * model-authored code and mounting it unasked executes it — ratified decision #8
  * applied to a tier-(c) affordance. The document it mounts comes from
- * `artifact-preview-document.ts`, or from the consumer's own builder.
+ * `./preview-document.ts`, or from the consumer's own builder.
  */
-import { escapeHtml, escapeAttr } from '../utils/escape.js';
-import { contextConfig } from '../config/index.js';
-import type { AparteArtifactSegment, AparteSegmentRenderer } from '../types/index.js';
-import { deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
-import { stripCodeFences, labelForKind, debounceHighlight } from './artifact-shared.js';
-import { PREVIEW_CSP, buildSafePreviewDocument } from './artifact-preview-document.js';
+import { escapeHtml, escapeAttr } from '../../../utils/escape.js';
+import { contextConfig } from '../../../config/index.js';
+import type { AparteArtifactSegment, AparteSegmentRenderer } from '../../../types/index.js';
+import { deriveArtifactKind } from '../../../parsers/aparte-stream-parser.js';
+import { stripCodeFences, labelForKind, debounceHighlight } from './shared.js';
+import { PREVIEW_CSP, buildSafePreviewDocument } from './preview-document.js';
 import {
     renderBinaryFileArtifact,
     setupBinaryFileArtifact,
     updateBinaryFileArtifact,
-} from './artifact-binary-file.js';
+} from './binary-file.js';
 
 
 const PREVIEWABLE_KINDS: ReadonlySet<string> = new Set(['react', 'html', 'svg', 'js', 'css']);
