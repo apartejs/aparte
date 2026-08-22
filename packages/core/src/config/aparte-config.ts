@@ -326,6 +326,20 @@ export class AparteConfigClass {
      * @example AparteConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
      */
     setHtmlSanitizer(sanitizer: AparteSanitizer | null): void {
+        if (sanitizer === null) {
+            // Passing null is a legitimate choice — an app that fully trusts its
+            // own pipeline, or one swapping in DOMPurify at a different layer. But
+            // it turns every renderer in this library into a raw `innerHTML` sink
+            // for model output, and it used to happen in complete silence, which
+            // is indistinguishable from a typo or a half-finished migration. One
+            // line in the console, once, so the decision is visible where it takes
+            // effect rather than only where it was written.
+            console.warn(
+                '[aparte] HTML sanitization is now DISABLED (setHtmlSanitizer(null)). '
+                + 'Model-authored HTML will be inserted verbatim. Pass a sanitizer '
+                + '(e.g. DOMPurify.sanitize) unless you sanitize upstream yourself.',
+            );
+        }
         this._sanitizer = sanitizer;
     }
 

@@ -276,12 +276,26 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /** Remove a segment by id (e.g. to discard a transient waiting indicator) */
+  /**
+   * Scoped to DIRECT children on purpose.
+   *
+   * Segments are appended as direct children of the container, but a descendant
+   * query returns the first match in document order — and sanitized model
+   * markdown renders inside that same container, with `data-*` attributes
+   * deliberately preserved (they are inert). So a decoy `data-segment-id` planted
+   * in an earlier segment's prose used to win over the real segment element.
+   *
+   * Parser ids are unguessable UUIDs, but a tool segment is `tool-${toolCallId}`
+   * and the MODEL chooses that id — so this was reachable, and pointing an update
+   * at a decoy left a rejected tool rendering as still-running: a spoof against
+   * the human-in-the-loop control.
+   */
   removeSegment(segmentId: string): void {
     const index = this._segments.findIndex(s => s.id === segmentId);
     if (index !== -1) {
       this._segments.splice(index, 1);
     }
-    const el = this._segmentsEl?.querySelector(`[data-segment-id="${cssEscape(segmentId)}"]`);
+    const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
     this._updateWaiting();
   }
@@ -377,7 +391,7 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   private _applySegmentUpdate(segmentId: string, segment: AparteSegment, updates: Partial<AparteSegment>): void {
-    const el = this._segmentsEl?.querySelector(`[data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
+    const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
     if (!el) {
       this._renderSegments();
       return;

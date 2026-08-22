@@ -68,7 +68,20 @@ const SAFE_URL = /^(?:https?:|mailto:|tel:|ftp:|sms:)/i;
 /** In-page / relative references (no explicit scheme). */
 const RELATIVE_URL = /^(?:[#/.?]|[a-z0-9._~%+-]+(?:[/?#]|$))/i;
 /** data: URLs are only honoured for images, and only for image media types. */
-const SAFE_DATA_IMG = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|svg\+xml)?[;,]/i;
+/**
+ * `data:` URLs are only honoured for images, and only for a NAMED image subtype.
+ *
+ * The subtype group used to be optional (`(?:png|…)?`), so `data:image/,x` and
+ * `data:image/;whatever,` sailed through with no media type at all.
+ *
+ * `svg+xml` is deliberately kept. An SVG loaded through `<img src>` runs in
+ * secure-static mode — no scripts, no external fetches — in every engine, and
+ * dropping it would break the legitimate case (a model emitting an inline chart
+ * or icon). What it must NOT do is travel: an app that moves this URL into an
+ * `<object>`, `<embed>` or an iframe leaves secure-static mode and the SVG
+ * becomes executable. That constraint belongs to whoever re-hosts it.
+ */
+const SAFE_DATA_IMG = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|svg\+xml)[;,]/i;
 /** Whitespace + C0 control chars, used to obfuscate a scheme (e.g. " javascript:" or "java\tscript:"). */
 // eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
 const CONTROL_WS = /[\u0000-\u0020]+/g;
@@ -117,6 +130,17 @@ function scrubStyle(value: string): string | null {
         const prop = trimmed.slice(0, idx).trim().toLowerCase();
         const val = trimmed.slice(idx + 1);
         if (!val.trim() || !SAFE_STYLE_PROPS.has(prop)) continue;
+        // A CSS identifier escape is a legal spelling of any character, so
+        // `u\72 l(//evil)` is `url(//evil)` written to walk straight past a
+        // regex looking for the letters. DECODING it would be the general fix and
+        // is easy to get wrong — stripping the escape yields `ul(`, not `url(`,
+        // which is how the first attempt at this passed its own test.
+        //
+        // So: no backslash survives here at all. None of the properties this
+        // allowlist keeps (colours, font weights, text-decoration, white-space)
+        // has any legitimate use for a CSS escape, so refusing them outright
+        // costs nothing and leaves nothing to decode correctly.
+        if (val.includes('\\')) continue;
         if (/url\s*\(|expression\s*\(|javascript:|vbscript:|[<>]/i.test(val)) continue;
         kept.push(trimmed); // preserve the original declaration text (no reformatting)
     }
