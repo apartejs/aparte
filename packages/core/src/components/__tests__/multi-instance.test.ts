@@ -9,6 +9,8 @@ import { describe, it, expect, afterEach } from 'vitest';
  */
 
 import '../bubble/aparte-chat-bubble.js';
+import '../composer/aparte-composer.js';
+import '../status/aparte-chat-status.js';
 import { AparteConfig, AparteConfigClass } from '../../config/aparte-config.js';
 import { attachConfig, detachConfig } from '../../config/config-context.js';
 
@@ -131,5 +133,49 @@ describe('multi-instance config isolation', () => {
         // The global notify rebuilds all action bars — but this bubble re-reads
         // ITS instance config, not the global.
         expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="instance"');
+    });
+});
+
+describe('the boundary attached AFTER a child mounts — every element, not just the bubble', () => {
+    afterEach(() => { document.body.innerHTML = ''; AparteConfig.reset(); });
+
+    /**
+     * This is the ordering every wrapper produces and nothing tested.
+     *
+     * `AparteChatHost.bind()` is what calls `attachConfig`, and all four wrappers
+     * call it from their POST-mount hook — React `useEffect`, Vue `onMounted`,
+     * Svelte `onMount`, Angular `ngAfterViewInit`. The children they render in the
+     * same commit therefore run `connectedCallback` BEFORE the boundary exists.
+     *
+     * `aparte-chat-bubble` resolved live and was fine. The composer and the status
+     * element cached at connect and latched the GLOBAL config for good, so the
+     * `config` prop those wrappers advertise did nothing for them. Worse for the
+     * status element: it filters change events on the cached object, so it also went
+     * permanently deaf to its own instance.
+     */
+    const mountThenAttach = (tag: string): { el: HTMLElement; cfg: AparteConfigClass } => {
+        const h = host();
+        const el = document.createElement(tag);
+        h.appendChild(el);                 // connectedCallback runs HERE…
+        const cfg = new AparteConfigClass();
+        attachConfig(h, cfg);              // …and the boundary appears only now.
+        return { el, cfg };
+    };
+
+    for (const tag of ['aparte-composer', 'aparte-chat-status', 'aparte-chat-bubble']) {
+        it(`<${tag}> resolves the instance config, not the global`, () => {
+            const { el, cfg } = mountThenAttach(tag);
+            const resolved = (el as unknown as { _cfg: AparteConfigClass })._cfg;
+            expect(resolved, `${tag} latched a config at connect`).toBe(cfg);
+            expect(resolved).not.toBe(AparteConfig);
+        });
+    }
+
+    it('the status element still hears its own config change', () => {
+        const { el, cfg } = mountThenAttach('aparte-chat-status');
+        // The filter compares against the live `_cfg`; with a cached one this
+        // change would be discarded as "not mine".
+        const seen = (el as unknown as { _cfg: AparteConfigClass })._cfg;
+        expect(seen).toBe(cfg);
     });
 });

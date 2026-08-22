@@ -1,5 +1,5 @@
 import type { AparteSendEventDetail } from '../../types/index.js';
-import { AparteConfig, type AparteConfigClass } from '../../config/aparte-config.js';
+import { type AparteConfigClass } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,8 +78,25 @@ export class AparteComposer extends HTMLElement {
     private _onMessageDone = this._handleMessageDone.bind(this);
 
     /** Config governing THIS composer (nearest instance boundary, else global). */
-    private _cfg: AparteConfigClass = AparteConfig;
-    private _configUnsub: (() => void) | null = null;
+    /**
+     * Resolved LIVE, not cached at connect.
+     *
+     * A wrapper runs `AparteChatHost.bind()` — which calls `attachConfig` — from its
+     * POST-mount hook, so this element connects BEFORE the boundary exists. Caching
+     * here latched the global config forever: an instance `config` carrying an RTL
+     * locale flipped the transcript and not the composer, and the
+     * `requireModelSelection` gate was read off the wrong object. `aparte-chat-bubble`
+     * has always resolved live, and its JSDoc names this exact race.
+     */
+    private get _cfg(): AparteConfigClass {
+        return resolveConfig(this);
+    }
+    /** Only OUR config: a change on another chat's instance must not touch us. */
+    private _onConfigChangeEvent = (e: Event): void => {
+        const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
+        if (detail?.config && detail.config !== this._cfg) return;
+        this._onConfigChange();
+    };
     /** True while `requireModelSelection` is on AND no model is selected — blocks send. */
     private _modelGated = false;
     private _onConfigChange = (): void => { this._evaluateModelGate(); this._applyDirection(); };
@@ -112,8 +129,12 @@ export class AparteComposer extends HTMLElement {
         window.addEventListener('aparte-message-error', this._onMessageDone);
         window.addEventListener('aparte-message-aborted', this._onMessageDone);
         // Model-selection gate (opt-in via AparteConfig.setRequireModelSelection).
-        this._cfg = resolveConfig(this);
-        this._configUnsub = this._cfg.subscribe(this._onConfigChange);
+        // A window listener rather than `_cfg.subscribe(...)`: subscribing binds to
+        // whichever config was resolvable AT CONNECT, which is the bug above wearing
+        // a different hat. `_notify()` dispatches `aparte-config-change` with
+        // `detail.config`, so the same information arrives without the early binding
+        // — and the filter below compares against the LIVE config.
+        window.addEventListener('aparte-config-change', this._onConfigChangeEvent);
         this._evaluateModelGate();
         this._applyDirection();
     }
@@ -123,8 +144,7 @@ export class AparteComposer extends HTMLElement {
         window.removeEventListener('aparte-message-done', this._onMessageDone);
         window.removeEventListener('aparte-message-error', this._onMessageDone);
         window.removeEventListener('aparte-message-aborted', this._onMessageDone);
-        this._configUnsub?.();
-        this._configUnsub = null;
+        window.removeEventListener('aparte-config-change', this._onConfigChangeEvent);
         this._listeners.clear();
     }
 

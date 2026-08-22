@@ -50,8 +50,20 @@ export function detachConfig(el: HTMLElement): void {
 /**
  * Resolve the config governing `el`: the nearest ancestor boundary's instance
  * config (including `el` itself), or the global {@link AparteConfig} when none is
- * present. Cheap — a single `closest()` — but callers should cache the result at
- * `connectedCallback` rather than call it per render.
+ * present. Cheap — a single `closest()`.
+ *
+ * DO NOT cache this at `connectedCallback`. An earlier version of this comment
+ * advised exactly that, and two elements followed it into a real bug: a framework
+ * wrapper calls `AparteChatHost.bind()` — which is what runs `attachConfig` — from
+ * its POST-mount hook (React `useEffect`, Vue `onMounted`, Svelte `onMount`,
+ * Angular `ngAfterViewInit`), so children mounted in the same commit connect
+ * BEFORE the boundary exists. A connect-time cache therefore freezes the global
+ * config forever, and the `config` prop every wrapper advertises silently does
+ * nothing for that element.
+ *
+ * Resolve it live, in a getter. `closest()` on a shallow tree is not a cost worth
+ * a correctness bug — `aparte-chat-bubble` has done it that way from the start, and
+ * it is the one element that was never affected.
  */
 export function resolveConfig(el: Element | null | undefined): AparteConfigClass {
     const host = el?.closest?.(`[${APARTE_HOST_ATTR}]`) as (Element & ConfigHost) | null | undefined;
