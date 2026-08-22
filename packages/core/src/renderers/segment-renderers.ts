@@ -12,6 +12,7 @@ import type {
 // in scope for late executions (event handlers, window-event callbacks) —
 // see config-context.ts. `contextConfig()` with no element = ambient or global.
 import { contextConfig } from '../config/index.js';
+import { aparteGlobalConfig } from '../config/index.js';
 import type { AparteConfig } from '../config/index.js';
 // The artifact card — the one renderer big enough to have its own file, plus the
 // two paths it delegates to.
@@ -80,10 +81,43 @@ function registryFor(config: AparteConfig): RendererRegistry {
     return reg;
 }
 
+/**
+ * The renderers a config can actually draw with: its own, plus whatever was
+ * registered on the global singleton, with its own winning on a clash.
+ *
+ * An instance config INHERITS global registrations, and it has to. The documented
+ * call is `registerSegmentRenderer(myRenderer)` at app startup — no element, no
+ * ambient render config, so `contextConfig()` resolves the global. A chat given a
+ * `config` prop then resolved its own registry and found nothing there: the
+ * renderer a consumer had registered the only documented way was invisible to
+ * every chat that used the feature the `config` prop exists for.
+ *
+ * A config that DECLINED the built-ins inherits nothing — it said it brings its
+ * own everything, and quietly handing it the global's renderers would turn
+ * `autoRegister: false` back into a no-op, which is the exact thing the decline
+ * latch was added to prevent.
+ *
+ * Known edge, deliberately not solved: an instance cannot suppress a type that the
+ * global registers. That needs a tombstone, and wanting to inherit is far commoner
+ * than wanting to subtract.
+ */
+function effectiveRenderers(config: AparteConfig): Map<string, AparteSegmentRenderer> {
+    const own = registryFor(config);
+    if (config === aparteGlobalConfig || own.defaultsDeclined) return own.renderers;
+    const merged = new Map(registryFor(aparteGlobalConfig).renderers);
+    for (const [type, renderer] of own.renderers) merged.set(type, renderer);
+    return merged;
+}
+
 let styleElement: HTMLStyleElement | null = null;
 
 /**
- * Register a segment renderer
+ * Register a segment renderer.
+ *
+ * `config` defaults to the ambient render config, which at app startup — no
+ * element, no active render — is the global singleton. That is the right default:
+ * a chat with its own `config` inherits global registrations. Pass a config
+ * explicitly only to give ONE chat a renderer the others must not have.
  */
 export function registerSegmentRenderer<T extends AparteSegmentBase>(
     renderer: AparteSegmentRenderer<T>,
@@ -143,14 +177,14 @@ export function getSegmentRenderer(
     type: string,
     config: AparteConfig = contextConfig(),
 ): AparteSegmentRenderer | undefined {
-    return registryFor(config).renderers.get(type);
+    return effectiveRenderers(config).get(type);
 }
 
 /**
  * Get all registered renderers
  */
 export function getAllRenderers(config: AparteConfig = contextConfig()): readonly AparteSegmentRenderer[] {
-    return Array.from(registryFor(config).renderers.values());
+    return Array.from(effectiveRenderers(config).values());
 }
 
 /**

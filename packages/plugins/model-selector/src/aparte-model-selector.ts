@@ -19,6 +19,7 @@ import {
     escapeAttr,
     resolveConfig,
     type AparteConfig,
+    type AparteConfigAware,
     AparteSelect,
     type AparteOptgroup,
     type AparteAIProvider,
@@ -45,7 +46,7 @@ function esc(value: unknown): string {
     return escapeAttr(String(value ?? ''));
 }
 
-export class AparteModelSelector extends HTMLElement {
+export class AparteModelSelector extends HTMLElement implements AparteConfigAware {
     private _currentProviderId: string | null = null;
     private _currentModelId: string | null = null;
     private _providerModels: ProviderModels[] = [];
@@ -54,8 +55,17 @@ export class AparteModelSelector extends HTMLElement {
     private _isRendering = false;
     private _expandedGroups: Set<string> = new Set();
 
-    /** Config governing THIS element — nearest instance boundary, else the global.
-        Resolved on connect (multi-instance pages get their own config). */
+    /**
+     * Config governing THIS element — nearest instance boundary, else the global.
+     *
+     * Cached rather than resolved per call, because this element does not only
+     * READ it: it holds a `subscribe()` registration keyed on the object. That
+     * cache is only correct if something tells us when the boundary changes, and
+     * under all four wrappers it does change after we connect —
+     * `AparteChatHost.bind()` runs `attachConfig` from a post-mount hook. Hence
+     * {@link AparteConfigAware}; without it this element served the global config's
+     * providers to a chat that was given its own.
+     */
     private _cfg: AparteConfig = aparteGlobalConfig;
 
     private _configUnsubscribe: (() => void) | null = null;
@@ -89,7 +99,12 @@ export class AparteModelSelector extends HTMLElement {
         await this._loadAllProviderModels();
         this._render();
 
-        // Listen for configuration changes (e.g. from an onboarding flow)
+        this._subscribeToConfig();
+    }
+
+    /** Listen for configuration changes (e.g. from an onboarding flow). */
+    private _subscribeToConfig(): void {
+        this._configUnsubscribe?.();
         this._configUnsubscribe = this._cfg.subscribe(() => {
             void (async () => {
                 const cfg = this._cfg.getModelConfig();
@@ -112,6 +127,36 @@ export class AparteModelSelector extends HTMLElement {
         this._aparteSelect?.removeEventListener('aparte-select-change', this._boundHandleChange);
         this.removeEventListener('aparte-optgroup-toggle', this._handleOptgroupToggle);
         this._configUnsubscribe?.();
+    }
+
+    /**
+     * The boundary above us appeared or changed: move the subscription and reload,
+     * because a different config means different providers and a different
+     * selection.
+     *
+     * See {@link AparteConfigAware}. The element's own per-instance tests passed
+     * before this existed only because they mount the boundary FIRST — the one
+     * ordering no wrapper produces.
+     */
+    aparteConfigChanged(next: AparteConfig): void {
+        this._configUnsubscribe?.();
+        this._configUnsubscribe = null;
+        this._cfg = next;
+        if (!this.isConnected) return;
+        void (async () => {
+            this._isLoading = false;
+            this._providerModels = [];
+            const model = this._cfg.getModelConfig();
+            if (model.defaultProvider && model.defaultModel) {
+                this._currentProviderId = model.defaultProvider;
+                this._currentModelId = model.defaultModel;
+            } else {
+                this._loadPersistedSelection();
+            }
+            await this._loadAllProviderModels();
+            this._render();
+            this._subscribeToConfig();
+        })();
     }
 
     attributeChangedCallback(): void {

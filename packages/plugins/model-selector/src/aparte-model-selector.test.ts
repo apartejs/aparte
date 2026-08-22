@@ -189,3 +189,56 @@ describe('aparte-model-selector', () => {
         });
     });
 });
+
+/**
+ * The mount order every wrapper actually produces.
+ *
+ * `mountSelector` above attaches the boundary FIRST, which is the one ordering no
+ * wrapper produces: all four call `AparteChatHost.bind()` — which runs
+ * `attachConfig` — from a post-mount hook. So the selector connects, caches the
+ * global config, and only then does the instance boundary appear above it. Its two
+ * per-instance tests passed over that hole for exactly that reason.
+ */
+describe('aparte-model-selector — boundary attached AFTER mount (every wrapper)', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+        aparteGlobalConfig.reset();
+    });
+
+    it('serves the instance config providers, not the global ones', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('global', 'Global Model'));
+
+        // 1. the element connects with no boundary above it
+        const host = document.createElement('div');
+        const selector = await mountSelector(host);
+        expect(selector.textContent, 'it starts on the global, correctly').toContain('Global Model');
+
+        // 2. then bind() attaches the instance config
+        const instance = new AparteConfig();
+        instance.registerAIProvider(fakeProvider('scoped', 'Scoped Model'));
+        attachConfig(host, instance);
+
+        await vi.waitFor(() => {
+            expect(selector.textContent, 'the chat was given its own providers').toContain('Scoped Model');
+        });
+        expect(selector.textContent, 'and must not still offer the global ones').not.toContain('Global Model');
+    });
+
+    it('stops listening to the config it left behind', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('global', 'Global Model'));
+        const host = document.createElement('div');
+        const selector = await mountSelector(host);
+
+        const instance = new AparteConfig();
+        instance.registerAIProvider(fakeProvider('scoped', 'Scoped Model'));
+        attachConfig(host, instance);
+        await vi.waitFor(() => expect(selector.textContent).toContain('Scoped Model'));
+
+        // A change on the config it no longer resolves must not reach it.
+        aparteGlobalConfig.registerAIProvider(fakeProvider('late', 'Late Global Model'));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(selector.textContent).not.toContain('Late Global Model');
+
+        detachConfig(host);
+    });
+});

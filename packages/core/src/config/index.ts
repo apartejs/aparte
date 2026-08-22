@@ -1,5 +1,6 @@
 export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './aparte-config.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config-context.js';
+export type { AparteConfigAware } from './config-context.js';
 export type { AparteConfigChangeEventDetail, AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder } from './aparte-config.js';
 export type { AparteSanitizer } from './sanitize.js';
 export { defaultSanitizer, isSafeUrl } from './sanitize.js';

@@ -14,7 +14,7 @@ import {
     declineDefaultRenderers,
     installDefaultRenderersOnce
 } from '../segment-renderers.js';
-import { AparteConfig } from '../../config/aparte-config.js';
+import { AparteConfig, aparteGlobalConfig } from '../../config/aparte-config.js';
 
 // Register the default renderers once, so the built-in under test is resolvable.
 registerDefaultRenderers();
@@ -114,4 +114,52 @@ it('declining the built-ins on one config does not mute the other', () => {
     expect(getSegmentRenderer('text', declined), 'declined config must stay empty').toBeUndefined();
     expect(getSegmentRenderer('text', normal), 'the other config must get the built-ins').toBeTruthy();
 });
+});
+
+/**
+ * A renderer registered the way the guide shows it must reach a chat that was
+ * given its own config.
+ *
+ * The documented call is `registerSegmentRenderer(myRenderer)` — no second
+ * argument, because at app startup there is no element and no active render, so
+ * `contextConfig()` is the global singleton. A chat with a `config` prop then
+ * resolved ITS registry, found nothing, and drew
+ * `[Unknown segment type: my-chart]`. The renderer was invisible to precisely the
+ * feature the `config` prop exists for.
+ */
+describe('an instance config inherits what was registered globally', () => {
+    afterEach(() => {
+        unregisterSegmentRenderer('zz-inherited');
+        unregisterSegmentRenderer('zz-inherited', aparteGlobalConfig);
+    });
+
+    it('sees a renderer registered the documented way, with no config argument', () => {
+        registerSegmentRenderer({ type: 'zz-inherited', render: () => '<p>MINE</p>' });
+
+        const chat = new AparteConfig();
+        expect(getSegmentRenderer('zz-inherited', chat), 'the chat must see it').toBeTruthy();
+        expect(getSegmentRenderer('zz-inherited', chat)!.render({ id: 's', type: 'zz-inherited' } as never))
+            .toContain('MINE');
+    });
+
+    it('lets the instance override an inherited type without touching the global', () => {
+        registerSegmentRenderer({ type: 'zz-inherited', render: () => '<p>GLOBAL</p>' });
+        const chat = new AparteConfig();
+        registerSegmentRenderer({ type: 'zz-inherited', render: () => '<p>SCOPED</p>' }, chat);
+
+        expect(getSegmentRenderer('zz-inherited', chat)!.render({ id: 's', type: 'zz-inherited' } as never))
+            .toContain('SCOPED');
+        expect(getSegmentRenderer('zz-inherited', aparteGlobalConfig)!.render({ id: 's', type: 'zz-inherited' } as never))
+            .toContain('GLOBAL');
+    });
+
+    it('inherits nothing into a config that declined the built-ins', () => {
+        registerSegmentRenderer({ type: 'zz-inherited', render: () => '<p>MINE</p>' });
+        const byo = new AparteConfig();
+        declineDefaultRenderers(byo);
+
+        // `autoRegister: false` means "I bring my own everything". Quietly handing
+        // it the global's renderers would turn that option back into a no-op.
+        expect(getSegmentRenderer('zz-inherited', byo)).toBeUndefined();
+    });
 });
