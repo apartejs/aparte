@@ -262,6 +262,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
@@ -9769,9 +9772,9 @@ snapshots:
       tree-kill: 1.2.2
       tslib: 2.8.1
       typescript: 5.7.3
-      webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)
+      webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12)
       webpack-dev-middleware: 7.4.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12))
-      webpack-dev-server: 5.2.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12))
+      webpack-dev-server: 5.2.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12))
       webpack-merge: 6.0.1
       webpack-subresource-integrity: 5.1.0(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12))
     optionalDependencies:
@@ -9904,8 +9907,8 @@ snapshots:
     dependencies:
       '@angular-devkit/architect': 0.1902.27(chokidar@4.0.3)
       rxjs: 7.8.1
-      webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)
-      webpack-dev-server: 5.2.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12))
+      webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12)
+      webpack-dev-server: 5.2.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12))
     transitivePeerDependencies:
       - chokidar
 
@@ -19679,17 +19682,6 @@ snapshots:
       esbuild: 0.28.0
       postcss: 8.5.12
 
-  terser-webpack-plugin@5.6.1(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12)):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      jest-worker: 27.5.1
-      schema-utils: 4.3.3
-      terser: 5.39.0
-      webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)
-    optionalDependencies:
-      '@swc/core': 1.3.107(@swc/helpers@0.5.23)
-      postcss: 8.5.12
-
   terser@5.39.0:
     dependencies:
       '@jridgewell/source-map': 0.3.11
@@ -20253,19 +20245,6 @@ snapshots:
     transitivePeerDependencies:
       - tslib
 
-  webpack-dev-middleware@7.4.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)):
-    dependencies:
-      colorette: 2.0.20
-      memfs: 4.64.0(tslib@2.8.1)
-      mime-types: 2.1.35
-      on-finished: 2.4.1
-      range-parser: 1.3.0
-      schema-utils: 4.3.3
-    optionalDependencies:
-      webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)
-    transitivePeerDependencies:
-      - tslib
-
   webpack-dev-server@5.2.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12)):
     dependencies:
       '@types/bonjour': 3.5.13
@@ -20298,46 +20277,6 @@ snapshots:
       ws: 8.21.0
     optionalDependencies:
       webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12)
-    transitivePeerDependencies:
-      - bufferutil
-      - debug
-      - supports-color
-      - tslib
-      - utf-8-validate
-    optional: true
-
-  webpack-dev-server@5.2.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)):
-    dependencies:
-      '@types/bonjour': 3.5.13
-      '@types/connect-history-api-fallback': 1.5.4
-      '@types/express': 4.17.25
-      '@types/express-serve-static-core': 4.19.9
-      '@types/serve-index': 1.9.4
-      '@types/serve-static': 1.15.10
-      '@types/sockjs': 0.3.36
-      '@types/ws': 8.18.1
-      ansi-html-community: 0.0.8
-      bonjour-service: 1.4.3
-      chokidar: 3.6.0
-      colorette: 2.0.20
-      compression: 1.8.1
-      connect-history-api-fallback: 2.0.0
-      express: 4.22.2
-      graceful-fs: 4.2.11
-      http-proxy-middleware: 2.0.10(@types/express@4.17.25)
-      ipaddr.js: 2.4.0
-      launch-editor: 2.14.1
-      open: 10.1.0
-      p-retry: 6.2.1
-      schema-utils: 4.3.3
-      selfsigned: 2.4.1
-      serve-index: 1.9.2
-      sockjs: 0.3.24
-      spdy: 4.0.2
-      webpack-dev-middleware: 7.4.2(tslib@2.8.1)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12))
-      ws: 8.21.0
-    optionalDependencies:
-      webpack: 5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)
     transitivePeerDependencies:
       - bufferutil
       - debug
@@ -20383,47 +20322,6 @@ snapshots:
       schema-utils: 4.3.3
       tapable: 2.3.3
       terser-webpack-plugin: 5.6.1(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12))
-      watchpack: 2.5.2
-      webpack-sources: 3.5.1
-    transitivePeerDependencies:
-      - '@minify-html/node'
-      - '@swc/core'
-      - '@swc/css'
-      - '@swc/html'
-      - clean-css
-      - cssnano
-      - csso
-      - esbuild
-      - html-minifier-terser
-      - lightningcss
-      - postcss
-      - uglify-js
-
-  webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12):
-    dependencies:
-      '@types/eslint-scope': 3.7.7
-      '@types/estree': 1.0.9
-      '@types/json-schema': 7.0.15
-      '@webassemblyjs/ast': 1.14.1
-      '@webassemblyjs/wasm-edit': 1.14.1
-      '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.17.0
-      acorn-import-phases: 1.0.4(acorn@8.17.0)
-      browserslist: 4.28.6
-      chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.24.2
-      es-module-lexer: 2.3.1
-      eslint-scope: 5.1.1
-      events: 3.3.0
-      glob-to-regexp: 0.4.1
-      graceful-fs: 4.2.11
-      json-parse-even-better-errors: 2.3.1
-      loader-runner: 4.3.2
-      mime-types: 2.1.35
-      neo-async: 2.6.2
-      schema-utils: 4.3.3
-      tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(@swc/core@1.3.107(@swc/helpers@0.5.23))(postcss@8.5.12)(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(postcss@8.5.12))
       watchpack: 2.5.2
       webpack-sources: 3.5.1
     transitivePeerDependencies:

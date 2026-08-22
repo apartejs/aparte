@@ -57,6 +57,7 @@ test('cancelling mid-stream stops the turn and leaves the composer usable', asyn
     await page.goto('/');
 
     const readCancels = await chat.recordEvents('aparte-cancel');
+    const readErrorEvents = await chat.recordEvents('aparte-message-error');
     await chat.send('cancel probe');
     await expect(chat.sendButton).toHaveClass(/is-streaming/, { timeout: 15_000 });
 
@@ -67,6 +68,20 @@ test('cancelling mid-stream stops the turn and leaves the composer usable', asyn
     // Streaming state is fully unwound — no zombie flag, no stuck stop button.
     await expect(chat.sendButton).not.toHaveClass(/is-streaming/, { timeout: 10_000 });
     await expect(chat.streaming()).toHaveCount(0);
+
+    // A deliberate Stop is NOT a failure. This is the half that let the defect
+    // through: the loop turned the provider's AbortError into an `error` event, the
+    // error branch threw, and the lifecycle handler REPLACED the message segments —
+    // so pressing Stop erased the answer and blamed a fault that never happened.
+    //
+    // Note what this test still cannot see: with `scenario: 'slow'` the abort lands
+    // before any token arrives, so there is no partial answer here to erase. The
+    // "Stop keeps the text already on screen" half needs a mock that streams over
+    // time (see the mock's own note about `route.fulfill` delivering atomically) and
+    // is asserted in the unit suite meanwhile.
+    await expect(chat.lastReply.locator('.aparte-message[data-error]')).toHaveCount(0);
+    await expect(chat.segment('error')).toHaveCount(0);
+    await expect.poll(async () => (await readErrorEvents()).length).toBe(0);
 
     // And the chat still works: a second turn goes through normally.
     await page.unrouteAll();

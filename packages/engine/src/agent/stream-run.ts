@@ -218,7 +218,23 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         }
 
         const request: StreamChatRequest = { ...baseRequest, messages: phaseMessages, _meta: phaseMeta };
-        const response = await transportCall(request);
+        // A stop that lands before the first event surfaces here as a REJECTION,
+        // not as an `error` event — the fetch is aborted while still in flight, so
+        // it never reaches the stream the loop reads. Letting it propagate made a
+        // deliberate stop indistinguishable from a transport failure for anyone
+        // driving this loop directly. (Core's `_streamTurn` has the mirror of this
+        // guard; the browser suite is what found the path, after the two
+        // event-level guards were already closed.)
+        let response: Awaited<ReturnType<typeof transportCall>>;
+        try {
+            response = await transportCall(request);
+        } catch (err: unknown) {
+            if (signal.aborted || (err as { name?: string } | undefined)?.name === 'AbortError') {
+                emitter({ type: 'run-aborted' });
+                return lastUsage;
+            }
+            throw err;
+        }
 
         // Non-streaming provider: the string IS the full assistant message. The
         // adapter writes it and completes (no done{usage}); spike scenarios

@@ -11,6 +11,7 @@ import {
 } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { runStreamAgent } from '@aparte/engine';
 
 const KEY_STORAGE = 'aparte.openrouter.key';
 
@@ -39,7 +40,19 @@ AparteConfig.setTransport(new DirectTransport({ byok: true }));
 AparteConfig.setBubbleActions({ retry: true, edit: true });
 AparteConfig.setHostHandlers({ attachmentPreview: true });
 
+// 5. Drive the turn with @aparte/engine's headless loop instead of core's inline
+//    one. This is the `streamRunner` seam, and the reason it is wired HERE rather
+//    than left to the docs: nothing in the repo used to make this exact
+//    composition, so it had no compile coverage and no end-to-end coverage — and
+//    it shipped broken (the two packages' message types had drifted apart, which
+//    the type guard in stream-events.contract.ts now catches). A capability with no
+//    in-repo consumer is a contract maintained for nobody; ratified decision #7
+//    says so, and this was the package it should have caught.
+//
+//    Core works identically without it — remove the option and the inline loop
+//    runs. That equivalence is what the engine parity suite asserts.
 const client = new AparteClient({
+    streamRunner: runStreamAgent,
     keyResolver: (providerId) =>
         providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
 });

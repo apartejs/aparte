@@ -508,6 +508,18 @@ export class AparteClient {
                 this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
             }
         } catch (error: unknown) {
+            // A THIRD abort path, and the one the browser suite caught after the
+            // other two were closed: when the user stops before any event has
+            // arrived, the fetch rejection escapes `transportCall` as an exception.
+            // It never reaches the event stream, so neither the guard around
+            // `reader.read()` nor the one on the `error` event can see it — and
+            // `_handleLifecycleError` would REPLACE the message with an error
+            // segment, turning a deliberate stop into a rendered failure.
+            if (this._isAborted) {
+                this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                this._updateMessage(targetElement, messageId, { status: 'completed' });
+                return;
+            }
             const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
             this._handleLifecycleError(targetElement, messageId, aparteError);
         }

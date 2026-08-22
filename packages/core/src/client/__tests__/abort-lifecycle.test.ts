@@ -137,3 +137,74 @@ describe('AparteClient — Stop during the pre-flight window', () => {
         expect(events).toEqual(['aborted']);
     });
 });
+
+
+describe('AparteClient — Stop before the first event arrives', () => {
+    /**
+     * The third abort path, found by the browser suite after the other two were
+     * closed. When the user stops while the request is still in flight, the fetch
+     * rejection escapes `transportCall` as an EXCEPTION — it never enters the event
+     * stream, so neither the guard around `reader.read()` nor the one on the
+     * `error` event can see it, and the turn was rendered as a failure.
+     */
+    it('renders no error bubble when the transport rejects because we aborted', async () => {
+        let rejectNow: (e: Error) => void = () => {};
+        const inFlight = new Promise<never>((_, rej) => {
+            rejectNow = (e) => rej(e);
+        });
+
+        const cfg = new AparteConfigClass();
+        cfg.registerAIProvider({
+            id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+        } as never);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        cfg.setTransport({ chat: () => inFlight } as never);
+
+        const rec = makeRecorder();
+        const events: string[] = [];
+        for (const n of ['aparte-message-aborted', 'aparte-message-error']) {
+            rec.el.addEventListener(n, () => events.push(n));
+        }
+
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        const turn = (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
+            ._streamTurn(rec.el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
+
+        await new Promise(r => setTimeout(r, 10));
+        client.abort();
+        rejectNow(Object.assign(new Error('The user aborted a request.'), { name: 'AbortError' }));
+        await turn;
+
+        const errorSegment = rec.calls.find(c =>
+            c.m === 'updateMessage'
+            && (c.args[1] as { status?: string } | undefined)?.status === 'error',
+        );
+        expect(errorSegment, 'a deliberate stop was rendered as a failure').toBeUndefined();
+        expect(events).toEqual(['aparte-message-aborted']);
+    });
+
+    it('still reports a genuine transport failure as an error', async () => {
+        const cfg = new AparteConfigClass();
+        cfg.registerAIProvider({
+            id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+        } as never);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        cfg.setTransport({ chat: () => Promise.reject(new Error('socket hang up')) } as never);
+
+        const rec = makeRecorder();
+        const events: string[] = [];
+        for (const n of ['aparte-message-aborted', 'aparte-message-error']) {
+            rec.el.addEventListener(n, () => events.push(n));
+        }
+
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        await (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
+            ._streamTurn(rec.el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
+
+        expect(events).toEqual(['aparte-message-error']);
+    });
+});
