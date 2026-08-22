@@ -104,49 +104,20 @@ test('the reply text grows over time instead of appearing at once', async ({ pag
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('the transcript is anchored at the bottom once a streamed reply lands', async ({ page }, info) => {
-    // KNOWN PRODUCT BUG, not a flaky test: in framework mode on WebKit the
-    // transcript settles a deterministic 31px short of the bottom and stays there.
+test('the transcript is anchored at the bottom once a streamed reply lands', async ({ page }) => {
+    // This test found a real Safari bug, so it is worth saying what it guards.
     //
-    // Measured, three runs, bit-identical: top 603, scrollHeight 1152,
-    // clientHeight 518 — so scrollTop was set when scrollHeight was 1121 and the
-    // content then grew by 31px with nothing re-anchoring it. Ruled out: load
-    // (passes with two apps, fails with seven), settling (retrying for 10s never
-    // corrects it), and smooth scrolling (forcing `prefers-reduced-motion: reduce`,
-    // i.e. the instant `scrollTop = scrollHeight` path, gives the same 31px).
+    // In framework mode the transcript used to settle a deterministic 31px short of
+    // the bottom and stay there — every React / Vue / Svelte / Angular consumer on
+    // Safari, with the last line of a reply sitting under the fold. A timeline of a
+    // streamed turn showed why: the content settles in TWO layout passes (1118 →
+    // 1121 → 1152 px), `scrollTop = scrollHeight` ran against the middle one, and
+    // nothing ran again afterwards. Auto-follow stayed ARMED throughout — the
+    // component was not disarmed, it was satisfied, because `_isAtBottom()` answers
+    // "yes" for any gap under its 50px threshold.
     //
-    // MECHANISM NOT ESTABLISHED. Four explanations were tried and measurement
-    // refuted each one. They are recorded so the next attempt does not pay twice:
-    //
-    //   1. "WebKit counts a scroll container's bottom padding differently, so
-    //      `scrollTop = scrollHeight` cannot reach the bottom." Refuted: a probe
-    //      writing `scrollTop = 1e7` read back exactly `scrollHeight -
-    //      clientHeight` (634 == 634). The scroller CAN reach the bottom — the
-    //      product stops early and never looks again.
-    //   2. "Framework mode never re-anchors on text growth, because a framework
-    //      patches text via characterData while the observer watches childList
-    //      only." Adding `characterData: true` made it WORSE (31px → 59px).
-    //      Reverted.
-    //   3. "Verify and correct on the next frame." Also 59px — and a shortfall that
-    //      size exceeds `_scrollThreshold` (50), at which point `_handleScroll`
-    //      reads the product's OWN imperfect scroll as the user scrolling away and
-    //      disarms auto-follow for the rest of the turn. Reverted.
-    //   4. "Mark programmatic scrolls so they are not read as user intent."
-    //      Reverted: engines coalesce scroll events, the counter over-counted and
-    //      started swallowing real gestures — this suite caught it stealing the
-    //      scroll back. A fix must identify the scroll by POSITION, not by counting.
-    //
-    // What IS established: the scroller can reach the bottom, the product stops
-    // short, and its own shortfall can then disarm the very mechanism that would
-    // correct it. That last point is the most promising thread.
-    //
-    // Why this matters beyond the test: framework mode is what every React / Vue /
-    // Svelte / Angular consumer runs, and this is Safari. `vanilla-webkit` passes.
-    //
-    // `test.fail` rather than a skip, and rather than widening the 4px tolerance:
-    // the assertion stays honest, and the day the product is fixed this test goes
-    // red and tells whoever fixed it to delete these lines.
-    if (info.project.name === 'react-webkit') test.fail();
+    // Fixed by `_settleAtBottom()` in the viewport: a bounded re-check over the next
+    // few frames. Remove it and this test goes red at exactly 31px.
 
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     const errors = collectPageErrors(page);

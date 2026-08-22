@@ -51,12 +51,39 @@ const APP_DIRS: Record<AppKey, string> = {
 // `.cmd` shims (pnpm, then vite) — each of which can flash a console window, six times
 // over, for every run. It also drops the reason the old form existed (`exec` was there to
 // stop pnpm swallowing the `--` separator): there is no pnpm left to swallow anything.
+/**
+ * Reuse an already-running dev server? OPT-IN, not the default.
+ *
+ * `reuseExistingServer: !process.env.CI` — the old value — meant that in local runs
+ * ANY dev server already listening on a playground's port was silently adopted,
+ * whatever code it was serving. It cost real time in this repo: a leftover Vite on
+ * 5307 (the Svelte 5 playground) served a build from before a packaging change, so
+ * the suite reported green on code that was not under test, and nothing said so.
+ *
+ * CI was never affected. That is exactly what makes it dangerous: the check is
+ * weakest in the one place a human runs it by hand and trusts the result.
+ *
+ * So the default now matches CI — always boot our own servers — and reuse is a
+ * deliberate `E2E_REUSE_SERVERS=1`, the same shape as the `E2E_NO_FIREFOX` hatch
+ * below. When it is off and a port is taken, `--strictPort` fails loudly, which is
+ * the outcome we want over a quiet stale pass. When it is on, the run says so up
+ * front, so a green result is never silently about someone else's build.
+ */
+const reuseServers = !process.env.CI && process.env.E2E_REUSE_SERVERS === '1';
+if (reuseServers) {
+    console.warn(
+        '\n[e2e] E2E_REUSE_SERVERS=1 — a dev server already listening on a playground'
+        + '\n      port will be adopted AS IS. If it is serving an older build, this run'
+        + '\n      passes on code that is not under test. Unset it before trusting a green.\n',
+    );
+}
+
 function viteServer(app: AppKey) {
     return {
         command: `node node_modules/vite/bin/vite.js --port ${PORTS[app]} --strictPort`,
         url: url(app),
         cwd: resolve(rootDir, APP_DIRS[app]),
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: reuseServers,
         timeout: 120_000,
         stdout: 'pipe' as const,
         stderr: 'pipe' as const,
@@ -79,7 +106,7 @@ const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
             command: `node node_modules/@angular/cli/bin/ng.js serve --port ${PORTS.angular}`,
             url: url('angular'),
             cwd: resolve(rootDir, APP_DIRS.angular),
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer: reuseServers,
             timeout: 180_000,
             stdout: 'pipe' as const,
             stderr: 'pipe' as const,

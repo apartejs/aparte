@@ -1126,13 +1126,18 @@ export class AparteChatViewport extends HTMLElement {
         // A scroll IS the user's intent: reaching the bottom re-arms auto-follow,
         // leaving it disarms it.
         //
-        // NOTE (0.8.0): this cannot distinguish our own programmatic scroll from a
-        // real gesture, which matters for the open WebKit anchoring bug documented
-        // in `e2e/tests/streaming-progressive.spec.ts`. An attempt to mark
-        // programmatic scrolls with a counter was reverted: engines coalesce scroll
-        // events, so the counter over-counted and began swallowing the USER's
-        // scrolls — the browser suite caught it stealing the scroll back. Any fix
-        // here has to identify the scroll by POSITION, not by counting events.
+        // `_isAtBottom()` is deliberately generous (`_scrollThreshold`, 50px): a few
+        // pixels of drift must NOT read as "the reader walked away". That generosity
+        // is right here and wrong as a definition of "anchored" — which is why
+        // `_settleAtBottom()` closes a residual gap instead of this method being
+        // tightened. Tightening it would disarm auto-follow on every stray pixel.
+        //
+        // This handler also cannot tell our own programmatic scroll from a real
+        // gesture. Marking them with a counter was tried and reverted: engines
+        // coalesce scroll events, so the counter over-counted and started swallowing
+        // the USER's scrolls — the browser suite caught it stealing the scroll back.
+        // Anything attempted here must identify the scroll by POSITION, not by
+        // counting events.
         this._isAutoScrollEnabled = this._isAtBottom();
         this._updateScrollButton();
     }
@@ -1140,7 +1145,42 @@ export class AparteChatViewport extends HTMLElement {
     private _scrollToBottom(): void {
         if (!this._container) return;
         this._container.scrollTop = this._container.scrollHeight;
+        this._settleAtBottom(4);
+    }
 
+    /**
+     * Confirm over the next few frames that we actually reached the bottom.
+     *
+     * One assignment is not enough, and the reason is measured rather than guessed.
+     * A timeline of a streamed turn on Safari (framework mode) recorded the content
+     * settling in TWO layout passes — 1118 → 1121 → 1152 px. `scrollTop =
+     * scrollHeight` ran against the middle one, clamped to that layout's max (603),
+     * and nothing ran afterwards: the last 31px never closed. Auto-follow stayed
+     * armed the whole time, so the component was not disarmed — it was SATISFIED.
+     * `_isAtBottom()` answers "yes" for any gap under `_scrollThreshold` (50), which
+     * is the right rule for keeping auto-follow armed and the wrong one as a
+     * definition of "anchored".
+     *
+     * Ruled out on the way here, so nobody pays for it twice: not a WebKit
+     * padding-accounting difference (a probe writing `scrollTop = 1e7` reached
+     * exactly `scrollHeight - clientHeight`), not a missing `characterData`
+     * mutation, and not a child resize a ResizeObserver could see.
+     *
+     * A BOUNDED retry, not one corrective frame: a single frame lands on the same
+     * stale layout and was measured leaving a wider gap than doing nothing. Bounded
+     * so it always terminates; re-reads `_isAutoScrollEnabled` every frame so a
+     * reader who scrolls away mid-settle is left alone; stops as soon as the gap is
+     * closed, so the common case costs one frame that does nothing.
+     */
+    private _settleAtBottom(framesLeft: number): void {
+        if (framesLeft <= 0) return;
+        requestAnimationFrame(() => {
+            if (!this._container || !this._isAutoScrollEnabled) return;
+            const max = this._container.scrollHeight - this._container.clientHeight;
+            if (max - this._container.scrollTop <= 1) return;
+            this._container.scrollTop = max;
+            this._settleAtBottom(framesLeft - 1);
+        });
     }
 
     private _smoothScrollToBottom(): void {

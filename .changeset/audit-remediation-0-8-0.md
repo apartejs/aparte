@@ -132,13 +132,19 @@ whoever re-hosts it.
 - `thinkingDelimiters` is documented, including the two pairs recognised by default and
   the fact that only the bring-your-own-loop path can reach it.
 
-**A known bug, stated rather than hidden**
+**A Safari bug the new browser suite found, and closed**
 
-In framework mode on WebKit — so React / Vue / Svelte / Angular consumers on Safari — a
-streamed transcript can settle a few dozen pixels short of the bottom and stay there. It
-is measured, deterministic, and marked as an expected failure in the browser suite with
-four refuted explanations recorded next to it. The scroller demonstrably CAN reach the
-bottom; the product stops early, and its own shortfall can then disarm the auto-follow
-that would correct it. Four fixes were attempted and reverted, one of which regressed
-scroll ownership — a transcript that steals the user's scroll position is worse than one
-that stops short, so this ships open rather than half-fixed.
+In framework mode — what every React / Vue / Svelte / Angular consumer runs — a streamed
+transcript settled a deterministic 31px short of the bottom on Safari and stayed there,
+so the last line of a reply sat under the fold. A timeline of a streamed turn showed the
+content settling in TWO layout passes (1118 → 1121 → 1152 px): `scrollTop = scrollHeight`
+ran against the middle one and nothing ran again afterwards. Auto-follow was armed the
+whole time — the viewport was not disarmed, it was satisfied, because "am I at the
+bottom?" is answered with a 50px tolerance that is right for keeping auto-follow armed
+and wrong as a definition of anchored.
+
+Fixed by a bounded re-check over the next few frames, which stops as soon as the gap is
+closed and re-reads the auto-follow flag every frame so a reader who scrolls away
+mid-settle is left alone. It exists only because a browser test drove a real progressive
+stream through a real engine; no unit test could see it, and the suite that shipped before
+this release delivered every reply atomically.

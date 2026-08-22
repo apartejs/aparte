@@ -9,7 +9,7 @@
         "build": "vite build",
         "preview": "vite preview",
         "check": "svelte-check --tsconfig ./tsconfig.json",
-        "typecheck": "svelte-check --tsconfig ./tsconfig.json --threshold error"
+        "typecheck": "node scripts/typecheck.mjs"
     },
     "dependencies": {
         "@aparte/core": "workspace:*",
