@@ -30,7 +30,6 @@ export type {
 export type {
     AparteSendEventDetail,
     AparteTokenEventDetail,
-    AparteControlEvent,
     AparteMessageEventDetail,
     AparteStatusEventDetail,
     AparteSiblingInfo,
@@ -84,12 +83,11 @@ export type {
 // Providers - Data source abstractions
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type {
-    AparteDataProvider,
-    AparteStreamProvider,
-    AparteMessageStore,
-    AparteControlHandler
-} from './providers.js';
+// `providers.ts` used to be re-exported here: `AparteDataProvider`,
+// `AparteStreamProvider`, `AparteMessageStore`, `AparteControlHandler`. Implemented
+// by nothing, consumed by nothing, and superseded by `AparteTransport` /
+// `AparteFormatAdapter` / `MessageRepository` — so the type barrel carried two
+// competing "provider" abstractions and a reader could not tell which was live.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Theming - CSS Custom Properties

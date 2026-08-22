@@ -1,4 +1,4 @@
-import { AparteConfig, isSafeUrl } from '@aparte/core';
+import { AparteConfig, isSafeUrl , type AparteConfigClass} from '@aparte/core';
 import { parser, parser_write, parser_end, default_renderer, HREF, SRC } from 'streaming-markdown';
 
 /**
@@ -23,8 +23,8 @@ import { parser, parser_write, parser_end, default_renderer, HREF, SRC } from 's
  *
  * Call once at application startup.
  */
-export function setupStreamingMarkdownProvider(): void {
-    AparteConfig.setStreamingMarkdownProvider((target: HTMLElement) => {
+export function setupStreamingMarkdownProvider(config: AparteConfigClass = AparteConfig): void {
+    config.setStreamingMarkdownProvider((target: HTMLElement) => {
         const renderer = default_renderer(target);
         const originalSetAttr = renderer.set_attr;
         renderer.set_attr = (data, type, value) => {

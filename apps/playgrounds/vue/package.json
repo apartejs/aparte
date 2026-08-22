@@ -1,26 +1,27 @@
 {
-  "name": "@aparte-workspace/playground-vue",
-  "version": "0.0.4",
-  "private": true,
-  "type": "module",
-  "description": "Minimal Vue example — @aparte/vue + a real (BYOK / local) model.",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@aparte/core": "workspace:*",
-    "@aparte/plugin-marked": "workspace:*",
-    "@aparte/plugin-model-selector": "workspace:*",
-    "@aparte/provider-openai-compat": "workspace:*",
-    "@aparte/vue": "workspace:*",
-    "vue": "^3.5.0"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.0",
-    "typescript": "^5.4.0",
-    "vite": "^6.0.0",
-    "vue-tsc": "^2.2.0"
-  }
+    "name": "@aparte-workspace/playground-vue",
+    "version": "0.0.4",
+    "private": true,
+    "type": "module",
+    "description": "Minimal Vue example \u2014 @aparte/vue + a real (BYOK / local) model.",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "typecheck": "vue-tsc --noEmit"
+    },
+    "dependencies": {
+        "@aparte/core": "workspace:*",
+        "@aparte/plugin-marked": "workspace:*",
+        "@aparte/plugin-model-selector": "workspace:*",
+        "@aparte/provider-openai-compat": "workspace:*",
+        "@aparte/vue": "workspace:*",
+        "vue": "^3.5.0"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-vue": "^5.2.0",
+        "typescript": "^5.4.0",
+        "vite": "^6.0.0",
+        "vue-tsc": "^2.2.0"
+    }
 }

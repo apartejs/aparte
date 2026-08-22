@@ -33,7 +33,6 @@
         },
         "build": {
           "targetName": "build",
-          "configName": "tsconfig.lib.json",
           "buildDepsName": "build-deps",
           "watchDepsName": "watch-deps"
         }

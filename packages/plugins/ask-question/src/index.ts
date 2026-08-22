@@ -12,7 +12,7 @@
  *   // mount <aparte-elicitation> (or <aparte-ask-question>) in your chat
  */
 
-import { AparteConfig } from '@aparte/core';
+import { AparteConfig , type AparteConfigClass} from '@aparte/core';
 import { askQuestionTool, askQuestionHandler } from './ask-question.js';
 
 // Register the <aparte-ask-question> semantic alias (subclass of <aparte-elicitation>).
@@ -25,9 +25,9 @@ import './aparte-ask-question.js';
  * AparteConfig singleton mutation predictable in SSR/test and tree-shaking
  * friendly. Call once at application startup.
  */
-export function setupAskQuestion(): void {
-    AparteConfig.registerTool(askQuestionTool, askQuestionHandler);
-    AparteConfig.registerToolRenderer('ask_question', { render: () => '' });
+export function setupAskQuestion(config: AparteConfigClass = AparteConfig): void {
+    config.registerTool(askQuestionTool, askQuestionHandler);
+    config.registerToolRenderer('ask_question', { render: () => '' });
 }
 
 export { askQuestionTool, askQuestionHandler } from './ask-question.js';

@@ -3,12 +3,13 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "description": "The Svelte playground again, on Svelte 5 — the proof that one shipped source serves both majors.",
+    "description": "The Svelte playground again, on Svelte 5 \u2014 the proof that one shipped source serves both majors.",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "check": "svelte-check --tsconfig ./tsconfig.json"
+        "check": "svelte-check --tsconfig ./tsconfig.json",
+        "typecheck": "svelte-check --tsconfig ./tsconfig.json --threshold error"
     },
     "dependencies": {
         "@aparte/core": "workspace:*",

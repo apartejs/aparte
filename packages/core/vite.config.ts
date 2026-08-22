@@ -1,13 +1,18 @@
+// No `vite-plugin-dts` here.
+//
+// It rolled declarations up into `dist/index.d.ts`, and the `tsc -b
+// --emitDeclarationOnly` in the build script then wrote per-file declarations into
+// the SAME directory and overwrote it. Every package paid the rollup cost on every
+// build for output that was thrown away, and two writers raced on one directory.
+// `tsc` is the surviving producer — it is the one whose output actually ships.
 import { defineConfig } from 'vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import dts from 'vite-plugin-dts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
     plugins: [
-        dts({ rollupTypes: true })
     ],
 
     build: {

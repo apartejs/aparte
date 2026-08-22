@@ -48,24 +48,6 @@ export interface AparteTokenEventDetail {
 // Control Events (Inter-package Communication)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Control event for external packages to pilot the Core
- * Allows packages like API adapters or plugins to update message states
- * without direct coupling to the core implementation
- */
-export interface AparteControlEvent {
-    /** Target message ID for the control action */
-    messageId: string;
-
-    /** New status to apply to the message */
-    status: AparteStatus;
-
-    /**
-     * Optional metadata for arbitrary context
-     * Examples: response time, tokens/sec, error details
-     */
-    metadata?: Record<string, unknown>;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lifecycle Events
