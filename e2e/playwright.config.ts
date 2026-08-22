@@ -144,6 +144,22 @@ const WEBKIT_APPS: AppKey[] = ['vanilla', 'demo-vanilla', 'react', 'vue', 'svelt
 // must keep both engines: every browser-only bug in this project has been a WebKit one.
 const skipWebkit = !process.env.CI && process.env.E2E_NO_WEBKIT === '1';
 
+// And Firefox — the third engine, and the one that was missing entirely.
+//
+// Gecko differs from BOTH of the others where this library lives: custom-element
+// upgrade timing, `adoptedStyleSheets`, and `::part` / `:host` resolution. Shipping
+// a browser-compat promise on a vanilla-web-components library while never loading
+// it in a third of the desktop engine landscape is a claim, not a result.
+//
+// A reduced set on purpose: the boundary smoke and the a11y scan on the two apps
+// that matter most (core raw, and the reference wrapper the first real consumer
+// uses). The deep behaviour suites already run twice per engine; adding a third
+// full pass buys correlation, not coverage, and wall clock is the budget that
+// decides whether anyone runs this locally.
+const FIREFOX_APPS: AppKey[] = ['vanilla', 'react'];
+const FIREFOX_SUITE: RegExp[] = [SMOKE, AXE];
+const skipFirefox = !process.env.CI && process.env.E2E_NO_FIREFOX === '1';
+
 export default defineConfig({
     testDir: './tests',
     fullyParallel: true,
@@ -197,6 +213,13 @@ export default defineConfig({
             // assertion. A suite that fails by scheduling order teaches you to
             // ignore it, so WebKit gets a longer wait rather than Chromium getting
             // a weaker one.
+            expect: { timeout: 20_000 },
+        })),
+        // Firefox: the reduced set described at FIREFOX_APPS.
+        ...(skipFirefox ? [] : selected.filter((k) => FIREFOX_APPS.includes(k))).map((k) => ({
+            name: `${k}-firefox`,
+            use: { ...devices['Desktop Firefox'], baseURL: url(k) },
+            testMatch: FIREFOX_SUITE,
             expect: { timeout: 20_000 },
         })),
     ],

@@ -38,12 +38,40 @@ export default defineConfig({
         'packages/wrappers/**/*.svelte',
       ],
       reporter: ['text-summary', 'text', 'html'],
-      // Floor (a ratchet against regressions), ~2pt under the current 70.7% lines
-      // / 76.8% branches / 75.1% functions across all packages. Raise as coverage
-      // grows — the thinnest spots today are the rendering layer
-      // (segment-renderers ~49%), the client's error/compaction paths (~48%),
-      // the transformers provider (~52%) and a few small primitives.
-      thresholds: { lines: 68, statements: 68, functions: 73, branches: 74 },
+      // The floor, and the reason it is written like this.
+      //
+      // It used to be `lines: 68` with a comment saying "~2pt under the current
+      // 70.7%". Coverage then rose to 75.8% and the floor never moved, leaving
+      // EIGHT points of slack — enough that deleting the largest rendering suite in
+      // the repo (791 lines, 77 tests) still exited 0. A ratchet that is never
+      // raised is not a ratchet, it is a comment.
+      //
+      // Measured 2026-08-22, after the audit-remediation lot: 81.06 lines/statements,
+      // 80.88 branches, 76.26 functions. The floors below sit ~1pt under that.
+      //
+      // No `autoUpdate` on purpose: it would rewrite this file during a test run,
+      // and `pnpm release` refuses to publish from a dirty tree. The practical
+      // mitigation is that `pnpm gate` now runs coverage, so the real number is in
+      // front of whoever changes it, every time.
+      //
+      // `perFile` on the two directories the audit named: a global average lets a
+      // 27%-covered module hide behind a well-tested one, and the client and the
+      // renderers are exactly where the risk is concentrated.
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 75,
+        branches: 79,
+        'packages/core/src/client/**': { lines: 70, statements: 70, functions: 70, branches: 65 },
+        // The renderers sit at 53.6% lines, which is the thinnest area in the
+        // package and the reason a per-glob floor was needed at all: the 81% global
+        // average was hiding it completely. The floor is set at the MEASURED value
+        // minus a point rather than at an aspiration — a threshold nobody meets is
+        // a threshold that gets lowered, and writing filler tests to reach 70 would
+        // buy a number instead of coverage. What it does buy today is that this
+        // number can no longer go DOWN, which it silently could before.
+        'packages/core/src/renderers/**': { lines: 52, statements: 52, functions: 60, branches: 60 },
+      },
     },
   },
 });

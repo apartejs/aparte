@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
 import { AparteConfigClass } from '../../config/index.js';
 
@@ -63,7 +63,9 @@ async function runAbortedTurn(afterAbort: () => Promise<unknown[]>) {
     const turn = (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
         ._streamTurn(rec.el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
 
-    await new Promise(r => setTimeout(r, 20));   // the first delta renders
+    // Wait for the delta to have RENDERED, not for 20ms — a duration is a hope,
+    // a condition is a fact.
+    await vi.waitFor(() => expect(rec.calls.some(c => c.m === 'addSegment')).toBe(true));
     client.abort();                               // the user presses Stop
     release();
     await turn;
@@ -172,7 +174,9 @@ describe('AparteClient — Stop before the first event arrives', () => {
         const turn = (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
             ._streamTurn(rec.el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
 
-        await new Promise(r => setTimeout(r, 10));
+        // The turn has started once the streaming status was written; that is the
+        // observable moment, and it is what the abort has to land after.
+        await vi.waitFor(() => expect(rec.calls.length).toBeGreaterThan(0));
         client.abort();
         rejectNow(Object.assign(new Error('The user aborted a request.'), { name: 'AbortError' }));
         await turn;

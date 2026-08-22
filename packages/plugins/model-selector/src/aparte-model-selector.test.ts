@@ -143,7 +143,12 @@ describe('aparte-model-selector', () => {
             );
         };
 
-        const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 10));
+        // Two macrotask yields rather than a 10ms bet: the render this waits for is
+        // scheduled as a macrotask, so ordering is what matters, not elapsed time.
+        const flush = async (): Promise<void> => {
+            await new Promise((r) => setTimeout(r, 0));
+            await new Promise((r) => setTimeout(r, 0));
+        };
 
         it("keeps the model the user picked, even when a render was already in flight", async () => {
             twoProviders();

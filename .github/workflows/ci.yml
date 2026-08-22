@@ -90,6 +90,17 @@ jobs:
       - name: Check internal links and anchors
         run: pnpm check:doc-links
 
+      # CLAUDE.md requires a changeset for any package with an API or CSS change,
+      # and nothing enforced it. In a `fixed` lockstep group a missing changeset does
+      # not just skip one version — the whole 15-package train stays put, release.yml
+      # opens no Version PR, and the published `alpha`/`latest` drift away from the
+      # source everyone reads. PR-only: a direct push to main has no base to diff.
+      - name: Check a changeset accompanies the change
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          pnpm exec changeset status --since="origin/${{ github.base_ref }}"
+
   # Portability guard: the packages declare engines.node ">=18" and the repo is
   # developed on Windows, yet the authoritative gate above runs a single target.
   # This job re-runs build + test across the supported Node range and on Windows
@@ -127,6 +138,15 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # The packages declare `engines.node: ">=18"`, and the Node import contract is
+      # the ONLY thing that resolves the published `node` export condition in real
+      # Node — publint/attw check the map statically, and the unit test runs under
+      # jsdom against the source entry. It used to run once, on the newest Node in
+      # the `ci` job, so the `>=18` claim was untested on 18: `Request`,
+      # `ReadableStream` and `structuredClone` are not the same surface there.
+      - name: Check Node import contract
+        run: pnpm check:node-import
 
   # Browser smoke E2E — drives every playground in a real browser against a
   # network-mocked model (no key/LM Studio). Separate job: it boots six dev

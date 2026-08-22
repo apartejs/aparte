@@ -33,11 +33,13 @@ describe('AparteChat.vue', () => {
             }
         });
 
-        // Wait for Vue and Custom Elements to settle
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        expect(wrapper.find('aparte-chat-viewport').exists()).toBe(true);
-        expect(wrapper.find('aparte-chat-status').exists()).toBe(true);
+        // Wait for the OBSERVATION, not for 50ms. What this test wants is "the
+        // elements are there"; asserting that inside `waitFor` says so directly and
+        // cannot go red because a CI runner was busy.
+        await vi.waitFor(() => {
+            expect(wrapper.find('aparte-chat-viewport').exists()).toBe(true);
+            expect(wrapper.find('aparte-chat-status').exists()).toBe(true);
+        });
 
         // Find bubbles using vanilla querySelector as backup
         const bubbles = wrapper.element.querySelectorAll('aparte-chat-bubble');

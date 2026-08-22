@@ -66,8 +66,19 @@ function setup() {
     return { h, host, viewport, read: () => messages };
 }
 
-/** Let the coalesced flush run (rAF in a browser, macrotask in jsdom). */
-const frame = (): Promise<void> => new Promise((r) => setTimeout(r, 30));
+/**
+ * Yield to the macrotask queue TWICE, rather than sleeping for a guessed duration.
+ *
+ * The coalescer schedules its flush as a macrotask (rAF in a browser, a timer in
+ * jsdom). Two zero-delay yields put us strictly after it whatever the machine is
+ * doing; the 30ms this used to wait was a bet that happened to pay off on a fast
+ * laptop and is exactly the shape that goes red on a 2-core CI runner for no
+ * reason. A duration is not a synchronisation primitive.
+ */
+const frame = async (): Promise<void> => {
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+};
 
 const textOf = (m: AparteMessage | undefined): string =>
     ((m?.segments?.[0] as { content?: string } | undefined)?.content ?? '');

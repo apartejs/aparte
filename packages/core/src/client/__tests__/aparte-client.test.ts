@@ -187,10 +187,10 @@ describe('AparteClient', () => {
                 detail: { content: 'hello', timestamp: Date.now() }
             }));
 
-            // Let the microtask queue flush
-            await new Promise(r => setTimeout(r, 10));
-
-            expect((client as any)._isAborted).toBe(false);
+            // The assertion IS the condition — poll it instead of sleeping first.
+            await vi.waitFor(() => {
+                expect((client as any)._isAborted).toBe(false);
+            });
             stub.mockRestore();
         });
     });
