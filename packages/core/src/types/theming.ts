@@ -8,54 +8,27 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * CSS Custom Properties available for theming
- * All properties are optional - defaults are applied in components
+ * Any aparté CSS custom property, for typing a theme object or a `style` record:
+ *
+ * ```ts
+ * const brand: AparteThemeVariables = {
+ *   '--aparte-primary': '#b45309',
+ *   '--aparte-surface-1': '#ffffff',
+ * };
+ * ```
+ *
+ * This was a hand-written list of 33 named properties, and it could not work. Ten
+ * of the 33 named variables were neither declared nor read anywhere in aparté —
+ * so the type autocompleted ten knobs that did nothing — while the real surface is
+ * 254 tokens, meaning even the 23 live members were an arbitrary slice presented as
+ * the whole. A hand-maintained mirror of a stylesheet that size is wrong the day
+ * after it is written, and nothing could tell you.
+ *
+ * What this trades away, stated rather than glossed: autocomplete, and catching a
+ * typo in the part after `--aparte-`. What it buys is that the type cannot lie. The
+ * discoverable list is the generated
+ * [CSS variables reference](https://apartejs.dev/reference/css-variables/), which
+ * is swept from the source on every build and marks which tokens aparté actually
+ * reads.
  */
-export interface AparteThemeVariables {
-    // Primary colors
-    '--aparte-primary'?: string;
-    '--aparte-primary-hover'?: string;
-    '--aparte-secondary'?: string;
-    '--aparte-neutral'?: string;
-
-    // Bubble styling
-    '--aparte-message-content-bg-user'?: string;
-    '--aparte-message-content-bg-assistant'?: string;
-    '--aparte-message-content-text-user'?: string;
-    '--aparte-message-content-text-assistant'?: string;
-    '--aparte-message-content-radius'?: string;
-    '--aparte-message-content-radius-corner'?: string;
-    '--aparte-message-content-padding'?: string;
-    '--aparte-message-content-max-width'?: string;
-    '--aparte-message-content-font-size'?: string;
-
-    // Input styling
-    '--aparte-input-bg'?: string;
-    '--aparte-input-border'?: string;
-    '--aparte-input-text'?: string;
-    '--aparte-input-placeholder'?: string;
-    '--aparte-input-focus-border'?: string;
-    '--aparte-input-focus-ring'?: string;
-    '--aparte-input-radius'?: string;
-    '--aparte-input-font-size'?: string;
-    '--aparte-input-disabled-bg'?: string;
-
-    // Layout
-    '--aparte-viewport-padding'?: string;
-    '--aparte-message-gap'?: string;
-    '--aparte-input-padding'?: string;
-
-    // Typography
-    '--aparte-font-family'?: string;
-    '--aparte-timestamp-font-size'?: string;
-
-    // Status indicator
-    '--aparte-status-color'?: string;
-    '--aparte-status-font-size'?: string;
-    '--aparte-status-dot-size'?: string;
-    '--aparte-status-padding'?: string;
-
-    // Button styling
-    '--aparte-button-radius'?: string;
-    '--aparte-button-text'?: string;
-}
+export type AparteThemeVariables = { [K in `--aparte-${string}`]?: string };
