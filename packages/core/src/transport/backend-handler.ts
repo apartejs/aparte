@@ -10,12 +10,22 @@ export interface AparteChatHandlerOptions {
      */
     providers: Record<string, AparteAIProvider>;
     /**
-     * Optional gate run on EVERY request before any work — this endpoint spends
-     * your server-held vendor key, so put your own auth in front of it. Return
-     * `false` to reject with 401, a `Response` to reject with your own status/body
-     * (e.g. 403 + a message), or `true` to proceed. Reads cookies/headers via `req`.
+     * Gate run on EVERY request before any work. **Required.**
+     *
+     * This endpoint spends your server-held vendor key, so leaving it open means
+     * anyone who finds the URL spends your money. It used to be optional, and both
+     * the JSDoc example here and the primary snippet in the docs omitted it — so
+     * the copy-paste path was the unauthenticated one. Making it required moves
+     * that decision from "did you notice?" to a compile error.
+     *
+     * Return `false` to reject with 401, a `Response` to reject with your own
+     * status/body (e.g. 403 + a message), or `true` to proceed. Reads
+     * cookies/headers via `req`.
+     *
+     * A deliberately open endpoint is still possible — `authorize: () => true` —
+     * but now it is a line someone wrote on purpose.
      */
-    authorize?: (req: Request) => boolean | Response | Promise<boolean | Response>;
+    authorize: (req: Request) => boolean | Response | Promise<boolean | Response>;
     /**
      * Resolve the vendor API key for a providerId — from env / a secret store.
      * Runs server-side only. Return `undefined` for keyless/local providers.
@@ -47,6 +57,8 @@ export interface AparteChatHandlerOptions {
  * export const POST = createAparteChatHandler({
  *   providers: { openai: createOpenAICompatProvider(presets.OPENAI) },
  *   resolveKey: (id) => process.env[`${id.toUpperCase()}_KEY`],
+ *   // Required: this route spends your key. Your own session check goes here.
+ *   authorize: async (req) => Boolean(await getSession(req)),
  * });
  * ```
  */
@@ -57,12 +69,11 @@ export function createAparteChatHandler(
 
     return async function handler(req: Request): Promise<Response> {
         // Auth gate first: this route spends the server-held key, so reject
-        // unauthorized callers before parsing or doing any work.
-        if (options.authorize) {
-            const verdict = await options.authorize(req);
-            if (verdict instanceof Response) return verdict;
-            if (!verdict) return jsonError(401, 'Unauthorized.');
-        }
+        // unauthorized callers before parsing or doing any work. Required by the
+        // type — there is no path through here without a verdict.
+        const verdict = await options.authorize(req);
+        if (verdict instanceof Response) return verdict;
+        if (!verdict) return jsonError(401, 'Unauthorized.');
 
         let providerId: string;
         let request: AparteChatRequest;
@@ -114,13 +125,32 @@ export function createAparteChatHandler(
             return jsonError(502, `Vendor request failed: ${(err as Error)?.message ?? 'network error'}`);
         }
 
-        // Propagate a vendor error verbatim so the client surfaces the real message.
+        // A vendor error is SUMMARISED, not relayed byte-for-byte.
+        //
+        // The verbatim body leaked material a caller has no business seeing: an
+        // OpenAI 401 reads `Incorrect API key provided: sk-proj-****abcd`, which
+        // hands over the key's prefix, tail and format; other vendors echo org ids
+        // and request fragments. Status and machine-readable code/type are enough
+        // for a client to react; the vendor's prose is for the server's logs.
         if (!vendor.ok) {
-            const text = await vendor.text().catch(() => '');
-            return new Response(text || JSON.stringify({ error: { message: `HTTP ${vendor.status}` } }), {
-                status: vendor.status,
-                headers: { 'Content-Type': vendor.headers.get('Content-Type') ?? 'application/json' },
-            });
+            const raw = await vendor.text().catch(() => '');
+            let code: unknown;
+            let type: unknown;
+            try {
+                const parsed = JSON.parse(raw) as { error?: { code?: unknown; type?: unknown } };
+                code = parsed?.error?.code;
+                type = parsed?.error?.type;
+            } catch { /* not JSON — nothing to salvage, and nothing to leak */ }
+            return new Response(
+                JSON.stringify({
+                    error: {
+                        message: `Vendor request failed (HTTP ${vendor.status}).`,
+                        ...(typeof code === 'string' ? { code } : {}),
+                        ...(typeof type === 'string' ? { type } : {}),
+                    },
+                }),
+                { status: vendor.status, headers: { 'Content-Type': 'application/json' } },
+            );
         }
 
         // Non-streaming: resolve to { text } server-side.

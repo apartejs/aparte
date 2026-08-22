@@ -24,6 +24,7 @@ import type {
 import { contextConfig } from '../config/index.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 import { escapeHtml, escapeAttr } from '../utils/escape.js';
+import { deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -706,6 +707,14 @@ export function registerDefaultRenderers(): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PREVIEWABLE_KINDS: ReadonlySet<string> = new Set(['react', 'html', 'svg', 'js', 'css']);
+
+/**
+ * What a previewed artifact is allowed to reach. Inline script and style are
+ * permitted (that IS the preview), everything that leaves the frame is not — no
+ * fetch, no XHR, no websocket, no remote image, no font. Without this the
+ * sandbox still lets injected code beacon out to any origin.
+ */
+const PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:";
 /** Binary file kinds — output of orchestrator's sandbox path. They are
  *  code-only here (downloaded by FileGenService listener side-channel). */
 const BINARY_FILE_KINDS: ReadonlySet<string> = new Set(['pdf', 'xlsx', 'docx']);
@@ -727,22 +736,25 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         const previewable = PREVIEWABLE_KINDS.has(kind);
         const isBinary = BINARY_FILE_KINDS.has(kind);
         const cleanContent = stripCodeFences(segment.content || '');
-        // Default tab: code while streaming OR for non-previewable kinds.
-        // Preview otherwise (final stage of a previewable artifact).
-        const initialTab: 'code' | 'preview' =
-            isStreaming || !previewable ? 'code' : 'preview';
-
-        const buildPreview = contextConfig().getArtifactPreviewBuilder() ?? buildSafePreviewDocument;
-        const previewSrcdoc = !isStreaming && previewable
-            ? buildPreview(kind, cleanContent, title)
-            : '';
+        // The card ALWAYS opens on the code tab, and the preview frame is not built
+        // here at all — it is mounted only when the user presses Preview
+        // (`mountPreviewFrame`, called from the tab handler).
+        //
+        // It used to open on Preview for any artifact that was not streaming, i.e.
+        // every render of a completed one — so reloading a persisted conversation
+        // executed the model's JS with no gesture. Defaulting the tab is not enough
+        // on its own either: a `display:none` iframe still loads and still runs
+        // scripts, so the frame has to be ABSENT, not hidden.
+        //
+        // Ratified decision #8, applied to a tier-(c) affordance: content the app
+        // did not produce does not get to act on its own.
 
         return `
             <div class="segment segment-artifact-card"
                  data-segment-id="${escapeHtml(segment.id)}"
                  data-artifact-type="${escapeHtml(kind)}"
                  data-streaming="${isStreaming ? 'true' : 'false'}"
-                 data-tab="${initialTab}"
+                 data-tab="code"
                  data-previewable="${previewable ? 'true' : 'false'}"
                  data-binary="${isBinary ? 'true' : 'false'}">
                 <header class="aparte-art-card__header">
@@ -761,8 +773,8 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                     </div>
                 </header>
                 <nav class="aparte-art-card__tabs" role="tablist">
-                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" ${initialTab === 'preview' ? 'aria-selected="true"' : ''} ${isStreaming ? 'disabled' : ''}>Preview</button>` : ''}
-                    <button type="button" role="tab" data-tab-target="code" ${initialTab === 'code' ? 'aria-selected="true"' : ''}>Code</button>
+                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>Preview</button>` : ''}
+                    <button type="button" role="tab" data-tab-target="code" aria-selected="true">Code</button>
                 </nav>
                 <div class="aparte-art-card__body">
                     <div class="aparte-art-card__pane" data-pane="code">
@@ -772,7 +784,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                     </div>
                     ${previewable ? `
                         <div class="aparte-art-card__pane" data-pane="preview">
-                            ${previewSrcdoc ? `<iframe class="aparte-art-card__frame" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy" title="${escapeHtml(title)}" srcdoc="${escapeAttr(previewSrcdoc)}"></iframe>` : '<div class="aparte-art-card__pending">Generating preview…</div>'}
+                            <div class="aparte-art-card__pending">Press Preview to run this artifact.</div>
                         </div>
                     ` : ''}
                 </div>
@@ -795,11 +807,12 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
         }
 
-        // Tab switching
+        // Tab switching — and, for Preview, the one place the frame is created.
         element.querySelectorAll<HTMLButtonElement>('[data-tab-target]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const target = btn.getAttribute('data-tab-target');
                 if (!target) return;
+                if (target === 'preview') mountPreviewFrame(element, segment);
                 element.setAttribute('data-tab', target);
                 element.querySelectorAll<HTMLButtonElement>('[data-tab-target]').forEach(b => {
                     b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
@@ -860,7 +873,6 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             updateBinaryFileArtifact(element, segment, isStreaming);
             return;
         }
-        const previewable = PREVIEWABLE_KINDS.has(kind);
         const wasStreaming = element.getAttribute('data-streaming') === 'true';
         const cleanContent = stripCodeFences(segment.content || '');
 
@@ -900,24 +912,9 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                 b.disabled = false;
             });
 
-            // Build preview srcdoc lazily
-            if (previewable) {
-                const pane = element.querySelector('.aparte-art-card__pane[data-pane="preview"]');
-                if (pane) {
-                    const title = segment.title?.trim() || labelForKind(kind);
-                    const buildPreview = contextConfig().getArtifactPreviewBuilder() ?? buildSafePreviewDocument;
-                    const srcdoc = buildPreview(kind, cleanContent, title);
-                    pane.innerHTML = `<iframe class="aparte-art-card__frame" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy" title="${escapeAttr(title)}" srcdoc="${escapeAttr(srcdoc)}"></iframe>`;
-                }
-                // Auto-switch to preview only if user hasn't explicitly chosen code
-                const currentTab = element.getAttribute('data-tab');
-                if (currentTab !== 'code') {
-                    element.setAttribute('data-tab', 'preview');
-                    element.querySelectorAll<HTMLButtonElement>('[data-tab-target]').forEach(b => {
-                        b.setAttribute('aria-selected', b.getAttribute('data-tab-target') === 'preview' ? 'true' : 'false');
-                    });
-                }
-            }
+            // Nothing to build and nothing to switch: enabling the Preview button
+            // above is the whole of it. The frame is mounted by the tab handler, on
+            // a real user press — see the note at `initialTab`.
         }
     },
     getStyles: () => `
@@ -1650,7 +1647,65 @@ function slugifyForFilename(text: string): string {
 // registering a builder via `AparteConfig.setArtifactPreviewBuilder()`. Core must
 // stay framework-agnostic and zero-network, so no CDN URLs live here.
 
+/**
+ * Create the preview frame — the ONLY place it is created, and only ever from a
+ * real user press on the Preview tab.
+ *
+ * Idempotent: pressing Preview, Code, then Preview again reuses the frame rather
+ * than re-running the artifact.
+ *
+ * Two containments, and it is worth being precise about what each buys:
+ *   - `sandbox="allow-scripts"` (no allow-same-origin) gives the frame an opaque
+ *     origin, so it cannot touch the host page, its DOM, or its storage.
+ *   - `csp` shrinks what it can reach OUTWARD — the sandbox alone still allows
+ *     `fetch()` to any origin, which is how an injected artifact would exfiltrate
+ *     or beacon. Note honestly that the `csp` ATTRIBUTE is Chromium-only; the
+ *     portable half is the `<meta http-equiv>` that `buildSafePreviewDocument`
+ *     puts inside the documents we build ourselves.
+ */
+function mountPreviewFrame(element: HTMLElement, segment: AparteArtifactSegment): void {
+    const pane = element.querySelector('.aparte-art-card__pane[data-pane="preview"]');
+    if (!pane || pane.querySelector('iframe')) return;
+
+    const kind = segment.artifactType || deriveArtifactKind(segment.mimeType ?? '', 'text');
+    if (!PREVIEWABLE_KINDS.has(kind)) return;
+
+    const title = segment.title?.trim() || labelForKind(kind);
+    const build = contextConfig().getArtifactPreviewBuilder() ?? buildSafePreviewDocument;
+    const srcdoc = build(kind, stripCodeFences(segment.content || ''), title);
+
+    pane.innerHTML = `<iframe class="aparte-art-card__frame"`
+        + ` sandbox="allow-scripts"`
+        + ` csp="${escapeAttr(PREVIEW_CSP)}"`
+        + ` referrerpolicy="no-referrer" loading="lazy"`
+        + ` title="${escapeAttr(title)}" srcdoc="${escapeAttr(srcdoc)}"></iframe>`;
+}
+
+/**
+ * The portable half of the preview containment.
+ *
+ * The iframe's `csp` attribute is Chromium-only, so the same policy also goes
+ * INSIDE the document as a `<meta http-equiv>`, which every engine honours. Both
+ * are declared; whichever the browser understands applies.
+ *
+ * Best-effort by design for a model-authored full document: the meta is inserted
+ * after `<head>` when there is one, and skipped when there is not — a `<meta>`
+ * cannot be prepended without breaking the doctype. That case keeps the sandbox
+ * (opaque origin) and, on Chromium, the attribute.
+ */
+function withMetaCsp(doc: string): string {
+    const meta = `<meta http-equiv="Content-Security-Policy" content="${escapeAttr(PREVIEW_CSP)}">`;
+    const head = doc.match(/<head[^>]*>/i);
+    if (!head?.index) return doc;
+    const at = head.index + head[0].length;
+    return doc.slice(0, at) + meta + doc.slice(at);
+}
+
 function buildSafePreviewDocument(kind: string, body: string, title: string): string {
+    return withMetaCsp(buildPreviewBody(kind, body, title));
+}
+
+function buildPreviewBody(kind: string, body: string, title: string): string {
     switch (kind) {
         case 'html': {
             if (startsWithDoctype(body)) return body;

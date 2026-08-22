@@ -54,7 +54,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('createAparteChatHandler', () => {
     it('runs the adapter server-side and streams NDJSON AparteStreamEvents; key stays on the server', async () => {
         const vendor = vendorStreamOk();
-        const handler = createAparteChatHandler({ providers: { mock: adapter() }, resolveKey: () => 'sk-secret', fetchImpl: vendor });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'sk-secret', fetchImpl: vendor });
 
         const res = await handler(backendRequest({ providerId: 'mock', request: req }));
 
@@ -73,29 +73,70 @@ describe('createAparteChatHandler', () => {
         const vendor = vi.fn(async () => new Response(JSON.stringify({ text: 'DONE' }), {
             status: 200, headers: { 'Content-Type': 'application/json' },
         }));
-        const handler = createAparteChatHandler({ providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor });
 
         const res = await handler(backendRequest({ providerId: 'mock', request: { ...req, stream: false } }));
         expect(await res.json()).toEqual({ text: 'DONE' });
     });
 
     it('400s on an unknown providerId', async () => {
-        const handler = createAparteChatHandler({ providers: {}, fetchImpl: vendorStreamOk() });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: {}, fetchImpl: vendorStreamOk() });
         const res = await handler(backendRequest({ providerId: 'nope', request: req }));
         expect(res.status).toBe(400);
     });
 
     it('400s on a malformed body', async () => {
-        const handler = createAparteChatHandler({ providers: { mock: adapter() }, fetchImpl: vendorStreamOk() });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, fetchImpl: vendorStreamOk() });
         const res = await handler(new Request('http://localhost/api/chat', { method: 'POST', body: 'not json' }));
         expect(res.status).toBe(400);
     });
 
     it('propagates a vendor error status so the client can surface it', async () => {
         const vendor = vi.fn(async () => new Response(JSON.stringify({ error: { message: 'bad key' } }), { status: 401 }));
-        const handler = createAparteChatHandler({ providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor });
         const res = await handler(backendRequest({ providerId: 'mock', request: req }));
         expect(res.status).toBe(401);
+    });
+
+    // BREAKING (0.8.0): the vendor body used to be relayed byte-for-byte. An
+    // OpenAI 401 reads `Incorrect API key provided: sk-proj-****abcd`, so a caller
+    // who tripped vendor auth learned the key's prefix, tail and format; other
+    // vendors echo org ids and request fragments.
+    it('does not relay the vendor error body, which can carry key material', async () => {
+        const leak = JSON.stringify({
+            error: {
+                message: 'Incorrect API key provided: sk-proj-abc***xyz. Visit https://platform.openai.com',
+                code: 'invalid_api_key',
+                type: 'invalid_request_error',
+                organization: 'org-secret',
+            },
+        });
+        const vendor = vi.fn(async () => new Response(leak, { status: 401 }));
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor });
+
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        const body = await res.text();
+
+        expect(res.status).toBe(401);
+        expect(body, 'the key fragment reached the caller').not.toContain('sk-proj');
+        expect(body).not.toContain('org-secret');
+        expect(body).not.toContain('platform.openai.com');
+        // The machine-readable parts a client legitimately reacts to survive.
+        expect(JSON.parse(body)).toEqual({
+            error: {
+                message: 'Vendor request failed (HTTP 401).',
+                code: 'invalid_api_key',
+                type: 'invalid_request_error',
+            },
+        });
+    });
+
+    it('summarises a non-JSON vendor error without inventing fields', async () => {
+        const vendor = vi.fn(async () => new Response('<html>gateway timeout</html>', { status: 504 }));
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'k', fetchImpl: vendor });
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        expect(res.status).toBe(504);
+        expect(JSON.parse(await res.text())).toEqual({ error: { message: 'Vendor request failed (HTTP 504).' } });
     });
 
     it('rejects with 401 when authorize returns false — before touching the vendor', async () => {
@@ -131,7 +172,7 @@ describe('createAparteChatHandler', () => {
     it('500s (SSRF guard) when an adapter returns a non-rooted path, without calling the vendor', async () => {
         const evil = { ...adapter(), buildRequest: () => ({ path: '//evil.test/steal', body: {} }) } as AparteAIProvider;
         const vendor = vendorStreamOk();
-        const handler = createAparteChatHandler({ providers: { mock: evil }, resolveKey: () => 'k', fetchImpl: vendor });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: evil }, resolveKey: () => 'k', fetchImpl: vendor });
         const res = await handler(backendRequest({ providerId: 'mock', request: req }));
         expect(res.status).toBe(500);
         expect(vendor).not.toHaveBeenCalled();
@@ -141,7 +182,7 @@ describe('createAparteChatHandler', () => {
 describe('BackendTransport ⟷ createAparteChatHandler round-trip', () => {
     it('client posts { providerId, request } (no key), server normalizes, client parses the events back', async () => {
         const vendor = vendorStreamOk();
-        const handler = createAparteChatHandler({ providers: { mock: adapter() }, resolveKey: () => 'sk-server-only', fetchImpl: vendor });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'sk-server-only', fetchImpl: vendor });
 
         // Route the client's fetch to the real handler (only the vendor hop is mocked).
         const backendFetch = vi.spyOn(globalThis, 'fetch').mockImplementation((async (_url: string, init: RequestInit) =>

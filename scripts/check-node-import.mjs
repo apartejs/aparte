@@ -88,6 +88,9 @@ check('createAparteChatHandler answers a real Request in Node', async () => {
     const handler = createAparteChatHandler({
         providers: { mock: adapter },
         resolveKey: () => 'sk-test',
+        // Required since 0.8.0 — this route spends the server's key, so an open
+        // endpoint has to be written on purpose rather than left unwritten.
+        authorize: () => true,
         // No network: the vendor call is stubbed.
         fetchImpl: async () => new Response(new ReadableStream({ start: (c) => c.close() }), { status: 200 }),
     });
