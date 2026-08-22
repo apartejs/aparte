@@ -8,7 +8,7 @@
  * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-select-conversation
  * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-archive-conversation
- * @fires {CustomEvent<AparteConversationUnarchiveDetail>} aparte-unarchive-conversation
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-unarchive-conversation
  */
 
 import { resolveConfig } from '../../config/index.js';
@@ -32,10 +32,6 @@ export interface AparteConversationDeleteDetail {
 }
 
 export interface AparteConversationArchiveDetail {
-    id: string;
-}
-
-export interface AparteConversationUnarchiveDetail {
     id: string;
 }
 

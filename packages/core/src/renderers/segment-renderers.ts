@@ -875,7 +875,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             });
         }
 
-        // Download — emits aparte-artifact-download for the host app to handle
+        // Download — emits aparte-artifact-redownload for the host app to handle
         // (binary kinds are handled by FileGenService side-channel; for
         // previewable/text kinds we trigger a download from raw content).
         const dlBtn = element.querySelector<HTMLButtonElement>('[data-action="download"]');

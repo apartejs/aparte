@@ -263,16 +263,8 @@ export interface AparteSegmentRenderer<T extends AparteSegmentBase = AparteSegme
 // Segment Event Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Event when a segment action is triggered (e.g., "Run", "Copy") */
-export interface AparteSegmentActionEvent {
-    messageId: string;
-    segmentId: string;
-    action: string;
-    payload?: unknown;
-}
-
 /** Event when segment content is updated during streaming */
-export interface AparteSegmentUpdateEvent {
+export interface AparteSegmentUpdateEventDetail {
     messageId: string;
     segmentId: string;
     content: string;

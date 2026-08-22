@@ -29,9 +29,6 @@ export type {
 
 export type {
     AparteSendEventDetail,
-    AparteTokenEventDetail,
-    AparteMessageEventDetail,
-    AparteStatusEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
     ApartePathChangedEventDetail,
@@ -75,8 +72,7 @@ export type {
     AparteArtifactSegment,
     AparteSegmentType,
     AparteSegmentRenderer,
-    AparteSegmentActionEvent,
-    AparteSegmentUpdateEvent
+    AparteSegmentUpdateEventDetail
 } from './segments.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,7 +130,6 @@ export type {
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
-    AparteToolActionDetail
 } from './tools.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,7 +145,7 @@ export type {
     AparteArtifactStartEventDetail,
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
-    AparteArtifactOpenEventDetail
+    AparteArtifactRedownloadEventDetail
 } from './events.js';
 
 // The canonical imperative surface every framework <AparteChat> exposes.

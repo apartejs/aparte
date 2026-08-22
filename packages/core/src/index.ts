@@ -32,7 +32,6 @@ export type {
     AparteMessage,
     AparteContentParser,
     AparteSendEventDetail,
-    AparteTokenEventDetail,
     AparteViewportConfig,
     AparteInputConfig,
     AparteThemeVariables,
@@ -51,6 +50,10 @@ export type {
     AparteCustomSegment,
     AparteToolCallSegment,
     AparteArtifactSegment,
+    // The detail of the `aparte-segment-update` event. It reached types/index.ts and
+    // stopped there — and types/index.ts is not an entry point, so a consumer could
+    // bind the event (it is in the published event table) and never name its detail.
+    AparteSegmentUpdateEventDetail,
     // AI Provider types (BYORK)
     AparteAIProvider,
     AparteAIModel,
@@ -72,7 +75,7 @@ export type {
     AparteArtifactStartEventDetail,
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
-    AparteArtifactOpenEventDetail,
+    AparteArtifactRedownloadEventDetail,
     // Chat types
     AparteChatRequest,
     AparteChatResponse,
@@ -93,7 +96,6 @@ export type {
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
-    AparteToolActionDetail,
     // Canonical imperative surface (aliased by every wrapper's handle type).
     AparteChatImperativeApi
 } from './types/index.js';
@@ -133,7 +135,7 @@ export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerSta
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 
 // Export conversations (types, adapter contract, manager)
 export type {

@@ -57,17 +57,6 @@ export interface AparteToolApprovalRequestDetail {
     input: Record<string, unknown>;
 }
 
-/**
- * Detail for `aparte-tool-action` — a generic callback channel so any rendered
- * tool UI (via {@link AparteToolRenderer.setup}) can post an interactive action
- * back toward the host/loop (e.g. a custom confirm/choose/retry button).
- */
-export interface AparteToolActionDetail {
-    toolCallId: string;
-    action: string;
-    payload?: unknown;
-}
-
 /** A tool call emitted by the AI during streaming */
 export interface AparteToolCall {
     id: string;

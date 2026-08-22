@@ -22,7 +22,6 @@ export type {
     AparteMessage,
     AparteContentParser,
     AparteSendEventDetail,
-    AparteTokenEventDetail,
     AparteViewportConfig,
     AparteInputConfig,
     AparteThemeVariables,
@@ -41,6 +40,10 @@ export type {
     AparteCustomSegment,
     AparteToolCallSegment,
     AparteArtifactSegment,
+    // The detail of the `aparte-segment-update` event. It reached types/index.ts and
+    // stopped there — and types/index.ts is not an entry point, so a consumer could
+    // bind the event (it is in the published event table) and never name its detail.
+    AparteSegmentUpdateEventDetail,
     AparteAIProvider,
     AparteAIModel,
     AparteAIProviderConfigField,
@@ -61,7 +64,7 @@ export type {
     AparteArtifactStartEventDetail,
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
-    AparteArtifactOpenEventDetail,
+    AparteArtifactRedownloadEventDetail,
     AparteChatRequest,
     AparteChatResponse,
     AparteChatMessage,
@@ -80,7 +83,6 @@ export type {
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
-    AparteToolActionDetail,
     AparteChatImperativeApi,
 } from './types/index.js';
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
@@ -88,7 +90,7 @@ export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 // Custom-element TYPES (erased) — keep server consumers fully typed.
 export type { AparteSelectChangeDetail } from './primitives/index.js';
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
 export {

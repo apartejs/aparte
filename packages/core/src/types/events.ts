@@ -3,7 +3,7 @@
  * Event interfaces for component communication and control
  */
 
-import type { AparteStatus, AparteMessage } from './models.js';
+import type { AparteMessage } from './models.js';
 import type { AparteUsage } from './chat.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,18 +32,6 @@ export interface AparteSendEventDetail {
     files?: File[];
 }
 
-/**
- * Detail payload for aparte-token custom event
- * Emitted during streaming when a new token is appended
- */
-export interface AparteTokenEventDetail {
-    /** Message ID receiving the token */
-    messageId: string;
-
-    /** Token chunk content */
-    chunk: string;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Control Events (Inter-package Communication)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,36 +40,6 @@ export interface AparteTokenEventDetail {
 // ─────────────────────────────────────────────────────────────────────────────
 // Lifecycle Events
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Event detail for message lifecycle changes
- * Emitted when a message is added, updated, or removed
- */
-export interface AparteMessageEventDetail {
-    /** The message that changed */
-    messageId: string;
-
-    /** Type of lifecycle event */
-    type: 'added' | 'updated' | 'removed' | 'completed';
-
-    /** Optional additional context */
-    metadata?: Record<string, unknown>;
-}
-
-/**
- * Event detail for status changes
- * Emitted when the global or message status changes
- */
-export interface AparteStatusEventDetail {
-    /** Previous status */
-    previousStatus: AparteStatus;
-
-    /** New status */
-    currentStatus: AparteStatus;
-
-    /** Optional message ID if status is message-specific */
-    messageId?: string;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Model Selection Events
@@ -241,14 +199,19 @@ export interface AparteArtifactReadyEventDetail {
 }
 
 /**
- * Detail payload for `aparte-artifact-open`.
- * Dispatched by the artifact pill when a user clicks it (e.g. on a persisted
- * conversation reload). Apps use this to re-open the preview panel for an
- * already-completed artifact.
+ * Detail payload for `aparte-artifact-redownload`.
+ * Dispatched by an artifact card's Download button when the artifact is a BINARY
+ * kind: core cannot produce the bytes itself, so it asks the host to re-run the
+ * generation and save the file. Enable it with
+ * `setHostHandlers({ artifactRedownload: true })` — ratified decision #8, tier (b).
  *
- * @event aparte-artifact-open
+ * It was declared for `aparte-artifact-open` and said so, an event that exists
+ * nowhere in the repo. The shape is field-for-field what the Download button really
+ * dispatches, so the type moved rather than being deleted.
+ *
+ * @event aparte-artifact-redownload
  */
-export interface AparteArtifactOpenEventDetail {
+export interface AparteArtifactRedownloadEventDetail {
     /** Owning segment id */
     segmentId: string;
     /** MIME type */

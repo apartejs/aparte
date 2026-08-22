@@ -2,7 +2,7 @@ import type {
     AparteMessage,
     AparteViewportConfig,
     AparteSegment,
-    AparteSegmentUpdateEvent,
+    AparteSegmentUpdateEventDetail,
     ApartePathChangedEventDetail,
     AparteSiblingInfo,
     AparteUsage,
@@ -231,7 +231,7 @@ export class AparteChatViewport extends HTMLElement {
         }
 
         // Dispatch segment update event
-        this.dispatchEvent(new CustomEvent<AparteSegmentUpdateEvent>('aparte-segment-update', {
+        this.dispatchEvent(new CustomEvent<AparteSegmentUpdateEventDetail>('aparte-segment-update', {
             bubbles: true,
             composed: true,
             detail: { messageId, segmentId, content: chunk, append: true }
