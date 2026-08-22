@@ -17,7 +17,8 @@
  *   <aparte-elicitation></aparte-elicitation>
  */
 
-import { resolveConfig } from '../../config/config-context.js';
+import { resolveConfig, type AparteConfigAware } from '../../config/config-context.js';
+import type { AparteConfig } from '../../config/aparte-config.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
 
@@ -47,7 +48,7 @@ interface Pending {
  *   </aparte-composer>
  * </aparte-chat>
  */
-export class AparteElicitation extends HTMLElement {
+export class AparteElicitation extends HTMLElement implements AparteConfigAware {
     private _pending: Pending | null = null;
     private _onTurnEnd = (): void => this._cancelPending();
 
@@ -61,6 +62,23 @@ export class AparteElicitation extends HTMLElement {
         // input is restored.
         window.addEventListener('aparte-message-aborted', this._onTurnEnd);
         window.addEventListener('aparte-message-error', this._onTurnEnd);
+    }
+
+    /**
+     * The boundary above us appeared, changed, or went away — move the
+     * registration with it.
+     *
+     * `connectedCallback` alone is not enough and cannot be: registering is a
+     * WRITE, and under all four wrappers it happens before `attachConfig` runs, so
+     * it lands on the global singleton. `requestUserInput()` then resolves the
+     * instance config, finds nothing, and answers the model `cancel` — the model
+     * hears the user refuse a question the user never saw.
+     *
+     * See {@link AparteConfigAware}.
+     */
+    aparteConfigChanged(next: AparteConfig, previous: AparteConfig): void {
+        if (previous.getElicitationPresenter() === this._present) previous.setElicitationPresenter(null);
+        next.setElicitationPresenter(this._present);
     }
 
     disconnectedCallback(): void {
