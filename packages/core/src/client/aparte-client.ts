@@ -65,8 +65,16 @@ interface AparteChatTargetElement extends HTMLElement {
     typeName?(text: string): void;
 }
 
-/** Timeout (ms) for a tool handler to resolve before it is aborted */
-const TOOL_HANDLER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+/**
+ * Default timeout (ms) for a tool handler to resolve before it is aborted.
+ *
+ * Same value `runStreamAgent` uses, and now overridable by the same option name
+ * (`toolTimeoutMs`). It used to be reachable only as this constant here while the
+ * engine runner exposed it — so a consumer who set `toolTimeoutMs` got it honoured
+ * on one of the two loops and silently ignored on the other. Found by writing the
+ * tool-timeout parity scenario the seam never had.
+ */
+const DEFAULT_TOOL_HANDLER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Resolves a human-in-the-loop tool approval for a `needsApproval` tool call.
@@ -185,6 +193,12 @@ export interface AparteClientOptions {
      * @default 10
      */
     maxTurns?: number;
+    /**
+     * Per-call ceiling (ms) for a tool handler to resolve before its signal is
+     * aborted. Defaults to 5 minutes — the same default, and the same option name,
+     * as `runStreamAgent`, so the value means one thing whichever loop runs.
+     */
+    toolTimeoutMs?: number;
 
     /**
      * Controls which files attached by the user are injected as raw content
@@ -1162,10 +1176,21 @@ export class AparteClient {
         let remaining = delta;
 
         // One emitter for chat text, used by all three exits below. There used to
-        // be two near-copies of this (one syncing the active segment, one not),
-        // and the back-out path added by the partial-tag fix would have made a
-        // third.
-        const emitChatText = (text: string): void => {
+        // be two near-copies of this, and the back-out path added by the
+        // partial-tag fix would have made a third.
+        //
+        // `syncActive` is the one difference between those copies, and it is
+        // LOAD-BEARING rather than drift, which the engine parity suite proved:
+        // the text-before-an-opening-tag path must NOT flush its still-growing
+        // segment, or core emits the text segment before the artifact while
+        // `runStreamAgent` still emits the artifact first — a visible divergence in
+        // the call sequence the two loops are contracted to share.
+        //
+        // Flushing early is arguably the better UX (the prose appears as it
+        // arrives rather than after the artifact card). That is a deliberate change
+        // to a streamed call order, with the engine side to match: a decision of
+        // its own, not a side effect of removing a duplicate.
+        const emitChatText = (text: string, syncActive = true): void => {
             if (!text) return;
             const r = textParser.parse(text);
             for (const seg of r.segments) {
@@ -1176,15 +1201,19 @@ export class AparteClient {
                     targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
                 }
             }
+            // The active segment is always CONSULTED (the imperative fallback below
+            // must not fire while one is growing) but only EMITTED when the caller
+            // says so. Getting that distinction wrong is what produced a spurious
+            // `typeName` call and broke parity a second time.
             const active = textParser.getState().activeSegment;
-            if (active) {
+            if (syncActive && active) {
                 if (!streamingSegmentIds.has(active.id)) {
                     targetElement.addSegment?.(active);
                     streamingSegmentIds.add(active.id);
                 } else {
                     targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
                 }
-            } else if (!r.segments.length) {
+            } else if (!r.segments.length && !active) {
                 if (targetElement.typeName) targetElement.typeName(text);
                 else targetElement.updateLastMessage?.(text, { append: true });
             }
@@ -1205,8 +1234,9 @@ export class AparteClient {
                     }
                     remaining = '';
                 } else {
-                    // Emit chat text before the opening tag
-                    emitChatText(remaining.slice(0, tagStart));
+                    // Emit chat text before the opening tag — WITHOUT flushing the
+                    // active segment (see `syncActive` above; the parity suite pins it).
+                    emitChatText(remaining.slice(0, tagStart), false);
                     xml.scanBuf = remaining.slice(tagStart);
                     remaining = '';
                     xml.state = 'scanning';
@@ -1333,7 +1363,7 @@ export class AparteClient {
 
         const controller = new AbortController();
         this._activeToolControllers.add(controller);
-        const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
+        const timeout = setTimeout(() => controller.abort(), this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS);
         try {
             const result = await handler(syntheticCall, controller.signal);
             targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
@@ -1516,7 +1546,7 @@ export class AparteClient {
 
             const controller = new AbortController();
             this._activeToolControllers.add(controller);
-            const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
+            const timeout = setTimeout(() => controller.abort(), this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS);
 
             try {
                 const result = await handler(
