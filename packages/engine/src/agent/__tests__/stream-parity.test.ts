@@ -111,7 +111,7 @@ async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: s
     let nti = 0;
     const newUsage = await runStreamAgent({
         messageId: 'assistant-1',
-        baseRequest: { messages: [{ role: 'user', content: 'hi' }], ...baseReqExtras } as StreamChatRequest,
+        baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], ...baseReqExtras } as StreamChatRequest,
         transportCall: async () => iterableOf((streams[nti++] ?? []) as unknown as StreamChatEvent[]),
         toolLookup,
         toolConfigLookup,

@@ -173,7 +173,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             !Array.isArray(toolChoice) &&
             (toolChoice as { input?: unknown }).input !== undefined
         ) {
-            const tc = toolChoice as { name: string; input: unknown };
+            // Narrowed to the declared shape rather than `input: unknown`: now that
+            // `StreamChatRequest.toolChoice` mirrors core's type, the cast can be exact.
+            const tc = toolChoice as { name: string; input: Record<string, unknown> };
             const syntheticId = idGen('synthetic-tool');
             emitter({ type: 'tool-start', toolCallId: syntheticId, name: tc.name, input: tc.input });
 
