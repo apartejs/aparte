@@ -124,8 +124,27 @@ export interface AparteToolContext {
  * Return an empty string from render() to render nothing (e.g. for UI-only tools like ask_question).
  */
 export interface AparteToolRenderer {
-    /** HTML to render for the tool call segment. Return empty string to hide. */
-    render: (segment: AparteToolCallSegment) => string;
+    /**
+     * Render the tool-call segment, as an HTML string or a ready DOM element.
+     *
+     * **The segment carries model-chosen data.** `segment.toolCall.input` is
+     * whatever the model decided to pass, and `segment.toolCall.result` is
+     * whatever the tool returned. Both are untrusted.
+     *
+     * Return an **HTMLElement** and there is no innerHTML surface at all — set
+     * `textContent`, attach listeners, insert framework nodes. That is the safe
+     * default and the reason this arm exists.
+     *
+     * Return a **string** and core inserts it with `innerHTML`, so every
+     * interpolated value must go through `escapeHtml` (text position) or
+     * `escapeAttr` (inside an attribute). The natural first thing to write here is
+     * `\`<div>Searching for ${s.toolCall.input.query}</div>\``, and that is a direct
+     * model-to-DOM XSS in the host page's origin.
+     *
+     * Return an empty string to render nothing (e.g. a UI-only tool like
+     * `ask_question`).
+     */
+    render: (segment: AparteToolCallSegment) => string | HTMLElement;
     /** Optional DOM setup (event listeners etc.) called after HTML is injected */
     setup?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
     /** Optional CSS to inject once into document.head */

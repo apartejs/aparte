@@ -59,23 +59,23 @@ export const PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline'; styl
 function withMetaCsp(doc: string): string {  // safe-text: doc is the model-authored artifact HTML this function INJECTS a CSP into — escaping it would destroy the document it is protecting
     const meta = `<meta http-equiv="Content-Security-Policy" content="${escapeAttr(PREVIEW_CSP)}">`;
 
-    // `=== null`, not `!head?.index`: a document that BEGINS with `<head>` has
-    // index 0, which the old truthiness check read as "not found".
-    const head = doc.match(/<head[^>]*>/i);
-    if (head !== null && head.index !== undefined) {
-        const at = head.index + head[0].length;
-        return doc.slice(0, at) + meta + doc.slice(at);
-    }
-
-    // No head of its own: open one right after `<html …>` when there is one, which
-    // is where the parser would have put it anyway.
-    const html = doc.match(/<html[^>]*>/i);
-    if (html !== null && html.index !== undefined) {
-        const at = html.index + html[0].length;
-        return `${doc.slice(0, at)}<head>${meta}</head>${doc.slice(at)}`;
-    }
-
-    // Neither: insert after the doctype if present, otherwise at the very front.
+    // FIRST, always — after the doctype when there is one, otherwise at the very
+    // front. Not "after the model's `<head>`", which is what this used to do.
+    //
+    // A `<meta http-equiv>` policy governs only what FOLLOWS it, and the model
+    // writes this document: it can put a `<script>` before its own `<head>`, or
+    // before `<html>`. The parser hoists that script into an implicitly-opened
+    // head, where it sits EARLIER in document order than a meta inserted after a
+    // tag the model declared later — so the script ran outside the policy.
+    // Reproduced end to end in Firefox, WebKit, and Chromium with the `csp`
+    // attribute absent: the beacon fired. And since that attribute is
+    // Chromium-only, on Firefox and Safari this meta is the frame's ONLY policy.
+    //
+    // Prepending is safe in every shape, which the previously-correct third branch
+    // already demonstrated across all three engines: content before `<html>` is
+    // hoisted into an implicit head, the model's own `<html>`/`<head>` then merge
+    // into the one already open. One branch replaces three, and it is the branch
+    // that was right.
     const doctype = doc.match(/^\s*<!doctype[^>]*>/i);
     const at = doctype ? doctype[0].length : 0;
     return `${doc.slice(0, at)}<head>${meta}</head>${doc.slice(at)}`;

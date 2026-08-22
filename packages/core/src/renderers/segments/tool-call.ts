@@ -39,11 +39,13 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             `;
         }
 
-        // Delegate to a per-tool renderer if one is registered
+        // Delegate to a per-tool renderer if one is registered. It may return an
+        // HTMLElement — the arm that has no innerHTML surface at all, and the one a
+        // consumer should reach for, since the segment carries model-chosen input.
         const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
         if (customRenderer) {
-            const html = customRenderer.render(segment);
-            if (html) return html;
+            const out = customRenderer.render(segment);
+            if (out) return out;
         }
 
         // Status/tool glyphs come from the icon provider (fallbacks: ✓ / ✕ / 🔧)

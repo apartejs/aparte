@@ -75,6 +75,9 @@ core README — the contract is enforced in CI by a real Node import, not just d
 import { createAparteChatHandler } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
+// Your own session lookup — the same one guarding your other authenticated routes.
+declare function getSession(req: Request): Promise<{ userId: string } | null>;
+
 export const POST = createAparteChatHandler({
   providers: {
     openai: createOpenAICompatProvider(presets.OPENAI),
@@ -82,9 +85,18 @@ export const POST = createAparteChatHandler({
   resolveKey: (providerId) => process.env[`${providerId.toUpperCase()}_KEY`],
   // REQUIRED. This route spends your key, so your own auth goes here. Return false
   // for 401, a Response for your own status, or true to proceed.
-  authorize: (req) => Boolean(req.headers.get('cookie')),
+  authorize: async (req) => Boolean(await getSession(req)),
 });
 ```
+
+:::caution[`authorize` has to actually authenticate]
+It is required so the decision cannot be skipped, but a required option can still be
+satisfied by something that decides nothing. `Boolean(req.headers.get('cookie'))` is
+the shape to avoid: **any** request carrying **any** cookie passes, including a
+cross-site one from a page you have never seen — so the route spends your vendor key
+for anyone who can load it. Call your real session lookup, the same one that guards
+your other authenticated routes.
+:::
 
 `createAparteChatHandler` and its `AparteChatHandlerOptions` type are exported from
 `@aparte/core`'s **Node/SSR entry** (resolved automatically via the `node` export

@@ -134,9 +134,10 @@ valid? If you proxy through `createAparteChatHandler`, its
 ## Custom tool renderer
 
 Replace the generic pill for a specific tool name with `registerToolRenderer`. `render`
-returns the segment's HTML (`''` renders nothing — e.g. a UI-only tool); `setup` runs once
-after injection for listeners; `getStyles` is injected into `document.head` once per tool.
-For a `needsApproval` tool this only takes over *after* approval:
+returns either an HTML string or a ready DOM element (`''` renders nothing — e.g. a
+UI-only tool); `setup` runs once after injection for listeners; `getStyles` is injected
+into `document.head` once per tool. For a `needsApproval` tool this only takes over
+*after* approval:
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
@@ -149,6 +150,54 @@ const webSearchRenderer: AparteToolRenderer = {
 
 aparteGlobalConfig.registerToolRenderer('web_search', webSearchRenderer);
 ```
+
+:::danger[The segment carries model-chosen data]
+`segment.toolCall.input` is whatever the **model** decided to pass, and
+`segment.toolCall.result` is whatever the tool returned. Both are untrusted. The
+obvious first thing to write is the one that breaks:
+
+```ts
+// DON'T — a direct model-to-DOM XSS in your page's origin.
+render: (segment) => `<div>Searching for ${segment.toolCall?.input?.['query']}</div>`,
+```
+
+Two ways out. **Return an element** and there is no `innerHTML` surface at all:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolRenderer } from '@aparte/core';
+
+const searchRenderer: AparteToolRenderer = {
+  render: (segment) => {
+    const el = document.createElement('div');
+    el.className = 'tool-pill';
+    // textContent, so the value is text no matter what it contains.
+    el.textContent = `Searching for ${String(segment.toolCall?.input?.['query'] ?? '')}`;
+    return el;
+  },
+};
+
+aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
+```
+
+Or **keep the string and escape every interpolation** — `escapeHtml` in text
+position, `escapeAttr` inside an attribute, exactly as in
+[Customization](/guides/customization/):
+
+```ts
+import { aparteGlobalConfig, escapeHtml, escapeAttr } from '@aparte/core';
+import type { AparteToolRenderer } from '@aparte/core';
+
+const searchRenderer: AparteToolRenderer = {
+  render: (segment) => {
+    const query = String(segment.toolCall?.input?.['query'] ?? '');
+    return `<div class="tool-pill" title="${escapeAttr(query)}">Searching for ${escapeHtml(query)}</div>`;
+  },
+};
+
+aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
+```
+:::
 
 ## Complete example: approve/reject with no backend
 
