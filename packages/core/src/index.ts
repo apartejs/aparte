@@ -103,7 +103,18 @@ export {
     unregisterSegmentRenderer,
     getSegmentRenderer,
     collectRendererStyles,
-    registerDefaultRenderers
+    registerDefaultRenderers,
+    // The three the public barrel left behind. `renderers/index.ts` has always
+    // exported all eight; this one published five, which made the registry
+    // half-public: `declineDefaultRenderers` is the ONLY way to say "do not install
+    // the built-ins on this config" without constructing an `AparteClient`
+    // (`autoRegister: false`), and the bring-your-own-loop guide tells you not to
+    // construct one. `installDefaultRenderersOnce` is what a hand-written bubble
+    // needs, and `getAllRenderers` is the introspection half — the same reason
+    // `hasHighlightProvider` and `renderMarkdown` are public.
+    installDefaultRenderersOnce,
+    declineDefaultRenderers,
+    getAllRenderers
 } from './renderers/index.js';
 
 // Export components

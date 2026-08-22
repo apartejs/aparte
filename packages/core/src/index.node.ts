@@ -97,6 +97,9 @@ export {
     getSegmentRenderer,
     collectRendererStyles,
     registerDefaultRenderers,
+    installDefaultRenderersOnce,
+    declineDefaultRenderers,
+    getAllRenderers,
 } from './renderers/index.js';
 
 // `populateBubbleFromMessage` is a plain helper — import it from its own module,

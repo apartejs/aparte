@@ -337,6 +337,34 @@ registerSegmentRenderer({
 });
 ```
 
+### Driving the whole registry
+
+`registerSegmentRenderer` adds a type. Three more functions drive the registry itself,
+and none of them needs an `AparteClient`:
+
+```ts
+import {
+  declineDefaultRenderers,
+  installDefaultRenderersOnce,
+  getAllRenderers,
+} from '@aparte/core';
+
+// Draw every segment yourself: refuse the built-ins BEFORE the first bubble renders.
+declineDefaultRenderers();
+
+// …or install them lazily — this is what <aparte-chat-bubble> does on first render.
+installDefaultRenderersOnce();
+
+// Introspect the wiring. Runs in Node, with no DOM, so a test can assert your setup.
+const types: readonly string[] = getAllRenderers().map((r) => r.type);
+```
+
+`declineDefaultRenderers()` is what `new AparteClient({ autoRegister: false })` calls
+internally — calling it directly is the only way to say the same thing without
+constructing a client, which [Bring your own loop](/guides/bring-your-own-loop/) tells you
+not to do. All three take an optional trailing config, so each can be scoped to one chat
+rather than the page.
+
 ## Icons
 
 Every icon ships as a zero-dependency inline SVG. Override any of them — with an SVG,
