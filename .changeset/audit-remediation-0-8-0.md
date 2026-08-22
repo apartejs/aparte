@@ -114,6 +114,24 @@ guards that make each class unrepeatable.
   config among several and the one we recommend least. Giving it the canonical name
   pointed at the case we want people to outgrow; `aparteGlobalConfig` says at every call
   site which config you are touching.
+- **`@aparte/provider-transformers`: `terminateWorker()` no longer bricks the provider.**
+  Called while a generate was in flight, it dropped the pending streams but left their
+  serialization slots unresolved — so the next `chat()` awaited a promise that could never
+  settle. No error, no rejection: the stream simply never started again, for the life of
+  the page. The worker-error path already released those slots, with a comment explaining
+  why; `terminateWorker`, 240 lines below it, did not.
+
+  Its state is still **tab-scoped, on purpose**, and now says so: one worker, one loaded
+  model, one generate at a time, with `setComputeDevice` / `setMaxCachedModels` /
+  `setHardwareTierModels` applying page-wide. A local model is 1–2 GB of weights and one
+  WebGPU pipeline, so a worker per chat would mean N copies resident in one tab — the
+  failure this package exists to avoid. Two chats on the same model share the load, which
+  is the case it is for. Two chats on *different* models serialize and, at the default
+  budget of one cached model, can evict and reload gigabytes between turns — that used to
+  happen in silence and now warns once, naming both models.
+
+  `TransformersProvider.chat` is also declared non-optional now, so consumers stop needing
+  `provider.chat!(...)`.
 - **One name for the imperative surface: `AparteChatImperativeApi`.** React exported it
   as `AparteChatHandle`, Vue and Svelte as `AparteChatInstance`, and Angular exposed no
   name at all — one contract wearing three names in a suite that publishes all four

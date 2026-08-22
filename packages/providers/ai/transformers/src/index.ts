@@ -8,6 +8,26 @@
  * Scope (v1): generic **text-generation** streaming. Tool-calling for local models is
  * model-specific (every family has its own wire format) and is out of scope here — the
  * app registers models and streams plain replies. Vision / embeddings can follow on demand.
+ *
+ * ## This provider's state is TAB-scoped, on purpose
+ *
+ * Everything below the "Worker bridge" heading — the worker, the loaded model, the
+ * generate chain — plus `setComputeDevice`, `setMaxCachedModels` and
+ * `setHardwareTierModels`, is module-level and therefore shared by every chat on the
+ * page. That is deliberate, and it is the opposite of what the rest of the suite does:
+ * a plugin's providers scope to one chat, this one cannot.
+ *
+ * The reason is the resource, not the design. A local model is 1–2 GB of weights and one
+ * WebGPU pipeline. Handing each chat its own worker would mean N copies resident in one
+ * tab — which is the failure this package exists to avoid, not a capability. The
+ * settings above describe the *machine* (which backend, how many models to keep
+ * cached), so per-chat values would not mean anything either.
+ *
+ * What the constraint costs: two chats on the page driving DIFFERENT local models take
+ * turns on one pipeline, so each turn may evict and reload gigabytes. That used to
+ * happen silently — a multi-second stall with nothing to read. It now warns once, from
+ * `chat()`, when a generate is queued for a model other than the one already in flight.
+ * Same model in both chats is free and correct: they share the load.
  */
 
 import type {
@@ -238,8 +258,42 @@ const _pendingGenerates = new Map<string, ReadableStreamDefaultController>();
 let _generateChain: Promise<void> = Promise.resolve();
 const _generateDoneResolvers = new Map<string, () => void>();
 
+// ── Contention on the one pipeline ──────────────────────────────────────────
+// Serialization is correct but invisible: two chats driving DIFFERENT local
+// models take turns, and with `maxCachedModels` at its default of 1 each turn
+// can evict and reload gigabytes. The user sees a stall; the developer sees
+// nothing. These two track just enough to say so, once.
+const _queuedModelIds = new Map<string, string>();
+let _warnedModelContention = false;
+
+/** Model ids of generates currently queued or running on the single pipeline. */
+function _contendingModelId(requested: string): string | undefined {
+    for (const id of _queuedModelIds.values()) if (id !== requested) return id;
+    return undefined;
+}
+
+/**
+ * Warn once when a generate has to queue behind another chat's DIFFERENT model.
+ * Not a warning about switching models in one chat — that is a deliberate act
+ * with visible feedback. This fires only when two are in flight at once.
+ */
+function _warnIfContended(requested: string): void {
+    if (_warnedModelContention) return;
+    const other = _contendingModelId(requested);
+    if (!other) return;
+    _warnedModelContention = true;
+    console.warn(
+        `[Aparte] Two chats are driving different local models at once ("${requested}" behind `
+        + `"${other}"). Transformers.js runs one pipeline per tab, so these generates are `
+        + `serialized, and with a cache budget of ${_maxCachedModels} each switch can evict and `
+        + `reload gigabytes of weights. Point both chats at one model, or raise the budget with `
+        + `setMaxCachedModels(2) if the machine has the memory. This warns once.`,
+    );
+}
+
 /** Settle the serialization slot for a finished generate. */
 function _releaseGenerateSlot(id: string): void {
+    _queuedModelIds.delete(id);
     const resolve = _generateDoneResolvers.get(id);
     if (resolve) {
         _generateDoneResolvers.delete(id);
@@ -287,6 +341,7 @@ function _handleWorkerError(e: Event): void {
     }
     _generateDoneResolvers.clear();
     _generateChain = Promise.resolve();
+    _queuedModelIds.clear();
 
     _loadedModelId = null;
     _preparingModelId = null;
@@ -364,9 +419,14 @@ function _handleWorkerMessage(event: MessageEvent): void {
  * possibly-undefined — so the documented `TransformersProvider.prepareModel(...)`
  * needed a `!` or a guard in every strict consumer. Same technique openai-compat
  * already used for its own always-present members.
+ *
+ * `chat` joined the list once `AparteAIProvider` became a union: it is optional on
+ * the format-adapter arm, and this provider IS its `chat()` — running inference
+ * locally is the whole package. Narrowing it here says so once, instead of every
+ * caller writing `provider.chat!(...)`.
  */
 export const TransformersProvider: AparteAIProvider
-    & Required<Pick<AparteAIProvider, 'prepareModel' | 'getModelStatus'>> = {
+    & Required<Pick<AparteAIProvider, 'prepareModel' | 'getModelStatus' | 'chat'>> = {
     id: 'transformers',
 
     getMetadata() {
@@ -404,6 +464,8 @@ export const TransformersProvider: AparteAIProvider
         // ── Reserve a serialization slot ─────────────────────────────────────
         // Chain this generate behind the previous one; the worker has a single
         // pipeline, so generates MUST NOT overlap.
+        _warnIfContended(request.modelId);
+        _queuedModelIds.set(requestId, request.modelId);
         const prevGenerate = _generateChain;
         _generateChain = new Promise<void>((resolveSlot) => {
             _generateDoneResolvers.set(requestId, resolveSlot);
@@ -523,6 +585,21 @@ export function terminateWorker(): void {
         try { ctrl.enqueue({ type: 'error' as const, message: 'Worker terminated' }); ctrl.close(); } catch { /* already closed */ }
     }
     _pendingGenerates.clear();
+
+    // Release every serialization slot and reset the chain — the same three lines
+    // the worker-error handler above already carried, with the same reason. Without
+    // them, terminating mid-generate left `_generateChain` pending on a resolver
+    // that had just been dropped, so the NEXT chat() awaited a promise that could
+    // never settle: no error, no rejection, the stream simply never started again
+    // for the life of the page.
+    for (const resolve of _generateDoneResolvers.values()) {
+        try { resolve(); } catch { /* ignore */ }
+    }
+    _generateDoneResolvers.clear();
+    _generateChain = Promise.resolve();
+    _queuedModelIds.clear();
+    // A terminated worker is a fresh situation; let the contention warning speak again.
+    _warnedModelContention = false;
 }
 
 export interface CachedModelEntry {

@@ -30,6 +30,28 @@ The provider owns its I/O (it runs inference locally), so `AparteDirectTransport
 Model weights download once and persist in the Cache API; `prepareModel` reports progress, and
 `listCachedModels` / `deleteCachedModel` manage the on-disk cache.
 
+## One pipeline per tab
+
+Unlike every other aparté provider, this one's state is **tab-scoped, not chat-scoped**: one
+worker, one loaded model, one generate at a time. `setComputeDevice`, `setMaxCachedModels` and
+`setHardwareTierModels` set it for the whole page.
+
+That is the resource talking, not a design preference — a local model is 1–2 GB of weights and
+one WebGPU pipeline, so a worker per chat would mean N copies resident in one tab. Two chats on
+the **same** model is the case this is for: they share the load, for free.
+
+Two chats on **different** models is the case that costs. They serialize on the one pipeline,
+and at the default budget of one cached model each turn can evict and reload gigabytes. The
+provider warns once when it sees it:
+
+```ts
+import { setMaxCachedModels, getMaxCachedModels } from '@aparte/provider-transformers';
+
+setMaxCachedModels(2);            // keep both resident, if the machine has the memory
+setMaxCachedModels(0);            // no limit — you are managing memory yourself
+getMaxCachedModels();             // the current budget
+```
+
 > **Scope (v1):** generic text-generation streaming, **browser-only** (unlike the other
 > providers — it needs WebGPU/WASM, Workers and the Cache API, so it is the one adapter that
 > does not run in Node). Tool-calling for local models is model-specific and out of scope for
