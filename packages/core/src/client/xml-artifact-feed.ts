@@ -282,6 +282,30 @@ export function finalizeXmlArtifact(
 ): void {
     const { targetElement, messageId, artifactProgress, artifactXmlHint } = ctx;
 
+    // A stream that ends mid-tag — on a held `<arti`, or on an opening tag that
+    // never reached its `>` — must give that text back rather than swallow it.
+    // `scanBuf` is the only place it lives.
+    //
+    // Engine's twin has had this branch all along; core's finalize only ever
+    // handled `in-artifact`, so the held characters were dropped. The divergence
+    // was invisible while the two halves of core's state machine sat 600 lines
+    // apart inside a 2100-line class; naming them made it a one-line diff.
+    if (xml.state === 'scanning') {
+        const held = xml.scanBuf;
+        xml.scanBuf = '';
+        xml.state = 'normal';
+        if (held) {
+            // Emitted as a segment directly, NOT back through the text parser. The
+            // caller has already called `textParser.finalize()` by now, so anything
+            // parsed here would never be flushed — and the parser would hold `<arti`
+            // as an ambiguous tag prefix anyway, which is how it got here. Engine's
+            // twin bypasses its parser for the same reason: held text is raw by
+            // definition.
+            targetElement.addSegment?.({ id: uuid(), type: 'text', content: held });
+        }
+        return;
+    }
+
     // If the stream ended while still inside an <artifact> tag (model truncated —
     // common on small models with low maxTokens), flush whatever was buffered and
     // render the partial artifact.
