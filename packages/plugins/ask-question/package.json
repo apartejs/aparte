@@ -10,6 +10,10 @@
     "exports": {
         ".": {
             "@aparte-workspace/source": "./src/index.ts",
+            "node": {
+                "types": "./dist/index.node.d.ts",
+                "default": "./dist/index.node.js"
+            },
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "default": "./dist/index.js"

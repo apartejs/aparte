@@ -17,7 +17,11 @@ export default defineConfig({
         emptyOutDir: true,
         outDir: resolve(__dirname, 'dist'),
         lib: {
-            entry: { index: resolve(__dirname, 'src/index.ts') },
+            entry: {
+                index: resolve(__dirname, 'src/index.ts'),
+                // The DOM-free entry the `node` export condition points at.
+                'index.node': resolve(__dirname, 'src/index.node.ts'),
+            },
             name: 'ApartePluginModelSelector',
             fileName: (_format, entryName) => `${entryName}.js`,
             formats: ['es'],
