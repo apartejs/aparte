@@ -85,4 +85,27 @@ if (broken.length) {
     process.exit(1);
 }
 
+/**
+ * A floor on what was actually inspected.
+ *
+ * Without it this script's happiest output is `OK: 0 links` — which is what a
+ * broken selector, a renamed build directory or an Astro output change would
+ * produce, and it would read as a pass. `check-attr-escaping` learned the same
+ * lesson the hard way and carries the same guard. Measured at ~2860 links across
+ * 38 pages; the floor sits well below that so adding or removing a page never
+ * trips it, while a collapse cannot hide.
+ */
+const CHECKED_FLOOR = 1500;
+const PAGES_FLOOR = 25;
+if (checked < CHECKED_FLOOR || pages.length < PAGES_FLOOR) {
+    console.error(
+        `\n[doc-links] FAIL: only ${checked} links across ${pages.length} pages `
+        + `(floors: ${CHECKED_FLOOR} links, ${PAGES_FLOOR} pages).\n`
+        + '  Zero broken links out of almost nothing is not a pass, it is a matcher that\n'
+        + '  stopped matching — a renamed dist directory, a changed Astro output shape, or\n'
+        + '  a docs build that did not run. Check the build before lowering these.\n',
+    );
+    process.exit(1);
+}
+
 console.log(`[doc-links] OK: ${checked} internal links and anchors across ${pages.length} built pages all resolve.`);

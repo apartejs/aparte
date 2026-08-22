@@ -20,6 +20,21 @@ import { readFileSync, existsSync } from 'node:fs';
 /** entry file → the bare specifiers it may import, and why that matters. */
 const CONTRACTS = [
     {
+        file: 'packages/core/dist/index.js',
+        bareOnly: true,
+        allowed: [],
+        why: 'the zero-dependency promise: the README, the docs and the badge all say core has none, '
+            + 'and nine `check:*` scripts existed without one of them asserting it. `package.json` '
+            + 'having no `dependencies` is not the same claim — a bundled import would satisfy that '
+            + 'and break the promise. This reads the built bytes: not one bare specifier',
+    },
+    {
+        file: 'packages/core/dist/index.node.js',
+        bareOnly: true,
+        allowed: [],
+        why: 'the SSR entry makes the same promise and is built separately, so it can drift alone',
+    },
+    {
         file: 'packages/plugins/shiki/dist/core.js',
         allowed: ['@aparte/core'],
         why: 'the size-conscious entry: the caller builds the highlighter, so shiki itself must not be pulled in',
@@ -42,12 +57,19 @@ function specifiers(file) {
 }
 
 const problems = [];
-for (const { file, allowed, why } of CONTRACTS) {
+for (const { file, allowed, why, bareOnly } of CONTRACTS) {
     if (!existsSync(file)) {
         problems.push(`${file} is missing — run \`pnpm build\` first.`);
         continue;
     }
-    const extra = specifiers(file).filter(s => !allowed.includes(s));
+    // `bareOnly` contracts ignore relative specifiers. Vite emits a content-hashed
+    // shared chunk (`./index-B_yeCwcF.js`) that no contract can name, and an
+    // internal chunk is not a dependency — the claim being guarded is about what
+    // a consumer's install pulls. Contracts that name a relative entry on purpose
+    // (shiki's `./core.js`) leave the flag off, so their listing stays exact.
+    const extra = specifiers(file)
+        .filter(s => !(bareOnly && s.startsWith('.')))
+        .filter(s => !allowed.includes(s));
     if (extra.length) {
         problems.push(
             `${file} imports ${extra.map(s => `\`${s}\``).join(', ')}, which is not in its contract.\n`

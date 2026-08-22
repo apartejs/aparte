@@ -81,6 +81,24 @@ export default tseslint.config(
     },
   },
 
+  // CLAUDE.md: "Don't add console.log in packages/core/". It was a convention with
+  // no mechanism, which is the only kind of rule this repo does not keep.
+  //
+  // `warn` and `error` stay allowed, and that is the point of banning only the rest:
+  // core deliberately warns 35 times and errors 4 — every one of them a documented
+  // affordance telling a developer their setup is incomplete (no elicitation
+  // presenter, a provider returning a Promise from getModels, a plugin that failed
+  // to load). `log` / `info` / `debug` / `trace` / `table` / `dir` are what debugging
+  // leaves behind, and they end up in a consumer's console with nothing they can do
+  // about it.
+  {
+    files: ['packages/core/**/*.ts'],
+    ignores: ['**/*.{test,spec}.ts', '**/__tests__/**'],
+    rules: {
+      'no-console': ['error', { allow: ['warn', 'error'] }],
+    },
+  },
+
   // Tests legitimately reach into private internals (white-box) via `as any`.
   {
     files: ['**/*.{test,spec}.{ts,tsx}', '**/__tests__/**', '**/vitest.setup.ts'],
