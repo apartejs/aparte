@@ -42,10 +42,10 @@ const ROOTS = ['packages/core/src', 'packages/plugins', 'packages/providers'];
  * `desc(role)`, `htmlDesc(role)`, `describe(role)`. An audit walked through it
  * with `desc(`, which is a plausible name in real code rather than a contrivance.
  */
-const ESCAPER_NAMES = new Set([
-    'escapeHtml', 'escapeAttr', 'cssEscape', 'esc', '_esc', '_escape',
-    'escapeClosingScriptTag',
-]);
+// Shared with check-text-escaping: the two guards police the two positions an
+// interpolation can land in, and a name added to one list and not the other is a
+// hole that opens silently in whichever was forgotten.
+import { ESCAPER_NAMES } from './escaping-names.mjs';
 
 /**
  * Safe in a DOUBLE-quoted value only.

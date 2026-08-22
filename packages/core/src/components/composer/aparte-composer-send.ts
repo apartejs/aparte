@@ -58,7 +58,7 @@ export class AparteComposerSend extends HTMLElement {
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
             ${disabled ? 'disabled' : ''}
-        >${icon}</button>`;
+        >${icon}</button>`;  // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
 
         this._button = this.querySelector('.aparte-cs-button');
         this._button?.addEventListener('click', this._onClick);

@@ -56,7 +56,7 @@ export class AparteComposerCancel extends HTMLElement {
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
             hidden
-        >${icon}</button>`;
+        >${icon}</button>`;  // safe-text: _getStopIcon() returns the provider's SVG markup — escaping it would print the source
 
         this._button = this.querySelector('.aparte-cc-button');
         this._button?.addEventListener('click', this._onClick);

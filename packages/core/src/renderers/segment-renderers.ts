@@ -1778,7 +1778,7 @@ function mountPreviewFrame(element: HTMLElement, fallback: AparteArtifactSegment
  * `allow-same-origin` gives an opaque origin, so the frame never reached the host
  * DOM, storage, or the API key.
  */
-function withMetaCsp(doc: string): string {
+function withMetaCsp(doc: string): string {  // safe-text: doc is the model-authored artifact HTML this function INJECTS a CSP into — escaping it would destroy the document it is protecting
     const meta = `<meta http-equiv="Content-Security-Policy" content="${escapeAttr(PREVIEW_CSP)}">`;
 
     // `=== null`, not `!head?.index`: a document that BEGINS with `<head>` has

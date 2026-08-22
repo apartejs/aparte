@@ -273,7 +273,7 @@ export class AparteModelSelector extends HTMLElement {
         // Build options HTML — single provider: flat list; multiple: grouped optgroups
         const only = this._providerModels[0];
         const singleProvider = this._providerModels.length === 1;
-        const optionsHtml = singleProvider && only
+        const optionsHtml = singleProvider && only  // safe-text: every value below goes through esc(); the tags are this file's own
             ? only.models.map(m => {
                 const key = `${only.provider.id}::${m.id}`;
                 return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;
