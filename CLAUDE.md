@@ -175,17 +175,25 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 
 ## ✅ Conventions & before you ship
 
-- **`pnpm gate` before every commit** (lint · typecheck · test · build · packaging);
-  `pnpm gate:full` adds `pnpm e2e` — required for anything touching the framework boundary
-  or rendering. Git hooks in `.githooks/` enforce the halves automatically (pre-commit:
-  lint+typecheck, pre-push: test+build **and no direct push to `main`**). `--no-verify` is
-  never the answer; feature work goes on a branch + PR.
-- **Conventional commits**, one concern per commit. Tests green before each commit.
+- **`pnpm gate` at the end of a lot, not per commit** — and `pnpm gate:full` (adds
+  `pnpm e2e`) before anything reaches `main`, always. The gate is now 24 steps and 19
+  mechanical guards: a full build, coverage with per-glob floors, `publint`/`attw` on 15
+  packages, the docs site build and a link check over 38 built pages. Running it 25 times
+  in one session is most of the session, and it re-verifies the same thing 25 times.
+  What actually protects each commit is the hooks: **pre-commit** runs lint + typecheck,
+  **pre-push** runs test + build and refuses a direct push to `main`. Gate when a lot is
+  done, when a guard is added, or when you have touched a generated artifact — and always
+  before the merge. `--no-verify` is never the answer; feature work goes on a branch + PR.
+- **Conventional commits**, one concern per commit. Tests green before each commit — the
+  cheap check (`pnpm test`, or `nx test <project>`) is enough per commit; the gate is for
+  the lot.
 - **Never commit** `dist/`, `*.tsbuildinfo`, or `.claude/` — gitignored from day 1.
   Stage explicit files; don't `git add -A`.
 - Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - `pnpm test` passes; `nx affected:build` for touched package(s) succeeds.
-- Don't add `console.log` in `packages/core/`.
+- Don't add `console.log` in `packages/core/` — now an eslint rule rather than a habit
+  (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
+  incomplete).
 - A changeset entry for any package with an API/CSS change.
 - **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
   (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).
