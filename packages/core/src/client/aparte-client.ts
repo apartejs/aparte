@@ -21,6 +21,7 @@ function partialXmlOpenTagLength(text: string): number {
 }
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
+import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
 import type { AparteStreamRunner, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
@@ -525,10 +526,10 @@ export class AparteClient {
         // controller did not exist yet, so `abort()` had nothing to cancel — the
         // flag is the only trace, and it must not be thrown away here.
         if (this._isAborted) {
-            this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+            dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
             return;
         }
-        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
+        dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
         try {
             const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
             if (this._isAborted) {
@@ -543,7 +544,7 @@ export class AparteClient {
                 // abort is what a provider that ends quietly used to produce.
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
             } else {
-                this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
+                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
             }
         } catch (error: unknown) {
             // A THIRD abort path, and the one the browser suite caught after the
@@ -554,7 +555,7 @@ export class AparteClient {
             // `_handleLifecycleError` would REPLACE the message with an error
             // segment, turning a deliberate stop into a rendered failure.
             if (this._isAborted) {
-                this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
                 return;
             }
@@ -1378,7 +1379,7 @@ export class AparteClient {
                     };
                     targetElement.addSegment?.(openSeg);
                     streamingSegmentIds.add(xml.segId);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, openSeg, artifactProgress, false);
+                    dispatchArtifactLifecycle(targetElement, messageId, openSeg, artifactProgress, false);
                     xml.state = 'in-artifact';
                     remaining = xml.scanBuf.slice(gtIdx + 1);
                     xml.scanBuf = '';
@@ -1399,7 +1400,7 @@ export class AparteClient {
                         inline: isInline,
                     };
                     targetElement.updateSegment?.(xml.segId!, { content: xml.content, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, finalSeg, artifactProgress, true);
+                    dispatchArtifactLifecycle(targetElement, messageId, finalSeg, artifactProgress, true);
                     xml.state = 'normal';
                     xml.closeBuf = '';
                     remaining = combined.slice(closeIdx + CLOSE.length);
@@ -1412,7 +1413,7 @@ export class AparteClient {
                     remaining = '';
                     if (xml.segId) {
                         targetElement.updateSegment?.(xml.segId, { content: xml.content });
-                        this._dispatchArtifactLifecycle(targetElement, messageId, {
+                        dispatchArtifactLifecycle(targetElement, messageId, {
                             id: xml.segId, type: 'artifact',
                             mimeType: xml.mime, artifactType: xml.kind,
                             title: xml.title, content: xml.content,
@@ -1545,7 +1546,7 @@ export class AparteClient {
                 content: input.content ?? '',
             };
             targetElement.addSegment?.(artifactSeg);
-            this._dispatchArtifactLifecycle(targetElement, messageId, artifactSeg, artifactProgress, true);
+            dispatchArtifactLifecycle(targetElement, messageId, artifactSeg, artifactProgress, true);
 
             messages.push({
                 role: 'tool_call',
@@ -1622,7 +1623,7 @@ export class AparteClient {
                 // raw here gave one event two shapes depending on which loop
                 // produced it, and a composer filtering on `targetId` saw the
                 // approval request from the other chat on the page.
-                this._dispatchLifecycleEvent(targetElement, 'aparte-tool-approval-request', {
+                dispatchLifecycleEvent(targetElement, 'aparte-tool-approval-request', {
                     toolCallId: event.id, toolName: event.name, input: event.input,
                 });
                 let decision: { approved: boolean; payload?: unknown };
@@ -1768,7 +1769,7 @@ export class AparteClient {
 
         while (continueLoop) {
             if (this._isAborted) {
-                this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 break;
             }
 
@@ -1867,7 +1868,7 @@ export class AparteClient {
                 };
                 targetElement.addSegment?.(rawSeg);
                 streamingSegmentIds.add(rawSegId);
-                this._dispatchArtifactLifecycle(targetElement, messageId, rawSeg, artifactProgress, false);
+                dispatchArtifactLifecycle(targetElement, messageId, rawSeg, artifactProgress, false);
             }
             // ── END artifactRaw ──────────────────────────────────────────────
 
@@ -1901,7 +1902,7 @@ export class AparteClient {
             const bailOnAbort = (): boolean => {
                 if (!this._isAborted) return false;
                 try { void reader.cancel(); } catch { /* best effort */ }
-                this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 continueLoop = false;
                 return true;
             };
@@ -1948,7 +1949,7 @@ export class AparteClient {
                             if (artifactRawHint && rawSegId) {
                                 rawContent += event.delta;
                                 targetElement.updateSegment?.(rawSegId, { content: rawContent });
-                                this._dispatchArtifactLifecycle(targetElement, messageId, {
+                                dispatchArtifactLifecycle(targetElement, messageId, {
                                     id: rawSegId, type: 'artifact',
                                     mimeType: artifactRawHint.mimeType,
                                     artifactType: artifactRawHint.kind,
@@ -1989,7 +1990,7 @@ export class AparteClient {
                                     targetElement.updateSegment?.(segment.id, { content: (segment as { content?: string }).content });
                                 }
                                 if (segment.type === 'artifact') {
-                                    this._dispatchArtifactLifecycle(targetElement, messageId, segment, artifactProgress, true);
+                                    dispatchArtifactLifecycle(targetElement, messageId, segment, artifactProgress, true);
                                 }
                             }
                             const active = textParser.getState().activeSegment;
@@ -1998,12 +1999,12 @@ export class AparteClient {
                                     targetElement.addSegment?.(active);
                                     streamingSegmentIds.add(active.id);
                                     if (active.type === 'artifact') {
-                                        this._dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
+                                        dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
                                 } else {
                                     targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
                                     if (active.type === 'artifact') {
-                                        this._dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
+                                        dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
                                 }
                             } else if (result.segments.length === 0) {
@@ -2076,7 +2077,7 @@ export class AparteClient {
                     const lineCount = rawContent.split('\n').length;
                     const isInline = lineCount < 15;
                     targetElement.updateSegment?.(rawSegId, { content: rawContent, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, {
+                    dispatchArtifactLifecycle(targetElement, messageId, {
                         id: rawSegId, type: 'artifact',
                         mimeType: artifactRawHint.mimeType, artifactType: artifactRawHint.kind,
                         title: artifactRawHint.kind, content: rawContent, inline: isInline,
@@ -2093,7 +2094,7 @@ export class AparteClient {
                     const lineCount = xmlCtx.content.split('\n').length;
                     const isInline = lineCount < 15;
                     targetElement.updateSegment?.(xmlCtx.segId, { content: xmlCtx.content, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, {
+                    dispatchArtifactLifecycle(targetElement, messageId, {
                         id: xmlCtx.segId, type: 'artifact',
                         mimeType: xmlCtx.mime, artifactType: xmlCtx.kind,
                         title: xmlCtx.title, content: xmlCtx.content, inline: isInline,
@@ -2135,7 +2136,7 @@ export class AparteClient {
                         targetElement.updateSegment?.(s.id, { content: (s as { content?: string }).content });
                     }
                     if (s.type === 'artifact') {
-                        this._dispatchArtifactLifecycle(targetElement, messageId, s, artifactProgress, true);
+                        dispatchArtifactLifecycle(targetElement, messageId, s, artifactProgress, true);
                     }
                 }
 
@@ -2305,7 +2306,7 @@ export class AparteClient {
             });
         }
 
-        this._dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
+        dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
     }
 
     /** Warn once per client for an unrecognised stream event, then carry on. */
@@ -2319,75 +2320,5 @@ export class AparteClient {
             + ' unaffected; this usually means the provider or its SDK emits a part this'
             + ' version of aparté does not map yet.',
         );
-    }
-
-    private _dispatchLifecycleEvent(target: HTMLElement, name: string, detail: Record<string, unknown>) {
-        target.dispatchEvent(new CustomEvent(name, {
-            bubbles: true,
-            composed: true,
-            // Tag every lifecycle event with the target's id so several chats on
-            // one page stay isolated — a composer reacts only to its own host's
-            // turn (id-less single-instance pages still broadcast).
-            detail: { targetId: target.id || undefined, ...detail },
-        }));
-    }
-
-    /**
-     * Dispatch the artifact lifecycle (`aparte-artifact-start` / `delta` / `ready`)
-     * on the host bubble element. Idempotent for `start` (fires once per segment id)
-     * and emits `delta` only when the body actually grew. `isFinal=true` fires `ready`.
-     */
-    private _dispatchArtifactLifecycle(
-        target: HTMLElement,
-        messageId: string,
-        segment: import('../types/segments.js').AparteArtifactSegment,
-        progress: Map<string, number>,
-        isFinal: boolean
-    ): void {
-        const id = segment.id as string;
-        const content = (segment.content as string) ?? '';
-        const seen = progress.get(id);
-
-        if (seen === undefined) {
-            // First time we see this artifact → start
-            target.dispatchEvent(new CustomEvent('aparte-artifact-start', {
-                bubbles: true,
-                composed: true,
-                detail: {
-                    messageId,
-                    segmentId: id,
-                    mimeType: segment.mimeType,
-                    artifactType: segment.artifactType,
-                    title: segment.title,
-                },
-            }));
-            progress.set(id, 0);
-        }
-
-        const lastLen = progress.get(id) ?? 0;
-        if (content.length > lastLen) {
-            const chunk = content.slice(lastLen);
-            target.dispatchEvent(new CustomEvent('aparte-artifact-delta', {
-                bubbles: true,
-                composed: true,
-                detail: { segmentId: id, chunk },
-            }));
-            progress.set(id, content.length);
-        }
-
-        if (isFinal) {
-            target.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
-                bubbles: true,
-                composed: true,
-                detail: {
-                    messageId,
-                    segmentId: id,
-                    mimeType: segment.mimeType,
-                    artifactType: segment.artifactType,
-                    title: segment.title,
-                    content,
-                },
-            }));
-        }
     }
 }

@@ -29,6 +29,7 @@ import type {
 } from '../types/segments.js';
 import type { AparteUsage, AparteChatRequest } from '../types/chat.js';
 import { uuid } from '../utils/uuid.js';
+import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
 
 /**
  * DOM-free run events emitted by `@aparte/engine`'s `runStreamAgent`, mirrored here
@@ -129,69 +130,6 @@ export interface CreateStreamAdapterOptions {
      * parser). Absent for the raw / XML / create_artifact modes.
      */
     artifactHint?: { mimeType: string; kind: string };
-}
-
-/**
- * `_dispatchLifecycleEvent` (aparte-client.ts) — a bubbling/composed CustomEvent,
- * stamped with `targetId` exactly as core's does.
- *
- * The stamp used to be missing here, and it was not cosmetic. `aparte-composer`'s
- * `_isForThisComposer` treats an ABSENT `targetId` as "for me" — deliberately, so a
- * single-chat page needs no wiring. So on a two-chat page the engine path made
- * stopping chat A reset chat B's composer as well: every untagged event matched
- * every composer. Core's inline path had always stamped it.
- *
- * The parity suite could not see it because its recorder element has no `id`, so
- * both paths produced `targetId: undefined` and agreed.
- */
-function dispatchLifecycleEvent(target: StreamAdapterTarget, name: string, detail: unknown): void {
-    const id = (target as unknown as { id?: string }).id || undefined;
-    const stamped = detail && typeof detail === 'object'
-        ? { targetId: id, ...(detail as Record<string, unknown>) }
-        : detail;
-    target.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: stamped }));
-}
-
-/**
- * `_dispatchArtifactLifecycle` (aparte-client.ts) — fires `aparte-artifact-start`
- * once per segment id, `aparte-artifact-delta` when the body grew, and
- * `aparte-artifact-ready` when `isFinal`. `progress` tracks per-id broadcast length.
- */
-function dispatchArtifactLifecycle(
-    target: StreamAdapterTarget,
-    messageId: string,
-    segment: { id: string; content?: string; mimeType?: string; artifactType?: string; title?: string },
-    progress: Map<string, number>,
-    isFinal: boolean,
-): void {
-    const id = segment.id;
-    const content = segment.content ?? '';
-    const seen = progress.get(id);
-
-    if (seen === undefined) {
-        target.dispatchEvent(new CustomEvent('aparte-artifact-start', {
-            bubbles: true, composed: true,
-            detail: { messageId, segmentId: id, mimeType: segment.mimeType, artifactType: segment.artifactType, title: segment.title },
-        }));
-        progress.set(id, 0);
-    }
-
-    const lastLen = progress.get(id) ?? 0;
-    if (content.length > lastLen) {
-        const chunk = content.slice(lastLen);
-        target.dispatchEvent(new CustomEvent('aparte-artifact-delta', {
-            bubbles: true, composed: true,
-            detail: { segmentId: id, chunk },
-        }));
-        progress.set(id, content.length);
-    }
-
-    if (isFinal) {
-        target.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
-            bubbles: true, composed: true,
-            detail: { messageId, segmentId: id, mimeType: segment.mimeType, artifactType: segment.artifactType, title: segment.title, content },
-        }));
-    }
 }
 
 /**
