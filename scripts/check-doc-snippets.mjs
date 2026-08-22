@@ -320,7 +320,34 @@ const diagnostics = diagnosticsOf(output);
  * an `import`, so every diagnostic it produces is a genuine defect. That is exactly
  * the class the old first-line heuristic waved through.
  */
-const unresolved = errs => errs.some(e => e.code === 'TS2304' || e.code === 'TS2552');
+/**
+ * An excerpt legitimately names things declared in the prose around it, so
+ * "cannot find name" is noise here. Every OTHER diagnostic is not.
+ *
+ * This used to be `errs.some(...)` feeding a `continue`: one unresolved name
+ * anywhere in a fence discarded every other error in it, and since most fragments
+ * reference a `chat` or `client` from earlier prose, 44 of 118 fences were waived
+ * whole. A plain `const oops: number = document.title;` shipped green.
+ */
+const EXCERPT_NOISE = new Set([
+    'TS2304', 'TS2552',   // cannot find name — declared in the prose around the fence
+    'TS7006', 'TS7031',   // implicit any on a parameter whose type came from the caller
+    'TS18004',            // shorthand property naming something declared outside
+    'TS2390', 'TS2391',   // a signature shown without its implementation
+]);
+
+/**
+ * Diagnostics that exist only BECAUSE the fence is a fragment, and would not
+ * appear in the reader's own file. Everything else is a defect the reader inherits:
+ * a syntax error, a possibly-null access, an argument of the wrong type.
+ *
+ * The list is deliberately enumerated rather than inferred. The previous rule was
+ * `errs.some(isUnresolved)` feeding a `continue`, so ONE unresolved name amnestied
+ * every other error in the fence — and since most fragments reference a `chat` from
+ * earlier prose, 44 of 118 fences were waived whole, including two that were
+ * outright SyntaxErrors.
+ */
+const isExcerptNoise = e => EXCERPT_NOISE.has(e.code);
 
 let excerpts = unparseable.filter(e => !e.selfContained).length;
 const reportable = [];
@@ -335,7 +362,14 @@ for (const entry of index) {
     if (unparseable.includes(entry)) continue;
     const errs = diagnostics.get(entry.name);
     if (!errs?.length) continue;
-    if (!entry.selfContained && unresolved(errs)) { excerpts++; continue; }
+    if (!entry.selfContained) {
+        // Drop the unresolved-name noise and judge what is LEFT, rather than
+        // letting one such diagnostic amnesty the whole fence.
+        const real = errs.filter(e => !isExcerptNoise(e));
+        if (!real.length) { excerpts++; continue; }
+        reportable.push({ entry, errs: real });
+        continue;
+    }
     reportable.push({ entry, errs });
 }
 

@@ -39,7 +39,7 @@
     },
     "peerDependencies": {
         "@aparte/core": "workspace:~",
-        "shiki": ">=1.0.0"
+        "shiki": "^4.0.0"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",

@@ -114,11 +114,64 @@ merged registry, a `zones` parameter picks where each appears.
 The affordances core renders but cannot complete — it only asks, through a DOM event, and
 your app does the work. Declare what you handle; the rest isn't offered.
 
-- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare `attachmentPreview` (image tiles ask for a lightbox via `aparte-attachment-preview`), `terminalRun` (the Run button on a terminal segment → `aparte-terminal-run`), and/or `artifactRedownload` (the download button on a **binary** artifact → `aparte-artifact-redownload`). All default to `false`.
-- `getHostHandlers(): { attachmentPreview, terminalRun, artifactRedownload }` — the resolved declarations.
+- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **four**:
+  - `attachmentPreview` — image tiles ask for a lightbox via `aparte-attachment-preview`.
+  - `terminalRun` — the Run button on a terminal segment → `aparte-terminal-run`.
+  - `artifactRedownload` — the download button on a **binary** artifact → `aparte-artifact-redownload`.
+  - `artifactRehydrate` — re-generating a **persisted** binary artifact when a saved conversation is re-opened → `aparte-artifact-ready`, dispatched on mount rather than at the end of a stream. Off by default for a stronger reason than the others: it is an automatic dispatch nobody asked for, carrying model-authored content the receiving app is expected to run. Reloading a conversation would otherwise re-execute whatever a prompt injection had persuaded the model to persist, on every reload.
+
+  All four default to `false`.
+- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all four fields present. `Required<…>` on purpose: adding a fifth handler then fails to compile until every reader handles it, which is how the fourth came to be added at all.
 - `APARTE_DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.
+
+#### Completing a binary artifact: the file-generation handshake
+
+For a `pdf`, `xlsx` or `docx` artifact, core renders the card and then **waits on
+your app**: it owns no sandbox and no file generator. It dispatches
+`aparte-artifact-ready` on `window`, and the card stays at *Running sandbox…* until
+you answer with one of two events. Answering is not optional — a card with no answer
+waits forever.
+
+```ts
+// The artifact core wants generated.
+window.addEventListener('aparte-artifact-ready', async (e) => {
+  // `AparteArtifactReadyEventDetail`: the artifact's identity plus its content —
+  // { messageId, segmentId, mimeType, artifactType, title?, content }.
+  const { segmentId, content, mimeType } = e.detail;
+  try {
+    // Your generator, in your sandbox. Core never executes the model's code.
+    const { buffer, mime, filename, previewHtml } = await generateInSandbox(content, mimeType);
+    window.dispatchEvent(new CustomEvent('aparte-file-gen-ready', {
+      detail: {
+        segmentId,
+        filename,
+        buffer,                       // the file itself: Uint8Array | ArrayBuffer
+        bytes: buffer.byteLength,     // its SIZE, for the card's label
+        mime,
+        previewHtml,                  // markup for the preview pane, or null
+      },
+    }));
+  } catch (error) {
+    window.dispatchEvent(new CustomEvent('aparte-file-gen-error', {
+      detail: { segmentId, phase: 'generate', error: String(error) },
+    }));
+  }
+});
+```
+
+`aparte-file-gen-ready` carries
+`{ segmentId, filename, buffer, bytes, mime, previewHtml }`. Note the two that read
+alike: `buffer` is the file (`Uint8Array | ArrayBuffer`), `bytes` is its **size** as
+a number. `previewHtml` is markup for the card's preview pane, or `null`.
+`aparte-file-gen-error` carries
+`{ segmentId, phase?, error? }` and puts the card into its failed state. Both are
+matched on `segmentId`, so several artifacts can be in flight at once.
+
+Re-opening a saved conversation dispatches `aparte-artifact-ready` again only if you
+declared `artifactRehydrate` — see the handler list above for why that is off by
+default.
 
 ### Tools & tool renderers
 

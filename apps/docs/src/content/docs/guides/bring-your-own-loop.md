@@ -154,9 +154,15 @@ function createTokenQueue() {
 Wire it to the pushing side, hand `queue.stream()` to `injectTokenStream`:
 
 ```ts
+// Your own bridge — an Electron preload, a WebSocket wrapper, whatever pushes tokens.
+declare const myBridge: {
+  onToken(cb: (token: string) => void): void;
+  onDone(cb: () => void): void;
+};
+
 const queue = createTokenQueue();
-window.myBridge.onToken((t) => queue.push(t));   // e.g. an Electron preload bridge
-window.myBridge.onDone(() => queue.end());
+myBridge.onToken((t) => queue.push(t));
+myBridge.onDone(() => queue.end());
 
 chat.ref.current?.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
 await chat.ref.current?.injectTokenStream(id, queue.stream());

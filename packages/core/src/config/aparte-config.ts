@@ -1090,14 +1090,31 @@ export class AparteConfig {
 // Export Singleton
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GLOBAL_CONFIG_KEY = '__APARTE_CONFIG_SINGLETON__';
+/**
+ * The page-global singleton's key.
+ *
+ * A `Symbol.for`, and versioned — matching the discipline the instance boundary
+ * next door already uses (`Symbol.for('aparte.instanceConfig')`). It used to be the
+ * enumerable string `'__APARTE_CONFIG_SINGLETON__'` with no version segment, so any
+ * two copies of `@aparte/core` on one page — the ordinary outcome of a `~` peer next
+ * to an app-level dependency, or two consumers on different wrapper versions — got
+ * the instance built by whichever module evaluated first, while their `AparteConfig`
+ * classes, their `Symbol.for('aparte.instanceConfig')` reads and their WeakMap
+ * renderer registries stayed distinct. One object, seen through two classes across
+ * which `instanceof` is false.
+ *
+ * The trailing number is a CONTRACT version, not the package version: bump it when
+ * the config's shape changes in a way that makes sharing unsafe. Two copies then
+ * simply get one global each, which is correct — a copy is consistent with itself.
+ */
+const GLOBAL_CONFIG_KEY = Symbol.for('aparte.globalConfig.1');
 
 function getGlobalConfig(): AparteConfig {
     if (typeof window !== 'undefined') {
-        if (!(window as unknown as Record<string, AparteConfig>)[GLOBAL_CONFIG_KEY]) {
-            (window as unknown as Record<string, AparteConfig>)[GLOBAL_CONFIG_KEY] = new AparteConfig();
+        if (!(window as unknown as Record<symbol, AparteConfig>)[GLOBAL_CONFIG_KEY]) {
+            (window as unknown as Record<symbol, AparteConfig>)[GLOBAL_CONFIG_KEY] = new AparteConfig();
         }
-        return (window as unknown as Record<string, AparteConfig>)[GLOBAL_CONFIG_KEY]!;
+        return (window as unknown as Record<symbol, AparteConfig>)[GLOBAL_CONFIG_KEY]!;
     }
     // Fallback for non-browser environments (e.g., SSR, tests)
     return new AparteConfig();

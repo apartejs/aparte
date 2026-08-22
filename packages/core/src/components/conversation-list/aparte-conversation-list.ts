@@ -38,7 +38,7 @@ export interface AparteConversationArchiveDetail {
 /**
  * @example
  * // The host owns the data: set the `conversations` property, listen for the intent.
- * const list = document.querySelector('aparte-conversation-list');
+ * const list = document.querySelector('aparte-conversation-list')!;
  * list.conversations = [
  *   { id: 'c1', title: 'Deploy checklist', updatedAt: Date.now() },
  *   { id: 'c2', title: 'Old thread', updatedAt: 0, archivedAt: Date.now() },

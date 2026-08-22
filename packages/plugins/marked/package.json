@@ -33,7 +33,7 @@
     },
     "peerDependencies": {
         "@aparte/core": "workspace:~",
-        "marked": ">=12"
+        "marked": "^18.0.0"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",

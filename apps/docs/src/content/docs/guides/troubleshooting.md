@@ -197,7 +197,7 @@ unregistered provider — is normalized to an `AparteError`
 (`packages/core/src/types/errors.ts`):
 
 ```ts
-class AparteError extends Error {
+declare class AparteError extends Error {
   constructor(
     message: string,
     code: AparteErrorCode,
@@ -205,7 +205,8 @@ class AparteError extends Error {
     originalError?: unknown,
     httpStatus?: number,
   );
-  static from(error: unknown, defaultCode = AparteErrorCode.UNKNOWN_ERROR, defaultStatus?: number): AparteError;
+  // `defaultCode` defaults to AparteErrorCode.UNKNOWN_ERROR.
+  static from(error: unknown, defaultCode?: AparteErrorCode, defaultStatus?: number): AparteError;
 }
 ```
 

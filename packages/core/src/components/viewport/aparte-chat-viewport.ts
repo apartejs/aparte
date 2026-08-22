@@ -32,7 +32,7 @@ import { uuid } from '../../utils/uuid.js';
   *
  * @example
  * // Three calls are a whole streamed turn.
- * const viewport = document.querySelector('aparte-chat-viewport');
+ * const viewport = document.querySelector('aparte-chat-viewport')!;
  *
  * viewport.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: Date.now() });
  * for await (const chunk of tokens) viewport.appendToken('a1', chunk);

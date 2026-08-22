@@ -87,7 +87,13 @@ function dispatchesIn(text) {
         if (!name) continue;
         // The lifecycle helper always stamps `targetId`, so it always has a detail.
         const viaHelper = m[0].includes('dispatchLifecycleEvent');
-        out.push({ name: name[1], hasDetail: viaHelper || /\bdetail\s*:/.test(body) });
+        // `detail:` AND `detail` as ES object shorthand. Matching only the colon
+        // exempted the TEN most important events in the library — every dispatch
+        // that builds its detail as a local first, which is the idiomatic way to
+        // write one. Deleting a real map entry then made the event MIGRATE into the
+        // guard's own "correctly unmapped" line, so the count stayed plausible.
+        const hasDetail = viaHelper || /\bdetail\s*[:,}]/.test(body);
+        out.push({ name: name[1], hasDetail });
     }
     return out;
 }

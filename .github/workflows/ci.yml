@@ -102,8 +102,43 @@ jobs:
       - name: Check every element documents an example
         run: pnpm check:examples
 
+      # The seven below were in `pnpm gate` and in NO workflow — five of them guards
+      # that bite. The comment at the top of this block already narrated a previous
+      # audit finding this exact shape, on a lot titled "the guards that did not bite
+      # now bite", and it drifted again anyway. So the list is no longer maintained
+      # by hand: `pnpm check:gate-in-ci` (below) diffs this file's `run:` lines
+      # against the gate chain and fails on anything missing. A lesson written down
+      # and not mechanised is a lesson that gets learned twice.
+      - name: Check the lockfile matches every manifest
+        run: pnpm check:lockfile
+
+      - name: Check text-position escaping
+        run: pnpm check:text-escaping
+
+      - name: Check crypto.randomUUID stays behind uuid()
+        run: pnpm check:secure-context
+
+      - name: Check the typed event map is honest
+        run: pnpm check:event-map
+
+      - name: Check no comment cites code by line number
+        run: pnpm check:cross-refs
+
+      - name: Check every gate step runs in a workflow
+        run: pnpm check:gate-in-ci
+
       - name: Test (with coverage gate)
         run: pnpm test:coverage
+
+      # Runs AFTER the coverage gate: it reads coverage/coverage-summary.json.
+      - name: Check the coverage floors sit on the measurement
+        run: pnpm check:coverage-floors
+
+      # Runs after the build job's artifacts are not available here, so this only
+      # asserts freshness for a tree that built in THIS job — which the docs build
+      # below performs.
+      - name: Check dist is current with src
+        run: pnpm build && pnpm check:dist-freshness
 
       # The documentation, checked rather than assumed.
       #

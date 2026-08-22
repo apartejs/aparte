@@ -83,15 +83,18 @@ sibling with **`viewport.addSiblingOf(messageId, newMessage)`** — it returns t
 message's id — then stream into it:
 
 ```ts
-const viewport = document.querySelector('aparte-chat-viewport'); // or chat.viewport
+const viewport = document.querySelector('aparte-chat-viewport')!; // or chat.viewport
+declare const yourModelStream: AsyncIterable<string>;
 
-document.addEventListener('aparte-retry', (e) => {
+// `async`, because of the `for await` below.
+document.addEventListener('aparte-retry', async (e) => {
   const id = viewport.addSiblingOf(e.detail.messageId, {
     id: crypto.randomUUID(),
     role: 'assistant',
     content: '',
     timestamp: Date.now(),
   });
+  if (!id) return;
 
   // Stream your model's new answer into the branch:
   for await (const token of yourModelStream) viewport.appendToken(id, token);
@@ -113,7 +116,7 @@ and stream a fresh one. This mirrors what `AparteClient` does — an in-place up
 branch:
 
 ```ts
-document.addEventListener('aparte-edit', (e) => {
+document.addEventListener('aparte-edit', async (e) => {
   const { messageId, content } = e.detail;
 
   viewport.updateMessage(messageId, { content });   // replace the user text in place
@@ -125,6 +128,7 @@ document.addEventListener('aparte-edit', (e) => {
     content: '',
     timestamp: Date.now(),
   });
+  if (!id) return;
 
   for await (const token of yourModelStream) viewport.appendToken(id, token);
   viewport.completeMessage(id);
