@@ -180,6 +180,11 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 // same — while it was not exported at all, so the only way to follow that advice
 // was `CSS.escape`, which over-escapes inside a quoted attribute selector.
 export { cssEscape } from './utils/css-escape.js';
+// Exported because the same wall is hit outside core: a wrapper naming its host
+// element, a provider tagging a request, or any bring-your-own-loop consumer
+// generating message ids all reach for `crypto.randomUUID`, which does not exist
+// on `http://` — the LAN deployment this library's own audience runs.
+export { uuid } from './utils/uuid.js';
 // The PARAMETER types of two documented setters. They existed and were the declared
 // argument types, but were not exported — so anyone typing a settings layer over
 // `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.

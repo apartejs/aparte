@@ -4,6 +4,7 @@ import type { AparteConversation } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { resolveConfig } from '../config/config-context.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
+import { uuid } from '../utils/uuid.js';
 
 /**
  * Abstract binding between a chat UI and the conversation lifecycle.
@@ -136,7 +137,7 @@ export class AparteConversationController {
                 ? filesToAttachments(files)
                 : undefined;
             const userMsg: AparteMessage = {
-                id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                id: uuid(),
                 role: 'user',
                 content,
                 timestamp: evt.detail?.timestamp ?? Date.now(),

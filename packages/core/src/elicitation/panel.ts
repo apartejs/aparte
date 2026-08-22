@@ -12,6 +12,7 @@ import type {
     AparteElicitationBooleanField,
     AparteElicitationStringField,
 } from './types.js';
+import { uuid } from '../utils/uuid.js';
 
 export interface BuiltElicitationPanel {
     readonly el: HTMLElement;
@@ -48,7 +49,7 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void)
     const wrap = el('div', 'aparte-elic-field aparte-elic-enum');
     fieldHeader(wrap, field);
     const list = el('div', 'aparte-elic-options');
-    const name = `elic-${crypto.randomUUID()}`;
+    const name = `elic-${uuid()}`;
     const type = field.multiple ? 'checkbox' : 'radio';
     const allowOther = field.allowOther ?? true;
     const defaults = new Set(Array.isArray(field.default) ? field.default : field.default != null ? [field.default] : []);
@@ -133,7 +134,7 @@ function buildBooleanField(field: AparteElicitationBooleanField, onChange: () =>
     const wrap = el('div', 'aparte-elic-field aparte-elic-boolean');
     fieldHeader(wrap, field);
     const list = el('div', 'aparte-elic-options');
-    const name = `elic-${crypto.randomUUID()}`;
+    const name = `elic-${uuid()}`;
     const mk = (val: 'true' | 'false', label: string): void => {
         const row = el('label', 'aparte-elic-option');
         const control = el('input', 'aparte-elic-control');

@@ -17,6 +17,7 @@ import type {
     AparteThinkingSegment,
     AparteArtifactSegment,
 } from '../types/index.js';
+import { uuid } from '../utils/uuid.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -525,7 +526,7 @@ export class AparteStreamParser {
 
     private _generateId(): string {
         ++this._state.segmentCounter;
-        return `${this._options.idPrefix}-${crypto.randomUUID()}`;
+        return `${this._options.idPrefix}-${uuid()}`;
     }
 
     private _createTextSegment(content: string): AparteTextSegment {

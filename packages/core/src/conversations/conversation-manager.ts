@@ -2,6 +2,7 @@ import type { AparteMessage } from '../types/index.js';
 import type { AparteConversation, AparteStorageAdapter } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { APARTE_CONVERSATION_SCHEMA_VERSION } from './types.js';
+import { uuid } from '../utils/uuid.js';
 
 type Listener = (conversations: AparteConversation[]) => void;
 
@@ -142,7 +143,7 @@ export class AparteConversationManager {
     async createNew(title = 'New Chat'): Promise<AparteConversation> {
         const now = Date.now();
         const conv: AparteConversation = {
-            id: crypto.randomUUID(),
+            id: uuid(),
             title,
             createdAt: now,
             updatedAt: now,

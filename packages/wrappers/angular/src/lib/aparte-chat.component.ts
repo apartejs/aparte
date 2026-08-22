@@ -29,7 +29,7 @@ import type {
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
-import { AparteChatHost, isAwaitingReply } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
 
 /**
  * AparteChatComponent — Angular 19 Wrapper
@@ -323,7 +323,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
 
         // Ensure a stable id so aparte-composer can reference the host via `target`,
         // letting AparteClient find it without DOM traversal across re-renders.
-        if (!host.id) host.id = `aparte-chat-${crypto.randomUUID()}`;
+        if (!host.id) host.id = `aparte-chat-${uuid()}`;
         const composerEl = this.inputRef?.nativeElement;
         if (composerEl) composerEl.setAttribute('target', host.id);
 

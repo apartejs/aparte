@@ -1,11 +1,7 @@
 import type { AparteAttachment } from '../types/models.js';
+import { uuid } from './uuid.js';
 
-/** `crypto.randomUUID` where available, with a deterministic-enough fallback. */
-function attachmentId(): string {
-    return typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+
 
 /**
  * Turn the `File[]` an `aparte-send` event carries into the
@@ -21,7 +17,7 @@ function attachmentId(): string {
  * chat.addEventListener('aparte-send', (e) => {
  *   const { content, files } = e.detail;
  *   chat.viewport?.appendMessage({
- *     id: crypto.randomUUID(), role: 'user', content, timestamp: Date.now(),
+ *     id: uuid(), role: 'user', content, timestamp: Date.now(),
  *     ...(files?.length ? { attachments: filesToAttachments(files) } : {}),
  *   });
  * });
@@ -33,7 +29,7 @@ function attachmentId(): string {
  */
 export function filesToAttachments(files: readonly File[]): AparteAttachment[] {
     return files.map((file) => ({
-        id: attachmentId(),
+        id: uuid(),
         name: file.name,
         type: file.type || 'application/octet-stream',
         url: URL.createObjectURL(file),

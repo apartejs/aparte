@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
 
   export let messages: AparteMessage[] = [];
@@ -115,7 +115,7 @@
   }
 
   onMount(() => {
-    hostId = `aparte-chat-${crypto.randomUUID()}`;
+    hostId = `aparte-chat-${uuid()}`;
     // Set the id imperatively (deterministic, like Angular's ngAfterViewInit) rather
     // than waiting on a reactive re-render of `id={hostId}`; the composer target
     // reactive block below picks up the same hostId.

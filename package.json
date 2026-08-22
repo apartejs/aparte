@@ -7,7 +7,7 @@
     "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
     "scripts": {
         "prepare": "node scripts/install-hooks.mjs",
-        "gate": "pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm build && pnpm test:coverage && pnpm check-packaging && pnpm check:readmes && pnpm check:node-import && pnpm check:wrapper-slots && pnpm check:examples && pnpm check:attr-escaping && pnpm check:engine-consumer && pnpm check:doc-snippets && pnpm check:export-mentions && pnpm check:node-barrel-types && pnpm check:bundle-entries && pnpm --filter @aparte-workspace/docs build && pnpm check:doc-links",
+        "gate": "pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm build && pnpm test:coverage && pnpm check-packaging && pnpm check:readmes && pnpm check:node-import && pnpm check:wrapper-slots && pnpm check:examples && pnpm check:attr-escaping && pnpm check:secure-context && pnpm check:engine-consumer && pnpm check:doc-snippets && pnpm check:export-mentions && pnpm check:node-barrel-types && pnpm check:bundle-entries && pnpm --filter @aparte-workspace/docs build && pnpm check:doc-links",
         "check:readmes": "node scripts/check-published-readmes.mjs",
         "check:node-import": "node scripts/check-node-import.mjs",
         "check:wrapper-slots": "node scripts/check-wrapper-slots.mjs",
@@ -43,10 +43,11 @@
         "lint": "eslint . --max-warnings 0",
         "changeset": "changeset",
         "version-packages": "changeset version && node scripts/gen-root-changelog.mjs",
-        "release": "pnpm prerelease-checks && pnpm gate && pnpm -r --filter \"./packages/**\" run build && changeset publish --tag alpha && node scripts/align-dist-tags.mjs && node scripts/tag-release.mjs",
+        "release": "pnpm prerelease-checks && pnpm gate:full && pnpm -r --filter \"./packages/**\" run build && changeset publish --tag alpha && node scripts/align-dist-tags.mjs && node scripts/tag-release.mjs",
         "prerelease-checks": "node scripts/prerelease-checks.mjs",
         "check:node-barrel-types": "node scripts/check-node-barrel-types.mjs",
-        "check:bundle-entries": "node scripts/check-bundle-entries.mjs"
+        "check:bundle-entries": "node scripts/check-bundle-entries.mjs",
+        "check:secure-context": "node scripts/check-secure-context.mjs"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",

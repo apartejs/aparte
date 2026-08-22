@@ -88,6 +88,7 @@ describe('@aparte/core public API', () => {
             "resolveConfig",
             "runWithConfig",
             "unregisterSegmentRenderer",
+            "uuid",
           ]
         `);
     });

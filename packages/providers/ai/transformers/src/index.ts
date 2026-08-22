@@ -19,7 +19,7 @@ import type {
     ModelStatus,
     ModelLoadProgress,
 } from '@aparte/core';
-import { contentToText } from '@aparte/core';
+import { contentToText, uuid } from '@aparte/core';
 
 /** The minimal chat shape passed to the worker (the tokenizer applies the chat template). */
 type SimpleMessage = { role: 'user' | 'assistant' | 'system'; content: string };
@@ -393,7 +393,7 @@ export const TransformersProvider: AparteAIProvider
 
     async chat(request: AparteChatRequest): Promise<AparteChatResponse> {
         const messages = toMessages(request.messages);
-        const requestId = crypto.randomUUID();
+        const requestId = uuid();
         const options = {
             maxTokens: request.maxTokens,
             temperature: request.temperature,
@@ -481,7 +481,7 @@ export const TransformersProvider: AparteAIProvider
             return;
         }
 
-        const requestId = crypto.randomUUID();
+        const requestId = uuid();
         _preparingModelId = modelId;
 
         const task = _registeredModels.get(modelId)?.task ?? 'text-generation';

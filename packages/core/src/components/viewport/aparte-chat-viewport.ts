@@ -13,6 +13,7 @@ import type { ExportedMessageRepository } from '../../runtime/message-repository
 import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble-sync.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
+import { uuid } from '../../utils/uuid.js';
 
 /**
  * AparteChatViewport - The Core
@@ -491,7 +492,7 @@ export class AparteChatViewport extends HTMLElement {
         if (!meta) return 0;
 
         const newMsg: AparteMessage = {
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: 'assistant',
             content: '',
             status: 'pending',

@@ -200,6 +200,7 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 // guide both tell a renderer author to use `cssEscape` for a selector, so it has to
 // be importable. It touches no DOM, so the SSR barrel carries it too.
 export { cssEscape } from './utils/css-escape.js';
+export { uuid } from './utils/uuid.js';
 // The PARAMETER types of two documented setters. They existed and were the declared
 // argument types, but were not exported — so anyone typing a settings layer over
 // `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.

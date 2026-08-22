@@ -30,6 +30,7 @@ import type { AparteToolCallSegment } from '../types/segments.js';
 import type { AparteToolCall, AparteTool } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, AparteArtifactHint, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
+import { uuid } from '../utils/uuid.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -671,7 +672,7 @@ export class AparteClient {
             await new Promise<void>(resolve => setTimeout(resolve, 50));
 
             target.appendMessage?.({
-                id: crypto.randomUUID(),
+                id: uuid(),
                 role: 'assistant',
                 content: `📝 **Conversation summary**\n\n${summary}`,
                 timestamp: Date.now(),
@@ -742,7 +743,7 @@ export class AparteClient {
 
         // Create new sibling message and get its ID for streaming
         const newMsg: AparteMessage = {
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: 'assistant',
             content: '',
             status: 'pending',
@@ -834,7 +835,7 @@ export class AparteClient {
 
         const authConfig = await this._resolveAuth(providerId);
 
-        const newMessageId = crypto.randomUUID();
+        const newMessageId = uuid();
         targetElement.appendMessage?.({
             id: newMessageId,
             role: 'assistant',
@@ -979,7 +980,7 @@ export class AparteClient {
             return;
         }
 
-        const messageId = crypto.randomUUID();
+        const messageId = uuid();
         const config = this._config.getModelConfig();
         const providerId = explicitProviderId || config.defaultProvider;
 
@@ -1279,7 +1280,7 @@ export class AparteClient {
                     xml.mime = mimeMatch?.[1] ?? artifactXmlHint.mimeType;
                     xml.title = titleMatch?.[1] ?? artifactXmlHint.kind;
                     xml.kind = deriveArtifactKind(xml.mime, artifactXmlHint.kind);
-                    xml.segId = `artifact-xml-${crypto.randomUUID()}`;
+                    xml.segId = `artifact-xml-${uuid()}`;
                     xml.content = '';
                     const openSeg: import('../types/segments.js').AparteArtifactSegment = {
                         id: xml.segId, type: 'artifact',
@@ -1352,7 +1353,7 @@ export class AparteClient {
             return { baseRequest, skip: false };
         }
 
-        const syntheticId = crypto.randomUUID();
+        const syntheticId = uuid();
         const syntheticCall: AparteToolCall = { id: syntheticId, name: toolChoice.name, input: toolChoice.input };
 
         // Render the tool segment so the UI shows the tool was called.
@@ -1660,7 +1661,7 @@ export class AparteClient {
             if (turns > globalMaxTurns) {
                 console.warn(`[AparteClient] maxTurns (${globalMaxTurns}) exceeded — stopping loop.`);
                 targetElement.addSegment?.({
-                    id: `max-turns-${crypto.randomUUID()}`,
+                    id: `max-turns-${uuid()}`,
                     type: 'error',
                     content: `Stopped after ${globalMaxTurns} tool calls to prevent an infinite loop.`,
                     details: 'MAX_TURNS_EXCEEDED'
@@ -1723,7 +1724,7 @@ export class AparteClient {
 
             if (artifactRawHint) {
                 // Create the artifact segment immediately (pill during streaming)
-                rawSegId = `artifact-raw-${crypto.randomUUID()}`;
+                rawSegId = `artifact-raw-${uuid()}`;
                 const rawSeg: import('../types/segments.js').AparteArtifactSegment = {
                     id: rawSegId, type: 'artifact',
                     mimeType: artifactRawHint.mimeType,
@@ -1788,7 +1789,7 @@ export class AparteClient {
                             thinkingContent += event.delta;
                             if (!thinkingSegmentId) {
                                 const seg: AparteThinkingSegment = {
-                                    id: `think-${crypto.randomUUID()}`,
+                                    id: `think-${uuid()}`,
                                     type: 'thinking',
                                     content: thinkingContent,
                                     collapsed: true,
@@ -1988,7 +1989,7 @@ export class AparteClient {
                         // Show pulsing dots while we wait for the next phase.
                         // The segment removes itself automatically via MutationObserver
                         // when the next segment appears — no manual cleanup needed.
-                        const pwId = `pw-${crypto.randomUUID()}`;
+                        const pwId = `pw-${uuid()}`;
                         targetElement.addSegment?.({ id: pwId, type: 'pipeline-waiting' });
                         // continueLoop stays true — next iteration handles the new phase
                     } else {
@@ -2088,7 +2089,7 @@ export class AparteClient {
             toolTimeoutMs: this.options.toolTimeoutMs,
             // Match the inline loop's id conventions: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
-            idGen: (prefix) => (prefix === 'synthetic-tool' ? crypto.randomUUID() : `${prefix}-${crypto.randomUUID()}`),
+            idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
         });
         return usage ?? undefined;
     }
@@ -2111,7 +2112,7 @@ export class AparteClient {
         // `error.data` — still reaches consumers via the `aparte-message-error` event
         // below). The error code is preserved as `details`.
         const errorSegment: AparteErrorSegment = {
-            id: `error-${crypto.randomUUID()}`,
+            id: `error-${uuid()}`,
             type: 'error',
             content: error.message,
             details: error.code,

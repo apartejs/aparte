@@ -28,6 +28,7 @@ import type {
     AparteCodeSegment,
 } from '../types/segments.js';
 import type { AparteUsage, AparteChatRequest } from '../types/chat.js';
+import { uuid } from '../utils/uuid.js';
 
 /**
  * DOM-free run events emitted by `@aparte/engine`'s `runStreamAgent`, mirrored here
@@ -220,7 +221,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 thinkingContent += e.delta;
                 if (!thinkingId) {
                     const seg: AparteThinkingSegment = {
-                        id: `think-${crypto.randomUUID()}`,
+                        id: `think-${uuid()}`,
                         type: 'thinking',
                         content: thinkingContent,
                         collapsed: true,
@@ -431,7 +432,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'turn-limit-exceeded':
                 if (e.scope === 'global') {
                     target.addSegment?.({
-                        id: `max-turns-${crypto.randomUUID()}`,
+                        id: `max-turns-${uuid()}`,
                         type: 'error',
                         content: `Stopped after ${e.limit} tool calls to prevent an infinite loop.`,
                         details: 'MAX_TURNS_EXCEEDED',
@@ -442,7 +443,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'phase-advance':
-                target.addSegment?.({ id: `pw-${crypto.randomUUID()}`, type: 'pipeline-waiting' } as AparteSegment);
+                target.addSegment?.({ id: `pw-${uuid()}`, type: 'pipeline-waiting' } as AparteSegment);
                 break;
 
             case 'run-aborted':
