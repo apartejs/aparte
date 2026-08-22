@@ -24,7 +24,7 @@ import './types/event-map.js';
 import './types/element-map.js';
 
 // Export primitives
-export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, AparteProgressSpinner } from './primitives/index.js';
+export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner } from './primitives/index.js';
 
 // Export types
 export type {
@@ -64,6 +64,17 @@ export type {
     ModelLoadProgress,
     AparteModelChangeEventDetail,
     AparteMessageDoneEventDetail,
+    AparteMessageStartEventDetail,
+    AparteMessageErrorEventDetail,
+    AparteMessageAbortedEventDetail,
+    AparteAbortEventDetail,
+    AparteCompactEventDetail,
+    AparteCompactDoneEventDetail,
+    AparteCompactErrorEventDetail,
+    AparteAttachmentPreviewEventDetail,
+    AparteTerminalRunEventDetail,
+    AparteFileGenReadyEventDetail,
+    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
@@ -131,7 +142,7 @@ export { AparteChatViewport } from './components/index.js';
 
 // Export composer primitives
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './components/index.js';
-export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail } from './components/index.js';
+export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
@@ -169,6 +180,7 @@ export { parseAparteEventStream } from './parsers/index.js';
 
 // Export config
 export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
+export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteSkeletonProvider, AparteSkeletonType, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';

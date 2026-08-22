@@ -140,7 +140,7 @@ export class AparteOptgroup extends HTMLElement {
         this.collapsed = !this.collapsed;
 
         // Dispatch event before updating UI to allow parent to react (e.g. fetch data)
-        this.dispatchEvent(new CustomEvent('aparte-optgroup-toggle', {
+        this.dispatchEvent(new CustomEvent<AparteOptgroupToggleEventDetail>('aparte-optgroup-toggle', {
             bubbles: true,
             composed: true,
             detail: {
@@ -163,4 +163,21 @@ export class AparteOptgroup extends HTMLElement {
 // Register
 if (!customElements.get('aparte-optgroup')) {
     customElements.define('aparte-optgroup', AparteOptgroup);
+}
+
+/**
+ * Detail payload for `aparte-optgroup-toggle`.
+ *
+ * Named in `types/event-map.ts` as an internal primitive event "carrying no
+ * cross-package detail contract". `@aparte/plugin-model-selector` reads both of
+ * its fields, from another package, through an untyped cast — and the event is
+ * published in the generated CEM event table. It is a contract.
+ *
+ * @event aparte-optgroup-toggle
+ */
+export interface AparteOptgroupToggleEventDetail {
+    /** The group's label. */
+    label: string;
+    /** `true` when the group just collapsed. */
+    collapsed: boolean;
 }

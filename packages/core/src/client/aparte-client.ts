@@ -1616,10 +1616,15 @@ export class AparteClient {
                 const approvalController = new AbortController();
                 this._activeToolControllers.add(approvalController);
                 targetElement.updateSegment?.(toolSeg.id, { status: 'awaiting-approval' });
-                targetElement.dispatchEvent?.(new CustomEvent('aparte-tool-approval-request', {
-                    bubbles: true, composed: true,
-                    detail: { toolCallId: event.id, toolName: event.name, input: event.input }
-                }));
+                // Through the helper, like every other lifecycle event this class
+                // emits — it stamps `targetId`. The engine path already goes
+                // through `dispatchLifecycleEvent` and stamps it, so dispatching
+                // raw here gave one event two shapes depending on which loop
+                // produced it, and a composer filtering on `targetId` saw the
+                // approval request from the other chat on the page.
+                this._dispatchLifecycleEvent(targetElement, 'aparte-tool-approval-request', {
+                    toolCallId: event.id, toolName: event.name, input: event.input,
+                });
                 let decision: { approved: boolean; payload?: unknown };
                 const resolveApproval = this.options.approvalResolver
                     ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig));

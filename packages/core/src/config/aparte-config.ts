@@ -768,7 +768,7 @@ export class AparteConfig {
         // resolving to a different instance (or the global) skip the rebuild
         // instead of every bubble on the page reacting to every config's change.
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('aparte-config-change', {
+            window.dispatchEvent(new CustomEvent<AparteConfigChangeEventDetail>('aparte-config-change', {
                 detail: { config: this, modelConfig: this._modelConfig },
             }));
         }
@@ -1111,3 +1111,21 @@ export const aparteGlobalConfig = getGlobalConfig();
 
 // Inject default styles for skeletons if needed (optional)
 // Note: In a real app we might want to use a stylesheet or shadow DOM styles
+
+/**
+ * Detail payload for `aparte-config-change`, dispatched on `window` whenever any
+ * provider, locale, action or model setting changes.
+ *
+ * Five core components listen for it — the widest listener footprint of any event
+ * that had no declared type. `config` is what makes per-instance config work: a
+ * component resolving to a different instance compares it and skips the rebuild
+ * instead of every chat on the page reacting to every config's change.
+ *
+ * @event aparte-config-change
+ */
+export interface AparteConfigChangeEventDetail {
+    /** The config instance that changed — compare against your own before reacting. */
+    config: AparteConfig;
+    /** Its model configuration, after the change. */
+    modelConfig: AparteModelConfig;
+}

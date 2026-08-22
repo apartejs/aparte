@@ -103,7 +103,7 @@ export class AparteComposerAction extends HTMLElement {
     }
 
     private _handleClick(_e: MouseEvent): void {
-        this.dispatchEvent(new CustomEvent('aparte-action-click', {
+        this.dispatchEvent(new CustomEvent<AparteActionClickEventDetail>('aparte-action-click', {
             bubbles: true,
             composed: true,
             detail: { actionId: this.getAttribute('action-id') ?? '', composer: this._getRoot() },
@@ -121,4 +121,21 @@ export class AparteComposerAction extends HTMLElement {
 
 if (!customElements.get('aparte-composer-action')) {
     customElements.define('aparte-composer-action', AparteComposerAction);
+}
+
+/**
+ * Detail payload for `aparte-action-click`.
+ *
+ * `<aparte-composer-action>` is a publicly exported element whose only purpose is
+ * to emit this event, and nothing in core listens for it — so the app IS the
+ * consumer, and it had no type to read `e.detail` with. The shape was already
+ * published in prose in the generated API reference; this makes it compile.
+ *
+ * @event aparte-action-click
+ */
+export interface AparteActionClickEventDetail {
+    /** The `action-id` attribute of the button that was clicked, or `''`. */
+    actionId: string;
+    /** The owning composer, or `null` when the button is used outside one. */
+    composer: AparteComposer | null;
 }

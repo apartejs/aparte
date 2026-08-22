@@ -53,6 +53,17 @@ export type {
     ModelLoadProgress,
     AparteModelChangeEventDetail,
     AparteMessageDoneEventDetail,
+    AparteMessageStartEventDetail,
+    AparteMessageErrorEventDetail,
+    AparteMessageAbortedEventDetail,
+    AparteAbortEventDetail,
+    AparteCompactEventDetail,
+    AparteCompactDoneEventDetail,
+    AparteCompactErrorEventDetail,
+    AparteAttachmentPreviewEventDetail,
+    AparteTerminalRunEventDetail,
+    AparteFileGenReadyEventDetail,
+    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
@@ -88,8 +99,8 @@ export type {
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
 // Custom-element TYPES (erased) — keep server consumers fully typed.
-export type { AparteSelectChangeDetail } from './primitives/index.js';
-export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail } from './components/index.js';
+export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
+export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
@@ -153,6 +164,7 @@ export type {
 
 // ── Config ──────────────────────────────────────────────────────────────────
 export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
+export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export type {
     AparteMarkdownProvider,

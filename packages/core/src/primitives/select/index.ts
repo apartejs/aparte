@@ -6,4 +6,4 @@
 
 export { AparteSelect, type AparteSelectChangeDetail } from './aparte-select.js';
 export { AparteOption } from './aparte-option.js';
-export { AparteOptgroup } from './aparte-optgroup.js';
+export { AparteOptgroup, type AparteOptgroupToggleEventDetail } from './aparte-optgroup.js';

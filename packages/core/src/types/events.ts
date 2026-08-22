@@ -5,6 +5,7 @@
 
 import type { AparteMessage } from './models.js';
 import type { AparteUsage } from './chat.js';
+import type { AparteError } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // User Input Events
@@ -33,35 +34,47 @@ export interface AparteSendEventDetail {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Control Events (Inter-package Communication)
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Lifecycle Events
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Model Selection Events
+// Turn completion
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Event detail for model selection changes
- * Emitted when user selects a different provider or model
- * 
- * @event aparte-model-change
- */
-/**
- * Emitted when a message response completes (aparte-message-done).
- * Carries token usage when the provider reports it.
+ * Detail payload for `aparte-message-done`.
+ * Dispatched when a turn finishes normally. Carries token usage when the provider
+ * reports it.
+ *
+ * @event aparte-message-done
  */
 export interface AparteMessageDoneEventDetail {
+    /**
+     * Id of the `<aparte-chat>` host that produced this turn, when it has one.
+     *
+     * Stamped by the client's lifecycle dispatcher on EVERY lifecycle event so
+     * several chats on one page stay isolated — a composer reacts only to its own
+     * host's turn. It was undeclared here while being sent at runtime, and the
+     * dispatcher takes `Record<string, unknown>`, so the compiler could not notice.
+     */
+    targetId?: string;
     messageId: string;
     role: string;
     /** Token usage for the completed response, if reported by the provider. */
     usage?: AparteUsage;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Model selection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Detail payload for `aparte-model-change`.
+ * Dispatched by `@aparte/plugin-model-selector` when the user picks a different
+ * provider or model — the clearest cross-package contract in the set.
+ *
+ * Its `@event` tag used to sit above `AparteMessageDoneEventDetail`'s doc block
+ * instead, so this interface had no documentation of its own and the other one
+ * claimed to describe a different event.
+ *
+ * @event aparte-model-change
+ */
 export interface AparteModelChangeEventDetail {
     /** Selected provider ID (e.g., 'openrouter', 'gemini') */
     providerId?: string;
@@ -288,4 +301,201 @@ export interface AparteMessageInfoEventDetail {
     messageId: string;
     /** Token usage + timing for the message, when available. */
     usage?: AparteUsage;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Turn lifecycle
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Every one of these was dispatched with a real payload and had no declared type,
+// so a consumer reading `e.detail` wrote the `(e as CustomEvent).detail` cast the
+// event map exists to remove — including in `guides/troubleshooting.md`, which
+// printed that cast in a ```ts block.
+//
+// `targetId` is optional on all of them for one reason: the client's lifecycle
+// dispatcher stamps `target.id || undefined`, so a single-instance page with no
+// `id` on its `<aparte-chat>` broadcasts without one.
+
+/**
+ * Detail payload for `aparte-message-start`.
+ * Dispatched when a turn begins, before the first token. The composer and the
+ * conversation controller both use it to enter their streaming state.
+ *
+ * @event aparte-message-start
+ */
+export interface AparteMessageStartEventDetail {
+    /** Host element id, when the `<aparte-chat>` has one. */
+    targetId?: string;
+    /** Id of the assistant message about to stream. */
+    messageId: string;
+    /** Role of the message being created — `'assistant'` in every current path. */
+    role: string;
+}
+
+/**
+ * Detail payload for `aparte-message-error`.
+ * Dispatched when a turn fails. Four core components listen for it, and it is the
+ * event `guides/troubleshooting.md` tells you to bind to surface a failure.
+ *
+ * @event aparte-message-error
+ */
+export interface AparteMessageErrorEventDetail {
+    /** Host element id, when the `<aparte-chat>` has one. */
+    targetId?: string;
+    /** Id of the message that failed. */
+    messageId: string;
+    /** The failure, with its `code` — not a string, unlike `aparte-compact-error`. */
+    error: AparteError;
+}
+
+/**
+ * Detail payload for `aparte-message-aborted`.
+ * Dispatched when the user stops a turn.
+ *
+ * @event aparte-message-aborted
+ */
+export interface AparteMessageAbortedEventDetail {
+    /** Host element id, when the `<aparte-chat>` has one. */
+    targetId?: string;
+    /**
+     * Id of the aborted message — OPTIONAL, and that is not laziness: the composer
+     * dispatches this event on its own with only a `targetId`, because a user can
+     * press Stop during the pre-flight window before any message id exists.
+     */
+    messageId?: string;
+}
+
+/**
+ * Detail payload for `aparte-abort` — a COMMAND, not a notification.
+ *
+ * `AparteClient` listens for it on `window`; a bring-your-own-composer consumer
+ * dispatches it to stop a stream. Nothing in core dispatches it on the consumer's
+ * behalf, which is exactly why its shape had to be documented somewhere.
+ *
+ * @event aparte-abort
+ */
+export interface AparteAbortEventDetail {
+    /** Which chat to stop. Omit on a single-chat page. */
+    targetId?: string;
+}
+
+/**
+ * Detail payload for `aparte-compact` — a COMMAND the consumer dispatches on
+ * `window` to ask the client to summarise the conversation so far.
+ *
+ * Core listens and never dispatches it, so this type describes what YOU produce.
+ *
+ * @event aparte-compact
+ */
+export interface AparteCompactEventDetail {
+    /** Which chat to compact. Omit on a single-chat page. */
+    targetId?: string;
+}
+
+/**
+ * Detail payload for `aparte-compact-done`.
+ *
+ * A union flattened to optional fields, because the two outcomes carry different
+ * payloads and a consumer cannot guess which: nothing to compact sends
+ * `{ skipped: true }`, a real compaction sends `{ summary, kept }`.
+ *
+ * @event aparte-compact-done
+ */
+export interface AparteCompactDoneEventDetail {
+    /** `true` when there was nothing worth summarising; the other two are absent. */
+    skipped?: boolean;
+    /** The summary that replaced the compacted turns. */
+    summary?: string;
+    /** How many messages were kept verbatim after the summary. */
+    kept?: number;
+}
+
+/**
+ * Detail payload for `aparte-compact-error`.
+ *
+ * Note the asymmetry with `aparte-message-error`, which is deliberate rather than
+ * hidden: `error` here is a plain string, not an `AparteError`.
+ *
+ * @event aparte-compact-error
+ */
+export interface AparteCompactErrorEventDetail {
+    /** Human-readable failure reason. */
+    error: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Host-handler events (ratified decision #8, tier b — opt-in, off by default)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Detail payload for `aparte-attachment-preview`.
+ * Dispatched when a user clicks an image tile, once
+ * `setHostHandlers({ attachmentPreview: true })` has declared that you will open
+ * a lightbox. Without the handler the tile is not interactive at all.
+ *
+ * @event aparte-attachment-preview
+ */
+export interface AparteAttachmentPreviewEventDetail {
+    /** Object URL or remote URL of the image. */
+    url: string;
+    /** File name, or `''` when the attachment carries none. */
+    name: string;
+}
+
+/**
+ * Detail payload for `aparte-terminal-run`.
+ * Dispatched by a terminal segment's Run button, once
+ * `setHostHandlers({ terminalRun: true })` has declared that you will execute it.
+ *
+ * @event aparte-terminal-run
+ */
+export interface AparteTerminalRunEventDetail {
+    /**
+     * Owning segment id — nullable because it is read from a DOM attribute that a
+     * custom renderer may not have set.
+     */
+    segmentId: string | null;
+    /** The command text the user asked to run. */
+    command: string;
+}
+
+/**
+ * Detail payload for `aparte-file-gen-ready` — dispatched by YOU, not by core.
+ *
+ * A binary artifact (pdf, xlsx, docx…) is generated by running the model's code in
+ * a sandbox, which core deliberately does not do. Core renders a "Running sandbox…"
+ * card, listens on `window`, and swaps in the preview when this arrives. Nothing in
+ * the repo dispatches it: the contract is entirely yours to fulfil, which is why
+ * this type is the one most worth having.
+ *
+ * @event aparte-file-gen-ready
+ */
+export interface AparteFileGenReadyEventDetail {
+    /** Must match the artifact segment's id, or the event is ignored. */
+    segmentId: string;
+    /** File name to show and to download as. */
+    filename: string;
+    /** Size in bytes, for the card's label. */
+    bytes: number;
+    /** MIME type of the produced file. */
+    mime: string;
+    /** The file itself. */
+    buffer: Uint8Array | ArrayBuffer;
+    /** Optional HTML preview to show inside the card; `null` for none. */
+    previewHtml: string | null;
+}
+
+/**
+ * Detail payload for `aparte-file-gen-error` — dispatched by YOU.
+ * Its twin: without it a failed sandbox run leaves the card spinning forever.
+ *
+ * @event aparte-file-gen-error
+ */
+export interface AparteFileGenErrorEventDetail {
+    /** Must match the artifact segment's id. */
+    segmentId: string;
+    /** Which stage failed, shown in the inline error. Defaults to `'exec'`. */
+    phase?: string;
+    /** The message shown to the user. Defaults to `'Unknown error'`. */
+    error?: string;
 }

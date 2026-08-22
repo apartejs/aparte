@@ -45,7 +45,21 @@ import type {
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
     AparteArtifactRedownloadEventDetail,
+    AparteMessageStartEventDetail,
+    AparteMessageErrorEventDetail,
+    AparteMessageAbortedEventDetail,
+    AparteAbortEventDetail,
+    AparteCompactEventDetail,
+    AparteCompactDoneEventDetail,
+    AparteCompactErrorEventDetail,
+    AparteAttachmentPreviewEventDetail,
+    AparteTerminalRunEventDetail,
+    AparteFileGenReadyEventDetail,
+    AparteFileGenErrorEventDetail,
 } from './events.js';
+import type { AparteActionClickEventDetail } from '../components/composer/aparte-composer-action.js';
+import type { AparteOptgroupToggleEventDetail } from '../primitives/select/aparte-optgroup.js';
+import type { AparteConfigChangeEventDetail } from '../config/aparte-config.js';
 import type { AparteToolDecisionDetail, AparteToolApprovalRequestDetail } from './tools.js';
 import type { AparteSegmentUpdateEventDetail } from './segments.js';
 import type { AparteSelectChangeDetail } from '../primitives/select/aparte-select.js';
@@ -115,6 +129,36 @@ interface AparteEventMap {
     'aparte-delete-conversation': CustomEvent<AparteConversationDeleteDetail>;
     'aparte-archive-conversation': CustomEvent<AparteConversationArchiveDetail>;
     'aparte-unarchive-conversation': CustomEvent<AparteConversationArchiveDetail>;
+
+    // ── The turn lifecycle, minus the one entry it used to have ────────────────
+    // `aparte-message-done` was in the map alone. Its siblings — start, error,
+    // aborted — come off the same dispatcher, are listened for by the same
+    // components, and had no type at all. Splitting one family so that only
+    // "done" is typed was an omission, not a rule.
+    'aparte-message-start': CustomEvent<AparteMessageStartEventDetail>;
+    'aparte-message-error': CustomEvent<AparteMessageErrorEventDetail>;
+    'aparte-message-aborted': CustomEvent<AparteMessageAbortedEventDetail>;
+
+    // ── Commands a CONSUMER dispatches ────────────────────────────────────────
+    // Core listens for these and never sends them, which makes them the most
+    // public events in the set: without a type there was nothing to tell you what
+    // to put in `detail`. `aparte-file-gen-*` is the extreme case — core renders a
+    // "Running sandbox…" card and waits for an event nothing in the repo emits.
+    'aparte-abort': CustomEvent<AparteAbortEventDetail>;
+    'aparte-compact': CustomEvent<AparteCompactEventDetail>;
+    'aparte-compact-done': CustomEvent<AparteCompactDoneEventDetail>;
+    'aparte-compact-error': CustomEvent<AparteCompactErrorEventDetail>;
+    'aparte-file-gen-ready': CustomEvent<AparteFileGenReadyEventDetail>;
+    'aparte-file-gen-error': CustomEvent<AparteFileGenErrorEventDetail>;
+
+    // ── Host-handler events (decision #8 tier b: off until you declare them) ───
+    'aparte-attachment-preview': CustomEvent<AparteAttachmentPreviewEventDetail>;
+    'aparte-terminal-run': CustomEvent<AparteTerminalRunEventDetail>;
+
+    // ── Element events whose only possible consumer is the app ────────────────
+    'aparte-action-click': CustomEvent<AparteActionClickEventDetail>;
+    'aparte-optgroup-toggle': CustomEvent<AparteOptgroupToggleEventDetail>;
+    'aparte-config-change': CustomEvent<AparteConfigChangeEventDetail>;
 }
 
 declare global {
