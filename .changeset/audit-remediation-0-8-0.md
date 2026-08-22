@@ -114,6 +114,20 @@ guards that make each class unrepeatable.
   config among several and the one we recommend least. Giving it the canonical name
   pointed at the case we want people to outgrow; `aparteGlobalConfig` says at every call
   site which config you are touching.
+- **One name for the imperative surface: `AparteChatImperativeApi`.** React exported it
+  as `AparteChatHandle`, Vue and Svelte as `AparteChatInstance`, and Angular exposed no
+  name at all — one contract wearing three names in a suite that publishes all four
+  together in lockstep. Both aliases are gone; every wrapper now re-exports the canonical
+  type straight from `@aparte/core`, which is also where its documentation lives, so the
+  names cannot drift again.
+
+  ```diff
+  - import { AparteChat, useAparteChat, type AparteChatHandle } from '@aparte/react';
+  + import { AparteChat, useAparteChat, type AparteChatImperativeApi } from '@aparte/react';
+  ```
+
+  Same rename for `AparteChatInstance` in `@aparte/vue` and `@aparte/svelte`. Nothing
+  about the shape changed — it was already an alias of the same type in all three.
 - **`AparteAIProvider` is a union instead of one permissive interface.** It had three
   required members and fifteen optional ones, holding two mutually sufficient execution
   surfaces — a `chat()` that owns its own I/O, or the format-adapter surface a transport

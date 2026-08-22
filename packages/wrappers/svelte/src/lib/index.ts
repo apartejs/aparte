@@ -10,7 +10,12 @@ export { default as AparteChat } from './AparteChat.svelte';
 
 // Idiomatic ergonomics: a store factory that owns the messages store.
 export { createAparteChat } from './stores/aparteChat.js';
-export type { AparteChatStore, AparteChatInstance } from './stores/aparteChat.js';
+export type { AparteChatStore } from './stores/aparteChat.js';
+// The imperative surface `<AparteChat>` exposes (its `export function`s),
+// re-exported straight from `@aparte/core` — the single source of truth. It used
+// to be aliased here as `AparteChatInstance` and as `AparteChatHandle` in React:
+// one contract wearing three names in a suite that ships all four together.
+export type { AparteChatImperativeApi } from '@aparte/core';
 
 // Annex: client lifecycle, reactive conversation manager, universal proxy.
 export { createAparteClient } from './stores/aparteClient.js';

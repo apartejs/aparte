@@ -27,6 +27,9 @@ export type {
     AparteCodeSegment,
     AparteThinkingSegment,
     AparteTerminalSegment,
+    // The imperative surface every wrapper exposes. Angular alone used to omit it,
+    // while React and the other two each aliased it under a name of their own.
+    AparteChatImperativeApi,
 } from '@aparte/core';
 
 // Re-export aparteGlobalConfig for direct access (config without `provideAparte`).

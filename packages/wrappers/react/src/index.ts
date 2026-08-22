@@ -4,7 +4,12 @@
  */
 
 export { AparteChat } from './components/AparteChat.js';
-export type { AparteChatProps, AparteChatHandle } from './components/AparteChat.js';
+export type { AparteChatProps } from './components/AparteChat.js';
+// The imperative surface, re-exported straight from `@aparte/core` — the single
+// source of truth. This wrapper used to alias it as `AparteChatHandle`, Vue and
+// Svelte as `AparteChatInstance`, and Angular exposed no name at all: one
+// contract wearing three names in a suite that ships all four together.
+export type { AparteChatImperativeApi } from '@aparte/core';
 
 // Idiomatic ergonomics: a hook that owns the messages state + component ref.
 export { useAparteChat } from './hooks/useAparteChat.js';

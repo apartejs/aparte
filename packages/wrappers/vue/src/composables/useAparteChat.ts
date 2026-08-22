@@ -3,12 +3,6 @@ import type { AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment } from '../types.js';
 
 /**
- * The imperative surface `<AparteChat>` exposes via `defineExpose` — the
- * canonical contract shared by all four wrappers (`AparteChatImperativeApi`).
- */
-export type AparteChatInstance = AparteChatImperativeApi;
-
-/**
  * Idiomatic Vue ergonomics for `<AparteChat>`. Owns the `messages` ref and a
  * component template ref so the consumer skips the manual
  * `@messages-change` → `messages` round-trip.
@@ -21,7 +15,7 @@ export type AparteChatInstance = AparteChatImperativeApi;
  */
 export function useAparteChat(initial: AparteMessage[] = []) {
     const messages = ref<AparteMessage[]>([...initial]) as Ref<AparteMessage[]>;
-    const chatRef = ref<AparteChatInstance | null>(null);
+    const chatRef = ref<AparteChatImperativeApi | null>(null);
     const c = () => chatRef.value;
     const onMessagesChange = (m: AparteMessage[]) => { messages.value = m; };
 

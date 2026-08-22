@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
-import { AparteChat, type AparteChatHandle } from '../components/AparteChat';
-import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
+import { AparteChat } from '../components/AparteChat';
+import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 // Ensure components are registered
@@ -53,7 +53,7 @@ describe('AparteChat React Wrapper', () => {
     });
 
     it('exposes getViewport() on the handle (cross-wrapper accessor)', () => {
-        const ref = React.createRef<AparteChatHandle>();
+        const ref = React.createRef<AparteChatImperativeApi>();
         const { container } = render(<AparteChat ref={ref} messages={[]} />);
         const viewport = ref.current?.getViewport();
         expect(viewport).not.toBeNull();
@@ -141,7 +141,7 @@ describe('AparteChat React Wrapper', () => {
         // neither. In a wrapper that is by design — the bubble re-renders from the
         // message list. Which only works because streamTokens now syncs that list;
         // before, the DOM had the reply and React state still had `content: ''`.
-        const ref = React.createRef<AparteChatHandle>();
+        const ref = React.createRef<AparteChatImperativeApi>();
         const { container } = render(
             <AparteChat
                 ref={ref}

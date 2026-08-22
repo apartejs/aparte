@@ -21,12 +21,12 @@ bind the store and connect the component with `bind:this`:
 
 ```svelte
 <script lang="ts">
-  import { AparteChat, createAparteChat, type AparteChatInstance } from '@aparte/svelte';
+  import { AparteChat, createAparteChat, type AparteChatImperativeApi } from '@aparte/svelte';
   import '@aparte/core/styles.css';
 
   const chat = createAparteChat();
   const { messages } = chat;
-  let comp: AparteChatInstance | null = null;
+  let comp: AparteChatImperativeApi | null = null;
   $: chat.connect(comp);
 </script>
 
@@ -60,7 +60,7 @@ sends to the model:
 
 ```svelte
 <script lang="ts">
-  import { AparteChat, createAparteChat, createAparteClient, type AparteChatInstance } from '@aparte/svelte';
+  import { AparteChat, createAparteChat, createAparteClient, type AparteChatImperativeApi } from '@aparte/svelte';
   import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
   import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
@@ -70,7 +70,7 @@ sends to the model:
   const chat = createAparteChat();
   createAparteClient();          // streams replies from the configured provider
   const { messages } = chat;
-  let comp: AparteChatInstance | null = null;
+  let comp: AparteChatImperativeApi | null = null;
   $: chat.connect(comp);
 </script>
 

@@ -142,13 +142,7 @@ export interface AparteChatProps {
     config?: AparteConfig;
 }
 
-/**
- * The React ref handle for `<AparteChat>` — the canonical imperative surface
- * shared by all four wrappers (see `AparteChatImperativeApi` in `@aparte/core`).
- */
-export type AparteChatHandle = AparteChatImperativeApi;
-
-export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function AparteChat(
+export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
     {
         messages = [],
         placeholder = 'Type a message...',
@@ -290,7 +284,7 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         return () => host.removeEventListener('aparte-action', onAct);
     }, []);
 
-    useImperativeHandle(ref, (): AparteChatHandle => ({
+    useImperativeHandle(ref, (): AparteChatImperativeApi => ({
         appendMessage: (m) => hostRef.current?.appendMessage(m),
         updateMessage: (id, u) => hostRef.current?.updateMessage(id, u),
         updateLastMessage: (c, o) => hostRef.current?.updateLastMessage(c, o),

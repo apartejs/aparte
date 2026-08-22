@@ -23,12 +23,12 @@ npm install @aparte/svelte @aparte/core svelte
 
 ```svelte
 <script lang="ts">
-  import { AparteChat, createAparteChat, type AparteChatInstance } from '@aparte/svelte';
+  import { AparteChat, createAparteChat, type AparteChatImperativeApi } from '@aparte/svelte';
   import '@aparte/core/styles.css';
 
   const chat = createAparteChat();
   const { messages } = chat;
-  let comp: AparteChatInstance | null = null;
+  let comp: AparteChatImperativeApi | null = null;
   $: chat.connect(comp);
 </script>
 
