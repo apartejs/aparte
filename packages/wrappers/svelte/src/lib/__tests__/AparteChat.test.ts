@@ -188,6 +188,21 @@ describe('AparteChat.svelte', () => {
         expect([...toolbar.children].map((c) => c.className)).toEqual(['mode', 'model']);
     });
 
+    it('projects empty-state while there are no messages, and drops it on the first', async () => {
+        // Every playground fills this slot and NOTHING proved it — not one unit test in
+        // any of the four wrappers, and no browser assertion either. Its contract is two
+        // halves ("Replaced by the message list on the first message") and the second is
+        // the one that silently rots: a welcome block still showing under a live
+        // conversation is the visible bug.
+        const { container, component } = render(SlotHost, { messages: [] });
+        expect(container.querySelector('.welcome-block')).not.toBeNull();
+
+        await (component as unknown as { $set: (p: Record<string, unknown>) => void })
+            .$set({ messages: [{ id: '1', role: 'user', content: 'hi', timestamp: 0 }] });
+        await tick();
+        expect(container.querySelector('.welcome-block')).toBeNull();
+    });
+
     it('renders no toolbar element at all when the slot is unused', () => {
         const { container } = render(AparteChat, { messages: [] });
         const composer = container.querySelector('aparte-composer');

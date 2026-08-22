@@ -287,6 +287,31 @@ describe('AparteChat React Wrapper', () => {
         expect([...toolbar!.children].map((c) => c.className)).toEqual(['mode', 'model']);
     });
 
+    it('projects emptyState while there are no messages, and drops it on the first', () => {
+        // Every playground fills this slot and NOTHING proved it — not one unit test in
+        // any of the four wrappers, and no browser assertion either. Its contract is two
+        // halves ("Replaced by the message list on the first message") and the second is
+        // the one that silently rots: a welcome block still showing under a live
+        // conversation is the visible bug.
+        const { container, rerender } = render(
+            <AparteChat
+                messages={[]}
+                onMessageSent={mockOnMessageSent}
+                emptyState={<div className="welcome-block">welcome</div>}
+            />,
+        );
+        expect(container.querySelector('.welcome-block')).not.toBeNull();
+
+        rerender(
+            <AparteChat
+                messages={[{ id: '1', role: 'user', content: 'hi', timestamp: 0 }]}
+                onMessageSent={mockOnMessageSent}
+                emptyState={<div className="welcome-block">welcome</div>}
+            />,
+        );
+        expect(container.querySelector('.welcome-block')).toBeNull();
+    });
+
     it('renders no toolbar element at all when no toolbar is given', () => {
         const { container } = render(
             <AparteChat messages={[]} onMessageSent={mockOnMessageSent} />,

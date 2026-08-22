@@ -81,6 +81,26 @@ export function readWrapperSlots() {
 }
 
 /**
+ * Comments out, before any `includes()` decides anything.
+ *
+ * The proofs below are substring matches, and a substring match cannot tell a
+ * declaration from a mention. `<!-- name="toolbar" -->` in a Vue template, or a
+ * `// select="[slot='toolbar']"` left behind while refactoring an Angular component,
+ * satisfied the guard while the slot rendered nothing. That is the same defect
+ * `check-engine-consumer` had — two slashes were enough to make it pass — and it is
+ * the class of hole worth closing everywhere it exists rather than once.
+ *
+ * Whitespace-preserving replacement, so a match's position still lines up with the
+ * original file if a caller ever reports one.
+ */
+function stripComments(src) {
+    return src
+        .replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '))
+        .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+        .replace(/(^|[^:/])\/\/[^\n]*/g, (m, p) => p + m.slice(p.length).replace(/./g, ' '));
+}
+
+/**
  * How each wrapper declares one slot, and how to prove it does. Kept next to the parser
  * because these four lines ARE the convention the reference page documents.
  */
@@ -94,16 +114,16 @@ export const IMPLEMENTATIONS = {
     vue: {
         label: 'Vue',
         usage: (s) => `<template #${s.slot}>`,
-        proves: (src, s) => src.includes(`name="${s.slot}"`),
+        proves: (src, s) => stripComments(src).includes(`name="${s.slot}"`),
     },
     svelte: {
         label: 'Svelte',
         usage: (s) => `<svelte:fragment slot="${s.slot}">`,
-        proves: (src, s) => src.includes(`name="${s.slot}"`),
+        proves: (src, s) => stripComments(src).includes(`name="${s.slot}"`),
     },
     angular: {
         label: 'Angular',
         usage: (s) => `slot="${s.slot}"`,
-        proves: (src, s) => src.includes(`select="[slot='${s.slot}']"`),
+        proves: (src, s) => stripComments(src).includes(`select="[slot='${s.slot}']"`),
     },
 };
