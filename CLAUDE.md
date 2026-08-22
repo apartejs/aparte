@@ -190,7 +190,8 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   the lot.
 - **Never commit** `dist/`, `*.tsbuildinfo`, or `.claude/` — gitignored from day 1.
   Stage explicit files; don't `git add -A`.
-- Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+- **No `Co-Authored-By` trailer.** Commit messages carry no attribution trailer of any
+  kind — this line used to require one, which is why it kept coming back.
 - `pnpm test` passes; `nx affected:build` for touched package(s) succeeds.
 - Don't add `console.log` in `packages/core/` — now an eslint rule rather than a habit
   (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
