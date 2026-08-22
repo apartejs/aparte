@@ -143,9 +143,15 @@ When you do use it, provide 2–6 options with a short "title" each. Set "multip
  * `<aparte-elicitation>` presenter. `accept` → the answer, `decline` → a
  * model-usable note, `cancel` → an AbortError the loop surfaces as a failed call.
  */
-export const askQuestionHandler: AparteToolHandler = async (call, signal): Promise<AparteToolResult> => {
+export const askQuestionHandler: AparteToolHandler = async (call, signal, context): Promise<AparteToolResult> => {
     const { message, schema } = buildRequest(call.input);
-    const result = await requestUserInput({ message, schema, signal });
+    // `target` is what makes the RIGHT chat answer. Without it `requestUserInput`
+    // resolves its presenter from the global config, so a chat given its own
+    // `config` — with its own `<aparte-elicitation>` — got `{ action: 'cancel' }`
+    // and the model was told the user had refused a question never shown to them.
+    // The handler had no way to know which chat it was running for until
+    // `AparteToolContext` existed.
+    const result = await requestUserInput({ message, schema, signal, target: context?.target });
     if (result.action === 'accept') {
         return { toolCallId: call.id, content: formatAnswer(result.content) };
     }

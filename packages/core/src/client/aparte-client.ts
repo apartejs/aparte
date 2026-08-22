@@ -1382,7 +1382,10 @@ export class AparteClient {
         this._activeToolControllers.add(controller);
         const timeout = setTimeout(() => controller.abort(), this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS);
         try {
-            const result = await handler(syntheticCall, controller.signal);
+            const result = await handler(syntheticCall, controller.signal, {
+                target: targetElement as unknown as HTMLElement,
+                config: this._config,
+            });
             targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
             messages.push({ role: 'tool_call', content: '', toolCalls: [syntheticCall] });
             messages.push({ role: 'tool_result', content: result.content, toolCallId: syntheticId });
@@ -1568,7 +1571,8 @@ export class AparteClient {
             try {
                 const result = await handler(
                     { id: event.id, name: event.name, input: effectiveInput },
-                    controller.signal
+                    controller.signal,
+                    { target: targetElement as unknown as HTMLElement, config: this._config },
                 );
                 targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
 
@@ -2064,7 +2068,16 @@ export class AparteClient {
                 ? response
                 : readableToAsyncIterable(response as ReadableStream<AparteStreamEvent>, signal);
         };
-        const toolLookup = (name: string) => this._config.getToolHandler(name);
+        // Wrapped, so the INJECTED runner hands a handler the same context core's
+        // inline loop does. Without this, `streamRunner: runStreamAgent` would be the
+        // one configuration where `ask_question` still silently cancelled — a new
+        // parity divergence introduced by fixing the old one.
+        const toolLookup = (name: string) => {
+            const handler = this._config.getToolHandler(name);
+            if (!handler) return undefined;
+            const context = { target: targetElement as unknown as HTMLElement, config: this._config };
+            return (call: AparteToolCall, sig: AbortSignal) => handler(call, sig, context);
+        };
         const toolConfigLookup = (name: string) => {
             const tool = this._config.getTools().find(t => t.name === name);
             return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;

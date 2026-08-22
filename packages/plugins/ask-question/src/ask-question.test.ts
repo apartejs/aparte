@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
-import { AparteConfig } from '@aparte/core';
+import { AparteConfig, AparteConfigClass, attachConfig } from '@aparte/core';
 import type { AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
 import { askQuestionTool, askQuestionHandler } from './ask-question.js';
 
@@ -115,5 +115,54 @@ describe('askQuestionHandler — elicitation adapter', () => {
             }],
         }), sig());
         expect(schema().options.map((o: any) => o.value)).toEqual(['Invoice', 'List', 'Excel', 'PlainString', 'Improvised']);
+    });
+});
+
+describe('the handler asks the RIGHT chat', () => {
+    afterEach(() => { document.body.innerHTML = ''; AparteConfig.reset(); });
+
+    /**
+     * A handler used to have no way to know which chat it was running for, so this
+     * plugin called `requestUserInput` with no `target`. That resolved the presenter
+     * from the GLOBAL config — so a chat given its own `config`, with its own
+     * presenter, received `{ action: 'cancel' }` and the model was told the user had
+     * refused a question the user was never shown.
+     */
+    const chatUnderInstanceConfig = (): { el: HTMLElement; cfg: AparteConfigClass; asked: string[] } => {
+        const host = document.createElement('div');
+        const el = document.createElement('div');
+        host.appendChild(el);
+        document.body.appendChild(host);
+        const cfg = new AparteConfigClass();
+        attachConfig(host, cfg);
+        const asked: string[] = [];
+        cfg.setElicitationPresenter(async (req: AparteElicitationRequest): Promise<AparteElicitationResult> => {
+            asked.push(req.message);
+            return { action: 'accept', content: 'staging' };
+        });
+        return { el, cfg, asked };
+    };
+
+    it('reaches the instance presenter when given the context', async () => {
+        const { el, asked } = chatUnderInstanceConfig();
+        const result = await askQuestionHandler(
+            { id: 't1', name: 'ask_question', input: { question: 'Which environment?', options: ['staging'] } },
+            new AbortController().signal,
+            { target: el },
+        );
+        expect(asked, 'the instance presenter was never asked').toHaveLength(1);
+        expect(result.content).toContain('staging');
+    });
+
+    it('without the context it falls back to the global — the old behaviour', async () => {
+        const { asked } = chatUnderInstanceConfig();
+        // No presenter on the global config, so this resolves `cancel`, which this
+        // handler turns into an AbortError. Asserted so the fix's value is explicit:
+        // the ONLY thing that changed is that the context now exists.
+        await expect(askQuestionHandler(
+            { id: 't2', name: 'ask_question', input: { question: 'Which environment?', options: ['staging'] } },
+            new AbortController().signal,
+        )).rejects.toThrow();
+        expect(asked, 'the instance presenter must not be reached without a target').toHaveLength(0);
     });
 });

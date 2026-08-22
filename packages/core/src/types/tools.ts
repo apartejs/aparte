@@ -88,8 +88,43 @@ export interface AparteToolResult {
  */
 export type AparteToolHandler = (
     call: AparteToolCall,
-    signal: AbortSignal
+    signal: AbortSignal,
+    context?: AparteToolContext
 ) => Promise<AparteToolResult>;
+
+/**
+ * Which chat a tool handler is running for.
+ *
+ * Optional and third, so every existing handler keeps compiling and working —
+ * nothing has to be rewritten to ignore it.
+ *
+ * It exists because a handler had NO way to know. `@aparte/plugin-ask-question`
+ * calls `requestUserInput({ message, schema, signal })` with no `target`, and
+ * `requestUserInput` resolves its presenter with `resolveConfig(request.target ??
+ * null)` — so with an instance config carrying the presenter, the call resolved
+ * against the GLOBAL config, found nothing, and returned `{ action: 'cancel' }`.
+ * The model was told the user refused a question the user was never shown.
+ *
+ * That failure is described in `AparteConfigClass.requestUserInput` as "a lie told
+ * quietly", and the plugin walked straight into it because the handler signature
+ * gave it nothing to walk around with.
+ *
+ * Both loops supply it — core's inline loop and the injected `runStreamAgent` — so
+ * a handler behaves the same whichever one is running.
+ */
+export interface AparteToolContext {
+    /**
+     * The chat element this turn belongs to. Pass it as `target` to
+     * `requestUserInput` (or to anything else that resolves a config from the DOM)
+     * and the right instance answers.
+     */
+    target?: HTMLElement;
+    /**
+     * The resolved config for this chat, for a handler that needs it without going
+     * through the DOM — a handler running in a worker, or one reading a provider.
+     */
+    config?: unknown;
+}
 
 /**
  * Per-tool segment renderer.

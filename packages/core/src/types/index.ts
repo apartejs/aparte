@@ -130,6 +130,7 @@ export type {
     AparteToolCall,
     AparteToolResult,
     AparteToolHandler,
+    AparteToolContext,
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
