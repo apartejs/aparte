@@ -37,7 +37,11 @@ export default defineConfig({
         // templates, Angular DI wiring) — the E2E suite is what covers it.
         'packages/wrappers/**/*.svelte',
       ],
-      reporter: ['text-summary', 'text', 'html'],
+      // `json-summary` is what `check:coverage-floors` reads. Without it the per-glob
+      // numbers are printed only when a threshold FAILS — which is exactly the moment
+      // they are least useful for calibrating one, and the reason two of these floors
+      // drifted 14 and 21 points below their measurement without anyone noticing.
+      reporter: ['text-summary', 'text', 'html', 'json-summary'],
       // The floor, and the reason it is written like this.
       //
       // It used to be `lines: 68` with a comment saying "~2pt under the current
@@ -67,17 +71,17 @@ export default defineConfig({
       // decorative by deleting all four client suites this lot added (462 lines, 14
       // tests) and staying green.
       thresholds: {
-        lines: 80,
-        statements: 80,
-        functions: 75,
-        branches: 79,
+        lines: 81,
+        statements: 81,
+        functions: 77,
+        branches: 83,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
         // all four client suites this remediation added — 462 lines, 14 tests — and
         // the gate stayed GREEN, because the glob sat 10 to 22 points above its own
         // floor. A floor with that much slack is the same defect as the global 68
         // it was introduced to fix.
-        'packages/core/src/client/**': { lines: 80, statements: 80, functions: 95, branches: 76 },
+        'packages/core/src/client/**': { lines: 82, statements: 82, functions: 95, branches: 95 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -85,7 +89,7 @@ export default defineConfig({
         // a threshold that gets lowered, and writing filler tests to reach 70 would
         // buy a number instead of coverage. What it does buy today is that this
         // number can no longer go DOWN, which it silently could before.
-        'packages/core/src/renderers/**': { lines: 52, statements: 52, functions: 60, branches: 60 },
+        'packages/core/src/renderers/**': { lines: 56, statements: 56, functions: 73, branches: 72 },
       },
     },
   },
