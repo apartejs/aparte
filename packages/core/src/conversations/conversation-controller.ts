@@ -3,6 +3,8 @@ import type { AparteConversationManager } from './conversation-manager.js';
 import type { AparteConversation } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { resolveConfig } from '../config/config-context.js';
+import { aparteGlobalConfig } from '../config/aparte-config.js';
+import type { AparteConfig } from '../config/aparte-config.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
 
@@ -110,7 +112,33 @@ export class AparteConversationController {
     private _manager(): AparteConversationManager | undefined {
         // Explicit option first, then the config governing the host element
         // (instance config under a [data-aparte-host] boundary, else the global).
-        return this._options.manager ?? resolveConfig(this._binding.host).getConversationManager();
+        if (this._options.manager) return this._options.manager;
+        const scoped = resolveConfig(this._binding.host);
+        const manager = scoped.getConversationManager();
+        if (!manager) this._warnManagerOnTheWrongConfig(scoped);
+        return manager;
+    }
+
+    /**
+     * Degraded mode is legitimate — a host that never opted into the conversation
+     * lifecycle has no manager and should not be nagged. Registering one on the
+     * WRONG config is not: the four wrapper hooks used to write it to the global
+     * singleton unconditionally, so `config` + persistence looked like it worked
+     * (the optimistic UI still appends) and saved nothing at all.
+     *
+     * Warned once per controller, and only in the case that is unambiguously a
+     * mistake: no manager here, but one on the global.
+     */
+    private _warnedNoManager = false;
+    private _warnManagerOnTheWrongConfig(scoped: AparteConfig): void {
+        if (this._warnedNoManager) return;
+        if (scoped === aparteGlobalConfig || !aparteGlobalConfig.getConversationManager()) return;
+        this._warnedNoManager = true;
+        console.warn(
+            '[aparte] This chat resolves its own config, but the conversation manager was '
+            + 'registered on aparteGlobalConfig — so nothing is being persisted. Pass the same '
+            + 'config to init(): `init(adapter, myConfig)`, using the config you gave the chat.',
+        );
     }
 
     /**

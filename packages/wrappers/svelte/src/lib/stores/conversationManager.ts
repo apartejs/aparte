@@ -2,6 +2,7 @@ import { writable, derived } from 'svelte/store';
 import { onDestroy } from 'svelte';
 import {
     aparteGlobalConfig,
+    type AparteConfig,
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
@@ -37,7 +38,16 @@ export function createConversationManager() {
         return manager;
     };
 
-    async function init(adapter: AparteStorageAdapter): Promise<void> {
+    /**
+     * Initialise with a storage adapter.
+     *
+     * `config` defaults to the global singleton. Pass the SAME config you gave
+     * `<AparteChat config={…}>`: the controller resolves the config governing its
+     * host element, so a manager registered on the global is invisible to a chat
+     * with its own — persistence silently does nothing while the optimistic UI
+     * keeps working.
+     */
+    async function init(adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig): Promise<void> {
         const m = new AparteConversationManager(adapter);
         manager = m;
         unsub = m.subscribe((convs) => {
@@ -46,7 +56,7 @@ export function createConversationManager() {
         });
         await m.init();
         activeId.set(m.activeId);
-        aparteGlobalConfig.setConversationManager(m);
+        config.setConversationManager(m);
     }
 
     return {

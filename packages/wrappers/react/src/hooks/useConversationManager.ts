@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
     aparteGlobalConfig,
+    type AparteConfig,
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
@@ -39,7 +40,16 @@ export function useConversationManager(): UseConversationManager {
 
     useEffect(() => () => unsubRef.current?.(), []);
 
-    const init = useCallback(async (adapter: AparteStorageAdapter) => {
+    /**
+     * Initialise with a storage adapter.
+     *
+     * `config` defaults to the global singleton. Pass the SAME config you gave
+     * `<AparteChat config={…}>`: the controller resolves the config governing its
+     * host element, so a manager registered on the global is invisible to a chat
+     * with its own — persistence silently does nothing while the optimistic UI
+     * keeps working.
+     */
+    const init = useCallback(async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig) => {
         const m = new AparteConversationManager(adapter);
         managerRef.current = m;
         unsubRef.current = m.subscribe((convs) => {
@@ -48,7 +58,7 @@ export function useConversationManager(): UseConversationManager {
         });
         await m.init();
         setActiveId(m.activeId);
-        aparteGlobalConfig.setConversationManager(m);
+        config.setConversationManager(m);
     }, []);
 
     const assert = (): AparteConversationManager => {

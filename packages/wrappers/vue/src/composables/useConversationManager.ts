@@ -1,6 +1,7 @@
 import { ref, computed, onBeforeUnmount, type Ref } from 'vue';
 import {
     aparteGlobalConfig,
+    type AparteConfig,
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
@@ -37,7 +38,16 @@ export function useConversationManager() {
         return manager;
     };
 
-    const init = async (adapter: AparteStorageAdapter): Promise<void> => {
+    /**
+     * Initialise with a storage adapter.
+     *
+     * `config` defaults to the global singleton. Pass the SAME config you gave
+     * `<AparteChat config={…}>`: the controller resolves the config governing its
+     * host element, so a manager registered on the global is invisible to a chat
+     * with its own — persistence silently does nothing while the optimistic UI
+     * keeps working.
+     */
+    const init = async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig): Promise<void> => {
         const m = new AparteConversationManager(adapter);
         manager = m;
         unsub = m.subscribe((convs) => {
@@ -46,7 +56,7 @@ export function useConversationManager() {
         });
         await m.init();
         activeId.value = m.activeId;
-        aparteGlobalConfig.setConversationManager(m);
+        config.setConversationManager(m);
     };
 
     return {
