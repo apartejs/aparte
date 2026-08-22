@@ -1233,7 +1233,11 @@ export class AparteClient {
                     // No whole tag - but the delta may END on a piece of one.
                     const held = partialXmlOpenTagLength(remaining);
                     if (held > 0) {
-                        emitChatText(remaining.slice(0, remaining.length - held));
+                        // `false` for the same reason as the whole-tag branch below:
+                        // flushing here puts the prose BEFORE the artifact card while
+                        // the runner still emits it after. Reintroduced right next to
+                        // the comment explaining it.
+                        emitChatText(remaining.slice(0, remaining.length - held), false);
                         xml.scanBuf = remaining.slice(remaining.length - held);
                         xml.state = 'scanning';
                     } else {
@@ -2072,6 +2076,11 @@ export class AparteClient {
             emitter,
             signal,
             maxTurns: this.options.maxTurns,
+            // Forwarded, because the option's own JSDoc promises it means one thing
+            // whichever loop runs — and the fix that introduced it only wired the
+            // inline path, so setting it was silently ignored here. Exactly the
+            // asymmetry the option was added to remove.
+            toolTimeoutMs: this.options.toolTimeoutMs,
             // Match the inline loop's id conventions: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? crypto.randomUUID() : `${prefix}-${crypto.randomUUID()}`),

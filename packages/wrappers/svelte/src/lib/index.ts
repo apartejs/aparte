@@ -1,6 +1,9 @@
 /**
- * aparté Svelte wrapper
- * Svelte 4 integration with stores and segment support
+ * aparté Svelte wrapper — Svelte 4 AND 5, from one shipped source.
+ *
+ * The package publishes its `.svelte` files rather than a prebuilt bundle, so the
+ * consumer's own compiler handles them: no prebuilt artifact can serve both majors.
+ * Both are proven in a browser (`apps/playgrounds/svelte` and `svelte5`).
  */
 
 export { default as AparteChat } from './AparteChat.svelte';

@@ -1082,6 +1082,21 @@ export class AparteChatViewport extends HTMLElement {
         this._mutationObserver = new MutationObserver(() => {
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
+            // The gate is tested HERE, when the frame is queued, and moving it
+            // inside the callback is not the improvement it looks like.
+            //
+            // Queue-time looks like a race — the user could scroll up before the
+            // frame runs and be dragged back. Testing it at run-time instead was
+            // tried and reverted: a branch swap replaces bubbles, the resulting
+            // scroll event makes `_isAtBottom()` briefly false, and the deferred
+            // check then refuses to re-anchor, leaving a scroll-to-bottom button on
+            // a transcript that IS at the bottom (caught by
+            // `bubble-actions.spec.ts` on WebKit, 3 runs out of 3).
+            //
+            // So queue-time is deliberate: it captures the user's intent BEFORE the
+            // DOM churn can confuse the "am I at the bottom?" heuristic. Reading it
+            // correctly in both cases needs a way to tell our own programmatic
+            // scroll from a real gesture — see the note in `_handleScroll`.
             if (this._isAutoScrollEnabled) {
                 requestAnimationFrame(() => this._scrollToBottom());
             }
@@ -1110,6 +1125,14 @@ export class AparteChatViewport extends HTMLElement {
         if (!this._container) return;
         // A scroll IS the user's intent: reaching the bottom re-arms auto-follow,
         // leaving it disarms it.
+        //
+        // NOTE (0.8.0): this cannot distinguish our own programmatic scroll from a
+        // real gesture, which matters for the open WebKit anchoring bug documented
+        // in `e2e/tests/streaming-progressive.spec.ts`. An attempt to mark
+        // programmatic scrolls with a counter was reverted: engines coalesce scroll
+        // events, so the counter over-counted and began swallowing the USER's
+        // scrolls — the browser suite caught it stealing the scroll back. Any fix
+        // here has to identify the scroll by POSITION, not by counting events.
         this._isAutoScrollEnabled = this._isAtBottom();
         this._updateScrollButton();
     }
@@ -1117,6 +1140,7 @@ export class AparteChatViewport extends HTMLElement {
     private _scrollToBottom(): void {
         if (!this._container) return;
         this._container.scrollTop = this._container.scrollHeight;
+
     }
 
     private _smoothScrollToBottom(): void {

@@ -153,6 +153,8 @@ export class AparteConfigClass {
     // Human-in-the-loop: presents typed input requests (ask_question,
     // tool approval, forms). Set by the <aparte-elicitation> Web Component.
     private _elicitationPresenter?: AparteElicitationPresenter;
+    /** Warn once per config, not once per request — a tool loop can ask repeatedly. */
+    private _warnedNoPresenter = false;
 
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
@@ -979,11 +981,30 @@ export class AparteConfigClass {
      * generic primitive behind `ask_question` and tool approval — the KIND of
      * question is the schema, not a bespoke tool. Resolves `accept` with the
      * value, `decline` when the user declines, or `cancel` when the turn is
-     * cancelled. With no presenter registered it resolves `cancel` (nothing can
-     * present it) rather than hanging.
+     * cancelled.
+     *
+     * With NO presenter registered it resolves `cancel` rather than hanging — and
+     * warns, once, because that `cancel` is otherwise a lie told quietly. The
+     * model reads it as "the user refused"; the user was never asked, and the
+     * developer sees nothing at all. The default presenter is
+     * `<aparte-elicitation>`, which registers itself from its `connectedCallback`
+     * — so it has to be IN THE DOM. A docs page of ours claimed it "installs
+     * itself — nothing to register", which is how this failure mode was found.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
-        if (!this._elicitationPresenter) return Promise.resolve({ action: 'cancel' });
+        if (!this._elicitationPresenter) {
+            if (!this._warnedNoPresenter) {
+                this._warnedNoPresenter = true;
+                console.warn(
+                    '[aparte] requestUserInput() was called with no elicitation presenter, '
+                    + 'so it resolved `cancel` — the model will read that as the user refusing, '
+                    + 'but nothing was ever shown. Add <aparte-elicitation></aparte-elicitation> '
+                    + 'inside your <aparte-chat>, or register your own with '
+                    + 'AparteConfig.setElicitationPresenter().',
+                );
+            }
+            return Promise.resolve({ action: 'cancel' });
+        }
         return this._elicitationPresenter(request);
     }
 

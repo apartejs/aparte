@@ -8,6 +8,7 @@ framework-agnostic web components in `@aparte/core`.
 npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
 ```
 
+<!-- doc-check: skip excerpt — `App` is the reader's root component, and @angular/platform-browser is theirs to install -->
 ```ts
 // main.ts
 import { bootstrapApplication } from '@angular/platform-browser';

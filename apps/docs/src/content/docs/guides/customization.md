@@ -55,9 +55,38 @@ Pass `null` to any setter to restore the default.
 A render hook that returns a **string** is inserted as HTML. Never interpolate
 user- or model-supplied values into that string (`` `<span>${att.name}</span>` ``) — a
 crafted filename or message becomes an XSS vector. Return a **DOM element** and set
-`textContent` (as above), or escape every interpolated value yourself. Core's built-in
+`textContent` (as above), or escape every interpolated value. Core's built-in
 renderers already do this; the trust boundary is yours the moment you return a string.
 :::
+
+### If you do return a string: `escapeHtml` and `escapeAttr`
+
+Core exports the two escapers its own renderers use, so you don't have to write them.
+**The position decides which one** — and the difference is not cosmetic:
+
+```ts
+import { AparteConfig, escapeHtml, escapeAttr } from '@aparte/core';
+import type { AparteAttachment } from '@aparte/core';
+
+AparteConfig.setAttachmentRenderer((att: AparteAttachment) => `
+  <span class="my-chip" title="${escapeAttr(att.name)}">
+    ${escapeHtml(att.name)}
+  </span>
+`);
+```
+
+- **`escapeHtml`** — for text *between* tags.
+- **`escapeAttr`** — for anything *inside* an attribute value. It also encodes the
+  apostrophe, which `escapeHtml` alone is not required to: a single quote is enough to
+  break out of `title='…'` and add an `onerror` of its own.
+
+Building a **CSS selector** rather than markup is a third case: use `cssEscape`, also
+exported, because `querySelector` needs backslash escaping and will otherwise throw or
+match the wrong node.
+
+A gate script (`pnpm check:attr-escaping`) enforces this across the library's own
+source, which is how a raw `data-role="${role}"` was found sitting one line from an
+escaped sibling.
 
 ## Avatars
 

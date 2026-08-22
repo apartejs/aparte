@@ -14,7 +14,7 @@
 // the allowed dependency direction (core never imports engine), so the parity
 // test lives here and imports the core adapter.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AparteClient, AparteConfigClass, createStreamAdapter } from '@aparte/core';
 import type { AparteStreamEvent } from '@aparte/core';
 import { runStreamAgent } from '../stream-run';
@@ -448,5 +448,66 @@ describe('runStreamAgent — parity on the paths that STOP', () => {
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+    });
+});
+
+describe('runStreamAgent — parity on WALKING AWAY from a live stream', () => {
+    // The fix for the leaking vendor stream (`await reader.cancel()` before
+    // releasing the lock) landed on ONE loop first. That is the forgotten-sibling
+    // pattern the audit was about, so it gets a parity test rather than a unit
+    // test on whichever loop happens to be in front of us.
+    const harness = (cancel: () => void) => {
+        const cfg = new AparteConfigClass();
+        cfg.registerAIProvider({
+            id: 'mock',
+            getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M' }],
+            chat: async () => '',
+        } as never);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        cfg.setTransport({
+            chat: () =>
+                new ReadableStream({
+                    start(c) {
+                        c.enqueue({ type: 'text', delta: 'hi' });
+                        // A tool nothing handles → the loop stops and walks away
+                        // WITHOUT having read to the end of the stream.
+                        c.enqueue({ type: 'tool_use', id: 'c1', name: 'nope', input: {} });
+                        c.enqueue({ type: 'done' });
+                    },
+                    cancel,
+                }),
+        } as never);
+        const el = document.createElement('div');
+        for (const m of [
+            'updateMessage',
+            'addSegment',
+            'updateSegment',
+            'typeName',
+            'setUsage',
+            'updateLastMessage',
+        ]) {
+            (el as unknown as Record<string, unknown>)[m] = () => {};
+        }
+        return { cfg, el };
+    };
+
+    const drive = async (opts: Record<string, unknown>): Promise<ReturnType<typeof vi.fn>> => {
+        const cancel = vi.fn();
+        const { cfg, el } = harness(cancel);
+        const client = new AparteClient({ config: cfg, autoRegister: false, ...opts });
+        await (
+            client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> }
+        )._streamTurn(el, 'a1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
+        return cancel;
+    };
+
+    it("core's inline loop cancels the vendor stream", async () => {
+        expect(await drive({})).toHaveBeenCalled();
+    });
+
+    it('the injected runner cancels it too', async () => {
+        expect(await drive({ streamRunner: runStreamAgent })).toHaveBeenCalled();
     });
 });

@@ -22,7 +22,25 @@
 import { readFileSync } from 'node:fs';
 
 const FILE = 'apps/playgrounds/vanilla/src/main.ts';
-const src = readFileSync(FILE, 'utf8');
+const raw = readFileSync(FILE, 'utf8');
+
+/**
+ * Strip comments BEFORE matching. A follow-up audit defeated this guard with two
+ * slashes: `// streamRunner: runStreamAgent` printed OK and exited 0 — and
+ * commenting the line out is the single most likely way someone "temporarily"
+ * removes the wiring. Both checks below are textual, so they cannot tell live
+ * code from a comment unless the comments are gone first.
+ *
+ * Deliberately naive on one point: it does not track whether a `//` sits inside
+ * a string literal. In a file whose only job is to wire up a playground that is
+ * an acceptable trade — a false RED here is loud and one line to fix, whereas
+ * the false GREEN it replaces was silent.
+ */
+const src = raw
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/\/\/.*$/, ''))
+    .join('\n');
 
 const importsRunner = /import\s*\{[^}]*\brunStreamAgent\b[^}]*\}\s*from\s*'@aparte\/engine'/.test(src);
 const wiresRunner = /streamRunner:\s*runStreamAgent/.test(src);

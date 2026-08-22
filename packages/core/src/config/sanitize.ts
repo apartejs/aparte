@@ -92,6 +92,33 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
  * same URL policy live. `tag` is the host element ('a', 'img', …) — `data:image`
  * URLs are only allowed on `img`.
  */
+/**
+ * `srcset` carries N candidate URLs, so the single-URL check does not fit it —
+ * and splitting on commas is unreliable, because a `data:` URL legitimately
+ * contains one (`data:image/png;base64,AAA 2x, small.png 1x`).
+ *
+ * So rather than parse candidates, every SCHEME token in the value must itself
+ * resolve to an allowed URL: a relative-only srcset has none and passes, while a
+ * smuggled scheme is rejected wherever in the value it sits.
+ *
+ * Found by an audit: `srcset` previously had only a `javascript:|vbscript:`
+ * substring test, so `srcset="data:text/html,<script>…</script> 1x"` walked
+ * straight through the allowlist that rejects the very same URL on `src`. Low
+ * severity — a browser only ever decodes a srcset candidate as an image, never as
+ * a document — but the allowlist should not have two different answers for one
+ * URL depending on which attribute carries it.
+ *
+ * `<source>` is validated as `img`: inside a `<picture>` its candidates feed an
+ * `<img>`, so the `data:image` policy is the same one that applies there.
+ */
+function isSafeSrcset(value: string, tag: string): boolean {
+    const urlTag = tag === 'source' ? 'img' : tag;
+    for (const m of value.matchAll(/[a-z][a-z0-9+.-]*:[^\s,]*/gi)) {
+        if (!isSafeUrl(m[0], urlTag)) return false;
+    }
+    return true;
+}
+
 export function isSafeUrl(value: string, tag: string): boolean {
     const v = value.replace(CONTROL_WS, '');
     if (!v) return true; // empty href/src is harmless
@@ -158,7 +185,7 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
         // markdown/highlight tooling — allowed, matching DOMPurify's default.
         if (!name.startsWith('data-') && !GLOBAL_ATTRS.has(name) && !(extra && extra.has(name))) continue;
         if (URL_ATTRS.has(name) && !isSafeUrl(value, tag)) continue;
-        if (name === 'srcset' && /javascript:|vbscript:/i.test(value)) continue;
+        if (name === 'srcset' && !isSafeSrcset(value, tag)) continue;
         if (name === 'style') {
             const scrubbed = scrubStyle(value);
             if (scrubbed === null) continue;

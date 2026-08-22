@@ -48,8 +48,6 @@ const EXEMPT = new Map([
     ['getSegmentRenderer', 'the read side of the documented registerSegmentRenderer'],
     ['unregisterSegmentRenderer', 'the remove side of the documented registerSegmentRenderer'],
     ['defaultSanitizer', 'the default value of the documented setHtmlSanitizer'],
-    ['escapeHtml', 'escaping helper for render-hook authors; named in the customization guide via escapeAttr'],
-    ['escapeAttr', 'escaping helper for render-hook authors; the pair is documented as one'],
     ['APARTE_DEFAULT_UI_EVENTS', 'wrapper interop: the DOM events every AparteUi forwards; an app never enumerates them'],
     ['AparteMessageRepository', 'the message store the viewport keeps internally; an app uses appendMessage/getMessages, never the store'],
 ]);

@@ -245,3 +245,39 @@ describe('AparteConfig.setHtmlSanitizer(null)', () => {
         }
     });
 });
+
+describe('defaultSanitizer — srcset follows the same URL allowlist as src', () => {
+    // Found by an audit: `srcset` had only a `javascript:|vbscript:` substring
+    // test, so the allowlist gave two different answers for one URL depending on
+    // which attribute carried it.
+    const attr = (html: string): string | null => {
+        const d = document.createElement('div');
+        d.innerHTML = s(html);
+        return d.querySelector('img, source')?.getAttribute('srcset') ?? null;
+    };
+
+    it('rejects a smuggled data:text/html candidate', () => {
+        expect(attr('<img srcset="data:text/html,<script>alert(1)</script> 1x">')).toBeNull();
+    });
+
+    it('still rejects javascript:', () => {
+        expect(attr('<img srcset="javascript:alert(1) 1x">')).toBeNull();
+    });
+
+    it('keeps a legitimate data:image candidate, comma and all', () => {
+        // The reason this is scheme-scanned rather than comma-split: a base64
+        // data URL contains a comma, so splitting candidates would break it.
+        expect(attr('<img srcset="data:image/png;base64,iVBORw0KGgo= 2x, small.png 1x">'))
+            .toContain('data:image/png;base64');
+    });
+
+    it('keeps relative and https candidates', () => {
+        expect(attr('<img srcset="a.png 1x, b.png 2x">')).toBe('a.png 1x, b.png 2x');
+        expect(attr('<img srcset="https://cdn.example/a.png 1x">')).toContain('https://');
+    });
+
+    it('allows data:image on <source> too — inside a <picture> it feeds an <img>', () => {
+        expect(attr('<picture><source srcset="data:image/webp;base64,AAA 1x"></picture>'))
+            .toContain('data:image/webp');
+    });
+});

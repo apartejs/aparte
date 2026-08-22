@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '.nx/**', '**/.astro/**', '**/.angular/**', '**/*.tsbuildinfo'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '.nx/**', '**/.astro/**', '**/.angular/**', '**/.svelte-kit/**', '**/*.tsbuildinfo'] },
 
   // A stale `eslint-disable` is silent debt: it hides a rule that would now
   // pass, or masks one that started firing elsewhere on the line. Report them

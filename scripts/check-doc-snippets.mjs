@@ -87,7 +87,17 @@ for (const file of files) {
         n++;
 
         if (skipMarker) { skippedExplicit++; continue; }
-        if (!/^\s*import\s/.test(body)) { skippedFragment++; continue; }
+        // Leading blank lines and `//` comments come FIRST, before the test.
+        //
+        // This gate was written with a bare `/^\s*import/`, and a follow-up audit
+        // found what that missed: the `createAparteChatHandler` snippet — the one
+        // this whole lot names as "the copy-paste path was the unauthenticated one"
+        // — opens with `// app/api/chat/route.ts (Next.js)`. So the fence the guard
+        // exists for was counted among the fragments and never compiled, while
+        // still shipping the defect. A one-line heuristic decided the scope of the
+        // check, and it decided it wrong.
+        const firstCode = body.replace(/^(?:\s*(?:\/\/[^\n]*)?\n)+/, '');
+        if (!/^\s*import\s/.test(firstCode)) { skippedFragment++; continue; }
 
         compiled++;
         const rel = relative(process.cwd(), file).split(sep).join('/');

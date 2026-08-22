@@ -89,3 +89,56 @@ leave the apostrophe through, which is enough to break out of a single-quoted at
 are scoped to their own children, so a decoy `data-segment-id` in model markdown can no
 longer hijack a human-in-the-loop control. A style declaration containing a backslash is
 rejected outright, and a `data:` image URL must name its subtype.
+
+`srcset` now goes through the same URL allowlist as `src`. It had only a
+`javascript:`/`vbscript:` substring test, so `srcset="data:text/html,<script>..." `
+passed untouched while the identical URL on `src` was rejected — one allowlist giving
+two answers depending on which attribute carried the URL. Each scheme in the value is
+validated rather than splitting on commas, because a legitimate base64 `data:` URL
+contains one.
+
+`data:image/svg+xml` is deliberately KEPT in the allowlist, contrary to an earlier plan
+to drop it: inside an `<img>` a data-URL SVG is secure-static in every engine (no
+scripts, no external fetches), and removing it would break a model emitting an inline
+chart. What it must not do is travel — an app that moves such a URL into an `<object>`,
+`<embed>` or an iframe leaves secure-static mode, and that constraint belongs to
+whoever re-hosts it.
+
+**Also in this release**
+
+- **Elicitation stops inventing refusals.** With no presenter registered,
+  `requestUserInput()` resolved `{ action: 'cancel' }` in silence: your tool reported a
+  refusal the user was never asked for, and the model answered as though they had
+  declined. It still resolves `cancel` (a question nobody can render cannot be awaited)
+  but now warns once, and the guide shows the `<aparte-elicitation>` element you must
+  place — it registers itself on connect, so nothing happens until it is in your markup.
+- **`@aparte/svelte` publishes resolvable types.** `types` was not first in its
+  `exports` block, and export conditions are order-sensitive, so TypeScript could not
+  resolve the package's types at all. The `svelte` condition now carries its own `types`,
+  matching how core's `node` condition is built.
+- `escapeHtml` / `escapeAttr` / `cssEscape` are documented with an example instead of
+  being mentioned in passing: which one belongs in markup, which in an attribute, which
+  in a selector, and why the apostrophe matters. They were exported all along while a
+  comment in their own file claimed they were internal.
+- `AparteClientOptions.toolTimeoutMs` is in the config reference. The `config` argument
+  every plugin `setup*` takes is documented with an example — it was named nowhere, and
+  it is what lets two chats on one page use different providers.
+
+  Scope, stated plainly: this covers what a plugin registers ON THE CONFIG — markdown,
+  highlighting, model preferences. **Segment renderers are still global**
+  (`registerSegmentRenderer` writes to a module-level registry), so two chats on a page
+  cannot yet render the same segment type differently. The `config` prop is therefore
+  more honest than it was, not yet fully honest.
+- `thinkingDelimiters` is documented, including the two pairs recognised by default and
+  the fact that only the bring-your-own-loop path can reach it.
+
+**A known bug, stated rather than hidden**
+
+In framework mode on WebKit — so React / Vue / Svelte / Angular consumers on Safari — a
+streamed transcript can settle a few dozen pixels short of the bottom and stay there. It
+is measured, deterministic, and marked as an expected failure in the browser suite with
+four refuted explanations recorded next to it. The scroller demonstrably CAN reach the
+bottom; the product stops early, and its own shortfall can then disarm the auto-follow
+that would correct it. Four fixes were attempted and reverted, one of which regressed
+scroll ownership — a transcript that steals the user's scroll position is worse than one
+that stops short, so this ships open rather than half-fixed.

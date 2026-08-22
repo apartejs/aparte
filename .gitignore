@@ -57,3 +57,6 @@ Thumbs.db
 
 # Scratch dir for scripts/check-doc-snippets.mjs (kept only when a snippet fails).
 .doc-snippets/
+
+# svelte-package build cache
+packages/wrappers/*/.svelte-kit/

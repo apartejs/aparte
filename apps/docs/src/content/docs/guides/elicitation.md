@@ -2,7 +2,7 @@
 title: Asking the user a typed question
 description: Pause a run and ask for typed input — a choice, a yes/no, a free-text answer, or a small form — with requestUserInput and the built-in panel.
 sidebar:
-  order: 12
+  order: 13
 ---
 
 Sometimes a tool cannot finish without something only the user knows. Which of these
@@ -141,9 +141,31 @@ what happened so it can say so, and a thrown error would surface as a failed tur
 
 ## Who renders it
 
-`<aparte-elicitation>` is the default presenter and installs itself — nothing to
-register. It mounts inside the composer of the resolved chat, so the question appears
-where the user is already typing.
+`<aparte-elicitation>` is the default presenter, and it **has to be in your markup**.
+It registers itself the moment it connects — but nothing creates it for you, so put it
+inside your `<aparte-chat>`:
+
+```html
+<aparte-chat>
+  <aparte-chat-viewport></aparte-chat-viewport>
+  <aparte-elicitation></aparte-elicitation>
+  <aparte-composer>
+    <aparte-composer-input></aparte-composer-input>
+    <aparte-composer-send></aparte-composer-send>
+  </aparte-composer>
+</aparte-chat>
+```
+
+It then mounts its panel inside the composer of the resolved chat, so the question
+appears where the user is already typing.
+
+:::caution[Leave it out and the refusal is invented]
+With no presenter registered, `requestUserInput()` resolves `{ action: 'cancel' }` — so
+your tool reports a refusal the user was never asked for, and the model answers as
+though they had declined. Core warns once on the console when this happens; there is no
+way for it to do better, because a question nobody can render cannot be waited on
+either.
+:::
 
 To render it yourself, register a presenter on the config:
 

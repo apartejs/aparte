@@ -76,7 +76,7 @@ const log = new PromptLog();                       // your append-only transcrip
 
 await runStreamAgent({
   // …messageId, emitter, signal, toolLookup
-  baseRequest: { messages: [] },                   // your transport doesn't read this
+  baseRequest: { messages: [], modelId: 'my-model' }, // your transport may ignore both
   onHistoryAppend: (turn) => log.append(turn),     // tool_call · tool_result · phase reply
   transportCall: () => myCompletion(log.render()), // your own bytes, extended not rebuilt
 });

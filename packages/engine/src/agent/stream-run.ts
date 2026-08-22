@@ -230,8 +230,15 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             response = await transportCall(request);
         } catch (err: unknown) {
             if (signal.aborted || (err as { name?: string } | undefined)?.name === 'AbortError') {
+                // `break`, not `return`: the post-loop `run-done` below is documented
+                // as running on EVERY exit path, and five of the six abort paths fall
+                // through to it. Returning here skipped it, so a consumer wiring
+                // `runStreamAgent` + `createStreamAdapter` directly never got the
+                // `completed` status and the bubble stayed flagged streaming — which
+                // is verbatim the defect the client-side guard was added to fix.
                 emitter({ type: 'run-aborted' });
-                return lastUsage;
+                continueLoop = false;
+                break;
             }
             throw err;
         }

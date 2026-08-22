@@ -49,6 +49,9 @@ export const POST = createAparteChatHandler({
     openai: createOpenAICompatProvider(presets.OPENAI),
   },
   resolveKey: (providerId) => process.env[`${providerId.toUpperCase()}_KEY`],
+  // REQUIRED. This route spends your key, so your own auth goes here. Return false
+  // for 401, a Response for your own status, or true to proceed.
+  authorize: (req) => Boolean(req.headers.get('cookie')),
 });
 ```
 
@@ -96,8 +99,14 @@ The client never sends a URL — only a `providerId` string. The vendor URL come
 `adapter.defaultEndpoint` inside **your** `providers` map, resolved on the server; nothing
 in the request body can redirect the server to an arbitrary host. A malicious or buggy
 client can pick a *registered* provider at most, never an arbitrary endpoint. Vendor
-errors (bad key, rate limit, etc.) are propagated back with their original status and body
-so the client surfaces the real vendor message, same as `AparteDirectTransport`.
+errors (bad key, rate limit, etc.) keep their original **status**, but their **body is
+summarised** to `{ error: { message, code?, type? } }` rather than relayed. That is
+deliberate: an OpenAI 401 body reads `Incorrect API key provided: sk-proj-****abcd`, so
+passing it through would hand a caller your key's prefix, tail and format — and other
+vendors echo organisation ids and request fragments. The machine-readable `code` / `type`
+survive, which is what a client actually branches on; the vendor's prose belongs in your
+server's logs. (`AparteDirectTransport` has no such concern: there, the key is the
+caller's own.)
 
 ## 2. Point the browser at it
 

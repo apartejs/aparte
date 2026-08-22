@@ -66,6 +66,7 @@ The wrapper is **provider-agnostic**. `provideAparte()` registers your providers
 at bootstrap **and starts the client** (`autoConnect`, on by default) — composer sends stream
 replies with zero extra wiring:
 
+<!-- doc-check: skip excerpt — `App` is the reader's root component, and @angular/platform-browser is theirs to install -->
 ```ts
 // main.ts
 import { bootstrapApplication } from '@angular/platform-browser';

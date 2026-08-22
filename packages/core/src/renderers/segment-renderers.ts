@@ -792,6 +792,7 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         `;
     },
     setup: (element: HTMLElement, segment: AparteArtifactSegment) => {
+        latestSegment.set(element, segment);
         const kind = (segment.artifactType || '').toLowerCase();
         if (BINARY_FILE_KINDS.has(kind)) {
             setupBinaryFileArtifact(element, segment, kind);
@@ -867,6 +868,13 @@ const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         }
     },
     update: (element: HTMLElement, segment: AparteArtifactSegment) => {
+        // Keep the click handler's view of the artifact current, and throw away a
+        // frame that is now showing stale content so the next press rebuilds it.
+        const previous = latestSegment.get(element);
+        latestSegment.set(element, segment);
+        if (previous && previous.content !== segment.content) {
+            element.querySelector('.aparte-art-card__pane[data-pane="preview"] iframe')?.remove();
+        }
         const isStreaming = !!segment.isStreaming;
         const kind = (segment.artifactType || '').toLowerCase();
         if (BINARY_FILE_KINDS.has(kind)) {
@@ -1663,10 +1671,24 @@ function slugifyForFilename(text: string): string {
  *     portable half is the `<meta http-equiv>` that `buildSafePreviewDocument`
  *     puts inside the documents we build ourselves.
  */
-function mountPreviewFrame(element: HTMLElement, segment: AparteArtifactSegment): void {
+/**
+ * The LATEST segment for a mounted artifact card.
+ *
+ * `setup()` runs once and closes over the segment it was handed; the bubble builds a
+ * fresh object on every `updateSegment`, so that closure freezes the artifact as it
+ * was when it was ADDED — which for anything streamed is `content: ''`. Pressing
+ * Preview then ran an empty document. Gesture-gating the frame moved the read from
+ * `update()` (which always had the current segment) into a closure that did not, and
+ * the test written with it never streamed, so it could not see this.
+ */
+const latestSegment = new WeakMap<HTMLElement, AparteArtifactSegment>();
+
+function mountPreviewFrame(element: HTMLElement, fallback: AparteArtifactSegment): void {
     const pane = element.querySelector('.aparte-art-card__pane[data-pane="preview"]');
     if (!pane || pane.querySelector('iframe')) return;
 
+    // The latest segment, not the one the closure captured — see `latestSegment`.
+    const segment = latestSegment.get(element) ?? fallback;
     const kind = segment.artifactType || deriveArtifactKind(segment.mimeType ?? '', 'text');
     if (!PREVIEWABLE_KINDS.has(kind)) return;
 

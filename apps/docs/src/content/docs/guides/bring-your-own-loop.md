@@ -200,6 +200,39 @@ void trailing;
 void contentToText([{ type: 'text', text: 'hello' }]);   // 'hello'
 ```
 
+### Reasoning models: `thinkingDelimiters`
+
+By default the parser recognises `<think>…</think>` **and** `<thinking>…</thinking>`.
+Models that mark their reasoning differently need the delimiters spelled out — pass one
+pair, or several. Passing any **replaces** the defaults, so re-list the ones you still
+want:
+
+```ts
+import { AparteStreamParser } from '@aparte/core';
+import type { AparteThinkingDelimiterPair } from '@aparte/core';
+
+const pairs: AparteThinkingDelimiterPair[] = [
+  { start: '<think>', end: '</think>' },
+  { start: '<|begin_of_thought|>', end: '<|end_of_thought|>' },
+];
+
+const parser = new AparteStreamParser({ thinkingDelimiters: pairs });
+void parser;
+```
+
+Matched content becomes a `thinking` segment, which renders collapsed instead of as
+part of the reply.
+
+:::note[Only on this path]
+`AparteClient` does not forward parser options today, so `thinkingDelimiters` is
+reachable only when you construct the parser yourself — that is, on this page's path.
+There is no response-side interceptor to rewrite the deltas on the way in either
+(`requestInterceptor` only touches the outgoing request). So if you use the client and
+your model marks reasoning with something other than `<think>` or `<thinking>`, the
+options are to normalise the delimiters in your transport before core sees them, or to
+drive the loop yourself as above.
+:::
+
 ## What you give up
 
 Display-only means the pieces `AparteClient` orchestrates don't run in the page: no built-in

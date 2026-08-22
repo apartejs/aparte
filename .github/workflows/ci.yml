@@ -67,6 +67,41 @@ jobs:
       - name: Check Node import contract
         run: pnpm check:node-import
 
+      # The rest of the mechanical guards.
+      #
+      # A follow-up audit caught this: `pnpm gate` chains twelve `check:*` scripts and
+      # CI ran three of them. So five guards added in this very lot — under a commit
+      # titled "the guards that did not bite now bite" — fired only when a human
+      # remembered to type `pnpm gate`. A PR deleting the engine wiring, unescaping an
+      # attribute, or dropping a documented export went green.
+      #
+      # Listed individually rather than as `pnpm gate` so a failure names the guard
+      # instead of a 20-minute chain, and so the coverage/build steps keep their own
+      # jobs.
+      - name: Check attribute escaping
+        run: pnpm check:attr-escaping
+
+      - name: Check the engine seam has a consumer
+        run: pnpm check:engine-consumer
+
+      - name: Check every export is documented or exempt
+        run: pnpm check:export-mentions
+
+      - name: Check the SSR barrel carries every type
+        run: pnpm check:node-barrel-types
+
+      - name: Check the entry-point weight contracts
+        run: pnpm check:bundle-entries
+
+      - name: Check published READMEs
+        run: pnpm check:readmes
+
+      - name: Check wrapper slot parity
+        run: pnpm check:wrapper-slots
+
+      - name: Check every element documents an example
+        run: pnpm check:examples
+
       - name: Test (with coverage gate)
         run: pnpm test:coverage
 

@@ -54,15 +54,30 @@ export default defineConfig({
       // mitigation is that `pnpm gate` now runs coverage, so the real number is in
       // front of whoever changes it, every time.
       //
-      // `perFile` on the two directories the audit named: a global average lets a
-      // 27%-covered module hide behind a well-tested one, and the client and the
-      // renderers are exactly where the risk is concentrated.
+      // Per-GLOB floors on the two directories the audit named, so a thin module
+      // cannot hide entirely behind the 81% global average.
+      //
+      // NOT per-file: an earlier version of this comment claimed `perFile`, which is
+      // neither set here nor what a glob threshold does — Vitest pools a glob into one
+      // figure, so `stream-adapter.ts` could still fall a long way while the client
+      // aggregate holds. Real per-file enforcement needs `thresholds.perFile: true`
+      // globally, which the renderers at 33% cannot meet today. The tighter aggregate
+      // floors below are what is actually enforced, and they are set from the MEASURED
+      // value minus a point — a follow-up audit proved the old client floor of 70
+      // decorative by deleting all four client suites this lot added (462 lines, 14
+      // tests) and staying green.
       thresholds: {
         lines: 80,
         statements: 80,
         functions: 75,
         branches: 79,
-        'packages/core/src/client/**': { lines: 70, statements: 70, functions: 70, branches: 65 },
+        // Set from the MEASURED aggregate minus a point, not from a round number.
+        // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
+        // all four client suites this remediation added — 462 lines, 14 tests — and
+        // the gate stayed GREEN, because the glob sat 10 to 22 points above its own
+        // floor. A floor with that much slack is the same defect as the global 68
+        // it was introduced to fix.
+        'packages/core/src/client/**': { lines: 80, statements: 80, functions: 95, branches: 76 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value

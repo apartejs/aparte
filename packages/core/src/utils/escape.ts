@@ -15,9 +15,12 @@
  * that read better saying "attribute" use {@link escapeAttr}, which is this same
  * function under a second name — an alias, deliberately not a second body.
  *
- * Not exported from the package barrel: this is core's internal hygiene, not a
- * public API. Consumers who need to escape their own render-hook output have
- * `textContent` and the sanitizer.
+ * PUBLIC. Both names are exported from the barrel and documented in the
+ * customization guide, because a render hook that returns a string needs them and
+ * telling an author to "escape it yourself" without naming the function is how a
+ * capability becomes invisible. An earlier version of this comment claimed the
+ * opposite ("not exported from the package barrel… not a public API") while
+ * `index.ts` exported both — the export was real, the comment was not.
  */
 export function escapeHtml(value: string): string {
     let out = '';
@@ -40,5 +43,16 @@ export function escapeHtml(value: string): string {
  * node — quotes to keep the value from ending early, angle brackets so a broken
  * value cannot start a tag, and the ampersand so none of it can be smuggled back
  * in as an entity. Two names, one body.
+ *
+ * REQUIRES A QUOTED ATTRIBUTE. `title="${escapeAttr(v)}"` and `title='…'` are
+ * both safe; bare `title=${escapeAttr(v)}` is NOT, because a space, tab, newline
+ * or backtick in the value ends an unquoted attribute and starts the next one —
+ * and none of those five escaped characters is one of them. An audit raised this
+ * as a latent gap (no unquoted interpolation exists in the library today).
+ *
+ * The fix is to quote the attribute, not to escape harder: encoding spaces would
+ * make every legitimate `title="Hello world"` read `Hello&#32;world`. So
+ * `pnpm check:attr-escaping` now rejects an unquoted attribute interpolation
+ * outright rather than trusting this function to cover a position it cannot.
  */
 export const escapeAttr = escapeHtml;

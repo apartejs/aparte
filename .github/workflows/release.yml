@@ -52,6 +52,17 @@ jobs:
       # `pnpm release` refuses to publish from a dirty tree, off `main`, or out of
       # sync with origin (scripts/prerelease-checks.mjs) and runs the full gate
       # first, so a bad bump cannot reach npm through the manual path either.
+      #
+      # NO PROVENANCE, and that is now stated instead of claimed. An earlier attempt
+      # passed `--provenance` to `changeset publish`; a follow-up audit found the word
+      # appears ZERO times in @changesets/cli@2.31.0 — meow swallows the unknown flag
+      # and it never reaches `npm publish`. Setting `publishConfig.provenance` instead
+      # would not help either: npm only mints an attestation inside a supported CI with
+      # `id-token: write`, and it FAILS outside one, which would break the manual path
+      # this repo deliberately uses. Real provenance therefore requires the publish to
+      # move into a tag-triggered job here, with `id-token: write` — the same change
+      # the note above describes for the Version PR. Until then: no attestation, said
+      # plainly rather than advertised.
       - name: Create/update the Version Packages PR
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
         with:

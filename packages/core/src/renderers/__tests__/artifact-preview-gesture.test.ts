@@ -105,3 +105,36 @@ describe('artifact preview — the containment is declared twice', () => {
         expect(frame.getAttribute('csp')).toBeTruthy();
     });
 });
+
+describe('artifact preview — the gesture mounts the LATEST content', () => {
+    afterEach(() => { AparteConfig.reset(); document.body.innerHTML = ''; });
+
+    /**
+     * The first version of the gesture fix broke the feature for every streamed
+     * artifact: `updateSegment()` REPLACES the segment object (`{...old, ...updates}`)
+     * rather than mutating it, and because this renderer has an `update`, `setup()`
+     * never runs again — so the click handler's closure kept the setup-time object
+     * and the preview showed the partial content forever. Hence `latestSegment`.
+     */
+    it('previews the final content after streaming replaced the segment object', () => {
+        const partial = {
+            id: 'a2', type: 'artifact', mimeType: 'text/html', artifactType: 'html',
+            title: 'Report', isStreaming: true, content: '<p>PARTIAL</p>',
+        } as never;
+
+        const { card } = mount(partial);
+        const renderer = getSegmentRenderer('artifact')!;
+
+        // Exactly what the bubble does when the stream completes.
+        const final = { ...(partial as object), content: '<p>FINAL</p>', isStreaming: false } as never;
+        renderer.update?.(card, final);
+
+        card.querySelector<HTMLButtonElement>('[data-tab-target="preview"]')!.click();
+
+        const frame = card.querySelector('iframe');
+        expect(frame, 'the gesture should have mounted an iframe').toBeTruthy();
+        const srcdoc = frame!.getAttribute('srcdoc') ?? '';
+        expect(srcdoc).toContain('FINAL');
+        expect(srcdoc).not.toContain('PARTIAL');
+    });
+});

@@ -193,6 +193,7 @@ Constructor options (all optional):
 | `targetResolver` | `() => HTMLElement \| null` | Resolve the render target when the default event-bubble walk / DOM scan can't reach it. |
 | `scopeToTargetId` | `string` | Scope this client instance to one target id, for multiple independent conversations on one page. |
 | `maxTurns` | `number` (default `10`) | Max agentic tool-call loop turns before the loop is forcibly stopped. |
+| `toolTimeoutMs` | `number` (default `300000` — 5 min) | Per-call ceiling for a tool handler to resolve before its `AbortSignal` fires. Same name and same default as `runStreamAgent`, so the value means one thing whichever loop runs. |
 | `rawFileInject` | `'all' \| 'images-only' \| 'none'` (default `'all'`) | Which attached files are injected as raw content parts vs. left to the app layer (e.g. a RAG pipeline). |
 | `config` | `AparteConfigClass` | The config instance this client reads. Defaults to the global `AparteConfig`. |
 

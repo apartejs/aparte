@@ -1,0 +1,38 @@
+{
+    // Why this file exists: VSCode's file watcher does NOT read .gitignore. It only
+    // honours files.watcherExclude. So every write Nx and the 24 build outputs make
+    // reaches the renderer and the TS servers, which is what freezes the UI during a
+    // build. .nx alone holds ~6400 files.
+    //
+    // Safe to exclude dist here: tsconfig.base.json sets
+    // customConditions: ["@aparte-workspace/source"], so the TS server resolves
+    // @aparte/* to src/ and never reads dist for types — excluding it cannot give
+    // you stale types in the editor.
+    //
+    // This does NOT slow down HMR: Vite, Nx and chokidar run their own watchers,
+    // which watcherExclude has no effect on.
+    "files.watcherExclude": {
+        "**/.nx/cache/**": true,
+        "**/.nx/workspace-data/**": true,
+        "**/dist/**": true,
+        "**/out-tsc/**": true,
+        "**/.svelte-kit/**": true,
+        "**/.astro/**": true,
+        "**/.angular/**": true,
+        "**/coverage/**": true,
+        "**/test-results/**": true,
+        "**/playwright-report/**": true,
+        "**/.doc-snippets/**": true,
+        "**/tmp/**": true,
+        "**/*.tsbuildinfo": true
+    },
+    "search.exclude": {
+        "**/.nx": true,
+        "**/dist": true,
+        "**/coverage": true,
+        "**/.svelte-kit": true,
+        "**/.astro": true,
+        "**/.angular": true,
+        "**/test-results": true
+    }
+}

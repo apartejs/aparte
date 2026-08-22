@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../../composer/aparte-composer.js';
 import '../aparte-elicitation.js';
-import { AparteConfig } from '../../../config/aparte-config';
+import { AparteConfig, AparteConfigClass } from '../../../config/aparte-config';
 import { requestUserInput } from '../../../elicitation/index';
 
 type ComposerEl = HTMLElement & { submit(): void };
@@ -113,5 +113,38 @@ describe('<aparte-elicitation> presenter', () => {
         expect(AparteConfig.getElicitationPresenter()).toBeTypeOf('function');
         elic.remove();
         expect(AparteConfig.getElicitationPresenter()).toBeUndefined();
+    });
+});
+
+describe('no presenter at all — the cancel is loud, not silent', () => {
+    // A docs page of ours said `<aparte-elicitation>` "installs itself — nothing to
+    // register". It does register itself, but only from connectedCallback, so a
+    // consumer who never puts it in the DOM gets `cancel` for every question: the
+    // model reads a refusal the user was never asked for. Resolving is right (a
+    // question nobody can render cannot be awaited); doing it quietly was not.
+    it('warns once, and still resolves cancel rather than hanging', async () => {
+        const cfg = new AparteConfigClass();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        expect(await cfg.requestUserInput({ message: 'a', schema: { type: 'string' } }))
+            .toEqual({ action: 'cancel' });
+        expect(await cfg.requestUserInput({ message: 'b', schema: { type: 'string' } }))
+            .toEqual({ action: 'cancel' });
+
+        // Once per config, not once per request: a tool loop can ask repeatedly.
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0]?.[0]).toContain('aparte-elicitation');
+        warn.mockRestore();
+    });
+
+    it('says nothing once a presenter is registered', async () => {
+        const cfg = new AparteConfigClass();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        cfg.setElicitationPresenter(async () => ({ action: 'decline' }));
+
+        expect(await cfg.requestUserInput({ message: 'a', schema: { type: 'string' } }))
+            .toEqual({ action: 'decline' });
+        expect(warn).not.toHaveBeenCalled();
+        warn.mockRestore();
     });
 });

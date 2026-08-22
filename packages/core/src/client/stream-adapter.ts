@@ -89,8 +89,14 @@ export interface AparteStreamRunOptions {
  * A headless structured-stream loop injected via `AparteClientOptions.streamRunner`
  * — the seam by which a consumer swaps `_streamLoop`'s inline loop for
  * `@aparte/engine`'s `runStreamAgent` (core stays the zero-dep leaf; it never
- * imports engine). Structurally identical to `runStreamAgent`; wire it with a
- * cast at the injection site if the duck-typed shapes don't line up exactly.
+ * imports engine).
+ *
+ * `runStreamAgent` is directly assignable to this type — pass it, do not cast it.
+ * An earlier version of this comment advised a cast "if the duck-typed shapes
+ * don't line up", which is how the two packages' message types drifted apart
+ * unnoticed and shipped a `streamRunner: runStreamAgent` that did not compile on
+ * five docs pages and a README. A cast here hides exactly the drift that
+ * `stream-events.contract.ts` now exists to fail on.
  */
 export type AparteStreamRunner = (opts: AparteStreamRunOptions) => Promise<AparteUsage | undefined>;
 
@@ -478,6 +484,13 @@ export function readableToAsyncIterable(
                 },
                 async return(): Promise<IteratorResult<AparteStreamEvent>> {
                     signal.removeEventListener('abort', onAbort);
+                    // CANCEL, then release. Releasing a reader does not stop the
+                    // source: the provider's `start()` keeps draining the vendor
+                    // body, so the model kept generating (and billing) whenever the
+                    // runner walked away from a turn — a rejected tool, a turn
+                    // limit, a missing handler. The inline loop got this fix; this
+                    // path, which the docs recommend, did not.
+                    try { await reader.cancel(); } catch { /* best effort */ }
                     try { reader.releaseLock(); } catch { /* best effort */ }
                     return { done: true, value: undefined };
                 },
