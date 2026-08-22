@@ -97,13 +97,17 @@ const index = [];
 
 for (const file of files) {
     const raw = readFileSync(file, 'utf8');
-    // A generated page's fences were not written by anyone: TypeDoc prints type
-    // signatures, the CEM printer prints attribute tables. Compiling those measures
-    // the generator, not the documentation — and they are the overwhelming majority
-    // of parse errors in the corpus. Every generator stamps this marker; the
-    // changelog one did not until it was made to, precisely so this stays a rule
-    // rather than a list of filenames.
-    if (raw.includes('AUTO-GENERATED')) {
+    // Skip the pages whose fences are TYPE SIGNATURES printed by a doc generator,
+    // not examples anybody wrote. `reference/engine.md` is 132 such fences and they
+    // are the overwhelming majority of parse errors in the corpus; compiling them
+    // measures TypeDoc.
+    //
+    // Keyed on the generator named in the marker, deliberately NOT on "is this file
+    // generated". The first draft skipped every AUTO-GENERATED page and quietly gave
+    // up real coverage: `reference/api.md`'s three `ts` fences are hand-written
+    // `@example` blocks lifted verbatim out of component JSDoc, so they are exactly
+    // the examples that should be compiled — and one of them was broken.
+    if (/AUTO-GENERATED[^>]*TypeDoc/.test(raw)) {
         skippedGenerated += [...raw.matchAll(/^```tsx?\b/gm)].length;
         continue;
     }

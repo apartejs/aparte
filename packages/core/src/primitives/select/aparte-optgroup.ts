@@ -164,9 +164,3 @@ export class AparteOptgroup extends HTMLElement {
 if (!customElements.get('aparte-optgroup')) {
     customElements.define('aparte-optgroup', AparteOptgroup);
 }
-
-declare global {
-    interface HTMLElementTagNameMap {
-        'aparte-optgroup': AparteOptgroup;
-    }
-}

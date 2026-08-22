@@ -601,9 +601,3 @@ export class AparteSelect extends HTMLElement {
 if (!customElements.get('aparte-select')) {
     customElements.define('aparte-select', AparteSelect);
 }
-
-declare global {
-    interface HTMLElementTagNameMap {
-        'aparte-select': AparteSelect;
-    }
-}

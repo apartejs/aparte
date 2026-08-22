@@ -19,6 +19,9 @@ import './primitives/progress-spinner/progress-spinner.css';
 
 // Global HTMLElementEventMap augmentation — typed `e.detail` for aparté events.
 import './types/event-map.js';
+// Global HTMLElementTagNameMap augmentation — `querySelector('aparte-…')` returns
+// the concrete element, not `Element`. Both are DOM-only, hence browser-entry only.
+import './types/element-map.js';
 
 // Export primitives
 export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, AparteProgressSpinner } from './primitives/index.js';

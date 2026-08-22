@@ -1406,9 +1406,3 @@ export class AparteChatViewport extends HTMLElement {
 if (!customElements.get('aparte-chat-viewport')) {
     customElements.define('aparte-chat-viewport', AparteChatViewport);
 }
-
-declare global {
-    interface HTMLElementTagNameMap {
-        'aparte-chat-viewport': AparteChatViewport;
-    }
-}

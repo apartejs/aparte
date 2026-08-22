@@ -182,9 +182,3 @@ export class AparteChatStatus extends HTMLElement {
 if (!customElements.get('aparte-chat-status')) {
   customElements.define('aparte-chat-status', AparteChatStatus);
 }
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'aparte-chat-status': AparteChatStatus;
-  }
-}

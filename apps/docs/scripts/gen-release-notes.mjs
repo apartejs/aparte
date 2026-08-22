@@ -32,12 +32,12 @@ const raw = readFileSync(SRC, 'utf8');
 const firstVersion = raw.indexOf('\n## ');
 const body = firstVersion === -1 ? raw : raw.slice(firstVersion + 1);
 
-// The AUTO-GENERATED marker is not decoration: `check-doc-snippets` keys off it to
-// tell a generated page from a hand-written one, because a generated page's fences
-// are not examples somebody wrote (TypeDoc prints type signatures, the CEM prints
-// attribute tables) and compiling them as programs measures the generator, not the
-// docs. Four of the five generated pages announced themselves and this one did not,
-// which would have left the guard needing a hardcoded filename instead of a rule.
+// Four of the five generated docs pages announced themselves with this marker and
+// this one did not, which is worth a line of its own: it is the signal a human (or
+// an agent) reads before editing a file whose edits will be overwritten on the next
+// build. `check-doc-snippets` also reads these markers, though it keys on the
+// generator NAMED in them rather than on their mere presence — this page has no code
+// fences at all, so it is unaffected either way.
 const page = `---
 title: Changelog
 description: What shipped in each version of the @aparte/* packages — they are released together, at one version.

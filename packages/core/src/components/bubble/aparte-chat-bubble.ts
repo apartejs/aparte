@@ -1219,9 +1219,3 @@ export class AparteChatBubble extends HTMLElement {
 if (!customElements.get('aparte-chat-bubble')) {
   customElements.define('aparte-chat-bubble', AparteChatBubble);
 }
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'aparte-chat-bubble': AparteChatBubble;
-  }
-}

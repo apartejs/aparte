@@ -205,9 +205,3 @@ export class AparteChat extends HTMLElement {
 if (!customElements.get('aparte-chat')) {
   customElements.define('aparte-chat', AparteChat);
 }
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'aparte-chat': AparteChat;
-  }
-}
