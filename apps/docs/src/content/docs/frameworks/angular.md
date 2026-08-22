@@ -14,6 +14,16 @@ npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
 
 `@aparte/core`, `@angular/core`, `@angular/common` and `rxjs` are **peer dependencies**.
 
+:::caution[Angular 19 only, deliberately]
+The peer range is `^19.2.0` because 19 is the only major this wrapper is built and
+browser-tested against. It is a thin bridge over standard custom elements — no private
+Angular API, no `NgModule` — so 20 through 22 will very likely work, and an override or
+`--legacy-peer-deps` will let you try. We do not widen the range on "very likely":
+[`@aparte/svelte`](/frameworks/svelte/) claims two majors because each is compiled and
+driven in a real browser in CI, and Angular has no second playground yet. Tell us if you
+need a newer major — that is what would justify building one.
+:::
+
 ## `<aparte-chat>`
 
 The components are **standalone** — import them directly, no NgModule:
