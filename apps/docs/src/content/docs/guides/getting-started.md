@@ -29,7 +29,7 @@ For a single `index.html` with no build at all, name the files in an import map:
 <script type="importmap">
   { "imports": { "@aparte/core": "https://esm.sh/@aparte/core@latest" } }
 </script>
-<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/dist/index.css" />
+<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/styles.css" />
 <script type="module">
   import '@aparte/core';
   import { registerDefaultRenderers } from '@aparte/core';

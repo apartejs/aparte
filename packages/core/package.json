@@ -28,8 +28,7 @@
         "./styles.css": {
             "@aparte-workspace/source": "./src/styles/bundle.css",
             "default": "./dist/index.css"
-        },
-        "./dist/index.css": "./dist/index.css"
+        }
     },
     "files": [
         "dist",

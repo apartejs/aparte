@@ -23,7 +23,7 @@ Two ways out:
 <script type="importmap">
   { "imports": { "@aparte/core": "https://esm.sh/@aparte/core@latest" } }
 </script>
-<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/dist/index.css" />
+<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/styles.css" />
 ```
 
 "Framework-agnostic" means no React/Vue/Svelte/Angular. It does not mean no build
