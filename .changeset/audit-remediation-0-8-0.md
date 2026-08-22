@@ -132,6 +132,53 @@ guards that make each class unrepeatable.
 
   `TransformersProvider.chat` is also declared non-optional now, so consumers stop needing
   `provider.chat!(...)`.
+- **Seven documented event contracts are gone, because those events never existed.**
+  Not "undocumented" — the name appeared in the repo only in its own declaration.
+  `aparte-artifact-open` sat in the event map with a detail type asserting it is
+  "dispatched by the artifact pill when a user clicks it"; three hits repo-wide, all
+  three its own declaration.
+
+  | removed | why |
+  | --- | --- |
+  | `AparteTokenEventDetail` | `aparte-token` is dispatched nowhere |
+  | `AparteMessageEventDetail` | `aparte-message` is dispatched nowhere |
+  | `AparteStatusEventDetail` | `aparte-status` is dispatched nowhere |
+  | `AparteToolActionDetail` | its JSDoc names `aparte-tool-action`, which does not exist |
+  | `AparteSegmentActionEvent` | `aparte-segment-action` does not exist |
+  | `AparteConversationUnarchiveDetail` | a dead type on a live event — the dispatcher types both archive branches with `AparteConversationArchiveDetail` |
+
+  Two were renamed rather than deleted, because their shape was right and only the
+  event they named was wrong:
+
+  ```diff
+  - import type { AparteArtifactOpenEventDetail, AparteSegmentUpdateEvent } from '@aparte/core';
+  + import type { AparteArtifactRedownloadEventDetail, AparteSegmentUpdateEventDetail } from '@aparte/core';
+  ```
+
+  `AparteArtifactRedownloadEventDetail` is field-for-field what the Download button
+  really dispatches. `AparteSegmentUpdateEventDetail` was a detail, not an event, and
+  had never reached a package entry point at all — so you could bind an event listed
+  in the published API table and never name its detail. Same for
+  `AparteConversationArchiveDetail`, now exported.
+
+- **Twenty events gained a typed `detail`, so the cast the docs promised you would
+  never write is finally unnecessary.** The map carried 17 entries against 37 events
+  that dispatch a detail. Fourteen had no declared type anywhere — including
+  `aparte-file-gen-ready` / `-error`, where core renders a "Running sandbox…" card and
+  waits on `window` for an event nothing in the library emits, so a consumer had to
+  reverse-engineer six fields from an inline cast to make a binary artifact ever
+  finish. Six more had a public detail type and still forced a cast at every listener.
+
+  Additive for your code, and `check:event-map` now enforces both directions: an event
+  with a detail must be in the map, and a map entry must correspond to a real event.
+
+- **`AparteThemeVariables` is `{ [K in `--aparte-${string}`]?: string }`.** It was a
+  hand-written list of 33 CSS properties, ten of which are neither declared nor read
+  anywhere in aparté — so it autocompleted ten knobs that do nothing — while the real
+  surface is 254 tokens. You lose autocomplete and gain a type that cannot lie; the
+  231 tokens the old list omitted, the whole `aparte-select` surface included, now
+  typecheck. The discoverable list is the generated CSS-variables reference.
+
 - **One name for the imperative surface: `AparteChatImperativeApi`.** React exported it
   as `AparteChatHandle`, Vue and Svelte as `AparteChatInstance`, and Angular exposed no
   name at all — one contract wearing three names in a suite that publishes all four
