@@ -114,6 +114,19 @@ guards that make each class unrepeatable.
   config among several and the one we recommend least. Giving it the canonical name
   pointed at the case we want people to outgrow; `aparteGlobalConfig` says at every call
   site which config you are touching.
+- **`AparteAIProvider` is a union instead of one permissive interface.** It had three
+  required members and fifteen optional ones, holding two mutually sufficient execution
+  surfaces — a `chat()` that owns its own I/O, or the format-adapter surface a transport
+  drives — discriminated at **runtime** by `isFormatAdapter()`. So
+  `{ id, getMetadata, getModels }` typechecked, registered without a word, and failed on
+  the first message. A half-built adapter (`buildRequest` but no `parseStream`) did the
+  same, and so did a complete adapter with no way to present a key.
+
+  Now the compiler answers "which half did you implement?". Every member of both
+  surfaces stays reachable on the union — optional on the arm that does not require it —
+  so `typeof p.buildRequest === 'function'` probes and `isFormatAdapter()` narrowing are
+  unchanged, and a provider implementing both surfaces is still valid. If your provider
+  was complete it compiles as before; if it was one of the shapes above, it never worked.
 - **Every satellite's peer on `@aparte/core` is now the lockstep range** (`~0.8.0`)
   instead of `>=0.5.0-alpha.0 <1.0.0`. The suite has always published in lockstep, so
   that range described a compatibility promise nobody was making or testing: npm was

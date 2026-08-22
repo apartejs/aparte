@@ -150,26 +150,13 @@ export interface AparteAIProviderConfigSchema {
 }
 
 /**
- * Represents an AI provider (e.g., OpenRouter, OpenAI, Anthropic).
- * 
- * Providers can return a static list of models or fetch them dynamically.
- * 
- * @example
- * ```typescript
- * const provider: AparteAIProvider = {
- *   id: 'openrouter',
- *   getMetadata: () => ({
- *     name: 'OpenRouter',
- *     id: 'openrouter',
- *     icon: '<svg>...</svg>',
- *     color: '#000000',
- *     helpUrl: 'https://openrouter.ai/keys'
- *   }),
- *   getModels: () => [...]
- * };
- * ```
+ * What every provider carries, whichever half of the contract it implements:
+ * an identity, brand metadata, and a synchronous model list.
+ *
+ * On its own this is **not** a usable provider — see {@link AparteAIProvider},
+ * which requires one of the two execution surfaces as well.
  */
-export interface AparteAIProvider {
+export interface AparteAIProviderCore {
     /** Unique identifier for the provider */
     id: string;
 
@@ -197,47 +184,6 @@ export interface AparteAIProvider {
      * @param config - Optional API key or full configuration object for authenticated requests
      */
     fetchModels?(config?: string | Record<string, string>): Promise<AparteAIModel[]>;
-
-    /**
-     * Execute a chat request directly. **Optional** — HTTP providers expose the
-     * format-adapter surface below and are driven by an `AparteTransport` instead;
-     * providers that own their own I/O (Transformers.js locally, or a bridge
-     * wrapping an external SDK) implement `chat`, to which `AparteDirectTransport`
-     * delegates.
-     *
-     * @param request - The chat request options (messages, model, etc.)
-     * @param config - Optional API key or full configuration object
-     * @param ctx - Transport context (structurally mirrors `AparteTransportContext`;
-     *   inline to avoid a type cycle with `transport/types`). `signal` aborts the
-     *   in-flight call — bridges MUST honor it so a user "stop" cancels the
-     *   underlying request, not just the local read.
-     * @returns ReadableStream for streaming or string for full response
-     */
-    chat?(
-        request: AparteChatRequest,
-        config?: string | Record<string, string>,
-        ctx?: { providerId: string; signal?: AbortSignal },
-    ): Promise<AparteChatResponse>;
-
-    // ── Format-adapter surface (transport ⊥ format) ─────────────────────────
-    // A provider migrating to a pure format adapter exposes these instead of
-    // owning fetch+key in `chat()`. When all four are present, `AparteTransport`
-    // implementations (AparteDirectTransport/AparteBackendTransport) drive the request and
-    // the provider only shapes the payload and parses the stream. See
-    // `src/transport/`. All optional so un-migrated providers stay valid.
-
-    /** Build the vendor HTTP request from an Aparte request (auth injected by the transport). */
-    buildRequest?(request: AparteChatRequest): { path: string; body: unknown; headers?: Record<string, string> };
-    /** Vendor auth headers for a resolved key (browser-direct only). */
-    authHeaders?(key: string): Record<string, string>;
-    /** Vendor auth as URL query params for a resolved key (e.g. Gemini `?key=`). */
-    authQuery?(key: string): Record<string, string>;
-    /** Base URL for browser-direct calls (overridable per request via config). */
-    defaultEndpoint?: string;
-    /** Parse a streaming vendor response body into unified events. */
-    parseStream?(body: ReadableStream<Uint8Array>): ReadableStream<AparteStreamEvent>;
-    /** Extract text from a non-streaming vendor JSON response. */
-    parseText?(json: unknown): string;
 
     /**
      * Optional. Returns the availability status of a model.
@@ -268,6 +214,102 @@ export interface AparteAIProvider {
      */
     deleteModel?(modelId: string): Promise<void>;
 }
+
+/**
+ * Execution surface for a provider that **owns its own I/O** — Transformers.js
+ * running locally, or a bridge wrapping an external SDK. `AparteDirectTransport`
+ * delegates to `chat()` and stays out of the way.
+ */
+export interface AparteAIProviderChat {
+    /**
+     * @param request - The chat request options (messages, model, etc.)
+     * @param config - Optional API key or full configuration object
+     * @param ctx - Transport context (structurally mirrors `AparteTransportContext`;
+     *   inline to avoid a type cycle with `transport/types`). `signal` aborts the
+     *   in-flight call — bridges MUST honor it so a user "stop" cancels the
+     *   underlying request, not just the local read.
+     * @returns ReadableStream for streaming or string for full response
+     */
+    chat(
+        request: AparteChatRequest,
+        config?: string | Record<string, string>,
+        ctx?: { providerId: string; signal?: AbortSignal },
+    ): Promise<AparteChatResponse>;
+}
+
+/**
+ * Execution surface for a provider that only **shapes payloads** (transport ⊥
+ * format): an `AparteTransport` performs the call and handles auth, and the
+ * provider builds the request and parses the stream. See `src/transport/`.
+ */
+export interface AparteAIProviderFormat {
+    /** Base URL for browser-direct calls (overridable per request via config). */
+    defaultEndpoint: string;
+    /** Build the vendor HTTP request from an Aparte request (auth injected by the transport). */
+    buildRequest(request: AparteChatRequest): { path: string; body: unknown; headers?: Record<string, string> };
+    /** Parse a streaming vendor response body into unified events. */
+    parseStream(body: ReadableStream<Uint8Array>): ReadableStream<AparteStreamEvent>;
+    /** Extract text from a non-streaming vendor JSON response. */
+    parseText?(json: unknown): string;
+}
+
+/** Both ways a format adapter can present a resolved key. At least one is required. */
+export interface AparteAIProviderAuthMembers {
+    /** Vendor auth headers for a resolved key (browser-direct only). */
+    authHeaders?(key: string): Record<string, string>;
+    /** Vendor auth as URL query params for a resolved key (e.g. Gemini `?key=`). */
+    authQuery?(key: string): Record<string, string>;
+}
+
+/**
+ * A format adapter with no way to present a key cannot be called, so the union
+ * demands one of the two — mirroring `isFormatAdapter`, which accepts either.
+ */
+export type AparteAIProviderAuth =
+    | (AparteAIProviderAuthMembers & { authHeaders(key: string): Record<string, string> })
+    | (AparteAIProviderAuthMembers & { authQuery(key: string): Record<string, string> });
+
+/**
+ * An AI provider (e.g. OpenRouter, OpenAI, Transformers.js).
+ *
+ * A **union, not one interface**, because there are two mutually sufficient ways
+ * to be a provider and the compiler should say which one you implemented. It used
+ * to be a single interface with three required members and fifteen optional ones,
+ * discriminated at RUNTIME by `isFormatAdapter()` — so `{ id, getMetadata,
+ * getModels }` typechecked, registered, and then failed on the first message with
+ * nothing at build time to warn you.
+ *
+ * Every member of both surfaces stays reachable on the union (optional on the arm
+ * that does not require it), so runtime probes like `typeof p.buildRequest ===
+ * 'function'` and `isFormatAdapter()` narrowing keep working unchanged. A provider
+ * implementing both surfaces is valid and satisfies the format arm.
+ *
+ * @example A format adapter — a transport does the call
+ * ```typescript
+ * const provider: AparteAIProvider = {
+ *   id: 'openrouter',
+ *   getMetadata: () => ({ name: 'OpenRouter', id: 'openrouter', icon: '<svg/>', color: '#000' }),
+ *   getModels: () => [],
+ *   defaultEndpoint: 'https://openrouter.ai/api/v1',
+ *   buildRequest: (req) => ({ path: '/chat/completions', body: req }),
+ *   authHeaders: (key) => ({ Authorization: `Bearer ${key}` }),
+ *   parseStream: (body) => body as unknown as ReadableStream<AparteStreamEvent>,
+ * };
+ * ```
+ *
+ * @example A provider owning its own I/O
+ * ```typescript
+ * const local: AparteAIProvider = {
+ *   id: 'transformers',
+ *   getMetadata: () => ({ name: 'Transformers.js', id: 'transformers', icon: '<svg/>', color: '#000' }),
+ *   getModels: () => [],
+ *   chat: async (request) => runLocally(request),
+ * };
+ * ```
+ */
+export type AparteAIProvider =
+    | (AparteAIProviderCore & AparteAIProviderFormat & AparteAIProviderAuth & Partial<AparteAIProviderChat>)
+    | (AparteAIProviderCore & AparteAIProviderChat & Partial<AparteAIProviderFormat> & AparteAIProviderAuthMembers);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Model Configuration
