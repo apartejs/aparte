@@ -86,6 +86,7 @@ describe('@aparte/core public API', () => {
             "registerSegmentRenderer",
             "requestUserInput",
             "resolveConfig",
+            "revokeAttachmentUrls",
             "runWithConfig",
             "unregisterSegmentRenderer",
             "uuid",

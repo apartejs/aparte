@@ -109,6 +109,30 @@ chat.appendMessage({
 });
 ```
 
+### Releasing the previews
+
+Each attachment's `url` comes from `URL.createObjectURL`, which keeps the underlying
+`File` alive for as long as the document. That is what you want while the attachment is
+on screen — and a leak once it is not: a long session that sends many files holds on to
+every one of them.
+
+`revokeAttachmentUrls(attachments)` releases them. Only you know when an attachment
+stops being rendered (a persisted conversation may re-render one much later), so it is a
+call you make rather than something the conversion can schedule:
+
+```ts
+import { revokeAttachmentUrls } from '@aparte/core';
+import type { AparteMessage } from '@aparte/core';
+
+function dropConversation(messages: AparteMessage[]): void {
+  for (const message of messages) revokeAttachmentUrls(message.attachments);
+}
+```
+
+Calling it twice is harmless, and the `blob` is left in place so a storage adapter can
+still rebuild the url. `<aparte-chat-viewport>`'s `clearAll()` already does this for the
+messages it drops.
+
 ## What gets sent to the model
 
 Before the provider sees anything, `AparteClient` decides which pending files are inlined into

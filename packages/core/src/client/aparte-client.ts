@@ -295,6 +295,7 @@ export class AparteClient {
     }
     /** Aborts the in-flight vendor/transport fetch when the user stops a stream. */
     private _streamController: AbortController | null = null;
+
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
     private readonly _config: AparteConfigClass;
@@ -395,6 +396,17 @@ export class AparteClient {
      * Stop listening.
      */
     stop(): void {
+        // Abort what is in flight, not just the listeners.
+        //
+        // `stop()` used to remove event handlers and nothing else, so a wrapper
+        // unmounting mid-stream — both `useAparteClient` and the Svelte store call
+        // this on teardown — left the vendor request running: the user navigates
+        // away and the tokens keep being generated and billed, with nothing left on
+        // the page to render them.
+        //
+        // Before the early return: a client that was never `start()`ed can still
+        // have a stream, because `_handleSend` can be invoked directly.
+        this.abort();
         if (!this._boundHandler) return;
         window.removeEventListener('aparte-send', this._boundHandler);
         this._boundHandler = null;
@@ -636,8 +648,19 @@ export class AparteClient {
                 stream: false
             };
 
-            // 6. Call provider (non-streaming)
-            const response = await this._config.getTransport().chat(provider, summarizeRequest, authConfig, { providerId: provider.id });
+            // 6. Call provider (non-streaming), WITH a signal.
+            //
+            // This call had none, so `abort()` could not stop it: a summarisation the
+            // user cancelled kept running and kept being billed, and its result
+            // arrived to overwrite a conversation the user had moved on from. It goes
+            // through the same controller slot as a turn so `abort()` and `stop()`
+            // reach it.
+            const compactController = new AbortController();
+            this._streamController = compactController;
+            const response = await this._config.getTransport().chat(
+                provider, summarizeRequest, authConfig,
+                { providerId: provider.id, signal: compactController.signal },
+            );
             let summary: string;
             if (typeof response === 'string') {
                 summary = response;
@@ -1688,6 +1711,23 @@ export class AparteClient {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
         // rather than only stopping client-side reading of the stream.
+        // A NEW turn abandons the previous one, and abandoning means cutting it.
+        //
+        // `_streamController` is a single slot overwritten on each turn, and nothing
+        // guards `_handleSend` / `_handleRetry` / `_handleEdit` against a turn already
+        // in flight — so the first turn became unabortable: `abort()` reached only the
+        // newest signal while the older stream kept generating and kept being billed,
+        // with nothing left on the page to render it.
+        //
+        // Reachable without doing anything unusual: the composer converts
+        // submit-while-streaming into a cancel, but the action bar is hidden only on
+        // the bubble carrying `data-streaming`, so retry or edit on any EARLIER bubble
+        // is clickable mid-stream and starts a second loop.
+        //
+        // Cutting the old one rather than tracking both, because two simultaneous
+        // assistant turns on one chat is not a state this UI has — and "we walked away
+        // from a stream, so cancel it" is already the rule everywhere else here.
+        this._streamController?.abort();
         const streamController = new AbortController();
         this._streamController = streamController;
 

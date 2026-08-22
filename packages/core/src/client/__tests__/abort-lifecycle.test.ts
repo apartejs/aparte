@@ -212,3 +212,60 @@ describe('AparteClient — Stop before the first event arrives', () => {
         expect(events).toEqual(['aparte-message-error']);
     });
 });
+
+describe('nothing keeps generating after the page stops caring', () => {
+    const harness = () => {
+        const cfg = new AparteConfigClass();
+        cfg.registerAIProvider({
+            id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+        } as never);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        const signals: AbortSignal[] = [];
+        cfg.setTransport({
+            chat: (_p: unknown, _r: unknown, _a: unknown, ctx: { signal?: AbortSignal }) => {
+                if (ctx?.signal) signals.push(ctx.signal);
+                // Never resolves on its own: the only way out is an abort.
+                return new Promise<never>(() => {});
+            },
+        } as never);
+        const el = document.createElement('div');
+        for (const m of ['updateMessage', 'addSegment', 'updateSegment', 'setUsage', 'updateLastMessage', 'appendMessage']) {
+            (el as unknown as Record<string, unknown>)[m] = () => {};
+        }
+        (el as unknown as Record<string, unknown>).getMessages = () => [];
+        return { cfg, el, signals };
+    };
+
+    const send = (client: unknown, el: HTMLElement, text: string): Promise<void> =>
+        (client as { _handleSend: (e: Event) => Promise<void> })._handleSend(
+            new CustomEvent('aparte-send', { detail: { content: text } }),
+        ) as Promise<void>;
+
+    it('stop() aborts the stream in flight, not just the listeners', async () => {
+        const { cfg, el, signals } = harness();
+        const client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => el as never } as never);
+        void send(client, el, 'go');
+        await new Promise((r) => setTimeout(r, 0));
+        expect(signals.length, 'the transport was never called').toBe(1);
+
+        // Both wrappers call stop() on teardown. It used to only remove listeners,
+        // so unmounting mid-stream left the vendor request generating and billing.
+        (client as unknown as { stop: () => void }).stop();
+        expect(signals[0]!.aborted, 'the stream survived the teardown').toBe(true);
+    });
+
+    it('a second turn cuts the first, so the abandoned one cannot keep billing', async () => {
+        const { cfg, el, signals } = harness();
+        const client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => el as never } as never);
+        void send(client, el, 'first');
+        await new Promise((r) => setTimeout(r, 0));
+        void send(client, el, 'second');
+        await new Promise((r) => setTimeout(r, 0));
+
+        expect(signals.length, 'two turns should have reached the transport').toBe(2);
+        expect(signals[0]!.aborted, 'the first turn was left unabortable').toBe(true);
+        expect(signals[1]!.aborted, 'the second turn must still be live').toBe(false);
+    });
+});

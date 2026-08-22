@@ -13,6 +13,7 @@ import type { ExportedMessageRepository } from '../../runtime/message-repository
 import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble-sync.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
+import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
 
 /**
@@ -249,7 +250,32 @@ export class AparteChatViewport extends HTMLElement {
      * framework wrapper's host element.
      */
     private _activeMessageId(): string | null {
-        return this._repo.headId;
+        // The head, UNLESS a different message is the one actually streaming.
+        //
+        // The 1-argument convention means "operate on the message being streamed",
+        // and this resolved it as "the head" — but `appendMessage` always moves the
+        // head (the repository advances it to any new child). So any message appended
+        // mid-stream re-pointed the rest of the reply: measured with the real element,
+        // segment two of message A landed on message B, and `updateSegment` for a
+        // segment that genuinely lives on A became a silent no-op.
+        //
+        // `AparteChatHost` has had `_isOrphan` for exactly this, which is why the
+        // framework wrappers were protected and the raw viewport — the documented
+        // vanilla quick start — was not. Refusing, like the host does, rather than
+        // routing: losing the tail is visible, writing it onto someone else's message
+        // is not.
+        const head = this._repo.headId;
+        const streaming = this._streamingMessageId();
+        if (streaming !== null && streaming !== head) return null;
+        return head;
+    }
+
+    /** The id of the message currently streaming, if any. */
+    private _streamingMessageId(): string | null {
+        for (const message of this._repo.getMessages()) {
+            if ((message as { isStreaming?: boolean }).isStreaming) return message.id;
+        }
+        return null;
     }
 
     /**
@@ -655,6 +681,13 @@ export class AparteChatViewport extends HTMLElement {
      * next change-detection pass throws `NotFoundError` on insertBefore.
      */
     clearAll(): void {
+        // Release the attachments' object URLs before dropping the messages: after
+        // `_repo.clear()` there is no way left to reach them, and nothing else
+        // revoked them — so every `File` a session had sent stayed reachable for the
+        // life of the page.
+        for (const message of this._repo.getMessages()) {
+            revokeAttachmentUrls(message.attachments);
+        }
         this._repo.clear();
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');

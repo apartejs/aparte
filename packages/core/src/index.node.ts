@@ -192,7 +192,7 @@ export type { ExportedMessageRepository } from './runtime/message-repository.js'
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
 // Same rule: DOM-free at import (it only reaches for `URL.createObjectURL` when
 // CALLED, which is a browser-side concern), so it belongs on the SSR surface too.
-export { filesToAttachments } from './utils/files-to-attachments.js';
+export { filesToAttachments, revokeAttachmentUrls } from './utils/files-to-attachments.js';
 // Is a message waiting for a reply? Shared by the viewport, the four wrappers and
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';
