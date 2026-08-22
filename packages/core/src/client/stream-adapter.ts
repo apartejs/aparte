@@ -254,10 +254,16 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                             streaming.add(segment.id);
                         }
                     }
-                    if (r.segments.length === 0 && !parser.getState().activeSegment) {
-                        if (target.typeName) target.typeName(e.delta);
-                        else target.updateLastMessage?.(e.delta, { append: true });
-                    }
+                    // The raw-delta fallback is gone from BOTH loops. It fired only
+                    // when the parser had withheld an ambiguous prefix, wrote those
+                    // characters into `message.content`, and history then preferred
+                    // that field over the rendered segments — so a reply opening with
+                    // a code fence was sent back to the model as three backticks.
+                    // The parser keeps the text and `finalize()` flushes it.
+                    //
+                    // This sibling is explicit because the condition here already
+                    // consulted `activeSegment`, so it read as more careful than
+                    // core's — and was exactly as wrong.
                     break;
                 }
                 const result = parser.parse(e.delta);
@@ -301,8 +307,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         }
                     }
                 } else if (result.segments.length === 0) {
-                    if (target.typeName) target.typeName(e.delta);
-                    else target.updateLastMessage?.(e.delta, { append: true });
+                // Nothing: see the note on the other feeder. The parser is holding
+                // an ambiguous prefix, and writing it here duplicated it into
+                // `message.content`, which history preferred over the segments.
                 }
                 break;
             }

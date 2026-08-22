@@ -511,3 +511,59 @@ describe('runStreamAgent — parity on WALKING AWAY from a live stream', () => {
         expect(await drive({ streamRunner: runStreamAgent })).toHaveBeenCalled();
     });
 });
+
+describe('a streamed turn never writes a withheld prefix into `content`', () => {
+    /**
+     * The other half of the same bug, at its source. The loops had a branch that
+     * wrote the raw delta whenever the parser reported no segments — which only
+     * happens when it is holding an ambiguous prefix, because a real text delta
+     * always leaves an active segment. So those characters were duplicated into
+     * `content`, and history preferred that field.
+     *
+     * Asserted on BOTH loops: core's inline one and the injected runner.
+     */
+    const driveFenceOpening = async (streamRunner?: unknown): Promise<string[]> => {
+        const cfg = new AparteConfigClass();
+        cfg.registerAIProvider({
+            id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+        } as never);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        cfg.setTransport({
+            chat: () => new ReadableStream({
+                start(c) {
+                    c.enqueue({ type: 'text', delta: '```' });
+                    c.enqueue({ type: 'text', delta: 'py\nprint(1)\n```' });
+                    c.enqueue({ type: 'done' });
+                    c.close();
+                },
+            }),
+        } as never);
+
+        const rawWrites: string[] = [];
+        const el = document.createElement('div');
+        for (const m of ['updateMessage', 'addSegment', 'updateSegment', 'setUsage', 'appendMessage']) {
+            (el as unknown as Record<string, unknown>)[m] = () => {};
+        }
+        (el as unknown as Record<string, unknown>).updateLastMessage = (text: string) => { rawWrites.push(text); };
+        (el as unknown as Record<string, unknown>).getMessages = () => [];
+
+        const client = new AparteClient({
+            config: cfg, autoRegister: false, targetResolver: () => el as never,
+            ...(streamRunner ? { streamRunner } : {}),
+        } as never);
+        await (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
+            new CustomEvent('aparte-send', { detail: { content: 'show me a snippet' } }),
+        );
+        return rawWrites;
+    };
+
+    it("core's inline loop never emits the bare fence as content", async () => {
+        expect(await driveFenceOpening()).not.toContain('```');
+    });
+
+    it('the injected runner does not either', async () => {
+        expect(await driveFenceOpening(runStreamAgent)).not.toContain('```');
+    });
+});

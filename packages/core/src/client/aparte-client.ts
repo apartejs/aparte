@@ -1091,14 +1091,65 @@ export class AparteClient {
             .filter(m => m.content.length > 0);
     }
 
+    /**
+     * What the model is told it said last turn — reconstructed from what was
+     * RENDERED, not from the raw-text field.
+     *
+     * The order used to be the other way round, and it silently corrupted the
+     * context on the most common opening in a coding chat: a reply starting with a
+     * code fence was sent back as three backticks and nothing else. Three
+     * correct-in-isolation decisions composed into it:
+     *
+     *  1. the parser withholds an ambiguous prefix (``` ``` ```, `` ` ``, `<`)
+     *     waiting for the next delta, and creates no active segment while it waits;
+     *  2. so `_streamLoop` sees zero segments, concludes the parser produced
+     *     nothing, and appends the raw delta straight to `message.content`;
+     *  3. and this method preferred `content`.
+     *
+     * The bubble hides its content element as soon as segments exist, so the UI was
+     * perfect and only the NEXT request showed it. No unit test, no playground and
+     * no browser test could see it.
+     *
+     * `content` stays as the fallback, and that is not vestigial: a non-streaming
+     * transport writes the whole reply there and creates no segments at all.
+     */
     private _extractText(message: AparteMessage): string {
+        const rendered = this._segmentsToText(message.segments);
+        if (rendered) return rendered;
         if (typeof message.content === 'string' && message.content) return message.content;
-        if (!message.segments) return '';
-        return message.segments
-            .filter(s => s.type === 'text' || s.type === 'code')
-            .map(s => (s as { content?: string }).content ?? '')
-            .join('\n')
-            .trim();
+        return '';
+    }
+
+    /**
+     * Segments → the text a model can read back.
+     *
+     * Fences and the language tag are kept. Without them the model re-reads its own
+     * code as prose — which is how it starts explaining a snippet it believes it
+     * wrote in English. Artifacts are included for the same reason: dropping them
+     * made an artifact the model had just produced invisible on the very next turn,
+     * so it could not be asked to change the thing it had built.
+     *
+     * `thinking` stays out on purpose — it is the model's own scratchpad, and most
+     * APIs neither want it back nor bill for it kindly.
+     */
+    private _segmentsToText(segments: AparteMessage['segments']): string {
+        if (!segments?.length) return '';
+        const fence = '```';
+        const parts: string[] = [];
+        for (const segment of segments) {
+            const content = (segment as { content?: string }).content ?? '';
+            if (segment.type === 'text') {
+                if (content) parts.push(content);
+            } else if (segment.type === 'code') {
+                const lang = (segment as { language?: string }).language ?? '';
+                parts.push(`${fence}${lang}\n${content}\n${fence}`);
+            } else if (segment.type === 'artifact') {
+                const title = (segment as { title?: string }).title ?? 'artifact';
+                const kind = (segment as { artifactType?: string }).artifactType ?? '';
+                parts.push(`${fence}${kind}\n<!-- artifact: ${title} -->\n${content}\n${fence}`);
+            }
+        }
+        return parts.join('\n').trim();
     }
 
     /**
@@ -1227,8 +1278,9 @@ export class AparteClient {
                     targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
                 }
             } else if (!r.segments.length && !active) {
-                if (targetElement.typeName) targetElement.typeName(text);
-                else targetElement.updateLastMessage?.(text, { append: true });
+                // Nothing: see the note on the other feeder. The parser is holding
+                // an ambiguous prefix, and writing it here duplicated it into
+                // `message.content`, which history preferred over the segments.
             }
         };
 
@@ -1878,8 +1930,21 @@ export class AparteClient {
                                     }
                                 }
                             } else if (result.segments.length === 0) {
-                                if (targetElement.typeName) targetElement.typeName(event.delta);
-                                else targetElement.updateLastMessage?.(event.delta, { append: true });
+                                // NOTHING here on purpose. This branch used to write
+                                // the raw delta into `message.content`, and it is the
+                                // second half of the history corruption: it only ever
+                                // fires when the parser has withheld an ambiguous
+                                // prefix (``` / ` / <) — a real text delta always
+                                // leaves an ACTIVE segment, which the branch above
+                                // handles. Measured: `parse('a b')` gives 0 segments
+                                // and an active text segment; `parse('```')` gives 0
+                                // and none.
+                                //
+                                // So the parser is holding those characters, and
+                                // `finalize()` flushes them as a text segment if the
+                                // stream ends there — verified. Writing them out here
+                                // duplicated them into a field that history then
+                                // preferred over what was rendered.
                             }
                             break;
                         }
