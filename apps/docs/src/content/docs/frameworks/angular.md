@@ -142,6 +142,15 @@ interactive aparté events by default; pass `[events]` to listen to others:
 />
 ```
 
+:::note[Where that element comes from]
+`aparte-model-selector` is **not** in `@aparte/core` — it is defined by
+[`@aparte/plugin-model-selector`](/plugins/model-selector/), and importing that package is
+what registers it. Until then the tag renders as an empty, inert element with no error:
+a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
+own the moment the definition arrives — which is exactly why `provideAparte`'s lazy
+`plugins` loaders work. `<aparte-ui>` mounts any element name, including your own.
+:::
+
 ## Also exported
 
 - `ConversationManagerService` — signal-based view over the core `AparteConversationManager` (list /

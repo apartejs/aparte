@@ -92,6 +92,15 @@ import { AparteUi } from '@aparte/react';
 <AparteUi name="aparte-model-selector" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
 ```
 
+:::note[Where that element comes from]
+`aparte-model-selector` is **not** in `@aparte/core` — it is defined by
+[`@aparte/plugin-model-selector`](/plugins/model-selector/), and importing that package is
+what registers it. Until then the tag renders as an empty, inert element with no error:
+a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
+own the moment the definition arrives — which is exactly why loading the plugin lazily
+works. `AparteUi` mounts any element name, including your own.
+:::
+
 ## Also exported
 
 - `useConversationManager` — React-state view over the core `AparteConversationManager` (list / create /

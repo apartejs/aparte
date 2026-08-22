@@ -26,6 +26,11 @@ export interface AparteUiHandle {
  * you don't need a dedicated React wrapper per element. React equivalent of
  * Angular's `AparteUiComponent`.
  *
+ * `name` can be any custom element, including one of yours. `aparte-model-selector`
+ * below is defined by `@aparte/plugin-model-selector`, not by core — until that
+ * package is imported the tag mounts empty and inert with no error, and upgrades on
+ * its own once the definition arrives (which is what makes lazy-loading it work).
+ *
  * @example
  * <AparteUi name="aparte-model-selector" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
  */

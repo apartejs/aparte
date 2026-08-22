@@ -6,6 +6,14 @@ one de-facto-standard format; everything else (Anthropic, Google, Bedrock, 25+ v
 the AI SDK ecosystem through this bridge. You bring your `@ai-sdk/*` package, hand its model to
 `createAiSdkProvider`, and the bridge maps `streamText`'s `fullStream` to aparté's events.
 
+```bash
+npm install @aparte/provider-ai-sdk @aparte/core ai @ai-sdk/anthropic
+```
+
+`ai` and your chosen `@ai-sdk/*` vendor package are **peer dependencies** — you pick the
+versions, and only the vendors you actually use end up in your bundle. `@aparte/core` is a
+peer too.
+
 ```ts
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAiSdkProvider } from '@aparte/provider-ai-sdk';

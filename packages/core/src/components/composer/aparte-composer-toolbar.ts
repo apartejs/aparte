@@ -24,6 +24,10 @@
  *       <aparte-composer-send></aparte-composer-send>
  *     </div>
  *
+ *     <!-- `aparte-model-selector` is NOT part of core: importing
+ *          `@aparte/plugin-model-selector` is what defines it. Until then the tag
+ *          renders empty and inert with no error, and upgrades by itself when the
+ *          definition arrives. Any element of your own works here too. -->
  *     <aparte-composer-toolbar>
  *       <my-mode-picker></my-mode-picker>
  *       <aparte-model-selector style="margin-inline-start:auto"></aparte-model-selector>

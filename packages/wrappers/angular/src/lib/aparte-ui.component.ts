@@ -29,6 +29,12 @@ export interface AparteUiHandle {
  * A pass-through proxy component that dynamically injects any aparté
  * Web Component, so you don't need a dedicated Angular wrapper per element.
  *
+ * `name` can be any custom element, including one of yours. `aparte-model-selector`
+ * below is defined by `@aparte/plugin-model-selector`, not by core — until that
+ * package is imported the tag mounts empty and inert with no error, and upgrades on
+ * its own once the definition arrives, which is what makes `provideAparte`'s lazy
+ * `plugins` loaders work.
+ *
  * @example
  * ```html
  * <aparte-ui

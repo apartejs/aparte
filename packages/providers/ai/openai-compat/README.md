@@ -5,6 +5,12 @@ OpenRouter, Z.ai, Groq, Together, LM Studio, Ollama (`/v1`) and friends all spea
 wire format, so they share a single, **zero-dependency** format adapter. Vendors differ only
 by data (base URL, auth header, branding), passed as config or picked from `presets`.
 
+```bash
+npm install @aparte/provider-openai-compat @aparte/core
+```
+
+`@aparte/core` is the only **peer dependency**; this adapter itself has none.
+
 ```ts
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { aparteGlobalConfig } from '@aparte/core';
