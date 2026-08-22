@@ -12,4 +12,4 @@
   onReady(createAparteClient(options));
 </script>
 
-<div data-client-host />
+<div data-client-host></div>

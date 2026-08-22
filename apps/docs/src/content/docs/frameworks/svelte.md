@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-`@aparte/svelte` wraps `@aparte/core` for Svelte 4: an ergonomic `<AparteChat>` component, store
+`@aparte/svelte` wraps `@aparte/core` for Svelte 4 **and 5**: an ergonomic `<AparteChat>` component, store
 factories for state and the client, and a generic `<AparteUi>` escape hatch.
 
 ```bash

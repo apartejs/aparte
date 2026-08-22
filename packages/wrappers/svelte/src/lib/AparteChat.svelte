@@ -232,11 +232,10 @@
           data-role={m.role}
           timestamp={m.timestamp}
           content={m.content}
-          streaming={isAwaitingReply(m) ? '' : null}
-        />
+          streaming={isAwaitingReply(m) ? '' : null}></aparte-chat-bubble>
       </slot>
     {/each}
-    <aparte-chat-status visible={typingActive ? '' : null} text={typingText} />
+    <aparte-chat-status visible={typingActive ? '' : null} text={typingText}></aparte-chat-status>
   </aparte-chat-viewport>
 
   <!-- Content above the composer (banner, disclaimer, context chip). -->

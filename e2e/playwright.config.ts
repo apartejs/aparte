@@ -25,6 +25,8 @@ const PORTS = {
     angular: 5304,
     vanilla: 5305,
     'demo-vanilla': 5306,
+    // The same app as `svelte`, on Svelte 5 — see apps/playgrounds/svelte5/README.
+    svelte5: 5307,
 } as const;
 
 type AppKey = keyof typeof PORTS;
@@ -36,6 +38,7 @@ const APP_DIRS: Record<AppKey, string> = {
     react: 'apps/playgrounds/react',
     vue: 'apps/playgrounds/vue',
     svelte: 'apps/playgrounds/svelte',
+    svelte5: 'apps/playgrounds/svelte5',
     vanilla: 'apps/playgrounds/vanilla',
     'demo-vanilla': 'apps/playgrounds/demo-vanilla',
     angular: 'apps/playgrounds/angular',
@@ -66,6 +69,7 @@ const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
     react: { server: viteServer('react') },
     vue: { server: viteServer('vue') },
     svelte: { server: viteServer('svelte') },
+    svelte5: { server: viteServer('svelte5') },
     vanilla: { server: viteServer('vanilla') },
     'demo-vanilla': { server: viteServer('demo-vanilla') },
     // Angular uses its own CLI dev server (no Vite).
@@ -124,6 +128,10 @@ const suiteFor = (k: AppKey): RegExp[] =>
     k === 'demo-vanilla' ? [DEMO] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, ...DEEP] :
+    // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
+    // other major — so it runs the boundary smoke and the toolbar row, not the deep
+    // behaviour suites (those are about core, which is major-agnostic).
+    k === 'svelte5' ? [SMOKE, AXE, TOOLBAR] :
     // TOOLBAR runs on all five: it measures the same row rendered by five different
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the

@@ -8,4 +8,4 @@
   onReady(createConversationManager());
 </script>
 
-<div data-conversation-host />
+<div data-conversation-host></div>
