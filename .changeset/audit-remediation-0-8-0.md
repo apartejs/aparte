@@ -114,6 +114,17 @@ guards that make each class unrepeatable.
   config among several and the one we recommend least. Giving it the canonical name
   pointed at the case we want people to outgrow; `aparteGlobalConfig` says at every call
   site which config you are touching.
+- **Every satellite's peer on `@aparte/core` is now the lockstep range** (`~0.8.0`)
+  instead of `>=0.5.0-alpha.0 <1.0.0`. The suite has always published in lockstep, so
+  that range described a compatibility promise nobody was making or testing: npm was
+  happy to install `@aparte/react@0.8.0` beside `@aparte/core@0.5.0`, and the failure
+  landed at runtime with no warning at install. This very release makes the point —
+  under the old range, `@aparte/react@0.8.0` would install against `@aparte/core@0.7.1`
+  and then fail on an `aparteGlobalConfig` that does not exist there.
+
+  If you install the packages together, or with `latest`, nothing changes. If you were
+  pinning `@aparte/core` behind the wrappers, npm now tells you at install time instead
+  of at first render.
 - `@aparte/svelte` ships its `.svelte` sources instead of a precompiled bundle, and
   supports Svelte 4 **and** 5 (`^4.0.0 || ^5.0.0`). Nothing to change in your code, unless
   you were importing from a deep path inside `dist`.

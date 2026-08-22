@@ -37,7 +37,7 @@
   "peerDependencies": {
     "@angular/common": "^19.2.0",
     "@angular/core": "^19.2.0",
-    "@aparte/core": ">=0.5.0-alpha.0 <1.0.0",
+    "@aparte/core": "workspace:~",
     "rxjs": "^7.8.0"
   },
   "devDependencies": {
