@@ -20,7 +20,6 @@ function partialXmlOpenTagLength(text: string): number {
     return 0;
 }
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
-import { assertNever } from '../utils/assert-never.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
 import type { AparteStreamRunner, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
@@ -1306,8 +1305,23 @@ export class AparteClient {
                     // Emit chat text before the opening tag — WITHOUT flushing the
                     // active segment (see `syncActive` above; the parity suite pins it).
                     emitChatText(remaining.slice(0, tagStart), false);
-                    xml.scanBuf = remaining.slice(tagStart);
-                    remaining = '';
+                    // The tail goes through `remaining`, NOT into `scanBuf`.
+                    //
+                    // Parking it in `scanBuf` and clearing `remaining` ended the
+                    // `while` loop immediately, so a complete
+                    // `<artifact …>…</artifact>` arriving in ONE delta was never
+                    // processed: no artifact segment, no lifecycle events, and the
+                    // prose AFTER the closing tag was silently dropped as well. The
+                    // finalize block only flushes `state === 'in-artifact'`, so
+                    // `scanning` was a dead end.
+                    //
+                    // The `scanning` state already knows how to resume (it accumulates
+                    // `remaining` and hands the tail back after `>`), so it just had to
+                    // be allowed to run. Reachable from a non-SSE `AparteBackendTransport`,
+                    // a buffering provider, or `injectTokenStream`; the parity suite's
+                    // scenario split the tag across two deltas and stepped right past it.
+                    xml.scanBuf = '';
+                    remaining = remaining.slice(tagStart);
                     xml.state = 'scanning';
                 }
             } else if (xml.state === 'scanning') {
@@ -1751,7 +1765,25 @@ export class AparteClient {
             const response = await this._config.getTransport().chat(provider, request, authConfig, { providerId: provider.id, signal: streamController.signal });
 
             if (typeof response === 'string') {
-                this._updateMessage(targetElement, messageId, { content: response, status: 'completed' });
+                // PARSED, like every other reply. Writing the raw string to `content`
+                // meant a non-streaming backend rendered literal ``` fences and got no
+                // code, thinking or artifact segments at all — while the SAME backend
+                // through the engine seam rendered them properly, because
+                // `runStreamAgent` emits the string as a `text-delta` and the adapter
+                // parses it. Two loops, two different products from one response.
+                const wholeParser = new AparteStreamParser();
+                const parsed = [
+                    ...wholeParser.parse(response).segments,
+                    ...wholeParser.finalize(),
+                ];
+                if (parsed.length > 0) {
+                    for (const segment of parsed) targetElement.addSegment?.(segment);
+                    this._updateMessage(targetElement, messageId, { status: 'completed' });
+                } else {
+                    // Nothing parseable (an empty or whitespace-only reply): keep the
+                    // old shape so the bubble still has something to show.
+                    this._updateMessage(targetElement, messageId, { content: response, status: 'completed' });
+                }
                 return undefined;
             }
 
@@ -1961,8 +1993,23 @@ export class AparteClient {
                         case 'done':
                             if (event.usage) lastUsage = event.usage;
                             break;
-                        default:
-                            assertNever(event);
+                        default: {
+                            // Compile-time exhaustiveness is KEPT: add a member to the
+                            // union and this assignment stops typechecking. What is gone
+                            // is the runtime throw.
+                            //
+                            // `assertNever` threw here, `_streamTurn` caught it, and
+                            // `_handleLifecycleError` REPLACED the message's segments with
+                            // an error bubble — so one unrecognised event destroyed a reply
+                            // the user was already reading. That is reachable on any
+                            // provider/SDK version skew: the ai-sdk mapper already drops
+                            // `source`/`file`/`abort` parts by design, so a new member is a
+                            // normal event, not a corrupt stream.
+                            const exhaustive: never = event;
+                            void exhaustive;
+                            this._warnUnknownStreamEvent(event);
+                            break;
+                        }
                     }
 
                     // A `break` inside the switch above leaves the SWITCH, not this
@@ -2214,6 +2261,19 @@ export class AparteClient {
         }
 
         this._dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
+    }
+
+    /** Warn once per client for an unrecognised stream event, then carry on. */
+    private _warnedUnknownEvents = new Set<string>();
+    private _warnUnknownStreamEvent(event: unknown): void {
+        const type = String((event as { type?: unknown })?.type ?? 'undefined');
+        if (this._warnedUnknownEvents.has(type)) return;
+        this._warnedUnknownEvents.add(type);
+        console.warn(
+            `[AparteClient] Ignoring unrecognised stream event "${type}". The reply is`
+            + ' unaffected; this usually means the provider or its SDK emits a part this'
+            + ' version of aparté does not map yet.',
+        );
     }
 
     private _dispatchLifecycleEvent(target: HTMLElement, name: string, detail: Record<string, unknown>) {

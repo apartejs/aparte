@@ -567,3 +567,178 @@ describe('a streamed turn never writes a withheld prefix into `content`', () => 
         expect(await driveFenceOpening(runStreamAgent)).not.toContain('```');
     });
 });
+
+describe('parity on events and tags neither loop used to handle', () => {
+    /**
+     * An unrecognised event type used to break BOTH loops, differently: core threw
+     * (`assertNever`), which replaced the reply the user was reading with an error
+     * bubble; the engine's final branch had no discriminant, so it treated the event
+     * as a tool call — a phantom `tool-start`/`tool-aborted` with an undefined name —
+     * AND stopped processing the rest of the stream.
+     *
+     * Reachable on any provider/SDK skew: the ai-sdk mapper already drops
+     * `source`/`file`/`abort` parts by design, so a new member is a normal event.
+     */
+    it('an unrecognised event is ignored by both, and the reply survives', async () => {
+        const r = await captureParity({
+            streams: [[
+                { type: 'text', delta: 'Hi ' },
+                { type: 'citation', url: 'x' },
+                { type: 'text', delta: 'there' },
+                { type: 'done' },
+            ] as never[]],
+        });
+        expect(r.knew).toEqual(r.old);
+        const rendered = r.old.join(String.fromCharCode(10));
+        expect(rendered, 'the text after the unknown event must still arrive').toContain('there');
+        expect(rendered, 'no error bubble').not.toContain('"status":"error"');
+        expect(rendered, 'and no phantom tool call').not.toContain('tool-undefined');
+    });
+
+    /**
+     * `aparte-message-aborted` and `aparte-tool-approval-request` used to leave the
+     * engine path with no `targetId`. `aparte-composer._isForThisComposer` treats an
+     * absent one as "for me" — on purpose, so a single-chat page needs no wiring — so
+     * on a two-chat page stopping one chat reset the other's composer.
+     *
+     * The recorder element gets an `id` here on purpose: without one both paths emit
+     * `undefined` and agree, which is exactly why the suite was blind to it.
+     */
+    it('an aborted turn carries targetId on both paths', async () => {
+        const seen: Record<string, unknown[]> = { old: [], knew: [] };
+        for (const which of ['old', 'knew'] as const) {
+            const cfg = new AparteConfigClass();
+            cfg.registerAIProvider({
+                id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+                getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+            } as never);
+            cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+            cfg.setKeyProvider(() => 'k');
+            // A stream that parks after one delta, so the abort lands mid-flight.
+            let release: null | (() => void) = null;
+            const setRelease = (fn: () => void): void => { release = fn; };
+            cfg.setTransport({
+                chat: () => new ReadableStream({
+                    async start(c) {
+                        c.enqueue({ type: 'text', delta: 'hi' });
+                        await new Promise<void>((r) => { setRelease(r); });
+                        c.enqueue({ type: 'done' });
+                        c.close();
+                    },
+                }),
+            } as never);
+
+            const el = document.createElement('div');
+            el.id = 'chat-left';
+            for (const m of ['updateMessage', 'addSegment', 'updateSegment', 'setUsage', 'updateLastMessage', 'appendMessage']) {
+                (el as unknown as Record<string, unknown>)[m] = () => {};
+            }
+            document.body.appendChild(el);
+            // `aparte-message-aborted` specifically: `aparte-message-done` is
+            // dispatched by the CLIENT on both paths, so it agreed either way and a
+            // first version of this test passed with the bug still in place. The
+            // adapter is what emits the aborted/approval events on the engine path.
+            el.addEventListener('aparte-message-aborted', (e) => {
+                seen[which]!.push((e as CustomEvent).detail);
+            });
+
+            const client = new AparteClient({
+                config: cfg, autoRegister: false, targetResolver: () => el as never,
+                ...(which === 'knew' ? { streamRunner: runStreamAgent } : {}),
+            } as never);
+            const turn = (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
+                new CustomEvent('aparte-send', { detail: { content: 'go' } }),
+            );
+            // Let the first delta land, then stop the turn.
+            await new Promise((r) => setTimeout(r, 0));
+            (client as unknown as { abort: () => void }).abort();
+            (release as null | (() => void))?.();
+            await turn;
+            el.remove();
+        }
+        for (const which of ['old', 'knew'] as const) {
+            const first = seen[which]![0] as { targetId?: string } | undefined;
+            expect(first?.targetId, `${which} path lost targetId`).toBe('chat-left');
+        }
+    });
+});
+
+describe('parity on a NON-STREAMING response', () => {
+    /**
+     * A transport may return a plain string — a buffering backend, a cached reply.
+     * Core wrote it straight to `message.content` with no parsing, so the user saw
+     * literal ``` fences and got no code, thinking or artifact segments; the engine
+     * emitted it as a `text-delta` and the adapter parsed it properly. One response,
+     * two different products depending on which loop was wired.
+     *
+     * The suite could not see it: its own "non-streaming" case still handed back a
+     * ReadableStream.
+     */
+    it('both loops parse a string reply into segments', async () => {
+        const reply = 'Sure, here:\n```js\nconsole.log(1)\n```\ndone';
+        const rendered: Record<string, string[]> = { old: [], knew: [] };
+
+        for (const which of ['old', 'knew'] as const) {
+            const cfg = new AparteConfigClass();
+            cfg.registerAIProvider({
+                id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+                getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+            } as never);
+            cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+            cfg.setKeyProvider(() => 'k');
+            cfg.setTransport({ chat: async () => reply } as never);
+
+            const el = document.createElement('div');
+            for (const m of ['updateMessage', 'updateSegment', 'setUsage', 'updateLastMessage', 'appendMessage']) {
+                (el as unknown as Record<string, unknown>)[m] = () => {};
+            }
+            (el as unknown as Record<string, unknown>).addSegment = (seg: { type: string; language?: string; content?: string }) => {
+                rendered[which]!.push(`${seg.type}:${seg.language ?? ''}:${(seg.content ?? '').trim()}`);
+            };
+            (el as unknown as Record<string, unknown>).getMessages = () => [];
+
+            const client = new AparteClient({
+                config: cfg, autoRegister: false, targetResolver: () => el as never,
+                ...(which === 'knew' ? { streamRunner: runStreamAgent } : {}),
+            } as never);
+            await (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
+                new CustomEvent('aparte-send', { detail: { content: 'go' } }),
+            );
+        }
+
+        for (const which of ['old', 'knew'] as const) {
+            const joined = rendered[which]!.join(' | ');
+            expect(joined, `${which} produced no segments at all`).not.toBe('');
+            expect(joined, `${which} did not parse the code fence`).toContain('code:js:console.log(1)');
+        }
+    });
+});
+
+describe('parity on a whole <artifact> in ONE delta', () => {
+    /**
+     * Both loops parked the tail in `scanBuf` and cleared `remaining`, which ended
+     * their loop before the buffered tag could be read. The outcomes differed, and
+     * both were wrong: core dropped the artifact AND the prose after the closing tag
+     * entirely; the engine's `finalize()` handed the buffer back as raw chat text, so
+     * the artifact rendered as a literal `<artifact …>` tag.
+     *
+     * Reachable from a non-SSE backend transport, a buffering provider, or
+     * `injectTokenStream`. The suite's own artifactXml scenario splits the tag across
+     * two deltas, so it stepped past this by exactly one delta boundary.
+     */
+    it('both loops build the artifact and keep the trailing text', async () => {
+        const whole = 'Here you go: <artifact mimeType="text/html" title="Page"><h1>Hi</h1></artifact> Enjoy!';
+        const r = await captureParity({
+            streams: [[{ type: 'text', delta: whole }, { type: 'done' }] as never[]],
+            // Same switch the existing artifactXml scenario uses: the mode is a
+            // request `_meta` hint, not a client option.
+            meta: { artifactXml: { mimeType: 'text/html', kind: 'html' } },
+        });
+        expect(r.knew).toEqual(r.old);
+        const rendered = r.old.join(String.fromCharCode(10));
+        expect(rendered, 'the artifact segment must exist').toContain('"type":"artifact"');
+        expect(rendered, 'with the declared mimeType, not a guessed one').toContain('text/html');
+        expect(rendered, 'and the prose after the closing tag must survive').toContain('Enjoy!');
+        expect(rendered, 'the tag must not render as literal text').not.toContain('&lt;artifact');
+    });
+});

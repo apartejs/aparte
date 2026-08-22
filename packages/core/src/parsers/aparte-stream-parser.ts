@@ -452,10 +452,19 @@ export class AparteStreamParser {
         const tag = buffer.slice(0, tagEnd + 1);
         const inner = tag.slice('<artifact'.length, -1); // attributes string
 
+        // BOTH spellings are read. This parser accepted `type=` only, while the XML
+        // state machine that handles the very same tag on the artifact-xml path reads
+        // `mimeType=` — so one `<artifact mimeType="text/html">` became `text/html`
+        // or `text/plain` depending on which path happened to consume it, and a whole
+        // artifact silently degraded to plain text. `mimeType` wins when both are
+        // present; `type` stays supported so existing prompts keep working.
+        const mimeMatch = inner.match(/\bmimeType\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
         const typeMatch = inner.match(/\btype\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
         const titleMatch = inner.match(/\btitle\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
 
-        const mimeType = (typeMatch && (typeMatch[1] ?? typeMatch[2])) ?? 'text/plain';
+        const mimeType = (mimeMatch && (mimeMatch[1] ?? mimeMatch[2]))
+            ?? (typeMatch && (typeMatch[1] ?? typeMatch[2]))
+            ?? 'text/plain';
         const title = titleMatch ? (titleMatch[1] ?? titleMatch[2]) : undefined;
 
         this._state.mode = 'artifact';

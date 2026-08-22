@@ -131,9 +131,25 @@ export interface CreateStreamAdapterOptions {
     artifactHint?: { mimeType: string; kind: string };
 }
 
-/** `_dispatchLifecycleEvent` (aparte-client.ts) — a bubbling/composed CustomEvent. */
+/**
+ * `_dispatchLifecycleEvent` (aparte-client.ts) — a bubbling/composed CustomEvent,
+ * stamped with `targetId` exactly as core's does.
+ *
+ * The stamp used to be missing here, and it was not cosmetic. `aparte-composer`'s
+ * `_isForThisComposer` treats an ABSENT `targetId` as "for me" — deliberately, so a
+ * single-chat page needs no wiring. So on a two-chat page the engine path made
+ * stopping chat A reset chat B's composer as well: every untagged event matched
+ * every composer. Core's inline path had always stamped it.
+ *
+ * The parity suite could not see it because its recorder element has no `id`, so
+ * both paths produced `targetId: undefined` and agreed.
+ */
 function dispatchLifecycleEvent(target: StreamAdapterTarget, name: string, detail: unknown): void {
-    target.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail }));
+    const id = (target as unknown as { id?: string }).id || undefined;
+    const stamped = detail && typeof detail === 'object'
+        ? { targetId: id, ...(detail as Record<string, unknown>) }
+        : detail;
+    target.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: stamped }));
 }
 
 /**

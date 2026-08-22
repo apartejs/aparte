@@ -137,8 +137,15 @@ export class ArtifactXmlStateMachine {
                 } else {
                     const before = remaining.slice(0, tagStart);
                     if (before) out.push({ type: 'chat-text', text: before, reduced: true });
-                    this.scanBuf = remaining.slice(tagStart);
-                    remaining = '';
+                    // The tail continues through `remaining`, so a complete
+                    // `<artifact …>…</artifact>` arriving in ONE delta is parsed in the
+                    // same call. Parking it in `scanBuf` and clearing `remaining` ended
+                    // the loop, and `finalize()` then handed the buffer back as raw
+                    // chat text — so the artifact rendered as a literal tag instead of a
+                    // card. Core had the same parking bug with a different outcome: it
+                    // dropped the artifact AND the prose after it entirely.
+                    this.scanBuf = '';
+                    remaining = remaining.slice(tagStart);
                     this.state = 'scanning';
                 }
             } else if (this.state === 'scanning') {

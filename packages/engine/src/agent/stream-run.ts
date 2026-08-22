@@ -100,6 +100,19 @@ export interface StreamRunOptions {
  * the caller (adapter) routes that to its lifecycle-error handler, exactly as
  * `_handleSend`/`_handleRetry`/`_handleEdit` catch `_streamLoop`.
  */
+/** Warn once per event type for something this version does not map, then skip it. */
+const warnedUnknownEvents = new Set<string>();
+function warnUnknownStreamEvent(event: unknown): void {
+    const type = String((event as { type?: unknown })?.type ?? 'undefined');
+    if (warnedUnknownEvents.has(type)) return;
+    warnedUnknownEvents.add(type);
+    console.warn(
+        `[runStreamAgent] Ignoring unrecognised stream event "${type}". The reply is`
+        + ' unaffected; this usually means the provider or its SDK emits a part this'
+        + ' version of aparté does not map yet.',
+    );
+}
+
 export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsage | undefined> {
     const {
         transportCall,
@@ -350,7 +363,22 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     throw new Error(event.message);
                 }
 
-                // event.type === 'tool_use'
+                // A DISCRIMINANT GUARD, not a comment.
+                //
+                // This used to be the bare comment `// event.type === 'tool_use'`, so
+                // anything the chain above did not recognise fell in here and was
+                // treated as a tool call: a `tool-start` / `tool-aborted` pair with an
+                // undefined id and name, and — worse — the rest of the stream was
+                // never processed, so the reply was truncated too.
+                //
+                // Core's inline loop had the opposite failure on the same input (it
+                // threw and replaced the reply with an error bubble). Both now ignore
+                // the event and carry on, which is what forward compatibility with a
+                // provider SDK actually requires.
+                if (event.type !== 'tool_use') {
+                    warnUnknownStreamEvent(event);
+                    continue;
+                }
                 toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
 
                 // Built-in create_artifact: bypass the generic tool path entirely
