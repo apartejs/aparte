@@ -9,13 +9,37 @@
  * that no README imports a removed symbol; it never checked whether the examples
  * RUN.
  *
- * Scope, stated rather than implied: only fences that OPEN WITH AN `import` are
- * compiled. That is the mechanical stand-in for "self-contained", and it is
- * exactly the shape a reader copy-pastes to start from — where all four defects
- * lived. A fragment (a lone method call, a config object) cannot be compiled
- * without inventing the surrounding context, and invented context is how you get a
- * checker whose failures nobody believes. The skipped count is printed, so this
- * never reads as "all snippets verified".
+ * ## Two tiers, because "opens with an import" was leaving real defects unchecked
+ *
+ * The first version compiled ONLY fences opening with an `import`, as a mechanical
+ * stand-in for "self-contained". A later audit walked straight through the gap: the
+ * first complete example on the first page of the guide — the one the page calls "a
+ * complete, working chat" — opens with `const chat = document.querySelector(...)`,
+ * so it was filed as a fragment and never compiled, while carrying five strict
+ * errors including two null dereferences and an implicit `any`.
+ *
+ * So every fence is compiled now, and the classification moved from the fence's
+ * FIRST LINE to what the compiler actually says about it:
+ *
+ *   • **Tier A — opens with an `import`.** Every diagnostic is a failure, exactly as
+ *     before. Nothing loosened.
+ *   • **Tier B — everything else.** Only diagnostics that are NOT the expected
+ *     consequence of being an excerpt are failures. "Cannot find name" is expected
+ *     (a fragment references a `chat` declared three paragraphs up) and so is a
+ *     parse error (a bare object literal is not a program). A null dereference, a
+ *     property that does not exist on a real DOM type, an implicit `any` — those are
+ *     defects whatever the surrounding prose, and Tier B now catches them.
+ *
+ * Two mechanics make that sound. Each fence is written as its own MODULE (an
+ * `export {}` is appended when it has no import), because otherwise a hundred
+ * import-less scratch files share one global scope and collide — the first attempt
+ * at this reported nothing at all for the very fence it was written to catch, since
+ * the redeclarations masked everything. And pages carrying the `AUTO-GENERATED`
+ * marker are skipped whole: TypeDoc prints type signatures and the CEM prints
+ * attribute tables, so compiling those measures the generator, not the docs.
+ *
+ * Every count is printed — compiled, fragments, generated, explicitly skipped — so
+ * this never reads as "all snippets verified".
  *
  * Opt out of a single fence with `<!-- doc-check: skip <reason> -->` on the line
  * before it — explicit and greppable.
@@ -65,13 +89,25 @@ const files = [
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
-let compiled = 0;
-let skippedFragment = 0;
+let selfContainedCount = 0;
+let candidateCount = 0;
 let skippedExplicit = 0;
+let skippedGenerated = 0;
 const index = [];
 
 for (const file of files) {
-    const lines = readFileSync(file, 'utf8').split('\n');
+    const raw = readFileSync(file, 'utf8');
+    // A generated page's fences were not written by anyone: TypeDoc prints type
+    // signatures, the CEM printer prints attribute tables. Compiling those measures
+    // the generator, not the documentation — and they are the overwhelming majority
+    // of parse errors in the corpus. Every generator stamps this marker; the
+    // changelog one did not until it was made to, precisely so this stays a rule
+    // rather than a list of filenames.
+    if (raw.includes('AUTO-GENERATED')) {
+        skippedGenerated += [...raw.matchAll(/^```tsx?\b/gm)].length;
+        continue;
+    }
+    const lines = raw.split('\n');
     let i = 0;
     let n = 0;
     while (i < lines.length) {
@@ -97,13 +133,19 @@ for (const file of files) {
         // still shipping the defect. A one-line heuristic decided the scope of the
         // check, and it decided it wrong.
         const firstCode = body.replace(/^(?:\s*(?:\/\/[^\n]*)?\n)+/, '');
-        if (!/^\s*import\s/.test(firstCode)) { skippedFragment++; continue; }
+        const selfContained = /^\s*import\s/.test(firstCode);
+        if (selfContained) selfContainedCount++; else candidateCount++;
 
-        compiled++;
         const rel = relative(process.cwd(), file).split(sep).join('/');
         const name = `${rel.replace(/[^a-zA-Z0-9]/g, '_')}__${n}.${lang}`;
-        writeFileSync(join(OUT, name), `${body}\n`, 'utf8');
-        index.push({ name, rel, fence: n });
+        // Each fence must be its own MODULE. Without this, every fence lacking an
+        // import is a SCRIPT sharing one global scope with all the others, and the
+        // duplicate `const chat` / `const viewport` declarations bury every real
+        // diagnostic under redeclaration noise — the first attempt at widening this
+        // guard reported nothing at all for the very fence it was written to catch.
+        const isModule = /^\s*(?:import|export)\s/m.test(body);
+        writeFileSync(join(OUT, name), `${body}\n${isModule ? '' : 'export {};\n'}`, 'utf8');
+        index.push({ name, rel, fence: n, selfContained });
     }
 }
 
@@ -190,33 +232,133 @@ writeFileSync(join(OUT, 'tsconfig.json'), JSON.stringify({
     include: ['*.ts', '*.tsx'],
 }, null, 2), 'utf8');
 
-let output = '';
-let failed = false;
-try {
-    // The tsc BINARY through node, not `npx`: on Windows `npx` is a .cmd shim that
-    // execFileSync cannot spawn directly, which silently produced an empty error
-    // report — a checker that fails without saying why.
-    const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
-    execFileSync(process.execPath, [tsc, '-p', join(OUT, 'tsconfig.json')], { encoding: 'utf8', stdio: 'pipe' });
-} catch (err) {
-    failed = true;
-    output = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+// The tsc BINARY through node, not `npx`: on Windows `npx` is a .cmd shim that
+// execFileSync cannot spawn directly, which silently produced an empty error
+// report — a checker that fails without saying why.
+const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
+
+function compile(configName) {
+    try {
+        execFileSync(process.execPath, [tsc, '-p', join(OUT, configName)], { encoding: 'utf8', stdio: 'pipe' });
+        return { failed: false, output: '' };
+    } catch (err) {
+        return { failed: true, output: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+    }
 }
 
-if (failed) {
-    // Map each scratch filename back to the page and fence it came from.
-    const byName = new Map(index.map(e => [e.name, e]));
-    const seen = new Set();
-    console.error(`\n[doc-snippets] ${compiled} self-contained snippet(s) compiled, some do not typecheck:\n`);
+const SYNTAX = /^TS1\d{3}$/;
+
+function diagnosticsOf(output) {
+    /** @type {Map<string, {line: string, code: string, text: string}[]>} */
+    const map = new Map();
     for (const line of output.split('\n')) {
-        const m = /^(?:.*[\\/])?([^\\/(]+\.tsx?)\((\d+),(\d+)\): (error .*)$/.exec(line.trim());
+        const m = /^(?:.*[\\/])?([^\\/(]+\.tsx?)\((\d+),(\d+)\): (error (TS\d+): .*)$/.exec(line.trim());
         if (!m) continue;
-        const entry = byName.get(m[1]);
-        const where = entry ? `${entry.rel} (fence #${entry.fence})` : m[1];
-        const key = `${where}:${m[2]}:${m[4]}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        console.error(`  ${where}\n    line ${m[2]}: ${m[4]}\n`);
+        if (!map.has(m[1])) map.set(m[1], []);
+        map.get(m[1]).push({ line: m[2], code: m[5], text: m[4] });
+    }
+    return map;
+}
+
+/**
+ * TWO passes, and the reason is the whole reason this guard was blind.
+ *
+ * TypeScript reports syntactic diagnostics for a program and, if it finds ANY,
+ * emits no semantic ones at all — program-wide, not per file. One malformed JSX
+ * fence (`guides/attachments.md` #1, a `<aparte-chat>` excerpt that never closes)
+ * was therefore silencing every type error in every other snippet. The first
+ * attempt at widening this check ran one pass, saw nothing but TS1xxx, and
+ * concluded the docs were clean; the fence it was written to catch has five errors
+ * when compiled on its own.
+ *
+ * So: pass one finds the fences that do not PARSE — which is also the strongest
+ * possible evidence that they are excerpts rather than programs — and pass two
+ * compiles what is left, where the type errors are finally visible.
+ *
+ * One shared program, not one per fence, on purpose. A page builds a file up across
+ * several fences (`getting-started` opens with `import '@aparte/core'` and the next
+ * fence continues in it), and core's global augmentations — the tag-name and event
+ * maps — are exactly what a reader importing the library has. Compiling each fence
+ * alone would report errors a reader never sees.
+ */
+let { failed, output } = compile('tsconfig.json');
+const firstPass = diagnosticsOf(output);
+let unparseable = [];
+
+if (failed) {
+    unparseable = index.filter(e => firstPass.get(e.name)?.some(d => SYNTAX.test(d.code)));
+    const parseable = index.filter(e => !unparseable.includes(e));
+    if (unparseable.length && parseable.length) {
+        writeFileSync(
+            join(OUT, 'tsconfig.pass2.json'),
+            JSON.stringify({ extends: './tsconfig.json', include: [], files: parseable.map(e => e.name) }, null, 2),
+            'utf8',
+        );
+        ({ failed, output } = compile('tsconfig.pass2.json'));
+    }
+}
+
+// ── Classify, then report ───────────────────────────────────────────────────
+// Whether a fence is an EXCERPT is a property of the whole file, not of one line.
+const diagnostics = diagnosticsOf(output);
+
+/**
+ * Beyond failing to parse, exactly one signal means "this fence is an excerpt":
+ * TS2304 / TS2552, "cannot find name" — it references something the prose declared
+ * three paragraphs earlier.
+ *
+ * It is decided per FILE, not per line, and that matters: once a name is unresolved
+ * every expression built on it degrades to `any`, so the file's other diagnostics
+ * (implicit-any parameters especially) are consequences of the missing context
+ * rather than defects. Judging line by line would report them as real.
+ *
+ * A fence with neither is a complete program that merely happens not to open with
+ * an `import`, so every diagnostic it produces is a genuine defect. That is exactly
+ * the class the old first-line heuristic waved through.
+ */
+const unresolved = errs => errs.some(e => e.code === 'TS2304' || e.code === 'TS2552');
+
+let excerpts = unparseable.filter(e => !e.selfContained).length;
+const reportable = [];
+
+// A fence that opens with an `import` and does not parse is a real defect, not an
+// excerpt: it claims to be the thing you copy.
+for (const entry of unparseable.filter(e => e.selfContained)) {
+    reportable.push({ entry, errs: firstPass.get(entry.name) ?? [] });
+}
+
+for (const entry of index) {
+    if (unparseable.includes(entry)) continue;
+    const errs = diagnostics.get(entry.name);
+    if (!errs?.length) continue;
+    if (!entry.selfContained && unresolved(errs)) { excerpts++; continue; }
+    reportable.push({ entry, errs });
+}
+
+// A tsc failure with no diagnostics attributable to any fence is a broken checker,
+// not a clean run — surface it rather than exiting 0 on it.
+if (failed && !reportable.length && diagnostics.size === 0) {
+    console.error('\n[doc-snippets] tsc failed but produced no parseable diagnostics — the checker is broken:\n');
+    console.error(output.trim());
+    process.exit(1);
+}
+
+if (reportable.length) {
+    const total = reportable.reduce((n, r) => n + r.errs.length, 0);
+    console.error(
+        `\n[doc-snippets] ${total} error(s) in ${reportable.length} snippet(s) that DO stand alone:\n`,
+    );
+    for (const { entry, errs } of reportable) {
+        const tier = entry.selfContained ? 'opens with an import' : 'no unresolved names — a complete program';
+        console.error(`  ${entry.rel} (fence #${entry.fence}) — ${tier}`);
+        const seen = new Set();
+        for (const e of errs) {
+            const key = `${e.line}:${e.text}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            console.error(`    line ${e.line}: ${e.text}`);
+        }
+        console.error('');
     }
     console.error(
         'A snippet that does not compile is an adopter-blocking defect, not a typo.\n'
@@ -228,6 +370,8 @@ if (failed) {
 
 rmSync(OUT, { recursive: true, force: true });
 console.log(
-    `[doc-snippets] OK: ${compiled} self-contained snippets compile `
-    + `(${skippedFragment} fragments and ${skippedExplicit} explicitly skipped are NOT checked).`,
+    `[doc-snippets] OK: ${selfContainedCount} self-contained + `
+    + `${candidateCount - excerpts} standalone snippets compile `
+    + `(${excerpts} excerpts, ${skippedGenerated} on generated pages and `
+    + `${skippedExplicit} explicitly skipped are NOT checked).`,
 );

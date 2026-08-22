@@ -35,28 +35,45 @@ import type { AparteToolDecisionDetail, AparteToolApprovalRequestDetail } from '
 // component), so importing this component-coupled detail type is cycle-free.
 import type { AparteComposerChangeEventDetail } from '../components/composer/aparte-composer.js';
 
+/**
+ * Declared once, applied to all three targets below.
+ *
+ * It used to be written straight into `HTMLElementEventMap`, which typed
+ * `chat.addEventListener(...)` and nothing else — while `document.addEventListener`
+ * resolves through `DocumentEventMap` and `window.addEventListener` through
+ * `WindowEventMap`, neither of which inherits from it. Every aparté event bubbles
+ * and composes, so listening on `document` is the natural way to handle a page's
+ * worth of chats in one place; the docs recommend exactly that ("Clicks are
+ * declarative — they emit `aparte-action`, so you handle them in one place"), and
+ * that recommended snippet did not compile. `AparteClient` itself listens on
+ * `window`, so the third map is not hypothetical either.
+ */
+interface AparteEventMap {
+    'aparte-send': CustomEvent<AparteSendEventDetail>;
+    'aparte-retry': CustomEvent<AparteRetryEventDetail>;
+    'aparte-edit': CustomEvent<AparteEditEventDetail>;
+    'aparte-action': CustomEvent<AparteActionEventDetail>;
+    'aparte-path-changed': CustomEvent<ApartePathChangedEventDetail>;
+    'aparte-branch-navigate': CustomEvent<AparteBranchNavigateEventDetail>;
+    'aparte-feedback': CustomEvent<AparteFeedbackEventDetail>;
+    'aparte-message-info': CustomEvent<AparteMessageInfoEventDetail>;
+    'aparte-message-done': CustomEvent<AparteMessageDoneEventDetail>;
+    'aparte-model-change': CustomEvent<AparteModelChangeEventDetail>;
+    'aparte-artifact-start': CustomEvent<AparteArtifactStartEventDetail>;
+    'aparte-artifact-delta': CustomEvent<AparteArtifactDeltaEventDetail>;
+    'aparte-artifact-ready': CustomEvent<AparteArtifactReadyEventDetail>;
+    'aparte-artifact-open': CustomEvent<AparteArtifactOpenEventDetail>;
+    'aparte-tool-decision': CustomEvent<AparteToolDecisionDetail>;
+    'aparte-tool-approval-request': CustomEvent<AparteToolApprovalRequestDetail>;
+    // Forwarded by the wrappers' AparteUi (in APARTE_DEFAULT_UI_EVENTS); detail is
+    // component-coupled but event-map is a top-level aggregator, so typing it here.
+    'aparte-composer-change': CustomEvent<AparteComposerChangeEventDetail>;
+}
+
 declare global {
-    interface HTMLElementEventMap {
-        'aparte-send': CustomEvent<AparteSendEventDetail>;
-        'aparte-retry': CustomEvent<AparteRetryEventDetail>;
-        'aparte-edit': CustomEvent<AparteEditEventDetail>;
-        'aparte-action': CustomEvent<AparteActionEventDetail>;
-        'aparte-path-changed': CustomEvent<ApartePathChangedEventDetail>;
-        'aparte-branch-navigate': CustomEvent<AparteBranchNavigateEventDetail>;
-        'aparte-feedback': CustomEvent<AparteFeedbackEventDetail>;
-        'aparte-message-info': CustomEvent<AparteMessageInfoEventDetail>;
-        'aparte-message-done': CustomEvent<AparteMessageDoneEventDetail>;
-        'aparte-model-change': CustomEvent<AparteModelChangeEventDetail>;
-        'aparte-artifact-start': CustomEvent<AparteArtifactStartEventDetail>;
-        'aparte-artifact-delta': CustomEvent<AparteArtifactDeltaEventDetail>;
-        'aparte-artifact-ready': CustomEvent<AparteArtifactReadyEventDetail>;
-        'aparte-artifact-open': CustomEvent<AparteArtifactOpenEventDetail>;
-        'aparte-tool-decision': CustomEvent<AparteToolDecisionDetail>;
-        'aparte-tool-approval-request': CustomEvent<AparteToolApprovalRequestDetail>;
-        // Forwarded by the wrappers' AparteUi (in APARTE_DEFAULT_UI_EVENTS); detail is
-        // component-coupled but event-map is a top-level aggregator, so typing it here.
-        'aparte-composer-change': CustomEvent<AparteComposerChangeEventDetail>;
-    }
+    interface HTMLElementEventMap extends AparteEventMap {}
+    interface DocumentEventMap extends AparteEventMap {}
+    interface WindowEventMap extends AparteEventMap {}
 }
 
 export {};

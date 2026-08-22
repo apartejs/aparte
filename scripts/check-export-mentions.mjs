@@ -49,6 +49,7 @@ const EXEMPT = new Map([
     ['unregisterSegmentRenderer', 'the remove side of the documented registerSegmentRenderer'],
     ['defaultSanitizer', 'the default value of the documented setHtmlSanitizer'],
     ['APARTE_DEFAULT_UI_EVENTS', 'wrapper interop: the DOM events every AparteUi forwards; an app never enumerates them'],
+    ['applyElementProps', 'wrapper interop: the prop/attribute/event application every AparteUi shares; its four callers are the wrappers, an app never calls it'],
     ['AparteMessageRepository', 'the message store the viewport keeps internally; an app uses appendMessage/getMessages, never the store'],
 ]);
 
@@ -60,7 +61,27 @@ function* walk(dir) {
     }
 }
 
-const corpus = [...walk(DOCS), ...EXTRA].map(f => readFileSync(f, 'utf8')).join('\n');
+/**
+ * The changelog is not documentation, and counting it as such was a hole.
+ *
+ * A release note says a name EXISTED — past tense, about a version — and it is
+ * exactly where an export's name appears when nobody ever wrote a page for it. So
+ * an export could ship, be mentioned once in its own release entry, and satisfy
+ * this guard forever while a reader had nowhere to learn what it does. That is the
+ * inverse of what the guard is for.
+ *
+ * Only the changelog is dropped, not every generated page. `reference/api.md` and
+ * `reference/engine.md` are generated too, but from the source's own hand-written
+ * JSDoc — they are the reference a reader actually consults, and treating them as
+ * illegitimate would leave a large, genuinely documented surface with nowhere to be
+ * counted.
+ */
+const NOT_DOCUMENTATION = ['changelog.md'];
+
+const corpus = [...walk(DOCS), ...EXTRA]
+    .filter(f => !NOT_DOCUMENTATION.some(n => f.endsWith(n)))
+    .map(f => readFileSync(f, 'utf8'))
+    .join('\n');
 const names = Object.keys(await import(BARREL)).sort();
 
 const missing = names.filter(n => !EXEMPT.has(n) && !corpus.includes(n));

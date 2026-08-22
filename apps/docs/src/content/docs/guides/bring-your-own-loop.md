@@ -185,6 +185,57 @@ exported so you do not have to reimplement them:
 | `contentToText` | Flattens `string \| AparteContentPart[]` to its text | Your transport or logs need the text of a multimodal message |
 | `deriveArtifactKind` | Maps a MIME type to a short artifact kind (`html`, `svg`, `js`, …) | You are building artifact segments yourself |
 | `readableToAsyncIterable` | Wraps a `ReadableStream` so `for await` works, honouring an `AbortSignal` | You are consuming a provider's `parseStream` directly — Chromium does not async-iterate streams |
+| `registerAllComponents` | Touches every element class so a bundler cannot tree-shake the `customElements.define` side effects away | Your build is aggressive, or you load `@aparte/core` through a dynamic `import()` |
+| `AparteChatHost` | The streaming / branch / host-method orchestration the four wrappers all bind to — everything `AparteClient` does minus the transport | You are writing a fifth framework binding, or driving core from a framework we do not ship |
+| `populateBubbleFromMessage` | Fills an `<aparte-chat-bubble>` from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
+| `parseAparteEventStream` | Reads the SSE wire format `createAparteChatHandler` emits back into `AparteStreamEvent`s | You wrote your own client against an aparté backend endpoint |
+
+Wiring your own binding starts here — no `AparteClient`, so nothing is hostage to it:
+
+```ts
+import {
+  registerAllComponents,
+  AparteChatHost,
+  populateBubbleFromMessage,
+  parseAparteEventStream,
+  readableToAsyncIterable,
+  uuid,
+  type AparteMessage,
+} from '@aparte/core';
+
+registerAllComponents();                       // safe to call more than once
+
+// The host takes its binding up front: you own the message list, it drives the DOM.
+const chat = document.querySelector('aparte-chat')!;
+let messages: AparteMessage[] = [];
+
+const host = new AparteChatHost({
+  hostId: uuid(),
+  host: chat,
+  viewport: chat.viewport,
+  getMessages: () => messages,
+  setMessages: (next) => { messages = next; },
+  // Required: run `cb` once your framework has painted. With no framework, the
+  // next frame is the honest answer — the host uses it to measure, not to poll.
+  afterRender: (cb) => void requestAnimationFrame(() => cb()),
+  onMessagesChange: (next) => void next,       // your framework's re-render
+});
+const release = host.bind();                   // returns its own unbind
+
+// Rendering a bubble yourself instead of letting the viewport own it:
+const bubble = document.createElement('aparte-chat-bubble');
+populateBubbleFromMessage(bubble, { id: 'a1', role: 'assistant', content: 'hi', timestamp: Date.now() });
+
+// Reading an aparté backend's SSE stream without AparteClient. Note the wrapper:
+// parseAparteEventStream returns a ReadableStream, and Chromium does not
+// async-iterate those — the signal is how a user's "stop" cuts the read.
+async function consume(body: ReadableStream<Uint8Array>, signal: AbortSignal) {
+  for await (const event of readableToAsyncIterable(parseAparteEventStream(body), signal)) void event;
+}
+void consume;
+
+release();
+```
 
 ```ts
 import { AparteStreamParser, contentToText } from '@aparte/core';

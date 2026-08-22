@@ -114,13 +114,16 @@ Three viewport methods are all you need:
 - `completeMessage(id)` — mark it done (stops the streaming caret)
 
 ```ts
-const chat = document.querySelector('aparte-chat');
-const viewport = chat.viewport;
+// `!` because the import above has already upgraded the element, so both lookups
+// succeed — but TypeScript cannot know that, and neither can a reader who moves
+// this code above the markup. If in doubt, use `?.` instead of asserting.
+const chat = document.querySelector('aparte-chat')!;
+const viewport = chat.viewport!;
 
 let n = 0;
 
 // Stream a string into a fresh assistant bubble, a few characters at a time.
-function streamReply(text) {
+function streamReply(text: string) {
   const id = 'a' + ++n;
   viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
 

@@ -32,10 +32,18 @@ const raw = readFileSync(SRC, 'utf8');
 const firstVersion = raw.indexOf('\n## ');
 const body = firstVersion === -1 ? raw : raw.slice(firstVersion + 1);
 
+// The AUTO-GENERATED marker is not decoration: `check-doc-snippets` keys off it to
+// tell a generated page from a hand-written one, because a generated page's fences
+// are not examples somebody wrote (TypeDoc prints type signatures, the CEM prints
+// attribute tables) and compiling them as programs measures the generator, not the
+// docs. Four of the five generated pages announced themselves and this one did not,
+// which would have left the guard needing a hardcoded filename instead of a rule.
 const page = `---
 title: Changelog
 description: What shipped in each version of the @aparte/* packages — they are released together, at one version.
 ---
+
+<!-- AUTO-GENERATED from CHANGELOG.md by apps/docs/scripts/gen-release-notes.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:release-notes\` to refresh. -->
 
 Every \`@aparte/*\` package is released **together at one version**, so a single entry
 covers the whole suite. Per-package detail lives in each package's own

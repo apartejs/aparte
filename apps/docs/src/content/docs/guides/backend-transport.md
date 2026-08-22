@@ -24,6 +24,37 @@ If your app pays for the API key, use `AparteBackendTransport`. If the *user* su
 key (or the model runs locally, keyless), `AparteDirectTransport` is simpler and there's no
 server hop.
 
+### Writing your own transport
+
+`AparteAIProvider` is a union of two arms: a provider either **shapes payloads** (a format
+adapter — `buildRequest`, `parseStream`, an endpoint and a way to present a key) or **owns its
+I/O** in a `chat()` method, the way `@aparte/provider-transformers` runs a model locally. The
+compiler tells an author which arm they implemented; `isFormatAdapter` tells a *transport*
+which arm it was handed, and narrows the type as it answers:
+
+```ts
+import { isFormatAdapter, aparteGlobalConfig, type AparteChatRequest } from '@aparte/core';
+
+async function dispatch(providerId: string, request: AparteChatRequest) {
+  const provider = aparteGlobalConfig.getAIProvider(providerId);
+  if (!provider) throw new Error(`no provider registered for "${providerId}"`);
+
+  if (isFormatAdapter(provider)) {
+    // Narrowed: buildRequest / parseStream / defaultEndpoint are all non-optional here,
+    // so you do the HTTP and the auth, and the provider only shapes the bytes.
+    const { path, body } = provider.buildRequest(request);
+    return { url: provider.defaultEndpoint + path, body };
+  }
+
+  // The other arm: the provider does its own I/O, so stay out of the way.
+  return provider.chat?.(request);
+}
+void dispatch;
+```
+
+Both built-in transports do exactly this — it is why one map of providers serves a
+browser-direct app and a server-held-key app without either provider knowing which it is in.
+
 ## 1. Build the server handler
 
 `createAparteChatHandler` builds a framework-free `/api/chat` handler: a plain

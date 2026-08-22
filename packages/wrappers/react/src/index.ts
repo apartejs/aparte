@@ -65,7 +65,6 @@ interface AparteIntrinsicElements {
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-namespace -- JSX augmentation requires a namespace
     namespace JSX {
-        // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges the shared list in
         interface IntrinsicElements extends AparteIntrinsicElements {}
     }
 }
@@ -73,7 +72,6 @@ declare global {
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-namespace -- React 19 resolves React.JSX
     namespace JSX {
-        // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges the shared list in
         interface IntrinsicElements extends AparteIntrinsicElements {}
     }
 }

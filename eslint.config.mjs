@@ -2,7 +2,12 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '.nx/**', '**/.astro/**', '**/.angular/**', '**/.svelte-kit/**', '**/*.tsbuildinfo'] },
+  // `.doc-snippets/` is the scratch folder `check-doc-snippets.mjs` writes doc
+  // fences into. It is deleted on success and DELIBERATELY kept when a snippet
+  // fails, so you can open the file tsc complained about — which meant a failing
+  // snippet guard also made `pnpm lint` fail, on unused imports inside an excerpt.
+  // Two reds for one cause, the second one meaningless.
+  { ignores: ['**/dist/**', '**/node_modules/**', '.nx/**', '**/.astro/**', '**/.angular/**', '**/.svelte-kit/**', '**/*.tsbuildinfo', '.doc-snippets/**'] },
 
   // A stale `eslint-disable` is silent debt: it hides a rule that would now
   // pass, or masks one that started firing elsewhere on the line. Report them
@@ -15,6 +20,12 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx}'],
     rules: {
+      // `interface X extends Y {}` is not a mistake here, it is the only way to
+      // merge a set of members into a global interface declared elsewhere — how
+      // `types/event-map.ts` puts the aparté events into HTMLElementEventMap,
+      // DocumentEventMap and WindowEventMap from one declaration. Empty `{}` and
+      // empty `interface X {}` stay banned; only the single-extends form is allowed.
+      '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
