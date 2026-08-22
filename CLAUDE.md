@@ -7,7 +7,7 @@
 > **What this repo is:** a **framework-agnostic AI-chat library** — vanilla Web
 > Components (`@aparte/core`) + framework wrappers + opt-in providers/plugins.
 > Publishable, backend-agnostic. It talks to any LLM through a **transport**:
-> `DirectTransport` (browser-direct, BYOK/local) or `BackendTransport` (your
+> `AparteDirectTransport` (browser-direct, BYOK/local) or `AparteBackendTransport` (your
 > `/api/chat`, key stays server-side).
 >
 > **What this repo is NOT:** the product. A privacy-first, 100%-in-browser
@@ -42,7 +42,7 @@ apartejs/
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent + parity suites
-│   ├── locales/              @aparte/locale-fr   (EN = core's built-in DEFAULT_LOCALE)
+│   ├── locales/              @aparte/locale-fr   (EN = core's built-in APARTE_DEFAULT_LOCALE)
 │   ├── providers/            @aparte/provider-{openai-compat, ai-sdk, transformers}
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
 │   │                         model-selector (light), ask-question}

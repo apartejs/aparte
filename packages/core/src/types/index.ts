@@ -86,7 +86,7 @@ export type {
 // `providers.ts` used to be re-exported here: `AparteDataProvider`,
 // `AparteStreamProvider`, `AparteMessageStore`, `AparteControlHandler`. Implemented
 // by nothing, consumed by nothing, and superseded by `AparteTransport` /
-// `AparteFormatAdapter` / `MessageRepository` — so the type barrel carried two
+// `AparteFormatAdapter` / `AparteMessageRepository` — so the type barrel carried two
 // competing "provider" abstractions and a reader could not tell which was live.
 
 // ─────────────────────────────────────────────────────────────────────────────

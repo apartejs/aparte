@@ -1,5 +1,5 @@
 import '@aparte/core/styles.css';
-import { AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
@@ -28,7 +28,7 @@ export function setupAparte(): void {
     // fetched its list and auto-selected a model.
     AparteConfig.setRequireModelSelection(true);
 
-    AparteConfig.setTransport(new DirectTransport({ byok: true }));
+    AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
     // Opt into what this app can honor: retry/edit go through the client below,
     // and the image tile opens the lightbox wired at the end of this function.

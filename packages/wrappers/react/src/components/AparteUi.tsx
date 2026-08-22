@@ -1,5 +1,5 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
+import { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
 
 export interface AparteUiProps {
     /** The custom element tag name (e.g. 'aparte-model-selector'). */
@@ -10,7 +10,7 @@ export interface AparteUiProps {
     onElementEvent?: (event: CustomEvent) => void;
     /**
      * Which custom events to forward through `onElementEvent`. Defaults to the
-     * interactive aparté surface ({@link DEFAULT_UI_EVENTS}); pass your own list to
+     * interactive aparté surface ({@link APARTE_DEFAULT_UI_EVENTS}); pass your own list to
      * listen to other events (e.g. `['aparte-composer-change']` for attachments).
      */
     events?: string[];
@@ -38,7 +38,7 @@ export const AparteUi = forwardRef<AparteUiHandle, AparteUiProps>(function Apart
     const cbRef = useRef(onElementEvent);
     cbRef.current = onElementEvent;
 
-    const evts = events ?? DEFAULT_UI_EVENTS;
+    const evts = events ?? APARTE_DEFAULT_UI_EVENTS;
     const evtsKey = evts.join('|');
 
     // (Re)create the element when `name` (or the forwarded event set) changes.

@@ -29,7 +29,7 @@
    * `<aparte-composer-attachments>` in it yourself).
    */
   export let attachments = false;
-  /** Active conversation id (loads/persists via the registered ConversationManager). */
+  /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   export let conversationId: string | null = null;
   /**
    * Instance {@link AparteConfigClass} for this chat. When set, aparté components

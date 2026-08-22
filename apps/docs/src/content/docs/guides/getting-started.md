@@ -167,9 +167,9 @@ with two things and let **`AparteClient`** drive the streaming loop for you:
 1. **A provider** — the wire-format adapter for your model (an opt-in
    `@aparte/provider-*` package), registered with `AparteConfig.registerAIProvider(…)`.
 2. **A transport** — *where* the request goes and *how* the key is handled:
-   - **`DirectTransport`** — the browser talks to the provider directly (bring-your-own-key
-     or a local model): `AparteConfig.setTransport(new DirectTransport({ byok: true }))`.
-   - **`BackendTransport`** — the browser calls *your* endpoint, and the key stays
+   - **`AparteDirectTransport`** — the browser talks to the provider directly (bring-your-own-key
+     or a local model): `AparteConfig.setTransport(new AparteDirectTransport({ byok: true }))`.
+   - **`AparteBackendTransport`** — the browser calls *your* endpoint, and the key stays
      server-side.
 
 Once a provider and transport are set, **construct an `AparteClient` and call `.start()`** —

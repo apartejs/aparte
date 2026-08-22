@@ -39,7 +39,7 @@ const EXTRA = ['README.md'];
  */
 const EXEMPT = new Map([
     ['APARTE_HOST_ATTR', 'wrapper interop: the attribute the wrappers stamp to bind a host; an app never writes it'],
-    ['DEFAULT_SKELETON_FALLBACKS', 'internal default table, reachable through the documented setSkeleton* API'],
+    ['APARTE_DEFAULT_SKELETON_FALLBACKS', 'internal default table, reachable through the documented setSkeleton* API'],
     ['resolveConfig', 'per-instance config plumbing for component authors; the documented surface is the `config` prop'],
     ['detachConfig', 'the counterpart of attachConfig, same reason'],
     ['runWithConfig', 'used by render hooks to resolve the right instance; not called from app code'],
@@ -50,6 +50,8 @@ const EXEMPT = new Map([
     ['defaultSanitizer', 'the default value of the documented setHtmlSanitizer'],
     ['escapeHtml', 'escaping helper for render-hook authors; named in the customization guide via escapeAttr'],
     ['escapeAttr', 'escaping helper for render-hook authors; the pair is documented as one'],
+    ['APARTE_DEFAULT_UI_EVENTS', 'wrapper interop: the DOM events every AparteUi forwards; an app never enumerates them'],
+    ['AparteMessageRepository', 'the message store the viewport keeps internally; an app uses appendMessage/getMessages, never the store'],
 ]);
 
 function* walk(dir) {

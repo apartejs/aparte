@@ -31,7 +31,7 @@ step — and this page exists to say the first thing you actually hit, so it say
 
 ## CORS on local BYOK (LM Studio / Ollama)
 
-**This is the #1 first-run failure.** With `DirectTransport` (the default), the
+**This is the #1 first-run failure.** With `AparteDirectTransport` (the default), the
 *browser itself* calls `http://localhost:1234` (LM Studio) or `http://localhost:11434`
 (Ollama) directly — there is no server in between to add CORS headers for you. If the
 local server doesn't send permissive CORS headers, the browser blocks the response and
@@ -72,12 +72,12 @@ with a different id than the one selected (or never called it at all). Register 
 provider *and* select it before the client sends anything:
 
 ```ts
-import { AparteConfig, DirectTransport, AparteClient } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport, AparteClient } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
 AparteConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 new AparteClient().start();
 ```
@@ -97,11 +97,11 @@ provider from the outside: nothing streams, because nothing is listening for
 If you see:
 
 ```
-[Aparte] DirectTransport is sending the "<provider>" API key straight from the browser —
+[Aparte] AparteDirectTransport is sending the "<provider>" API key straight from the browser —
 it is visible to anyone who opens devtools. ...
 ```
 
-`DirectTransport` just sent a real API key from the browser to the vendor, and you
+`AparteDirectTransport` just sent a real API key from the browser to the vendor, and you
 didn't tell it that was intentional. It fires once per page load, the first time a key
 is attached to a request.
 
@@ -110,11 +110,11 @@ is attached to a request.
   fire at all:
 
   ```ts
-  AparteConfig.setTransport(new DirectTransport({ byok: true }));
+  AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
   ```
 
 - **Not fine when:** the key is *your* server-held vendor key. Anyone with devtools open
-  can read it and use it directly. Switch to `BackendTransport` (paired with
+  can read it and use it directly. Switch to `AparteBackendTransport` (paired with
   `createAparteChatHandler`) so the key never reaches the client — see the
   [Backend transport](/guides/backend-transport/) guide.
 

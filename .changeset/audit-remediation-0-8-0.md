@@ -53,6 +53,31 @@ guards that make each class unrepeatable.
   `@aparte/core`'s export of the same name, with a different function behind it.
 - `escapeHtml` / `escapeAttr`, `AparteHostHandlersConfig` and `AparteKeyProvider` are now
   exported from `@aparte/core`.
+- **Ten exports are renamed**, before 1.0 makes their names permanent. The four classes
+  gain the prefix every other class already carried, and the six shared defaults gain a
+  namespace so they cannot collide with an app's own:
+
+  | before | after |
+  | --- | --- |
+  | `DirectTransport` | `AparteDirectTransport` |
+  | `BackendTransport` | `AparteBackendTransport` |
+  | `MessageRepository` | `AparteMessageRepository` |
+  | `ConversationManager` | `AparteConversationManager` |
+  | `DEFAULT_LOCALE` | `APARTE_DEFAULT_LOCALE` |
+  | `DEFAULT_UI_EVENTS` | `APARTE_DEFAULT_UI_EVENTS` |
+  | `DEFAULT_ICON_FALLBACKS` | `APARTE_DEFAULT_ICON_FALLBACKS` |
+  | `DEFAULT_BUBBLE_ACTIONS` | `APARTE_DEFAULT_BUBBLE_ACTIONS` |
+  | `DEFAULT_HOST_HANDLERS` | `APARTE_DEFAULT_HOST_HANDLERS` |
+  | `DEFAULT_SKELETON_FALLBACKS` | `APARTE_DEFAULT_SKELETON_FALLBACKS` |
+
+  Functions keep their verb names — `registerDefaultRenderers`, `contentToText`,
+  `filesToAttachments` and the rest are unchanged, because prefixing a verb reads worse
+  than the inconsistency it would fix.
+- `@aparte/svelte` ships its `.svelte` sources instead of a precompiled bundle, and
+  supports Svelte 4 **and** 5 (`^4.0.0 || ^5.0.0`). Nothing to change in your code, unless
+  you were importing from a deep path inside `dist`.
+- Every plugin `setup*` takes an optional trailing `config`, so a plugin can be scoped to
+  one chat instead of the global singleton. Existing calls are unaffected.
 - `AparteClient` accepts `toolTimeoutMs`, matching `runStreamAgent`'s option of the same
   name — it was previously a hard-coded constant, so setting it worked on one loop only.
 

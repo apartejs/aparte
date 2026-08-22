@@ -67,8 +67,8 @@ every CI run.
   **branch** (with a built-in `‹ 1/2 ›` picker), edit rewrites the message in place. Both
   buttons are **off by default** — without a host they would answer to nobody — so switch
   them on next to the client: `AparteConfig.setBubbleActions({ retry: true, edit: true })`.
-- **Transports** — `DirectTransport` (browser → provider, BYOK / local model) or
-  `BackendTransport` (browser → your endpoint, API key stays server-side).
+- **Transports** — `AparteDirectTransport` (browser → provider, BYOK / local model) or
+  `AparteBackendTransport` (browser → your endpoint, API key stays server-side).
 - **Theming** — restyle everything through `--aparte-*` CSS variables (Light DOM, no forking).
 - **Customization** — icons, render hooks, and a zoned action registry via `AparteConfig`.
 

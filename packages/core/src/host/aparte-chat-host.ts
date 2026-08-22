@@ -246,7 +246,7 @@ export class AparteChatHost {
         const convBinding: AparteChatBinding = {
             hostId: this.binding.hostId,
             host,
-            // Controller-driven flushes mirror ConversationManager state, not
+            // Controller-driven flushes mirror AparteConversationManager state, not
             // user intent — deliberately NOT emitted as `messagesChange` to
             // avoid a feedback loop with hosts using a two-way `messages` input.
             setMessages: (msgs) => {

@@ -29,8 +29,8 @@ variables. **Zero dependencies** at the core.
 - **Zero dependencies in `@aparte/core`.** Markdown, syntax highlighting, model
   pickers — all opt-in `provider-*` / `plugin-*` packages. The core stays tiny.
 - **Bring your own model, your way.** A **transport** seam decides where the
-  request goes: `DirectTransport` (browser-direct — BYOK or a local model) or
-  `BackendTransport` (your `/api/chat`, key stays server-side). Providers cover
+  request goes: `AparteDirectTransport` (browser-direct — BYOK or a local model) or
+  `AparteBackendTransport` (your `/api/chat`, key stays server-side). Providers cover
   the OpenAI-compatible family, the Vercel AI SDK (25+ vendors), and in-browser
   Transformers.js.
 - **Streaming, typed segments, tools.** Replies stream as typed segments — text,
@@ -55,7 +55,7 @@ npm install @aparte/core @aparte/provider-openai-compat
 ```ts
 import '@aparte/core';                 // registers the <aparte-*> custom elements
 import '@aparte/core/styles.css';      // theme variables + component styles
-import { registerDefaultRenderers, AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
+import { registerDefaultRenderers, AparteConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 registerDefaultRenderers();
@@ -63,7 +63,7 @@ registerDefaultRenderers();
 // A local model (LM Studio / Ollama) needs no key — just enable CORS in the app.
 // Swap in presets.OPENAI / .MISTRAL / .OPENROUTER (+ a keyResolver) for a cloud vendor.
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.LMSTUDIO));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 new AparteClient().start();            // listens for sends, streams the reply into the chat
 
 // Retry/edit only work with a host like the client above, so core ships them off:
@@ -90,12 +90,12 @@ npm install @aparte/react @aparte/core react react-dom
 
 ```tsx
 import { AparteChat, useAparteChat, useAparteClient } from '@aparte/react';
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import '@aparte/core/styles.css';
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 export function Chat() {
   const chat = useAparteChat();

@@ -20,7 +20,7 @@ module that touches the SDK's types.
 ```ts
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAiSdkProvider } from '@aparte/provider-ai-sdk';
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport } from '@aparte/core';
 
 AparteConfig.registerAIProvider(createAiSdkProvider({
   id: 'anthropic',
@@ -33,7 +33,7 @@ AparteConfig.registerAIProvider(createAiSdkProvider({
     })(modelId),
 }));
 
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
 The `languageModel` factory receives the model id and the key/config your key-resolver produced —

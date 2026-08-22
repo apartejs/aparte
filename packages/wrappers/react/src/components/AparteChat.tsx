@@ -47,7 +47,7 @@ export interface AparteChatProps {
     attachments?: boolean;
     /**
      * Active conversation id. When set, the wrapper loads/persists via the
-     * `ConversationManager` registered in `AparteConfig` (set `null` to deselect).
+     * `AparteConversationManager` registered in `AparteConfig` (set `null` to deselect).
      */
     conversationId?: string | null;
     /**

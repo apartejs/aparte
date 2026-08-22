@@ -16,7 +16,7 @@ npm install @aparte/provider-openai-compat
 ```
 
 ```ts
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 // A known vendor, via a preset:
@@ -28,7 +28,7 @@ AparteConfig.registerAIProvider(createOpenAICompatProvider({
   baseURL: 'https://api.groq.com/openai/v1',
 }));
 
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
 Built-in presets: `OPENAI`, `MISTRAL`, `ZAI`, `OPENROUTER`, `LMSTUDIO`, `OLLAMA`.
@@ -53,7 +53,7 @@ the key requirement and fetch models keyless:
 
 ```ts
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA)); // http://localhost:11434/v1
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
 :::note

@@ -54,12 +54,12 @@ The wrapper is **provider-agnostic**. Register a provider + transport once (see
 sends to the model:
 
 ```tsx
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { useAparteClient } from '@aparte/react';
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 function Chat() {
   useAparteClient();           // streams replies from the configured provider
@@ -94,5 +94,5 @@ import { AparteUi } from '@aparte/react';
 
 ## Also exported
 
-- `useConversationManager` — React-state view over the core `ConversationManager` (list / create /
+- `useConversationManager` — React-state view over the core `AparteConversationManager` (list / create /
   archive), for a multi-conversation sidebar.

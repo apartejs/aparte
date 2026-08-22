@@ -859,7 +859,7 @@ export class AparteChatBubble extends HTMLElement {
         for (const a of config.user) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
         // Flag-driven set. Only `copy` is on by default — see
-        // DEFAULT_BUBBLE_ACTIONS: edit needs a host to keep the new text.
+        // APARTE_DEFAULT_BUBBLE_ACTIONS: edit needs a host to keep the new text.
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.edit) buttons.push(this._actionButtonHtml('edit', icons, locale));
       }

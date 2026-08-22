@@ -19,8 +19,8 @@ describe('index.node — SSR-safe entry', () => {
         expect(typeof mod.AparteChatHost).toBe('function');
         expect(typeof mod.AparteClient).toBe('function');
         expect(typeof mod.AparteConversationController).toBe('function');
-        expect(typeof mod.ConversationManager).toBe('function');
-        expect(typeof mod.MessageRepository).toBe('function');
+        expect(typeof mod.AparteConversationManager).toBe('function');
+        expect(typeof mod.AparteMessageRepository).toBe('function');
         expect(typeof mod.AparteConfig).toBe('object');
         expect(typeof mod.registerAllComponents).toBe('function');
     });

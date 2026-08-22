@@ -163,7 +163,7 @@ narrating a command doesn't mean anybody in the page can run it, which is why `R
 order, whatever the flags say. Naming a button in a per-role list *is* declaring it.
 :::
 
-Defaults are readable at runtime — `DEFAULT_BUBBLE_ACTIONS` and `DEFAULT_HOST_HANDLERS` are
+Defaults are readable at runtime — `APARTE_DEFAULT_BUBBLE_ACTIONS` and `APARTE_DEFAULT_HOST_HANDLERS` are
 exported from `@aparte/core`, so you never hard-code them.
 
 ## The composer toolbar

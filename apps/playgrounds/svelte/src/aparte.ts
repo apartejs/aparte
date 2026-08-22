@@ -1,5 +1,5 @@
 import '@aparte/core/styles.css';
-import { AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
@@ -28,7 +28,7 @@ export function setupAparte(): void {
     // fetched its list and auto-selected a model.
     AparteConfig.setRequireModelSelection(true);
 
-    AparteConfig.setTransport(new DirectTransport({ byok: true }));
+    AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
     // Retry and edit need someone to re-send and rewrite - that's the client just
     // below, so this app opts in. The details popover and the image-tile preview

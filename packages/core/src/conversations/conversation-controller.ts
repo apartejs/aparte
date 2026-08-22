@@ -1,5 +1,5 @@
 import type { AparteMessage, AparteAttachment } from '../types/index.js';
-import type { ConversationManager } from './conversation-manager.js';
+import type { AparteConversationManager } from './conversation-manager.js';
 import type { AparteConversation } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { resolveConfig } from '../config/config-context.js';
@@ -28,7 +28,7 @@ export interface AparteChatBinding {
     clearMessages(): void;
     /**
      * Export the full conversation tree for persistence.
-     * Optional: only available when the binding wraps a `MessageRepository`
+     * Optional: only available when the binding wraps a `AparteMessageRepository`
      * (e.g. the vanilla viewport). Returns `undefined` when not supported.
      */
     exportTree?(): ExportedMessageRepository | undefined;
@@ -46,7 +46,7 @@ export interface AparteConversationControllerOptions {
      * Conversation manager. If omitted, the controller resolves it from
      * `AparteConfig.getConversationManager()` when first needed.
      */
-    manager?: ConversationManager;
+    manager?: AparteConversationManager;
     /**
      * Called whenever a new conversation is created lazily (on first user
      * message in an empty thread). Useful for the parent app to sync the URL.
@@ -55,7 +55,7 @@ export interface AparteConversationControllerOptions {
 }
 
 /**
- * Connects an `AparteChatBinding` to a `ConversationManager`.
+ * Connects an `AparteChatBinding` to a `AparteConversationManager`.
  *
  * Responsibilities:
  *   - Load messages when `setConversationId(id)` is called.
@@ -106,7 +106,7 @@ export class AparteConversationController {
      * keeps backward compatibility with hosts that haven't opted into the
      * conversation lifecycle yet.
      */
-    private _manager(): ConversationManager | undefined {
+    private _manager(): AparteConversationManager | undefined {
         // Explicit option first, then the config governing the host element
         // (instance config under a [data-aparte-host] boundary, else the global).
         return this._options.manager ?? resolveConfig(this._binding.host).getConversationManager();

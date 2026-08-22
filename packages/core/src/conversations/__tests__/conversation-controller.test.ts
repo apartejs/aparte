@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AparteConversationController, type AparteChatBinding } from '../conversation-controller.js';
-import { ConversationManager } from '../conversation-manager.js';
+import { AparteConversationManager } from '../conversation-manager.js';
 import type { AparteConversation, AparteStorageAdapter } from '../types.js';
 import { APARTE_CONVERSATION_SCHEMA_VERSION } from '../types.js';
 import type { AparteMessage } from '../../types/index.js';
@@ -60,7 +60,7 @@ async function flush() {
 
 describe('AparteConversationController', () => {
     let host: HTMLElement;
-    let manager: ConversationManager;
+    let manager: AparteConversationManager;
     let adapter: MemoryAdapter;
 
     beforeEach(async () => {
@@ -69,7 +69,7 @@ describe('AparteConversationController', () => {
         host.id = 'test-host';
         document.body.appendChild(host);
         adapter = new MemoryAdapter();
-        manager = new ConversationManager(adapter);
+        manager = new AparteConversationManager(adapter);
         await manager.init();
     });
 
@@ -398,7 +398,7 @@ describe('AparteConversationController', () => {
             // but not hydrated" state — exactly the window where the bug
             // happens in a consumer app (Angular APP_INITIALIZER race).
             adapter.store.set(seededId, seeded);
-            const freshManager = new ConversationManager(adapter);
+            const freshManager = new AparteConversationManager(adapter);
             // Note: NO `await freshManager.init()` here.
 
             const binding = makeBinding(host);
@@ -440,7 +440,7 @@ describe('AparteConversationController', () => {
                 messages: [userMsg('m')],
                 schemaVersion: APARTE_CONVERSATION_SCHEMA_VERSION,
             });
-            const freshManager = new ConversationManager(adapter);
+            const freshManager = new AparteConversationManager(adapter);
             const binding = makeBinding(host);
             const ctrl = new AparteConversationController(binding, { manager: freshManager });
             ctrl.bind();

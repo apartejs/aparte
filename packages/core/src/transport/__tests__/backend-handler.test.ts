@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createAparteChatHandler } from '../backend-handler.js';
-import { BackendTransport } from '../backend-transport.js';
+import { AparteBackendTransport } from '../backend-transport.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 import type { AparteChatRequest, AparteStreamEvent } from '../../types/index.js';
 
@@ -179,7 +179,7 @@ describe('createAparteChatHandler', () => {
     });
 });
 
-describe('BackendTransport ⟷ createAparteChatHandler round-trip', () => {
+describe('AparteBackendTransport ⟷ createAparteChatHandler round-trip', () => {
     it('client posts { providerId, request } (no key), server normalizes, client parses the events back', async () => {
         const vendor = vendorStreamOk();
         const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'sk-server-only', fetchImpl: vendor });
@@ -189,7 +189,7 @@ describe('BackendTransport ⟷ createAparteChatHandler round-trip', () => {
             handler(new Request('http://localhost/api/chat', { method: 'POST', headers: init.headers, body: init.body as string }))
         ) as typeof fetch);
 
-        const result = await new BackendTransport({ endpoint: 'http://localhost/api/chat' })
+        const result = await new AparteBackendTransport({ endpoint: 'http://localhost/api/chat' })
             .chat(adapter(), req, 'sk-client-must-not-leak', ctx);
 
         expect(await collect(result as ReadableStream<AparteStreamEvent>)).toEqual([

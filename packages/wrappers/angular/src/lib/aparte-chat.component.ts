@@ -242,7 +242,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     /**
      * Active conversation id. When provided, the host attaches an
      * `AparteConversationController` that loads/persists messages via the
-     * `ConversationManager` registered in `AparteConfig`. Setting a different id
+     * `AparteConversationManager` registered in `AparteConfig`. Setting a different id
      * mid-stream aborts the previous request; `null` deselects.
      */
     @Input('conversationId') set conversationIdInput(val: string | null | undefined) {
@@ -464,7 +464,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * Set the active conversation id imperatively — parity with the other
      * wrappers' handles (the `conversationId` `@Input` remains the declarative
      * path). Delegates to the host, which loads/persists via the registered
-     * `ConversationManager`.
+     * `AparteConversationManager`.
      */
     setConversationId(id: string | null): Promise<void> {
         return this._host?.setConversationId(id) ?? Promise.resolve();

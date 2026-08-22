@@ -1,8 +1,8 @@
 // Environment (jsdom) + `@aparte/core` source resolution are configured in
-// vitest.config.ts: this suite drives the browser-direct `DirectTransport`, which
+// vitest.config.ts: this suite drives the browser-direct `AparteDirectTransport`, which
 // core exposes only from its browser entry.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { DirectTransport } from '@aparte/core';
+import { AparteDirectTransport } from '@aparte/core';
 import type { AparteStreamEvent } from '@aparte/core';
 import { createOpenAICompatProvider, parseOpenAICompatStream, presets } from '../index';
 
@@ -78,9 +78,9 @@ describe.each(CLOUD_PRESETS)('preset %s', (_label, preset, helpDomain) => {
         ]);
     });
 
-    it('drives a streaming chat through DirectTransport with Bearer auth', async () => {
+    it('drives a streaming chat through AparteDirectTransport with Bearer auth', async () => {
         vi.mocked(fetch).mockResolvedValue(streamResponse());
-        const result = await new DirectTransport({ byok: true }).chat(
+        const result = await new AparteDirectTransport({ byok: true }).chat(
             provider,
             { modelId: 'm', messages: [{ role: 'user', content: 'Hello' }] },
             { apiKey: 'sk-test' },

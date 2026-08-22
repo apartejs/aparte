@@ -6,7 +6,7 @@ import {
     registerDefaultRenderers,
     AparteConfig,
     AparteClient,
-    DirectTransport,
+    AparteDirectTransport,
     filesToAttachments,
 } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
@@ -31,7 +31,7 @@ AparteConfig.registerAIProvider(
 // Gate the composer until the model selector has fetched + auto-selected a model.
 AparteConfig.setRequireModelSelection(true);
 
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 // 4. Opt into the affordances THIS app can honor. Retry and edit need the client
 //    below to re-send and rewrite; the image tile needs the lightbox we wire at

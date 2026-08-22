@@ -58,12 +58,12 @@ sends to the model:
 
 ```vue
 <script setup lang="ts">
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { AparteChat, useAparteChat, useAparteClient } from '@aparte/vue';
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 const chat = useAparteChat();
 useAparteClient();           // streams replies from the configured provider
@@ -109,5 +109,5 @@ import { AparteUi } from '@aparte/vue';
 
 ## Also exported
 
-- `useConversationManager` — Vue-reactive view over the core `ConversationManager` (list / create /
+- `useConversationManager` — Vue-reactive view over the core `AparteConversationManager` (list / create /
   archive), for a multi-conversation sidebar.

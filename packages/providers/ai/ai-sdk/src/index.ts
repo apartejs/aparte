@@ -31,7 +31,7 @@
  *
  * The bridge is an `AparteAIProvider` with a `chat()` (it owns its I/O via the
  * SDK — same shape as `@aparte/provider-transformers`), driven by
- * `DirectTransport`'s delegation branch, which forwards `ctx.signal` so a user
+ * `AparteDirectTransport`'s delegation branch, which forwards `ctx.signal` so a user
  * "stop" aborts the underlying vendor call.
  *
  * NOTE (loop contract): the bridge never sees `toolChoice: { name, input }` —
@@ -262,7 +262,7 @@ const DEFAULT_CONFIG_SCHEMA = (opts: AiSdkProviderOptions): AparteAIProviderConf
 
 /**
  * Wrap an AI SDK model factory into an `AparteAIProvider`. The returned provider
- * owns its I/O through the SDK (`chat()` shape — `DirectTransport` delegates
+ * owns its I/O through the SDK (`chat()` shape — `AparteDirectTransport` delegates
  * to it and forwards the abort signal).
  */
 export function createAiSdkProvider(opts: AiSdkProviderOptions): AparteAIProvider {

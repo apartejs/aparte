@@ -12,7 +12,7 @@ npm install @aparte/provider-transformers @huggingface/transformers
 ships its own onnxruntime). `@aparte/core` is a **peer dependency**.
 
 ```ts
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport } from '@aparte/core';
 import { TransformersProvider, registerModel } from '@aparte/provider-transformers';
 
 registerModel({
@@ -23,10 +23,10 @@ registerModel({
   dtype: 'q4',
 });
 AparteConfig.registerAIProvider(TransformersProvider);
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
-The provider owns its I/O (it runs inference locally), so `DirectTransport` just delegates to it.
+The provider owns its I/O (it runs inference locally), so `AparteDirectTransport` just delegates to it.
 Model weights download once and persist in the Cache API; `prepareModel` reports progress, and
 `listCachedModels` / `deleteCachedModel` manage the on-disk cache.
 

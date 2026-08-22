@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
     AparteConfig,
-    ConversationManager,
+    AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
 } from '@aparte/core';
@@ -26,13 +26,13 @@ export interface UseConversationManager {
 }
 
 /**
- * React-state wrapper around the core `ConversationManager`. The active
+ * React-state wrapper around the core `AparteConversationManager`. The active
  * conversation is owned by the chat component's controller; switch by binding
  * `conversationId` on `<AparteChat>`. React equivalent of Angular's
  * `ConversationManagerService`.
  */
 export function useConversationManager(): UseConversationManager {
-    const managerRef = useRef<ConversationManager | null>(null);
+    const managerRef = useRef<AparteConversationManager | null>(null);
     const unsubRef = useRef<(() => void) | null>(null);
     const [conversations, setConversations] = useState<AparteConversation[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export function useConversationManager(): UseConversationManager {
     useEffect(() => () => unsubRef.current?.(), []);
 
     const init = useCallback(async (adapter: AparteStorageAdapter) => {
-        const m = new ConversationManager(adapter);
+        const m = new AparteConversationManager(adapter);
         managerRef.current = m;
         unsubRef.current = m.subscribe((convs) => {
             setConversations([...convs]);
@@ -51,7 +51,7 @@ export function useConversationManager(): UseConversationManager {
         AparteConfig.setConversationManager(m);
     }, []);
 
-    const assert = (): ConversationManager => {
+    const assert = (): AparteConversationManager => {
         if (!managerRef.current) {
             throw new Error('[useConversationManager] Not initialised. Call init(adapter) first.');
         }

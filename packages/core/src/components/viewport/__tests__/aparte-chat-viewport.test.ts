@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 /**
  * AparteChatViewport — unit tests
  *
- * Focus: MessageRepository integration — addBranch(), addSiblingOf(),
+ * Focus: AparteMessageRepository integration — addBranch(), addSiblingOf(),
  * navigateBranch(), truncateFrom(), appendToken(), appendMessage(),
  * updateLastMessage(), aparte-path-changed.
  *

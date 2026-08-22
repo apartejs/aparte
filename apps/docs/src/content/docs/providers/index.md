@@ -11,18 +11,18 @@ sidebar:
 - A **provider** — the *wire-format adapter* for a model family (how a request is shaped, how the
   response stream is parsed). Providers ship as opt-in `@aparte/provider-*` packages, so core stays
   zero-dependency.
-- A **transport** — *where* the request goes and *how* the key is handled: `DirectTransport`
-  (browser → provider) or `BackendTransport` (browser → your server). See
+- A **transport** — *where* the request goes and *how* the key is handled: `AparteDirectTransport`
+  (browser → provider) or `AparteBackendTransport` (browser → your server). See
   [Getting started](/guides/getting-started/#wire-a-real-model).
 
 Register a provider, set a transport, construct an `AparteClient`, and streaming just works:
 
 ```ts
-import { AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));   // browser → provider, key stays client-side
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));   // browser → provider, key stays client-side
 new AparteClient({
   // BYOK: hand the browser-held key to each request (see "Supplying the key" below).
   keyResolver: () => localStorage.getItem('openrouter.key') ?? undefined,
@@ -32,7 +32,7 @@ new AparteClient({
 ## Supplying the API key (BYOK)
 
 A **cloud** provider needs a key — without one it returns an empty model list and can't stream.
-With `DirectTransport({ byok: true })` the key lives in the **browser** (it's never sent to a
+With `AparteDirectTransport({ byok: true })` the key lives in the **browser** (it's never sent to a
 server), and you hand it to each request via **`keyResolver`** on `AparteClient`:
 
 ```ts
@@ -53,7 +53,7 @@ keyInput.addEventListener('change', () => {
 
 - **Local providers** (`presets.LMSTUDIO`, `presets.OLLAMA`) are keyless — they set `isLocal`, so
   `keyResolver` can return `undefined` for them. Run one and you need no key at all.
-- Want the key **off the client** entirely? Use [`BackendTransport`](/guides/backend-transport/)
+- Want the key **off the client** entirely? Use [`AparteBackendTransport`](/guides/backend-transport/)
   instead — the key stays on your server and never reaches the browser.
 - `keyResolver` may return a `Record<string, string>` (for providers needing several auth headers)
   and may be async (fetch from your own vault). `AparteConfig.setKeyProvider(...)` is an alternative
@@ -76,5 +76,5 @@ both surfaces are optional — implement only the half you need:
   `defaultEndpoint`) — the provider only shapes the payload and parses the stream; a transport owns
   auth and the network. This is what [`openai-compat`](/providers/ai/openai-compat/) does.
 - **Own-I/O** (`chat()`) — the provider makes its own request (an SDK, a local runtime);
-  `DirectTransport` delegates to it and forwards the abort signal. This is what
+  `AparteDirectTransport` delegates to it and forwards the abort signal. This is what
   [`ai-sdk`](/providers/ai/ai-sdk/) and [`transformers`](/providers/ai/transformers/) do.

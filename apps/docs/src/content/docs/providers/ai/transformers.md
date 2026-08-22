@@ -18,7 +18,7 @@ npm install @aparte/provider-transformers @huggingface/transformers
 you bring the version you want.
 
 ```ts
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { AparteConfig, AparteDirectTransport } from '@aparte/core';
 import { TransformersProvider, registerModel } from '@aparte/provider-transformers';
 
 registerModel({
@@ -29,10 +29,10 @@ registerModel({
   dtype: 'q4',
 });
 AparteConfig.registerAIProvider(TransformersProvider);
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
-The provider owns its I/O (it runs inference locally), so `DirectTransport` just delegates to it.
+The provider owns its I/O (it runs inference locally), so `AparteDirectTransport` just delegates to it.
 
 ## Managing downloads & cache
 

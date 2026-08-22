@@ -216,7 +216,7 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
 
         // ── Format-adapter surface (transport ⊥ format) ──────────────────────
         // The vendor concern only: request shape + stream parsing. Auth and
-        // network are the transport's job (DirectTransport / BackendTransport).
+        // network are the transport's job (AparteDirectTransport / AparteBackendTransport).
         defaultEndpoint: opts.baseURL,
 
         buildRequest(request: AparteChatRequest) {

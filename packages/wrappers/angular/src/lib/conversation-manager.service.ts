@@ -1,9 +1,9 @@
 import { Injectable, OnDestroy, computed, signal } from '@angular/core';
-import { AparteConfig, ConversationManager, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteConfig, AparteConversationManager, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 /**
- * Angular 19 Signal-based wrapper around ConversationManager.
+ * Angular 19 Signal-based wrapper around AparteConversationManager.
  *
  * Register a storage adapter before calling init():
  * ```ts
@@ -22,7 +22,7 @@ import type { AparteMessage } from '@aparte/core';
  */
 @Injectable({ providedIn: 'root' })
 export class ConversationManagerService implements OnDestroy {
-    private _manager: ConversationManager | null = null;
+    private _manager: AparteConversationManager | null = null;
     private _unsubscribe: (() => void) | null = null;
 
     // ─── Signals ─────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ export class ConversationManagerService implements OnDestroy {
      * Call once in your root component or app initialiser.
      */
     async init(adapter: AparteStorageAdapter): Promise<void> {
-        this._manager = new ConversationManager(adapter);
+        this._manager = new AparteConversationManager(adapter);
         this._unsubscribe = this._manager.subscribe(convs => {
             this.conversations.set([...convs]);
             this.activeId.set(this._manager!.activeId);

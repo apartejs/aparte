@@ -15,13 +15,13 @@ aparté takes the third path: **a complete chat runtime that is still just a lib
 Register a provider, pick a transport, start a client — a real streamed chat in ~15 lines:
 
 ```ts
-import { AparteConfig, AparteClient, DirectTransport, registerDefaultRenderers } from '@aparte/core';
+import { AparteConfig, AparteClient, AparteDirectTransport, registerDefaultRenderers } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import '@aparte/core/styles.css';
 
 registerDefaultRenderers();
 AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));   // key stays client-side
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));   // key stays client-side
 new AparteClient({
   keyResolver: () => localStorage.getItem('openrouter.key') ?? undefined,
 }).start();

@@ -53,7 +53,7 @@ declare global {
         'aparte-artifact-open': CustomEvent<AparteArtifactOpenEventDetail>;
         'aparte-tool-decision': CustomEvent<AparteToolDecisionDetail>;
         'aparte-tool-approval-request': CustomEvent<AparteToolApprovalRequestDetail>;
-        // Forwarded by the wrappers' AparteUi (in DEFAULT_UI_EVENTS); detail is
+        // Forwarded by the wrappers' AparteUi (in APARTE_DEFAULT_UI_EVENTS); detail is
         // component-coupled but event-map is a top-level aggregator, so typing it here.
         'aparte-composer-change': CustomEvent<AparteComposerChangeEventDetail>;
     }

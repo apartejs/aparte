@@ -2,7 +2,7 @@
  * Deterministic network mock for the OpenAI-compatible model API.
  *
  * The playgrounds wire a REAL pipeline (`createOpenAICompatProvider` →
- * `DirectTransport` → `AparteClient`). We do NOT touch that wiring — instead we
+ * `AparteDirectTransport` → `AparteClient`). We do NOT touch that wiring — instead we
  * intercept the only two calls that leave the browser and answer them from
  * here, so the E2E is fast, offline, and identical on every machine:
  *

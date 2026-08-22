@@ -22,11 +22,11 @@ import '../../components/composer/aparte-composer.js';
 import '../../components/viewport/aparte-chat-viewport.js';
 import '../../components/conversation-list/aparte-conversation-list.js';
 import { AparteConfig } from '../aparte-config.js';
-import { DEFAULT_LOCALE, type AparteLocale } from '../locale.js';
+import { APARTE_DEFAULT_LOCALE, type AparteLocale } from '../locale.js';
 
 /** A locale that differs in every string this file asserts on. */
 const FR: AparteLocale = {
-    ...DEFAULT_LOCALE,
+    ...APARTE_DEFAULT_LOCALE,
     roleNameUser: 'Vous',
     roleNameAssistant: 'Assistant IA',
     previousResponse: 'Réponse précédente',
@@ -36,7 +36,7 @@ const FR: AparteLocale = {
 };
 
 /** Same, plus a right-to-left reading direction. */
-const AR: AparteLocale = { ...DEFAULT_LOCALE, direction: 'rtl', roleNameUser: 'أنت' };
+const AR: AparteLocale = { ...APARTE_DEFAULT_LOCALE, direction: 'rtl', roleNameUser: 'أنت' };
 
 const mounted: HTMLElement[] = [];
 function mount<T extends HTMLElement>(tag: string, attrs: Record<string, string> = {}): T {
@@ -169,7 +169,7 @@ describe('a live locale switch reaches a mounted conversation list', () => {
     it('re-labels its rows', () => {
         const list = mount<HTMLElement & { conversations: unknown[] }>('aparte-conversation-list');
         list.conversations = [{ id: 'c1', title: 'Une conversation', updatedAt: 1 }];
-        expect(deleteLabelOf(list)).toBe(DEFAULT_LOCALE.deleteConversation);
+        expect(deleteLabelOf(list)).toBe(APARTE_DEFAULT_LOCALE.deleteConversation);
 
         AparteConfig.setLocale({ ...FR, deleteConversation: 'Supprimer la conversation' });
 
@@ -179,7 +179,7 @@ describe('a live locale switch reaches a mounted conversation list', () => {
     it('re-labels an untitled row, whose title IS a locale string', () => {
         const list = mount<HTMLElement & { conversations: unknown[] }>('aparte-conversation-list');
         list.conversations = [{ id: 'c1', title: '', updatedAt: 1 }];
-        expect(list.textContent).toContain(DEFAULT_LOCALE.newChat);
+        expect(list.textContent).toContain(APARTE_DEFAULT_LOCALE.newChat);
 
         AparteConfig.setLocale({ ...FR, newChat: 'Nouvelle discussion' });
 

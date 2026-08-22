@@ -202,7 +202,7 @@ export interface AparteAIProvider {
      * Execute a chat request directly. **Optional** — HTTP providers expose the
      * format-adapter surface below and are driven by an `AparteTransport` instead;
      * providers that own their own I/O (Transformers.js locally, or a bridge
-     * wrapping an external SDK) implement `chat`, to which `DirectTransport`
+     * wrapping an external SDK) implement `chat`, to which `AparteDirectTransport`
      * delegates.
      *
      * @param request - The chat request options (messages, model, etc.)
@@ -222,7 +222,7 @@ export interface AparteAIProvider {
     // ── Format-adapter surface (transport ⊥ format) ─────────────────────────
     // A provider migrating to a pure format adapter exposes these instead of
     // owning fetch+key in `chat()`. When all four are present, `AparteTransport`
-    // implementations (DirectTransport/BackendTransport) drive the request and
+    // implementations (AparteDirectTransport/AparteBackendTransport) drive the request and
     // the provider only shapes the payload and parses the stream. See
     // `src/transport/`. All optional so un-migrated providers stay valid.
 

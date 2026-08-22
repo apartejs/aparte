@@ -8,7 +8,7 @@ import type {
     AparteUsage,
 } from '../../types/index.js';
 import { resolveConfig } from '../../config/index.js';
-import { MessageRepository } from '../../runtime/message-repository.js';
+import { AparteMessageRepository } from '../../runtime/message-repository.js';
 import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
 import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble-sync.js';
 import { cssEscape } from '../../utils/css-escape.js';
@@ -52,7 +52,7 @@ export class AparteChatViewport extends HTMLElement {
     private _spacerRafId: number | null = null;
     private _spacerFrozenUntil: number = 0;
     private _layoutTransitionMs: number = 0;
-    private _repo = new MessageRepository();
+    private _repo = new AparteMessageRepository();
     private _isAutoScrollEnabled: boolean = true;
     private _scrollThreshold: number = 50;
     /** When true, the next _autoScroll() call uses smooth instead of instant, then resets. */
@@ -1262,7 +1262,7 @@ export class AparteChatViewport extends HTMLElement {
      * Cap the number of rendered bubbles in the DOM (perf ceiling only).
      *
      * Drops the oldest `<aparte-chat-bubble>` elements beyond `_maxRenderedBubbles`
-     * from the DOM. It **never** touches the MessageRepository — the conversation
+     * from the DOM. It **never** touches the AparteMessageRepository — the conversation
      * model and its persistence snapshot stay complete (retention/eviction is a
      * consumer/persistence concern, not the viewport's). No-op when a framework
      * owns the DOM.
@@ -1285,7 +1285,7 @@ export class AparteChatViewport extends HTMLElement {
             '[Aparte] `maxMessages` / `max-messages` on aparte-chat-viewport is deprecated: ' +
             'it used to silently evict messages from the conversation model. It now only ' +
             'caps rendered bubbles in the DOM — use `maxRenderedBubbles` / `max-rendered-bubbles`. ' +
-            'For actual history retention, configure it on your ConversationManager instead.',
+            'For actual history retention, configure it on your AparteConversationManager instead.',
         );
     }
 

@@ -23,7 +23,7 @@ export interface AparteUiProps {
     props?: Record<string, unknown>;
     /**
      * Which custom events to forward through `elementEvent`. Defaults to the
-     * interactive aparté surface (`DEFAULT_UI_EVENTS` from `@aparte/core`).
+     * interactive aparté surface (`APARTE_DEFAULT_UI_EVENTS` from `@aparte/core`).
      */
     events?: string[];
 }

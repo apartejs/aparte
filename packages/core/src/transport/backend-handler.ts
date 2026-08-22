@@ -39,7 +39,7 @@ export interface AparteChatHandlerOptions {
 }
 
 /**
- * Build a framework-free `/api/chat` handler for {@link BackendTransport} — the
+ * Build a framework-free `/api/chat` handler for {@link AparteBackendTransport} — the
  * server counterpart that keeps the key off the client.
  *
  * The returned handler speaks the Web `fetch` API (`Request` → `Response`), so
@@ -47,7 +47,7 @@ export interface AparteChatHandlerOptions {
  * unchanged. It reads `{ providerId, request }`, runs the matching format
  * adapter **server-side** (buildRequest → auth → vendor fetch → parseStream),
  * and streams back normalized `AparteStreamEvent`s as NDJSON — the exact wire
- * format `BackendTransport` expects. The vendor key is injected here and never
+ * format `AparteBackendTransport` expects. The vendor key is injected here and never
  * travels to the browser.
  *
  * ```ts

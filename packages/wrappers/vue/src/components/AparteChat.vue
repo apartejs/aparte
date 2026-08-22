@@ -32,7 +32,7 @@ interface Props {
    * `<aparte-composer-attachments>` in it yourself).
    */
   attachments?: boolean;
-  /** Active conversation id (loads/persists via the registered ConversationManager). */
+  /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   conversationId?: string | null;
   /**
    * Instance {@link AparteConfigClass} for this chat. When set, aparté components

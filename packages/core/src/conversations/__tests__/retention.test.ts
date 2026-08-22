@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ConversationManager, applyRetention, type ConversationManagerOptions } from '../conversation-manager.js';
+import { AparteConversationManager, applyRetention, type ConversationManagerOptions } from '../conversation-manager.js';
 import type { AparteMessage } from '../../types/index.js';
 import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
 import type { AparteConversation, AparteStorageAdapter } from '../types.js';
@@ -51,7 +51,7 @@ describe('applyRetention', () => {
     });
 });
 
-describe('ConversationManager retention (opt-in)', () => {
+describe('AparteConversationManager retention (opt-in)', () => {
     function makeManager(opts?: ConversationManagerOptions) {
         const store = new Map<string, AparteConversation>();
         const adapter: AparteStorageAdapter = {
@@ -59,7 +59,7 @@ describe('ConversationManager retention (opt-in)', () => {
             save: async (c) => { store.set(c.id, c); },
             delete: async (id) => { store.delete(id); },
         };
-        return { mgr: new ConversationManager(adapter, opts), store };
+        return { mgr: new AparteConversationManager(adapter, opts), store };
     }
 
     it('bounds persisted messages when retention is configured', async () => {

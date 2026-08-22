@@ -69,11 +69,11 @@ replies with zero extra wiring:
 ```ts
 // main.ts
 import { bootstrapApplication } from '@angular/platform-browser';
-import { DirectTransport, AparteConfig } from '@aparte/core';
+import { AparteDirectTransport, AparteConfig } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { provideAparte } from '@aparte/angular';
 
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 bootstrapApplication(App, {
   providers: [
@@ -133,5 +133,5 @@ interactive aparté events by default; pass `[events]` to listen to others:
 
 ## Also exported
 
-- `ConversationManagerService` — signal-based view over the core `ConversationManager` (list /
+- `ConversationManagerService` — signal-based view over the core `AparteConversationManager` (list /
   create / archive), for a multi-conversation sidebar.

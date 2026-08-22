@@ -112,7 +112,7 @@ export type {
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
-export { ConversationManager, type ConversationManagerOptions } from './conversations/index.js';
+export { AparteConversationManager, type ConversationManagerOptions } from './conversations/index.js';
 export {
     AparteConversationController,
     type AparteChatBinding,
@@ -134,7 +134,7 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 // server-side `/api/chat` handler AND both client transports live here; a browser
 // never runs the handler, and the transports touch no DOM at import. Mirrored in
 // full so a wrapper barrel re-exporting a transport can't crash under SSR.
-export { DirectTransport, BackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
 export type {
     AparteTransport,
     AparteTransportContext,
@@ -146,7 +146,7 @@ export type {
 } from './transport/index.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
-export { AparteConfig, AparteConfigClass, DEFAULT_BUBBLE_ACTIONS, DEFAULT_HOST_HANDLERS } from './config/index.js';
+export { AparteConfig, AparteConfigClass, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export type {
     AparteMarkdownProvider,
@@ -172,23 +172,23 @@ export type {
     AparteArtifactPreviewBuilder,
     AparteSanitizer,
 } from './config/index.js';
-export { DEFAULT_ICON_FALLBACKS, DEFAULT_SKELETON_FALLBACKS, DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
+export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
-export { MessageRepository } from './runtime/message-repository.js';
+export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
 
 // ── Wrapper interop (DOM-free helpers the four wrappers' AparteUi value-imports) ─
-// `applyElementProps`/`DEFAULT_UI_EVENTS` are pure (a string array + a function that
+// `applyElementProps`/`APARTE_DEFAULT_UI_EVENTS` are pure (a string array + a function that
 // only touches its `HTMLElement` argument when CALLED, never at import). They MUST be
 // on the Node surface: every wrapper barrel re-exports `AparteUi`, which value-imports
 // these two — omit them here and any SSR toolchain resolving the `node` condition
 // crashes the whole barrel with "does not provide an export named 'applyElementProps'".
-export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
+export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
 // Same rule: DOM-free at import (it only reaches for `URL.createObjectURL` when
 // CALLED, which is a browser-side concern), so it belongs on the SSR surface too.
 export { filesToAttachments } from './utils/files-to-attachments.js';

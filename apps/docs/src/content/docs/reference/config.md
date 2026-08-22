@@ -38,7 +38,7 @@ where the request is sent.
 - `refreshProviderModels(providerId: string): Promise<AparteAIModel[]>` — resolve the key then call the provider's `fetchModels`.
 - `setKeyProvider(provider: AparteKeyProvider): void` — register a function that resolves an API key for a given provider id.
 - `getKey(providerId: string): Promise<string | undefined>` — read the key for a provider via the registered key provider.
-- `setTransport(transport: AparteTransport): void` — set where chat requests go and how auth is handled. Defaults to `DirectTransport`.
+- `setTransport(transport: AparteTransport): void` — set where chat requests go and how auth is handled. Defaults to `AparteDirectTransport`.
 - `getTransport(): AparteTransport` — the active transport.
 
 ### Renderers & render hooks
@@ -79,19 +79,19 @@ HTML before it is injected via `innerHTML`.
 ### Locale
 
 Translatable UI strings (composer placeholder, Copy/Retry buttons, "thinking…", etc.).
-English ships in core as `DEFAULT_LOCALE`; other languages are injected.
+English ships in core as `APARTE_DEFAULT_LOCALE`; other languages are injected.
 
 - `setLocale(locale: AparteLocale): void` — replace the active locale.
 - `getLocale(): AparteLocale` — the active locale.
 - `extendLocale(translations: Partial<AparteLocale>): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
-- `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `DEFAULT_LOCALE`.
+- `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `APARTE_DEFAULT_LOCALE`.
 
 See the [Localization](/guides/localization/) guide.
 
 ### Icons & skeleton
 
 - `setIconProvider(provider: AparteIconProvider): void` — a set of icon functions (`() => string` HTML each), e.g. a FontAwesome bridge.
-- `getIconProvider(): AparteIconProvider` — the registered provider, or a fallback built from `DEFAULT_ICON_FALLBACKS`.
+- `getIconProvider(): AparteIconProvider` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`.
 - `getIcon(name: AparteIconName): string` — HTML for one icon by name, falling back to the built-in default.
 - `setSkeletonProvider(provider: AparteSkeletonProvider): void` — a custom loading-state generator (`getSkeleton(type) => string`).
 - `getSkeleton(type: AparteSkeletonType): string` — skeleton HTML for a type (`message` / `code` / `thinking` / `input` / `list` / `text`), via the provider or a minimal built-in fallback.
@@ -107,7 +107,7 @@ merged registry, a `zones` parameter picks where each appears.
 - `setActionHidden(id: string, hidden: boolean): void` — show/hide a composer action button at runtime.
 - `setBubbleActions(config: AparteBubbleActionsConfig): void` — configure which built-in buttons (`copy`/`retry`/`edit`/`feedback`/`info`) appear in bubbles, or set explicit per-role ordered lists. Only `copy` is on by default; the others need a host to honour them (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 - `getBubbleActions(): { copy, retry, edit, feedback, info, user?, assistant? }` — the resolved bubble-actions config (defaults applied).
-- `DEFAULT_BUBBLE_ACTIONS` — the shipped defaults, exported so you can read them instead of hard-coding them.
+- `APARTE_DEFAULT_BUBBLE_ACTIONS` — the shipped defaults, exported so you can read them instead of hard-coding them.
 
 ### Host handlers
 
@@ -116,7 +116,7 @@ your app does the work. Declare what you handle; the rest isn't offered.
 
 - `setHostHandlers(config: AparteHostHandlersConfig): void` — declare `attachmentPreview` (image tiles ask for a lightbox via `aparte-attachment-preview`), `terminalRun` (the Run button on a terminal segment → `aparte-terminal-run`), and/or `artifactRedownload` (the download button on a **binary** artifact → `aparte-artifact-redownload`). All default to `false`.
 - `getHostHandlers(): { attachmentPreview, terminalRun, artifactRedownload }` — the resolved declarations.
-- `DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
+- `APARTE_DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.
 
@@ -145,8 +145,8 @@ See the [Tools & human-in-the-loop](/guides/tools/) guide.
 
 ### Conversation manager
 
-- `setConversationManager(manager: ConversationManager): void` — register a `ConversationManager` so any UI controller can persist/load conversations without a framework coupling.
-- `getConversationManager(): ConversationManager | undefined` — the registered manager, if any.
+- `setConversationManager(manager: AparteConversationManager): void` — register a `AparteConversationManager` so any UI controller can persist/load conversations without a framework coupling.
+- `getConversationManager(): AparteConversationManager | undefined` — the registered manager, if any.
 
 See the [Conversation persistence](/guides/conversation-persistence/) guide.
 
@@ -207,16 +207,16 @@ Constructor options (all optional):
 ## Transports
 
 A transport decides **where** a chat request goes and **how** the API key is handled.
-`AparteConfig.setTransport(...)` (default: `DirectTransport`) wires one in.
+`AparteConfig.setTransport(...)` (default: `AparteDirectTransport`) wires one in.
 
-- **`DirectTransport`** (`packages/core/src/transport/direct-transport.ts`) — calls the vendor
+- **`AparteDirectTransport`** (`packages/core/src/transport/direct-transport.ts`) — calls the vendor
   endpoint straight from the browser. The default; only safe for BYOK or local models. Options:
   `{ byok?: boolean }` — set `true` to silence the one-time insecure-key `console.warn`.
-- **`BackendTransport`** (`packages/core/src/transport/backend-transport.ts`) — POSTs
+- **`AparteBackendTransport`** (`packages/core/src/transport/backend-transport.ts`) — POSTs
   `{ providerId, request }` to your own endpoint; the key never reaches the browser. Options:
   `{ endpoint: string; headers?: Record<string,string>; buildBody?: (request, providerId) => unknown }`.
 - **`createAparteChatHandler(options)`** (`packages/core/src/transport/backend-handler.ts`) — builds
   the matching framework-free `/api/chat` handler (`(req: Request) => Promise<Response>`) for
-  `BackendTransport`: same `@aparte/provider-*` adapters, run server-side, key never leaves the server.
+  `AparteBackendTransport`: same `@aparte/provider-*` adapters, run server-side, key never leaves the server.
 
 See the [Backend transport](/guides/backend-transport/) guide for the full walkthrough.

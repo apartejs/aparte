@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AparteConfig, AparteConfigClass } from '../aparte-config';
-import { DEFAULT_LOCALE } from '../locale';
+import { APARTE_DEFAULT_LOCALE } from '../locale';
 
 describe('AparteConfig', () => {
     beforeEach(() => {
         // Reset config before each test
-        AparteConfig.setLocale(DEFAULT_LOCALE);
+        AparteConfig.setLocale(APARTE_DEFAULT_LOCALE);
     });
 
     describe('Locale Management', () => {
@@ -18,7 +18,7 @@ describe('AparteConfig', () => {
 
         it('should set custom locale', () => {
             const customLocale = {
-                ...DEFAULT_LOCALE,
+                ...APARTE_DEFAULT_LOCALE,
                 sendButton: 'Envoyer',
                 direction: 'ltr' as const
             };
@@ -422,7 +422,7 @@ describe('AparteConfig', () => {
             c.reset();
             const actions = c.getBubbleActions();
             // Back to the shipped set: copy only. reset() used to forget `info`
-            // entirely — DEFAULT_BUBBLE_ACTIONS is now the one source for both.
+            // entirely — APARTE_DEFAULT_BUBBLE_ACTIONS is now the one source for both.
             expect(actions.copy).toBe(true);
             expect(actions.retry).toBe(false);
             expect(actions.edit).toBe(false);
@@ -457,14 +457,14 @@ describe('AparteConfig', () => {
     describe('resetLocale', () => {
         it('restores the built-in English locale and notifies subscribers', () => {
             const c = new AparteConfigClass();
-            c.setLocale({ ...DEFAULT_LOCALE, sendButton: 'Envoyer' });
+            c.setLocale({ ...APARTE_DEFAULT_LOCALE, sendButton: 'Envoyer' });
             expect(c.getLocale().sendButton).toBe('Envoyer');
 
             const listener = vi.fn();
             c.subscribe(listener);
             c.resetLocale();
 
-            expect(c.getLocale().sendButton).toBe(DEFAULT_LOCALE.sendButton);
+            expect(c.getLocale().sendButton).toBe(APARTE_DEFAULT_LOCALE.sendButton);
             expect(listener).toHaveBeenCalled();
         });
     });

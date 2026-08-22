@@ -15,6 +15,6 @@ The selector lists three providers — pick one:
   chat with **no API key**. Enable CORS on the local server (LM Studio: *Developer → CORS*; Ollama: set
   `OLLAMA_ORIGINS=*`) so the browser can reach it directly.
 - **OpenRouter** — paste a key in the top bar; it's stored in `localStorage` only and sent straight to
-  OpenRouter (`DirectTransport({ byok: true })`). Never commit a key.
+  OpenRouter (`AparteDirectTransport({ byok: true })`). Never commit a key.
 
 Dev resolves `@aparte/*` from source (HMR); `pnpm build` consumes the published `dist`.

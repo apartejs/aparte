@@ -2,7 +2,7 @@
  * @aparte/provider-transformers — run LLMs 100% in the browser via Transformers.js.
  *
  * A local, keyless `AparteAIProvider`: it owns its I/O (inference runs off the main
- * thread in a Web Worker) so `DirectTransport` delegates to its `chat()`. Model
+ * thread in a Web Worker) so `AparteDirectTransport` delegates to its `chat()`. Model
  * weights download once and persist in the Cache API.
  *
  * Scope (v1): generic **text-generation** streaming. Tool-calling for local models is

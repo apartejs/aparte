@@ -4,7 +4,7 @@ export default defineConfig({
     test: {
         include: ['src/**/*.{test,spec}.ts'],
         globals: true,
-        // jsdom: this suite drives the browser-direct `DirectTransport`, which core
+        // jsdom: this suite drives the browser-direct `AparteDirectTransport`, which core
         // exposes only from its *browser* entry (the Node-safe entry omits it). We
         // resolve `@aparte/core` from source via the `@aparte-workspace/source`
         // condition (below) — the same dev mechanism the docs app uses — so core's

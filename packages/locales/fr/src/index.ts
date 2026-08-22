@@ -1,7 +1,7 @@
 /**
  * @aparte/locale-fr
  *
- * French translations for aparté. Core ships English (`DEFAULT_LOCALE`) by
+ * French translations for aparté. Core ships English (`APARTE_DEFAULT_LOCALE`) by
  * default — pass this to `AparteConfig.setLocale(fr)` to switch.
  */
 

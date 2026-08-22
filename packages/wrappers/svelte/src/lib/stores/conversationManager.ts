@@ -2,20 +2,20 @@ import { writable, derived } from 'svelte/store';
 import { onDestroy } from 'svelte';
 import {
     AparteConfig,
-    ConversationManager,
+    AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
 } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 
 /**
- * Svelte-store wrapper around the core `ConversationManager`. The active
+ * Svelte-store wrapper around the core `AparteConversationManager`. The active
  * conversation is owned by the chat component's controller; switch by binding
  * `conversationId` on `<AparteChat>`. Call from a component's script. Svelte
  * equivalent of Angular's `ConversationManagerService`.
  */
 export function createConversationManager() {
-    let manager: ConversationManager | null = null;
+    let manager: AparteConversationManager | null = null;
     let unsub: (() => void) | null = null;
 
     const conversations = writable<AparteConversation[]>([]);
@@ -32,13 +32,13 @@ export function createConversationManager() {
 
     onDestroy(() => unsub?.());
 
-    const assert = (): ConversationManager => {
+    const assert = (): AparteConversationManager => {
         if (!manager) throw new Error('[createConversationManager] Not initialised. Call init(adapter) first.');
         return manager;
     };
 
     async function init(adapter: AparteStorageAdapter): Promise<void> {
-        const m = new ConversationManager(adapter);
+        const m = new AparteConversationManager(adapter);
         manager = m;
         unsub = m.subscribe((convs) => {
             conversations.set([...convs]);

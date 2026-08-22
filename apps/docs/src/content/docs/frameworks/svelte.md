@@ -61,11 +61,11 @@ sends to the model:
 ```svelte
 <script lang="ts">
   import { AparteChat, createAparteChat, createAparteClient, type AparteChatInstance } from '@aparte/svelte';
-  import { AparteConfig, DirectTransport } from '@aparte/core';
+  import { AparteConfig, AparteDirectTransport } from '@aparte/core';
   import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
   AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-  AparteConfig.setTransport(new DirectTransport({ byok: true }));
+  AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
   const chat = createAparteChat();
   createAparteClient();          // streams replies from the configured provider
@@ -110,5 +110,5 @@ interactive aparté events by default; pass `events` to listen to others:
 
 ## Also exported
 
-- `createConversationManager` — Svelte stores over the core `ConversationManager` (list / create /
+- `createConversationManager` — Svelte stores over the core `AparteConversationManager` (list / create /
   archive), for a multi-conversation sidebar.

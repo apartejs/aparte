@@ -8,9 +8,9 @@
  * but allows complete customization via dependency injection.
  */
 
-import { AparteIconProvider, AparteIconName, DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
+import { AparteIconProvider, AparteIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 import { AparteAvatarProvider } from './avatar-provider.js';
-import { AparteLocale, DEFAULT_LOCALE } from './locale.js';
+import { AparteLocale, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
 import { AparteSkeletonProvider, AparteSkeletonType } from './skeleton-provider.js';
 import type { AparteStatusRenderer } from './status-renderer.js';
@@ -20,10 +20,10 @@ import type { AparteSiblingNavRenderer } from './sibling-nav-renderer.js';
 import type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
 import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../types/model-provider.js';
 import type { AparteTransport } from '../transport/index.js';
-import { DirectTransport } from '../transport/index.js';
+import { AparteDirectTransport } from '../transport/index.js';
 import type { AparteTool, AparteToolHandler, AparteToolRenderer } from '../types/tools.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
-import type { ConversationManager } from '../conversations/conversation-manager.js';
+import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
@@ -48,7 +48,7 @@ export type AparteKeyProvider = (providerId: string) => string | Promise<string 
  *
  * Exported so a consumer can read the defaults instead of hard-coding them.
  */
-export const DEFAULT_BUBBLE_ACTIONS = {
+export const APARTE_DEFAULT_BUBBLE_ACTIONS = {
     copy: true,
     retry: false,
     edit: false,
@@ -59,12 +59,12 @@ export const DEFAULT_BUBBLE_ACTIONS = {
 /**
  * The host-handler declarations — nothing declared.
  *
- * Same rule as {@link DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
+ * Same rule as {@link APARTE_DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
  * image tile you can click, a Run button, a download button on a binary artifact
  * are all requests core forwards to the app. Undeclared, they are not rendered
  * (and the tile is not even signalled as clickable) instead of doing nothing.
  */
-export const DEFAULT_HOST_HANDLERS = {
+export const APARTE_DEFAULT_HOST_HANDLERS = {
     attachmentPreview: false,
     terminalRun: false,
     artifactRedownload: false,
@@ -134,7 +134,7 @@ export class AparteConfigClass {
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
     private _artifactPreviewBuilder?: AparteArtifactPreviewBuilder;
-    private _locale: AparteLocale = DEFAULT_LOCALE;
+    private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
 
@@ -143,12 +143,12 @@ export class AparteConfigClass {
     private _modelConfig: AparteModelConfig = {};
     /** Opt-in: gate the composer (block send + grey out) until a model is selected. */
     private _requireModelSelection = false;
-    // Transport: where chat requests go + how auth is handled (DirectTransport = browser-direct).
-    private _transport: AparteTransport = new DirectTransport();
+    // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
+    private _transport: AparteTransport = new AparteDirectTransport();
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
 
     // Conversation persistence (optional, agnostic)
-    private _conversationManager?: ConversationManager;
+    private _conversationManager?: AparteConversationManager;
 
     // Human-in-the-loop: presents typed input requests (ask_question,
     // tool approval, forms). Set by the <aparte-elicitation> Web Component.
@@ -159,11 +159,11 @@ export class AparteConfigClass {
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
 
     // Host handlers — what the app declares it can actually complete.
-    private _hostHandlers: AparteHostHandlersConfig = { ...DEFAULT_HOST_HANDLERS };
+    private _hostHandlers: AparteHostHandlersConfig = { ...APARTE_DEFAULT_HOST_HANDLERS };
 
-    // Bubble Actions — DEFAULT_BUBBLE_ACTIONS is the single source of truth
+    // Bubble Actions — APARTE_DEFAULT_BUBBLE_ACTIONS is the single source of truth
     // (init here, restored by reset(), and the fallback in getBubbleActions()).
-    private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
+    private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
 
     // ─────────────────────────────────────────────────────────────────────────
     // Provider Setters (Dependency Injection)
@@ -213,7 +213,7 @@ export class AparteConfigClass {
 
     /**
      * Configure which action buttons appear in message bubbles.
-     * Unset keys keep their defaults — see {@link DEFAULT_BUBBLE_ACTIONS}: `copy`
+     * Unset keys keep their defaults — see {@link APARTE_DEFAULT_BUBBLE_ACTIONS}: `copy`
      * only, because every other button needs a host to honor it.
      *
      * @example
@@ -243,9 +243,9 @@ export class AparteConfigClass {
     /** Returns the resolved host-handler declarations (undeclared = false). */
     getHostHandlers(): { attachmentPreview: boolean; terminalRun: boolean; artifactRedownload: boolean } {
         return {
-            attachmentPreview: this._hostHandlers.attachmentPreview ?? DEFAULT_HOST_HANDLERS.attachmentPreview,
-            terminalRun: this._hostHandlers.terminalRun ?? DEFAULT_HOST_HANDLERS.terminalRun,
-            artifactRedownload: this._hostHandlers.artifactRedownload ?? DEFAULT_HOST_HANDLERS.artifactRedownload,
+            attachmentPreview: this._hostHandlers.attachmentPreview ?? APARTE_DEFAULT_HOST_HANDLERS.attachmentPreview,
+            terminalRun: this._hostHandlers.terminalRun ?? APARTE_DEFAULT_HOST_HANDLERS.terminalRun,
+            artifactRedownload: this._hostHandlers.artifactRedownload ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRedownload,
         };
     }
 
@@ -260,11 +260,11 @@ export class AparteConfigClass {
         assistant?: AparteBubbleActionName[];
     } {
         return {
-            copy: this._bubbleActionsConfig.copy ?? DEFAULT_BUBBLE_ACTIONS.copy,
-            retry: this._bubbleActionsConfig.retry ?? DEFAULT_BUBBLE_ACTIONS.retry,
-            edit: this._bubbleActionsConfig.edit ?? DEFAULT_BUBBLE_ACTIONS.edit,
-            feedback: this._bubbleActionsConfig.feedback ?? DEFAULT_BUBBLE_ACTIONS.feedback,
-            info: this._bubbleActionsConfig.info ?? DEFAULT_BUBBLE_ACTIONS.info,
+            copy: this._bubbleActionsConfig.copy ?? APARTE_DEFAULT_BUBBLE_ACTIONS.copy,
+            retry: this._bubbleActionsConfig.retry ?? APARTE_DEFAULT_BUBBLE_ACTIONS.retry,
+            edit: this._bubbleActionsConfig.edit ?? APARTE_DEFAULT_BUBBLE_ACTIONS.edit,
+            feedback: this._bubbleActionsConfig.feedback ?? APARTE_DEFAULT_BUBBLE_ACTIONS.feedback,
+            info: this._bubbleActionsConfig.info ?? APARTE_DEFAULT_BUBBLE_ACTIONS.info,
             user: this._bubbleActionsConfig.user,
             assistant: this._bubbleActionsConfig.assistant,
         };
@@ -423,7 +423,7 @@ export class AparteConfigClass {
 
     /**
      * The icon set as a **complete** provider: every name resolves, falling back
-     * to `DEFAULT_ICON_FALLBACKS` for anything the registered provider doesn't
+     * to `APARTE_DEFAULT_ICON_FALLBACKS` for anything the registered provider doesn't
      * implement. Callers (bubble action bar, composer controls) can therefore
      * invoke `icons.copy()` unconditionally.
      *
@@ -435,9 +435,9 @@ export class AparteConfigClass {
     getIconProvider(): Required<AparteIconProvider> {
         const registered = this._iconProvider;
         const complete = {} as Required<AparteIconProvider>;
-        for (const name of Object.keys(DEFAULT_ICON_FALLBACKS) as AparteIconName[]) {
+        for (const name of Object.keys(APARTE_DEFAULT_ICON_FALLBACKS) as AparteIconName[]) {
             const fn = registered?.[name];
-            complete[name] = fn ?? (() => DEFAULT_ICON_FALLBACKS[name]);
+            complete[name] = fn ?? (() => APARTE_DEFAULT_ICON_FALLBACKS[name]);
         }
         return complete;
     }
@@ -553,12 +553,12 @@ export class AparteConfigClass {
     }
 
     /**
-     * Restore the built-in English locale (the same `DEFAULT_LOCALE` core ships
+     * Restore the built-in English locale (the same `APARTE_DEFAULT_LOCALE` core ships
      * with). Counterpart of {@link setLocale} for language toggles — avoids
-     * having to import `DEFAULT_LOCALE` yourself.
+     * having to import `APARTE_DEFAULT_LOCALE` yourself.
      */
     resetLocale(): void {
-        this._locale = DEFAULT_LOCALE;
+        this._locale = APARTE_DEFAULT_LOCALE;
         this._notify();
     }
 
@@ -586,7 +586,7 @@ export class AparteConfigClass {
     getIcon(name: AparteIconName): string {
         const icon = this._iconProvider?.[name];
         if (icon) return icon();
-        return DEFAULT_ICON_FALLBACKS[name];
+        return APARTE_DEFAULT_ICON_FALLBACKS[name];
     }
 
     /**
@@ -680,15 +680,15 @@ export class AparteConfigClass {
 
     /**
      * Set the transport that decides where chat requests go and how auth is
-     * handled. Defaults to {@link DirectTransport} (browser-direct — BYOK/local).
-     * Use a `BackendTransport` to keep API keys server-side (recommended for
+     * handled. Defaults to {@link AparteDirectTransport} (browser-direct — BYOK/local).
+     * Use a `AparteBackendTransport` to keep API keys server-side (recommended for
      * production).
      */
     setTransport(transport: AparteTransport): void {
         this._transport = transport;
     }
 
-    /** Get the active transport (DirectTransport by default). */
+    /** Get the active transport (AparteDirectTransport by default). */
     getTransport(): AparteTransport {
         return this._transport;
     }
@@ -829,7 +829,7 @@ export class AparteConfigClass {
      * Get translated string by key
      */
     t(key: keyof AparteLocale): string {
-        const val = this._locale[key] || DEFAULT_LOCALE[key];
+        const val = this._locale[key] || APARTE_DEFAULT_LOCALE[key];
         // Ensure we always return a string for template interpolation
         // For optional properties like 'direction', this might need specific handling or casting
         return (val === undefined) ? '' : val;
@@ -943,15 +943,15 @@ export class AparteConfigClass {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register a ConversationManager so any UI controller can persist & load
+     * Register a AparteConversationManager so any UI controller can persist & load
      * conversations without coupling to a framework wrapper.
      */
-    setConversationManager(manager: ConversationManager): void {
+    setConversationManager(manager: AparteConversationManager): void {
         this._conversationManager = manager;
     }
 
-    /** Returns the registered ConversationManager, or undefined if none. */
-    getConversationManager(): ConversationManager | undefined {
+    /** Returns the registered AparteConversationManager, or undefined if none. */
+    getConversationManager(): AparteConversationManager | undefined {
         return this._conversationManager;
     }
 
@@ -1011,7 +1011,7 @@ export class AparteConfigClass {
         this._keyProvider = undefined;
         this._conversationManager = undefined;
         this._elicitationPresenter = undefined;
-        this._locale = DEFAULT_LOCALE;
+        this._locale = APARTE_DEFAULT_LOCALE;
         this._actions = [];
         this._sanitizer = defaultSanitizer;
         // Registries — the leak the audit flagged.
@@ -1021,8 +1021,8 @@ export class AparteConfigClass {
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._modelPreferenceProvider = undefined;
-        this._bubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
-        this._hostHandlers = { ...DEFAULT_HOST_HANDLERS };
+        this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
+        this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };
         this._notify();
     }
 

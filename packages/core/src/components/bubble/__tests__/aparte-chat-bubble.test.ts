@@ -755,7 +755,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('takes its label from the active locale, not a hardcoded string', () => {
-            // `locale.typing` shipped in DEFAULT_LOCALE and was read by nothing. A
+            // `locale.typing` shipped in APARTE_DEFAULT_LOCALE and was read by nothing. A
             // French app must not be told "Typing".
             AparteConfig.setLocale({ ...AparteConfig.getLocale(), typing: 'Réflexion…' });
             bubble = createBubble({ role: 'assistant', 'message-id': 'w1b', streaming: '' });

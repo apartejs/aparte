@@ -1,9 +1,9 @@
 /**
- * MessageRepository — Conversation Tree Storage
+ * AparteMessageRepository — Conversation Tree Storage
  *
  * Manages the branching conversation tree while keeping AparteMessage pure
  * (no topology fields on the message itself). Inspired by assistant-ui's
- * MessageRepository but adapted for the Aparte vanilla-TS stack.
+ * AparteMessageRepository but adapted for the Aparte vanilla-TS stack.
  *
  * Internal structure: a doubly-linked tree where each node holds a pointer
  * to its parent (prev) and its active child (next). `children` stores all
@@ -51,7 +51,7 @@ function findHead(node: RepoNode | RepoRoot): RepoNode | null {
 
 // ─── Repository ──────────────────────────────────────────────────────────────
 
-export class MessageRepository {
+export class AparteMessageRepository {
     private _nodes = new Map<string, RepoNode>();
     private _head: RepoNode | null = null;
     private _root: RepoRoot = { next: null, children: [] };
@@ -127,7 +127,7 @@ export class MessageRepository {
         const parentNode = parentId ? this._nodes.get(parentId) : undefined;
 
         if (parentId !== null && parentNode === undefined) {
-            throw new Error(`MessageRepository: parent "${parentId}" not found.`);
+            throw new Error(`AparteMessageRepository: parent "${parentId}" not found.`);
         }
 
         // After the guard above, parentNode is either a valid RepoNode or undefined (null parentId case)

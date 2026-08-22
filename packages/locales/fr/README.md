@@ -1,7 +1,7 @@
 # @aparte/locale-fr
 
 French locale for [aparté](https://github.com/apartejs/aparte). Core ships English
-(`DEFAULT_LOCALE`) out of the box — install this only to switch to French.
+(`APARTE_DEFAULT_LOCALE`) out of the box — install this only to switch to French.
 
 ```bash
 npm install @aparte/locale-fr @aparte/core

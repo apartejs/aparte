@@ -129,7 +129,7 @@ export interface AparteAttachmentRow {
 /**
  * Implement this interface to provide persistence for conversations.
  * All methods are async so any backend (IndexedDB, SQLite WASM, REST API…)
- * can be used. The ConversationManager never touches storage directly.
+ * can be used. The AparteConversationManager never touches storage directly.
  *
  * The first three methods (`loadAll`, `save`, `delete`) form the minimum
  * viable adapter — everything else is optional and lets richer backends

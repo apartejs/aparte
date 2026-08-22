@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { DirectTransport } from '../direct-transport.js';
-import { BackendTransport } from '../backend-transport.js';
+import { AparteDirectTransport } from '../direct-transport.js';
+import { AparteBackendTransport } from '../backend-transport.js';
 import { isFormatAdapter } from '../types.js';
 import type { AparteAIProvider } from '../../types/model-provider.js';
 import type { AparteChatRequest } from '../../types/chat.js';
@@ -65,25 +65,25 @@ describe('isFormatAdapter', () => {
     });
 });
 
-describe('DirectTransport', () => {
+describe('AparteDirectTransport', () => {
     it('delegates to a legacy provider\'s chat(), forwarding ctx (abort signal reaches the provider)', async () => {
         const chat = vi.fn(async () => 'LEGACY');
         const signal = new AbortController().signal;
-        const out = await new DirectTransport().chat(legacy(chat), req, 'sk-1', { providerId: 'mock', signal });
+        const out = await new AparteDirectTransport().chat(legacy(chat), req, 'sk-1', { providerId: 'mock', signal });
         expect(out).toBe('LEGACY');
         expect(chat).toHaveBeenCalledWith(req, 'sk-1', { providerId: 'mock', signal });
     });
 
     it('warns once when a legacy provider carries a real key (BYOK-warn parity)', async () => {
-        const t = new DirectTransport();
+        const t = new AparteDirectTransport();
         await t.chat(legacy(), req, 'sk-secret', ctx);
         await t.chat(legacy(), req, 'sk-secret', ctx);
         expect(console.warn).toHaveBeenCalledTimes(1);
-        expect(String(vi.mocked(console.warn).mock.calls[0]?.[0])).toContain('DirectTransport');
+        expect(String(vi.mocked(console.warn).mock.calls[0]?.[0])).toContain('AparteDirectTransport');
     });
 
     it('does not warn for a keyless legacy provider (local model)', async () => {
-        await new DirectTransport().chat(legacy(), req, undefined, ctx);
+        await new AparteDirectTransport().chat(legacy(), req, undefined, ctx);
         expect(console.warn).not.toHaveBeenCalled();
     });
 
@@ -92,7 +92,7 @@ describe('DirectTransport', () => {
         const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
             new Response(streamOf(), { status: 200 }) as any,
         );
-        await new DirectTransport().chat(p, req, 'sk-42', ctx);
+        await new AparteDirectTransport().chat(p, req, 'sk-42', ctx);
 
         const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
         expect(url).toBe('https://vendor.test/v1/chat');
@@ -103,7 +103,7 @@ describe('DirectTransport', () => {
 
     it('honours an endpoint override from the auth config object', async () => {
         const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(streamOf(), { status: 200 }) as any);
-        await new DirectTransport().chat(adapter(), req, { apiKey: 'k', endpoint: 'https://proxy.test/v1' }, ctx);
+        await new AparteDirectTransport().chat(adapter(), req, { apiKey: 'k', endpoint: 'https://proxy.test/v1' }, ctx);
         expect((fetchSpy.mock.calls[0] as any)[0]).toBe('https://proxy.test/v1/chat');
     });
 
@@ -111,38 +111,38 @@ describe('DirectTransport', () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(
             new Response(JSON.stringify({ error: { message: 'bad key' } }), { status: 401 }) as any,
         );
-        await expect(new DirectTransport().chat(adapter(), req, 'k', ctx)).rejects.toThrow('bad key');
+        await expect(new AparteDirectTransport().chat(adapter(), req, 'k', ctx)).rejects.toThrow('bad key');
     });
 
     it('warns once when a real key is sent straight from the browser', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(streamOf(), { status: 200 }) as any);
-        const t = new DirectTransport();
+        const t = new AparteDirectTransport();
         await t.chat(adapter(), req, 'sk-secret', ctx);
         await t.chat(adapter(), req, 'sk-secret', ctx);
         expect(console.warn).toHaveBeenCalledTimes(1);
-        expect(String(vi.mocked(console.warn).mock.calls[0]?.[0])).toContain('DirectTransport');
+        expect(String(vi.mocked(console.warn).mock.calls[0]?.[0])).toContain('AparteDirectTransport');
     });
 
     it('does not warn when constructed with { byok: true }', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(streamOf(), { status: 200 }) as any);
-        await new DirectTransport({ byok: true }).chat(adapter(), req, 'sk-secret', ctx);
+        await new AparteDirectTransport({ byok: true }).chat(adapter(), req, 'sk-secret', ctx);
         expect(console.warn).not.toHaveBeenCalled();
     });
 
     it('does not warn when no key is sent (local model)', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(streamOf(), { status: 200 }) as any);
-        await new DirectTransport().chat(adapter(), req, {}, ctx);
+        await new AparteDirectTransport().chat(adapter(), req, {}, ctx);
         expect(console.warn).not.toHaveBeenCalled();
     });
 });
 
-describe('BackendTransport', () => {
+describe('AparteBackendTransport', () => {
     it('POSTs { providerId, request } (no key leak) and parses the NDJSON AparteStreamEvents', async () => {
         const p = adapter();
         const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
             ndjsonResponse([{ type: 'text', delta: 'hi' } as AparteStreamEvent, { type: 'done' } as AparteStreamEvent]) as any,
         );
-        const result = await new BackendTransport({ endpoint: '/api/chat' }).chat(p, req, 'sk-secret', ctx);
+        const result = await new AparteBackendTransport({ endpoint: '/api/chat' }).chat(p, req, 'sk-secret', ctx);
 
         const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
         expect(url).toBe('/api/chat');
@@ -158,13 +158,13 @@ describe('BackendTransport', () => {
 
     it('does not require a format-adapter provider (the backend owns the vendor mapping)', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(ndjsonResponse([{ type: 'done' } as AparteStreamEvent]) as any);
-        const result = await new BackendTransport({ endpoint: '/api/chat' }).chat(legacy(), req, undefined, ctx);
+        const result = await new AparteBackendTransport({ endpoint: '/api/chat' }).chat(legacy(), req, undefined, ctx);
         expect(result).toBeInstanceOf(ReadableStream);
     });
 
     it('returns text for a non-streaming request via the backend { text } reply', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ text: 'done' }), { status: 200 }) as any);
-        const out = await new BackendTransport({ endpoint: '/api/chat' }).chat(adapter(), { ...req, stream: false }, undefined, ctx);
+        const out = await new AparteBackendTransport({ endpoint: '/api/chat' }).chat(adapter(), { ...req, stream: false }, undefined, ctx);
         expect(out).toBe('done');
     });
 });

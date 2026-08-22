@@ -78,7 +78,7 @@ export interface AparteLocale {
  * Default English Locale (Zero-dependency)
  * Hardcoded to ensure the core works out-of-the-box.
  */
-export const DEFAULT_LOCALE: AparteLocale = {
+export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     inputPlaceholder: "Type a message...",
     sendButton: "Send",
     copy: "Copy",

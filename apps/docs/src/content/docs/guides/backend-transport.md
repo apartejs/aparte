@@ -1,27 +1,27 @@
 ---
 title: Backend transport
-description: Keep your API key server-side — route chat through your own /api/chat with BackendTransport and createAparteChatHandler.
+description: Keep your API key server-side — route chat through your own /api/chat with AparteBackendTransport and createAparteChatHandler.
 sidebar:
   order: 8
 ---
 
 Every aparté chat goes through a **transport**: *where* the request goes and *how* the
-key is handled. [`DirectTransport`](/guides/getting-started/#wire-a-real-model) calls the
+key is handled. [`AparteDirectTransport`](/guides/getting-started/#wire-a-real-model) calls the
 vendor straight from the browser — fine for BYOK or a local model, but it puts the key in
-devtools. `BackendTransport` instead POSTs to **your own endpoint**; your server resolves
+devtools. `AparteBackendTransport` instead POSTs to **your own endpoint**; your server resolves
 the vendor key, calls the vendor, and streams normalized events back. The key never
 reaches the browser.
 
 ## When to use it
 
-| | `DirectTransport` | `BackendTransport` |
+| | `AparteDirectTransport` | `AparteBackendTransport` |
 | --- | --- | --- |
 | Key location | Browser (devtools-visible) | Server only |
 | Good for | BYOK, local models (Ollama, LM Studio), prototyping | Production / SaaS with a key you pay for |
 | Client needs | The vendor's format adapter | Only a `providerId` string |
 
-If your app pays for the API key, use `BackendTransport`. If the *user* supplies their own
-key (or the model runs locally, keyless), `DirectTransport` is simpler and there's no
+If your app pays for the API key, use `AparteBackendTransport`. If the *user* supplies their own
+key (or the model runs locally, keyless), `AparteDirectTransport` is simpler and there's no
 server hop.
 
 ## 1. Build the server handler
@@ -31,7 +31,7 @@ server hop.
 Next.js route handler, Deno, Bun, or a Cloudflare Worker unchanged. It reads
 `{ providerId, request }`, runs the matching **format adapter** server-side
 (`buildRequest` → auth → vendor fetch → `parseStream`), and re-emits the result as NDJSON
-(one JSON object per line) — the exact wire format `BackendTransport` expects on the way
+(one JSON object per line) — the exact wire format `AparteBackendTransport` expects on the way
 back.
 
 Importing `@aparte/core` on the server is fine: a `node` export condition resolves to a
@@ -61,7 +61,7 @@ Handler options:
 
 - **`providers`** — a `Record<string, AparteAIProvider>` keyed by the `providerId` the
   client will send (the same `@aparte/provider-*` adapters you'd use with
-  `DirectTransport` — nothing changes about the adapter itself). Each entry must expose
+  `AparteDirectTransport` — nothing changes about the adapter itself). Each entry must expose
   the **format-adapter** surface (`buildRequest` + `parseStream` + `defaultEndpoint`, plus
   `authHeaders` or `authQuery`) — `createOpenAICompatProvider(...)` already does. An
   unregistered `providerId` gets a `400`; a provider missing the adapter surface gets a
@@ -97,18 +97,18 @@ The client never sends a URL — only a `providerId` string. The vendor URL come
 in the request body can redirect the server to an arbitrary host. A malicious or buggy
 client can pick a *registered* provider at most, never an arbitrary endpoint. Vendor
 errors (bad key, rate limit, etc.) are propagated back with their original status and body
-so the client surfaces the real vendor message, same as `DirectTransport`.
+so the client surfaces the real vendor message, same as `AparteDirectTransport`.
 
 ## 2. Point the browser at it
 
 On the client, skip the provider adapter entirely — the browser only needs to know the
-`providerId` and where your endpoint lives. Set `BackendTransport` instead of
-`DirectTransport` and drive the rest exactly as usual:
+`providerId` and where your endpoint lives. Set `AparteBackendTransport` instead of
+`AparteDirectTransport` and drive the rest exactly as usual:
 
 ```ts
-import { AparteConfig, AparteClient, BackendTransport } from '@aparte/core';
+import { AparteConfig, AparteClient, AparteBackendTransport } from '@aparte/core';
 
-AparteConfig.setTransport(new BackendTransport({ endpoint: '/api/chat' }));
+AparteConfig.setTransport(new AparteBackendTransport({ endpoint: '/api/chat' }));
 new AparteClient().start();   // .start() attaches the aparte-send/-retry/-edit listeners
 ```
 
@@ -117,7 +117,7 @@ No key, no adapter import, nothing devtools-visible — the browser just POSTs
 
 :::caution
 `AparteConfig` still needs to know *which* `providerId` to send (e.g. via the model
-selector, or hardcoded if you only support one vendor) — `BackendTransport` doesn't need
+selector, or hardcoded if you only support one vendor) — `AparteBackendTransport` doesn't need
 the provider's format adapter registered client-side, but something has to pick the id.
 :::
 
@@ -132,7 +132,7 @@ the provider's format adapter registered client-side, but something has to pick 
 
 ## Wire format
 
-The NDJSON `BackendTransport` reads back is aparté's own — one JSON `AparteStreamEvent`
+The NDJSON `AparteBackendTransport` reads back is aparté's own — one JSON `AparteStreamEvent`
 per line — **not** the Vercel AI SDK Data Stream Protocol. You don't need to think about
 this if you use `createAparteChatHandler` on the server (it produces exactly this format),
 but a hand-rolled route must match it if you skip the helper.
@@ -142,6 +142,6 @@ but a hand-rolled route must match it if you skip the helper.
 - **[Providers](/providers/)** — the format adapters you register in the `providers` map
   (OpenAI-compatible, the AI SDK bridge, Transformers.js).
 - **[Getting started](/guides/getting-started/#wire-a-real-model)** — the
-  `DirectTransport` / BYOK path, for contrast.
+  `AparteDirectTransport` / BYOK path, for contrast.
 - **[The agent engine](/guides/engine)** — `runStreamAgent`, for a headless loop instead
   of the `AparteClient` event wiring shown here.

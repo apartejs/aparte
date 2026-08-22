@@ -167,7 +167,7 @@ viewport.importTree(tree);
 ```
 
 For multi-conversation storage (list, switch, delete — against localStorage, IndexedDB,
-or your API), core also ships a `ConversationManager` + a storage-adapter contract — a
+or your API), core also ships a `AparteConversationManager` + a storage-adapter contract — a
 topic of its own.
 
 ## Customizing the picker

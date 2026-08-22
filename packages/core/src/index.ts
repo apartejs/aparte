@@ -130,7 +130,7 @@ export type {
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
-export { ConversationManager, type ConversationManagerOptions } from './conversations/index.js';
+export { AparteConversationManager, type ConversationManagerOptions } from './conversations/index.js';
 export {
     AparteConversationController,
     type AparteChatBinding,
@@ -151,16 +151,16 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 export { parseAparteEventStream } from './parsers/index.js';
 
 // Export config
-export { AparteConfig, AparteConfigClass, DEFAULT_BUBBLE_ACTIONS, DEFAULT_HOST_HANDLERS } from './config/index.js';
+export { AparteConfig, AparteConfigClass, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteSkeletonProvider, AparteSkeletonType, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
-export { DEFAULT_ICON_FALLBACKS, DEFAULT_SKELETON_FALLBACKS, DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
+export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client
 export { AparteClient } from './client/aparte-client.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
-export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
+export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
 // Turns the `File[]` an `aparte-send` carries into renderable attachments — the
 // same conversion ConversationController does, for consumers driving the
 // imperative API themselves.
@@ -186,11 +186,11 @@ export { createStreamAdapter, readableToAsyncIterable } from './client/stream-ad
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 
 // Export transport seam (where chat requests go + how auth is handled)
-export { DirectTransport, BackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
 export type { AparteTransport, AparteTransportContext, AparteFormatAdapter, AparteVendorRequest, BackendTransportOptions, DirectTransportOptions, AparteChatHandlerOptions } from './transport/index.js';
 
 // Export runtime utilities
-export { MessageRepository } from './runtime/message-repository.js';
+export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
 
 // Export elicitation (human-in-the-loop typed input)

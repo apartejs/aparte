@@ -2,7 +2,7 @@
  * Un-mocked pipeline smoke — proves the REAL wiring end to end against a live
  * local model (LM Studio / Ollama on their OpenAI-compat `/v1`). No network
  * mock: the selector fetches real models, auto-selects one, and a real reply
- * streams back through provider → DirectTransport → client → bubbles.
+ * streams back through provider → AparteDirectTransport → client → bubbles.
  *
  * Opt-in (kept out of the deterministic default run): set E2E_REAL_MODEL=1 with
  * a local server running and CORS enabled, e.g.
