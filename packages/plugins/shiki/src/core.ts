@@ -1,4 +1,4 @@
-import { AparteConfig , type AparteConfigClass} from '@aparte/core';
+import { aparteGlobalConfig , type AparteConfig} from '@aparte/core';
 /**
  * The slice of a shiki highlighter this plugin actually uses — declared here rather
  * than borrowed from `HighlighterCore`, so this module needs no import from shiki at
@@ -66,7 +66,7 @@ export const PLAINTEXT = new Set(['text', 'plaintext', 'txt', 'ansi', '']);
 export function setupShikiProviderFromHighlighter(
     highlighter: ShikiHighlighterLike,
     options: ShikiCoreProviderOptions = {},
-    config: AparteConfigClass = AparteConfig,
+    config: AparteConfig = aparteGlobalConfig,
 ): void {
     const theme = options.theme ?? 'github-dark';
     let loaded: Set<string> | null = null;

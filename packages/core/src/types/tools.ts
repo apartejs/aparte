@@ -105,7 +105,7 @@ export type AparteToolHandler = (
  * against the GLOBAL config, found nothing, and returned `{ action: 'cancel' }`.
  * The model was told the user refused a question the user was never shown.
  *
- * That failure is described in `AparteConfigClass.requestUserInput` as "a lie told
+ * That failure is described in `AparteConfig.requestUserInput` as "a lie told
  * quietly", and the plugin walked straight into it because the handler signature
  * gave it nothing to walk around with.
  *
@@ -128,7 +128,7 @@ export interface AparteToolContext {
 
 /**
  * Per-tool segment renderer.
- * Registered via AparteConfig.registerToolRenderer(toolName, renderer).
+ * Registered via aparteGlobalConfig.registerToolRenderer(toolName, renderer).
  * When the AI calls a tool, this renderer controls what appears in the bubble
  * for that specific tool instead of the generic tool_call renderer.
  *

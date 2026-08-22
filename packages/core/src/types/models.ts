@@ -104,7 +104,7 @@ export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'th
 
 /**
  * Controls which action buttons are rendered in message bubbles.
- * Pass to `AparteConfig.setBubbleActions()` to customise or disable actions.
+ * Pass to `aparteGlobalConfig.setBubbleActions()` to customise or disable actions.
  *
  * **Only `copy` is on by default.** Core can copy text on its own; every other
  * button needs someone outside core to honor it — `AparteClient` (retry, edit) or
@@ -112,7 +112,7 @@ export type AparteBubbleActionName = 'copy' | 'edit' | 'retry' | 'thumbUp' | 'th
  * user, so aparté ships them off and you turn on what you handle:
  *
  * ```ts
- * AparteConfig.setBubbleActions({ retry: true, edit: true });   // you run AparteClient
+ * aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });   // you run AparteClient
  * ```
  *
  * Two ways to configure:
@@ -146,11 +146,11 @@ export interface AparteBubbleActionsConfig {
 /**
  * The affordances core RENDERS but cannot COMPLETE — each one only asks, through a
  * DOM event, and the app does the work. Declare what your app actually handles
- * with `AparteConfig.setHostHandlers()`; everything else stays out of the UI
+ * with `aparteGlobalConfig.setHostHandlers()`; everything else stays out of the UI
  * rather than showing a control that answers to nobody.
  *
  * ```ts
- * AparteConfig.setHostHandlers({ attachmentPreview: true });   // you open a lightbox
+ * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });   // you open a lightbox
  * ```
  *
  * These are declarations, not callbacks: the events (`aparte-attachment-preview`,

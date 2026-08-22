@@ -1,22 +1,22 @@
 /**
  * Per-instance config resolution (Phase 2, step 1 — the seam only).
  *
- * `AparteConfig` is a global singleton: one config for the whole page. That makes
+ * `aparteGlobalConfig` is a page-wide singleton: one config for the whole page. That makes
  * two independent chats on one page impossible (changing the model of one
  * changes the other) and couples every component to global state.
  *
  * This module adds an OPTIONAL instance boundary without touching behaviour:
- * a host element can carry its own {@link AparteConfigClass} instance, and any
+ * a host element can carry its own {@link AparteConfig} instance, and any
  * component resolves "its" config by walking up to the nearest such host —
  * falling back to the global singleton when there is none. Until a caller
  * attaches an instance config, `resolveConfig` always returns the global, so
  * single-chat apps are unaffected.
  *
- * Step 2 migrates the ~23 component read-sites from `AparteConfig.x()` to
+ * Step 2 migrates the ~23 component read-sites from `aparteGlobalConfig.x()` to
  * `resolveConfig(this).x()`. This step just ships the mechanism + tests.
  */
 
-import { AparteConfig, AparteConfigClass } from './aparte-config.js';
+import { aparteGlobalConfig, AparteConfig } from './aparte-config.js';
 
 /** Marks an element as an instance-config boundary (used by `closest()`). */
 export const APARTE_HOST_ATTR = 'data-aparte-host';
@@ -25,7 +25,7 @@ export const APARTE_HOST_ATTR = 'data-aparte-host';
 const CONFIG_SLOT = Symbol.for('aparte.instanceConfig');
 
 interface ConfigHost {
-    [CONFIG_SLOT]?: AparteConfigClass;
+    [CONFIG_SLOT]?: AparteConfig;
 }
 
 /**
@@ -33,7 +33,7 @@ interface ConfigHost {
  * component inside `el` resolves to `config` instead of the global singleton.
  * Idempotent; pass the same element to replace its config.
  */
-export function attachConfig(el: HTMLElement, config: AparteConfigClass): void {
+export function attachConfig(el: HTMLElement, config: AparteConfig): void {
     (el as unknown as ConfigHost)[CONFIG_SLOT] = config;
     el.setAttribute(APARTE_HOST_ATTR, '');
 }
@@ -49,7 +49,7 @@ export function detachConfig(el: HTMLElement): void {
 
 /**
  * Resolve the config governing `el`: the nearest ancestor boundary's instance
- * config (including `el` itself), or the global {@link AparteConfig} when none is
+ * config (including `el` itself), or {@link aparteGlobalConfig} when none is
  * present. Cheap — a single `closest()`.
  *
  * DO NOT cache this at `connectedCallback`. An earlier version of this comment
@@ -65,9 +65,9 @@ export function detachConfig(el: HTMLElement): void {
  * a correctness bug — `aparte-chat-bubble` has done it that way from the start, and
  * it is the one element that was never affected.
  */
-export function resolveConfig(el: Element | null | undefined): AparteConfigClass {
+export function resolveConfig(el: Element | null | undefined): AparteConfig {
     const host = el?.closest?.(`[${APARTE_HOST_ATTR}]`) as (Element & ConfigHost) | null | undefined;
-    return host?.[CONFIG_SLOT] ?? AparteConfig;
+    return host?.[CONFIG_SLOT] ?? aparteGlobalConfig;
 }
 
 // ─── Render context ──────────────────────────────────────────────────────────
@@ -77,10 +77,10 @@ export function resolveConfig(el: Element | null | undefined): AparteConfigClass
 // renderer reads `contextConfig()`. Synchronous only: async continuations must
 // capture the config BEFORE awaiting (`const cfg = contextConfig()` at the top).
 
-let _renderConfig: AparteConfigClass | null = null;
+let _renderConfig: AparteConfig | null = null;
 
 /** Run `fn` with `config` as the ambient render config (restored after). */
-export function runWithConfig<T>(config: AparteConfigClass, fn: () => T): T {
+export function runWithConfig<T>(config: AparteConfig, fn: () => T): T {
     const prev = _renderConfig;
     _renderConfig = config;
     try {
@@ -95,6 +95,6 @@ export function runWithConfig<T>(config: AparteConfigClass, fn: () => T): T {
  * resolved from `el` (when provided), else the global singleton. Capture it
  * synchronously at the top of a renderer — never after an `await`.
  */
-export function contextConfig(el?: Element | null): AparteConfigClass {
+export function contextConfig(el?: Element | null): AparteConfig {
     return _renderConfig ?? resolveConfig(el);
 }

@@ -28,6 +28,6 @@ import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 
 Fires **`aparte-model-change`** (`{ providerId, modelId, previousProviderId, previousModelId }`) when the
 selection changes. It reads providers from the nearest instance config (`attachConfig`), falling back to
-the global `AparteConfig`.
+`aparteGlobalConfig`.
 
 > ESM-only. Part of the aparté monorepo.

@@ -4,7 +4,7 @@ import './style.css';
 
 import {
     registerDefaultRenderers,
-    AparteConfig,
+    aparteGlobalConfig,
     AparteClient,
     AparteDirectTransport,
     filesToAttachments,
@@ -21,7 +21,7 @@ setupMarkedProvider();
 
 // 2. Real providers — two local (no key) + OpenRouter (BYOK). The model selector
 //    lists all three; pick a running local model to chat with zero setup.
-AparteConfig.registerAIProvider(
+aparteGlobalConfig.registerAIProvider(
     createOpenAICompatProvider(presets.OLLAMA),
     createOpenAICompatProvider(presets.LMSTUDIO),
     createOpenAICompatProvider(presets.OPENROUTER),
@@ -29,16 +29,16 @@ AparteConfig.registerAIProvider(
 
 // 3. Browser talks to the provider directly; the key (if any) stays in the browser.
 // Gate the composer until the model selector has fetched + auto-selected a model.
-AparteConfig.setRequireModelSelection(true);
+aparteGlobalConfig.setRequireModelSelection(true);
 
-AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 // 4. Opt into the affordances THIS app can honor. Retry and edit need the client
 //    below to re-send and rewrite; the image tile needs the lightbox we wire at
 //    the bottom of this file. What we don't handle (the ⓘ details popover, running
 //    a terminal command) stays out of the UI rather than showing a dead button.
-AparteConfig.setBubbleActions({ retry: true, edit: true });
-AparteConfig.setHostHandlers({ attachmentPreview: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 
 // 5. Drive the turn with @aparte/engine's headless loop instead of core's inline
 //    one. This is the `streamRunner` seam, and the reason it is wired HERE rather

@@ -14,10 +14,10 @@ wait for a human to click **Approve** before your handler ever runs.
 ## Define and register a tool
 
 A tool is a plain `AparteTool` object plus an `AparteToolHandler`, registered together
-with `AparteConfig.registerTool`:
+with `aparteGlobalConfig.registerTool`:
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteTool, AparteToolHandler } from '@aparte/core';
 
 const getTimeTool: AparteTool = {
@@ -35,7 +35,7 @@ const getTimeHandler: AparteToolHandler = async (call) => ({
   content: new Date().toLocaleString('en-US', { timeZone: call.input.timezone as string }),
 });
 
-AparteConfig.registerTool(getTimeTool, getTimeHandler);
+aparteGlobalConfig.registerTool(getTimeTool, getTimeHandler);
 ```
 
 - **`inputSchema`** is a plain JSON Schema object, sent to the model as-is.
@@ -62,7 +62,7 @@ model's `capabilities` include `function_calling`. When the model calls one:
 
 1. A **`tool_call`** segment is added (`status: 'pending'`) — the built-in renderer shows
    a pill with the tool name + a spinner.
-2. The client resolves the handler via `AparteConfig.getToolHandler(name)`, runs it, and
+2. The client resolves the handler via `aparteGlobalConfig.getToolHandler(name)`, runs it, and
    on resolve flips the segment to `status: 'resolved'`.
 3. The `tool_call` and its result are appended to history and the provider is re-called
    automatically, so the model sees the outcome and continues.
@@ -88,7 +88,7 @@ const deleteFilesTool: AparteTool = {
   needsApproval: true,
 };
 
-AparteConfig.registerTool(deleteFilesTool, async (call) => {
+aparteGlobalConfig.registerTool(deleteFilesTool, async (call) => {
   // ... actually delete call.input.path ...
   return { toolCallId: call.id, content: `Deleted ${call.input.path}` };
 });
@@ -139,7 +139,7 @@ after injection for listeners; `getStyles` is injected into `document.head` once
 For a `needsApproval` tool this only takes over *after* approval:
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteToolRenderer } from '@aparte/core';
 
 const webSearchRenderer: AparteToolRenderer = {
@@ -147,7 +147,7 @@ const webSearchRenderer: AparteToolRenderer = {
   setup: (element, segment) => { /* wire listeners after injection, if any */ },
 };
 
-AparteConfig.registerToolRenderer('web_search', webSearchRenderer);
+aparteGlobalConfig.registerToolRenderer('web_search', webSearchRenderer);
 ```
 
 ## Complete example: approve/reject with no backend

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { AparteConfig } from '../aparte-config';
+import { aparteGlobalConfig } from '../aparte-config';
 import { APARTE_DEFAULT_ICON_FALLBACKS, type AparteIconName } from '../icon-provider';
 import { APARTE_DEFAULT_SKELETON_FALLBACKS, type AparteSkeletonType } from '../skeleton-provider';
 
@@ -9,7 +9,7 @@ import { APARTE_DEFAULT_SKELETON_FALLBACKS, type AparteSkeletonType } from '../s
 // markup each key produces — not just "is defined".
 
 describe('APARTE_DEFAULT_ICON_FALLBACKS', () => {
-    afterEach(() => AparteConfig.reset());
+    afterEach(() => aparteGlobalConfig.reset());
 
     const requiredIconNames: AparteIconName[] = [
         'copy', 'check', 'send', 'loading', 'error', 'expand', 'collapse',
@@ -32,10 +32,10 @@ describe('APARTE_DEFAULT_ICON_FALLBACKS', () => {
         expect(new Set(values).size).toBe(values.length);
     });
 
-    it('AparteConfig.getIcon() returns the exact default SVG when no provider is registered', () => {
-        expect(AparteConfig.getIcon('copy')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.copy);
-        expect(AparteConfig.getIcon('send')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.send);
-        expect(AparteConfig.getIcon('stop')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.stop);
+    it('aparteGlobalConfig.getIcon() returns the exact default SVG when no provider is registered', () => {
+        expect(aparteGlobalConfig.getIcon('copy')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.copy);
+        expect(aparteGlobalConfig.getIcon('send')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.send);
+        expect(aparteGlobalConfig.getIcon('stop')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.stop);
     });
 
     it('the loading icon carries the spin class used for the CSS animation', () => {
@@ -49,7 +49,7 @@ describe('APARTE_DEFAULT_ICON_FALLBACKS', () => {
 
     it('getIcon() falls back per-key to the default when a partial provider is registered', () => {
         // Provider only implements the required (non-optional) icons.
-        AparteConfig.setIconProvider({
+        aparteGlobalConfig.setIconProvider({
             copy: () => '<i class="my-copy"/>',
             check: () => '<i class="my-check"/>',
             send: () => '<i class="my-send"/>',
@@ -72,16 +72,16 @@ describe('APARTE_DEFAULT_ICON_FALLBACKS', () => {
         });
 
         // Implemented keys use the custom provider...
-        expect(AparteConfig.getIcon('copy')).toBe('<i class="my-copy"/>');
+        expect(aparteGlobalConfig.getIcon('copy')).toBe('<i class="my-copy"/>');
         // ...while the omitted optional keys still resolve to the built-in SVG.
-        expect(AparteConfig.getIcon('tool')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.tool);
-        expect(AparteConfig.getIcon('close')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.close);
-        expect(AparteConfig.getIcon('stop')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.stop);
+        expect(aparteGlobalConfig.getIcon('tool')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.tool);
+        expect(aparteGlobalConfig.getIcon('close')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.close);
+        expect(aparteGlobalConfig.getIcon('stop')).toBe(APARTE_DEFAULT_ICON_FALLBACKS.stop);
     });
 });
 
 describe('APARTE_DEFAULT_SKELETON_FALLBACKS', () => {
-    afterEach(() => AparteConfig.reset());
+    afterEach(() => aparteGlobalConfig.reset());
 
     const allTypes: AparteSkeletonType[] = ['message', 'code', 'thinking', 'input', 'list', 'text'];
 
@@ -105,21 +105,21 @@ describe('APARTE_DEFAULT_SKELETON_FALLBACKS', () => {
         expect(APARTE_DEFAULT_SKELETON_FALLBACKS.code).toContain('Loading code...');
     });
 
-    it('AparteConfig.getSkeleton() returns the internal default per type when no provider is registered', () => {
-        // Note: AparteConfigClass keeps its own private `_defaultSkeletonRenderer`
+    it('aparteGlobalConfig.getSkeleton() returns the internal default per type when no provider is registered', () => {
+        // Note: AparteConfig keeps its own private `_defaultSkeletonRenderer`
         // fallback table (same content, separate copy) rather than importing
         // APARTE_DEFAULT_SKELETON_FALLBACKS — assert the *content*, not object identity.
         for (const type of allTypes) {
-            const html = AparteConfig.getSkeleton(type);
+            const html = aparteGlobalConfig.getSkeleton(type);
             expect(html).toContain('class="aparte-skeleton-fallback"');
         }
-        expect(AparteConfig.getSkeleton('code')).toContain('Loading code...');
-        expect(AparteConfig.getSkeleton('thinking')).toContain('Thinking...');
+        expect(aparteGlobalConfig.getSkeleton('code')).toContain('Loading code...');
+        expect(aparteGlobalConfig.getSkeleton('thinking')).toContain('Thinking...');
     });
 
     it('getSkeleton() defers entirely to a registered provider, bypassing the default', () => {
-        AparteConfig.setSkeletonProvider({ getSkeleton: (type) => `<custom-skeleton data-type="${type}"/>` });
-        expect(AparteConfig.getSkeleton('code')).toBe('<custom-skeleton data-type="code"/>');
-        expect(AparteConfig.getSkeleton('list')).toBe('<custom-skeleton data-type="list"/>');
+        aparteGlobalConfig.setSkeletonProvider({ getSkeleton: (type) => `<custom-skeleton data-type="${type}"/>` });
+        expect(aparteGlobalConfig.getSkeleton('code')).toBe('<custom-skeleton data-type="code"/>');
+        expect(aparteGlobalConfig.getSkeleton('list')).toBe('<custom-skeleton data-type="list"/>');
     });
 });

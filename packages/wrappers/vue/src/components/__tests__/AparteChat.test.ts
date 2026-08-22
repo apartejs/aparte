@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import AparteChat from '../AparteChat.vue';
-import { registerAllComponents, resolveConfig, AparteConfig, AparteConfigClass } from '@aparte/core';
+import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 // Ensure all backend components are registered
@@ -265,16 +265,16 @@ describe('AparteChat.vue', () => {
     });
 
     it('forwards a per-instance config so components inside resolve it', async () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const wrapper = mount(AparteChat, { props: { messages: [], config: cfg } });
         await new Promise(resolve => setTimeout(resolve, 0));
         expect(resolveConfig(wrapper.element as HTMLElement)).toBe(cfg);
     });
 
-    it('resolves the global AparteConfig when no config prop is passed', async () => {
+    it('resolves `aparteGlobalConfig` when no config prop is passed', async () => {
         const wrapper = mount(AparteChat, { props: { messages: [] } });
         await new Promise(resolve => setTimeout(resolve, 0));
-        expect(resolveConfig(wrapper.element as HTMLElement)).toBe(AparteConfig);
+        expect(resolveConfig(wrapper.element as HTMLElement)).toBe(aparteGlobalConfig);
     });
 
     it('derives an SSR-stable host id from useId (not a random UUID)', async () => {

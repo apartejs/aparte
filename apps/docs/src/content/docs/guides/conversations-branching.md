@@ -25,7 +25,7 @@ Both buttons need a host to mean anything, so core ships them **off**. One line 
 on, next to wherever you start your client:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 Details — and the full list of what ships enabled — in
@@ -137,8 +137,8 @@ Both actions are off until you ask for them, so "turning it off" is usually just
 opting in. To take one back after the fact:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: false });   // keep edit, drop retry
-AparteConfig.setBubbleActions({ user: ['copy'] }); // user bubbles: copy only, no editor
+aparteGlobalConfig.setBubbleActions({ retry: false });   // keep edit, drop retry
+aparteGlobalConfig.setBubbleActions({ user: ['copy'] }); // user bubbles: copy only, no editor
 ```
 
 It applies live — already-rendered bubbles rebuild their action bar — and a bar left with
@@ -173,7 +173,7 @@ topic of its own.
 ## Customizing the picker
 
 The `‹ 1/2 ›` control is a render hook: swap it for your own markup with
-`AparteConfig.setSiblingNavRenderer(({ count, index }) => …)`. See
+`aparteGlobalConfig.setSiblingNavRenderer(({ count, index }) => …)`. See
 [Customization](/guides/customization#render-hooks).
 
 ---

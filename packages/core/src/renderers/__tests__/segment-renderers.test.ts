@@ -8,7 +8,7 @@ import {
     declineDefaultRenderers,
     installDefaultRenderersOnce
 } from '../segment-renderers.js';
-import { AparteConfig, AparteConfigClass } from '../../config/aparte-config.js';
+import { aparteGlobalConfig, AparteConfig } from '../../config/aparte-config.js';
 
 // Register default renderers once so the tool_call renderer is available.
 registerDefaultRenderers();
@@ -140,7 +140,7 @@ describe('Segment Renderers', () => {
     });
 
     describe('default renderer: error', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('is registered', () => {
             expect(getSegmentRenderer('error')).toBeDefined();
@@ -153,15 +153,15 @@ describe('Segment Renderers', () => {
             expect(html).toContain('Something went wrong');
         });
 
-        it('defers to AparteConfig.setErrorRenderer (string output)', () => {
-            AparteConfig.setErrorRenderer(({ message }) => `<div class="custom-err">${message}!!</div>`);
+        it('defers to aparteGlobalConfig.setErrorRenderer (string output)', () => {
+            aparteGlobalConfig.setErrorRenderer(({ message }) => `<div class="custom-err">${message}!!</div>`);
             const out = getSegmentRenderer('error')!.render({ id: 'e1', type: 'error', content: 'boom', details: 'X' } as any);
             expect(out).toContain('custom-err');
             expect(out).toContain('boom!!');
         });
 
-        it('defers to AparteConfig.setErrorRenderer (HTMLElement, tagged with data-segment-id)', () => {
-            AparteConfig.setErrorRenderer(() => {
+        it('defers to aparteGlobalConfig.setErrorRenderer (HTMLElement, tagged with data-segment-id)', () => {
+            aparteGlobalConfig.setErrorRenderer(() => {
                 const el = document.createElement('div');
                 el.className = 'el-err';
                 return el;
@@ -179,11 +179,11 @@ describe('Segment Renderers', () => {
 
     describe('custom tool renderer (consumer registerToolRenderer)', () => {
         afterEach(() => {
-            AparteConfig.unregisterToolRenderer('visual_tool');
+            aparteGlobalConfig.unregisterToolRenderer('visual_tool');
         });
 
         it('renders the consumer HTML in place of the default pill', () => {
-            AparteConfig.registerToolRenderer('visual_tool', {
+            aparteGlobalConfig.registerToolRenderer('visual_tool', {
                 render: () => `<div class="my-visual">searching the web…</div>`,
             });
             const seg = {
@@ -197,7 +197,7 @@ describe('Segment Renderers', () => {
         });
 
         it('falls back to the default pill when the custom render returns empty', () => {
-            AparteConfig.registerToolRenderer('visual_tool', { render: () => '' });
+            aparteGlobalConfig.registerToolRenderer('visual_tool', { render: () => '' });
             const seg = {
                 id: 'vt2', type: 'tool_call',
                 toolCall: { id: 'c2', name: 'visual_tool', input: {} },
@@ -210,7 +210,7 @@ describe('Segment Renderers', () => {
         it('invokes the consumer setup() hook with the mounted element + segment', () => {
             let seenEl: HTMLElement | null = null;
             let seenSeg: unknown = null;
-            AparteConfig.registerToolRenderer('visual_tool', {
+            aparteGlobalConfig.registerToolRenderer('visual_tool', {
                 render: () => `<div class="my-visual"></div>`,
                 setup: (el, seg) => { seenEl = el; seenSeg = seg; },
             });
@@ -226,7 +226,7 @@ describe('Segment Renderers', () => {
         });
 
         it('keeps the built-in Approve/Reject gate over the custom renderer while awaiting approval', () => {
-            AparteConfig.registerToolRenderer('visual_tool', {
+            aparteGlobalConfig.registerToolRenderer('visual_tool', {
                 render: () => `<div class="my-visual">SHOULD NOT SHOW YET</div>`,
             });
             const seg = {
@@ -284,7 +284,7 @@ describe('Segment Renderers', () => {
             };
             const html = renderer.render(seg as any);
             expect(html).toContain('tool-pill-spinner');
-            expect(html).not.toContain(AparteConfig.getIcon('check'));
+            expect(html).not.toContain(aparteGlobalConfig.getIcon('check'));
         });
 
         it('renders checkmark for resolved status', () => {
@@ -295,7 +295,7 @@ describe('Segment Renderers', () => {
                 status: 'resolved'
             };
             const html = renderer.render(seg as any);
-            expect(html).toContain(AparteConfig.getIcon('check'));
+            expect(html).toContain(aparteGlobalConfig.getIcon('check'));
             expect(html).not.toContain('tool-pill-spinner');
         });
 
@@ -307,7 +307,7 @@ describe('Segment Renderers', () => {
                 status: 'aborted'
             };
             const html = renderer.render(seg as any);
-            expect(html).toContain(AparteConfig.getIcon('close'));
+            expect(html).toContain(aparteGlobalConfig.getIcon('close'));
         });
 
         it('sets data-status attribute matching the segment status', () => {
@@ -395,7 +395,7 @@ describe('Segment Renderers', () => {
     // ─── default renderer: error (built-in fallback markup, no custom renderer) ─
 
     describe('default renderer: error (built-in fallback)', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('renders an icon, the "Error" title and the escaped message', () => {
             const renderer = getSegmentRenderer('error')!;
@@ -468,7 +468,7 @@ describe('Segment Renderers', () => {
     // ─── default renderer: terminal ─────────────────────────────────────────
 
     describe('default renderer: terminal', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('is registered', () => {
             expect(getSegmentRenderer('terminal')).toBeDefined();
@@ -501,7 +501,7 @@ describe('Segment Renderers', () => {
         });
 
         it('shows a run button (no running indicator) once terminalRun is declared', () => {
-            AparteConfig.setHostHandlers({ terminalRun: true });
+            aparteGlobalConfig.setHostHandlers({ terminalRun: true });
             const renderer = getSegmentRenderer('terminal')!;
             const html = renderer.render({ id: 'term3b', type: 'terminal', command: 'ls' } as any);
             expect(html).toContain('terminal-run-btn');
@@ -631,7 +631,7 @@ describe('Segment Renderers', () => {
     // ─── default renderer: artifact ─────────────────────────────────────────
 
     describe('default renderer: artifact', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('is registered', () => {
             expect(getSegmentRenderer('artifact')).toBeDefined();
@@ -699,7 +699,7 @@ describe('Segment Renderers', () => {
         });
 
         it('uses the app-registered preview builder when the user opens the preview', () => {
-            AparteConfig.setArtifactPreviewBuilder((kind, body, title) => `<!--CUSTOM ${kind} ${title}-->${body}`);
+            aparteGlobalConfig.setArtifactPreviewBuilder((kind, body, title) => `<!--CUSTOM ${kind} ${title}-->${body}`);
             const renderer = getSegmentRenderer('artifact')!;
             const segment = {
                 id: 'a6', type: 'artifact', mimeType: 'text/html', artifactType: 'html',
@@ -734,7 +734,7 @@ describe('Segment Renderers', () => {
             } as any;
             expect(renderer.render(segment)).not.toContain('data-action="download"');
 
-            AparteConfig.setHostHandlers({ artifactRedownload: true });
+            aparteGlobalConfig.setHostHandlers({ artifactRedownload: true });
             expect(renderer.render(segment)).toContain('data-action="download"');
         });
 
@@ -753,7 +753,7 @@ describe('Segment Renderers', () => {
         it('renders a streaming binary-file card (disabled download, "Generating…")', () => {
             // The download button on a binary artifact belongs to the app, so this
             // card only carries one where the app said it can re-generate the file.
-            AparteConfig.setHostHandlers({ artifactRedownload: true });
+            aparteGlobalConfig.setHostHandlers({ artifactRedownload: true });
             const renderer = getSegmentRenderer('artifact')!;
             const html = renderer.render({
                 id: 'b1', type: 'artifact', mimeType: 'application/pdf', artifactType: 'pdf',
@@ -810,8 +810,8 @@ describe('the segment registry is per CONFIG, not per module', () => {
     // plugin registered on the config was scoped, but segment renderers lived in a
     // module-level Map, so two chats shared them whatever config they were given.
     it('two configs can render the same segment type differently', () => {
-        const a = new AparteConfigClass();
-        const b = new AparteConfigClass();
+        const a = new AparteConfig();
+        const b = new AparteConfig();
 
         registerSegmentRenderer({ type: 'text', render: () => '<p>FROM A</p>' }, a);
         registerSegmentRenderer({ type: 'text', render: () => '<p>FROM B</p>' }, b);
@@ -823,16 +823,16 @@ describe('the segment registry is per CONFIG, not per module', () => {
     });
 
     it('registering on one config leaves the other untouched', () => {
-        const a = new AparteConfigClass();
-        const b = new AparteConfigClass();
+        const a = new AparteConfig();
+        const b = new AparteConfig();
         registerSegmentRenderer({ type: 'zz-custom', render: () => 'x' }, a);
         expect(getSegmentRenderer('zz-custom', a)).toBeTruthy();
         expect(getSegmentRenderer('zz-custom', b)).toBeUndefined();
     });
 
     it('declining the built-ins on one config does not mute the other', () => {
-        const declined = new AparteConfigClass();
-        const normal = new AparteConfigClass();
+        const declined = new AparteConfig();
+        const normal = new AparteConfig();
 
         declineDefaultRenderers(declined);
         installDefaultRenderersOnce(declined);

@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AparteConfig, AparteConfigClass } from '../aparte-config';
+import { aparteGlobalConfig, AparteConfig } from '../aparte-config';
 import { APARTE_DEFAULT_LOCALE } from '../locale';
 
-describe('AparteConfig', () => {
+describe('aparteGlobalConfig', () => {
     beforeEach(() => {
         // Reset config before each test
-        AparteConfig.setLocale(APARTE_DEFAULT_LOCALE);
+        aparteGlobalConfig.setLocale(APARTE_DEFAULT_LOCALE);
     });
 
     describe('Locale Management', () => {
         it('should have default English locale', () => {
-            const locale = AparteConfig.getLocale();
+            const locale = aparteGlobalConfig.getLocale();
             expect(locale).toBeDefined();
             expect(locale.direction).toBe('ltr');
             expect(locale.sendButton).toBe('Send');
@@ -23,25 +23,25 @@ describe('AparteConfig', () => {
                 direction: 'ltr' as const
             };
 
-            AparteConfig.setLocale(customLocale);
-            const locale = AparteConfig.getLocale();
+            aparteGlobalConfig.setLocale(customLocale);
+            const locale = aparteGlobalConfig.getLocale();
 
             expect(locale.sendButton).toBe('Envoyer');
         });
 
         it('should extend locale with new keys', () => {
-            AparteConfig.extendLocale({ customKey: 'Custom Value' });
-            const locale = AparteConfig.getLocale();
+            aparteGlobalConfig.extendLocale({ customKey: 'Custom Value' });
+            const locale = aparteGlobalConfig.getLocale();
 
             expect((locale as any).customKey).toBe('Custom Value');
         });
 
         it('should not overwrite existing keys when extending', () => {
-            const originalSendButton = AparteConfig.getLocale().sendButton;
+            const originalSendButton = aparteGlobalConfig.getLocale().sendButton;
 
-            AparteConfig.extendLocale({ newKey: 'New' });
+            aparteGlobalConfig.extendLocale({ newKey: 'New' });
 
-            expect(AparteConfig.getLocale().sendButton).toBe(originalSendButton);
+            expect(aparteGlobalConfig.getLocale().sendButton).toBe(originalSendButton);
         });
     });
 
@@ -49,7 +49,7 @@ describe('AparteConfig', () => {
         it('should set markdown provider', () => {
             const mockProvider = (raw: string) => `<p>${raw}</p>`;
 
-            AparteConfig.setMarkdownProvider(mockProvider);
+            aparteGlobalConfig.setMarkdownProvider(mockProvider);
             // Provider is set successfully (no getter to test)
             expect(true).toBe(true);
         });
@@ -57,10 +57,10 @@ describe('AparteConfig', () => {
         it('should set highlight provider and expose it via hasHighlightProvider', async () => {
             const mockProvider = (code: string) => `<span class="tok">${code}</span>`;
 
-            AparteConfig.setHighlightProvider(mockProvider);
+            aparteGlobalConfig.setHighlightProvider(mockProvider);
 
-            expect(AparteConfig.hasHighlightProvider()).toBe(true);
-            expect(await AparteConfig.highlightCode('const x', 'js')).toBe('<span class="tok">const x</span>');
+            expect(aparteGlobalConfig.hasHighlightProvider()).toBe(true);
+            expect(await aparteGlobalConfig.highlightCode('const x', 'js')).toBe('<span class="tok">const x</span>');
         });
 
         it('should set icon provider', () => {
@@ -75,28 +75,28 @@ describe('AparteConfig', () => {
                 terminal: () => '<svg></svg>'
             };
 
-            AparteConfig.setIconProvider(mockProvider);
+            aparteGlobalConfig.setIconProvider(mockProvider);
             expect(true).toBe(true);
         });
 
         it('falls back for optional icon keys a provider does not implement', () => {
             // A provider without the optional `tool` / `close` / `stop` keys (all
             // pre-existing icon packs) must fall back to the default SVG icons.
-            AparteConfig.setIconProvider({ copy: () => '<svg data-x></svg>' });
+            aparteGlobalConfig.setIconProvider({ copy: () => '<svg data-x></svg>' });
 
-            expect(AparteConfig.getIcon('copy')).toBe('<svg data-x></svg>');
-            expect(AparteConfig.getIcon('tool')).toContain('<svg');
-            expect(AparteConfig.getIcon('close')).toContain('<svg');
+            expect(aparteGlobalConfig.getIcon('copy')).toBe('<svg data-x></svg>');
+            expect(aparteGlobalConfig.getIcon('tool')).toContain('<svg');
+            expect(aparteGlobalConfig.getIcon('close')).toContain('<svg');
             // `stop` is a typed optional key: its fallback is the square SVG, so the
             // composer stop button renders an icon (not the literal text "stop").
-            expect(AparteConfig.getIcon('stop')).toContain('<svg');
+            expect(aparteGlobalConfig.getIcon('stop')).toContain('<svg');
         });
 
         it('getIconProvider() completes a partial provider with the built-in fallbacks', () => {
             // getIcon() has always tolerated a partial provider, but the action
             // bar reads getIconProvider() and CALLS each icon directly — so a
             // provider covering only `copy` used to crash on `icons.retry()`.
-            const c = new AparteConfigClass();
+            const c = new AparteConfig();
             c.setIconProvider({ copy: () => '<svg data-x></svg>' });
 
             const icons = c.getIconProvider();
@@ -113,7 +113,7 @@ describe('AparteConfig', () => {
                 getSkeleton: () => '<div class="skeleton"></div>'
             };
 
-            AparteConfig.setSkeletonProvider(mockProvider);
+            aparteGlobalConfig.setSkeletonProvider(mockProvider);
             expect(true).toBe(true);
         });
     });
@@ -121,96 +121,96 @@ describe('AparteConfig', () => {
     describe('Action registry (unified, zoned)', () => {
         afterEach(() => {
             ['composer-a', 'bubble-a', 'both-a', 'ord-1', 'ord-2', 'hide-me'].forEach(id =>
-                AparteConfig.unregisterAction(id));
+                aparteGlobalConfig.unregisterAction(id));
         });
 
         it('registers a composer action and returns it from getActions("composer")', () => {
-            AparteConfig.registerAction({ id: 'composer-a', label: 'A', icon: '<svg></svg>', zones: ['composer'] });
-            expect(AparteConfig.getActions('composer').map(a => a.id)).toContain('composer-a');
+            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'A', icon: '<svg></svg>', zones: ['composer'] });
+            expect(aparteGlobalConfig.getActions('composer').map(a => a.id)).toContain('composer-a');
         });
 
         it('does not surface a composer-only action in the bubble zone', () => {
-            AparteConfig.registerAction({ id: 'composer-a', label: 'A', icon: '', zones: ['composer'] });
-            expect(AparteConfig.getActions('bubble').map(a => a.id)).not.toContain('composer-a');
+            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'A', icon: '', zones: ['composer'] });
+            expect(aparteGlobalConfig.getActions('bubble').map(a => a.id)).not.toContain('composer-a');
         });
 
         it('surfaces a multi-zone action in every declared zone', () => {
-            AparteConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
-            expect(AparteConfig.getActions('composer').map(a => a.id)).toContain('both-a');
-            expect(AparteConfig.getActions('bubble').map(a => a.id)).toContain('both-a');
+            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
+            expect(aparteGlobalConfig.getActions('composer').map(a => a.id)).toContain('both-a');
+            expect(aparteGlobalConfig.getActions('bubble').map(a => a.id)).toContain('both-a');
         });
 
         it('upserts on duplicate id instead of adding twice', () => {
-            AparteConfig.registerAction({ id: 'composer-a', label: 'first', icon: '', zones: ['composer'] });
-            AparteConfig.registerAction({ id: 'composer-a', label: 'second', icon: '', zones: ['composer'] });
-            const hits = AparteConfig.getActions('composer').filter(a => a.id === 'composer-a');
+            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'first', icon: '', zones: ['composer'] });
+            aparteGlobalConfig.registerAction({ id: 'composer-a', label: 'second', icon: '', zones: ['composer'] });
+            const hits = aparteGlobalConfig.getActions('composer').filter(a => a.id === 'composer-a');
             expect(hits).toHaveLength(1);
             expect(hits[0]?.label).toBe('second');
         });
 
         it('sorts a zone by order (lower first)', () => {
-            AparteConfig.registerAction({ id: 'ord-2', label: '2', icon: '', zones: ['bubble'], order: 2 });
-            AparteConfig.registerAction({ id: 'ord-1', label: '1', icon: '', zones: ['bubble'], order: 1 });
-            const ids = AparteConfig.getActions('bubble').map(a => a.id);
+            aparteGlobalConfig.registerAction({ id: 'ord-2', label: '2', icon: '', zones: ['bubble'], order: 2 });
+            aparteGlobalConfig.registerAction({ id: 'ord-1', label: '1', icon: '', zones: ['bubble'], order: 1 });
+            const ids = aparteGlobalConfig.getActions('bubble').map(a => a.id);
             expect(ids.indexOf('ord-1')).toBeLessThan(ids.indexOf('ord-2'));
         });
 
         it('unregisterAction removes the action from every zone', () => {
-            AparteConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
-            AparteConfig.unregisterAction('both-a');
-            expect(AparteConfig.getActions('composer').map(a => a.id)).not.toContain('both-a');
-            expect(AparteConfig.getActions('bubble').map(a => a.id)).not.toContain('both-a');
+            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer', 'bubble'] });
+            aparteGlobalConfig.unregisterAction('both-a');
+            expect(aparteGlobalConfig.getActions('composer').map(a => a.id)).not.toContain('both-a');
+            expect(aparteGlobalConfig.getActions('bubble').map(a => a.id)).not.toContain('both-a');
         });
 
         it('setActionHidden toggles the composer hidden flag', () => {
-            AparteConfig.registerAction({ id: 'hide-me', label: 'H', icon: '', zones: ['composer'], composer: { position: 'left' } });
-            AparteConfig.setActionHidden('hide-me', true);
-            const a = AparteConfig.getActions('composer').find(x => x.id === 'hide-me');
+            aparteGlobalConfig.registerAction({ id: 'hide-me', label: 'H', icon: '', zones: ['composer'], composer: { position: 'left' } });
+            aparteGlobalConfig.setActionHidden('hide-me', true);
+            const a = aparteGlobalConfig.getActions('composer').find(x => x.id === 'hide-me');
             expect(a?.composer?.hidden).toBe(true);
         });
 
         it('calls an optional onClick alongside the event contract', () => {
             const onClick = vi.fn();
-            AparteConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer'], onClick });
-            const a = AparteConfig.getActions('composer').find(x => x.id === 'both-a');
+            aparteGlobalConfig.registerAction({ id: 'both-a', label: 'B', icon: '', zones: ['composer'], onClick });
+            const a = aparteGlobalConfig.getActions('composer').find(x => x.id === 'both-a');
             expect(a?.onClick).toBe(onClick);
         });
     });
 
     describe('Tool Renderer Management', () => {
         afterEach(() => {
-            AparteConfig.unregisterToolRenderer('my_tool');
-            AparteConfig.unregisterToolRenderer('my_tool_2');
-            AparteConfig.unregisterToolRenderer('same_name_tool');
+            aparteGlobalConfig.unregisterToolRenderer('my_tool');
+            aparteGlobalConfig.unregisterToolRenderer('my_tool_2');
+            aparteGlobalConfig.unregisterToolRenderer('same_name_tool');
         });
 
         it('registers a tool renderer and retrieves it by name', () => {
             const renderer = { render: () => '<div>ok</div>' };
-            AparteConfig.registerToolRenderer('my_tool', renderer);
-            expect(AparteConfig.getToolRenderer('my_tool')).toBe(renderer);
+            aparteGlobalConfig.registerToolRenderer('my_tool', renderer);
+            expect(aparteGlobalConfig.getToolRenderer('my_tool')).toBe(renderer);
         });
 
         it('returns undefined for an unregistered tool name', () => {
-            expect(AparteConfig.getToolRenderer('nonexistent_tool_xyz')).toBeUndefined();
+            expect(aparteGlobalConfig.getToolRenderer('nonexistent_tool_xyz')).toBeUndefined();
         });
 
         it('unregisters a tool renderer', () => {
             const renderer = { render: () => '<div>ok</div>' };
-            AparteConfig.registerToolRenderer('my_tool_2', renderer);
-            AparteConfig.unregisterToolRenderer('my_tool_2');
-            expect(AparteConfig.getToolRenderer('my_tool_2')).toBeUndefined();
+            aparteGlobalConfig.registerToolRenderer('my_tool_2', renderer);
+            aparteGlobalConfig.unregisterToolRenderer('my_tool_2');
+            expect(aparteGlobalConfig.getToolRenderer('my_tool_2')).toBeUndefined();
         });
 
         it('silently ignores unregisterToolRenderer for an unknown name', () => {
-            expect(() => AparteConfig.unregisterToolRenderer('never_registered')).not.toThrow();
+            expect(() => aparteGlobalConfig.unregisterToolRenderer('never_registered')).not.toThrow();
         });
 
         it('overwrites an existing renderer when re-registered with same name', () => {
             const r1 = { render: () => 'R1' };
             const r2 = { render: () => 'R2' };
-            AparteConfig.registerToolRenderer('same_name_tool', r1);
-            AparteConfig.registerToolRenderer('same_name_tool', r2);
-            expect(AparteConfig.getToolRenderer('same_name_tool')).toBe(r2);
+            aparteGlobalConfig.registerToolRenderer('same_name_tool', r1);
+            aparteGlobalConfig.registerToolRenderer('same_name_tool', r2);
+            expect(aparteGlobalConfig.getToolRenderer('same_name_tool')).toBe(r2);
         });
 
         it('renderer can include optional getStyles and setup methods', () => {
@@ -219,8 +219,8 @@ describe('AparteConfig', () => {
                 getStyles: () => '.pill { color: red; }',
                 setup: vi.fn()
             };
-            AparteConfig.registerToolRenderer('my_tool', renderer);
-            const stored = AparteConfig.getToolRenderer('my_tool');
+            aparteGlobalConfig.registerToolRenderer('my_tool', renderer);
+            const stored = aparteGlobalConfig.getToolRenderer('my_tool');
             expect(stored?.getStyles?.()).toBe('.pill { color: red; }');
         });
     });
@@ -234,7 +234,7 @@ describe('AparteConfig', () => {
         // listening for the event) to mean anything, so they ship off. Flipping
         // one back on is a deliberate decision — this test is what makes it one.
         it('defaults to copy only — every host-dependent action ships off', () => {
-            const actions = AparteConfig.getBubbleActions();
+            const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.copy).toBe(true);
             expect(actions.retry).toBe(false);
             expect(actions.edit).toBe(false);
@@ -243,8 +243,8 @@ describe('AparteConfig', () => {
         });
 
         it('merges partial overrides and keeps untouched defaults', () => {
-            AparteConfig.setBubbleActions({ feedback: true });
-            const actions = AparteConfig.getBubbleActions();
+            aparteGlobalConfig.setBubbleActions({ feedback: true });
+            const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.feedback).toBe(true);
             expect(actions.copy).toBe(true);    // unchanged
             expect(actions.retry).toBe(false);  // unchanged
@@ -252,25 +252,25 @@ describe('AparteConfig', () => {
         });
 
         it('can enable individual actions', () => {
-            AparteConfig.setBubbleActions({ retry: true, edit: true });
-            const actions = AparteConfig.getBubbleActions();
+            aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+            const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.retry).toBe(true);
             expect(actions.edit).toBe(true);
             expect(actions.copy).toBe(true);
         });
 
         it('can disable individual actions', () => {
-            AparteConfig.setBubbleActions({ retry: true, edit: true });
-            AparteConfig.setBubbleActions({ retry: false, edit: false });
-            const actions = AparteConfig.getBubbleActions();
+            aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+            aparteGlobalConfig.setBubbleActions({ retry: false, edit: false });
+            const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.retry).toBe(false);
             expect(actions.edit).toBe(false);
             expect(actions.copy).toBe(true);
         });
 
         it('can disable all actions at once', () => {
-            AparteConfig.setBubbleActions({ copy: false, retry: false, edit: false, feedback: false });
-            const actions = AparteConfig.getBubbleActions();
+            aparteGlobalConfig.setBubbleActions({ copy: false, retry: false, edit: false, feedback: false });
+            const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.copy).toBe(false);
             expect(actions.retry).toBe(false);
             expect(actions.edit).toBe(false);
@@ -278,17 +278,17 @@ describe('AparteConfig', () => {
         });
 
         it('last call wins when called multiple times', () => {
-            AparteConfig.setBubbleActions({ copy: false });
-            AparteConfig.setBubbleActions({ copy: true });
-            expect(AparteConfig.getBubbleActions().copy).toBe(true);
+            aparteGlobalConfig.setBubbleActions({ copy: false });
+            aparteGlobalConfig.setBubbleActions({ copy: true });
+            expect(aparteGlobalConfig.getBubbleActions().copy).toBe(true);
         });
 
         it('passes through explicit per-role ordered action sets', () => {
-            AparteConfig.setBubbleActions({
+            aparteGlobalConfig.setBubbleActions({
                 user: ['edit', 'copy'],
                 assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'],
             });
-            const actions = AparteConfig.getBubbleActions();
+            const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.user).toEqual(['edit', 'copy']);
             expect(actions.assistant).toEqual(['copy', 'thumbUp', 'thumbDown', 'retry']);
             // Flag defaults still resolve alongside the per-role sets.
@@ -299,9 +299,9 @@ describe('AparteConfig', () => {
         });
 
         it('clears per-role sets when explicitly set to undefined', () => {
-            AparteConfig.setBubbleActions({ user: ['edit', 'copy'] });
-            AparteConfig.setBubbleActions({ user: undefined, assistant: undefined });
-            const actions = AparteConfig.getBubbleActions();
+            aparteGlobalConfig.setBubbleActions({ user: ['edit', 'copy'] });
+            aparteGlobalConfig.setBubbleActions({ user: undefined, assistant: undefined });
+            const actions = aparteGlobalConfig.getBubbleActions();
             expect(actions.user).toBeUndefined();
             expect(actions.assistant).toBeUndefined();
         });
@@ -310,43 +310,43 @@ describe('AparteConfig', () => {
     // ─── setHostHandlers / getHostHandlers ─────────────────────────────────
 
     describe('setHostHandlers / getHostHandlers', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         // Same rule as the bubble actions, for the affordances that live outside the
         // action bar: core renders the trigger, the APP does the work. Nothing is
         // declared until the app says so.
         it('defaults to nothing declared', () => {
-            const h = AparteConfig.getHostHandlers();
+            const h = aparteGlobalConfig.getHostHandlers();
             expect(h.attachmentPreview).toBe(false);
             expect(h.terminalRun).toBe(false);
             expect(h.artifactRedownload).toBe(false);
         });
 
         it('merges partial declarations and keeps the rest undeclared', () => {
-            AparteConfig.setHostHandlers({ terminalRun: true });
-            const h = AparteConfig.getHostHandlers();
+            aparteGlobalConfig.setHostHandlers({ terminalRun: true });
+            const h = aparteGlobalConfig.getHostHandlers();
             expect(h.terminalRun).toBe(true);
             expect(h.attachmentPreview).toBe(false);
             expect(h.artifactRedownload).toBe(false);
         });
 
         it('can be withdrawn again', () => {
-            AparteConfig.setHostHandlers({ attachmentPreview: true });
-            AparteConfig.setHostHandlers({ attachmentPreview: false });
-            expect(AparteConfig.getHostHandlers().attachmentPreview).toBe(false);
+            aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
+            aparteGlobalConfig.setHostHandlers({ attachmentPreview: false });
+            expect(aparteGlobalConfig.getHostHandlers().attachmentPreview).toBe(false);
         });
 
         it('notifies so mounted elements re-render', () => {
             let fired = 0;
             const onChange = () => { fired++; };
             window.addEventListener('aparte-config-change', onChange);
-            AparteConfig.setHostHandlers({ terminalRun: true });
+            aparteGlobalConfig.setHostHandlers({ terminalRun: true });
             window.removeEventListener('aparte-config-change', onChange);
             expect(fired).toBeGreaterThan(0);
         });
 
         it('is cleared by reset()', () => {
-            const c = new AparteConfigClass();
+            const c = new AparteConfig();
             c.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
             c.reset();
             const h = c.getHostHandlers();
@@ -361,39 +361,39 @@ describe('AparteConfig', () => {
     describe('HTML sanitization', () => {
         afterEach(() => {
             // reset() clears providers AND restores the default sanitizer.
-            AparteConfig.reset();
+            aparteGlobalConfig.reset();
         });
 
         it('sanitizes markdown provider output before returning it', () => {
-            AparteConfig.setMarkdownProvider(() => '<p>hi</p><img src=x onerror="alert(1)">');
-            const out = AparteConfig.renderMarkdown('anything');
+            aparteGlobalConfig.setMarkdownProvider(() => '<p>hi</p><img src=x onerror="alert(1)">');
+            const out = aparteGlobalConfig.renderMarkdown('anything');
             expect(out).toContain('<p>hi</p>');
             expect(out).not.toContain('onerror');
         });
 
         it('sanitizes highlight provider output before returning it', async () => {
-            AparteConfig.setHighlightProvider(() => '<span class="tok" onclick="steal()">code</span>');
-            const out = await AparteConfig.highlightCode('code', 'js');
+            aparteGlobalConfig.setHighlightProvider(() => '<span class="tok" onclick="steal()">code</span>');
+            const out = await aparteGlobalConfig.highlightCode('code', 'js');
             expect(out).toContain('class="tok"');
             expect(out).not.toContain('onclick');
         });
 
         it('does NOT sanitize the default (already-escaped) markdown fallback', () => {
             // No provider → fallback escapes the raw text; nothing to strip.
-            const out = AparteConfig.renderMarkdown('<b>x</b>');
+            const out = aparteGlobalConfig.renderMarkdown('<b>x</b>');
             expect(out).toContain('&lt;b&gt;');
         });
 
         it('setHtmlSanitizer(null) disables sanitization (trusted content)', () => {
-            AparteConfig.setHtmlSanitizer(null);
-            AparteConfig.setMarkdownProvider(() => '<img src=x onerror="alert(1)">');
-            expect(AparteConfig.renderMarkdown('x')).toContain('onerror');
+            aparteGlobalConfig.setHtmlSanitizer(null);
+            aparteGlobalConfig.setMarkdownProvider(() => '<img src=x onerror="alert(1)">');
+            expect(aparteGlobalConfig.renderMarkdown('x')).toContain('onerror');
         });
 
         it('setHtmlSanitizer(fn) routes provider output through the custom sanitizer', () => {
-            AparteConfig.setHtmlSanitizer((html) => html.replace(/secret/g, '[redacted]'));
-            AparteConfig.setMarkdownProvider((raw) => `<p>${raw}</p>`);
-            expect(AparteConfig.renderMarkdown('secret')).toBe('<p>[redacted]</p>');
+            aparteGlobalConfig.setHtmlSanitizer((html) => html.replace(/secret/g, '[redacted]'));
+            aparteGlobalConfig.setMarkdownProvider((raw) => `<p>${raw}</p>`);
+            expect(aparteGlobalConfig.renderMarkdown('secret')).toBe('<p>[redacted]</p>');
         });
     });
 
@@ -401,7 +401,7 @@ describe('AparteConfig', () => {
 
     describe('reset', () => {
         it('clears the AI provider / tool / tool-renderer registries', () => {
-            const c = new AparteConfigClass();
+            const c = new AparteConfig();
             c.registerAIProvider({ id: 'p1', getModels: () => [] } as any);
             c.registerTool({ name: 't1' } as any, (() => {}) as any);
             c.registerToolRenderer('t1', { render: () => '' });
@@ -416,7 +416,7 @@ describe('AparteConfig', () => {
         });
 
         it('restores locale, bubble actions and sanitizer defaults', () => {
-            const c = new AparteConfigClass();
+            const c = new AparteConfig();
             c.setBubbleActions({ copy: false, retry: true, edit: true, feedback: true, info: true });
             c.setHtmlSanitizer(null);
             c.reset();
@@ -438,7 +438,7 @@ describe('AparteConfig', () => {
 
     describe('getCurrentModel — async getModels() guard', () => {
         it('warns and returns undefined when getModels() returns a Promise', () => {
-            const c = new AparteConfigClass();
+            const c = new AparteConfig();
             const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
             c.registerAIProvider({
                 id: 'async-p',
@@ -456,7 +456,7 @@ describe('AparteConfig', () => {
 
     describe('resetLocale', () => {
         it('restores the built-in English locale and notifies subscribers', () => {
-            const c = new AparteConfigClass();
+            const c = new AparteConfig();
             c.setLocale({ ...APARTE_DEFAULT_LOCALE, sendButton: 'Envoyer' });
             expect(c.getLocale().sendButton).toBe('Envoyer');
 

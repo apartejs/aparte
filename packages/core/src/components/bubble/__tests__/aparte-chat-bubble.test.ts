@@ -15,7 +15,7 @@ import '../aparte-chat-bubble.js';
 // The inline editor mounts the composer's contenteditable primitive — register it
 // so a bubble entering edit mode gets a real element, not an unupgraded tag.
 import '../../composer/aparte-composer-input.js';
-import { AparteConfig } from '../../../config/aparte-config.js';
+import { aparteGlobalConfig } from '../../../config/aparte-config.js';
 import { registerSegmentRenderer, unregisterSegmentRenderer } from '../../../renderers/index.js';
 import type { AparteMessage, AparteSegment } from '../../../types/index.js';
 
@@ -95,8 +95,8 @@ describe('AparteChatBubble', () => {
     describe('action bar — role set before connectedCallback', () => {
         // retry/edit are opt-in (they need a host to honor them), so the suites that
         // test their ROUTING and their events turn them on the way an app does.
-        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
-        afterEach(() => AparteConfig.reset());
+        beforeEach(() => aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('user bubble has "Edit" button, NOT "Retry"', () => {
             bubble = createBubble({ role: 'user', 'message-id': 'u1' });
@@ -114,8 +114,8 @@ describe('AparteChatBubble', () => {
     describe('action bar — role set AFTER connectedCallback (Angular timing)', () => {
         // retry/edit are opt-in (they need a host to honor them), so the suites that
         // test their ROUTING and their events turn them on the way an app does.
-        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
-        afterEach(() => AparteConfig.reset());
+        beforeEach(() => aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('user bubble gets Edit after role attribute is set post-connection', () => {
             // Simulate Angular: element connected WITHOUT role, then role is set
@@ -239,8 +239,8 @@ describe('AparteChatBubble', () => {
     describe('aparte-retry event', () => {
         // retry/edit are opt-in (they need a host to honor them), so the suites that
         // test their ROUTING and their events turn them on the way an app does.
-        beforeEach(() => AparteConfig.setBubbleActions({ retry: true, edit: true }));
-        afterEach(() => AparteConfig.reset());
+        beforeEach(() => aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }));
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('retry button on assistant bubble fires aparte-retry with correct messageId', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'r1' });
@@ -328,14 +328,14 @@ describe('AparteChatBubble', () => {
         const flush = () => new Promise((r) => setTimeout(r));
 
         afterEach(() => {
-            AparteConfig.reset();
+            aparteGlobalConfig.reset();
         });
 
         it('runs the registered highlighter over Markdown code blocks (inner-token provider, e.g. Prism)', async () => {
             // Markdown provider emits a plain <pre><code> (like marked).
-            AparteConfig.setMarkdownProvider(() => '<pre><code class="language-js">const x = 1</code></pre>');
+            aparteGlobalConfig.setMarkdownProvider(() => '<pre><code class="language-js">const x = 1</code></pre>');
             // Highlight provider returns inner tokens (like Prism / highlight.js).
-            AparteConfig.setHighlightProvider((code) => `<span class="tok">${code}</span>`);
+            aparteGlobalConfig.setHighlightProvider((code) => `<span class="tok">${code}</span>`);
 
             bubble = createBubble({ role: 'assistant', 'message-id': 'hl1', content: 'x' });
             await flush();
@@ -346,8 +346,8 @@ describe('AparteChatBubble', () => {
         });
 
         it('replaces the <pre> when the provider returns a full block (Shiki-style)', async () => {
-            AparteConfig.setMarkdownProvider(() => '<pre><code class="language-js">y</code></pre>');
-            AparteConfig.setHighlightProvider(() => '<pre class="shiki"><code>Y</code></pre>');
+            aparteGlobalConfig.setMarkdownProvider(() => '<pre><code class="language-js">y</code></pre>');
+            aparteGlobalConfig.setHighlightProvider(() => '<pre class="shiki"><code>Y</code></pre>');
 
             bubble = createBubble({ role: 'assistant', 'message-id': 'hl2', content: 'x' });
             await flush();
@@ -356,7 +356,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('leaves the plain code block intact when no highlighter is registered', async () => {
-            AparteConfig.setMarkdownProvider(() => '<pre><code class="language-js">z</code></pre>');
+            aparteGlobalConfig.setMarkdownProvider(() => '<pre><code class="language-js">z</code></pre>');
             // no highlight provider registered
 
             bubble = createBubble({ role: 'assistant', 'message-id': 'hl3', content: 'x' });
@@ -368,40 +368,40 @@ describe('AparteChatBubble', () => {
         });
     });
 
-    // ─── Live AparteConfig changes (e.g. runtime skin switch) ───────────────
-    describe('action bar — reacts to live AparteConfig changes', () => {
+    // ─── Live aparteGlobalConfig changes (e.g. runtime skin switch) ───────────────
+    describe('action bar — reacts to live aparteGlobalConfig changes', () => {
         afterEach(() => {
             // reset() does NOT touch _bubbleActionsConfig; clear per-role sets
             // explicitly (setBubbleActions spreads explicit undefined keys).
-            AparteConfig.setBubbleActions({ copy: true, retry: true, edit: true, feedback: false, user: undefined, assistant: undefined });
-            AparteConfig.reset();
+            aparteGlobalConfig.setBubbleActions({ copy: true, retry: true, edit: true, feedback: false, user: undefined, assistant: undefined });
+            aparteGlobalConfig.reset();
         });
 
         it('rebuilds the action bar when setBubbleActions changes the per-role set', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'cc1', content: 'hi' });
-            AparteConfig.setBubbleActions({ assistant: ['copy'] });
+            aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
             expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1);
-            AparteConfig.setBubbleActions({ assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] });
+            aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] });
             expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(4);
         });
 
         it('re-reads icons when setIconProvider changes', () => {
-            AparteConfig.setBubbleActions({ assistant: ['copy'] });
+            aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'cc2', content: 'hi' });
             // A real skin's provider is complete (spreads DefaultIconProvider);
             // start from the full fallback set so every connected bubble stays valid.
-            const full = AparteConfig.getIconProvider();
-            AparteConfig.setIconProvider({ ...full, copy: () => '<svg data-skin-copy></svg>' });
+            const full = aparteGlobalConfig.getIconProvider();
+            aparteGlobalConfig.setIconProvider({ ...full, copy: () => '<svg data-skin-copy></svg>' });
             const btn = bubble.querySelector('.aparte-action-btn[data-action="copy"]');
             expect(btn?.innerHTML).toContain('data-skin-copy');
         });
 
         it('stops rebuilding after the bubble is disconnected', () => {
-            AparteConfig.setBubbleActions({ assistant: ['copy'] });
+            aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'cc3', content: 'hi' });
             expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1);
             bubble.remove();
-            AparteConfig.setBubbleActions({ assistant: ['copy', 'retry', 'thumbUp', 'thumbDown'] });
+            aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'retry', 'thumbUp', 'thumbDown'] });
             expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1); // unchanged, no throw
         });
     });
@@ -454,10 +454,10 @@ describe('AparteChatBubble', () => {
 
     // ─── Custom bubble toolbar actions (registerAction, zones: ['bubble']) ─
     describe('custom bubble actions', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('renders a registered action and emits aparte-action on click', () => {
-            AparteConfig.registerAction({ id: 'share', icon: '<svg class="share-i"></svg>', label: 'Share', zones: ['bubble'] });
+            aparteGlobalConfig.registerAction({ id: 'share', icon: '<svg class="share-i"></svg>', label: 'Share', zones: ['bubble'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'ca1' });
 
             const btn = bubble.querySelector('.aparte-action-custom[data-action="custom:share"]') as HTMLButtonElement;
@@ -472,7 +472,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('honors role targeting (roles: ["user"] hides it on assistant bubbles)', () => {
-            AparteConfig.registerAction({ id: 'editmeta', icon: '<svg></svg>', label: 'Edit meta', zones: ['bubble'], bubble: { roles: ['user'] } });
+            aparteGlobalConfig.registerAction({ id: 'editmeta', icon: '<svg></svg>', label: 'Edit meta', zones: ['bubble'], bubble: { roles: ['user'] } });
             bubble = createBubble({ role: 'assistant', 'message-id': 'ca2' });
             expect(bubble.querySelector('[data-action="custom:editmeta"]')).toBeNull();
 
@@ -486,10 +486,10 @@ describe('AparteChatBubble', () => {
             expect(bubble.querySelector('[data-action="custom:regen"]')).toBeNull();
 
             // registerAction notifies → mounted bubble rebuilds its action bar.
-            AparteConfig.registerAction({ id: 'regen', icon: '<svg></svg>', label: 'Regenerate', zones: ['bubble'] });
+            aparteGlobalConfig.registerAction({ id: 'regen', icon: '<svg></svg>', label: 'Regenerate', zones: ['bubble'] });
             expect(bubble.querySelector('[data-action="custom:regen"]')).not.toBeNull();
 
-            AparteConfig.unregisterAction('regen');
+            aparteGlobalConfig.unregisterAction('regen');
             expect(bubble.querySelector('[data-action="custom:regen"]')).toBeNull();
         });
     });
@@ -511,10 +511,10 @@ describe('AparteChatBubble', () => {
 
     // ─── Custom attachment chips (setAttachmentRenderer) ──────────────────
     describe('attachment renderer', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('renders custom chips via setAttachmentRenderer in place of the defaults', () => {
-            AparteConfig.setAttachmentRenderer((att) => {
+            aparteGlobalConfig.setAttachmentRenderer((att) => {
                 const el = document.createElement('div');
                 el.className = 'my-att';
                 el.dataset['type'] = att.type;
@@ -542,13 +542,13 @@ describe('AparteChatBubble', () => {
     // announced to screen readers, and 28px of reserved height (the bar's fixed
     // height plus the footer's min-height) under every single bubble.
     describe('empty action bar', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         const bar = (el: HTMLElement) => el.querySelector('.aparte-action-bar') as HTMLElement;
         const footer = (el: HTMLElement) => el.querySelector('.aparte-footer') as HTMLElement;
 
         it('hides the bar and the footer when no action is enabled', () => {
-            AparteConfig.setBubbleActions({ copy: false });
+            aparteGlobalConfig.setBubbleActions({ copy: false });
             bubble = createBubble({ role: 'assistant', 'message-id': 'e1', content: 'hi' });
             expect(bar(bubble).children.length).toBe(0);
             expect(bar(bubble).hidden).toBe(true);
@@ -562,16 +562,16 @@ describe('AparteChatBubble', () => {
         });
 
         it('shows them again as soon as an action is turned back on', () => {
-            AparteConfig.setBubbleActions({ copy: false });
+            aparteGlobalConfig.setBubbleActions({ copy: false });
             bubble = createBubble({ role: 'assistant', 'message-id': 'e3', content: 'hi' });
             expect(bar(bubble).hidden).toBe(true);
-            AparteConfig.setBubbleActions({ retry: true });
+            aparteGlobalConfig.setBubbleActions({ retry: true });
             expect(bar(bubble).hidden).toBe(false);
             expect(footer(bubble).hidden).toBe(false);
         });
 
         it('keeps the footer when the branch picker is the only thing in it', () => {
-            AparteConfig.setBubbleActions({ copy: false });
+            aparteGlobalConfig.setBubbleActions({ copy: false });
             bubble = createBubble({ role: 'assistant', 'message-id': 'e4', content: 'hi' });
             bubble.setSiblings(2, 0);
             expect(bar(bubble).hidden).toBe(true);
@@ -579,7 +579,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('hides the footer again when the last sibling disappears', () => {
-            AparteConfig.setBubbleActions({ copy: false });
+            aparteGlobalConfig.setBubbleActions({ copy: false });
             bubble = createBubble({ role: 'assistant', 'message-id': 'e5', content: 'hi' });
             bubble.setSiblings(2, 0);
             bubble.setSiblings(1, 0);
@@ -587,8 +587,8 @@ describe('AparteChatBubble', () => {
         });
 
         it('a custom registered action alone is enough to keep the bar', () => {
-            AparteConfig.setBubbleActions({ copy: false });
-            AparteConfig.registerAction({
+            aparteGlobalConfig.setBubbleActions({ copy: false });
+            aparteGlobalConfig.registerAction({
                 id: 'star', icon: '<svg></svg>', label: 'Star',
                 zones: ['bubble'], bubble: { roles: ['assistant'] },
             });
@@ -598,7 +598,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('shows the bar in edit mode even with every action off', () => {
-            AparteConfig.setBubbleActions({ copy: false, edit: true });
+            aparteGlobalConfig.setBubbleActions({ copy: false, edit: true });
             bubble = createBubble({ role: 'user', 'message-id': 'e7', content: 'hi' });
             (bubble.querySelector('.aparte-action-edit') as HTMLButtonElement).click();
             expect(bar(bubble).hidden).toBe(false);
@@ -610,7 +610,7 @@ describe('AparteChatBubble', () => {
     // Core owns no lightbox — the tile just asks, via `aparte-attachment-preview`.
     // Until an app declares it handles that, a clickable-looking tile is a lie.
     describe('image tile preview (setHostHandlers)', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         const imageBubble = (id: string) => {
             const el = createBubble({ role: 'user', 'message-id': id });
@@ -635,7 +635,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('becomes a real button once attachmentPreview is declared', () => {
-            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
             bubble = imageBubble('t2');
             const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
             expect(tile.getAttribute('role')).toBe('button');
@@ -650,7 +650,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('opens on Enter too — a button you cannot reach by keyboard is not one', () => {
-            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
             bubble = imageBubble('t3');
             const tile = bubble.querySelector('.aparte-thumb--image') as HTMLElement;
             let fired = 0;
@@ -662,7 +662,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('leaves non-image tiles inert even when declared (nothing to preview)', () => {
-            AparteConfig.setHostHandlers({ attachmentPreview: true });
+            aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
             bubble = createBubble({ role: 'user', 'message-id': 't4' });
             bubble.updateMessage({
                 attachments: [{ id: 'f1', name: 'report.pdf', type: 'application/pdf', url: 'blob:x' }],
@@ -674,10 +674,10 @@ describe('AparteChatBubble', () => {
 
     // ─── Custom sibling-nav indicator (setSiblingNavRenderer) ─────────────
     describe('sibling-nav renderer', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('replaces the position indicator with custom output, arrows preserved', () => {
-            AparteConfig.setSiblingNavRenderer(({ count, index }) =>
+            aparteGlobalConfig.setSiblingNavRenderer(({ count, index }) =>
                 Array.from({ length: count }, (_, i) => `<span class="dot${i === index ? ' active' : ''}"></span>`).join(''));
             bubble = createBubble({ role: 'assistant', 'message-id': 'sn1' });
             bubble.setSiblings(3, 1);
@@ -701,7 +701,7 @@ describe('AparteChatBubble', () => {
     // It is a button like the others now — with one precondition kept: no usage, no
     // details to show, no button.
     describe('info action', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         const actionsOf = (el: HTMLElement) =>
             [...el.querySelectorAll('.aparte-action-bar .aparte-action-btn')]
@@ -716,21 +716,21 @@ describe('AparteChatBubble', () => {
         });
 
         it('is requestable in an explicit per-role set', () => {
-            AparteConfig.setBubbleActions({ assistant: ['copy', 'info'] });
+            aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'info'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'i1', content: 'hi' });
             withUsage(bubble);
             expect(actionsOf(bubble)).toEqual(['copy', 'info']);
         });
 
         it('is removable through the flag, even with usage present', () => {
-            AparteConfig.setBubbleActions({ info: false });
+            aparteGlobalConfig.setBubbleActions({ info: false });
             bubble = createBubble({ role: 'assistant', 'message-id': 'i2', content: 'hi' });
             withUsage(bubble);
             expect(actionsOf(bubble)).not.toContain('info');
         });
 
         it('needs usage: asking for it without any shows nothing', () => {
-            AparteConfig.setBubbleActions({ assistant: ['copy', 'info'] });
+            aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'info'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'i3', content: 'hi' });
             expect(actionsOf(bubble)).toEqual(['copy']);
         });
@@ -742,7 +742,7 @@ describe('AparteChatBubble', () => {
     // exist. The bubble is where the user is already looking, so the indicator
     // lives here — no app wiring, identical in raw core and every wrapper.
     describe('waiting indicator', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('shows while an assistant bubble is streaming with nothing in it', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'w1', streaming: '' });
@@ -751,13 +751,13 @@ describe('AparteChatBubble', () => {
             expect(waiting.hidden).toBe(false);
             // The dots are decorative; the accessible name comes from the locale.
             expect(waiting.querySelector('.aparte-dots')?.getAttribute('aria-hidden')).toBe('true');
-            expect(waiting.textContent).toContain(AparteConfig.getLocale().typing);
+            expect(waiting.textContent).toContain(aparteGlobalConfig.getLocale().typing);
         });
 
         it('takes its label from the active locale, not a hardcoded string', () => {
             // `locale.typing` shipped in APARTE_DEFAULT_LOCALE and was read by nothing. A
             // French app must not be told "Typing".
-            AparteConfig.setLocale({ ...AparteConfig.getLocale(), typing: 'Réflexion…' });
+            aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), typing: 'Réflexion…' });
             bubble = createBubble({ role: 'assistant', 'message-id': 'w1b', streaming: '' });
             expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Réflexion…');
         });
@@ -797,7 +797,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('is optional: a custom shell without the region simply has no indicator', () => {
-            AparteConfig.setBubbleShellRenderer(({ role }) =>
+            aparteGlobalConfig.setBubbleShellRenderer(({ role }) =>
                 `<div class="aparte-message" data-role="${role}"><div class="aparte-content"></div></div>`);
             bubble = createBubble({ role: 'assistant', 'message-id': 'w7', streaming: '' });
             expect(bubble.querySelector('.aparte-waiting')).toBeNull();
@@ -806,10 +806,10 @@ describe('AparteChatBubble', () => {
     });
 
     describe('bubble shell renderer', () => {
-        afterEach(() => AparteConfig.reset());
+        afterEach(() => aparteGlobalConfig.reset());
 
         it('uses a custom shell and the native machinery still populates its region hooks', () => {
-            AparteConfig.setBubbleShellRenderer(({ role, name }) =>
+            aparteGlobalConfig.setBubbleShellRenderer(({ role, name }) =>
                 `<div class="aparte-message custom-shell" data-role="${role}">`
                 + `<div class="aparte-avatar"></div>`
                 + `<div class="my-layout">`

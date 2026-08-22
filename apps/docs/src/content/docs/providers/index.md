@@ -18,11 +18,11 @@ sidebar:
 Register a provider, set a transport, construct an `AparteClient`, and streaming just works:
 
 ```ts
-import { AparteConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));   // browser → provider, key stays client-side
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));   // browser → provider, key stays client-side
 new AparteClient({
   // BYOK: hand the browser-held key to each request (see "Supplying the key" below).
   keyResolver: () => localStorage.getItem('openrouter.key') ?? undefined,
@@ -56,7 +56,7 @@ keyInput.addEventListener('change', () => {
 - Want the key **off the client** entirely? Use [`AparteBackendTransport`](/guides/backend-transport/)
   instead — the key stays on your server and never reaches the browser.
 - `keyResolver` may return a `Record<string, string>` (for providers needing several auth headers)
-  and may be async (fetch from your own vault). `AparteConfig.setKeyProvider(...)` is an alternative
+  and may be async (fetch from your own vault). `aparteGlobalConfig.setKeyProvider(...)` is an alternative
   channel if you'd rather register the key globally instead of per-client.
 
 ## Which one?

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 
 // Mock scoped to THIS file only: make the FIRST createHighlighter call reject
 // (a transient failure), then delegate to the real shiki for every later call.
@@ -21,7 +21,7 @@ describe('@aparte/plugin-shiki — resilience', () => {
         const { setupShikiProvider } = await import('./index.js');
 
         let captured: ((code: string, lang: string) => string | Promise<string>) | undefined;
-        vi.spyOn(AparteConfig, 'setHighlightProvider').mockImplementation((p) => {
+        vi.spyOn(aparteGlobalConfig, 'setHighlightProvider').mockImplementation((p) => {
             captured = p;
         });
 

@@ -7,6 +7,13 @@
 "@aparte/plugin-shiki": minor
 "@aparte/plugin-ask-question": minor
 "@aparte/plugin-model-selector": minor
+"@aparte/plugin-marked": minor
+"@aparte/plugin-streaming-markdown": minor
+"@aparte/locale-fr": minor
+"@aparte/react": minor
+"@aparte/vue": minor
+"@aparte/svelte": minor
+"@aparte/angular": minor
 ---
 
 Remediation of a from-scratch audit: four CRITICAL and nineteen MAJOR defects, plus the
@@ -73,6 +80,40 @@ guards that make each class unrepeatable.
   Functions keep their verb names — `registerDefaultRenderers`, `contentToText`,
   `filesToAttachments` and the rest are unchanged, because prefixing a verb reads worse
   than the inconsistency it would fix.
+- **The config naming is inverted: `AparteConfig` is now the class, and the page-wide
+  instance is `aparteGlobalConfig`.** `AparteConfigClass` is gone.
+
+  ```diff
+  - import { AparteConfig, type AparteConfigClass } from '@aparte/core';
+  - AparteConfig.setMarkdownProvider(provider);
+  - function configure(config: AparteConfigClass) {}
+  + import { aparteGlobalConfig, type AparteConfig } from '@aparte/core';
+  + aparteGlobalConfig.setMarkdownProvider(provider);
+  + function configure(config: AparteConfig) {}
+  ```
+
+  One `sed` covers a whole consumer, and the order matters — run the instance first, so
+  that `\bAparteConfig\b` cannot yet match the class:
+
+  ```bash
+  # 1. the instance, then 2. the class. Never the reverse.
+  grep -rlE '\bAparteConfig(Class)?\b' src \
+    | xargs perl -pi -e 's/\bAparteConfig\b/aparteGlobalConfig/g'
+  grep -rl 'AparteConfigClass' src \
+    | xargs perl -pi -e 's/\bAparteConfigClass\b/AparteConfig/g'
+  ```
+
+  It rewrites string literals too, so a log prefix of your own like `[AparteConfig]`
+  becomes `[aparteGlobalConfig]` — harmless, but check your diff if you grep your logs.
+
+  Two reasons this happens now rather than never. `AparteConfigClass` was not a name, it
+  was an admission — the `Class` suffix existed only because the good name was taken by an
+  object, and PascalCase means constructor everywhere else in the ecosystem, so
+  `AparteConfig.setMarkdownProvider(...)` read as a static method to every reader. And the
+  library moved under it: since config became per-instance, the global singleton is one
+  config among several and the one we recommend least. Giving it the canonical name
+  pointed at the case we want people to outgrow; `aparteGlobalConfig` says at every call
+  site which config you are touching.
 - `@aparte/svelte` ships its `.svelte` sources instead of a precompiled bundle, and
   supports Svelte 4 **and** 5 (`^4.0.0 || ^5.0.0`). Nothing to change in your code, unless
   you were importing from a deep path inside `dist`.

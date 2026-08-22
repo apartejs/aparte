@@ -50,7 +50,7 @@ lightbox, no modal, no opinion about how a picture should open.
 So the tile is inert until you say you can open something:
 
 ```ts
-AparteConfig.setHostHandlers({ attachmentPreview: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 
 document.addEventListener('aparte-attachment-preview', (e) => {
   const { url, name } = e.detail;      // open your own dialog / router / gallery

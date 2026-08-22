@@ -38,9 +38,9 @@ instead of `title`) are normalised so the panel always renders real choices.
 To wire it manually instead of `setupAskQuestion()`:
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import { askQuestionTool, askQuestionHandler } from '@aparte/plugin-ask-question';
 
-AparteConfig.registerTool(askQuestionTool, askQuestionHandler);
-AparteConfig.registerToolRenderer('ask_question', { render: () => '' }); // hide the tool-call pill
+aparteGlobalConfig.registerTool(askQuestionTool, askQuestionHandler);
+aparteGlobalConfig.registerToolRenderer('ask_question', { render: () => '' }); // hide the tool-call pill
 ```

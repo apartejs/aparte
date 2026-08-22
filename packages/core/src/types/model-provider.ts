@@ -183,7 +183,7 @@ export interface AparteAIProvider {
      * list). Never return a Promise here — it would be ignored by
      * `getCurrentModel()`, silently disabling capability gates such as
      * `function_calling` (tools). For async fetching implement
-     * {@link fetchModels} instead, which `AparteConfig.refreshProviderModels()`
+     * {@link fetchModels} instead, which `aparteGlobalConfig.refreshProviderModels()`
      * and the model-selector consume. Note: a provider without `fetchModels`
      * shows no models in the model-selector — `getModels()` is only read for
      * the current-model lookup.

@@ -1,7 +1,7 @@
 /**
  * AparteConfig
  * 
- * Central configuration singleton for Aparte.
+ * Central configuration class for Aparte. `aparteGlobalConfig` is the page-wide instance.
  * Manages providers for Markdown rendering, Syntax Highlighting, Icons, and Skeleton loading.
  * 
  * "Invisible but Flexible": Works out-of-the-box with sensible defaults,
@@ -111,11 +111,11 @@ export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStr
  * Core ships only a CDN-free fallback (svg/css/html/js render offline; other
  * kinds degrade to a read-only code view), so the engine stays zero-network and
  * framework-agnostic. The app opts into richer previews via
- * {@link AparteConfigClass.setArtifactPreviewBuilder}.
+ * {@link AparteConfig.setArtifactPreviewBuilder}.
  */
 export type AparteArtifactPreviewBuilder = (kind: string, body: string, title: string) => string;
 
-export class AparteConfigClass {
+export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
     private _streamingMarkdownProvider?: AparteStreamingMarkdownProvider;
     private _highlightProvider?: AparteHighlightProvider;
@@ -220,11 +220,11 @@ export class AparteConfigClass {
      * only, because every other button needs a host to honor it.
      *
      * @example
-     * AparteConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
-     * AparteConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
-     * AparteConfig.setBubbleActions({ copy: false })             // hide everything
+     * aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
+     * aparteGlobalConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
+     * aparteGlobalConfig.setBubbleActions({ copy: false })             // hide everything
      * // Explicit per-role ordered sets (replace the flag defaults for that role):
-     * AparteConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
+     * aparteGlobalConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
      */
     setBubbleActions(config: AparteBubbleActionsConfig): void {
         this._bubbleActionsConfig = { ...this._bubbleActionsConfig, ...config };
@@ -236,7 +236,7 @@ export class AparteConfigClass {
      * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
      *
      * @example
-     * AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
      */
     setHostHandlers(config: AparteHostHandlersConfig): void {
         this._hostHandlers = { ...this._hostHandlers, ...config };
@@ -332,7 +332,7 @@ export class AparteConfigClass {
      *   hardened coverage, or `null` to DISABLE sanitization. Disabling exposes
      *   you to XSS from LLM-authored content — only do so for content you fully
      *   trust and have already sanitized upstream.
-     * @example AparteConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
+     * @example aparteGlobalConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
      */
     setHtmlSanitizer(sanitizer: AparteSanitizer | null): void {
         if (sanitizer === null) {
@@ -642,8 +642,8 @@ export class AparteConfigClass {
      * Register one or more AI providers (e.g., OpenRouter, Gemini, Anthropic)
      * @param providers AparteAIProvider implementations
      * @example
-     * AparteConfig.registerAIProvider(OpenRouterProvider);
-     * AparteConfig.registerAIProvider(GeminiProvider, AnthropicProvider);
+     * aparteGlobalConfig.registerAIProvider(OpenRouterProvider);
+     * aparteGlobalConfig.registerAIProvider(GeminiProvider, AnthropicProvider);
      */
     registerAIProvider(...providers: AparteAIProvider[]): void {
         for (const provider of providers) {
@@ -706,7 +706,7 @@ export class AparteConfigClass {
      * Register a model preference provider for agnostic persistence.
      * The host app decides how/where to store the selected provider & model.
      * @example
-     * AparteConfig.setModelPreferenceProvider({
+     * aparteGlobalConfig.setModelPreferenceProvider({
      *   save: (p, m) => localStorage.setItem('model', JSON.stringify({p, m})),
      *   load: () => JSON.parse(localStorage.getItem('model') ?? 'null')
      * });
@@ -899,7 +899,7 @@ export class AparteConfigClass {
      * Register a tool and its handler together.
      * The handler is called when the AI invokes the tool during streaming.
      * @example
-     * AparteConfig.registerTool(askQuestionTool, askQuestionHandler);
+     * aparteGlobalConfig.registerTool(askQuestionTool, askQuestionHandler);
      */
     registerTool(tool: AparteTool, handler: AparteToolHandler): void {
         this._tools.set(tool.name, { tool, handler });
@@ -927,11 +927,11 @@ export class AparteConfigClass {
      *
      * @example
      * // Hide the segment entirely (UI-only tool like ask_question)
-     * AparteConfig.registerToolRenderer('ask_question', { render: () => '' });
+     * aparteGlobalConfig.registerToolRenderer('ask_question', { render: () => '' });
      *
      * @example
      * // Custom pill for a web-search tool
-     * AparteConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="tool-pill">Searching...</div>` });
+     * aparteGlobalConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="tool-pill">Searching...</div>` });
      */
     registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void {
         this._toolRenderers.set(toolName, renderer);
@@ -1006,8 +1006,9 @@ export class AparteConfigClass {
                     '[aparte] requestUserInput() was called with no elicitation presenter, '
                     + 'so it resolved `cancel` — the model will read that as the user refusing, '
                     + 'but nothing was ever shown. Add <aparte-elicitation></aparte-elicitation> '
-                    + 'inside your <aparte-chat>, or register your own with '
-                    + 'AparteConfig.setElicitationPresenter().',
+                    + 'inside your <aparte-chat>, or register your own by calling '
+                    + 'setElicitationPresenter() on the config this chat resolves — '
+                    + 'the scoped one if you passed a `config`, aparteGlobalConfig otherwise.',
                 );
             }
             return Promise.resolve({ action: 'cancel' });
@@ -1091,22 +1092,22 @@ export class AparteConfigClass {
 
 const GLOBAL_CONFIG_KEY = '__APARTE_CONFIG_SINGLETON__';
 
-function getGlobalConfig(): AparteConfigClass {
+function getGlobalConfig(): AparteConfig {
     if (typeof window !== 'undefined') {
-        if (!(window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY]) {
-            (window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY] = new AparteConfigClass();
+        if (!(window as unknown as Record<string, AparteConfig>)[GLOBAL_CONFIG_KEY]) {
+            (window as unknown as Record<string, AparteConfig>)[GLOBAL_CONFIG_KEY] = new AparteConfig();
         }
-        return (window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY]!;
+        return (window as unknown as Record<string, AparteConfig>)[GLOBAL_CONFIG_KEY]!;
     }
     // Fallback for non-browser environments (e.g., SSR, tests)
-    return new AparteConfigClass();
+    return new AparteConfig();
 }
 
 /**
  * Global configuration singleton for Aparte.
  * Use this to register providers and configure behavior.
  */
-export const AparteConfig = getGlobalConfig();
+export const aparteGlobalConfig = getGlobalConfig();
 
 // Inject default styles for skeletons if needed (optional)
 // Note: In a real app we might want to use a stylesheet or shadow DOM styles

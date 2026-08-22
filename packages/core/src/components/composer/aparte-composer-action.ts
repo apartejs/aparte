@@ -8,7 +8,7 @@ import { escapeAttr } from '../../utils/escape.js';
  * Generic action button primitive for <aparte-composer>.
  * The consumer declares it directly in markup — no global registration needed.
  *
- * @attr icon      - Icon key for AparteConfig.getIcon(), or raw SVG/HTML starting with `<`
+ * @attr icon      - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`
  * @attr label     - Accessible label (also used as tooltip)
  * @attr disabled  - Disables the button
  *

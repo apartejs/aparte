@@ -93,16 +93,16 @@ app never calls the adapter directly.
 
 <!-- doc-check: skip excerpt — imports the adapter the reader writes in the fence above -->
 ```ts
-import { AparteConfig, AparteConversationManager } from '@aparte/core';
+import { aparteGlobalConfig, AparteConversationManager } from '@aparte/core';
 import { LocalStorageAdapter } from './local-storage-adapter';
 
 const manager = new AparteConversationManager(new LocalStorageAdapter());
 await manager.init();                          // hydrates the list from the adapter
-AparteConfig.setConversationManager(manager);  // registers it for every <aparte-*> component
+aparteGlobalConfig.setConversationManager(manager);  // registers it for every <aparte-*> component
 ```
 
 Running several independently-configured chats on one page? Call `setConversationManager`
-on each chat's own `AparteConfigClass` instance (passed as `config`) instead of the global
+on each chat's own `AparteConfig` instance (passed as `config`) instead of the global
 singleton.
 
 Useful reads once registered: `manager.conversations`, `manager.activeConversations` /

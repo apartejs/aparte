@@ -29,5 +29,5 @@ export type {
     AparteTerminalSegment,
 } from '@aparte/core';
 
-// Re-export AparteConfig for direct access (config without `provideAparte`).
-export { AparteConfig } from '@aparte/core';
+// Re-export aparteGlobalConfig for direct access (config without `provideAparte`).
+export { aparteGlobalConfig } from '@aparte/core';

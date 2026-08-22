@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import { setupStreamingMarkdownProvider } from './index.js';
 
 /**
@@ -13,14 +13,14 @@ describe('@aparte/plugin-streaming-markdown — live URL safety', () => {
     });
 
     function streamInto(target: HTMLElement, chunks: string[]): void {
-        const r = AparteConfig.createStreamingMarkdownRenderer(target);
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target);
         if (!r) throw new Error('no streaming renderer registered');
         for (const c of chunks) r.write(c);
         r.end();
     }
 
     it('registers a streaming renderer factory', () => {
-        expect(AparteConfig.createStreamingMarkdownRenderer(document.createElement('div'))).not.toBeNull();
+        expect(aparteGlobalConfig.createStreamingMarkdownRenderer(document.createElement('div'))).not.toBeNull();
     });
 
     it('renders safe markdown incrementally', () => {

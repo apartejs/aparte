@@ -30,7 +30,7 @@ check('@aparte/core resolves its DOM-free node entry', async () => {
     const core = await import('@aparte/core');
 
     // The runtime surface a server/desktop host needs.
-    for (const name of ['AparteClient', 'AparteChatHost', 'AparteConfig', 'AparteMessageRepository', 'filesToAttachments']) {
+    for (const name of ['AparteClient', 'AparteChatHost', 'aparteGlobalConfig', 'AparteMessageRepository', 'filesToAttachments']) {
         assert.ok(core[name], `@aparte/core should expose ${name} from Node`);
     }
     // …and NOT the custom elements (they extend HTMLElement).

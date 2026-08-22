@@ -55,7 +55,7 @@ export interface StreamRunOptions {
      * closed over by the adapter.
      */
     transportCall: (request: StreamChatRequest) => Promise<AsyncIterable<StreamChatEvent> | string>;
-    /** Resolves a tool's handler by name (mirrors `AparteConfig.getToolHandler`). */
+    /** Resolves a tool's handler by name (mirrors `aparteGlobalConfig.getToolHandler`). */
     toolLookup: (name: string) => StreamToolHandler | undefined;
     /** Resolves a tool's loop config by name (maxTurns / needsApproval). */
     toolConfigLookup?: (name: string) => StreamToolConfig | undefined;

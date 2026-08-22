@@ -4,14 +4,14 @@ import { describe, it, expect, afterEach } from 'vitest';
  * Multi-instance isolation — the test that never existed.
  *
  * Two chats on one page, each under its own [data-aparte-host] boundary with its
- * own AparteConfigClass: components must resolve THEIR config (icons, locale,
+ * own AparteConfig: components must resolve THEIR config (icons, locale,
  * markdown, bubble actions) and never leak across instances or into the global.
  */
 
 import '../bubble/aparte-chat-bubble.js';
 import '../composer/aparte-composer.js';
 import '../status/aparte-chat-status.js';
-import { AparteConfig, AparteConfigClass } from '../../config/aparte-config.js';
+import { aparteGlobalConfig, AparteConfig } from '../../config/aparte-config.js';
 import { attachConfig, detachConfig } from '../../config/config-context.js';
 
 type BubbleEl = HTMLElement & { setContent(content: string): void };
@@ -30,8 +30,8 @@ function bubbleIn(parent: HTMLElement, attrs: Record<string, string> = {}): Bubb
     return el;
 }
 
-function cfgWithCopyIcon(marker: string): AparteConfigClass {
-    const cfg = new AparteConfigClass();
+function cfgWithCopyIcon(marker: string): AparteConfig {
+    const cfg = new AparteConfig();
     // A one-icon provider is enough: getIconProvider() completes it from the
     // built-in fallbacks (it used to hand back the raw provider, so every other
     // icon crashed and callers had to spread a full set in first).
@@ -42,7 +42,7 @@ function cfgWithCopyIcon(marker: string): AparteConfigClass {
 describe('multi-instance config isolation', () => {
     afterEach(() => {
         document.body.innerHTML = '';
-        AparteConfig.reset();
+        aparteGlobalConfig.reset();
     });
 
     it('two chats resolve their own icon providers; an outside bubble stays global', () => {
@@ -64,8 +64,8 @@ describe('multi-instance config isolation', () => {
     it('per-instance bubble actions do not leak to the other chat', () => {
         const hostA = host();
         const hostB = host();
-        const cfgA = new AparteConfigClass();
-        const cfgB = new AparteConfigClass();
+        const cfgA = new AparteConfig();
+        const cfgB = new AparteConfig();
         cfgA.setBubbleActions({ copy: false, retry: false, edit: false, feedback: false });
         attachConfig(hostA, cfgA);
         attachConfig(hostB, cfgB);
@@ -80,8 +80,8 @@ describe('multi-instance config isolation', () => {
     it('per-instance markdown providers render independently', () => {
         const hostA = host();
         const hostB = host();
-        const cfgA = new AparteConfigClass();
-        const cfgB = new AparteConfigClass();
+        const cfgA = new AparteConfig();
+        const cfgB = new AparteConfig();
         cfgA.setMarkdownProvider((raw) => `<p data-md="a">${raw}</p>`);
         cfgB.setMarkdownProvider((raw) => `<p data-md="b">${raw}</p>`);
         attachConfig(hostA, cfgA);
@@ -128,7 +128,7 @@ describe('multi-instance config isolation', () => {
         attachConfig(hostA, cfgWithCopyIcon('instance'));
         const a = bubbleIn(hostA);
 
-        AparteConfig.setIconProvider({ copy: () => '<svg data-marker="global"></svg>' });
+        aparteGlobalConfig.setIconProvider({ copy: () => '<svg data-marker="global"></svg>' });
 
         // The global notify rebuilds all action bars — but this bubble re-reads
         // ITS instance config, not the global.
@@ -137,7 +137,7 @@ describe('multi-instance config isolation', () => {
 });
 
 describe('the boundary attached AFTER a child mounts — every element, not just the bubble', () => {
-    afterEach(() => { document.body.innerHTML = ''; AparteConfig.reset(); });
+    afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 
     /**
      * This is the ordering every wrapper produces and nothing tested.
@@ -153,11 +153,11 @@ describe('the boundary attached AFTER a child mounts — every element, not just
      * status element: it filters change events on the cached object, so it also went
      * permanently deaf to its own instance.
      */
-    const mountThenAttach = (tag: string): { el: HTMLElement; cfg: AparteConfigClass } => {
+    const mountThenAttach = (tag: string): { el: HTMLElement; cfg: AparteConfig } => {
         const h = host();
         const el = document.createElement(tag);
         h.appendChild(el);                 // connectedCallback runs HERE…
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         attachConfig(h, cfg);              // …and the boundary appears only now.
         return { el, cfg };
     };
@@ -165,9 +165,9 @@ describe('the boundary attached AFTER a child mounts — every element, not just
     for (const tag of ['aparte-composer', 'aparte-chat-status', 'aparte-chat-bubble']) {
         it(`<${tag}> resolves the instance config, not the global`, () => {
             const { el, cfg } = mountThenAttach(tag);
-            const resolved = (el as unknown as { _cfg: AparteConfigClass })._cfg;
+            const resolved = (el as unknown as { _cfg: AparteConfig })._cfg;
             expect(resolved, `${tag} latched a config at connect`).toBe(cfg);
-            expect(resolved).not.toBe(AparteConfig);
+            expect(resolved).not.toBe(aparteGlobalConfig);
         });
     }
 
@@ -175,7 +175,7 @@ describe('the boundary attached AFTER a child mounts — every element, not just
         const { el, cfg } = mountThenAttach('aparte-chat-status');
         // The filter compares against the live `_cfg`; with a cached one this
         // change would be discarded as "not mine".
-        const seen = (el as unknown as { _cfg: AparteConfigClass })._cfg;
+        const seen = (el as unknown as { _cfg: AparteConfig })._cfg;
         expect(seen).toBe(cfg);
     });
 });

@@ -45,7 +45,7 @@ export interface AparteChatBinding {
 export interface AparteConversationControllerOptions {
     /**
      * Conversation manager. If omitted, the controller resolves it from
-     * `AparteConfig.getConversationManager()` when first needed.
+     * `aparteGlobalConfig.getConversationManager()` when first needed.
      */
     manager?: AparteConversationManager;
     /**

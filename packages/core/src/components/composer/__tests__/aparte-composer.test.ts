@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '../aparte-composer.js';
 import type { AparteComposer } from '../aparte-composer.js';
 import type { AparteComposerChangeEventDetail } from '../aparte-composer.js';
-import { AparteConfig } from '../../../config/aparte-config.js';
+import { aparteGlobalConfig } from '../../../config/aparte-config.js';
 
 /**
  * Public state observability — the `aparte-composer-change` DOM event + getState()
@@ -107,7 +107,7 @@ describe('aparte-composer — model-selection gate (opt-in)', () => {
 
     afterEach(() => {
         composer?.remove();
-        AparteConfig.reset(); // clears requireModelSelection + modelConfig
+        aparteGlobalConfig.reset(); // clears requireModelSelection + modelConfig
         vi.restoreAllMocks();
     });
 
@@ -118,7 +118,7 @@ describe('aparte-composer — model-selection gate (opt-in)', () => {
     }
 
     it('blocks send + sets data-model-gated when a model is required but none selected', () => {
-        AparteConfig.setRequireModelSelection(true);
+        aparteGlobalConfig.setRequireModelSelection(true);
         composer = mount();
         expect(composer.hasAttribute('data-model-gated')).toBe(true);
 
@@ -130,11 +130,11 @@ describe('aparte-composer — model-selection gate (opt-in)', () => {
     });
 
     it('ungates + sends once a model is selected (reacts to config change)', () => {
-        AparteConfig.setRequireModelSelection(true);
+        aparteGlobalConfig.setRequireModelSelection(true);
         composer = mount();
         expect(composer.hasAttribute('data-model-gated')).toBe(true);
 
-        AparteConfig.setModelConfig({ defaultProvider: 'p', defaultModel: 'm' });
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'p', defaultModel: 'm' });
         expect(composer.hasAttribute('data-model-gated')).toBe(false);
 
         composer.setValue('hi');

@@ -61,11 +61,11 @@ sends to the model:
 ```svelte
 <script lang="ts">
   import { AparteChat, createAparteChat, createAparteClient, type AparteChatInstance } from '@aparte/svelte';
-  import { AparteConfig, AparteDirectTransport } from '@aparte/core';
+  import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
   import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
-  AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-  AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+  aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+  aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
   const chat = createAparteChat();
   createAparteClient();          // streams replies from the configured provider
@@ -78,14 +78,14 @@ sends to the model:
 ```
 
 Pass a per-instance `config` prop to scope providers/transport to a single `<AparteChat>` instead of
-the global `AparteConfig`.
+`aparteGlobalConfig`.
 
 :::note
 `createAparteClient` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
 agent loop** instead of core's inline one, inject it:
 `createAparteClient({ streamRunner: runStreamAgent })` from [`@aparte/engine`](/guides/engine/) — an
 optional swap-in, not required. With the client mounted, switch the retry/edit buttons on —
-`AparteConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
+`aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).

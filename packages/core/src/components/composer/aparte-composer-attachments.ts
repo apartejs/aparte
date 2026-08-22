@@ -15,7 +15,7 @@ const REMOVE_ICON =
  * Image files show the actual picture; other files show an extension badge.
  * The filename and a remove (✗) button surface on hover. Clicking an image asks
  * the app to open it full-size (`aparte-attachment-preview`) — only when the app
- * declared `attachmentPreview` via `AparteConfig.setHostHandlers()`.
+ * declared `attachmentPreview` via `aparteGlobalConfig.setHostHandlers()`.
  * Automatically hidden when there are no attachments.
  * Must be a descendant of <aparte-composer>.
   *

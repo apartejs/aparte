@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { AparteConfigClass } from '../../config/index.js';
+import { AparteConfig } from '../../config/index.js';
 import type { AparteMessage } from '../../types/index.js';
 
 /**
@@ -203,7 +203,7 @@ describe('AparteClient', () => {
         const tool = { name: 'search', description: 'Search', parameters: {} } as unknown;
 
         function clientWith(model: unknown): AparteClient {
-            const cfg = new AparteConfigClass();
+            const cfg = new AparteConfig();
             vi.spyOn(cfg, 'getCurrentModel').mockReturnValue(model as never);
             vi.spyOn(cfg, 'getTools').mockReturnValue([tool] as never);
             return new AparteClient({ autoRegister: false, config: cfg });
@@ -651,7 +651,7 @@ describe('AparteClient', () => {
     // ─── _handleRetry / _handleEdit behavior ──────────────────────────────
     //
     // These tests exercise the orchestration of the retry/edit handlers up to
-    // the streaming layer. AparteConfig has no provider configured in the test
+    // the streaming layer. aparteGlobalConfig has no provider configured in the test
     // env, so the handler returns early at the provider-lookup line — that's
     // intentional: we want to verify the **target-side calls** (addSiblingOf,
     // truncateResponsesAfter, fallback to truncateFrom, updateMessage) without
@@ -864,11 +864,11 @@ describe('AparteClient', () => {
     });
 });
 
-// ─── API key resolution: keyResolver + AparteConfig fallback ──────────────────
+// ─── API key resolution: keyResolver + aparteGlobalConfig fallback ──────────────────
 // Regression guard for the disconnected key channel: setKeyProvider() feeds
-// AparteConfig.getKey(), which the chat path must consult when no options.keyResolver
+// aparteGlobalConfig.getKey(), which the chat path must consult when no options.keyResolver
 // is supplied. Previously the chat only read options.keyResolver, so a key set via
-// AparteConfig.setKeyProvider() never reached the provider.
+// aparteGlobalConfig.setKeyProvider() never reached the provider.
 describe('AparteClient — API key resolution', () => {
     let client: AparteClient | undefined;
 
@@ -928,7 +928,7 @@ describe('AparteClient — API key resolution', () => {
         // chats, chat B's reply rendered inside chat A.
         vi.spyOn(console, 'error').mockImplementation(() => undefined); // chat rejects on purpose
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         cfg.registerAIProvider(makeMockProvider(vi.fn().mockRejectedValue(new Error('stop after routing'))));
         cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
 
@@ -947,9 +947,9 @@ describe('AparteClient — API key resolution', () => {
         b.shell.remove();
     });
 
-    it('falls back to AparteConfig.getKey() when no keyResolver is set', async () => {
+    it('falls back to aparteGlobalConfig.getKey() when no keyResolver is set', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined); // chat rejects on purpose
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const chatSpy = vi.fn().mockRejectedValue(new Error('stop after key check'));
         cfg.registerAIProvider(makeMockProvider(chatSpy));
         cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
@@ -967,9 +967,9 @@ describe('AparteClient — API key resolution', () => {
         expect(chatSpy.mock.calls[0][1]).toBe('sk-from-config');
     });
 
-    it('prefers options.keyResolver over the AparteConfig key channel', async () => {
+    it('prefers options.keyResolver over the aparteGlobalConfig key channel', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => undefined); // chat rejects on purpose
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const chatSpy = vi.fn().mockRejectedValue(new Error('stop after key check'));
         cfg.registerAIProvider(makeMockProvider(chatSpy));
         cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
@@ -1014,8 +1014,8 @@ describe('AparteClient — compaction selector', () => {
         return el;
     }
 
-    function makeCapturingConfig(): { cfg: AparteConfigClass; captured: () => any } {
-        const cfg = new AparteConfigClass();
+    function makeCapturingConfig(): { cfg: AparteConfig; captured: () => any } {
+        const cfg = new AparteConfig();
         cfg.registerAIProvider({
             id: 'mock',
             getMetadata: () => ({ id: 'mock', name: 'Mock' }),

@@ -10,11 +10,11 @@ sidebar:
 your own attachment chip, an avatar, extra buttons, a brand-new block type — you reach
 for **render hooks** and the **action registry**.
 
-Everything here goes through the global `AparteConfig` (or a scoped instance — see
+Everything here goes through `aparteGlobalConfig` (or a scoped instance — see
 [Per-instance config](#per-instance-config)). Nothing requires forking a component.
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 ```
 
 ## Render hooks
@@ -32,16 +32,16 @@ attach your own listeners/framework nodes with no `innerHTML` XSS surface.
 | `setBubbleShellRenderer` | the whole bubble shell | `(ctx)` |
 
 ```ts
-AparteConfig.setStatusRenderer((text) => `<div class="my-typing">${text}…</div>`);
+aparteGlobalConfig.setStatusRenderer((text) => `<div class="my-typing">${text}…</div>`);
 
-AparteConfig.setErrorRenderer(({ message }) => {
+aparteGlobalConfig.setErrorRenderer(({ message }) => {
   const el = document.createElement('div');
   el.className = 'my-error';
   el.textContent = message;      // textContent → no interpolation XSS
   return el;
 });
 
-AparteConfig.setAttachmentRenderer((att) => {
+aparteGlobalConfig.setAttachmentRenderer((att) => {
   const el = document.createElement('span');
   el.className = 'my-chip';
   el.textContent = att.name;     // textContent → the filename can't inject HTML
@@ -65,10 +65,10 @@ Core exports the two escapers its own renderers use, so you don't have to write 
 **The position decides which one** — and the difference is not cosmetic:
 
 ```ts
-import { AparteConfig, escapeHtml, escapeAttr } from '@aparte/core';
+import { aparteGlobalConfig, escapeHtml, escapeAttr } from '@aparte/core';
 import type { AparteAttachment } from '@aparte/core';
 
-AparteConfig.setAttachmentRenderer((att: AparteAttachment) => `
+aparteGlobalConfig.setAttachmentRenderer((att: AparteAttachment) => `
   <span class="my-chip" title="${escapeAttr(att.name)}">
     ${escapeHtml(att.name)}
   </span>
@@ -95,7 +95,7 @@ avatar provider is **imperative**: you get the already-sized `.aparte-avatar` ho
 fill it. Return an optional cleanup function for live components.
 
 ```ts
-AparteConfig.setAvatarProvider({
+aparteGlobalConfig.setAvatarProvider({
   render(role, host) {
     host.textContent = role === 'assistant' ? '✦' : '🙂';
     // return () => { /* dispose a mounted component */ };
@@ -109,7 +109,7 @@ Buttons on the message bubble **and** the composer come from **one registry**, k
 zone. Add your own with `registerAction`:
 
 ```ts
-AparteConfig.registerAction({
+aparteGlobalConfig.registerAction({
   id: 'share',
   icon: '<svg>…</svg>',          // raw HTML if it starts with '<', else an icon key
   label: 'Share',
@@ -130,9 +130,9 @@ document.addEventListener('aparte-action', (e) => {
 - `zones` decides where it shows; `composer: { position: 'left' | 'right' }` and
   `bubble: { roles: [...] }` refine placement; `order` sorts custom actions.
 - An `onClick(event)` callback is optional and fires alongside the event.
-- Hide/show at runtime with `AparteConfig.setActionHidden(id, hidden)`.
+- Hide/show at runtime with `aparteGlobalConfig.setActionHidden(id, hidden)`.
 - The **built-in** bubble actions (copy / retry / edit / feedback / info) are toggled per
-  role with `AparteConfig.setBubbleActions({ … })` — see
+  role with `aparteGlobalConfig.setBubbleActions({ … })` — see
   [What ships enabled](#what-ships-enabled) just below, because most of them are **off**
   until you ask.
 
@@ -161,10 +161,10 @@ Two levers, one for the action bar and one for everything else:
 
 ```ts
 // You run an AparteClient, so retry and edit do something:
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
 // You handle these events yourself:
-AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
 ```
 
 The **branch picker** `‹ 1/2 ›`, the waiting indicator, the stop button and the model
@@ -343,7 +343,7 @@ Every icon ships as a zero-dependency inline SVG. Override any of them — with 
 an icon-font element, an emoji, or an `<img>` (the value is treated as trusted markup):
 
 ```ts
-AparteConfig.setIconProvider({
+aparteGlobalConfig.setIconProvider({
   copy: () => '<svg>…</svg>',
   send: () => '<i class="fa fa-paper-plane"></i>',
 });
@@ -360,30 +360,30 @@ Core is zero-dependency by default, so Markdown and syntax highlighting are **of
 until you inject a renderer — keeping the bundle honest:
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import { marked } from 'marked';
 import { codeToHtml } from 'shiki';
 
-AparteConfig.setMarkdownProvider((raw) => marked.parse(raw) as string);
-AparteConfig.setHighlightProvider((code, lang) => codeToHtml(code, { lang, theme: 'dracula' }));
+aparteGlobalConfig.setMarkdownProvider((raw) => marked.parse(raw) as string);
+aparteGlobalConfig.setHighlightProvider((code, lang) => codeToHtml(code, { lang, theme: 'dracula' }));
 ```
 
 ## Per-instance config
 
-`AparteConfig` is global — right for the common one-chat-per-app case. To run several
+`aparteGlobalConfig` is shared page-wide — right for the common one-chat-per-app case. To run several
 independently-customized chats on one page, attach an instance config to each chat's
 root; every `<aparte-*>` inside resolves the nearest boundary and falls back to global.
 
 ```ts
-import { AparteConfigClass, attachConfig } from '@aparte/core';
+import { AparteConfig, attachConfig } from '@aparte/core';
 
-const support = new AparteConfigClass();
+const support = new AparteConfig();
 support.setStatusRenderer((t) => `<em>${t}</em>`);
 attachConfig(document.querySelector('#support-chat')!, support);
 ```
 
 :::note
 An instance config starts from the built-in defaults — it does **not** inherit
-providers registered on the global `AparteConfig`. Register what each instance needs on
+providers registered on `aparteGlobalConfig`. Register what each instance needs on
 that instance.
 :::

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
-import { AparteConfig, AparteConfigClass, attachConfig } from '@aparte/core';
+import { aparteGlobalConfig, AparteConfig, attachConfig } from '@aparte/core';
 import type { AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
 import { askQuestionTool, askQuestionHandler } from './ask-question.js';
 
@@ -35,12 +35,12 @@ describe('askQuestionHandler — elicitation adapter', () => {
 
     /** Register a scripted presenter and capture the request it receives. */
     function presenter(result: AparteElicitationResult): void {
-        AparteConfig.setElicitationPresenter(async (req) => { lastRequest = req; return result; });
+        aparteGlobalConfig.setElicitationPresenter(async (req) => { lastRequest = req; return result; });
     }
     const schema = () => lastRequest!.schema as any;
 
     afterEach(() => {
-        AparteConfig.setElicitationPresenter(null);
+        aparteGlobalConfig.setElicitationPresenter(null);
         lastRequest = undefined;
     });
 
@@ -119,7 +119,7 @@ describe('askQuestionHandler — elicitation adapter', () => {
 });
 
 describe('the handler asks the RIGHT chat', () => {
-    afterEach(() => { document.body.innerHTML = ''; AparteConfig.reset(); });
+    afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 
     /**
      * A handler used to have no way to know which chat it was running for, so this
@@ -128,12 +128,12 @@ describe('the handler asks the RIGHT chat', () => {
      * presenter, received `{ action: 'cancel' }` and the model was told the user had
      * refused a question the user was never shown.
      */
-    const chatUnderInstanceConfig = (): { el: HTMLElement; cfg: AparteConfigClass; asked: string[] } => {
+    const chatUnderInstanceConfig = (): { el: HTMLElement; cfg: AparteConfig; asked: string[] } => {
         const host = document.createElement('div');
         const el = document.createElement('div');
         host.appendChild(el);
         document.body.appendChild(host);
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         attachConfig(host, cfg);
         const asked: string[] = [];
         cfg.setElicitationPresenter(async (req: AparteElicitationRequest): Promise<AparteElicitationResult> => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AparteConfig, AparteConfigClass } from '@aparte/core';
+import { aparteGlobalConfig, AparteConfig } from '@aparte/core';
 import { setupMarkedProvider } from './index.js';
 
 /**
@@ -14,8 +14,8 @@ import { setupMarkedProvider } from './index.js';
  */
 describe('setupMarkedProvider — per-instance config', () => {
     it('configures only the instance it was given', () => {
-        const scoped = new AparteConfigClass();
-        const other = new AparteConfigClass();
+        const scoped = new AparteConfig();
+        const other = new AparteConfig();
 
         setupMarkedProvider(undefined, scoped);
 
@@ -27,9 +27,9 @@ describe('setupMarkedProvider — per-instance config', () => {
     });
 
     it('still defaults to the global config, so existing callers are unaffected', () => {
-        AparteConfig.reset();
+        aparteGlobalConfig.reset();
         setupMarkedProvider();
-        expect(AparteConfig.renderMarkdown('**bold**')).toContain('<strong>');
-        AparteConfig.reset();
+        expect(aparteGlobalConfig.renderMarkdown('**bold**')).toContain('<strong>');
+        aparteGlobalConfig.reset();
     });
 });

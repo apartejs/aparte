@@ -12,29 +12,29 @@ app is already in English with nothing to install.
 
 ## Switching language
 
-Pass an `AparteLocale` to `AparteConfig.setLocale`. French is available as a package:
+Pass an `AparteLocale` to `aparteGlobalConfig.setLocale`. French is available as a package:
 
 ```bash
 npm install @aparte/locale-fr
 ```
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import { fr } from '@aparte/locale-fr';
 
-AparteConfig.setLocale(fr);
+aparteGlobalConfig.setLocale(fr);
 ```
 
-Set it once at startup, before the chat mounts. `AparteConfig.getLocale()` returns the active locale, and
+Set it once at startup, before the chat mounts. `aparteGlobalConfig.getLocale()` returns the active locale, and
 `APARTE_DEFAULT_LOCALE` (exported from `@aparte/core`) is the English baseline.
 
 A locale switch is live: mounted components re-render immediately. To go back to English — say, in a
-language toggle — call `AparteConfig.resetLocale()`:
+language toggle — call `aparteGlobalConfig.resetLocale()`:
 
 ```ts
 function setLanguage(lang: 'fr' | 'en') {
-  if (lang === 'fr') AparteConfig.setLocale(fr);
-  else AparteConfig.resetLocale();
+  if (lang === 'fr') aparteGlobalConfig.setLocale(fr);
+  else aparteGlobalConfig.resetLocale();
 }
 ```
 
@@ -44,7 +44,7 @@ An `AparteLocale` is a flat record of string keys. The simplest custom locale st
 default and overrides what you need:
 
 ```ts
-import { AparteConfig, APARTE_DEFAULT_LOCALE, type AparteLocale } from '@aparte/core';
+import { aparteGlobalConfig, APARTE_DEFAULT_LOCALE, type AparteLocale } from '@aparte/core';
 
 const es: AparteLocale = {
   ...APARTE_DEFAULT_LOCALE,
@@ -54,7 +54,7 @@ const es: AparteLocale = {
   // …override the rest
 };
 
-AparteConfig.setLocale(es);
+aparteGlobalConfig.setLocale(es);
 ```
 
 Spreading `APARTE_DEFAULT_LOCALE` guarantees every key is present even if aparté adds new strings in a later

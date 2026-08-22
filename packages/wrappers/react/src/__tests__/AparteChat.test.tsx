@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
 import { AparteChat, type AparteChatHandle } from '../components/AparteChat';
-import { registerAllComponents, resolveConfig, AparteConfig, AparteConfigClass } from '@aparte/core';
+import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 // Ensure components are registered
@@ -309,7 +309,7 @@ describe('AparteChat React Wrapper', () => {
     });
 
     it('forwards a per-instance config so components inside resolve it', () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const { container } = render(
             <AparteChat messages={[]} config={cfg} onMessageSent={mockOnMessageSent} />,
         );
@@ -317,12 +317,12 @@ describe('AparteChat React Wrapper', () => {
         expect(resolveConfig(host)).toBe(cfg);
     });
 
-    it('resolves the global AparteConfig when no config prop is passed', () => {
+    it('resolves `aparteGlobalConfig` when no config prop is passed', () => {
         const { container } = render(
             <AparteChat messages={[]} onMessageSent={mockOnMessageSent} />,
         );
         const host = container.querySelector('[id^="aparte-chat-"]') as HTMLElement;
-        expect(resolveConfig(host)).toBe(AparteConfig);
+        expect(resolveConfig(host)).toBe(aparteGlobalConfig);
     });
 
     it('derives an SSR-stable host id from useId (not a random UUID)', () => {

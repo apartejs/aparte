@@ -12,7 +12,7 @@ import {
     AparteConversationController,
     type AparteChatBinding,
 } from '../conversations/conversation-controller.js';
-import type { AparteConfigClass } from '../config/aparte-config.js';
+import type { AparteConfig } from '../config/aparte-config.js';
 import { attachConfig, detachConfig } from '../config/config-context.js';
 import { cssEscape } from '../utils/css-escape.js';
 
@@ -97,10 +97,10 @@ export interface AparteChatHostOptions {
      * Instance config for this chat. When provided, {@link bind} marks the host
      * element as a `[data-aparte-host]` boundary so every Aparte component inside it
      * (bubbles, composer, renderers) resolves THIS config instead of the global
-     * `AparteConfig` — the seam that lets several independently-configured chats
+     * `aparteGlobalConfig` — the seam that lets several independently-configured chats
      * coexist on one page. Omit to keep the global-config behaviour.
      */
-    config?: AparteConfigClass;
+    config?: AparteConfig;
 }
 
 /**

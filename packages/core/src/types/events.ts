@@ -293,7 +293,7 @@ export interface AparteFeedbackEventDetail {
 
 /**
  * Detail payload for `aparte-action`.
- * Dispatched by a custom action button (registered via `AparteConfig.registerAction`)
+ * Dispatched by a custom action button (registered via `aparteGlobalConfig.registerAction`)
  * in either the composer or a message-bubble toolbar. Apps listen (bubbling) and
  * dispatch on `actionId`. Mirrors the built-in bubble events (retry/feedback) so
  * custom actions are wired the same way in every framework and in vanilla.

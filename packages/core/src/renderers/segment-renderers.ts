@@ -22,7 +22,7 @@ import type {
 // in scope for late executions (event handlers, window-event callbacks) —
 // see config-context.ts. `contextConfig()` with no element = ambient or global.
 import { contextConfig } from '../config/index.js';
-import type { AparteConfigClass } from '../config/index.js';
+import type { AparteConfig } from '../config/index.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 import { escapeHtml, escapeAttr } from '../utils/escape.js';
 import { deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
@@ -112,7 +112,7 @@ function findClosingFence(s: string): number {
  * — but segment renderers stayed in a module-level `Map`, so two chats could not
  * render the same segment type differently. This closes that half.
  *
- * A WeakMap rather than fields on `AparteConfigClass`: that class is already the
+ * A WeakMap rather than fields on `AparteConfig`: that class is already the
  * largest thing in the package and the audit named its size as the ceiling. Keying
  * the state here keeps it next to the code that reads it, and it is collected with
  * the config it belongs to.
@@ -128,9 +128,9 @@ interface RendererRegistry {
     defaultsDeclined: boolean;
 }
 
-const registries = new WeakMap<AparteConfigClass, RendererRegistry>();
+const registries = new WeakMap<AparteConfig, RendererRegistry>();
 
-function registryFor(config: AparteConfigClass): RendererRegistry {
+function registryFor(config: AparteConfig): RendererRegistry {
     let reg = registries.get(config);
     if (!reg) {
         reg = { renderers: new Map(), defaultsInstalled: false, defaultsDeclined: false };
@@ -146,7 +146,7 @@ let styleElement: HTMLStyleElement | null = null;
  */
 export function registerSegmentRenderer<T extends AparteSegmentBase>(
     renderer: AparteSegmentRenderer<T>,
-    config: AparteConfigClass = contextConfig(),
+    config: AparteConfig = contextConfig(),
 ): void {
     registryFor(config).renderers.set(renderer.type, renderer as AparteSegmentRenderer);
     injectRendererStyles();
@@ -159,7 +159,7 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
  * `AparteClient({ autoRegister: false })` is the one caller. Without this latch the
  * lazy install below would quietly turn that option into a no-op.
  */
-export function declineDefaultRenderers(config: AparteConfigClass = contextConfig()): void {
+export function declineDefaultRenderers(config: AparteConfig = contextConfig()): void {
     registryFor(config).defaultsDeclined = true;
 }
 
@@ -177,7 +177,7 @@ export function declineDefaultRenderers(config: AparteConfigClass = contextConfi
  * Strictly additive: a type someone registered themselves is never replaced, so a
  * custom `text` renderer survives the sweep triggered by a `code` segment.
  */
-export function installDefaultRenderersOnce(config: AparteConfigClass = contextConfig()): void {
+export function installDefaultRenderersOnce(config: AparteConfig = contextConfig()): void {
     const reg = registryFor(config);
     if (reg.defaultsInstalled || reg.defaultsDeclined) return;
     reg.defaultsInstalled = true;
@@ -190,7 +190,7 @@ export function installDefaultRenderersOnce(config: AparteConfigClass = contextC
 /**
  * Unregister a segment renderer
  */
-export function unregisterSegmentRenderer(type: string, config: AparteConfigClass = contextConfig()): void {
+export function unregisterSegmentRenderer(type: string, config: AparteConfig = contextConfig()): void {
     registryFor(config).renderers.delete(type);
 }
 
@@ -199,7 +199,7 @@ export function unregisterSegmentRenderer(type: string, config: AparteConfigClas
  */
 export function getSegmentRenderer(
     type: string,
-    config: AparteConfigClass = contextConfig(),
+    config: AparteConfig = contextConfig(),
 ): AparteSegmentRenderer | undefined {
     return registryFor(config).renderers.get(type);
 }
@@ -207,14 +207,14 @@ export function getSegmentRenderer(
 /**
  * Get all registered renderers
  */
-export function getAllRenderers(config: AparteConfigClass = contextConfig()): readonly AparteSegmentRenderer[] {
+export function getAllRenderers(config: AparteConfig = contextConfig()): readonly AparteSegmentRenderer[] {
     return Array.from(registryFor(config).renderers.values());
 }
 
 /**
  * Collect all renderer styles
  */
-export function collectRendererStyles(config: AparteConfigClass = contextConfig()): string {
+export function collectRendererStyles(config: AparteConfig = contextConfig()): string {
     return Array.from(registryFor(config).renderers.values())
         .map(r => r.getStyles?.() || '')
         .filter(Boolean)
@@ -468,7 +468,7 @@ const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
 const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
     type: 'error',
     render: (segment) => {
-        // A registered error renderer (AparteConfig.setErrorRenderer) owns the error
+        // A registered error renderer (aparteGlobalConfig.setErrorRenderer) owns the error
         // UI — the one place to customize it, string or live HTMLElement.
         const custom = contextConfig().getErrorRenderer?.();
         if (custom) {
@@ -724,7 +724,7 @@ const pipelineWaitingRenderer: AparteSegmentRenderer = {
     `
 };
 
-export function registerDefaultRenderers(config: AparteConfigClass = contextConfig()): void {
+export function registerDefaultRenderers(config: AparteConfig = contextConfig()): void {
     registryFor(config).defaultsInstalled = true;
     for (const renderer of DEFAULT_RENDERERS) registerSegmentRenderer(renderer, config);
 }
@@ -1704,7 +1704,7 @@ function slugifyForFilename(text: string): string {
 // Core ships only an OFFLINE-safe preview: svg/css/html/js render with zero
 // network, and richer kinds (react/…) degrade to a read-only code view. The
 // product opts into a CDN-powered live preview (React/Babel/Tailwind) by
-// registering a builder via `AparteConfig.setArtifactPreviewBuilder()`. Core must
+// registering a builder via `aparteGlobalConfig.setArtifactPreviewBuilder()`. Core must
 // stay framework-agnostic and zero-network, so no CDN URLs live here.
 
 /**

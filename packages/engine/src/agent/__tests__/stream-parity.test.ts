@@ -15,7 +15,7 @@
 // test lives here and imports the core adapter.
 
 import { describe, it, expect, vi } from 'vitest';
-import { AparteClient, AparteConfigClass, createStreamAdapter } from '@aparte/core';
+import { AparteClient, AparteConfig, createStreamAdapter } from '@aparte/core';
 import type { AparteStreamEvent } from '@aparte/core';
 import { runStreamAgent } from '../stream-run';
 import type { StreamChatEvent, StreamChatRequest } from '../stream-events';
@@ -99,9 +99,9 @@ async function* iterableOf(events: StreamChatEvent[]): AsyncIterable<StreamChatE
 }
 
 /** A config with the tools the scenarios use (search=HITL, save=plain). */
-function makeConfig(streamFactory: (turn: number) => unknown, o: ParityOpts = { streams: [] }): AparteConfigClass {
+function makeConfig(streamFactory: (turn: number) => unknown, o: ParityOpts = { streams: [] }): AparteConfig {
     let ti = 0;
-    const cfg = new AparteConfigClass();
+    const cfg = new AparteConfig();
     cfg.registerAIProvider({ id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }), getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '' } as never);
     cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
     cfg.setKeyProvider(() => 'k');
@@ -457,7 +457,7 @@ describe('runStreamAgent — parity on WALKING AWAY from a live stream', () => {
     // pattern the audit was about, so it gets a parity test rather than a unit
     // test on whichever loop happens to be in front of us.
     const harness = (cancel: () => void) => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         cfg.registerAIProvider({
             id: 'mock',
             getMetadata: () => ({ id: 'mock', name: 'M' }),
@@ -523,7 +523,7 @@ describe('a streamed turn never writes a withheld prefix into `content`', () => 
      * Asserted on BOTH loops: core's inline one and the injected runner.
      */
     const driveFenceOpening = async (streamRunner?: unknown): Promise<string[]> => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         cfg.registerAIProvider({
             id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
             getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
@@ -607,7 +607,7 @@ describe('parity on events and tags neither loop used to handle', () => {
     it('an aborted turn carries targetId on both paths', async () => {
         const seen: Record<string, unknown[]> = { old: [], knew: [] };
         for (const which of ['old', 'knew'] as const) {
-            const cfg = new AparteConfigClass();
+            const cfg = new AparteConfig();
             cfg.registerAIProvider({
                 id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
                 getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
@@ -679,7 +679,7 @@ describe('parity on a NON-STREAMING response', () => {
         const rendered: Record<string, string[]> = { old: [], knew: [] };
 
         for (const which of ['old', 'knew'] as const) {
-            const cfg = new AparteConfigClass();
+            const cfg = new AparteConfig();
             cfg.registerAIProvider({
                 id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
                 getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',

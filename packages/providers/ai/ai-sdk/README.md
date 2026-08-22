@@ -9,9 +9,9 @@ the AI SDK ecosystem through this bridge. You bring your `@ai-sdk/*` package, ha
 ```ts
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAiSdkProvider } from '@aparte/provider-ai-sdk';
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 
-AparteConfig.registerAIProvider(createAiSdkProvider({
+aparteGlobalConfig.registerAIProvider(createAiSdkProvider({
     id: 'anthropic',
     name: 'Anthropic',
     models: [{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }],

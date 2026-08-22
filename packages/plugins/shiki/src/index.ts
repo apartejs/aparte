@@ -1,4 +1,4 @@
-import { AparteConfig , type AparteConfigClass} from '@aparte/core';
+import { aparteGlobalConfig , type AparteConfig} from '@aparte/core';
 import {
     createHighlighter,
     type Highlighter,
@@ -43,7 +43,7 @@ export type { ShikiCoreProviderOptions, ShikiHighlighterLike } from './core.js';
  *
  * Framework-agnostic — vanilla, no framework imports. Call once at startup.
  */
-export async function setupShikiProvider(options: ShikiProviderOptions = {}, config: AparteConfigClass = AparteConfig): Promise<void> {
+export async function setupShikiProvider(options: ShikiProviderOptions = {}, config: AparteConfig = aparteGlobalConfig): Promise<void> {
     const theme = (options.theme ?? 'github-dark') as BundledTheme;
 
     let highlighter: Highlighter | null = null;

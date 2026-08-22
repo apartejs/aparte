@@ -94,7 +94,7 @@ export type AparteElicitationResult =
 
 /**
  * Presents an elicitation request and resolves with the user's response.
- * Registered per config instance via `AparteConfig.setElicitationPresenter`
+ * Registered per config instance via `aparteGlobalConfig.setElicitationPresenter`
  * (the `<aparte-elicitation>` Web Component is the default presenter).
  */
 export type AparteElicitationPresenter = (request: AparteElicitationRequest) => Promise<AparteElicitationResult>;

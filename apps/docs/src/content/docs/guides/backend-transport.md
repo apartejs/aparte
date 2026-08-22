@@ -115,9 +115,9 @@ On the client, skip the provider adapter entirely — the browser only needs to 
 `AparteDirectTransport` and drive the rest exactly as usual:
 
 ```ts
-import { AparteConfig, AparteClient, AparteBackendTransport } from '@aparte/core';
+import { aparteGlobalConfig, AparteClient, AparteBackendTransport } from '@aparte/core';
 
-AparteConfig.setTransport(new AparteBackendTransport({ endpoint: '/api/chat' }));
+aparteGlobalConfig.setTransport(new AparteBackendTransport({ endpoint: '/api/chat' }));
 new AparteClient().start();   // .start() attaches the aparte-send/-retry/-edit listeners
 ```
 
@@ -125,7 +125,7 @@ No key, no adapter import, nothing devtools-visible — the browser just POSTs
 `{ providerId, request }` to `/api/chat` and streams the reply back into your bubbles.
 
 :::caution
-`AparteConfig` still needs to know *which* `providerId` to send (e.g. via the model
+`aparteGlobalConfig` still needs to know *which* `providerId` to send (e.g. via the model
 selector, or hardcoded if you only support one vendor) — `AparteBackendTransport` doesn't need
 the provider's format adapter registered client-side, but something has to pick the id.
 :::

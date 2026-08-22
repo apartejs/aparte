@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { AparteConfig, AparteConfigClass, attachConfig, detachConfig } from '@aparte/core';
+import { aparteGlobalConfig, AparteConfig, attachConfig, detachConfig } from '@aparte/core';
 import type { AparteAIProvider, AparteModelChangeEventDetail } from '@aparte/core';
 import './aparte-model-selector.js';
 
@@ -27,7 +27,7 @@ async function mountSelector(host: HTMLElement): Promise<HTMLElement> {
 describe('aparte-model-selector', () => {
     afterEach(() => {
         document.body.innerHTML = '';
-        AparteConfig.reset();
+        aparteGlobalConfig.reset();
     });
 
     it('registers the custom element', () => {
@@ -35,7 +35,7 @@ describe('aparte-model-selector', () => {
     });
 
     it('renders each provider → model into the dropdown', async () => {
-        AparteConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
         const sel = await mountSelector(document.createElement('div'));
         expect(sel.querySelector('aparte-select')).toBeTruthy();
         expect(sel.textContent).toContain('Gamma One');
@@ -43,7 +43,7 @@ describe('aparte-model-selector', () => {
 
     it('escapes a hostile remote model name (XSS) instead of injecting it', async () => {
         // A model whose `name` came from a hostile/aggregating /models endpoint.
-        AparteConfig.registerAIProvider(fakeProvider('gamma', '<img src=x onerror=alert(1)>'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('gamma', '<img src=x onerror=alert(1)>'));
         const sel = await mountSelector(document.createElement('div'));
 
         // No live <img>/<script> element must exist — the payload is inert text.
@@ -54,7 +54,7 @@ describe('aparte-model-selector', () => {
     });
 
     it('emits aparte-model-change on a programmatic selection', async () => {
-        AparteConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
         const sel = await mountSelector(document.createElement('div'));
 
         const detail = await new Promise<AparteModelChangeEventDetail>((res) => {
@@ -72,8 +72,8 @@ describe('aparte-model-selector', () => {
     // ── per-instance config resolution ──────────────────────────────────────
 
     it('reads providers from the nearest instance config, not the global', async () => {
-        const cfgA = new AparteConfigClass();
-        const cfgB = new AparteConfigClass();
+        const cfgA = new AparteConfig();
+        const cfgB = new AparteConfig();
         cfgA.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
         cfgB.registerAIProvider(fakeProvider('beta', 'Beta One'));
 
@@ -91,14 +91,14 @@ describe('aparte-model-selector', () => {
         expect(selB.textContent).not.toContain('Alpha One');
 
         // The global singleton was never touched.
-        expect(AparteConfig.getAIProviders()).toHaveLength(0);
+        expect(aparteGlobalConfig.getAIProviders()).toHaveLength(0);
 
         detachConfig(hostA);
         detachConfig(hostB);
     });
 
     it('persists the selection into ITS config instance only', async () => {
-        const cfgA = new AparteConfigClass();
+        const cfgA = new AparteConfig();
         cfgA.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
         const hostA = document.createElement('div');
         attachConfig(hostA, cfgA);
@@ -111,7 +111,7 @@ describe('aparte-model-selector', () => {
         expect(cfgA.getModelConfig().defaultProvider).toBe('alpha');
         expect(cfgA.getModelConfig().defaultModel).toBe('alpha-model');
         // Global stays empty — the write went to the instance.
-        expect(AparteConfig.getModelConfig().defaultProvider).toBeUndefined();
+        expect(aparteGlobalConfig.getModelConfig().defaultProvider).toBeUndefined();
 
         detachConfig(hostA);
     });
@@ -129,8 +129,8 @@ describe('aparte-model-selector', () => {
     describe('a queued re-render vs a fresh selection', () => {
         /** Two providers so the list has more than one option to move between. */
         const twoProviders = (): void => {
-            AparteConfig.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
-            AparteConfig.registerAIProvider(fakeProvider('beta', 'Beta One'));
+            aparteGlobalConfig.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
+            aparteGlobalConfig.registerAIProvider(fakeProvider('beta', 'Beta One'));
         };
 
         /** Drive the select the way a click or Enter does. */
@@ -164,8 +164,8 @@ describe('aparte-model-selector', () => {
             selectValue(sel, 'beta::beta-model');
             await flush();
 
-            expect(AparteConfig.getModelConfig().defaultModel).toBe('beta-model');
-            expect(AparteConfig.getModelConfig().defaultProvider).toBe('beta');
+            expect(aparteGlobalConfig.getModelConfig().defaultModel).toBe('beta-model');
+            expect(aparteGlobalConfig.getModelConfig().defaultProvider).toBe('beta');
         });
 
         it('does not fire a change that puts the previous model back', async () => {

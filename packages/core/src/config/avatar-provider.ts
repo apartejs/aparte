@@ -8,7 +8,7 @@
  * mounted via createComponent (Angular), createRoot (React), etc.
  *
  * @example
- * AparteConfig.setAvatarProvider({
+ * aparteGlobalConfig.setAvatarProvider({
  *   render: (role, host) => {
  *     if (role === 'assistant') {
  *       const ref = createComponent(MascotComponent, { hostElement: host });

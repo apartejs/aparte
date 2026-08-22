@@ -1,4 +1,4 @@
-import { AparteConfig , type AparteConfigClass} from '@aparte/core';
+import { aparteGlobalConfig , type AparteConfig} from '@aparte/core';
 import { marked, type MarkedExtension } from 'marked';
 
 /**
@@ -15,7 +15,7 @@ import { marked, type MarkedExtension } from 'marked';
  * import { setupMarkedProvider } from '@aparte/plugin-marked';
  * setupMarkedProvider({ gfm: true, breaks: true });
  */
-export function setupMarkedProvider(options?: MarkedExtension, config: AparteConfigClass = AparteConfig): void {
+export function setupMarkedProvider(options?: MarkedExtension, config: AparteConfig = aparteGlobalConfig): void {
     if (options) marked.use(options);
 
     // aparté's markdown provider is synchronous `(raw) => string`; `async: false`

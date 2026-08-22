@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { AparteConfigClass } from '../../config/index.js';
+import { AparteConfig } from '../../config/index.js';
 import type { AparteStreamRunner } from '../stream-adapter.js';
 
 /**
@@ -21,8 +21,8 @@ function makeRecorder(): { el: HTMLElement; calls: { m: string; args: unknown[] 
     return { el, calls };
 }
 
-function makeConfig(transportChat: (...a: unknown[]) => unknown): AparteConfigClass {
-    const cfg = new AparteConfigClass();
+function makeConfig(transportChat: (...a: unknown[]) => unknown): AparteConfig {
+    const cfg = new AparteConfig();
     cfg.registerAIProvider({ id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }), getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '' } as never);
     cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
     cfg.setKeyProvider(() => 'k');
@@ -32,7 +32,7 @@ function makeConfig(transportChat: (...a: unknown[]) => unknown): AparteConfigCl
 
 const REQ = { messages: [{ role: 'user', content: 'hi' }], modelId: 'm', stream: true };
 
-const runLoop = (client: AparteClient, target: HTMLElement, cfg: AparteConfigClass, req: unknown = REQ) =>
+const runLoop = (client: AparteClient, target: HTMLElement, cfg: AparteConfig, req: unknown = REQ) =>
     (client as unknown as { _streamLoop: (t: unknown, id: string, p: unknown, r: unknown, a: unknown) => Promise<unknown> })
         ._streamLoop(target, 'assistant-1', cfg.getAIProvider('mock'), req, 'k');
 

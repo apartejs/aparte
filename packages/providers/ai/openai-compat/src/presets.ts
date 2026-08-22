@@ -6,7 +6,7 @@
  * packages. No code varies per vendor — that is the whole point.
  *
  * ```ts
- * AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.MISTRAL));
+ * aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.MISTRAL));
  * ```
  *
  * Local servers (LM Studio, Ollama) are served through their OpenAI-compat

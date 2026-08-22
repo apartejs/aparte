@@ -7,7 +7,7 @@ import {
     type EnvironmentProviders,
 } from '@angular/core';
 import {
-    AparteConfig,
+    aparteGlobalConfig,
     type AparteAIProvider,
     type AparteClientOptions,
     type AparteIconProvider,
@@ -76,7 +76,7 @@ export const APARTE_CONFIG_TOKEN = new InjectionToken<ProvideAparteOptions>('APA
 
 async function loadIconPlugin(plugin: AparteIconProvider | ApartePluginLoader): Promise<void> {
     if (typeof plugin === 'object' && plugin !== null) {
-        AparteConfig.setIconProvider(plugin);
+        aparteGlobalConfig.setIconProvider(plugin);
         return;
     }
     try {
@@ -88,7 +88,7 @@ async function loadIconPlugin(plugin: AparteIconProvider | ApartePluginLoader): 
 
 async function loadSkeletonPlugin(plugin: AparteSkeletonProvider | ApartePluginLoader): Promise<void> {
     if (typeof plugin === 'object' && plugin !== null) {
-        AparteConfig.setSkeletonProvider(plugin);
+        aparteGlobalConfig.setSkeletonProvider(plugin);
         return;
     }
     try {
@@ -101,7 +101,7 @@ async function loadSkeletonPlugin(plugin: AparteSkeletonProvider | ApartePluginL
 async function loadMarkdownPlugin(plugin: AparteMarkdownProvider | ApartePluginLoader): Promise<void> {
     // A markdown provider takes the raw string; a loader takes nothing.
     if (plugin.length >= 1) {
-        AparteConfig.setMarkdownProvider(plugin as AparteMarkdownProvider);
+        aparteGlobalConfig.setMarkdownProvider(plugin as AparteMarkdownProvider);
         return;
     }
     try {
@@ -152,13 +152,13 @@ function applyThemeMode(mode: 'light' | 'dark' | 'auto', destroyRef: DestroyRef)
 
 /**
  * Configure aparté for a standalone Angular app. Registers your AI providers,
- * model config, locale and optional plugins on the global `AparteConfig`,
+ * model config, locale and optional plugins on `aparteGlobalConfig`,
  * provides {@link APARTE_CLIENT_OPTIONS} for {@link AparteAiService}, and
  * starts the client (see `autoConnect`) — no manual
  * `AparteAiService.connect()` needed.
  *
  * The components (`AparteChatComponent`, `AparteUiComponent`) are standalone and
- * work WITHOUT this — it is config sugar. You can equally call `AparteConfig.*`
+ * work WITHOUT this — it is config sugar. You can equally call `aparteGlobalConfig.*`
  * yourself, exactly like the React/Vue/Svelte wrappers do.
  *
  * @example
@@ -184,13 +184,13 @@ export function provideAparte(options: ProvideAparteOptions = {}): EnvironmentPr
                 ? inject(AparteAiService)
                 : null;
             if (options.providers?.length) {
-                AparteConfig.registerAIProvider(...options.providers);
+                aparteGlobalConfig.registerAIProvider(...options.providers);
             }
             if (options.modelConfig) {
-                AparteConfig.setModelConfig(options.modelConfig);
+                aparteGlobalConfig.setModelConfig(options.modelConfig);
             }
             if (options.locale) {
-                AparteConfig.setLocale(options.locale);
+                aparteGlobalConfig.setLocale(options.locale);
             }
             await loadPlugins(options);
             if (options.themeMode) {

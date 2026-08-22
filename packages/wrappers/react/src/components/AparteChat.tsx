@@ -8,7 +8,7 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from 'react';
-import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
@@ -47,7 +47,7 @@ export interface AparteChatProps {
     attachments?: boolean;
     /**
      * Active conversation id. When set, the wrapper loads/persists via the
-     * `AparteConversationManager` registered in `AparteConfig` (set `null` to deselect).
+     * `AparteConversationManager` registered in `aparteGlobalConfig` (set `null` to deselect).
      */
     conversationId?: string | null;
     /**
@@ -116,7 +116,7 @@ export interface AparteChatProps {
     onMessageSent?: (event: AparteSendEventDetail) => void;
     /**
      * Fired when a custom bubble action (registered via
-     * `AparteConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
+     * `aparteGlobalConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
      * wrapper over the bubbling `aparte-action` DOM event. Dispatch on `detail.actionId`.
      */
     onAction?: (detail: AparteActionEventDetail) => void;
@@ -133,13 +133,13 @@ export interface AparteChatProps {
     onConversationCreated?: (id: string) => void;
 
     /**
-     * Instance {@link AparteConfigClass} for this chat. When set, every aparté
+     * Instance {@link AparteConfig} for this chat. When set, every aparté
      * component rendered inside resolves THIS config instead of the global
-     * `AparteConfig` singleton — letting several independently-configured chats
+     * `aparteGlobalConfig` — letting several independently-configured chats
      * (different providers, tools, renderers) coexist on one page. Omit for the
      * global config. Read once when the host mounts.
      */
-    config?: AparteConfigClass;
+    config?: AparteConfig;
 }
 
 /**

@@ -8,7 +8,7 @@
  * framework coupling, no window events, no per-tool contract to drift.
  *
  * Usage:
- *   AparteConfig.registerTool(askQuestionTool, askQuestionHandler);
+ *   aparteGlobalConfig.registerTool(askQuestionTool, askQuestionHandler);
  */
 
 import type { AparteTool, AparteToolHandler, AparteToolResult } from '@aparte/core';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fr } from './index.js';
-import { APARTE_DEFAULT_LOCALE, AparteConfig } from '@aparte/core';
+import { APARTE_DEFAULT_LOCALE, aparteGlobalConfig } from '@aparte/core';
 
 describe('@aparte/locale-fr', () => {
     it('covers every key of the English default (no missing translation)', () => {
@@ -13,10 +13,10 @@ describe('@aparte/locale-fr', () => {
         expect(fr.inputPlaceholder).not.toBe(APARTE_DEFAULT_LOCALE.inputPlaceholder);
     });
 
-    it('applies through AparteConfig.setLocale', () => {
-        AparteConfig.setLocale(fr);
-        expect(AparteConfig.getLocale().sendButton).toBe('Envoyer');
+    it('applies through aparteGlobalConfig.setLocale', () => {
+        aparteGlobalConfig.setLocale(fr);
+        expect(aparteGlobalConfig.getLocale().sendButton).toBe('Envoyer');
         // Restore the default so the shared singleton doesn't leak into other suites.
-        AparteConfig.setLocale(APARTE_DEFAULT_LOCALE);
+        aparteGlobalConfig.setLocale(APARTE_DEFAULT_LOCALE);
     });
 });

@@ -6,7 +6,7 @@
  * 
  * @example
  * // Register a skeleton provider (e.g. an Angular ngx-skeleton-loader bridge)
- * AparteConfig.setSkeletonProvider({
+ * aparteGlobalConfig.setSkeletonProvider({
  *   message: () => '<ngx-skeleton-loader count="3"></ngx-skeleton-loader>',
  *   code: () => '<ngx-skeleton-loader appearance="line" count="5"></ngx-skeleton-loader>',
  *   // ...

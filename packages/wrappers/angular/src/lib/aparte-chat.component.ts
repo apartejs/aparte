@@ -25,7 +25,7 @@ import type {
     AparteSegment,
     AparteSendEventDetail,
     AparteChatHostBinding,
-    AparteConfigClass,
+    AparteConfig,
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
@@ -242,7 +242,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     /**
      * Active conversation id. When provided, the host attaches an
      * `AparteConversationController` that loads/persists messages via the
-     * `AparteConversationManager` registered in `AparteConfig`. Setting a different id
+     * `AparteConversationManager` registered in `aparteGlobalConfig`. Setting a different id
      * mid-stream aborts the previous request; `null` deselects.
      */
     @Input('conversationId') set conversationIdInput(val: string | null | undefined) {
@@ -254,12 +254,12 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     private _conversationId: string | null = null;
 
     /**
-     * Instance {@link AparteConfigClass} for this chat. When set, aparté components
-     * inside resolve THIS config instead of the global `AparteConfig` singleton, so
+     * Instance {@link AparteConfig} for this chat. When set, aparté components
+     * inside resolve THIS config instead of `aparteGlobalConfig`, so
      * several independently-configured chats can coexist on one page. Omit for the
      * global config. Read once in `ngAfterViewInit` when the host is created.
      */
-    @Input() config?: AparteConfigClass;
+    @Input() config?: AparteConfig;
 
     /**
      * Render your OWN element per message in place of `<aparte-chat-bubble>`.
@@ -284,7 +284,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     readonly messageSent = output<AparteSendEventDetail>();
     /**
      * Emitted when a custom bubble action (registered via
-     * `AparteConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
+     * `aparteGlobalConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
      * wrapper over the bubbling `aparte-action` DOM event. Switch on `$event.actionId`.
      */
     readonly action = output<AparteActionEventDetail>();

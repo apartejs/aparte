@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { mount } from '@vue/test-utils';
-import { AparteClient, AparteConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteClient, aparteGlobalConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { useAparteChat } from '../useAparteChat';
 import { useAparteClient } from '../useAparteClient';
 import { useConversationManager } from '../useConversationManager';
@@ -41,7 +41,7 @@ function mountComposable<T>(setup: () => T) {
 }
 
 beforeEach(() => { vi.clearAllMocks(); });
-afterEach(() => { AparteConfig.setConversationManager(null as never); });
+afterEach(() => { aparteGlobalConfig.setConversationManager(null as never); });
 
 describe('useAparteChat', () => {
     it('starts empty and takes new messages', () => {
@@ -116,7 +116,7 @@ describe('useConversationManager', () => {
 
         expect(api.conversations.value).toHaveLength(1);
         expect(api.activeConversation.value?.title).toBe('First');
-        expect(AparteConfig.getConversationManager()).not.toBeNull();
+        expect(aparteGlobalConfig.getConversationManager()).not.toBeNull();
     });
 
     it('splits active from archived, newest first', async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { AparteConfigClass } from '../../config/index.js';
+import { AparteConfig } from '../../config/index.js';
 import type { AparteChatRequest } from '../../types/chat.js';
 import type { AparteMessage } from '../../types/index.js';
 
@@ -19,7 +19,7 @@ import type { AparteMessage } from '../../types/index.js';
  * it. Only what leaves for the next turn shows it.
  */
 function harness(messages: AparteMessage[]) {
-    const cfg = new AparteConfigClass();
+    const cfg = new AparteConfig();
     cfg.registerAIProvider({
         id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
         getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',

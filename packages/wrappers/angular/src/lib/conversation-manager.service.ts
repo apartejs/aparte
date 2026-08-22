@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy, computed, signal } from '@angular/core';
-import { AparteConfig, AparteConversationManager, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { aparteGlobalConfig, AparteConversationManager, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 /**
@@ -71,7 +71,7 @@ export class ConversationManagerService implements OnDestroy {
         this.activeId.set(this._manager.activeId);
         // Register globally so AparteConversationController (used by aparte-chat)
         // can resolve it without explicit DI plumbing.
-        AparteConfig.setConversationManager(this._manager);
+        aparteGlobalConfig.setConversationManager(this._manager);
     }
 
     ngOnDestroy(): void {

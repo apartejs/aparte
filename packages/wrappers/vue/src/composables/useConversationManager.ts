@@ -1,6 +1,6 @@
 import { ref, computed, onBeforeUnmount, type Ref } from 'vue';
 import {
-    AparteConfig,
+    aparteGlobalConfig,
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
@@ -46,7 +46,7 @@ export function useConversationManager() {
         });
         await m.init();
         activeId.value = m.activeId;
-        AparteConfig.setConversationManager(m);
+        aparteGlobalConfig.setConversationManager(m);
     };
 
     return {

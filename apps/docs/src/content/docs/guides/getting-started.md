@@ -165,10 +165,10 @@ Faking the reply is fine for a first look. To talk to a real LLM, you configure 
 with two things and let **`AparteClient`** drive the streaming loop for you:
 
 1. **A provider** — the wire-format adapter for your model (an opt-in
-   `@aparte/provider-*` package), registered with `AparteConfig.registerAIProvider(…)`.
+   `@aparte/provider-*` package), registered with `aparteGlobalConfig.registerAIProvider(…)`.
 2. **A transport** — *where* the request goes and *how* the key is handled:
    - **`AparteDirectTransport`** — the browser talks to the provider directly (bring-your-own-key
-     or a local model): `AparteConfig.setTransport(new AparteDirectTransport({ byok: true }))`.
+     or a local model): `aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }))`.
    - **`AparteBackendTransport`** — the browser calls *your* endpoint, and the key stays
      server-side.
 
@@ -187,7 +187,7 @@ Now that something can honour them, switch the retry and edit buttons on — cor
 off precisely because without a client they would do nothing:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 The full list of what ships enabled and why is in

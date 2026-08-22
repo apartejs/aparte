@@ -12,7 +12,7 @@
  * import { createAnthropic } from '@ai-sdk/anthropic';
  * import { createAiSdkProvider } from '@aparte/provider-ai-sdk';
  *
- * AparteConfig.registerAIProvider(createAiSdkProvider({
+ * aparteGlobalConfig.registerAIProvider(createAiSdkProvider({
  *     id: 'anthropic',
  *     name: 'Anthropic',
  *     models: [{ id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5' }],

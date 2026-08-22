@@ -15,10 +15,10 @@
  */
 
 import {
-    AparteConfig,
+    aparteGlobalConfig,
     escapeAttr,
     resolveConfig,
-    type AparteConfigClass,
+    type AparteConfig,
     AparteSelect,
     type AparteOptgroup,
     type AparteAIProvider,
@@ -56,7 +56,7 @@ export class AparteModelSelector extends HTMLElement {
 
     /** Config governing THIS element — nearest instance boundary, else the global.
         Resolved on connect (multi-instance pages get their own config). */
-    private _cfg: AparteConfigClass = AparteConfig;
+    private _cfg: AparteConfig = aparteGlobalConfig;
 
     private _configUnsubscribe: (() => void) | null = null;
 

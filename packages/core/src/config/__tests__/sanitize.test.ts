@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { defaultSanitizer as s } from '../sanitize';
-import { AparteConfigClass } from '../aparte-config';
+import { AparteConfig } from '../aparte-config';
 
 describe('defaultSanitizer', () => {
     describe('script & event-handler XSS', () => {
@@ -220,9 +220,9 @@ describe('defaultSanitizer — bypasses found by the cold audit', () => {
 });
 
 
-describe('AparteConfig.setHtmlSanitizer(null)', () => {
+describe('aparteGlobalConfig.setHtmlSanitizer(null)', () => {
     it('warns, because turning every renderer into a raw innerHTML sink should not be silent', () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         try {
             cfg.setHtmlSanitizer(null);
@@ -235,7 +235,7 @@ describe('AparteConfig.setHtmlSanitizer(null)', () => {
     });
 
     it('does not warn when a real sanitizer is installed', () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         try {
             cfg.setHtmlSanitizer(html => html.replace(/</g, '&lt;'));

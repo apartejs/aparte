@@ -23,7 +23,7 @@ await setupShikiProvider({ theme: 'github-dark' });
 ```
 
 `setupShikiProvider` is **async** — `await` it once at startup before highlighted messages render. It
-fills the `AparteConfig.setHighlightProvider` seam.
+fills the `aparteGlobalConfig.setHighlightProvider` seam.
 
 ## Bundle — two different costs
 

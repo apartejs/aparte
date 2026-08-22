@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi, uuid } from '@aparte/core';
+  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
 
   export let messages: AparteMessage[] = [];
@@ -32,12 +32,12 @@
   /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   export let conversationId: string | null = null;
   /**
-   * Instance {@link AparteConfigClass} for this chat. When set, aparté components
-   * inside resolve THIS config instead of the global `AparteConfig` singleton, so
+   * Instance {@link AparteConfig} for this chat. When set, aparté components
+   * inside resolve THIS config instead of `aparteGlobalConfig`, so
    * several independently-configured chats can coexist on one page. Omit for the
    * global config. Read once when the host mounts.
    */
-  export let config: AparteConfigClass | undefined = undefined;
+  export let config: AparteConfig | undefined = undefined;
 
   const dispatch = createEventDispatcher<{
     /**

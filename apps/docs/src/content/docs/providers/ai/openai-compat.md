@@ -16,19 +16,19 @@ npm install @aparte/provider-openai-compat
 ```
 
 ```ts
-import { AparteConfig, AparteDirectTransport } from '@aparte/core';
+import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 // A known vendor, via a preset:
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.MISTRAL));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.MISTRAL));
 
 // …or any compat endpoint, no preset needed — just an id + base URL:
-AparteConfig.registerAIProvider(createOpenAICompatProvider({
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({
   id: 'groq',
   baseURL: 'https://api.groq.com/openai/v1',
 }));
 
-AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
 Built-in presets: `OPENAI`, `MISTRAL`, `ZAI`, `OPENROUTER`, `LMSTUDIO`, `OLLAMA`.
@@ -52,8 +52,8 @@ Local servers are served through their OpenAI-compat `/v1` endpoint. The `isLoca
 the key requirement and fetch models keyless:
 
 ```ts
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA)); // http://localhost:11434/v1
-AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA)); // http://localhost:11434/v1
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 ```
 
 :::note

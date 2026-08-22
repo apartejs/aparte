@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
 import '../aparte-chat-status.js';
-import { AparteConfig } from '../../../config/aparte-config.js';
+import { aparteGlobalConfig } from '../../../config/aparte-config.js';
 
 describe('aparte-chat-status — attribute injection', () => {
     it('does not let the public `text` attribute break out into arbitrary attributes', () => {
@@ -67,10 +67,10 @@ describe('aparte-chat-status — visible custom text', () => {
 });
 
 describe('aparte-chat-status — custom renderStatus (charter §6)', () => {
-    afterEach(() => AparteConfig.reset());
+    afterEach(() => aparteGlobalConfig.reset());
 
     it('replaces the inner markup with a renderer HTMLElement, element keeps show/hide', () => {
-        AparteConfig.setStatusRenderer((text) => {
+        aparteGlobalConfig.setStatusRenderer((text) => {
             const el = document.createElement('span');
             el.className = 'my-typing';
             el.textContent = text;
@@ -98,7 +98,7 @@ describe('aparte-chat-status — custom renderStatus (charter §6)', () => {
     });
 
     it('accepts an HTML string from the renderer', () => {
-        AparteConfig.setStatusRenderer(() => '<div class="str-typing">…</div>');
+        aparteGlobalConfig.setStatusRenderer(() => '<div class="str-typing">…</div>');
         const el = document.createElement('aparte-chat-status');
         document.body.appendChild(el);
         expect(el.querySelector('.aparte-status-container .str-typing')).not.toBeNull();
@@ -114,7 +114,7 @@ describe('aparte-chat-status — custom renderStatus (charter §6)', () => {
         document.body.appendChild(el);
         expect(el.querySelector('.aparte-dots')).not.toBeNull();
 
-        AparteConfig.setStatusRenderer((text) => `<div class="live-status">${text}</div>`);
+        aparteGlobalConfig.setStatusRenderer((text) => `<div class="live-status">${text}</div>`);
         expect(el.querySelector('.live-status')).not.toBeNull();
         expect(el.querySelector('.aparte-dots')).toBeNull();
         // Shown state survives the re-render.

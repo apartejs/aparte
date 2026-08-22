@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { AparteConfigClass } from '../../config/index.js';
+import { AparteConfig } from '../../config/index.js';
 
 /**
  * Pressing Stop is a deliberate user action, not a failure.
@@ -28,8 +28,8 @@ function makeRecorder(): { el: HTMLElement; calls: { m: string; args: unknown[] 
  * A transport that streams one text delta, then waits to be released before
  * emitting whatever the provider would emit once the fetch is aborted.
  */
-function makeConfig(afterAbort: () => Promise<unknown[]>, gate: Promise<void>): AparteConfigClass {
-    const cfg = new AparteConfigClass();
+function makeConfig(afterAbort: () => Promise<unknown[]>, gate: Promise<void>): AparteConfig {
+    const cfg = new AparteConfig();
     cfg.registerAIProvider({
         id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
         getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
@@ -115,7 +115,7 @@ describe('AparteClient — Stop during the pre-flight window', () => {
      */
     it('does not open a stream for a turn the user already stopped', async () => {
         const chat = vi.fn(() => new ReadableStream({ start(c) { c.close(); } }));
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         cfg.registerAIProvider({
             id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
             getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
@@ -155,7 +155,7 @@ describe('AparteClient — Stop before the first event arrives', () => {
             rejectNow = (e) => rej(e);
         });
 
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         cfg.registerAIProvider({
             id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
             getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
@@ -190,7 +190,7 @@ describe('AparteClient — Stop before the first event arrives', () => {
     });
 
     it('still reports a genuine transport failure as an error', async () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         cfg.registerAIProvider({
             id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
             getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
@@ -215,7 +215,7 @@ describe('AparteClient — Stop before the first event arrives', () => {
 
 describe('nothing keeps generating after the page stops caring', () => {
     const harness = () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         cfg.registerAIProvider({
             id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
             getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',

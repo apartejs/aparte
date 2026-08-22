@@ -245,7 +245,7 @@ integration shows no button it can't honour. Either handle those two events in y
 switch them on:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 …or leave them off, which is the default and costs you nothing. Same story for the ⓘ details

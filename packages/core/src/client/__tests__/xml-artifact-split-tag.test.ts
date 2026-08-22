@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { AparteConfigClass } from '../../config/index.js';
+import { AparteConfig } from '../../config/index.js';
 
 /**
  * The XML artifact open tag arriving across two deltas.
@@ -16,7 +16,7 @@ import { AparteConfigClass } from '../../config/index.js';
  * depends on core), so the same case is asserted on both sides.
  */
 function drive(deltas: string[]) {
-    const cfg = new AparteConfigClass();
+    const cfg = new AparteConfig();
     cfg.registerAIProvider({
         id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
         getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',

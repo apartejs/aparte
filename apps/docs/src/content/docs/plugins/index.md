@@ -47,15 +47,15 @@ The two Markdown plugins are complementary: `streaming-markdown` renders each to
 ### Scoping a plugin to one chat
 
 Every `setup*` takes the config instance as its **last** argument, defaulting to the global
-`AparteConfig`. Pass your own instance and the plugin registers there instead — which is what makes
+`aparteGlobalConfig`. Pass your own instance and the plugin registers there instead — which is what makes
 two independently configured chats on one page actually work:
 
 ```ts
-import { AparteConfigClass } from '@aparte/core';
+import { AparteConfig } from '@aparte/core';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 
 // Markdown for the support chat only; the other chat on the page keeps plain text.
-const supportConfig = new AparteConfigClass();
+const supportConfig = new AparteConfig();
 setupMarkedProvider(undefined, supportConfig);
 ```
 

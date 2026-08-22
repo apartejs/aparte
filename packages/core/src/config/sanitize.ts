@@ -12,7 +12,7 @@
  * `DOMParser.parseFromString`), the tree is rebuilt keeping only known-safe tags
  * and attributes, then re-serialized. It is deliberately conservative and covers
  * the realistic threat model (LLM-emitted markup). For hardened, audited
- * coverage, register DOMPurify via `AparteConfig.setHtmlSanitizer`.
+ * coverage, register DOMPurify via `aparteGlobalConfig.setHtmlSanitizer`.
  */
 
 export type AparteSanitizer = (html: string) => string;
@@ -226,7 +226,7 @@ function sanitizeChildren(src: Node, dest: Node, doc: Document): void {
  * pass cannot match a real HTML parser and has known evasions (split attributes,
  * unclosed tags, entity tricks): it is a safety net, **not** a security boundary.
  * For untrusted content on a non-browser runtime, register a real sanitizer
- * (e.g. DOMPurify + jsdom) via `AparteConfig.setHtmlSanitizer`.
+ * (e.g. DOMPurify + jsdom) via `aparteGlobalConfig.setHtmlSanitizer`.
  */
 function fallbackScrub(html: string): string {
     return html

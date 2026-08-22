@@ -170,10 +170,10 @@ either.
 To render it yourself, register a presenter on the config:
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
 
-AparteConfig.setElicitationPresenter(
+aparteGlobalConfig.setElicitationPresenter(
   async (request: AparteElicitationRequest): Promise<AparteElicitationResult> => {
     // Your modal, your form, your framework. Resolve with what the user did.
     void request;

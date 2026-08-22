@@ -6,14 +6,14 @@
  * 
  * @example
  * // Register an icon provider (e.g. a FontAwesome bridge)
- * AparteConfig.setIconProvider({
+ * aparteGlobalConfig.setIconProvider({
  *   copy: () => '<i class="fas fa-copy"></i>',
  *   check: () => '<i class="fas fa-check"></i>',
  *   // ...
  * });
  */
 export interface AparteIconProvider {
-    // EVERY key is optional: `AparteConfig.getIcon()` falls back to
+    // EVERY key is optional: `aparteGlobalConfig.getIcon()` falls back to
     // `APARTE_DEFAULT_ICON_FALLBACKS` for any name a provider doesn't implement, so an
     // icon pack may cover just the icons it cares about (as the example above
     // shows). Requiring the full set made the type contradict the runtime and

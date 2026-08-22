@@ -67,26 +67,26 @@ and rejects everything else with a CORS error.
 
 Two different symptoms, one root cause: nothing is wired up yet.
 
-**"Provider is not registered"** — you called `AparteConfig.registerAIProvider(...)`
+**"Provider is not registered"** — you called `aparteGlobalConfig.registerAIProvider(...)`
 with a different id than the one selected (or never called it at all). Register the
 provider *and* select it before the client sends anything:
 
 ```ts
-import { AparteConfig, AparteDirectTransport, AparteClient } from '@aparte/core';
+import { aparteGlobalConfig, AparteDirectTransport, AparteClient } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
-AparteConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
-AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 new AparteClient().start();
 ```
 
 **"No provider selected"** — no `defaultProvider`/`defaultModel` is set on
-`AparteConfig.setModelConfig(...)` (and no `<aparte-model-selector>` has picked one yet).
-Check `AparteConfig.hasSelectedModel()` — it's `false` until both are set. If you want the
+`aparteGlobalConfig.setModelConfig(...)` (and no `<aparte-model-selector>` has picked one yet).
+Check `aparteGlobalConfig.hasSelectedModel()` — it's `false` until both are set. If you want the
 composer to block sending until a model is chosen (instead of erroring on send), opt into
-`AparteConfig.setRequireModelSelection(true)`.
+`aparteGlobalConfig.setRequireModelSelection(true)`.
 
 Either way, forgetting `new AparteClient().start()` looks identical to a broken
 provider from the outside: nothing streams, because nothing is listening for
@@ -110,7 +110,7 @@ is attached to a request.
   fire at all:
 
   ```ts
-  AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+  aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
   ```
 
 - **Not fine when:** the key is *your* server-held vendor key. Anyone with devtools open
@@ -145,15 +145,15 @@ opening a stats popover all need someone outside core, so aparté waits for you 
 there rather than showing a button that answers to nobody:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });   // you run an AparteClient
-AparteConfig.setBubbleActions({ feedback: true, info: true }); // you handle these events
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });   // you run an AparteClient
+aparteGlobalConfig.setBubbleActions({ feedback: true, info: true }); // you handle these events
 ```
 
 Same for the three affordances outside the action bar — the clickable image tile, the `Run`
 button on a terminal segment, the download button on a **binary** artifact:
 
 ```ts
-AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
 ```
 
 Two things that are *not* the cause, before you go looking:
@@ -244,5 +244,5 @@ document.querySelector('aparte-chat')?.addEventListener('aparte-message-error', 
 ```
 
 Customize what the error segment looks like with
-[`AparteConfig.setErrorRenderer`](/reference/config/#renderers--render-hooks) rather than
+[`aparteGlobalConfig.setErrorRenderer`](/reference/config/#renderers--render-hooks) rather than
 registering a segment renderer for `error` yourself.

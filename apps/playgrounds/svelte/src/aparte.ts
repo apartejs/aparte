@@ -1,5 +1,5 @@
 import '@aparte/core/styles.css';
-import { AparteConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
@@ -19,21 +19,21 @@ export function setupAparte(): void {
 
     setupMarkedProvider();
 
-    AparteConfig.registerAIProvider(
+    aparteGlobalConfig.registerAIProvider(
         createOpenAICompatProvider(presets.OLLAMA),
         createOpenAICompatProvider(presets.LMSTUDIO),
         createOpenAICompatProvider(presets.OPENROUTER),
     );
     // Gate the composer (block send + grey out) until the model selector has
     // fetched its list and auto-selected a model.
-    AparteConfig.setRequireModelSelection(true);
+    aparteGlobalConfig.setRequireModelSelection(true);
 
-    AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+    aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
     // Retry and edit need someone to re-send and rewrite - that's the client just
     // below, so this app opts in. The details popover and the image-tile preview
     // are not implemented here, so they stay hidden (see setHostHandlers).
-    AparteConfig.setBubbleActions({ retry: true, edit: true });
+    aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
     new AparteClient({
         keyResolver: (providerId) =>

@@ -1,4 +1,4 @@
-import { AparteConfig, AparteConfigClass } from '../config/aparte-config.js';
+import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
 
 const XML_OPEN_TAG = '<artifact';
@@ -235,11 +235,11 @@ export interface AparteClientOptions {
 
     /**
      * Config this client reads (providers, model selection, tools, system
-     * prompt). Defaults to the global `AparteConfig` singleton. Pass a host's
+     * prompt). Defaults to `aparteGlobalConfig`. Pass a host's
      * instance config when scoping a client to one chat among several
      * (pairs with `scopeToTargetId`).
      */
-    config?: AparteConfigClass;
+    config?: AparteConfig;
 }
 
 /**
@@ -298,14 +298,14 @@ export class AparteClient {
 
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
-    private readonly _config: AparteConfigClass;
+    private readonly _config: AparteConfig;
 
     constructor(options: AparteClientOptions = {}) {
         this.options = {
             autoRegister: true,
             ...options
         };
-        this._config = options.config ?? AparteConfig;
+        this._config = options.config ?? aparteGlobalConfig;
 
         // Both take THIS client's config, not the global one. Segment renderers are
         // registered per config as of 0.8.0, so a client constructed with
@@ -473,7 +473,7 @@ export class AparteClient {
 
     /**
      * Resolve the auth for a provider: `options.keyResolver` takes precedence,
-     * then the AparteConfig key channel (`setKeyProvider`) so a key registered
+     * then the aparteGlobalConfig key channel (`setKeyProvider`) so a key registered
      * there reaches the request. One key source on the happy path.
      */
     private async _resolveAuth(providerId: string): Promise<string | Record<string, string> | undefined> {

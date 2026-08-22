@@ -459,7 +459,7 @@ aparte-chat > aparte-chat-viewport,
   min-height: 0;
 }
 
-/* Model-selection gate (opt-in via AparteConfig.setRequireModelSelection): grey the
+/* Model-selection gate (opt-in via aparteGlobalConfig.setRequireModelSelection): grey the
    composer and block its send button until a model is selected — e.g. while the
    model selector is still fetching. Ungates automatically on selection.
    Unscoped so it greys the composer in EVERY host (vanilla shell + all wrappers),
@@ -835,7 +835,7 @@ aparte-chat-bubble {
 }
 
 /* Only an image tile the app declared it can preview is a button — see
-   AparteConfig.setHostHandlers(). Undeclared, it is a picture, not a control. */
+   aparteGlobalConfig.setHostHandlers(). Undeclared, it is a picture, not a control. */
 .aparte-thumb--image[role='button'] {
   cursor: pointer;
 }

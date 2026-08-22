@@ -8,7 +8,7 @@
  * @attr {boolean} visible - Show/hide the indicator
  * @attr {string} text - Custom text (default: "Typing...")
  */
-import { AparteConfigClass } from '../../config/aparte-config.js';
+import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 
 /**
@@ -29,7 +29,7 @@ export class AparteChatStatus extends HTMLElement {
    * change for the real instance ever matched, and the filter meant to isolate
    * chats became the thing that silenced one.
    */
-  private get _cfg(): AparteConfigClass {
+  private get _cfg(): AparteConfig {
     return resolveConfig(this);
   }
 

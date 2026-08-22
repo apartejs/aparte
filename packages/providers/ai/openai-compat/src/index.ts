@@ -154,9 +154,9 @@ export type OpenAICompatProvider =
  *
  * ```ts
  * import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
- * AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+ * aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
  * // or any compat endpoint, no preset needed:
- * AparteConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
+ * aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
  * ```
  *
  * Returns {@link OpenAICompatProvider}: the full format-adapter surface, non-optional.

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { AparteConfigClass } from '../../config/index.js';
+import { AparteConfig } from '../../config/index.js';
 import type { AparteTool } from '../../types/tools.js';
 
 /**
@@ -18,7 +18,7 @@ const tool = (name: string, extra: Partial<AparteTool> = {}): AparteTool => ({
 });
 
 function harness(handlers: Record<string, () => void>, tools: AparteTool[], events: unknown[]) {
-    const cfg = new AparteConfigClass();
+    const cfg = new AparteConfig();
     cfg.registerAIProvider({
         id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
         getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',

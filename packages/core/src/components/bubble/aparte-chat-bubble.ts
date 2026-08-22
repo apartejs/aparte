@@ -12,7 +12,7 @@ import type {
   AparteMessage,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
-import { AparteConfigClass } from '../../config/aparte-config.js';
+import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
@@ -38,7 +38,7 @@ function warnMissingRenderer(type: string): void {
  */
 function resolveSegmentRenderer(
     type: string,
-    config: AparteConfigClass,
+    config: AparteConfig,
 ): ReturnType<typeof getSegmentRenderer> {
     // The CONFIG is passed in, not read ambiently.
     //
@@ -170,7 +170,7 @@ export class AparteChatBubble extends HTMLElement {
    * AFTER this bubble mounts (AparteChatHost.bind() runs post-mount), so a
    * connect-time cache would freeze the wrong config.
    */
-  private get _cfg(): AparteConfigClass {
+  private get _cfg(): AparteConfig {
     return resolveConfig(this);
   }
 
@@ -321,7 +321,7 @@ export class AparteChatBubble extends HTMLElement {
    *
    * This is the *precondition* for the info ("i") action, not the trigger: the
    * button appears only if the app also declared it wants it —
-   * `AparteConfig.setBubbleActions({ info: true })` — because the stats popover it
+   * `aparteGlobalConfig.setBubbleActions({ info: true })` — because the stats popover it
    * opens (`aparte-message-info`) is the app's, and core has none. Without usage
    * there is nothing to show, so the button never renders either way.
    */
@@ -470,7 +470,7 @@ export class AparteChatBubble extends HTMLElement {
     const displayName = this._getDisplayName();
     const initial = this._getAvatarInitial();
 
-    // Custom structural shell (AparteConfig.setBubbleShellRenderer). Must root at
+    // Custom structural shell (aparteGlobalConfig.setBubbleShellRenderer). Must root at
     // .aparte-message + carry the region hooks; the queries below are null-guarded
     // so a partial shell degrades gracefully. See AparteBubbleShellRenderer.
     const shell = this._cfg.getBubbleShellRenderer?.();
@@ -738,7 +738,7 @@ export class AparteChatBubble extends HTMLElement {
 
     this._attachmentsEl.hidden = false;
 
-    // Custom attachment chips (AparteConfig.setAttachmentRenderer) — one node per
+    // Custom attachment chips (aparteGlobalConfig.setAttachmentRenderer) — one node per
     // attachment; the consumer owns markup + interactions (no default preview wiring).
     const customAttachment = this._cfg.getAttachmentRenderer?.();
     if (customAttachment) {
@@ -829,7 +829,7 @@ export class AparteChatBubble extends HTMLElement {
     this._syncFooterVisibility();
     const label = this._branchPickerEl.querySelector('.aparte-branch-label');
     if (label) {
-      // Custom position indicator (AparteConfig.setSiblingNavRenderer) — e.g. dots —
+      // Custom position indicator (aparteGlobalConfig.setSiblingNavRenderer) — e.g. dots —
       // fills the label between the arrows; the arrows keep their behavior.
       const customNav = this._cfg.getSiblingNavRenderer?.();
       if (customNav) {
@@ -892,7 +892,7 @@ export class AparteChatBubble extends HTMLElement {
 
     this._actionBarEl.innerHTML = buttons.join('');
 
-    // Custom actions registered via AparteConfig.registerAction — appended
+    // Custom actions registered via aparteGlobalConfig.registerAction — appended
     // after the built-ins, built as DOM (label goes to attributes, never
     // interpolated into innerHTML) so a consumer label can't inject markup.
     this._appendCustomActions(icons);
@@ -922,7 +922,7 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /** Append the registered custom action buttons for this bubble's role. */
-  private _appendCustomActions(icons: ReturnType<AparteConfigClass['getIconProvider']>): void {
+  private _appendCustomActions(icons: ReturnType<AparteConfig['getIconProvider']>): void {
     if (!this._actionBarEl) return;
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
@@ -945,8 +945,8 @@ export class AparteChatBubble extends HTMLElement {
   /** Build the `<button>` HTML for a single named action (shared by flag + per-role rendering). */
   private _actionButtonHtml(
     action: string,
-    icons: ReturnType<AparteConfigClass['getIconProvider']>,
-    locale: ReturnType<AparteConfigClass['getLocale']>,
+    icons: ReturnType<AparteConfig['getIconProvider']>,
+    locale: ReturnType<AparteConfig['getLocale']>,
   ): string {
     switch (action) {
       case 'copy': {
@@ -1005,7 +1005,7 @@ export class AparteChatBubble extends HTMLElement {
     // Read dynamically — attribute may not be set yet at render time
     const messageId = this.getAttribute('message-id');
 
-    // Custom actions (AparteConfig.registerAction) emit a generic aparte-action
+    // Custom actions (aparteGlobalConfig.registerAction) emit a generic aparte-action
     // event carrying the action id — same DOM-event contract as retry/feedback.
     if (action?.startsWith('custom:') && messageId) {
       const actionId = action.slice('custom:'.length);

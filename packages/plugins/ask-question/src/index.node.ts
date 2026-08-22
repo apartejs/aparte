@@ -24,11 +24,11 @@
  * which is the correct outcome: nothing is being rendered there.
  */
 
-import { AparteConfig, type AparteConfigClass } from '@aparte/core';
+import { aparteGlobalConfig, type AparteConfig } from '@aparte/core';
 import { askQuestionTool, askQuestionHandler } from './ask-question.js';
 
 /** Register the `ask_question` tool + handler, and hide its bubble segment. */
-export function setupAskQuestion(config: AparteConfigClass = AparteConfig): void {
+export function setupAskQuestion(config: AparteConfig = aparteGlobalConfig): void {
     config.registerTool(askQuestionTool, askQuestionHandler);
     config.registerToolRenderer('ask_question', { render: () => '' });
 }

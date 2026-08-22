@@ -10,7 +10,7 @@
  * on its `.aparte-message` while an error segment is present, for CSS theming.
  *
  * @example
- * AparteConfig.setErrorRenderer(({ message }) => {
+ * aparteGlobalConfig.setErrorRenderer(({ message }) => {
  *   const el = document.createElement('div');
  *   el.className = 'my-error';
  *   el.textContent = `Something went wrong: ${message}`;

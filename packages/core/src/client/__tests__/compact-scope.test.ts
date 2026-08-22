@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
-import { AparteConfigClass } from '../../config/index.js';
+import { AparteConfig } from '../../config/index.js';
 
 /**
  * `aparte-compact` was the one window handler of five without a scope guard.
@@ -12,7 +12,7 @@ import { AparteConfigClass } from '../../config/index.js';
  * both viewports — destroying the conversation nobody asked to compact.
  */
 function makeClient(scope: string) {
-    const cfg = new AparteConfigClass();
+    const cfg = new AparteConfig();
     const client = new AparteClient({ config: cfg, autoRegister: false, scopeToTargetId: scope });
     const compact = vi.fn(async () => {});
     (client as unknown as { compact: unknown }).compact = compact;
@@ -51,7 +51,7 @@ describe('AparteClient — aparte-compact and instance scope', () => {
     });
 
     it('still compacts an unscoped client', () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const client = new AparteClient({ config: cfg, autoRegister: false });
         const compact = vi.fn(async () => {});
         (client as unknown as { compact: unknown }).compact = compact;

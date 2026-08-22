@@ -7,11 +7,11 @@ by data (base URL, auth header, branding), passed as config or picked from `pres
 
 ```ts
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
 // …or any compat endpoint, no preset needed:
-AparteConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
 ```
 
 `@aparte/core` is a **peer dependency**. For vendors outside the OpenAI-compat family

@@ -70,11 +70,11 @@ replies with zero extra wiring:
 ```ts
 // main.ts
 import { bootstrapApplication } from '@angular/platform-browser';
-import { AparteDirectTransport, AparteConfig } from '@aparte/core';
+import { AparteDirectTransport, aparteGlobalConfig } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { provideAparte } from '@aparte/angular';
 
-AparteConfig.setTransport(new AparteDirectTransport({ byok: true }));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 bootstrapApplication(App, {
   providers: [
@@ -102,11 +102,11 @@ export class Chat {
 ```
 
 `provideAparte()` is **config sugar and fully optional** — the components work without it, and you
-can call `AparteConfig.*` directly exactly like the React/Vue/Svelte wrappers do. Its `plugins` slots
+can call `aparteGlobalConfig.*` directly exactly like the React/Vue/Svelte wrappers do. Its `plugins` slots
 take **objects or loader functions** you supply, and `locale` takes an `AparteLocale` **object** (e.g.
 `locale: fr` from `@aparte/locale-fr`) — none of them take package-name strings — so this package
 stays a leaf with no plugin catalog. Pass a per-instance `[config]` to scope providers/transport to a
-single `<aparte-chat>` instead of the global `AparteConfig`.
+single `<aparte-chat>` instead of `aparteGlobalConfig`.
 
 :::note
 `clientOptions` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
@@ -115,7 +115,7 @@ agent loop** instead of core's inline one, inject it:
 [`@aparte/engine`](/guides/engine/) — an optional swap-in, not required. For file uploads add
 `attachments` to `<aparte-chat>` (off by default) — see [Attachments](/guides/attachments/).
 `provideAparte` wires the client, so switch the retry/edit buttons on with
-`AparteConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
+`aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 :::
 

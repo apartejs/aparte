@@ -1,6 +1,6 @@
 ---
-title: AparteConfig & core API
-description: The core JS API in one place — the AparteConfig singleton, AparteClient, and the transports — signatures straight from packages/core/src.
+title: aparteGlobalConfig & core API
+description: The core JS API in one place — the aparteGlobalConfig singleton, AparteClient, and the transports — signatures straight from packages/core/src.
 sidebar:
   order: 4
 ---
@@ -8,18 +8,18 @@ sidebar:
 The [Elements](/reference/api/), [CSS variables](/reference/css-variables/) and
 [`@aparte/engine`](/reference/engine/) pages are generated references for those surfaces.
 This page is the companion for the single biggest surface that has none: the **core JS
-API** — `AparteConfig`, `AparteClient`, and the transports. Every signature below is
+API** — `aparteGlobalConfig`, `AparteClient`, and the transports. Every signature below is
 copied from `packages/core/src`; where a type is complex it is simplified for
 readability without changing its meaning — follow the source links for the full shape.
 
-## `AparteConfig`
+## `aparteGlobalConfig`
 
-`AparteConfig` is a global **singleton** instance of the `AparteConfigClass`
+`aparteGlobalConfig` is the page-wide **singleton** instance of `AparteConfig`
 (`packages/core/src/config/aparte-config.ts`) — the "Invisible but Flexible" dependency-injection
-hub. Everything below is a method on it, e.g. `AparteConfig.registerAIProvider(...)`.
+hub. Everything below is a method on it, e.g. `aparteGlobalConfig.registerAIProvider(...)`.
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 ```
 
 Most setters call an internal `_notify()`, which re-renders already-mounted components
@@ -195,7 +195,7 @@ Constructor options (all optional):
 | `maxTurns` | `number` (default `10`) | Max agentic tool-call loop turns before the loop is forcibly stopped. |
 | `toolTimeoutMs` | `number` (default `300000` — 5 min) | Per-call ceiling for a tool handler to resolve before its `AbortSignal` fires. Same name and same default as `runStreamAgent`, so the value means one thing whichever loop runs. |
 | `rawFileInject` | `'all' \| 'images-only' \| 'none'` (default `'all'`) | Which attached files are injected as raw content parts vs. left to the app layer (e.g. a RAG pipeline). |
-| `config` | `AparteConfigClass` | The config instance this client reads. Defaults to the global `AparteConfig`. |
+| `config` | `AparteConfig` | The config instance this client reads. Defaults to `aparteGlobalConfig`. |
 
 ### Public methods
 
@@ -208,7 +208,7 @@ Constructor options (all optional):
 ## Transports
 
 A transport decides **where** a chat request goes and **how** the API key is handled.
-`AparteConfig.setTransport(...)` (default: `AparteDirectTransport`) wires one in.
+`aparteGlobalConfig.setTransport(...)` (default: `AparteDirectTransport`) wires one in.
 
 - **`AparteDirectTransport`** (`packages/core/src/transport/direct-transport.ts`) — calls the vendor
   endpoint straight from the browser. The default; only safe for BYOK or local models. Options:

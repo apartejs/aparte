@@ -19,7 +19,7 @@
  */
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
-import type { AparteConfigClass } from '../config/aparte-config.js';
+import type { AparteConfig } from '../config/aparte-config.js';
 import type { AparteSegment, AparteMessage, AparteStreamEvent } from '../types/index.js';
 import type {
     AparteThinkingSegment,
@@ -71,7 +71,7 @@ export interface AparteStreamRunOptions {
     baseRequest: AparteChatRequest;
     /** Calls the transport; returns the structured stream or a plain string. */
     transportCall: (request: AparteChatRequest) => Promise<AsyncIterable<AparteStreamEvent> | string>;
-    /** Resolves a tool's handler by name (mirrors `AparteConfig.getToolHandler`). */
+    /** Resolves a tool's handler by name (mirrors `aparteGlobalConfig.getToolHandler`). */
     toolLookup: (name: string) => ((call: { id: string; name: string; input: Record<string, unknown> }, signal: AbortSignal) => Promise<{ content: string }>) | undefined;
     /** Resolves a tool's loop config by name (maxTurns / needsApproval). */
     toolConfigLookup?: (name: string) => { maxTurns?: number; needsApproval?: boolean } | undefined;
@@ -119,7 +119,7 @@ export interface CreateStreamAdapterOptions {
     /** The chat target element the events are rendered onto. */
     target: StreamAdapterTarget;
     /** Config for tool-renderer lookup + per-tool style injection. */
-    config: AparteConfigClass;
+    config: AparteConfig;
     /** The streamed assistant message id (carried in run/artifact events). */
     messageId: string;
     /**

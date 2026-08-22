@@ -1,7 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import { onDestroy } from 'svelte';
 import {
-    AparteConfig,
+    aparteGlobalConfig,
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
@@ -46,7 +46,7 @@ export function createConversationManager() {
         });
         await m.init();
         activeId.set(m.activeId);
-        AparteConfig.setConversationManager(m);
+        aparteGlobalConfig.setConversationManager(m);
     }
 
     return {

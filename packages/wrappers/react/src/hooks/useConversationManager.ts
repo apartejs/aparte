@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
-    AparteConfig,
+    aparteGlobalConfig,
     AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
@@ -48,7 +48,7 @@ export function useConversationManager(): UseConversationManager {
         });
         await m.init();
         setActiveId(m.activeId);
-        AparteConfig.setConversationManager(m);
+        aparteGlobalConfig.setConversationManager(m);
     }, []);
 
     const assert = (): AparteConversationManager => {

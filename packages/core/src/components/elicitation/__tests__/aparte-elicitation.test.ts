@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../../composer/aparte-composer.js';
 import '../aparte-elicitation.js';
-import { AparteConfig, AparteConfigClass } from '../../../config/aparte-config';
+import { aparteGlobalConfig, AparteConfig } from '../../../config/aparte-config';
 import { requestUserInput } from '../../../elicitation/index';
 
 type ComposerEl = HTMLElement & { submit(): void };
@@ -26,13 +26,13 @@ function pick(value: string): void {
 
 describe('<aparte-elicitation> presenter', () => {
     afterEach(() => {
-        AparteConfig.setElicitationPresenter(null);
+        aparteGlobalConfig.setElicitationPresenter(null);
         document.body.innerHTML = '';
     });
 
     it('registers as the presenter on connect', () => {
         mountChat();
-        expect(AparteConfig.getElicitationPresenter()).toBeTypeOf('function');
+        expect(aparteGlobalConfig.getElicitationPresenter()).toBeTypeOf('function');
     });
 
     it('presents an enum request and resolves accept on submit', async () => {
@@ -110,9 +110,9 @@ describe('<aparte-elicitation> presenter', () => {
         const elic = document.createElement('aparte-elicitation');
         host.appendChild(elic);
         document.body.appendChild(host);
-        expect(AparteConfig.getElicitationPresenter()).toBeTypeOf('function');
+        expect(aparteGlobalConfig.getElicitationPresenter()).toBeTypeOf('function');
         elic.remove();
-        expect(AparteConfig.getElicitationPresenter()).toBeUndefined();
+        expect(aparteGlobalConfig.getElicitationPresenter()).toBeUndefined();
     });
 });
 
@@ -123,7 +123,7 @@ describe('no presenter at all — the cancel is loud, not silent', () => {
     // model reads a refusal the user was never asked for. Resolving is right (a
     // question nobody can render cannot be awaited); doing it quietly was not.
     it('warns once, and still resolves cancel rather than hanging', async () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
         expect(await cfg.requestUserInput({ message: 'a', schema: { type: 'string' } }))
@@ -138,7 +138,7 @@ describe('no presenter at all — the cancel is loud, not silent', () => {
     });
 
     it('says nothing once a presenter is registered', async () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         cfg.setElicitationPresenter(async () => ({ action: 'decline' }));
 

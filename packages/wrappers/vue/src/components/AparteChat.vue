@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
-import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
@@ -35,12 +35,12 @@ interface Props {
   /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   conversationId?: string | null;
   /**
-   * Instance {@link AparteConfigClass} for this chat. When set, aparté components
-   * inside resolve THIS config instead of the global `AparteConfig` singleton, so
+   * Instance {@link AparteConfig} for this chat. When set, aparté components
+   * inside resolve THIS config instead of `aparteGlobalConfig`, so
    * several independently-configured chats can coexist on one page. Omit for the
    * global config. Read once when the host mounts.
    */
-  config?: AparteConfigClass;
+  config?: AparteConfig;
 }
 
 const props = withDefaults(defineProps<Props>(), {

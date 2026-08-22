@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { getSegmentRenderer, registerDefaultRenderers } from '../segment-renderers.js';
-import { AparteConfig } from '../../config/aparte-config.js';
+import { aparteGlobalConfig } from '../../config/aparte-config.js';
 
 registerDefaultRenderers();
 
@@ -38,7 +38,7 @@ function mount(segment: unknown = ARTIFACT) {
 }
 
 describe('artifact preview — requires a user gesture', () => {
-    afterEach(() => { AparteConfig.reset(); document.body.innerHTML = ''; });
+    afterEach(() => { aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
 
     it('mounts no iframe for a completed artifact', () => {
         const { card } = mount();
@@ -82,7 +82,7 @@ describe('artifact preview — requires a user gesture', () => {
 });
 
 describe('artifact preview — the containment is declared twice', () => {
-    afterEach(() => { AparteConfig.reset(); document.body.innerHTML = ''; });
+    afterEach(() => { aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
 
     it('puts the policy inside the document too, since the csp attribute is Chromium-only', () => {
         const { card } = mount();
@@ -107,7 +107,7 @@ describe('artifact preview — the containment is declared twice', () => {
 });
 
 describe('artifact preview — the gesture mounts the LATEST content', () => {
-    afterEach(() => { AparteConfig.reset(); document.body.innerHTML = ''; });
+    afterEach(() => { aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
 
     /**
      * The first version of the gesture fix broke the feature for every streamed
@@ -140,7 +140,7 @@ describe('artifact preview — the gesture mounts the LATEST content', () => {
 });
 
 describe('artifact preview — the portable CSP reaches every document shape', () => {
-    afterEach(() => { AparteConfig.reset(); document.body.innerHTML = ''; });
+    afterEach(() => { aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
 
     /**
      * The `csp` iframe attribute is Chromium-only, so the `<meta http-equiv>` is

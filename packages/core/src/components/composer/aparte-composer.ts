@@ -1,5 +1,5 @@
 import type { AparteSendEventDetail } from '../../types/index.js';
-import { type AparteConfigClass } from '../../config/aparte-config.js';
+import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ export class AparteComposer extends HTMLElement {
      * `requireModelSelection` gate was read off the wrong object. `aparte-chat-bubble`
      * has always resolved live, and its JSDoc names this exact race.
      */
-    private get _cfg(): AparteConfigClass {
+    private get _cfg(): AparteConfig {
         return resolveConfig(this);
     }
     /** Only OUR config: a change on another chat's instance must not touch us. */
@@ -128,7 +128,7 @@ export class AparteComposer extends HTMLElement {
         window.addEventListener('aparte-message-done', this._onMessageDone);
         window.addEventListener('aparte-message-error', this._onMessageDone);
         window.addEventListener('aparte-message-aborted', this._onMessageDone);
-        // Model-selection gate (opt-in via AparteConfig.setRequireModelSelection).
+        // Model-selection gate (opt-in via aparteGlobalConfig.setRequireModelSelection).
         // A window listener rather than `_cfg.subscribe(...)`: subscribing binds to
         // whichever config was resolvable AT CONNECT, which is the bug above wearing
         // a different hat. `_notify()` dispatches `aparte-config-change` with

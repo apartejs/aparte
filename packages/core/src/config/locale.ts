@@ -3,7 +3,7 @@
  *
  * Defines all translatable strings for the chat interface.
  * The core keeps only the English default in memory.
- * Other languages are injected via AparteConfig.setLocale().
+ * Other languages are injected via aparteGlobalConfig.setLocale().
  */
 
 export interface AparteLocale {
