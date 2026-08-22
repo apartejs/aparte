@@ -1,8 +1,9 @@
 /**
  * artifact-xml-state-machine.ts — streaming `<artifact>` XML parser (pure).
  *
- * The framework-free extraction of the XML-artifact branch inside
- * `AparteClient._streamLoop` (aparte-client.ts :1268-1392 + finalize :1658-1669).
+ * The framework-free extraction of core's `client/xml-artifact-feed.ts` (the
+ * scanning half) plus the `XML artifact finalize` block inside
+ * `AparteClient._streamLoop`.
  * Small models emit artifacts as `…chat text… <artifact mimeType="…" title="…">
  * BODY</artifact> …more text…`, streamed in arbitrary chunks that can split the
  * opening tag, the body, or the closing tag across delta boundaries.
@@ -29,10 +30,11 @@ export interface XmlArtifactHint {
 /** DOM-free micro-events the machine emits; the adapter renders them. */
 export type XmlArtifactEvent =
     // `reduced: true` marks chat text that precedes an `<artifact>` open tag in
-    // the same delta. `_streamLoop` renders that text through a REDUCED path
-    // (aparte-client.ts :1300-1313: only completed segments are added; the trailing
-    // active segment is NOT rendered until a later, tag-free delta). The adapter
-    // must honor it or the pre-artifact text streams one update too eagerly.
+    // the same delta. Core renders that text through a REDUCED path — its twin's
+    // `emitChatText(text, syncActive = false)`: only completed segments are added,
+    // the trailing active segment is NOT rendered until a later, tag-free delta.
+    // The adapter must honor it or the pre-artifact text streams one update too
+    // eagerly.
     | { type: 'chat-text'; text: string; reduced?: boolean }
     | { type: 'artifact-open'; id: string; mimeType: string; kind: string; title: string }
     | { type: 'artifact-chunk'; id: string; content: string }
@@ -203,8 +205,8 @@ export class ArtifactXmlStateMachine {
 
     /**
      * Flush a truncated artifact: if the stream ended mid-body (model cut off
-     * before `</artifact>`), emit a close with whatever was buffered. Mirrors
-     * `_streamLoop`'s finalize block (:1658-1669).
+     * before `</artifact>`), emit a close with whatever was buffered. Mirrors the
+     * `XML artifact finalize` block in `AparteClient._streamLoop`.
      */
     finalize(): XmlArtifactEvent[] {
         // A stream that ends mid-tag — on a held `<arti`, or on an opening tag

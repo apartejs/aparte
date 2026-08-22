@@ -176,9 +176,10 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 ## ✅ Conventions & before you ship
 
 - **`pnpm gate` at the end of a lot, not per commit** — and `pnpm gate:full` (adds
-  `pnpm e2e`) before anything reaches `main`, always. The gate is now 24 steps and 19
-  mechanical guards: a full build, coverage with per-glob floors, `publint`/`attw` on 15
-  packages, the docs site build and a link check over 38 built pages. Running it 25 times
+  `pnpm e2e`) before anything reaches `main`, always. The gate is now 26 steps, 19 of them
+  mechanical guards (`node -e "require('./package.json').scripts.gate"` is the count that
+  can't drift): a full build, coverage with per-glob floors, `publint`/`attw` on 15
+  packages, the docs site build and a link check over the built pages. Running it 25 times
   in one session is most of the session, and it re-verifies the same thing 25 times.
   What actually protects each commit is the hooks: **pre-commit** runs lint + typecheck,
   **pre-push** runs test + build and refuses a direct push to `main`. Gate when a lot is

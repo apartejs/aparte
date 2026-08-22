@@ -198,7 +198,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 }
                 // Reduced pre-tag path (XML mode): render only completed segments;
                 // leave the trailing active segment for the next tag-free delta
-                // (mirrors _streamLoop :1300-1313). No artifact promotion here —
+                // (mirrors `emitChatText(…, syncActive = false)` in
+                // ./xml-artifact-feed.ts). No artifact promotion here —
                 // pre-tag text is plain chat.
                 if (e.reduced) {
                     const r = parser.parse(e.delta);
