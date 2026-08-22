@@ -18,6 +18,26 @@ entirely in the browser.
 npm install @aparte/core
 ```
 
+:::note[These snippets assume a bundler]
+Every import below uses a bare specifier (`@aparte/core`), which a browser cannot
+resolve on its own — Vite, Next, Astro, Parcel, esbuild and friends all can. "No
+framework" means no React/Vue/Svelte/Angular, not no build step.
+
+For a single `index.html` with no build at all, name the files in an import map:
+
+```html
+<script type="importmap">
+  { "imports": { "@aparte/core": "https://esm.sh/@aparte/core@latest" } }
+</script>
+<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/dist/index.css" />
+<script type="module">
+  import '@aparte/core';
+  import { registerDefaultRenderers } from '@aparte/core';
+  registerDefaultRenderers();
+</script>
+```
+:::
+
 ## Register the components
 
 Import the package once (it registers the `<aparte-*>` custom elements), pull in

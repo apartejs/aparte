@@ -7,7 +7,7 @@
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
   "scripts": {
     "prepare": "node scripts/install-hooks.mjs",
-    "gate": "pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm test && pnpm build && pnpm check-packaging && pnpm check:readmes && pnpm check:node-import && pnpm check:wrapper-slots && pnpm check:examples && pnpm check:attr-escaping && pnpm check:engine-consumer && pnpm check:doc-snippets",
+    "gate": "pnpm lint && pnpm typecheck && pnpm typecheck:tests && pnpm typecheck:matrix && pnpm test && pnpm build && pnpm check-packaging && pnpm check:readmes && pnpm check:node-import && pnpm check:wrapper-slots && pnpm check:examples && pnpm check:attr-escaping && pnpm check:engine-consumer && pnpm check:doc-snippets && pnpm check:export-mentions",
     "check:readmes": "node scripts/check-published-readmes.mjs",
     "check:node-import": "node scripts/check-node-import.mjs",
     "check:wrapper-slots": "node scripts/check-wrapper-slots.mjs",
@@ -16,6 +16,7 @@
     "check:engine-consumer": "node scripts/check-engine-consumer.mjs",
     "check:doc-snippets": "node scripts/check-doc-snippets.mjs",
     "check:doc-links": "node scripts/check-doc-links.mjs",
+    "check:export-mentions": "node scripts/check-export-mentions.mjs",
     "typecheck:matrix": "pnpm --filter @aparte/react run typecheck:react18",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit && pnpm --filter @aparte/vue --filter @aparte/svelte --filter @aparte/angular run typecheck:tests",
     "gate:full": "pnpm gate && pnpm e2e",

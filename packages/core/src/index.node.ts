@@ -196,6 +196,11 @@ export { filesToAttachments } from './utils/files-to-attachments.js';
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';
 export { escapeHtml, escapeAttr } from './utils/escape.js';
+// The PARAMETER types of two documented setters. They existed and were the declared
+// argument types, but were not exported — so anyone typing a settings layer over
+// `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.
+export type { AparteHostHandlersConfig } from './types/models.js';
+export type { AparteKeyProvider } from './config/aparte-config.js';
 
 // Elicitation (human-in-the-loop typed input) — DOM-free at import.
 export { requestUserInput, buildElicitationPanel } from './elicitation/index.js';

@@ -173,6 +173,33 @@ If the external loop is yours to write, you don't have to reinvent it:
 inline — headless, zero dependencies, no DOM. It runs fine in Node, a worker, or an Electron
 main process; forward its emitted text over your bridge and inject it here.
 
+## The pieces core exports for this
+
+Driving your own loop means doing by hand what `AparteClient` does for you. These are
+exported so you do not have to reimplement them:
+
+| Export | What it does | When you want it |
+| --- | --- | --- |
+| `AparteStreamParser` | Incrementally splits a model's text into segments — text, code fences, thinking blocks, `<artifact>` tags | You are feeding raw deltas and want the same rendering the client produces |
+| `parseMarkdownToSegments` | The one-shot version of the above, for a complete reply | You already have the whole answer (a non-streaming call, or replaying history) |
+| `contentToText` | Flattens `string \| AparteContentPart[]` to its text | Your transport or logs need the text of a multimodal message |
+| `deriveArtifactKind` | Maps a MIME type to a short artifact kind (`html`, `svg`, `js`, …) | You are building artifact segments yourself |
+| `readableToAsyncIterable` | Wraps a `ReadableStream` so `for await` works, honouring an `AbortSignal` | You are consuming a provider's `parseStream` directly — Chromium does not async-iterate streams |
+
+```ts
+import { AparteStreamParser, contentToText } from '@aparte/core';
+
+const parser = new AparteStreamParser();
+for (const delta of ['Here: ', '```', 'ts\n', 'const x = 1;\n', '```']) {
+  const { segments } = parser.parse(delta);
+  for (const segment of segments) void segment; // render as they complete
+}
+const trailing = parser.finalize();            // flush whatever is still buffered
+void trailing;
+
+void contentToText([{ type: 'text', text: 'hello' }]);   // 'hello'
+```
+
 ## What you give up
 
 Display-only means the pieces `AparteClient` orchestrates don't run in the page: no built-in

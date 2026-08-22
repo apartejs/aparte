@@ -83,6 +83,20 @@ Attachments, Conversations & branching, Tools, Backend transport, Bring your own
 The agent engine, and Troubleshooting. Source under
 [`apps/docs`](https://github.com/apartejs/aparte/tree/main/apps/docs).
 
+The two most-asked-for pages, directly:
+
+- **[Customization](https://apartejs.dev/guides/customization/)** — every render
+  hook, the action registry, the composer toolbar.
+- **[CSS variables](https://apartejs.dev/reference/css-variables/)** — the full
+  token catalogue, GENERATED from the stylesheet, so it cannot drift from it.
+
+(This package used to carry `CUSTOMIZATION.md` and `THEMING.md` alongside these.
+They were never published — `files` is `dist`, `README.md`, `LICENSE` — nothing
+linked to them, and both had drifted: one taught a `registerBubbleAction` that does
+not exist, the other listed six `--aparte-bubble-*` variables that the stylesheet
+never defined. A wrong orphan a coding agent finds by grepping the repo is worse
+than no orphan, so they are gone rather than fixed twice.)
+
 ## License
 
 MIT

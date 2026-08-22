@@ -33,6 +33,9 @@ array (the active path — always kept for sidebar previews and compat), an opti
 and optional `archivedAt` / `pinnedAt` / `folderId` / `schemaVersion` (current version is
 `2`; treat `undefined` as legacy data).
 
+The current value is exported as `APARTE_CONVERSATION_SCHEMA_VERSION`, so an adapter
+can compare it against what it stored and migrate instead of guessing.
+
 Here's a complete adapter over `localStorage`, implementing the three required methods plus
 the optional `archive` / `unarchive` pair:
 

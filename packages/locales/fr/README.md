@@ -24,7 +24,7 @@ function setLanguage(lang: 'fr' | 'en') {
 }
 ```
 
-`@aparte/core` is a **peer dependency**. See the [Localization guide](https://github.com/apartejs/aparte)
+`@aparte/core` is a **peer dependency**. See the [Localization guide](https://apartejs.dev/guides/localization/)
 for the full `AparteLocale` surface.
 
 > ESM-only. Part of the aparté monorepo.

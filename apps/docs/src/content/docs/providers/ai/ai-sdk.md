@@ -11,7 +11,7 @@ For vendors outside the OpenAI-compat family (Anthropic, Google, Bedrock, 25+ mo
 `createAiSdkProvider`; the bridge maps `streamText`'s output to aparté's event stream.
 
 ```bash
-npm install @aparte/provider-ai-sdk ai @ai-sdk/anthropic
+npm install @aparte/provider-ai-sdk @aparte/core ai @ai-sdk/anthropic
 ```
 
 `ai` is a **peer dependency** pinned to the verified major (`^7`) — this bridge is the only aparté

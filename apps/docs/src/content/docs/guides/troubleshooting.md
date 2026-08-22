@@ -8,6 +8,27 @@ sidebar:
 The failures below are the ones that actually happen on a first run, in the order
 you're likely to hit them.
 
+## `Failed to resolve module specifier "@aparte/core"`
+
+You opened an `index.html` directly, with no bundler. A browser cannot resolve a
+bare specifier on its own — that is a build-tool convention, not a web one.
+
+Two ways out:
+
+- **Use a bundler.** Vite, Next, Astro, Parcel, esbuild — any of them resolve it.
+  This is what every snippet in these guides assumes, and what the playgrounds do.
+- **Declare the mapping yourself** with an import map, and load the CSS by URL:
+
+```html
+<script type="importmap">
+  { "imports": { "@aparte/core": "https://esm.sh/@aparte/core@latest" } }
+</script>
+<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/dist/index.css" />
+```
+
+"Framework-agnostic" means no React/Vue/Svelte/Angular. It does not mean no build
+step — and this page exists to say the first thing you actually hit, so it says it.
+
 ## CORS on local BYOK (LM Studio / Ollama)
 
 **This is the #1 first-run failure.** With `DirectTransport` (the default), the

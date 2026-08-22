@@ -175,6 +175,11 @@ export { isAwaitingReply } from './utils/is-awaiting-reply.js';
 // Nine private copies existed before this line; three of them had drifted to
 // escape only four of the five characters that matter.
 export { escapeHtml, escapeAttr } from './utils/escape.js';
+// The PARAMETER types of two documented setters. They existed and were the declared
+// argument types, but were not exported — so anyone typing a settings layer over
+// `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.
+export type { AparteHostHandlersConfig } from './types/models.js';
+export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';

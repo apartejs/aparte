@@ -356,7 +356,17 @@ function _handleWorkerMessage(event: MessageEvent): void {
     }
 }
 
-export const TransformersProvider: AparteAIProvider = {
+/**
+ * Narrowed so the two members the docs tell you to CALL are not optional.
+ *
+ * `AparteAIProvider` declares `prepareModel` and `getModelStatus` optional (most
+ * providers have nothing to download), and widening to it made both
+ * possibly-undefined — so the documented `TransformersProvider.prepareModel(...)`
+ * needed a `!` or a guard in every strict consumer. Same technique openai-compat
+ * already used for its own always-present members.
+ */
+export const TransformersProvider: AparteAIProvider
+    & Required<Pick<AparteAIProvider, 'prepareModel' | 'getModelStatus'>> = {
     id: 'transformers',
 
     getMetadata() {
