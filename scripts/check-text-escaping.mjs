@@ -129,12 +129,38 @@ for (const root of ROOTS) {
          * site because most use sites are inside a multi-line template literal, where a
          * comment would become text in the rendered HTML.
          */
+        /**
+         * Locals PRODUCED by a markup-by-contract call — `const icon =
+         * this._getStopIcon()`, `const icon = contextConfig().getIcon('tool')`.
+         *
+         * The exact counterpart of `preEscapedLocals`, for the other kind of safety:
+         * one says "this value was escaped", the other says "this value is markup on
+         * purpose". Three sites were relying on the over-generous `composed` rule to
+         * be blessed by accident; this states the reason instead.
+         *
+         * Anchored to the start of the right-hand side, same as the escaper version,
+         * so `const x = raw + getIcon('a')` is not safe.
+         */
+        const preTrusted = new Set(
+            [...src.matchAll(
+                new RegExp(
+                    String.raw`(?:const|let)\s+([\w$]+)\s*=\s*(?:await\s+)?[\w$.()' ]*?\b(?:${[...TRUSTED_MARKUP_CALLS].join('|')}|_get\w*Icon)\s*\(`,
+                    'g',
+                ),
+            )].map((m) => m[1]),
+        );
         const declaredSafe = new Map();
         for (const l of raw.split('\n')) {
             const m = /\/\/\s*safe-text:\s*(\S.*)$/.exec(l);
             if (!m) continue;
+            // Three shapes, in order of precision: a local's declaration, ONE
+            // parameter on its own line (`body: string,  // safe-text: …`), or a
+            // single-parameter signature. A multi-parameter signature is deliberately
+            // NOT matched wholesale — that would exempt `title` and `kind` along with
+            // `body`, and an exemption should cover exactly the value it names.
             const name = /(?:const|let|var)\s+([\w$]+)\s*=/.exec(l)?.[1]
-                ?? /function\s+[\w$]+\s*\(\s*([\w$]+)/.exec(l)?.[1];
+                ?? /^\s*([\w$]+)\s*[?]?:\s*[^;{]+,\s*\/\//.exec(l)?.[1]
+                ?? /function\s+[\w$]+\s*\(\s*([\w$]+)[^,)]*\)/.exec(l)?.[1];
             if (name) { declaredSafe.set(name, m[1].trim()); declaredExemptions++; }
         }
         // Locals built by concatenating literals with already-safe interpolations:
@@ -147,7 +173,7 @@ for (const root of ROOTS) {
             const receiver = /^([\w$]+)\./.exec(expr)?.[1];
             if (receiver && iconProviders.has(receiver) && /\)\s*$/.test(expr)) return true;
             if (declaredSafe.has(expr) || (receiver && declaredSafe.has(receiver))) return true;
-            if (preEscaped.has(expr) || composed.has(expr)) return true;
+            if (preEscaped.has(expr) || composed.has(expr) || preTrusted.has(expr)) return true;
             if (LITERAL_ONLY.some((re) => re.test(expr))) return true;
             if (/^'[^']*'$/.test(expr) || /^"[^"]*"$/.test(expr)) return true;
             if (nestedTemplateSafe(expr, isSafe)) return true;
@@ -155,7 +181,26 @@ for (const root of ROOTS) {
         };
         // One pass to learn the composed locals, in declaration order.
         for (const m of src.matchAll(/(?:const|let)\s+([\w$]+)\s*=\s*([\s\S]{0,600}?);\n/g)) {
-            if (!/[`'"]/.test(m[2])) continue;
+            // The initialiser must BE a literal, not merely CONTAIN a quote.
+            //
+            // The first version tested for a quote character anywhere in the
+            // right-hand side, which is far too generous: a local assigned from
+            // `element.querySelector('.some-class')` matched, and that marked its NAME
+            // safe for the whole file — including an unrelated parameter of the same
+            // name in another function. Splitting a file is what surfaced it: three
+            // real sites had been passing on that accident, and a `body` parameter
+            // holding model-authored HTML was one of them.
+            //
+            // The analysis is name-based and file-scoped, not scope-aware. That is a
+            // deliberate limit — a real scope analysis needs a parser — so the rules
+            // have to be narrow enough that a name collision cannot bless anything.
+            const rhs = m[2].trim();
+            // Either the initialiser is a literal, or it satisfies the SAME safety
+            // predicate as any other expression — `const icon = a ? '📁' : '📄'` and
+            // `const previewBody = cached.html ? \`…\` : \`…\`` are safe for exactly the
+            // reasons already stated, so they are recognised by reuse rather than by a
+            // new special case.
+            if (!/^[`'"]/.test(rhs) && !isSafe(rhs)) continue;
             let ok = true;
             for (let i = 0; i < m[2].length; i++) {
                 if (m[2][i] !== '$') continue;

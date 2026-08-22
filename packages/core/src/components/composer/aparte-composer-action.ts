@@ -71,7 +71,7 @@ export class AparteComposerAction extends HTMLElement {
         // text by the consumer) — escape before it lands in a double-quoted
         // attribute so a stray `"` can't break out and inject markup.
         const label = escapeAttr(this.getAttribute('label') ?? '');
-        const icon = this._resolveIcon(this.getAttribute('icon') ?? '');
+        const icon = this._resolveIcon(this.getAttribute('icon') ?? '');  // safe-text: _resolveIcon returns provider SVG, or the host-set icon attribute verbatim when it starts with < — documented as trusted markup, same contract as AparteIconProvider
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
         this.innerHTML = `<button
