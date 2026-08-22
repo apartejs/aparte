@@ -22,6 +22,7 @@ import type {
 // in scope for late executions (event handlers, window-event callbacks) —
 // see config-context.ts. `contextConfig()` with no element = ambient or global.
 import { contextConfig } from '../config/index.js';
+import type { AparteConfigClass } from '../config/index.js';
 import type { AparteStreamingMarkdownRenderer } from '../config/index.js';
 import { escapeHtml, escapeAttr } from '../utils/escape.js';
 import { deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
@@ -102,20 +103,52 @@ function findClosingFence(s: string): number {
 // Renderer Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
-const renderers = new Map<string, AparteSegmentRenderer>();
+/**
+ * One registry PER CONFIG, not one per module.
+ *
+ * The wrappers all advertise a `config` prop for "several independently configured
+ * chats on one page", and until 0.8.0 no plugin could honour it. That was fixed for
+ * what a plugin registers on the config — markdown, highlighting, model preferences
+ * — but segment renderers stayed in a module-level `Map`, so two chats could not
+ * render the same segment type differently. This closes that half.
+ *
+ * A WeakMap rather than fields on `AparteConfigClass`: that class is already the
+ * largest thing in the package and the audit named its size as the ceiling. Keying
+ * the state here keeps it next to the code that reads it, and it is collected with
+ * the config it belongs to.
+ *
+ * `styleElement` stays module-level on purpose — renderer CSS is injected once per
+ * DOCUMENT, and two configs on one page share that document.
+ */
+interface RendererRegistry {
+    renderers: Map<string, AparteSegmentRenderer>;
+    /** Set once the built-ins have been filled in, so the sweep runs at most once. */
+    defaultsInstalled: boolean;
+    /** Set when an app explicitly said it brings its own (AparteClient autoRegister: false). */
+    defaultsDeclined: boolean;
+}
+
+const registries = new WeakMap<AparteConfigClass, RendererRegistry>();
+
+function registryFor(config: AparteConfigClass): RendererRegistry {
+    let reg = registries.get(config);
+    if (!reg) {
+        reg = { renderers: new Map(), defaultsInstalled: false, defaultsDeclined: false };
+        registries.set(config, reg);
+    }
+    return reg;
+}
+
 let styleElement: HTMLStyleElement | null = null;
-/** Set once the built-ins have been filled in, so the sweep runs at most once. */
-let defaultsInstalled = false;
-/** Set when an app explicitly said it brings its own (AparteClient autoRegister: false). */
-let defaultsDeclined = false;
 
 /**
  * Register a segment renderer
  */
 export function registerSegmentRenderer<T extends AparteSegmentBase>(
-    renderer: AparteSegmentRenderer<T>
+    renderer: AparteSegmentRenderer<T>,
+    config: AparteConfigClass = contextConfig(),
 ): void {
-    renderers.set(renderer.type, renderer as AparteSegmentRenderer);
+    registryFor(config).renderers.set(renderer.type, renderer as AparteSegmentRenderer);
     injectRendererStyles();
 }
 
@@ -126,8 +159,8 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
  * `AparteClient({ autoRegister: false })` is the one caller. Without this latch the
  * lazy install below would quietly turn that option into a no-op.
  */
-export function declineDefaultRenderers(): void {
-    defaultsDeclined = true;
+export function declineDefaultRenderers(config: AparteConfigClass = contextConfig()): void {
+    registryFor(config).defaultsDeclined = true;
 }
 
 /**
@@ -144,11 +177,12 @@ export function declineDefaultRenderers(): void {
  * Strictly additive: a type someone registered themselves is never replaced, so a
  * custom `text` renderer survives the sweep triggered by a `code` segment.
  */
-export function installDefaultRenderersOnce(): void {
-    if (defaultsInstalled || defaultsDeclined) return;
-    defaultsInstalled = true;
+export function installDefaultRenderersOnce(config: AparteConfigClass = contextConfig()): void {
+    const reg = registryFor(config);
+    if (reg.defaultsInstalled || reg.defaultsDeclined) return;
+    reg.defaultsInstalled = true;
     for (const renderer of DEFAULT_RENDERERS) {
-        if (!renderers.has(renderer.type)) renderers.set(renderer.type, renderer);
+        if (!reg.renderers.has(renderer.type)) reg.renderers.set(renderer.type, renderer);
     }
     injectRendererStyles();
 }
@@ -156,29 +190,32 @@ export function installDefaultRenderersOnce(): void {
 /**
  * Unregister a segment renderer
  */
-export function unregisterSegmentRenderer(type: string): void {
-    renderers.delete(type);
+export function unregisterSegmentRenderer(type: string, config: AparteConfigClass = contextConfig()): void {
+    registryFor(config).renderers.delete(type);
 }
 
 /**
  * Get renderer for a segment type
  */
-export function getSegmentRenderer(type: string): AparteSegmentRenderer | undefined {
-    return renderers.get(type);
+export function getSegmentRenderer(
+    type: string,
+    config: AparteConfigClass = contextConfig(),
+): AparteSegmentRenderer | undefined {
+    return registryFor(config).renderers.get(type);
 }
 
 /**
  * Get all registered renderers
  */
-export function getAllRenderers(): readonly AparteSegmentRenderer[] {
-    return Array.from(renderers.values());
+export function getAllRenderers(config: AparteConfigClass = contextConfig()): readonly AparteSegmentRenderer[] {
+    return Array.from(registryFor(config).renderers.values());
 }
 
 /**
  * Collect all renderer styles
  */
-export function collectRendererStyles(): string {
-    return Array.from(renderers.values())
+export function collectRendererStyles(config: AparteConfigClass = contextConfig()): string {
+    return Array.from(registryFor(config).renderers.values())
         .map(r => r.getStyles?.() || '')
         .filter(Boolean)
         .join('\n');
@@ -687,9 +724,9 @@ const pipelineWaitingRenderer: AparteSegmentRenderer = {
     `
 };
 
-export function registerDefaultRenderers(): void {
-    defaultsInstalled = true;
-    for (const renderer of DEFAULT_RENDERERS) registerSegmentRenderer(renderer);
+export function registerDefaultRenderers(config: AparteConfigClass = contextConfig()): void {
+    registryFor(config).defaultsInstalled = true;
+    for (const renderer of DEFAULT_RENDERERS) registerSegmentRenderer(renderer, config);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -306,12 +306,17 @@ export class AparteClient {
         };
         this._config = options.config ?? AparteConfig;
 
+        // Both take THIS client's config, not the global one. Segment renderers are
+        // registered per config as of 0.8.0, so a client constructed with
+        // `{ config }` must register — or decline — on that instance; otherwise
+        // `autoRegister: false` on a scoped client silently muted the global chat
+        // instead of its own.
         if (this.options.autoRegister) {
-            registerDefaultRenderers();
+            registerDefaultRenderers(this._config);
         } else {
             // Explicit: keep core's built-ins out, including the lazy install the
             // bubble would otherwise do on first render.
-            declineDefaultRenderers();
+            declineDefaultRenderers(this._config);
         }
 
         this._setupListeners();

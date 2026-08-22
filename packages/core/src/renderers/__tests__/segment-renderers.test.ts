@@ -4,9 +4,11 @@ import {
     unregisterSegmentRenderer,
     getSegmentRenderer,
     collectRendererStyles,
-    registerDefaultRenderers
+    registerDefaultRenderers,
+    declineDefaultRenderers,
+    installDefaultRenderersOnce
 } from '../segment-renderers.js';
-import { AparteConfig } from '../../config/aparte-config.js';
+import { AparteConfig, AparteConfigClass } from '../../config/aparte-config.js';
 
 // Register default renderers once so the tool_call renderer is available.
 registerDefaultRenderers();
@@ -799,5 +801,44 @@ describe('Segment Renderers', () => {
             expect(el.getAttribute('data-tab')).toBe('code');
             expect(codeTabBtn.getAttribute('aria-selected')).toBe('true');
         });
+    });
+});
+
+describe('the segment registry is per CONFIG, not per module', () => {
+    // The wrappers all advertise a `config` prop for "several independently
+    // configured chats on one page". Until 0.8.0 that was only half true: what a
+    // plugin registered on the config was scoped, but segment renderers lived in a
+    // module-level Map, so two chats shared them whatever config they were given.
+    it('two configs can render the same segment type differently', () => {
+        const a = new AparteConfigClass();
+        const b = new AparteConfigClass();
+
+        registerSegmentRenderer({ type: 'text', render: () => '<p>FROM A</p>' }, a);
+        registerSegmentRenderer({ type: 'text', render: () => '<p>FROM B</p>' }, b);
+
+        expect(getSegmentRenderer('text', a)!.render({ id: 's', type: 'text' } as never))
+            .toContain('FROM A');
+        expect(getSegmentRenderer('text', b)!.render({ id: 's', type: 'text' } as never))
+            .toContain('FROM B');
+    });
+
+    it('registering on one config leaves the other untouched', () => {
+        const a = new AparteConfigClass();
+        const b = new AparteConfigClass();
+        registerSegmentRenderer({ type: 'zz-custom', render: () => 'x' }, a);
+        expect(getSegmentRenderer('zz-custom', a)).toBeTruthy();
+        expect(getSegmentRenderer('zz-custom', b)).toBeUndefined();
+    });
+
+    it('declining the built-ins on one config does not mute the other', () => {
+        const declined = new AparteConfigClass();
+        const normal = new AparteConfigClass();
+
+        declineDefaultRenderers(declined);
+        installDefaultRenderersOnce(declined);
+        installDefaultRenderersOnce(normal);
+
+        expect(getSegmentRenderer('text', declined), 'declined config must stay empty').toBeUndefined();
+        expect(getSegmentRenderer('text', normal), 'the other config must get the built-ins').toBeTruthy();
     });
 });

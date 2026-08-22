@@ -36,11 +36,21 @@ function warnMissingRenderer(type: string): void {
  * `[Unknown segment type: text]` on screen (it is still honoured, and
  * `AparteClient({ autoRegister: false })` still keeps the built-ins out).
  */
-function resolveSegmentRenderer(type: string): ReturnType<typeof getSegmentRenderer> {
-    const renderer = getSegmentRenderer(type);
+function resolveSegmentRenderer(
+    type: string,
+    config: AparteConfigClass,
+): ReturnType<typeof getSegmentRenderer> {
+    // The CONFIG is passed in, not read ambiently.
+    //
+    // `runWithConfig` wrapped only `render` / `setup` / `update`, so the renderer's
+    // OWN work was per-instance while the question "which renderer is this?" was
+    // answered from a module-level registry. Two chats on a page therefore shared
+    // their segment renderers no matter what `config` prop the wrapper was given —
+    // half of the promise those props make.
+    const renderer = getSegmentRenderer(type, config);
     if (renderer) return renderer;
-    installDefaultRenderersOnce();
-    return getSegmentRenderer(type);
+    installDefaultRenderersOnce(config);
+    return getSegmentRenderer(type, config);
 }
 
 /**
@@ -370,7 +380,7 @@ export class AparteChatBubble extends HTMLElement {
         console.warn(`[AparteChatBubble] _appendSegmentEl ABORT: _segmentsEl is null`);
         return;
     }
-    const renderer = resolveSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
       // this bubble's config as the ambient render config for the duration.
@@ -396,7 +406,7 @@ export class AparteChatBubble extends HTMLElement {
       this._renderSegments();
       return;
     }
-    const renderer = resolveSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (!renderer) return;
 
     if (renderer.update) {
@@ -652,7 +662,7 @@ export class AparteChatBubble extends HTMLElement {
     this._segmentsEl.innerHTML = '';
 
     for (const segment of this._segments) {
-      const renderer = resolveSegmentRenderer(segment.type);
+      const renderer = resolveSegmentRenderer(segment.type, this._cfg);
       if (renderer) {
         const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
         if (el) {

@@ -124,11 +124,18 @@ whoever re-hosts it.
   every plugin `setup*` takes is documented with an example — it was named nowhere, and
   it is what lets two chats on one page use different providers.
 
-  Scope, stated plainly: this covers what a plugin registers ON THE CONFIG — markdown,
-  highlighting, model preferences. **Segment renderers are still global**
-  (`registerSegmentRenderer` writes to a module-level registry), so two chats on a page
-  cannot yet render the same segment type differently. The `config` prop is therefore
-  more honest than it was, not yet fully honest.
+- **Segment renderers are per config too, so the `config` prop is now honest end to
+  end.** `registerSegmentRenderer`, `unregisterSegmentRenderer`, `getSegmentRenderer`,
+  `getAllRenderers`, `collectRendererStyles`, `registerDefaultRenderers` and
+  `declineDefaultRenderers` all take an optional trailing config; omitted, they act on
+  the ambient or global one exactly as before, so no existing call changes.
+
+  This was the other half of the wrappers' promise. A plugin's providers were already
+  scoped, but the registry deciding WHICH renderer draws a segment was a module-level
+  Map — two chats on a page shared their segment renderers whatever config they were
+  given. `AparteClient({ config, autoRegister: false })` was affected the same way: it
+  declined the built-ins on the global config rather than on its own, muting the wrong
+  chat.
 - `thinkingDelimiters` is documented, including the two pairs recognised by default and
   the fact that only the bring-your-own-loop path can reach it.
 
