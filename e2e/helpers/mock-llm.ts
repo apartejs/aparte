@@ -92,6 +92,23 @@ export interface LlmMockOptions {
     models?: MockModel[];
     /** How long `scenario: 'slow'` holds the response. Default 2000ms. */
     delayMs?: number;
+    /**
+     * Milliseconds between SSE events — REAL progressive delivery.
+     *
+     * Without this, `route.fulfill` hands the whole body over at once, so nothing
+     * in the browser ever observed a reply arriving over time: incremental markdown
+     * re-parse, mid-stream re-highlight, scroll-follow under mutation pressure and
+     * "Stop keeps the text already on screen" had no coverage at all, in the one
+     * suite that runs a real engine.
+     *
+     * When set, the response is delivered by a `fetch` shim inside the page instead
+     * of by Playwright's router, because a fulfil cannot be streamed. Everything
+     * above `fetch` — provider, transport, client, renderers — is still the real
+     * pipeline, which is what these tests are about. The trade-off, stated: the
+     * route interceptor proves a request LEFT the browser; the shim proves the same
+     * body reached the shim. Request capture works either way.
+     */
+    pace?: number;
 }
 
 // A markdown-flavored reply: the `**bold**` proves the marked plugin runs, and
@@ -114,6 +131,19 @@ const finishEvent = (reason = 'stop'): string =>
 const usageEvent = (): string =>
     sse({ choices: [], usage: { prompt_tokens: 12, completion_tokens: 20, total_tokens: 32 } });
 const DONE = 'data: [DONE]\n\n';
+
+/**
+ * The same body `bodyForScenario` serves, split back into individual SSE frames.
+ *
+ * Derived from the joined string rather than rebuilt per scenario on purpose: a
+ * paced run and a buffered run then differ ONLY in timing, which is the variable
+ * under test. Every frame the builders emit already ends in a blank line.
+ */
+function eventsForScenario(scenario: LlmScenario): string[] {
+    const body = bodyForScenario(scenario);
+    const TERM = '\n\n';
+    return body.split(TERM).filter(Boolean).map(frame => frame + TERM);
+}
 
 function bodyForScenario(scenario: LlmScenario): string {
     switch (scenario) {
@@ -198,12 +228,71 @@ async function fulfill(route: Route, body: string, contentType: string, status =
     await route.fulfill({ status, headers: { ...CORS_HEADERS, 'content-type': contentType }, body });
 }
 
+
+/**
+ * Deliver `POST **\/chat/completions` from inside the page, one SSE event at a
+ * time, `pace` ms apart.
+ *
+ * `route.fulfill` cannot stream a body, so progressive arrival has to come from
+ * somewhere the page can pull from lazily. This shims `window.fetch` for that one
+ * URL and returns a `Response` whose body is a `ReadableStream` that enqueues on a
+ * timer — real backpressure, real `reader.read()` boundaries in the client loop.
+ *
+ * Installed as an init script so it is in place before any app code runs.
+ */
+async function installPacedChatStream(page: Page, events: string[], pace: number): Promise<void> {
+    await page.addInitScript(
+        ({ events: sse, pace: gap }: { events: string[]; pace: number }) => {
+            const captured: unknown[] = [];
+            (window as unknown as { __apartePacedRequests: unknown[] }).__apartePacedRequests = captured;
+
+            const real = window.fetch.bind(window);
+            window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+                const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+                if (!url.includes('/chat/completions')) return real(input as RequestInfo, init);
+
+                const bodyText = typeof init?.body === 'string' ? init.body : null;
+                if (bodyText) { try { captured.push(JSON.parse(bodyText)); } catch { /* not JSON */ } }
+
+                const signal = init?.signal ?? null;
+                const encoder = new TextEncoder();
+                const stream = new ReadableStream<Uint8Array>({
+                    async start(controller) {
+                        for (const event of sse) {
+                            if (signal?.aborted) {
+                                controller.error(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+                                return;
+                            }
+                            controller.enqueue(encoder.encode(event));
+                            await new Promise(r => setTimeout(r, gap));
+                        }
+                        controller.close();
+                    },
+                });
+                return new Response(stream, {
+                    status: 200,
+                    headers: { 'content-type': 'text/event-stream' },
+                });
+            };
+        },
+        { events, pace },
+    );
+}
+
 /** Handle returned by {@link installLlmMock} for asserting the request half. */
 export interface LlmMock {
     /** Chat-completions request bodies captured in order. */
     readonly chatRequests: Record<string, unknown>[];
     /** The most recent chat-completions request body, or null if none yet. */
     lastChatRequest(): Record<string, unknown> | null;
+    /**
+     * Request bodies captured by the PACED path, read out of the page.
+     *
+     * A separate accessor rather than folding it into `chatRequests`: the paced
+     * path answers inside the page, so reading it is asynchronous, and making the
+     * synchronous getter async would touch every existing spec.
+     */
+    pacedRequests(): Promise<Record<string, unknown>[]>;
     /** The scenario this mock is serving. */
     readonly scenario: LlmScenario;
 }
@@ -220,7 +309,13 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
 
     await page.route('**/models', (route) => fulfill(route, JSON.stringify({ data: models }), 'application/json'));
 
-    await page.route('**/chat/completions', async (route) => {
+    // Paced delivery is answered inside the page (a fulfil cannot stream), so the
+    // chat route below is not installed for it — the shim owns that URL.
+    const paced = opts.pace !== undefined;
+    if (paced) await installPacedChatStream(page, eventsForScenario(scenario), opts.pace ?? 40);
+
+
+    if (!paced) await page.route('**/chat/completions', async (route) => {
         const request = route.request();
         if (request.method() === 'POST') {
             const body = request.postDataJSON() as Record<string, unknown> | null;
@@ -243,5 +338,14 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
         await fulfill(route, bodyForScenario(scenario), 'text/event-stream');
     });
 
-    return { chatRequests, lastChatRequest: () => chatRequests.at(-1) ?? null, scenario };
+    // Paced runs capture in the page, so the handle reads from there. `async` on
+    // both would be a wider change than this earns; the paced getter is separate.
+    return {
+        chatRequests,
+        lastChatRequest: () => chatRequests.at(-1) ?? null,
+        pacedRequests: () => page.evaluate(
+            () => (window as unknown as { __apartePacedRequests?: unknown[] }).__apartePacedRequests ?? [],
+        ) as Promise<Record<string, unknown>[]>,
+        scenario,
+    };
 }

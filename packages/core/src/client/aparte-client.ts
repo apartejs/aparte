@@ -514,11 +514,18 @@ export class AparteClient {
         this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
         try {
             const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
-            // A turn the user stopped already announced itself as `aborted` from
-            // inside the loop. Announcing `done` on top of it would report a
-            // deliberate stop as a normal completion — which is what a provider
-            // that ends quietly on abort (ai-sdk) used to produce.
-            if (!this._isAborted) {
+            if (this._isAborted) {
+                // A stopped turn is FINISHED, and someone has to say so. The inline
+                // loop marks the message completed on its way out; the injected
+                // runner returns through `run-aborted` and never emits `run-done`,
+                // so nothing did — and the bubble stayed flagged as streaming
+                // forever. Caught by the browser suite, which is the only place a
+                // stuck flag is visible.
+                //
+                // Not `done`, though: announcing a normal completion on top of an
+                // abort is what a provider that ends quietly used to produce.
+                this._updateMessage(targetElement, messageId, { status: 'completed' });
+            } else {
                 this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
             }
         } catch (error: unknown) {
