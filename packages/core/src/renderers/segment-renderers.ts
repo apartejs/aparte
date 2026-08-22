@@ -186,6 +186,7 @@ export function installDefaultRenderersOnce(config: AparteConfig = contextConfig
         if (!reg.renderers.has(renderer.type)) reg.renderers.set(renderer.type, renderer);
     }
     injectRendererStyles();
+    installArtifactReadyHook();
 }
 
 /**
@@ -728,6 +729,7 @@ const pipelineWaitingRenderer: AparteSegmentRenderer = {
 export function registerDefaultRenderers(config: AparteConfig = contextConfig()): void {
     registryFor(config).defaultsInstalled = true;
     for (const renderer of DEFAULT_RENDERERS) registerSegmentRenderer(renderer, config);
+    installArtifactReadyHook();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1305,9 +1307,35 @@ function debounceHighlight(
     }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
 }
 
-if (typeof window !== 'undefined') {
-    // Single shared hook — runs once on module load. Records every
-    // `aparte-artifact-ready` whoever dispatched it.
+let _artifactReadyHookInstalled = false;
+
+/**
+ * Record every `aparte-artifact-ready` so the binary-artifact path can tell whether
+ * it has already asked the host to generate this file — see the dedupe at
+ * {@link maybeRehydrateBinaryArtifact}, which is the only reader.
+ *
+ * ## Why this is a function and not a module-level `addEventListener`
+ *
+ * It WAS module-level, and it was surviving bundling by luck.
+ * `packages/core/package.json` declares `sideEffects` as a short list that does NOT
+ * include this file — so the module is advertised to bundlers as side-effect-FREE while
+ * carrying a top-level listener, which is a side effect. It was retained only
+ * because `artifactRenderer` in the same module is a used binding; a bundler was
+ * within its rights to drop the file and the listener with it, and pdf/xlsx/docx
+ * artifacts would then stop regenerating in a consumer's production build while
+ * every local check stayed green. Verified as surviving today in a real Vite build
+ * of the Svelte playground — but "it happens to survive" is not a contract.
+ *
+ * `sideEffects` cannot simply be corrected to name this file, either: the build
+ * bundles into a CONTENT-HASHED shared chunk, so there is no stable path to list.
+ *
+ * Installed from the two registration entry points instead. That is not later in
+ * any way that matters: an artifact can only render once a renderer is registered,
+ * and the map is read only while rendering one.
+ */
+function installArtifactReadyHook(): void {
+    if (_artifactReadyHookInstalled || typeof window === 'undefined') return;
+    _artifactReadyHookInstalled = true;
     window.addEventListener('aparte-artifact-ready', (event: Event) => {
         const segId = (event as CustomEvent).detail?.segmentId as string | undefined;
         if (segId) markThrottle(_lastDispatchAt, segId, Date.now());
