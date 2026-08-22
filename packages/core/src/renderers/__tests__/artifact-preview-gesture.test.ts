@@ -138,3 +138,40 @@ describe('artifact preview — the gesture mounts the LATEST content', () => {
         expect(srcdoc).not.toContain('PARTIAL');
     });
 });
+
+describe('artifact preview — the portable CSP reaches every document shape', () => {
+    afterEach(() => { AparteConfig.reset(); document.body.innerHTML = ''; });
+
+    /**
+     * The `csp` iframe attribute is Chromium-only, so the `<meta http-equiv>` is
+     * the half that covers Firefox and Safari. It used to be inserted only after an
+     * existing `<head>` — leaving a model-authored `<!doctype html>` document, which
+     * is passed through verbatim, with no policy at all on those engines.
+     */
+    const srcdocFor = (content: string): string => {
+        const segment = {
+            id: `a-${content.length}`, type: 'artifact', mimeType: 'text/html',
+            artifactType: 'html', title: 'Doc', isStreaming: false, content,
+        } as never;
+        const { card } = mount(segment);
+        card.querySelector<HTMLButtonElement>('[data-tab-target="preview"]')!.click();
+        return card.querySelector('iframe')!.getAttribute('srcdoc') ?? '';
+    };
+
+    it('a full document with no <head> of its own still gets the policy', () => {
+        const srcdoc = srcdocFor('<!doctype html><html><body>hi</body></html>');
+        expect(srcdoc).toContain('http-equiv="Content-Security-Policy"');
+        expect(srcdoc, 'the head must be opened inside <html>').toContain('<html><head>');
+    });
+
+    it('a document that BEGINS with <head> gets it too (index 0 is a match)', () => {
+        const srcdoc = srcdocFor('<head></head><body>hi</body>');
+        expect(srcdoc).toContain('http-equiv="Content-Security-Policy"');
+    });
+
+    it('a document with a <head> keeps the old placement', () => {
+        const srcdoc = srcdocFor('<!doctype html><html><head><title>T</title></head><body>hi</body></html>');
+        expect(srcdoc).toContain('http-equiv="Content-Security-Policy"');
+        expect(srcdoc.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc.indexOf('<title>'));
+    });
+});

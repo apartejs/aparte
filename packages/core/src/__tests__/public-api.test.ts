@@ -66,6 +66,7 @@ describe('@aparte/core public API', () => {
             "contextConfig",
             "createAparteChatHandler",
             "createStreamAdapter",
+            "cssEscape",
             "defaultSanitizer",
             "deriveArtifactKind",
             "detachConfig",

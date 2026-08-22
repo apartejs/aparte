@@ -68,6 +68,7 @@ export const APARTE_DEFAULT_HOST_HANDLERS = {
     attachmentPreview: false,
     terminalRun: false,
     artifactRedownload: false,
+    artifactRehydrate: false,
 } as const;
 
 export interface AparteModelPreference {
@@ -243,11 +244,17 @@ export class AparteConfigClass {
     }
 
     /** Returns the resolved host-handler declarations (undeclared = false). */
-    getHostHandlers(): { attachmentPreview: boolean; terminalRun: boolean; artifactRedownload: boolean } {
+    // `Required<...>` rather than a hand-written shape: the previous signature
+    // listed the three keys literally, so adding a fourth to the interface left
+    // this method silently returning a type without it — the caller's read did not
+    // even typecheck. Derived from the interface, a new declaration cannot be
+    // forgotten here.
+    getHostHandlers(): Required<AparteHostHandlersConfig> {
         return {
             attachmentPreview: this._hostHandlers.attachmentPreview ?? APARTE_DEFAULT_HOST_HANDLERS.attachmentPreview,
             terminalRun: this._hostHandlers.terminalRun ?? APARTE_DEFAULT_HOST_HANDLERS.terminalRun,
             artifactRedownload: this._hostHandlers.artifactRedownload ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRedownload,
+            artifactRehydrate: this._hostHandlers.artifactRehydrate ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRehydrate,
         };
     }
 

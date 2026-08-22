@@ -1488,6 +1488,21 @@ function setupBinaryFileArtifact(element: HTMLElement, segment: AparteArtifactSe
         return;
     }
 
+    // OPT-IN: re-running a persisted artifact's generation is not automatic.
+    //
+    // Everything below asks the host app to execute model-authored content — the
+    // comment further down says so itself ("kick off the sandbox"). On a live
+    // stream that follows a turn the user asked for. Here it follows nothing: it
+    // runs from `setup()`, so merely RE-OPENING a saved conversation re-fires
+    // whatever a prompt injection persuaded the model to emit, on every reload.
+    //
+    // This is ratified decision #8 applied to the sibling of the artifact preview:
+    // that path was made gesture-gated 700 lines up in this same file, for exactly
+    // this reason, and this one was left automatic. Core owns no sandbox and no
+    // file generator, so it cannot honour the affordance end to end either — with
+    // nothing listening the card simply stays at "generating".
+    if (!contextConfig().getHostHandlers().artifactRehydrate) return;
+
     // Dedupe : if an artifact-ready was dispatched recently for this segment
     // (either by aparte-client's natural stream-end flow OR by a previous
     // rehydration), don't fire another one — the sandbox is in flight and
@@ -1747,17 +1762,45 @@ function mountPreviewFrame(element: HTMLElement, fallback: AparteArtifactSegment
  * INSIDE the document as a `<meta http-equiv>`, which every engine honours. Both
  * are declared; whichever the browser understands applies.
  *
- * Best-effort by design for a model-authored full document: the meta is inserted
- * after `<head>` when there is one, and skipped when there is not — a `<meta>`
- * cannot be prepended without breaking the doctype. That case keeps the sandbox
- * (opaque origin) and, on Chromium, the attribute.
+ * A model-authored full document gets one too, which it previously did not.
+ *
+ * This used to insert the meta only after an existing `<head>` and skip the
+ * document otherwise, justified as "a `<meta>` cannot be prepended without
+ * breaking the doctype". That is not true — `<html>` may be followed by a `<head>`
+ * we open ourselves — and it left the ONE case that needs the policy most (a
+ * `<!doctype html>` document written entirely by the model, which is passed
+ * through verbatim) with no `<meta>` at all. On Firefox and Safari, where the
+ * `csp` attribute does nothing, that frame ran `allow-scripts` under no policy: it
+ * could beacon out, and load remote script. So a `<head>` is now created when the
+ * document has none.
+ *
+ * Containment that held regardless: `sandbox="allow-scripts"` without
+ * `allow-same-origin` gives an opaque origin, so the frame never reached the host
+ * DOM, storage, or the API key.
  */
 function withMetaCsp(doc: string): string {
     const meta = `<meta http-equiv="Content-Security-Policy" content="${escapeAttr(PREVIEW_CSP)}">`;
+
+    // `=== null`, not `!head?.index`: a document that BEGINS with `<head>` has
+    // index 0, which the old truthiness check read as "not found".
     const head = doc.match(/<head[^>]*>/i);
-    if (!head?.index) return doc;
-    const at = head.index + head[0].length;
-    return doc.slice(0, at) + meta + doc.slice(at);
+    if (head !== null && head.index !== undefined) {
+        const at = head.index + head[0].length;
+        return doc.slice(0, at) + meta + doc.slice(at);
+    }
+
+    // No head of its own: open one right after `<html …>` when there is one, which
+    // is where the parser would have put it anyway.
+    const html = doc.match(/<html[^>]*>/i);
+    if (html !== null && html.index !== undefined) {
+        const at = html.index + html[0].length;
+        return `${doc.slice(0, at)}<head>${meta}</head>${doc.slice(at)}`;
+    }
+
+    // Neither: insert after the doctype if present, otherwise at the very front.
+    const doctype = doc.match(/^\s*<!doctype[^>]*>/i);
+    const at = doctype ? doctype[0].length : 0;
+    return `${doc.slice(0, at)}<head>${meta}</head>${doc.slice(at)}`;
 }
 
 function buildSafePreviewDocument(kind: string, body: string, title: string): string {

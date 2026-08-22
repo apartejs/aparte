@@ -34,16 +34,46 @@ import { join, relative, sep } from 'node:path';
 
 const ROOTS = ['packages/core/src', 'packages/plugins', 'packages/providers'];
 
-/** Calls that produce a value safe to drop into markup. */
-const ESCAPERS = [
-    'escapeHtml(', 'escapeAttr(', 'cssEscape(', 'esc(',
-    'encodeURIComponent(', 'escapeClosingScriptTag(',
-];
+/**
+ * Function names that produce a value safe to drop into a QUOTED attribute.
+ *
+ * Matched as whole identifiers, not substrings. The first version tested
+ * `expr.includes('esc(')`, so ANY name ending in `esc` laundered its argument —
+ * `desc(role)`, `htmlDesc(role)`, `describe(role)`. An audit walked through it
+ * with `desc(`, which is a plausible name in real code rather than a contrivance.
+ */
+const ESCAPER_NAMES = new Set([
+    'escapeHtml', 'escapeAttr', 'cssEscape', 'esc', '_esc', '_escape',
+    'escapeClosingScriptTag',
+]);
 
-/** Shapes that cannot carry an attacker-controlled string. */
+/**
+ * Safe in a DOUBLE-quoted value only.
+ *
+ * `encodeURIComponent` leaves `'` untouched — it is in the unreserved set — so it
+ * is no protection at all inside `attr='…'`, which is the exact break-out this
+ * file's header names as the risk. It was in the flat escaper list, so the guard
+ * blessed `href='${encodeURIComponent(u)}'`.
+ */
+const DOUBLE_QUOTED_ONLY = new Set(['encodeURIComponent']);
+
+/** Every `name(` called at the top level of an expression, as bare identifiers. */
+function calledNames(expr) {
+    return [...expr.matchAll(/([\w$]+)\s*\(/g)].map(m => m[1]);
+}
+
+/**
+ * Shapes that cannot carry an attacker-controlled string.
+ *
+ * `/^String\(/` used to be here, described in this file's header as "provably not
+ * attacker-shaped". It is the opposite: `String(x)` performs no escaping at all,
+ * so `data-role="${String(role)}"` was blessed while the identical
+ * `data-role="${role}"` was caught. A dev reaching for `String()` to satisfy a
+ * type is the likely way in, which is what made it worth removing rather than
+ * documenting.
+ */
 const SAFE_SHAPES = [
     /^[\w$.]+\s*\?\s*'[^']*'\s*:\s*'[^']*'$/,
-    /^String\(/,
     /^[\w$.]+\.toFixed\(/,
     /^[\w$.()]+\s*(===|!==|>=|<=|>|<)\s*[\w$.'"]+$/,
 ];
@@ -129,9 +159,17 @@ for (const root of ROOTS) {
         // the convention across the components — several of them own a private
         // escaper rather than importing the shared one, and the first version of
         // this list missed every one of them.
+        // The escaper must be what PRODUCES the value, not merely something
+        // mentioned on the same line.
+        //
+        // The previous pattern was `= [^;\n]*escaper\(`, so any escaper appearing
+        // anywhere in the initialiser marked the whole local escaped:
+        // `const v = raw + escapeHtml('')` passed. Anchored to the start of the
+        // right-hand side (allowing `await` and an opening paren), the escaper has
+        // to be the outermost call.
         const preEscaped = new Set(
             [...src.matchAll(
-                /(?:const|let)\s+([\w$]+)\s*=\s*[^;\n]*(?:escapeHtml|escapeAttr|cssEscape|_escape|_esc|esc)\(/g,
+                /(?:const|let)\s+([\w$]+)\s*=\s*(?:await\s+)?\(?\s*(?:this\.)?(?:escapeHtml|escapeAttr|cssEscape|_escape|_esc|esc)\s*\(/g,
             )].map(m => m[1]),
         );
 
@@ -262,7 +300,12 @@ for (const root of ROOTS) {
                     }
                     continue;
                 }
-                if (ESCAPERS.some(e => expr.includes(e))) continue;
+                // Whole-identifier match, and the quoting style decides whether
+                // `encodeURIComponent` counts (it leaves `'` alone).
+                const named = calledNames(expr);
+                const doubleQuoted = m[2] !== undefined;
+                if (named.some(n => ESCAPER_NAMES.has(n))) continue;
+                if (doubleQuoted && named.some(n => DOUBLE_QUOTED_ONLY.has(n))) continue;
                 if (preEscaped.has(expr)) continue;
                 if (SAFE_SHAPES.some(re => re.test(expr))) continue;
                 if (BOOLEANS_AND_NUMBERS.has(expr)) continue;
