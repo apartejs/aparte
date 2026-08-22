@@ -77,12 +77,29 @@ describe('runStreamAgent — text & lifecycle', () => {
         expect(usage).toEqual({ inputTokens: 9, outputTokens: 9 });
     });
 
-    it('forwards a non-streaming string response as a single text-delta', async () => {
+    it('forwards a non-streaming string response and FLUSHES the parser', async () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({ transportCall: async () => 'plain answer', emitter: rec.emitter }));
+        // `text-flush` is the adapter's only caller of `parser.finalize()`. This
+        // assertion used to omit it, and so encoded the bug: a non-streaming reply
+        // ending on an ambiguous tail — a backtick, a `<`, the safe window inside
+        // an unterminated fence — lost it, and one made only of those rendered
+        // nothing at all.
         expect(rec.events).toEqual([
             { type: 'run-start' },
             { type: 'text-delta', delta: 'plain answer' },
+            { type: 'text-flush' },
+            { type: 'run-done', usage: undefined },
+        ]);
+    });
+
+    it('a non-streaming reply that is ONLY an ambiguous tail still renders', async () => {
+        const rec = recorder();
+        await runStreamAgent(baseOpts({ transportCall: async () => '```', emitter: rec.emitter }));
+        expect(rec.events, 'the parser withholds "```" until it is flushed').toEqual([
+            { type: 'run-start' },
+            { type: 'text-delta', delta: '```' },
+            { type: 'text-flush' },
             { type: 'run-done', usage: undefined },
         ]);
     });

@@ -259,8 +259,18 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // Non-streaming provider: the string IS the full assistant message. The
         // adapter writes it and completes (no done{usage}); spike scenarios
         // always stream, so we finish the run here.
+        //
+        // `text-flush` is not optional here. It is the adapter's ONLY caller of
+        // `parser.finalize()`, and the parser deliberately withholds an ambiguous
+        // tail — a lone backtick, a triple backtick, a `<`, or the safe window
+        // inside an unterminated fence. Breaking out before the flush dropped all
+        // of it, so a non-streaming reply ending on any of those characters lost
+        // them and one consisting only of them rendered nothing at all. Core's
+        // inline loop does `parse()` AND `finalize()` on its whole-response
+        // branch; this is the twin.
         if (typeof response === 'string') {
             emitter({ type: 'text-delta', delta: response });
+            emitter({ type: 'text-flush' });
             break;
         }
 
@@ -456,6 +466,21 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 }
             }
 
+            // artifactXml finalize comes FIRST, and the order is load-bearing.
+            //
+            // Its `scanning` branch hands back text the machine was holding — a
+            // proper prefix of `<artifact` it could not yet classify. That text
+            // travels as `chat-text` -> `text-delta`, and the adapter feeds every
+            // `text-delta` into the parser. Emitted AFTER `text-flush` it reached a
+            // parser that had already been finalized and never would be again, and
+            // since every held value is a prefix of the open tag the parser
+            // withholds all of them: the loss was total, not probabilistic.
+            //
+            // Core's twin sidesteps this by bypassing its parser entirely for held
+            // text. This side cannot — the adapter owns the parser — so it flushes
+            // in the right order instead.
+            if (xmlMachine) emitXml(xmlMachine.finalize());
+
             // Turn boundary: finalize the parser (flush residual text). Mirrors
             // `_streamLoop`'s `textParser.finalize()` call — runs on normal
             // end AND abort-break, but NOT after a thrown `error` (which escapes
@@ -468,9 +493,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 const inline = rawContent.split('\n').length < 15;
                 emitter({ type: 'artifact-close', id: rawSegId, content: rawContent, inline });
             }
-            // artifactXml finalize flushes a truncated (unclosed) artifact —
-            // after text-flush, mirroring the finalize-block order in _streamLoop.
-            if (xmlMachine) emitXml(xmlMachine.finalize());
+            // (artifactXml finalize ran above, before the parser flush — its held
+            // text has to reach the parser while the parser can still be flushed.)
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator.
             await iterator.return?.(undefined).catch(() => { /* best effort */ });

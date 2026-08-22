@@ -1856,6 +1856,12 @@ export class AparteClient {
                     if (!continueLoop) break;
                 }
 
+                // artifactXml finalize comes FIRST: its `scanning` branch pushes
+                // held text back into the parser, which only works while the parser
+                // can still be flushed. Same ordering as the engine twin, and the
+                // parity suite now asserts the two agree.
+                finalizeXmlArtifact(xmlCtx, { targetElement, messageId, artifactProgress, artifactXmlHint, textParser, streamingSegmentIds });
+
                 // Finalize text parser
                 const finals = textParser.finalize();
 
@@ -1872,7 +1878,6 @@ export class AparteClient {
                 }
                 // ── END artifactRaw finalize ──────────────────────────────────
 
-                finalizeXmlArtifact(xmlCtx, { targetElement, messageId, artifactProgress, artifactXmlHint });
 
                 // ── Artifact hint promotion (finalize) ───────────────────────
                 // Handles the case where the code fence was not yet finalized

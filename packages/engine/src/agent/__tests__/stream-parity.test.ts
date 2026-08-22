@@ -742,3 +742,62 @@ describe('parity on a whole <artifact> in ONE delta', () => {
         expect(rendered, 'the tag must not render as literal text').not.toContain('&lt;artifact');
     });
 });
+
+describe('parity when the stream dies on a held <artifact prefix', () => {
+    /**
+     * The feeder deliberately withholds a suffix that could be the start of
+     * `<artifact` — without that, a tag split across deltas loses the artifact's
+     * whole lifecycle. The held characters live in one buffer and nowhere else, so
+     * if the stream then ends, something has to give them back.
+     *
+     * Both loops lost them, for different reasons, and each fix is different:
+     * core's finalize had no `scanning` branch at all; the engine had one, but its
+     * machine finalized AFTER the parser flush, so the text it handed back reached a
+     * parser that would never be flushed again. Every possible held value is a
+     * proper prefix of the open tag, which the parser withholds — so the loss was
+     * total on both sides, not probabilistic.
+     *
+     * Reachable with nothing unusual: any truncated reply whose last delta happens
+     * to end on `<`, `<a`, … `<artifac`.
+     */
+    it('both loops hand the held text back instead of swallowing it', async () => {
+        const r = await captureParity({
+            streams: [[{ type: 'text', delta: 'Here it is: <arti' }, { type: 'done' }] as never[]],
+            meta: { artifactXml: { mimeType: 'text/html', kind: 'html' } },
+        });
+        expect(r.knew).toEqual(r.old);
+        const rendered = r.old.join(String.fromCharCode(10));
+        expect(rendered, 'the prose before the held prefix must survive').toContain('Here it is:');
+        expect(rendered, 'and so must the held prefix itself').toContain('<arti');
+    });
+});
+
+describe('parity when a delta both CLOSES a fence and precedes an <artifact> tag', () => {
+    /**
+     * The pre-tag text path renders only completed segments and leaves the trailing
+     * active one for a later tag-free delta — deliberately, because flushing it
+     * early makes core emit the prose before the artifact while the engine still
+     * emits the artifact first.
+     *
+     * The engine adapter's version of that path had only half of it: it ADDED a
+     * segment it had not seen, and did nothing for one it had already rendered while
+     * active and which had now completed. So a delta that closed a code fence opened
+     * by an earlier delta froze that fence at whatever the parser's safe window had
+     * already released, and the turn flush cannot recover it — finalize returns the
+     * active segment and the residual buffer, never one that already completed.
+     */
+    it('both loops render the completed code block in full', async () => {
+        const r = await captureParity({
+            streams: [[
+                { type: 'text', delta: '```js' + String.fromCharCode(10) + 'const answer = 42;' },
+                { type: 'text', delta: String.fromCharCode(10) + '```' + String.fromCharCode(10) + 'Now the page: <artifact mimeType="text/html" title="P"><h1>Hi</h1></artifact>' },
+                { type: 'done' },
+            ] as never[]],
+            meta: { artifactXml: { mimeType: 'text/html', kind: 'html' } },
+        });
+        expect(r.knew).toEqual(r.old);
+        const rendered = r.old.join(String.fromCharCode(10));
+        expect(rendered, 'the code block must not be truncated').toContain('const answer = 42;');
+        expect(rendered, 'and the artifact must still be built').toContain('"type":"artifact"');
+    });
+});

@@ -278,6 +278,13 @@ export function finalizeXmlArtifact(
         artifactProgress: Map<string, number>;
         /** Absent when the turn was not in XML-artifact mode — then there is nothing to flush. */
         artifactXmlHint: AparteArtifactHint | undefined;
+        /**
+         * The turn's text parser. The `scanning` branch pushes held text into it, so
+         * the caller MUST call this before `textParser.finalize()`.
+         */
+        textParser: AparteStreamParser;
+        /** So the held-text render does not re-add a segment already on screen. */
+        streamingSegmentIds: Set<string>;
     },
 ): void {
     const { targetElement, messageId, artifactProgress, artifactXmlHint } = ctx;
@@ -295,13 +302,40 @@ export function finalizeXmlArtifact(
         xml.scanBuf = '';
         xml.state = 'normal';
         if (held) {
-            // Emitted as a segment directly, NOT back through the text parser. The
-            // caller has already called `textParser.finalize()` by now, so anything
-            // parsed here would never be flushed — and the parser would hold `<arti`
-            // as an ambiguous tag prefix anyway, which is how it got here. Engine's
-            // twin bypasses its parser for the same reason: held text is raw by
-            // definition.
-            targetElement.addSegment?.({ id: uuid(), type: 'text', content: held });
+            // Back through the text parser, NOT as a segment of its own.
+            //
+            // The held characters are the tail of a prose run that is already
+            // rendering, so the parser has to merge them into it. Emitting them
+            // directly split one sentence into two segments and — because the active
+            // segment is written last — put the held prefix BEFORE the prose it
+            // follows. The parity suite caught both.
+            //
+            // Rendered the same way every other delta is (completed segments, then
+            // the active one), because the engine twin's adapter does exactly that
+            // for the `chat-text` its machine hands back. Parsing and leaving the
+            // render to `finalize()` alone produced one write against the twin's
+            // two — a divergence with no behavioural argument behind it.
+            //
+            // This requires the caller to flush the XML machine BEFORE
+            // `textParser.finalize()`, so what we push here still gets flushed.
+            const r = ctx.textParser.parse(held);
+            for (const seg of r.segments) {
+                if (!ctx.streamingSegmentIds.has(seg.id)) {
+                    targetElement.addSegment?.(seg);
+                    ctx.streamingSegmentIds.add(seg.id);
+                } else if ('content' in seg) {
+                    targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
+                }
+            }
+            const active = ctx.textParser.getState().activeSegment;
+            if (active) {
+                if (!ctx.streamingSegmentIds.has(active.id)) {
+                    targetElement.addSegment?.(active);
+                    ctx.streamingSegmentIds.add(active.id);
+                } else {
+                    targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
+                }
+            }
         }
         return;
     }

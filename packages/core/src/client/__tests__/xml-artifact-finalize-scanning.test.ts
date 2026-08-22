@@ -73,12 +73,29 @@ describe('finalizeXmlArtifact — a stream that ends on a held partial tag', () 
             messageId: 'm1',
             artifactProgress: ctx.artifactProgress,
             artifactXmlHint: hint,
+            textParser,
+            streamingSegmentIds: ctx.streamingSegmentIds,
         });
+
+        // Two steps, in this order, and that IS the contract: the machine pushes the
+        // held text back into the parser, then the caller flushes the parser. Doing
+        // it the other way round is how the engine twin lost the text — it flushed
+        // first, so what the machine handed back reached a parser that would never
+        // be flushed again.
+        //
+        // Merged into the prose run it belongs to rather than emitted as its own
+        // segment: the twin does the same, and splitting it also put the held prefix
+        // BEFORE the prose it follows.
+        for (const seg of textParser.finalize()) {
+            if (!ctx.streamingSegmentIds.has(seg.id)) target.added.push(seg);
+            else target.updated.push([seg.id, seg as never]);
+        }
 
         const rendered = [...target.added, ...target.updated.map(([, u]) => u)]
             .map((s) => (s as { content?: string }).content ?? '')
             .join('');
         expect(rendered, 'the held "<arti" must not vanish').toContain('<arti');
+        expect(rendered, 'and it stays attached to the prose before it').toContain('Here it is: <arti');
         expect(xml.scanBuf, 'and the buffer must be drained').toBe('');
     });
 
@@ -103,6 +120,8 @@ describe('finalizeXmlArtifact — a stream that ends on a held partial tag', () 
             messageId: 'm1',
             artifactProgress: ctx.artifactProgress,
             artifactXmlHint: hint,
+            textParser,
+            streamingSegmentIds: ctx.streamingSegmentIds,
         });
 
         const artifactUpdate = target.updated.find(([, u]) => (u as { content?: string }).content?.includes('<h1>hi'));

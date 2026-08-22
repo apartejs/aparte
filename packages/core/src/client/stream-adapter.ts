@@ -207,6 +207,17 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         if (!streaming.has(segment.id)) {
                             target.addSegment?.(segment);
                             streaming.add(segment.id);
+                        } else if ('content' in segment) {
+                            // Already rendered while ACTIVE and now COMPLETED, so
+                            // its final content has to land. Without this arm a
+                            // delta that both closes a code fence and precedes an
+                            // `<artifact>` tag froze that fence at whatever the
+                            // parser's 4-char safe window had released, and
+                            // `text-flush` cannot recover it: `finalize()` returns
+                            // the active segment and the residual buffer, never one
+                            // that already completed. Core's twin (`emitChatText`)
+                            // has always had both arms.
+                            target.updateSegment?.(segment.id, { content: (segment as { content?: string }).content });
                         }
                     }
                     // The raw-delta fallback is gone from BOTH loops. It fired only
