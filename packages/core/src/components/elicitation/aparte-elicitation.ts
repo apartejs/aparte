@@ -17,7 +17,7 @@
  *   <aparte-elicitation></aparte-elicitation>
  */
 
-import { resolveConfig, type AparteConfigAware } from '../../config/config-context.js';
+import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import type { AparteConfig } from '../../config/aparte-config.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
@@ -132,9 +132,15 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                 request.signal.addEventListener('abort', () => settle({ action: 'cancel' }), { once: true });
             }
 
-            const panel: BuiltElicitationPanel = buildElicitationPanel(request.message, request.schema, () => {
-                composer.setPanelSubmitEnabled(panel.isComplete());
-            });
+            // Built INSIDE this instance's config, so the panel's own strings come
+            // from the locale of the chat that asked — `contextConfig()` reads the
+            // ambient render config, and without this it would fall back to the
+            // global one on a page where each chat has its own.
+            const cfg = resolveConfig(this);
+            const panel: BuiltElicitationPanel = runWithConfig(cfg, () =>
+                buildElicitationPanel(request.message, request.schema, () => {
+                    composer.setPanelSubmitEnabled(panel.isComplete());
+                }));
 
             // Inline "Skip" → decline (MCP's decline: the user chose not to answer).
             const footer = document.createElement('div');
@@ -142,7 +148,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             const skip = document.createElement('button');
             skip.type = 'button';
             skip.className = 'aparte-elic-skip';
-            skip.textContent = 'Skip';
+            skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             footer.appendChild(skip);
             panel.el.appendChild(footer);

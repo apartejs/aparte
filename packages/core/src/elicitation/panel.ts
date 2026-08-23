@@ -13,6 +13,7 @@ import type {
     AparteElicitationStringField,
 } from './types.js';
 import { uuid } from '../utils/uuid.js';
+import { contextConfig } from '../config/config-context.js';
 
 export interface BuiltElicitationPanel {
     readonly el: HTMLElement;
@@ -81,12 +82,18 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void)
         control.name = name;
         control.value = '__other__';
         const body = el('span', 'aparte-elic-option-body');
-        body.appendChild(el('span', 'aparte-elic-option-title', 'Other…'));
+        // Localised, like every other string the user reads. These four were
+        // hardcoded English, which showed as an English "Other…" and "Skip" above
+        // questions in the user's own language — visible the first time a French
+        // model asked something. The locale keys are OPTIONAL, so an existing
+        // locale package keeps compiling and falls back to English per key.
+        const t = contextConfig();
+        body.appendChild(el('span', 'aparte-elic-option-title', t.t('elicitationOther')));
         otherText = el('input', 'aparte-elic-other-input');
         otherText.type = 'text';
-        otherText.placeholder = 'Type your answer…';
+        otherText.placeholder = t.t('elicitationOtherPlaceholder');
         otherText.style.display = 'none';
-        otherText.setAttribute('aria-label', 'Custom answer');
+        otherText.setAttribute('aria-label', t.t('elicitationOtherLabel'));
         body.appendChild(otherText);
         row.append(control, body);
         list.appendChild(row);

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildElicitationPanel } from '../panel';
+import { aparteGlobalConfig, runWithConfig, AparteConfig } from '../../config/index.js';
 import type { AparteElicitationSchema } from '../types';
 
 const noop = () => {};
@@ -14,6 +15,42 @@ describe('buildElicitationPanel', () => {
     it('renders the message', () => {
         const p = buildElicitationPanel('Pick one', { type: 'enum', options: [{ value: 'a' }] }, noop);
         expect(p.el.querySelector('.aparte-elic-message')!.textContent).toBe('Pick one');
+    });
+
+    /**
+     * The panel's own words are the user's words.
+     *
+     * "Other…", its placeholder, its accessible name and "Skip" were hardcoded
+     * English, so a French model's questions arrived under English chrome — visible
+     * the first time anyone ran this with a non-English locale. The keys are
+     * OPTIONAL and `t()` falls back to `APARTE_DEFAULT_LOCALE` per key, so an
+     * existing locale package keeps compiling and keeps working.
+     */
+    describe('localisation', () => {
+        const withOther: AparteElicitationSchema = { type: 'enum', options: [{ value: 'a' }], allowOther: true };
+
+        it('takes the free-text option and its placeholder from the locale', () => {
+            const cfg = new AparteConfig();
+            cfg.setLocale({ ...aparteGlobalConfig.getLocale(), elicitationOther: 'Autre…', elicitationOtherPlaceholder: 'Votre réponse…' });
+
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', withOther, noop));
+
+            expect(p.el.querySelector('.aparte-elic-option--other .aparte-elic-option-title')!.textContent).toBe('Autre…');
+            expect(p.el.querySelector<HTMLInputElement>('.aparte-elic-other-input')!.placeholder).toBe('Votre réponse…');
+        });
+
+        it('falls back to English for a locale that predates these keys', () => {
+            const cfg = new AparteConfig();
+            // A locale package built before the keys existed: every other key set,
+            // these four absent. `t()` must reach the default, not print the key.
+            cfg.setLocale({ ...aparteGlobalConfig.getLocale(), elicitationOther: undefined });
+
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', withOther, noop));
+
+            const label = p.el.querySelector('.aparte-elic-option--other .aparte-elic-option-title')!.textContent;
+            expect(label).toBe('Other…');
+            expect(label, 'never the raw key').not.toBe('elicitationOther');
+        });
     });
 
     describe('enum', () => {

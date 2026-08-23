@@ -66,6 +66,16 @@ export interface AparteLocale {
     /** Aria-label for the unarchive conversation button (default: "Unarchive conversation") */
     unarchiveConversation?: string;
 
+    // --- Elicitation (the panel a tool's question is asked in) ---
+    /** The free-text fallback option in a choice (default: "Other…") */
+    elicitationOther?: string;
+    /** Placeholder of the free-text input that option reveals (default: "Type your answer…") */
+    elicitationOtherPlaceholder?: string;
+    /** Accessible name of that input, which has no visible label (default: "Custom answer") */
+    elicitationOtherLabel?: string;
+    /** The inline affordance that declines the question (default: "Skip") */
+    elicitationSkip?: string;
+
     // --- Metadata ---
     /** Direction of the text (ltr or rtl) - defaults to ltr */
     direction?: 'ltr' | 'rtl';
@@ -85,6 +95,10 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     copied: "Copied!",
     retry: "Retry",
     thinking: "Thinking...",
+    elicitationOther: "Other…",
+    elicitationOtherPlaceholder: "Type your answer…",
+    elicitationOtherLabel: "Custom answer",
+    elicitationSkip: "Skip",
     typing: "Typing...",
     error: "Error",
     running: "Running...",
