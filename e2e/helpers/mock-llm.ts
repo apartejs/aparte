@@ -71,8 +71,6 @@ const LONG_THINKING_LINES = [
 ];
 /** The bold run a spec asserts is real markup rather than literal asterisks. */
 export const MOCK_THINKING_BOLD = 'bold conclusion';
-/** The last line — the one that must be visible if the box follows the stream. */
-export const MOCK_THINKING_LAST_LINE = 'reasoning step 30';
 export const MOCK_CODE_MARK = 'aparteCodeFixture';
 export const MOCK_TOOL_NAME = 'e2e_echo';
 
@@ -487,7 +485,14 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
          * `tool-call` keeps its old shape: no spec consumes it today, and changing
          * a fixture nobody reads is churn.
          */
-        if (scenario === 'ask-user' && chatRequests.length > 1) {
+        // Both ask-user scenarios: the SECOND turn answers with text.
+        //
+        // `ask-two-questions` did not, so it re-asked forever — and the spec asserting
+        // "the panel is gone" passed on Chromium only because it looked in the window
+        // between the first panel closing and the next one opening. WebKit's timing put
+        // the new panel up first and the assertion saw it. A racy fixture, not a racy
+        // product: the receipt in that failure showed both answers submitted correctly.
+        if ((scenario === 'ask-user' || scenario === 'ask-two-questions') && chatRequests.length > 1) {
             await fulfill(route, bodyForScenario('text'), 'text/event-stream');
             return;
         }
