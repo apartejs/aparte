@@ -47,7 +47,7 @@ test('the model dropdown opens within the viewport at phone width', async ({ pag
     await page.goto('/');
     await chat.waitUngated();
 
-    if ((await chat.modelTrigger.count()) === 0) test.skip(true, 'no model selector in this playground');
+    if ((await chat.modelTrigger.count()) === 0) test.skip(true, 'no model selector in this example');
 
     await chat.modelTrigger.click();
     const dropdown = chat.modelSelector.locator('.aparte-select-dropdown');

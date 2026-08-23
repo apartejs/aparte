@@ -10,7 +10,7 @@
  *
  * Ratified decision #7 already states the rule ("a layer with no in-repo consumer
  * is a contract maintained for nobody"); engine is the package it should have
- * caught. The vanilla playground now wires the runner, which makes its entire
+ * caught. The vanilla example now wires the runner, which makes its entire
  * Playwright suite the engine's end-to-end coverage.
  *
  * This guard exists because that coverage is invisible: remove the option and
@@ -21,7 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-const FILE = 'apps/playgrounds/vanilla/src/main.ts';
+const FILE = 'apps/examples/vanilla/src/main.ts';
 const raw = readFileSync(FILE, 'utf8');
 
 /**
@@ -32,7 +32,7 @@ const raw = readFileSync(FILE, 'utf8');
  * code from a comment unless the comments are gone first.
  *
  * Deliberately naive on one point: it does not track whether a `//` sits inside
- * a string literal. In a file whose only job is to wire up a playground that is
+ * a string literal. In a file whose only job is to wire up a example that is
  * an acceptable trade — a false RED here is loud and one line to fix, whereas
  * the false GREEN it replaces was silent.
  */
@@ -57,4 +57,4 @@ if (!importsRunner || !wiresRunner) {
     process.exit(1);
 }
 
-console.log('[engine-consumer] OK: the vanilla playground drives runStreamAgent through the streamRunner seam.');
+console.log('[engine-consumer] OK: the vanilla example drives runStreamAgent through the streamRunner seam.');

@@ -160,7 +160,7 @@ for (const file of files) {
  * `@aparte/*` map to their BUILT `.d.ts` — the same types a consumer installs, and
  * the reason the audit's finding was reproducible: a snippet can typecheck against
  * source while failing against what ships. The frameworks map to the copies the
- * playgrounds already have installed, rather than adding dependencies to the root
+ * examples already have installed, rather than adding dependencies to the root
  * for the benefit of a checker.
  */
 function workspacePaths() {
@@ -183,8 +183,8 @@ function workspacePaths() {
             paths[`${pkg.name}/${sub.slice(2)}`] = [file];
         }
     }
-    const RP = '../apps/playgrounds/react/node_modules';
-    const AP = '../apps/playgrounds/angular/node_modules';
+    const RP = '../apps/examples/react/node_modules';
+    const AP = '../apps/examples/angular/node_modules';
     // Optional peers a plugin/provider page legitimately imports. Resolved from the
     // package that declares the peer, so the snippet is checked against the same
     // version a consumer following that page would install.

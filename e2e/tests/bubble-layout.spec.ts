@@ -1,6 +1,6 @@
 /**
  * Bubble layout invariants — real browser geometry, the thing jsdom can never
- * see. Runs on the pure web-component playground: the CSS under test is core's,
+ * see. Runs on the pure web-component example: the CSS under test is core's,
  * identical in every wrapper.
  */
 

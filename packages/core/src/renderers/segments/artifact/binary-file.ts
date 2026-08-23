@@ -94,7 +94,7 @@ let _artifactReadyHookInstalled = false;
  * within its rights to drop the file and the listener with it, and pdf/xlsx/docx
  * artifacts would then stop regenerating in a consumer's production build while
  * every local check stayed green. Verified as surviving today in a real Vite build
- * of the Svelte playground — but "it happens to survive" is not a contract.
+ * of the Svelte example — but "it happens to survive" is not a contract.
  *
  * `sideEffects` cannot simply be corrected to name this file, either: the build
  * bundles into a CONTENT-HASHED shared chunk, so there is no stable path to list.

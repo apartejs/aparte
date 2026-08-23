@@ -51,7 +51,7 @@ elements — no private Angular API, no `NgModule`, nothing the newer majors rem
 through 22 will very likely work, and you can install it with `--legacy-peer-deps` or an
 override if you want to try. But "very likely" is not something to encode in a peer range:
 the sibling Svelte wrapper claims two majors because each one is compiled and driven in a
-real browser in CI, and this one has no such playground yet. Widening the range before the
+real browser in CI, and this one has no such example yet. Widening the range before the
 proof exists would be a promise nobody here has checked.
 
 > ESM-only. See the docs for the full API. Part of the aparté monorepo.

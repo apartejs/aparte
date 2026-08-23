@@ -7,7 +7,7 @@
  * `check-node-import`) — while `packages/core/dist/index.js` was nine minutes older
  * than `packages/core/src/utils/uuid.ts`. So the barrel guards were happily
  * validating an artifact that predated the export they were meant to check, and the
- * only thing that noticed was `pnpm e2e`: the Svelte playground resolves core from
+ * only thing that noticed was `pnpm e2e`: the Svelte example resolves core from
  * `dist`, so all 42 of its tests died on
  *
  *     The requested module '.../core/dist/index.js' does not provide an export
@@ -134,7 +134,7 @@ if (stale.length) {
     for (const s of stale) console.error('  ' + s);
     console.error(
         '\nThe guards that read built output would be validating the OLD artifact, and a'
-        + '\nplayground resolving the package from `dist` will fail at runtime on anything'
+        + '\nexample resolving the package from `dist` will fail at runtime on anything'
         + '\nadded since. Rebuild with `npx nx run <project>:build --skip-nx-cache`.\n',
     );
     process.exit(1);

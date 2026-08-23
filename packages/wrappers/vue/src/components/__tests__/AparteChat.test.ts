@@ -231,7 +231,7 @@ describe('AparteChat.vue', () => {
     });
 
     it('projects empty-state while there are no messages, and drops it on the first', async () => {
-        // Every playground fills this slot and NOTHING proved it — not one unit test in
+        // Every example fills this slot and NOTHING proved it — not one unit test in
         // any of the four wrappers, and no browser assertion either. Its contract is two
         // halves ("Replaced by the message list on the first message") and the second is
         // the one that silently rots: a welcome block still showing under a live

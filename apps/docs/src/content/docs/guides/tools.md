@@ -203,7 +203,7 @@ aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
 
 This runs with no model and no API key — it drives the viewport the same way
 `AparteClient` would, so you can see the whole mechanic. Adapted from
-`apps/playgrounds/demo-vanilla`:
+`apps/examples/vanilla-dist`:
 
 ```ts
 import '@aparte/core';

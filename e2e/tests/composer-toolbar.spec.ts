@@ -1,7 +1,7 @@
 /**
  * The composer toolbar — the row a mode picker or a model selector belongs in.
  *
- * This suite runs on **every** playground, which is the point: the row used to be
+ * This suite runs on **every** example, which is the point: the row used to be
  * three positional slots per wrapper in three different syntaxes, and vanilla had only
  * a CSS class written by hand. What is asserted here is the contract that replaced
  * them — one element, and placement by DOM order plus `margin-inline-start: auto`.
@@ -10,11 +10,11 @@
  * the composer (`locale-live-switch.test.ts`, sabotage-verified). What jsdom cannot
  * prove is the half that needs real layout — that the push is LOGICAL, so the control
  * changes sides with the reading direction. That is what the second test is for, and
- * it is a guard on the idiom we teach: it fails the moment the playgrounds (or the
+ * it is a guard on the idiom we teach: it fails the moment the examples (or the
  * docs they mirror) reach for `margin-left` instead.
  *
  * The mirror ("no toolbar ⇒ no row in the DOM") lives in the wrappers' unit tests,
- * where absence is assertable per framework without a playground that deliberately
+ * where absence is assertable per framework without a example that deliberately
  * renders nothing.
  */
 
@@ -70,7 +70,7 @@ test('the push is logical — the control changes sides with the reading directi
 
     // `dir` is set directly rather than through a locale switch: the config → `dir`
     // half is a unit test's job, and there is no control in the page to click — a
-    // playground shows the finished product, not a demo console.
+    // example shows the finished product, not a demo console.
     await chat.composer.evaluate((el) => el.setAttribute('dir', 'rtl'));
 
     const rtl = await gapsAroundSelector(chat);

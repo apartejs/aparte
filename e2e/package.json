@@ -3,7 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "description": "Browser smoke E2E (Playwright) \u2014 drives every playground against a deterministic, network-mocked model. The regression net for the framework boundary.",
+    "description": "Browser smoke E2E (Playwright) \u2014 drives every example against a deterministic, network-mocked model. The regression net for the framework boundary.",
     "scripts": {
         "test": "playwright test",
         "test:ui": "playwright test --ui",

@@ -1100,7 +1100,7 @@ export class AparteClient {
      *  3. and this method preferred `content`.
      *
      * The bubble hides its content element as soon as segments exist, so the UI was
-     * perfect and only the NEXT request showed it. No unit test, no playground and
+     * perfect and only the NEXT request showed it. No unit test, no example and
      * no browser test could see it.
      *
      * `content` stays as the fallback, and that is not vestigial: a non-streaming

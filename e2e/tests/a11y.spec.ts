@@ -82,7 +82,7 @@ test('an open model dropdown has no critical/serious axe violations', async ({ p
     const chat = new ChatPage(page);
     await page.goto('/');
     await chat.waitUngated();
-    if ((await chat.modelTrigger.count()) === 0) test.skip(true, 'no model selector in this playground');
+    if ((await chat.modelTrigger.count()) === 0) test.skip(true, 'no model selector in this example');
 
     // Expanded, so the scan sees the options and their aria wiring, not just the
     // collapsed provider groups.

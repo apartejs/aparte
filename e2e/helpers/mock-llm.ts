@@ -1,7 +1,7 @@
 /**
  * Deterministic network mock for the OpenAI-compatible model API.
  *
- * The playgrounds wire a REAL pipeline (`createOpenAICompatProvider` →
+ * The examples wire a REAL pipeline (`createOpenAICompatProvider` →
  * `AparteDirectTransport` → `AparteClient`). We do NOT touch that wiring — instead we
  * intercept the only two calls that leave the browser and answer them from
  * here, so the E2E is fast, offline, and identical on every machine:
@@ -13,7 +13,7 @@
  * assert the real request half ran — the auto-selected model id and the typed
  * message actually reached the transport, not just the canned response coming
  * back. The glob matches any host (LM Studio :1234, Ollama :11434, OpenRouter…),
- * so every provider the playgrounds register resolves to the same fixture.
+ * so every provider the examples register resolves to the same fixture.
  *
  * **Scenarios.** One canned happy-path reply only ever exercised plain markdown,
  * which is why no segment renderer, no error path and no mid-stream state had any
@@ -50,6 +50,17 @@ export const MOCK_THINKING_FULL = THINKING_CHUNKS.join('');
 export const MOCK_CODE_MARK = 'aparteCodeFixture';
 export const MOCK_TOOL_NAME = 'e2e_echo';
 
+/**
+ * The `ask-question` scenario calls the REAL tool `@aparte/plugin-ask-question`
+ * registers, not a fixture of our own — the point is to drive the actual
+ * `requestUserInput` path that `<aparte-elicitation>` answers.
+ */
+export const MOCK_ASK_TOOL_NAME = 'ask_question';
+/** The question text the scenario asks, so a spec asserts a constant. */
+export const MOCK_ASK_QUESTION = 'Which engine should the workbench use?';
+/** The two options offered, in order. */
+export const MOCK_ASK_OPTIONS = ['Chromium', 'WebKit'] as const;
+
 /** A model id carrying characters that break a naive attribute selector. */
 export const MOCK_HOSTILE_MODEL_ID = 'a"b]c-model';
 
@@ -68,6 +79,8 @@ const DEFAULT_MODELS: MockModel[] = [{ id: MOCK_MODEL_ID, name: 'Aparte E2E Mode
  * - `thinking` — `reasoning_content` deltas, then text: a thinking segment
  * - `code` — a fenced block: the code segment, its header and copy button
  * - `tool-call` — a streamed tool call the app's registered tool answers
+ * - `ask-question` — calls the real `ask_question` tool, which SUSPENDS the turn
+ *   on `requestUserInput` until a presenter shows a panel and it is answered
  * - `slow` — response held open (see `delayMs`): pending/streaming/stop/cancel
  * - `http-500` — vendor error status: the error segment + recovery
  * - `malformed-sse` — unparseable events: must degrade, not crash
@@ -78,6 +91,7 @@ export type LlmScenario =
     | 'thinking'
     | 'code'
     | 'tool-call'
+    | 'ask-question'
     | 'slow'
     | 'http-500'
     | 'malformed-sse'
@@ -162,6 +176,53 @@ function bodyForScenario(scenario: LlmScenario): string {
                 contentEvent('```\n'),
                 contentEvent('\nThat is all.'),
                 finishEvent(), usageEvent(), DONE,
+            ].join('');
+
+        /**
+         * A tool call the model cannot answer on its own: `ask_question` suspends
+         * the turn on `requestUserInput`, which only resolves once a presenter has
+         * shown a panel and the user has answered it.
+         *
+         * That is the whole path the instance-config bug broke — under every
+         * wrapper, `<aparte-elicitation>` registered on the global singleton while
+         * the tool handler resolved the chat's own config, found no presenter, and
+         * answered the model `cancel`. Nothing was ever shown, and nothing in the
+         * browser suite could see it, because no example wired the two together.
+         */
+        case 'ask-question':
+            return [
+                contentEvent('Let me check with you.'),
+                sse({
+                    choices: [{
+                        index: 0,
+                        delta: {
+                            tool_calls: [{
+                                index: 0,
+                                id: 'call_e2e_ask_1',
+                                function: { name: MOCK_ASK_TOOL_NAME, arguments: '' },
+                            }],
+                        },
+                    }],
+                }),
+                sse({
+                    choices: [{
+                        index: 0,
+                        delta: {
+                            tool_calls: [{
+                                index: 0,
+                                function: {
+                                    arguments: JSON.stringify({
+                                        question: MOCK_ASK_QUESTION,
+                                        options: MOCK_ASK_OPTIONS.map((title) => ({ title })),
+                                    }),
+                                },
+                            }],
+                        },
+                    }],
+                }),
+                finishEvent('tool_calls'),
+                usageEvent(),
+                DONE,
             ].join('');
 
         case 'tool-call':
@@ -333,6 +394,26 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
             // window where mid-stream UI (streaming flags, stop button, cancel)
             // can be observed. Playwright aborts the route if the test ends first.
             await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+
+        /**
+         * A tool-call turn is not the whole exchange. The client runs the handler,
+         * appends the result, and asks again — so a scenario that answers every
+         * request with the same tool call loops until `maxTurns`.
+         *
+         * `ask-question` therefore answers the FIRST request with the call and
+         * every later one with plain text. That is what a real model does, and it
+         * lets a spec follow the whole path: the panel appears, the user answers,
+         * the answer reaches the model, a reply lands. Asserting only that a panel
+         * appeared would have left the half that actually resolves the turn
+         * untested.
+         *
+         * `tool-call` keeps its old shape: no spec consumes it today, and changing
+         * a fixture nobody reads is churn.
+         */
+        if (scenario === 'ask-question' && chatRequests.length > 1) {
+            await fulfill(route, bodyForScenario('text'), 'text/event-stream');
+            return;
         }
 
         await fulfill(route, bodyForScenario(scenario), 'text/event-stream');

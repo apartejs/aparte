@@ -329,7 +329,7 @@ describe('parseOpenAICompatStream — the caller aborts', () => {
      * `error` event makes the agent loop throw, and the loop's error handler
      * replaces the message segments — erasing the answer the user was reading.
      * ai-sdk already ends quietly here; this provider must agree, because it is
-     * the one every playground and every doc snippet uses.
+     * the one every example and every doc snippet uses.
      */
     it('ends quietly instead of emitting an error event', async () => {
         const controller = new AbortController();

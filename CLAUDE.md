@@ -37,8 +37,8 @@
 apartejs/
 ├── apps/
 │   ├── docs/                 Starlight (Astro) — EN-first, docs + live showcase
-│   └── playgrounds/          react · vue · svelte · angular · vanilla (+ demo-vanilla)
-├── e2e/                      Playwright browser smoke tests — drives the playgrounds
+│   └── examples/             react · vue · svelte · angular · vanilla (+ vanilla-dist)
+├── e2e/                      Playwright browser smoke tests — drives the examples
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent + parity suites
@@ -123,7 +123,7 @@ markdown/highlight micro-packages, an eval harness, voice.
    told to the user. An undeclared affordance is not half-rendered either: no role, no tab
    stop, no pointer. The rule was discovered the hard way — attachments were made opt-in in
    0.4.0 for exactly this reason, and the sweep that followed found six more cases, none of
-   which our own playgrounds handled.
+   which our own examples handled.
 9. **A capability is never hostage to `AparteClient`, and never hostage to a bundle.**
    Two halves of the same rule, both learned from the first external consumer:
    (a) *reachability* — every capability ships as a standalone function
@@ -146,7 +146,7 @@ markdown/highlight micro-packages, an eval harness, voice.
 1. **No deps in `@aparte/core`.** The zero-dep promise. Need markdown/highlight/etc.?
    → a `providers/*` or `plugins/*` the consumer opts into.
 2. **No framework at the ROOT.** Angular/React/Vue/Svelte live **only** in their own
-   wrapper package (peer + dev) and their playground. Root = pnpm + NX + TS + vitest +
+   wrapper package (peer + dev) and their example. Root = pnpm + NX + TS + vitest +
    changesets, period. Never let a framework leak into the root.
 3. **No product logic here.** Routing, settings, persistence belong to the product.
    Core stays presentational + transport-agnostic.

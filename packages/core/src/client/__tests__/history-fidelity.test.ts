@@ -15,7 +15,7 @@ import type { AparteMessage } from '../../types/index.js';
  * `content` over `segments`.
  *
  * It is invisible in the UI — the bubble hides its content element as soon as
- * segments exist — so no playground, no browser test and no unit test could see
+ * segments exist — so no example, no browser test and no unit test could see
  * it. Only what leaves for the next turn shows it.
  */
 function harness(messages: AparteMessage[]) {

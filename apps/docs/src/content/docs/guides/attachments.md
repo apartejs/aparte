@@ -62,8 +62,8 @@ it is a plain picture: no role, no tab stop, not even a pointer cursor, because 
 clickable is the same promise in a quieter voice. The event itself is always public; the
 declaration only decides whether the trigger is rendered.
 
-The vanilla and React playgrounds do exactly this in ~15 lines with a `<dialog>` — see
-[`apps/playgrounds`](https://github.com/apartejs/aparte/tree/main/apps/playgrounds).
+The vanilla and React examples do exactly this in ~15 lines with a `<dialog>` — see
+[`apps/examples`](https://github.com/apartejs/aparte/tree/main/apps/examples).
 
 ## Programmatic API
 

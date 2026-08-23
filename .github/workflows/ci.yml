@@ -218,7 +218,7 @@ jobs:
       - name: Check Node import contract
         run: pnpm check:node-import
 
-  # Browser smoke E2E — drives every playground in a real browser against a
+  # Browser smoke E2E — drives every example in a real browser against a
   # network-mocked model (no key/LM Studio). Separate job: it boots six dev
   # servers + a browser, so it is heavier and isolated from the fast gate above.
   e2e:
@@ -253,7 +253,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # demo-vanilla consumes @aparte/core from its dist, so the packages must be
+      # vanilla-dist consumes @aparte/core from its dist, so the packages must be
       # built before the E2E dev servers boot.
       - name: Build
         run: pnpm build

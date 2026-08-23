@@ -112,7 +112,7 @@ export function Chat() {
 | Angular 19 | `@aparte/angular` | [Angular](./apps/docs/src/content/docs/frameworks/angular.md) |
 
 Runnable examples for every framework (plus vanilla) live in
-[`apps/playgrounds`](./apps/playgrounds).
+[`apps/examples`](./apps/examples).
 
 ## Packages
 
@@ -146,7 +146,7 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 ## Status
 
 Alpha, built in the open. The core, engine, four wrappers, providers, plugins and
-six runnable playgrounds are **on npm**, green across the unit suite and a browser
+six runnable examples are **on npm**, green across the unit suite and a browser
 E2E suite (Chromium + WebKit, accessibility gated with axe-core). The API may still
 move before the first stable release.
 

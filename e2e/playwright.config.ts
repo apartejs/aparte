@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 /**
- * Browser smoke E2E across every playground.
+ * Browser smoke E2E across every example.
  *
  * One Playwright config boots all six example apps and drives them through the
  * SAME set of framework-boundary assertions (mount without runtime errors, the
@@ -24,8 +24,8 @@ const PORTS = {
     svelte: 5303,
     angular: 5304,
     vanilla: 5305,
-    'demo-vanilla': 5306,
-    // The same app as `svelte`, on Svelte 5 — see apps/playgrounds/svelte5/README.
+    'vanilla-dist': 5306,
+    // The same app as `svelte`, on Svelte 5 — see apps/examples/svelte5/README.
     svelte5: 5307,
 } as const;
 
@@ -35,13 +35,13 @@ const url = (app: AppKey) => `http://localhost:${PORTS[app]}`;
 
 /** Where each dev server runs. Its own `node_modules/.bin` content is what we invoke. */
 const APP_DIRS: Record<AppKey, string> = {
-    react: 'apps/playgrounds/react',
-    vue: 'apps/playgrounds/vue',
-    svelte: 'apps/playgrounds/svelte',
-    svelte5: 'apps/playgrounds/svelte5',
-    vanilla: 'apps/playgrounds/vanilla',
-    'demo-vanilla': 'apps/playgrounds/demo-vanilla',
-    angular: 'apps/playgrounds/angular',
+    react: 'apps/examples/react',
+    vue: 'apps/examples/vue',
+    svelte: 'apps/examples/svelte',
+    svelte5: 'apps/examples/svelte5',
+    vanilla: 'apps/examples/vanilla',
+    'vanilla-dist': 'apps/examples/vanilla-dist',
+    angular: 'apps/examples/angular',
 };
 
 // Vite dev server for `app`, forcing the port.
@@ -55,9 +55,9 @@ const APP_DIRS: Record<AppKey, string> = {
  * Reuse an already-running dev server? OPT-IN, not the default.
  *
  * `reuseExistingServer: !process.env.CI` — the old value — meant that in local runs
- * ANY dev server already listening on a playground's port was silently adopted,
+ * ANY dev server already listening on a example's port was silently adopted,
  * whatever code it was serving. It cost real time in this repo: a leftover Vite on
- * 5307 (the Svelte 5 playground) served a build from before a packaging change, so
+ * 5307 (the Svelte 5 example) served a build from before a packaging change, so
  * the suite reported green on code that was not under test, and nothing said so.
  *
  * CI was never affected. That is exactly what makes it dangerous: the check is
@@ -72,7 +72,7 @@ const APP_DIRS: Record<AppKey, string> = {
 const reuseServers = !process.env.CI && process.env.E2E_REUSE_SERVERS === '1';
 if (reuseServers) {
     console.warn(
-        '\n[e2e] E2E_REUSE_SERVERS=1 — a dev server already listening on a playground'
+        '\n[e2e] E2E_REUSE_SERVERS=1 — a dev server already listening on a example'
         + '\n      port will be adopted AS IS. If it is serving an older build, this run'
         + '\n      passes on code that is not under test. Unset it before trusting a green.\n',
     );
@@ -98,7 +98,7 @@ const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
     svelte: { server: viteServer('svelte') },
     svelte5: { server: viteServer('svelte5') },
     vanilla: { server: viteServer('vanilla') },
-    'demo-vanilla': { server: viteServer('demo-vanilla') },
+    'vanilla-dist': { server: viteServer('vanilla-dist') },
     // Angular uses its own CLI dev server (no Vite).
     angular: {
         server: {
@@ -119,7 +119,7 @@ const selected = (Object.keys(APPS) as AppKey[]).filter((k) => !only || only.inc
 
 const SMOKE = /framework-smoke\.spec\.ts/;
 const REAL = /real-model\.spec\.ts/;
-const DEMO = /demo-vanilla\.spec\.ts/;
+const DEMO = /vanilla-dist\.spec\.ts/;
 const AXE = /a11y\.spec\.ts/;
 const LAYOUT = /bubble-layout\.spec\.ts/;
 const STREAMING = /streaming-lifecycle\.spec\.ts/;
@@ -137,6 +137,10 @@ const TOOLBAR = /composer-toolbar\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
 // The waiting-state contract (was `fixme` until the built-in indicator landed).
 const PENDING = /pending-state\.spec\.ts/;
+// Two chats, two configs, and a tool that must ask the user. Runs on the four
+// WRAPPERS and not on `vanilla`: the bug it covers is produced by `bind()` being
+// called from a post-mount hook, which raw core has no equivalent of.
+const INSTANCE_CONFIG = /instance-config\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -149,12 +153,12 @@ const PENDING = /pending-state\.spec\.ts/;
 // - `bubble-layout` stays vanilla-only: it injects a message straight into the
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
-// - demo-vanilla owns the human-in-the-loop suite and consumes core's built dist.
+// - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
-    k === 'demo-vanilla' ? [DEMO] :
+    k === 'vanilla-dist' ? [DEMO] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, ...DEEP] :
-    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, ...DEEP] :
+    k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep
     // behaviour suites (those are about core, which is major-agnostic).
@@ -163,7 +167,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    [SMOKE, REAL, AXE, TOOLBAR];
+    [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from
@@ -171,7 +175,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
 // elements" is exactly the assumption that keeps being wrong at the framework
 // boundary, which is where every browser-only bug in this project has lived.
 // Angular stays Chromium-only (its dev server is slow enough to dominate the run).
-const WEBKIT_APPS: AppKey[] = ['vanilla', 'demo-vanilla', 'react', 'vue', 'svelte'];
+const WEBKIT_APPS: AppKey[] = ['vanilla', 'vanilla-dist', 'react', 'vue', 'svelte'];
 
 // Local escape hatch: `E2E_NO_WEBKIT=1 pnpm e2e` drops the WebKit projects. Playwright's
 // WebKit build on Windows creates a real OS window even headless, so a full run pops
@@ -227,16 +231,16 @@ export default defineConfig({
     webServer: selected.map((k) => APPS[k].server),
 
     // One project per app; the five framework apps share the smoke suite,
-    // demo-vanilla runs its human-in-the-loop suite.
+    // vanilla-dist runs its human-in-the-loop suite.
     projects: [
         ...selected.map((k) => ({
             name: k,
             use: { ...devices['Desktop Chrome'], baseURL: url(k) },
             // Framework apps run the smoke suite + the opt-in real-model smoke (which
-            // self-skips unless E2E_REAL_MODEL=1); demo-vanilla runs its HITL suite.
+            // self-skips unless E2E_REAL_MODEL=1); vanilla-dist runs its HITL suite.
             testMatch: suiteFor(k),
         })),
-        // Same suites under WebKit, for the pure web-component playgrounds.
+        // Same suites under WebKit, for the pure web-component examples.
         ...(skipWebkit ? [] : selected.filter((k) => WEBKIT_APPS.includes(k))).map((k) => ({
             name: `${k}-webkit`,
             use: { ...devices['Desktop Safari'], baseURL: url(k) },

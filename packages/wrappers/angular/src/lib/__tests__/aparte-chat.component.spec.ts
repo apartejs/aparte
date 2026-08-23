@@ -39,7 +39,7 @@ class AttachmentsWithCustomComposerHost { }
 class BubbleTemplateHost { messages: AparteMessage[] = []; }
 
 // Host projecting the two slots this spec never covered: `empty-state`, which no
-// wrapper tested at all despite all four playgrounds filling it, and
+// wrapper tested at all despite all four examples filling it, and
 // `above-composer`, which the other three wrappers assert and Angular did not.
 @Component({
     standalone: true,

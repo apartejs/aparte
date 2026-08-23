@@ -20,7 +20,7 @@ browser-tested against. It is a thin bridge over standard custom elements — no
 Angular API, no `NgModule` — so 20 through 22 will very likely work, and an override or
 `--legacy-peer-deps` will let you try. We do not widen the range on "very likely":
 [`@aparte/svelte`](/frameworks/svelte/) claims two majors because each is compiled and
-driven in a real browser in CI, and Angular has no second playground yet. Tell us if you
+driven in a real browser in CI, and Angular has no second example yet. Tell us if you
 need a newer major — that is what would justify building one.
 :::
 

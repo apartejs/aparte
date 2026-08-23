@@ -16,7 +16,7 @@ bare specifier on its own — that is a build-tool convention, not a web one.
 Two ways out:
 
 - **Use a bundler.** Vite, Next, Astro, Parcel, esbuild — any of them resolve it.
-  This is what every snippet in these guides assumes, and what the playgrounds do.
+  This is what every snippet in these guides assumes, and what the examples do.
 - **Declare the mapping yourself** with an import map, and load the CSS by URL:
 
 ```html

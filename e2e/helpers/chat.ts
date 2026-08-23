@@ -5,7 +5,7 @@
  * [contenteditable="true"]`-style selectors, so a renamed class or a moved
  * element broke a handful of files in different ways. The locators live here
  * once; specs read as behaviour. The DOM is identical across React, Vue, Svelte,
- * Angular and vanilla, so one object drives all six playgrounds.
+ * Angular and vanilla, so one object drives all six examples.
  *
  * Scoping: pass a `root` selector to drive ONE chat on a page that mounts
  * several (the multi-chat suite) — without it, locators resolve page-wide and
@@ -118,7 +118,7 @@ export class ChatPage {
     }
 
     /**
-     * The composer's bottom row. One element in every playground -- vanilla writes it
+     * The composer's bottom row. One element in every example -- vanilla writes it
      * by hand, the four wrappers render it from their `toolbar` slot -- which is the
      * whole point of the element replacing three positional slots per wrapper.
      */
