@@ -128,8 +128,11 @@ export interface AparteToolRenderer {
      * Render the tool-call segment, as an HTML string or a ready DOM element.
      *
      * **The segment carries model-chosen data.** `segment.toolCall.input` is
-     * whatever the model decided to pass, and `segment.toolCall.result` is
-     * whatever the tool returned. Both are untrusted.
+     * whatever the model decided to pass, and `segment.result` is whatever the tool
+     * returned — on the SEGMENT, because `AparteToolCall` is `{ id, name, input }`
+     * and nothing else. This line used to say `segment.toolCall.result`, which does
+     * not compile; the first renderer written against it found out.
+     * Both values are untrusted.
      *
      * Return an **HTMLElement** and there is no innerHTML surface at all — set
      * `textContent`, attach listeners, insert framework nodes. That is the safe

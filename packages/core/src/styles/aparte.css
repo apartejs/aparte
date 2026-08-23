@@ -251,8 +251,11 @@
   --aparte-elic-textarea-min-height: 64px;
   --aparte-elic-skip-size: 0.8rem;
   --aparte-elic-step-size: 0.75rem;
-  --aparte-elic-step-radius: 999px;
-  --aparte-elic-step-padding: 3px 10px;
+  /* The library's own scale. A fully-round pill was the only 9999px thing in a panel
+     built entirely from 4/6/8px corners, and it read as a primary button rather than
+     as the quiet step indicator it is. */
+  --aparte-elic-step-radius: var(--aparte-radius-sm, 4px);
+  --aparte-elic-step-padding: 2px 8px;
 
   /* Code Blocks */
   --aparte-code-bg: var(--aparte-surface-1);
@@ -523,7 +526,20 @@ aparte-composer[data-panel-active] aparte-composer-add-attachment {
   width: 100%;
   box-sizing: border-box;
   max-height: var(--aparte-elic-max-height, 50vh);
+  /* The panel itself does not scroll: its BODY does, so the step chips stay at the
+     top and Next/Skip stay at the bottom instead of sliding under the fold. */
+  overflow: hidden;
+}
+
+.aparte-elic-body {
+  flex: 1 1 auto;
+  /* Without this a flex child refuses to shrink below its content and the scroll
+     never engages — the classic flexbox min-height trap. */
+  min-height: 0;
   overflow-y: auto;
+  /* A thin, themed scrollbar: the native one is a grey slab across a soft card. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-border, rgba(128, 128, 128, 0.3)) transparent;
 }
 
 .aparte-elic-message {
@@ -689,10 +705,13 @@ textarea.aparte-elic-text {
   border-color: var(--aparte-primary, #6366f1);
 }
 
+/* Quiet: the current step is marked by weight and a rule under it, not by a filled
+   block competing with the send button for attention. */
 .aparte-elic-step[aria-selected='true'] {
-  background: var(--aparte-primary, #6366f1);
+  background: var(--aparte-surface-2, rgba(128, 128, 128, 0.08));
   border-color: var(--aparte-primary, #6366f1);
-  color: var(--aparte-on-primary, #ffffff);
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-semibold, 600);
 }
 
 .aparte-elic-nav {

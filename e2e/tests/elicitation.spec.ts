@@ -88,6 +88,18 @@ test('answering restores the composer and resumes the turn', async ({ page }) =>
     await expect(chat.attachButton, 'and the picker comes back').toBeVisible();
     await expect(chat.lastReply).toContainText(MOCK_REPLY_MARK);
 
+    // THE CONVERSATION KEEPS THE RECORD.
+    //
+    // The panel lives in the composer, so once answered it is gone — and the tool
+    // renderer was `() => ''`, so the transcript held no trace that anything had been
+    // asked or answered. Scroll back and the exchange was simply missing. Reported
+    // from a real session, and the pieces were all there: `questionReceiptRenderer`
+    // with its own markup, styles and tests, exported and registered by nobody.
+    const receipt = page.locator('.seg-qreceipt');
+    await expect(receipt, 'the question and its answer stay in the thread').toHaveCount(1);
+    await expect(receipt).toContainText(MOCK_ASK_QUESTION);
+    await expect(receipt).toContainText(MOCK_ASK_OPTIONS[0]);
+
     // The answer reached the MODEL, not just the DOM.
     await expect(async () => {
         expect(mock.chatRequests.length, 'a second turn was sent').toBeGreaterThan(1);
@@ -124,6 +136,11 @@ test('two questions are asked one at a time, with a chip each', async ({ page })
     // Monotonic: no advancing past a question you have not answered.
     const next = panel.locator('.aparte-elic-next');
     await expect(next).toBeDisabled();
+    // And REACHABLE without scrolling. The questions scroll, the actions do not —
+    // with everything in one scroll box, Next sat below the fold and Skip was off
+    // screen entirely. jsdom cannot see this and clicking by selector does not care.
+    await expect(next, 'the way forward must not be something you scroll to find').toBeInViewport();
+    await expect(panel.locator('.aparte-elic-skip')).toBeInViewport();
     await panel.getByText(MOCK_ASK_TWO[0].options[0], { exact: false }).first().click();
     await expect(next).toBeEnabled();
     await next.click();

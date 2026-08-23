@@ -30,7 +30,10 @@ describe('askQuestionTool', () => {
         expect(item.required).toContain('question');
         expect(item.required).toContain('options');
         expect(item.properties.options.minItems).toBe(2);
-        expect(item.properties.options.maxItems).toBe(6);
+        // FOUR: six options plus the free-text escape is seven rows in a composer,
+        // and it looked like a form that had escaped into a chat. A model asked for
+        // four also writes better options than one asked for six — it has to choose.
+        expect(item.properties.options.maxItems).toBe(4);
     });
 });
 

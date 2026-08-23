@@ -34,6 +34,15 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
     getStyles() {
         return `
 /* ── Question Receipt Card ──────────────────────────────────────────────── */
+/* Several questions leave several cards, stacked. The tool renderer builds this
+   group; the card below is shared with a question-receipt segment an app emits
+   itself. (No backticks in here: this whole block is a template literal.) */
+.seg-qreceipt-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
 .seg-qreceipt {
     display: inline-flex;
     align-items: center;

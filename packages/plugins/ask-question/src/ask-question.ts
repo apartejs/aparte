@@ -66,7 +66,7 @@ WHEN NOT TO USE IT — respond directly instead:
 - Coding tasks where you can make a reasonable default choice
 - Any question you can answer without needing user input
 
-When you do use it, every question needs 2 to 6 options, each with a short "title" —
+When you do use it, every question needs 2 to 4 options, each with a short "title" —
 that is enforced by the schema, not a preference. Set "multiple: true" only when
 several options can apply simultaneously.`,
     inputSchema: {
@@ -101,8 +101,16 @@ several options can apply simultaneously.`,
                             // choice. The 2–6 range was stated in the system prompt,
                             // in prose. A small model reads the schema.
                             minItems: 2,
-                            maxItems: 6,
-                            description: 'The selectable options (2 to 6). A question with no options is not a choice — answer the user directly instead.',
+                            // FOUR, not six.
+                            //
+                            // Six options plus the free-text escape is seven rows in a
+                            // composer, and it looked like what it was: a form that had
+                            // escaped into a chat. Every serious implementation of this
+                            // pattern caps around four, and a model asked for four
+                            // writes better options than one asked for six — it has to
+                            // choose. Reversible if a real case needs more.
+                            maxItems: 4,
+                            description: 'The selectable options (2 to 4). A question with no options is not a choice — answer the user directly instead.',
                             items: {
                                 type: 'object',
                                 properties: {
@@ -135,8 +143,8 @@ several options can apply simultaneously.`,
             options: {
                 type: 'array',
                 minItems: 2,
-                maxItems: 6,
-                description: 'Options for the single-question form (2 to 6).',
+                maxItems: 4,
+                description: 'Options for the single-question form (2 to 4).',
                 items: {
                     type: 'object',
                     properties: {

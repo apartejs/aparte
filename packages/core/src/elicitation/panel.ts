@@ -47,9 +47,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
  * "Chromium, radio button, 1 of 2" and never the question it answered, because
  * nothing tied the `<p>` above the list to the list itself.
  */
-function fieldHeader(parent: HTMLElement, field: AparteElicitationField): string | undefined {
+function fieldHeader(parent: HTMLElement, field: AparteElicitationField, skipTitle?: string): string | undefined {
     let titleId: string | undefined;
-    if (field.title) {
+    // A single-question request carries the question in the panel's MESSAGE, and the
+    // adapter also sets it as the field's title so a stepped form can label its
+    // chips — so the same sentence was printed twice, one line apart. Whoever set
+    // both meant one question, not two.
+    if (field.title && field.title.trim() !== skipTitle?.trim()) {
         const title = el('p', 'aparte-elic-title', field.title);
         titleId = `elic-title-${uuid()}`;
         title.id = titleId;
@@ -77,7 +81,7 @@ function labelGroup(list: HTMLElement, opts: { multiple?: boolean; titleId?: str
 
 function buildEnumField(field: AparteElicitationEnumField, onChange: () => void, fallbackLabel?: string): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-enum');
-    const titleId = fieldHeader(wrap, field);
+    const titleId = fieldHeader(wrap, field, fallbackLabel);
     const list = el('div', 'aparte-elic-options');
     labelGroup(list, { multiple: field.multiple, titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
@@ -172,7 +176,7 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
 
 function buildBooleanField(field: AparteElicitationBooleanField, onChange: () => void, fallbackLabel?: string): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-boolean');
-    const titleId = fieldHeader(wrap, field);
+    const titleId = fieldHeader(wrap, field, fallbackLabel);
     const list = el('div', 'aparte-elic-options');
     labelGroup(list, { titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
@@ -207,7 +211,7 @@ function buildBooleanField(field: AparteElicitationBooleanField, onChange: () =>
 
 function buildStringField(field: AparteElicitationStringField, onChange: () => void, fallbackLabel?: string): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-string');
-    fieldHeader(wrap, field);
+    fieldHeader(wrap, field, fallbackLabel);
     const input = field.multiline
         ? el('textarea', 'aparte-elic-text')
         : el('input', 'aparte-elic-text');
@@ -272,6 +276,21 @@ export function buildElicitationPanel(
     const panel = el('div', 'aparte-elic-panel');
     if (message) panel.appendChild(el('p', 'aparte-elic-message', message));
 
+    /*
+     * The QUESTIONS scroll; the actions do not.
+     *
+     * The panel is capped at 50vh, and one question with six options plus the
+     * free-text escape already exceeded that — so with everything in one scroll box,
+     * "Next" sat below the fold and "Skip" was off screen entirely. The primary way
+     * forward is not something a user should have to scroll to find.
+     *
+     * Only visible with real layout: jsdom reports every height as 0, and the browser
+     * test that walks this flow clicked Next by selector without ever asking whether
+     * it was in view. Found by looking at a screenshot of the running app.
+     */
+    const body = el('div', 'aparte-elic-body');
+    panel.appendChild(body);
+
     if (schema.type === 'object') {
         const entries = Object.entries(schema.properties);
         const requiredKeys = new Set(schema.required ?? entries.map(([k]) => k));
@@ -289,7 +308,7 @@ export function buildElicitationPanel(
             if (!field.title && !built.el.querySelector('.aparte-elic-title')) {
                 built.el.insertBefore(el('p', 'aparte-elic-title', key), built.el.firstChild);
             }
-            panel.appendChild(built.el);
+            body.appendChild(built.el);
             return { key, field: built, required: requiredKeys.has(key), header: field.header };
         });
 
@@ -335,7 +354,8 @@ export function buildElicitationPanel(
             steps.appendChild(chip);
             return chip;
         });
-        panel.insertBefore(steps, fields[0]!.field.el);
+        // Above the scroll region rather than inside it: the chips are navigation.
+        panel.insertBefore(steps, body);
 
         const nav = el('div', 'aparte-elic-nav');
         const nextBtn = el('button', 'aparte-elic-next');
@@ -379,7 +399,7 @@ export function buildElicitationPanel(
     // The single-field shape: the panel's message IS the question, so it names the
     // field. In the object shape each field carries its own title instead.
     const field = buildField(schema, onChange, message);
-    panel.appendChild(field.el);
+    body.appendChild(field.el);
     return {
         el: panel,
         getContent: () => field.getValue(),
