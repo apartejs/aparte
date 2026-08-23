@@ -138,9 +138,6 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
-      '@aparte/plugin-ask-question':
-        specifier: workspace:*
-        version: link:../../../packages/plugins/ask-question
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
@@ -218,9 +215,6 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
-      '@aparte/plugin-ask-question':
-        specifier: workspace:*
-        version: link:../../../packages/plugins/ask-question
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
@@ -258,9 +252,6 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
-      '@aparte/plugin-ask-question':
-        specifier: workspace:*
-        version: link:../../../packages/plugins/ask-question
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
@@ -336,9 +327,6 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
-      '@aparte/plugin-ask-question':
-        specifier: workspace:*
-        version: link:../../../packages/plugins/ask-question
       '@aparte/plugin-marked':
         specifier: workspace:*
         version: link:../../../packages/plugins/marked
