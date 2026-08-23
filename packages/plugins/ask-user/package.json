@@ -1,7 +1,7 @@
 {
     "name": "@aparte/plugin-ask-user",
-    "version": "0.7.1",
-    "description": "The ask_user tool for apart\u00e9 \u2014 the AI asks the user a structured choice, presented via the core elicitation panel.",
+    "version": "0.8.0",
+    "description": "The ask_user tool for aparté — the AI asks the user a structured choice, presented via the core elicitation panel.",
     "type": "module",
     "sideEffects": true,
     "main": "./dist/index.js",

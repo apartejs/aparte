@@ -1,7 +1,7 @@
 {
     "name": "@aparte/provider-ai-sdk",
-    "version": "0.7.1",
-    "description": "Bridge any Vercel AI SDK model into apart\u00e9 \u2014 bring your own @ai-sdk/* package (Anthropic, Google, OpenAI, 25+ vendors) and apart\u00e9 renders it.",
+    "version": "0.8.0",
+    "description": "Bridge any Vercel AI SDK model into aparté — bring your own @ai-sdk/* package (Anthropic, Google, OpenAI, 25+ vendors) and aparté renders it.",
     "type": "module",
     "sideEffects": false,
     "main": "./dist/index.js",

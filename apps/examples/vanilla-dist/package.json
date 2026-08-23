@@ -1,9 +1,9 @@
 {
     "name": "@aparte-workspace/example-vanilla-dist",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "private": true,
     "type": "module",
-    "description": "Proof @aparte/core works standalone from its published dist \u2014 plus a human-in-the-loop tool-approval demo.",
+    "description": "Proof @aparte/core works standalone from its published dist — plus a human-in-the-loop tool-approval demo.",
     "scripts": {
         "dev": "vite",
         "build": "vite build",

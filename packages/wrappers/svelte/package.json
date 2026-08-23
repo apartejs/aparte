@@ -1,7 +1,7 @@
 {
     "name": "@aparte/svelte",
-    "version": "0.7.1",
-    "description": "Svelte wrapper for apart\u00e9 \u2014 an ergonomic <AparteChat> component plus stores over the framework-agnostic web components. Works on Svelte 4 and 5.",
+    "version": "0.8.0",
+    "description": "Svelte wrapper for aparté — an ergonomic <AparteChat> component plus stores over the framework-agnostic web components. Works on Svelte 4 and 5.",
     "type": "module",
     "sideEffects": false,
     "main": "./dist/index.js",
