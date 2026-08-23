@@ -4,6 +4,15 @@
     "private": true,
     "type": "module",
     "description": "Minimal Angular example — @aparte/angular + a real (BYOK / local) model.",
+    "nx": {
+        "targets": {
+            "typecheck": {
+                "dependsOn": [
+                    "^build"
+                ]
+            }
+        }
+    },
     "scripts": {
         "dev": "ng serve",
         "build": "ng build",

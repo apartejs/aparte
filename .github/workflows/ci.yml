@@ -239,6 +239,17 @@ jobs:
     # silently — but bump both together.
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
+    # Firefox refuses to launch when $HOME is not owned by the current user, which is
+    # the case inside this container. Playwright says so itself, in the failure:
+    # "Workaround: Set the HOME=/root environment variable". Chromium and WebKit do not
+    # care, which is why the Firefox projects were the only ones failing — in 2ms, before
+    # a single page loaded.
+    #
+    # Firefox joined the matrix locally and this job never ran it: the repo had no pull
+    # request until 0.8.0, so its first CI run was also the first run of the Firefox
+    # projects.
+    env:
+      HOME: /root
     permissions:
       contents: read
     steps:
