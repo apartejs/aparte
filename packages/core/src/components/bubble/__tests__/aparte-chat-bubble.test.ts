@@ -287,6 +287,42 @@ describe('AparteChatBubble', () => {
     // ─── aparte-branch-navigate event ───────────────────────────────────────
 
     describe('aparte-branch-navigate event', () => {
+        /**
+         * The click survives a RE-RENDER, which is the whole reason this is delegated.
+         *
+         * The arrows used to get a fresh listener each, attached by `_render()` to the
+         * buttons `_render()` had just created. A click landing while a re-render swapped
+         * those nodes hit an element about to be discarded and did nothing at all — not
+         * late, nothing. Invisible on a fast machine; reproducible on WebKit-Linux in CI,
+         * where the picker stayed on "2 / 2" while a 20-second assertion watched it.
+         *
+         * Re-rendering between the setup and the click is what the old binding could not
+         * survive: the buttons under the cursor are not the ones the listeners knew.
+         */
+        it('still fires after the bubble re-renders', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'bn-rerender' });
+            bubble.setSiblings(3, 1);
+            let detail: any = null;
+            document.body.addEventListener('aparte-branch-navigate', (e: Event) => {
+                detail = (e as CustomEvent).detail;
+            });
+
+            // What a re-render does, from a listener's point of view: the node under
+            // the cursor is a DIFFERENT node, carrying no listener of its own. Cloning
+            // reproduces exactly that, without depending on when `_render()` chooses to
+            // rebuild — the first version of this test asserted a replacement that
+            // `_render()` did not actually perform, and the precondition caught it.
+            const before = bubble.querySelector('.aparte-branch-prev')!;
+            before.replaceWith(before.cloneNode(true));
+            const after = bubble.querySelector('.aparte-branch-prev') as HTMLButtonElement;
+            expect(after, 'a different node, with no listener of its own').not.toBe(before);
+
+            after.click();
+
+            expect(detail?.direction, 'a delegated listener does not care').toBe('prev');
+            expect(detail?.messageId).toBe('bn-rerender');
+        });
+
         it('prev button fires aparte-branch-navigate with direction prev', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'bn1' });
             bubble.setSiblings(3, 1);

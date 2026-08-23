@@ -195,21 +195,29 @@ jobs:
             pnpm exec changeset status --since="origin/${{ github.base_ref }}"
           fi
 
-  # Portability guard: the packages declare engines.node ">=18" and the repo is
-  # developed on Windows, yet the authoritative gate above runs a single target.
-  # This job re-runs build + test across the supported Node range and on Windows
-  # so an incompatibility can't ship undetected. (Node 24 + the full lint/
-  # typecheck/packaging gate stay on the `ci` job to avoid duplicating them.)
-  test-matrix:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        node: ['18', '20', '22']
-        include:
-          - os: windows-latest
-            node: '22'
-    runs-on: ${{ matrix.os }}
+  # Portability guard for the ONE claim nothing else checks: engines.node ">=18".
+  #
+  # This was four jobs — Node 18, 20 and 22 on ubuntu plus Node 22 on Windows — and
+  # across the three CI runs of the release that first exercised them, all four
+  # passed every time while the two jobs beside them found three real breakages.
+  # Thirty minutes of compute per push, finding nothing, because three of the four
+  # were already covered:
+  #
+  #   - Node 24 on Linux: the `ci` job above runs the whole gate on it.
+  #   - Windows: the maintainer develops on Windows, on Node 24, continuously. A
+  #     Windows-only break reaches him before it reaches a runner.
+  #   - Node 20 and 22: between a floor that is tested and a ceiling that is tested.
+  #     Not nothing, but the thinnest band imaginable.
+  #
+  # What is left is the floor, and it is not theoretical: `check:node-import` is
+  # the only thing that resolves the published `node` export condition in a real
+  # Node — publint/attw read the map statically and the unit suite runs under jsdom —
+  # and on 18, `Request`, `ReadableStream` and `structuredClone` are genuinely not
+  # the same surface. Test the promise, not the interpolation.
+  #
+  # Add a version back the day a break is found in that band, with the break named.
+  node-floor:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
@@ -218,10 +226,12 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
-      - name: Use Node.js ${{ matrix.node }}
+      # The FLOOR of engines.node. Bump both together, or the promise drifts from
+      # what is tested.
+      - name: Use Node.js 18
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: '18'
           cache: 'pnpm'
 
       - name: Install dependencies

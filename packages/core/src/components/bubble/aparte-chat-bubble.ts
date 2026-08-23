@@ -184,10 +184,13 @@ export class AparteChatBubble extends HTMLElement {
     // attribute is absent (set later → attributeChangedCallback handles it).
     this._updateTimestamp(this.getAttribute('timestamp'));
     window.addEventListener('aparte-config-change', this._onConfigChange);
+    // Delegated, so a re-render cannot lose a click on the branch arrows.
+    this.addEventListener('click', this._onBranchPickerClick);
   }
 
   disconnectedCallback(): void {
     window.removeEventListener('aparte-config-change', this._onConfigChange);
+    this.removeEventListener('click', this._onBranchPickerClick);
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -516,7 +519,6 @@ export class AparteChatBubble extends HTMLElement {
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
     this._footerEl = this.querySelector('.aparte-footer');
 
-    this._setupBranchPickerListeners();
     this._updateActionBar();
     this._renderAvatar();
     // Re-apply the streaming state onto the freshly-built `.aparte-message`.
@@ -798,25 +800,40 @@ export class AparteChatBubble extends HTMLElement {
   // Branch Picker
   // ─────────────────────────────────────────────────────────────────────────
 
-  private _setupBranchPickerListeners(): void {
-    const prevBtn = this._branchPickerEl?.querySelector('.aparte-branch-prev');
-    const nextBtn = this._branchPickerEl?.querySelector('.aparte-branch-next');
-
-    const dispatchNav = (direction: 'prev' | 'next') => {
-      const messageId = this.getAttribute('message-id');
-      if (!messageId) return;
-      const detail: AparteBranchNavigateEventDetail = { messageId, direction };
-      // Tree-based navigation: let the viewport handle the branch switch
-      this.dispatchEvent(new CustomEvent<AparteBranchNavigateEventDetail>('aparte-branch-navigate', {
-        bubbles: true,
-        composed: true,
-        detail,
-      }));
-    };
-
-    prevBtn?.addEventListener('click', () => dispatchNav('prev'));
-    nextBtn?.addEventListener('click', () => dispatchNav('next'));
-  }
+  /**
+   * The branch arrows are handled by DELEGATION, on this element, bound once.
+   *
+   * They used to get a fresh listener each, attached by `_render()` to the buttons
+   * `_render()` had just created. So a click that landed while a re-render was
+   * swapping those nodes hit an element about to be discarded, and did nothing at
+   * all — not late, nothing. Invisible on a fast machine; reproducible on
+   * WebKit-Linux in CI, where `‹` left the picker on "2 / 2" and a 20-second
+   * assertion watched it stay there.
+   *
+   * Delegation makes `_render()` irrelevant to it: the listener lives on the host,
+   * which is never replaced, and `closest()` finds whichever button exists at the
+   * moment of the click. It is also less work — one listener per bubble instead of
+   * two per bubble per render.
+   *
+   * Bound in `connectedCallback` and removed in `disconnectedCallback` as a stable
+   * field, because an inline arrow re-added on every re-connect is how this repo has
+   * stacked listeners twice before (the viewport, and `aparte-select`).
+   */
+  private _onBranchPickerClick = (event: Event): void => {
+    const target = event.target as HTMLElement | null;
+    const button = target?.closest?.('.aparte-branch-prev, .aparte-branch-next');
+    if (!button || !this.contains(button)) return;
+    const direction = button.classList.contains('aparte-branch-prev') ? 'prev' : 'next';
+    const messageId = this.getAttribute('message-id');
+    if (!messageId) return;
+    const detail: AparteBranchNavigateEventDetail = { messageId, direction };
+    // Tree-based navigation: let the viewport handle the branch switch
+    this.dispatchEvent(new CustomEvent<AparteBranchNavigateEventDetail>('aparte-branch-navigate', {
+      bubbles: true,
+      composed: true,
+      detail,
+    }));
+  };
 
   private _updateBranchPicker(): void {
     if (!this._branchPickerEl) return;
