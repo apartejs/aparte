@@ -16,6 +16,7 @@ import { AparteSkeletonProvider, AparteSkeletonType } from './skeleton-provider.
 import type { AparteStatusRenderer } from './status-renderer.js';
 import type { AparteErrorRenderer } from './error-renderer.js';
 import type { AparteAttachmentRenderer } from './attachment-renderer.js';
+import type { AparteElicitationFieldRenderer } from './elicitation-field-renderer.js';
 import type { AparteSiblingNavRenderer } from './sibling-nav-renderer.js';
 import type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
 import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../types/model-provider.js';
@@ -160,6 +161,7 @@ export class AparteConfig {
     private _requireModelSelection = false;
     /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
     private _elicitationAllowOther = true;
+    private _elicitationFieldRenderer?: AparteElicitationFieldRenderer | undefined;
     // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
     private _transport: AparteTransport = new AparteDirectTransport();
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
@@ -840,6 +842,23 @@ export class AparteConfig {
         return { allowOther: this._elicitationAllowOther };
     }
 
+    /**
+     * Render one field of the question panel yourself.
+     *
+     * See {@link AparteElicitationFieldRenderer}. Return `null` for a field to let
+     * the built-in render it, which is what makes overriding a single kind practical.
+     * Pass `null` here to remove the renderer.
+     */
+    setElicitationFieldRenderer(fn: AparteElicitationFieldRenderer | null): void {
+        this._elicitationFieldRenderer = fn ?? undefined;
+        this._notify();
+    }
+
+    /** The custom field renderer, if one is registered. */
+    getElicitationFieldRenderer(): AparteElicitationFieldRenderer | undefined {
+        return this._elicitationFieldRenderer;
+    }
+
     setRequireModelSelection(required: boolean): void {
         if (this._requireModelSelection === required) return;
         this._requireModelSelection = required;
@@ -1102,6 +1121,7 @@ export class AparteConfig {
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._elicitationAllowOther = true;
+        this._elicitationFieldRenderer = undefined;
         this._modelPreferenceProvider = undefined;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
         this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };

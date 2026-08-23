@@ -12,6 +12,11 @@ export type { AparteAvatarProvider } from './avatar-provider.js';
 export type { AparteStatusRenderer } from './status-renderer.js';
 export type { AparteErrorRenderer } from './error-renderer.js';
 export type { AparteAttachmentRenderer } from './attachment-renderer.js';
+export type {
+    AparteElicitationFieldRenderer,
+    AparteElicitationFieldContext,
+    AparteElicitationFieldControl,
+} from './elicitation-field-renderer.js';
 export type { AparteSiblingNavRenderer } from './sibling-nav-renderer.js';
 export type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
 export type { AparteLocale } from './locale.js';

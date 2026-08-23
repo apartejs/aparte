@@ -243,7 +243,18 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
  * where the message is the question and the field itself carries no title — without
  * it, that field's group or input has no accessible name at all.
  */
-function buildField(field: AparteElicitationField, onChange: () => void, fallbackLabel?: string): BuiltField {
+function buildField(field: AparteElicitationField, onChange: () => void, fallbackLabel?: string, key?: string): BuiltField {
+    // A consumer's field wins, and `null` from it means "not this one" — which is
+    // what lets an app replace only the choices and keep the built-in text input.
+    const custom = contextConfig().getElicitationFieldRenderer()?.(field, { key, notifyChange: onChange });
+    if (custom) {
+        return {
+            el: custom.el,
+            getValue: () => custom.getValue(),
+            isComplete: () => custom.isComplete(),
+            focus: () => custom.focus?.(),
+        };
+    }
     switch (field.type) {
         case 'enum': return buildEnumField(field, onChange, fallbackLabel);
         case 'boolean': return buildBooleanField(field, onChange, fallbackLabel);
@@ -265,7 +276,7 @@ export function buildElicitationPanel(
         const entries = Object.entries(schema.properties);
         const requiredKeys = new Set(schema.required ?? entries.map(([k]) => k));
         const fields = entries.map(([key, field]) => {
-            const built = buildField(field, onChange);
+            const built = buildField(field, onChange, undefined, key);
             // Ensure a title so each field in a form is labelled.
             if (!field.title && !built.el.querySelector('.aparte-elic-title')) {
                 built.el.insertBefore(el('p', 'aparte-elic-title', key), built.el.firstChild);

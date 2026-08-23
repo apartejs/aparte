@@ -183,8 +183,92 @@ aparteGlobalConfig.setElicitationPresenter(
 ```
 
 `buildElicitationPanel` is also exported if you want the built-in panel's DOM without
-its placement — it returns the element plus a promise for the answer, which is what the
-default presenter itself is built from.
+its placement. It returns `{ el, getContent, isComplete, focus }` — the element plus
+the three things a presenter needs from it. There is **no promise**: settling is the
+presenter's job, which is why the built-in one wires `getContent()` to the composer's
+send button and `isComplete()` to whether that button is enabled.
+
+## Replacing one field, not the whole panel
+
+Writing a presenter means owning placement, accept/decline/cancel, the send-button
+gating, focus and the teardown when a turn is stopped. Most of the time what you want
+is a different-looking *choice*, so there is a hook for exactly that:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setElicitationFieldRenderer((field, ctx) => {
+  if (field.type !== 'enum') return null;      // the built-in renders the rest
+
+  const el = document.createElement('div');
+  el.className = 'my-chips';
+  let picked = '';
+
+  for (const option of field.options) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.textContent = option.label ?? option.value;
+    chip.addEventListener('click', () => {
+      picked = option.value;
+      ctx.notifyChange();                      // re-gates the send button
+    });
+    el.appendChild(chip);
+  }
+
+  return { el, getValue: () => picked, isComplete: () => picked !== '' };
+});
+```
+
+The types, if you are pulling the callback out into its own function:
+
+```ts
+import type {
+  AparteElicitationFieldRenderer,
+  AparteElicitationFieldContext,
+  AparteElicitationFieldControl,
+} from '@aparte/core';
+
+const renderChoice: AparteElicitationFieldRenderer = (
+  field,
+  ctx: AparteElicitationFieldContext,
+): AparteElicitationFieldControl | null => {
+  if (field.type !== 'enum') return null;
+  const el = document.createElement('div');
+  let picked = '';
+  el.addEventListener('click', () => {
+    picked = field.options[0]?.value ?? '';
+    ctx.notifyChange();
+  });
+  return { el, getValue: () => picked, isComplete: () => picked !== '' };
+};
+```
+
+Returning `null` for a field lets the built-in render it, which is what makes
+overriding a single kind practical. `ctx.notifyChange()` is not optional: the panel
+re-reads `isComplete()` on every change, so a field that never notifies is a field
+whose answer can never be submitted. `ctx.key` is the form key in a multi-question
+schema, so one renderer can vary per question.
+
+This hook returns a control rather than `string | HTMLElement` like the render hooks
+elsewhere in this library, and deliberately: a field has to hand back a **value**. A
+hook that must also read the user's input is a control, not a decoration — the
+alternative is the panel scraping your markup for inputs by convention, a contract
+that breaks the first time someone styles it differently.
+
+## Who offers "Other…"
+
+A choice offers a free-text escape by default. That is the **host's** decision, not the
+model's:
+
+```ts
+aparteGlobalConfig.setElicitationOptions({ allowOther: false });
+```
+
+`@aparte/plugin-ask-question` used to expose `allow_other` in the schema it hands the
+model, which meant the model decided your UX — and a small model fills a field it does
+not understand: one sent two questions with `allow_other: true` and no options at all,
+so the panel rendered a radio list whose only entry was "Other…". A field of a schema
+you build yourself can still set `allowOther`, and it wins: that is your app talking.
 
 ## Elicitation or the ask-question plugin?
 

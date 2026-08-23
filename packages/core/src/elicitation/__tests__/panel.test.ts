@@ -65,6 +65,102 @@ describe('buildElicitationPanel', () => {
         });
     });
 
+    /**
+     * A consumer can replace ONE field and keep the rest.
+     *
+     * Until this hook existed the surface was all-or-nothing: the built-in panel, or
+     * `setElicitationPresenter` and you reimplemented placement, accept/decline/
+     * cancel, send-button gating, focus and teardown. Every other customisation point
+     * in this library is a hook; this one was missing.
+     */
+    describe('a custom field renderer', () => {
+        function chips(): AparteConfig {
+            const cfg = new AparteConfig();
+            cfg.setElicitationFieldRenderer((field, ctx) => {
+                if (field.type !== 'enum') return null;   // the built-in keeps the rest
+                const el = document.createElement('div');
+                el.className = 'my-chips';
+                let picked = '';
+                for (const opt of field.options) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = opt.label ?? opt.value;
+                    b.addEventListener('click', () => { picked = opt.value; ctx.notifyChange(); });
+                    el.appendChild(b);
+                }
+                return { el, getValue: () => picked, isComplete: () => picked !== '' };
+            });
+            return cfg;
+        }
+
+        it('renders instead of the built-in, and its value is the answer', () => {
+            const cfg = chips();
+            let changes = 0;
+            const p = runWithConfig(cfg, () => buildElicitationPanel(
+                '?',
+                { type: 'enum', options: [{ value: 'a' }, { value: 'b' }] },
+                () => { changes += 1; },
+            ));
+
+            expect(p.el.querySelector('.my-chips'), 'the custom field is placed').not.toBeNull();
+            expect(p.el.querySelector('.aparte-elic-options'), 'and the built-in is not').toBeNull();
+            expect(p.isComplete()).toBe(false);
+
+            p.el.querySelectorAll('button')[1]!.click();
+
+            expect(changes, 'notifyChange reaches the panel, which re-gates the send button').toBe(1);
+            expect(p.isComplete()).toBe(true);
+            expect(p.getContent()).toBe('b');
+        });
+
+        it('returning null falls back to the built-in for that kind', () => {
+            const p = runWithConfig(chips(), () => buildElicitationPanel('?', { type: 'string' }, noop));
+            expect(p.el.querySelector('.my-chips')).toBeNull();
+            expect(p.el.querySelector('.aparte-elic-text'), 'the built-in text field').not.toBeNull();
+        });
+
+        it('is told which question it is answering in a form', () => {
+            const seen: Array<string | undefined> = [];
+            const cfg = new AparteConfig();
+            cfg.setElicitationFieldRenderer((field, ctx) => {
+                seen.push(ctx.key);
+                void field;
+                const el = document.createElement('div');
+                return { el, getValue: () => '', isComplete: () => true };
+            });
+
+            runWithConfig(cfg, () => buildElicitationPanel('', {
+                type: 'object',
+                properties: { q1: { type: 'string' }, q2: { type: 'string' } },
+            }, noop));
+
+            expect(seen, 'the form key, so a renderer can vary per question').toEqual(['q1', 'q2']);
+        });
+    });
+
+    /**
+     * The schema vocabulary is CLOSED, and small on purpose: a custom presenter or
+     * field renderer can `switch` over it exhaustively. Nothing said so, and nothing
+     * stopped it growing quietly — this test is what makes adding a kind a decision
+     * with a paper trail rather than a commit.
+     */
+    describe('the schema vocabulary', () => {
+        it('is exactly three field kinds, plus the object form', () => {
+            const kinds: AparteElicitationSchema[] = [
+                { type: 'enum', options: [{ value: 'a' }] },
+                { type: 'boolean' },
+                { type: 'string' },
+            ];
+            for (const schema of kinds) {
+                expect(buildElicitationPanel('?', schema, noop).el.querySelector('.aparte-elic-field')).not.toBeNull();
+            }
+            expect(kinds, 'adding a kind means updating the guides that promise exhaustiveness').toHaveLength(3);
+
+            const form = buildElicitationPanel('', { type: 'object', properties: { a: { type: 'string' } } }, noop);
+            expect(form.el.querySelector('.aparte-elic-field')).not.toBeNull();
+        });
+    });
+
     describe('accessible grouping', () => {
         it('names a single question group from the panel message', () => {
             const p = buildElicitationPanel('Which engine?', { type: 'enum', options: [{ value: 'a' }] }, noop);
