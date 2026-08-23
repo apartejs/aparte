@@ -4,18 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>aparté · vanilla example</title>
+    <!-- A real <link>, not a JS import.
+         Importing CSS from main.ts means the dev server injects it AFTER the module
+         graph loads, so this document — which ships its whole shell as static HTML —
+         painted unstyled for a frame or two, visibly. A stylesheet in the head is
+         render-blocking, which is exactly what is wanted here. `style.css` pulls
+         core's theme in with an `@import`, so there is still one entry point. -->
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div class="app">
       <header class="topbar">
         <div class="brand">aparté <span>· vanilla</span></div>
-        <input
-          id="openrouter-key"
-          type="password"
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="OpenRouter API key — optional, stays in your browser"
-        />
+        <a class="viewswitch" href="?view=settings">Settings</a>
       </header>
 
       <aparte-chat center-empty>
@@ -30,6 +31,12 @@
               <button class="chip" data-prompt="Give me a markdown table comparing 3 JS frameworks.">Markdown table</button>
             </div>
           </div>
+
+          <!-- The elicitation panel: where a tool that has to ASK the user appears.
+               It must be INSIDE <aparte-chat> and above the composer — the tool
+               suspends the turn until this answers, so it has to be where the user
+               is already looking. -->
+          <aparte-elicitation></aparte-elicitation>
 
           <div class="aparte-composer-shell">
             <aparte-composer-attachments></aparte-composer-attachments>

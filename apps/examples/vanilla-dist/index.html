@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>aparté · vanilla-dist</title>
+    <!-- Render-blocking, like the vanilla example: this document's shell is static
+         HTML, so a stylesheet injected after the module graph loads paints unstyled
+         first. `style.css` @imports core's theme. -->
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div class="app">

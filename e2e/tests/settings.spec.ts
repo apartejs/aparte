@@ -37,6 +37,23 @@ test('the settings view offers the three fields, with a local endpoint prefilled
     await expect(endpoint).toHaveValue(/^https?:\/\/.+/);
 });
 
+test('the chat page offers a way to REACH the settings', async ({ page }) => {
+    // The view existed and nothing linked to it: you got there by typing
+    // `?view=settings` into the address bar. Reported by the first person to look
+    // for it — "je ne vois pas de settings, prompt système non modifiable" — which
+    // is this project's own rule about a capability cited in passing, applied to a
+    // whole view. The topbar link took the place of a key field for a cloud
+    // provider the reader may not have.
+    await installLlmMock(page);
+    await page.goto('/');
+
+    const link = page.getByRole('link', { name: /settings/i });
+    await expect(link, 'the settings view must be reachable by clicking').toBeVisible();
+
+    await link.click();
+    await expect(page.getByLabel('System prompt')).toBeVisible();
+});
+
 test('the settings form is not on the chat page', async ({ page }) => {
     await installLlmMock(page);
     await page.goto('/');

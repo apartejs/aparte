@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { AparteChat, AparteUi, useAparteChat } from '@aparte/react';
-import { KEY_STORAGE, sendPrompt } from './aparte';
+import { sendPrompt } from './aparte';
 
 const CHIPS = [
     { label: 'What is aparté?', prompt: 'Explain what aparté is in one sentence.' },
@@ -10,13 +9,6 @@ const CHIPS = [
 
 export default function App() {
     const chat = useAparteChat();
-    const [apiKey, setApiKey] = useState(() => localStorage.getItem(KEY_STORAGE) ?? '');
-
-    const onKeyChange = (value: string) => {
-        setApiKey(value);
-        if (value.trim()) localStorage.setItem(KEY_STORAGE, value.trim());
-        else localStorage.removeItem(KEY_STORAGE);
-    };
 
     return (
         <div className="app">
@@ -24,15 +16,7 @@ export default function App() {
                 <div className="brand">
                     aparté <span>· react</span>
                 </div>
-                <input
-                    className="key"
-                    type="password"
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="OpenRouter API key — optional, stays in your browser"
-                    value={apiKey}
-                    onChange={(e) => onKeyChange(e.target.value)}
-                />
+                <a className="viewswitch" href="?view=settings">Settings</a>
             </header>
 
             <AparteChat

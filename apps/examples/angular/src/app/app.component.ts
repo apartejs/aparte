@@ -1,6 +1,6 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { AparteChatComponent } from '@aparte/angular';
-import { KEY_STORAGE, sendPrompt } from './aparte';
+import { sendPrompt } from './aparte';
 
 
 const CHIPS = [
@@ -18,15 +18,6 @@ const CHIPS = [
         <div class="app">
             <header class="topbar">
                 <div class="brand">aparté <span>· angular</span></div>
-                <input
-                    class="key"
-                    type="password"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="OpenRouter API key — optional, stays in your browser"
-                    [value]="apiKey()"
-                    (change)="onKey($any($event.target).value)"
-                />
             </header>
 
             <aparte-chat centerWhenEmpty attachments placeholder="Ask anything…">
@@ -46,15 +37,7 @@ const CHIPS = [
 export class AppComponent {
     // No AparteAiService.connect() here: provideAparte() (main.ts) auto-connects
     // the client on app init.
-    protected readonly apiKey = signal(localStorage.getItem(KEY_STORAGE) ?? '');
     protected readonly chips = CHIPS;
-
-    protected onKey(value: string): void {
-        this.apiKey.set(value);
-        const trimmed = value.trim();
-        if (trimmed) localStorage.setItem(KEY_STORAGE, trimmed);
-        else localStorage.removeItem(KEY_STORAGE);
-    }
 
     protected send(prompt: string): void {
         sendPrompt(prompt);

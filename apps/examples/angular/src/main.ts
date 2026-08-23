@@ -4,7 +4,6 @@ import { setupMarkedProvider } from '@aparte/plugin-marked';
 import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { AppComponent } from './app/app.component';
-import { KEY_STORAGE } from './app/aparte';
 
 // provideAparte registers the providers + plugins, wires the AparteClient
 // options and auto-connects the client on app init — no manual
@@ -20,15 +19,13 @@ aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 bootstrapApplication(AppComponent, {
     providers: [
         provideAparte({
+            // Both LOCAL and keyless: zero setup, zero account, and therefore no
+            // keyResolver. One is needed the moment you point at something that
+            // wants a token or a different endpoint.
             providers: [
                 createOpenAICompatProvider(presets.OLLAMA),
                 createOpenAICompatProvider(presets.LMSTUDIO),
-                createOpenAICompatProvider(presets.OPENROUTER),
             ],
-            clientOptions: {
-                keyResolver: (providerId) =>
-                    providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
-            },
         }),
     ],
 }).catch((err) => console.error(err));

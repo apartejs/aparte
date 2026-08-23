@@ -1,6 +1,10 @@
 import '@aparte/core'; // registers the <aparte-*> custom elements
-import '@aparte/core/styles.css'; // theme variables + component styles
-import './style.css';
+// Core's theme, through the package export so the dev server's source condition
+// applies (a CSS `@import` would not get it, and would serve the stale dist).
+// The APP SHELL's stylesheet is a <link> in index.html instead — see the comment
+// there: a JS-injected stylesheet arrives after this module does, and this
+// document ships its shell as static HTML, so that gap was visible.
+import '@aparte/core/styles.css';
 
 import {
     registerDefaultRenderers,
@@ -11,6 +15,11 @@ import {
 } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+// Registers the `ask_question` tool AND the <aparte-elicitation> panel that answers
+// it. This example had no tool at all, which made the whole tools path — approval,
+// elicitation, the guide — undemonstrated on the one app that is raw core: asking a
+// local model to "use the question tool" got a truthful "I have no such tool".
+import { setupAskQuestion } from '@aparte/plugin-ask-question';
 import { runStreamAgent } from '@aparte/engine';
 import {
     DEFAULT_SETTINGS,
@@ -22,18 +31,19 @@ import {
     type ExampleSettings,
 } from './settings-store';
 
-const KEY_STORAGE = 'aparte.openrouter.key';
-
 // 1. Renderers + Markdown rendering for assistant replies.
 registerDefaultRenderers();
 setupMarkedProvider();
+setupAskQuestion();
 
-// 2. Real providers — two local (no key) + OpenRouter (BYOK). The model selector
-//    lists all three; pick a running local model to chat with zero setup.
+// 2. Real providers — both LOCAL and keyless, so this example runs with zero
+//    setup and zero account. A cloud provider used to be registered here too; it
+//    was removed because its only visible trace was a key field for a service the
+//    reader does not have, and the settings view already covers any endpoint +
+//    token you want to point at (that is the same code path a cloud provider uses).
 aparteGlobalConfig.registerAIProvider(
     createOpenAICompatProvider(presets.OLLAMA),
     createOpenAICompatProvider(presets.LMSTUDIO),
-    createOpenAICompatProvider(presets.OPENROUTER),
 );
 
 // 3. Browser talks to the provider directly; the key (if any) stays in the browser.
@@ -60,18 +70,12 @@ aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 //
 //    Core works identically without it — remove the option and the inline loop
 //    runs. That equivalence is what the engine parity suite asserts.
-const fromSettings = settingsKeyResolver(loadSettings);
 const client = new AparteClient({
     streamRunner: runStreamAgent,
-    // The endpoint + token the settings view holds, for ANY provider — with the
-    // OpenRouter field still winning for that one, so the topbar flow is unchanged.
-    keyResolver: (providerId) => {
-        if (providerId === 'openrouter') {
-            const key = localStorage.getItem(KEY_STORAGE);
-            if (key) return key;
-        }
-        return fromSettings(providerId);
-    },
+    // The endpoint + token the settings view holds, for ANY provider. The record
+    // form (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint,
+    // and it is honoured on both the chat and the /models path.
+    keyResolver: settingsKeyResolver(loadSettings),
 });
 
 // The stored system prompt has to be on the config before the first turn.
@@ -82,17 +86,6 @@ client.start(); // listens for aparte-send/retry/edit and streams replies into t
 // connectedCallback loads the model list with the providers already present
 // (a static import would upgrade the element mid-setup and miss them).
 void import('@aparte/plugin-model-selector');
-
-// ── BYOK key field (persisted locally, never committed) ──────────────────────
-const keyInput = document.querySelector<HTMLInputElement>('#openrouter-key');
-if (keyInput) {
-    keyInput.value = localStorage.getItem(KEY_STORAGE) ?? '';
-    keyInput.addEventListener('change', () => {
-        const value = keyInput.value.trim();
-        if (value) localStorage.setItem(KEY_STORAGE, value);
-        else localStorage.removeItem(KEY_STORAGE);
-    });
-}
 
 // ── Chat wiring ──────────────────────────────────────────────────────────────
 // The bare <aparte-chat> shell doesn't own a ConversationController (that's the
@@ -123,16 +116,19 @@ function wireOptimisticUserBubble(el: HTMLElement & { viewport?: ChatViewport | 
 if (chat) {
     wireOptimisticUserBubble(chat);
 
-    // Welcome suggestion chips → dispatch a send from the chat element.
+    // Welcome suggestion chips → the composer, not a synthetic event.
+    //
+    // Dispatching `aparte-send` directly looked equivalent and was not: the
+    // composer's `submit()` is where every gate lives — disabled, already
+    // streaming, and the `requireModelSelection` gate that stays on until
+    // `GET /models` comes back. So these chips were live while the composer was
+    // visibly greyed out, and a click sent a request with an empty model id.
+    const composer = document.querySelector('aparte-composer') as
+        (HTMLElement & { setValue(v: string): void; submit(): void }) | null;
     document.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
         chip.addEventListener('click', () => {
-            chat.dispatchEvent(
-                new CustomEvent('aparte-send', {
-                    detail: { content: chip.dataset.prompt ?? chip.textContent ?? '', timestamp: Date.now() },
-                    bubbles: true,
-                    composed: true,
-                }),
-            );
+            composer?.setValue(chip.dataset.prompt ?? chip.textContent ?? '');
+            composer?.submit();
         });
     });
 

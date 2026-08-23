@@ -1,38 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import { AparteChat, AparteUi, useAparteChat } from '@aparte/vue';
-import { KEY_STORAGE, sendPrompt } from './aparte';
+import { sendPrompt } from './aparte';
 
 const chat = useAparteChat();
-
-const apiKey = ref(localStorage.getItem(KEY_STORAGE) ?? '');
 
 const chips = [
     { label: 'What is aparté?', prompt: 'Explain what aparté is in one sentence.' },
     { label: 'Write a haiku', prompt: 'Write a haiku about web components.' },
     { label: 'Markdown table', prompt: 'Give me a markdown table comparing 3 JS frameworks.' },
 ];
-
-function onKeyChange() {
-    const value = apiKey.value.trim();
-    if (value) localStorage.setItem(KEY_STORAGE, value);
-    else localStorage.removeItem(KEY_STORAGE);
-}
 </script>
 
 <template>
     <div class="app">
         <header class="topbar">
             <div class="brand">aparté <span>· vue</span></div>
-            <input
-                class="key"
-                type="password"
-                autocomplete="off"
-                :spellcheck="false"
-                placeholder="OpenRouter API key — optional, stays in your browser"
-                v-model="apiKey"
-                @change="onKeyChange"
-            />
         </header>
 
         <AparteChat

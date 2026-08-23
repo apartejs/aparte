@@ -41,16 +41,6 @@ app-root {
     opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
     font-weight: 500;
 }
-.key {
-    flex: 1;
-    min-width: 200px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--aparte-border, #3a3229);
-    background: var(--aparte-surface-2, #1e1a15);
-    color: inherit;
-    font: inherit;
-}
 
 .welcome {
     display: flex;
@@ -89,7 +79,5 @@ aparte-chat {
     min-height: 0;
     /* Override core's height:100% — it fights flex:1 in a column with a header. */
     height: auto;
-    border: 1px solid var(--aparte-border, #3a3229);
-    border-radius: 12px;
     overflow: hidden;
 }

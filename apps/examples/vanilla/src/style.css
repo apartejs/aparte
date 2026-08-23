@@ -1,4 +1,11 @@
-/* App shell only — the chat itself is styled by @aparte/core's theme variables. */
+/* App shell only — the chat itself is styled by @aparte/core's theme variables.
+   Core's stylesheet is deliberately NOT @imported here: a CSS `@import` of a bare
+   specifier does not go through vite's `resolve.conditions`, so it resolved to the
+   package's BUILT `dist/index.css` instead of the source the dev server serves —
+   two copies of the theme in the page, the stale one winning on anything edited
+   since the last `pnpm build`. It stays a JS import in main.ts, where the source
+   condition applies. What this link fixes is the SHELL, which is static HTML and
+   was the visible flash. */
 * {
     box-sizing: border-box;
 }
@@ -50,15 +57,14 @@ body {
 .topbar aparte-model-selector {
     min-width: 200px;
 }
-#openrouter-key {
-    flex: 1;
-    min-width: 200px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--aparte-border, #3a3229);
-    background: var(--aparte-surface-2, #1e1a15);
+/* Both topbar links — to the settings view and back. There was no rule for this
+   at all, which is why the settings view's own "back to the chat" rendered as a
+   default browser link on a dark header. */
+.viewswitch {
+    margin-inline-start: auto;
     color: inherit;
-    font: inherit;
+    font-size: 0.85rem;
+    opacity: 0.85;
 }
 
 
@@ -101,8 +107,6 @@ aparte-chat {
     min-height: 0;
     /* Override core's height:100% — it fights flex:1 in a column with a header. */
     height: auto;
-    border: 1px solid var(--aparte-border, #3a3229);
-    border-radius: 12px;
     overflow: hidden;
 }
 
@@ -127,10 +131,11 @@ aparte-chat {
 /* ── The settings view: the three things a consumer changes first ─────────────
    A plain stacked form. Each field carries a hint naming the API behind it, because
    the endpoint and the token do not have setters — they travel through the key
-   resolver, and a reader has no way to guess that from the UI alone. */
-.app.settings {
-    max-width: 720px;
-}
+   resolver, and a reader has no way to guess that from the UI alone.
+
+   No width of its own: it used to be 720px against the chat's 820px, which made the
+   topbar and the brand jump sideways every time you switched view. A narrower
+   measure is right for a form in the abstract and wrong for two views of one app. */
 .fields {
     display: flex;
     flex-direction: column;

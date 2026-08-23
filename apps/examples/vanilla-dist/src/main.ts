@@ -1,6 +1,6 @@
 import '@aparte/core'; // registers the <aparte-*> custom elements
-import '@aparte/core/styles.css';
-import './style.css';
+import '@aparte/core/styles.css'; // through the export, not a CSS @import
+// The APP SHELL's stylesheet is a <link> in index.html — see the comment there.
 import { registerDefaultRenderers } from '@aparte/core';
 
 registerDefaultRenderers();

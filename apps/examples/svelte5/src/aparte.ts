@@ -4,14 +4,12 @@ import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-com
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 
-export const KEY_STORAGE = 'aparte.openrouter.key';
-
 let started = false;
 
 /**
- * One-time aparté setup: Markdown rendering, real providers (two local + OpenRouter
- * BYOK), a browser-direct transport, and the AparteClient that drives every
- * <AparteChat> on the page. Idempotent.
+ * One-time aparté setup: Markdown rendering, two local keyless providers, a
+ * browser-direct transport, and the AparteClient that drives every <AparteChat> on
+ * the page. Idempotent.
  */
 export function setupAparte(): void {
     if (started) return;
@@ -19,10 +17,12 @@ export function setupAparte(): void {
 
     setupMarkedProvider();
 
+    // Both LOCAL and keyless: this example runs with zero setup and zero account.
+    // A cloud provider used to be registered here, and its only visible trace was a
+    // key field in the topbar for a service the reader may not have.
     aparteGlobalConfig.registerAIProvider(
         createOpenAICompatProvider(presets.OLLAMA),
         createOpenAICompatProvider(presets.LMSTUDIO),
-        createOpenAICompatProvider(presets.OPENROUTER),
     );
     // Gate the composer (block send + grey out) until the model selector has
     // fetched its list and auto-selected a model.
@@ -35,19 +35,26 @@ export function setupAparte(): void {
     // are not implemented here, so they stay hidden (see setHostHandlers).
     aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
-    new AparteClient({
-        keyResolver: (providerId) =>
-            providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
-    }).start();
+    // No keyResolver: both providers are local and keyless. One is needed the
+    // moment you point at something that wants a token or a different endpoint —
+    // see the vanilla example's settings view for that shape.
+    new AparteClient().start();
 }
 
-/** Dispatch a send from the composer so the client (and the optimistic user bubble) both fire. */
+/**
+ * Send a suggested prompt the way the user would: put it in the composer and let
+ * the composer submit it.
+ *
+ * This used to dispatch a synthetic `aparte-send` instead, which looked equivalent
+ * and was not: `submit()` is where every gate lives — the composer being disabled,
+ * a turn already streaming, and the `requireModelSelection` gate that is still on
+ * while `GET /models` is in flight. So the suggestion chips were live while the
+ * composer was visibly greyed out, and a click sent a request with an empty model
+ * id. Going through the composer also puts the text where the user can see it went.
+ */
 export function sendPrompt(text: string): void {
-    document.querySelector('aparte-composer')?.dispatchEvent(
-        new CustomEvent('aparte-send', {
-            detail: { content: text, timestamp: Date.now() },
-            bubbles: true,
-            composed: true,
-        }),
-    );
+    const composer = document.querySelector('aparte-composer') as
+        (HTMLElement & { setValue(v: string): void; submit(): void }) | null;
+    composer?.setValue(text);
+    composer?.submit();
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AparteChat, AparteUi, createAparteChat } from '@aparte/svelte';
-  import { KEY_STORAGE, sendPrompt } from './aparte';
+  import { sendPrompt } from './aparte';
 
 
   const chat = createAparteChat();
@@ -10,13 +10,6 @@
 
   function handleMessagesChange(e: CustomEvent) {
     chat.onMessagesChange(e.detail);
-  }
-
-  let apiKey = localStorage.getItem(KEY_STORAGE) ?? '';
-  function onKeyChange() {
-    const value = apiKey.trim();
-    if (value) localStorage.setItem(KEY_STORAGE, value);
-    else localStorage.removeItem(KEY_STORAGE);
   }
 
   const chips = [
@@ -29,15 +22,6 @@
 <div class="app">
   <header class="topbar">
     <div class="brand">aparté <span>· svelte</span></div>
-    <input
-      class="key"
-      type="password"
-      autocomplete="off"
-      spellcheck="false"
-      placeholder="OpenRouter API key — optional, stays in your browser"
-      bind:value={apiKey}
-      on:change={onKeyChange}
-    />
   </header>
 
   <AparteChat
