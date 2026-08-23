@@ -26,10 +26,28 @@
 import { escapeHtml, escapeAttr } from '../../../utils/escape.js';
 
 /**
- * What a previewed artifact is allowed to reach. Inline script and style are
- * permitted (that IS the preview), everything that leaves the frame is not — no
- * fetch, no XHR, no websocket, no remote image, no font. Without this the
- * sandbox still lets injected code beacon out to any origin.
+ * What a previewed artifact is allowed to FETCH. Inline script and style are
+ * permitted (that IS the preview); no fetch, no XHR, no websocket, no remote image,
+ * no font. Without this the sandbox still lets injected code beacon out to any
+ * origin, so the policy does real work — measured blocked in Chromium, Firefox and
+ * WebKit.
+ *
+ * WHAT IT DOES NOT STOP, stated because the sentence here used to claim otherwise:
+ * the frame NAVIGATING ITSELF. Assigning `location.href` is a navigation, not a
+ * fetch, and no directive in this policy governs it — CSP's `navigate-to` was
+ * removed from the spec and never shipped, and the parent page's `frame-src` does
+ * not apply to a navigation the frame initiates. Reproduced in all three engines;
+ * in Firefox and WebKit the frame then RENDERS the attacker's page inside the card,
+ * which is a phishing surface as well as an exfiltration channel.
+ *
+ * What still holds, and is why this is serious rather than fatal: the sandbox has
+ * no `allow-same-origin`, so the frame's origin is opaque — it cannot read the host
+ * page, its storage, or the API key — and no `allow-forms` or
+ * `allow-top-navigation`, so it can neither POST nor move the tab.
+ *
+ * The honest summary for a consumer: a previewed artifact cannot reach your page or
+ * your data, and can phone home once. Previewing model-authored HTML is running
+ * untrusted content in a box, not running nothing.
  */
 export const PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:";
 

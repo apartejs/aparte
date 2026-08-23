@@ -493,7 +493,27 @@ export class AparteClient {
      * approval to `{ approved: false }` — there is no timeout, since a human may
      * take any amount of time to decide.
      */
-    private _awaitToolDecision(toolCallId: string, signal: AbortSignal): Promise<{ approved: boolean; payload?: unknown }> {
+    /**
+     * Await the human's Approve/Reject for one tool call.
+     *
+     * `target` is not decoration: it is the scope of the consent. The listener sits
+     * on `document` and used to accept any `aparte-tool-decision` whose
+     * `detail.toolCallId` matched — and that id is the tool-call id the MODEL chose.
+     * The built-in buttons dispatch with `bubbles: true, composed: true`, so on a
+     * page with two chats a click aimed at one tool could satisfy the gate awaiting
+     * a different tool in a different conversation. The consented action and the
+     * executed action came apart, which is the entire failure mode an approval gate
+     * exists to prevent — and the handler behind it is arbitrary consumer code.
+     *
+     * The check is DOM CONTAINMENT rather than a `targetId` string comparison. A
+     * model can choose an id; it cannot choose where in the tree the click happened.
+     * It also needs no change on the dispatch side, so a consumer's own Approve
+     * button keeps working as long as it fires from inside its own chat.
+     *
+     * The request half of this handshake was hardened with `targetId` for exactly
+     * this hazard. This is its sibling, and it was missed.
+     */
+    private _awaitToolDecision(toolCallId: string, signal: AbortSignal, target?: HTMLElement): Promise<{ approved: boolean; payload?: unknown }> {
         return new Promise<{ approved: boolean; payload?: unknown }>((resolve) => {
             if (signal.aborted) { resolve({ approved: false }); return; }
             const cleanup = () => {
@@ -503,6 +523,11 @@ export class AparteClient {
             const onDecision = (e: Event) => {
                 const detail = (e as CustomEvent).detail as { toolCallId?: string; approved?: boolean; payload?: unknown } | undefined;
                 if (detail?.toolCallId !== toolCallId) return;
+                // Only a decision made INSIDE the chat that asked counts. A
+                // programmatic dispatch on `window`/`document` (no node inside the
+                // target) is still honoured: that is a host answering on the user's
+                // behalf, which is a documented path.
+                if (target && e.target instanceof Node && e.target !== document && !target.contains(e.target)) return;
                 cleanup();
                 resolve({ approved: detail?.approved === true, payload: detail?.payload });
             };
@@ -1485,7 +1510,7 @@ export class AparteClient {
                 });
                 let decision: { approved: boolean; payload?: unknown };
                 const resolveApproval = this.options.approvalResolver
-                    ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig));
+                    ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
                 try {
                     decision = await resolveApproval(event.id, approvalController.signal);
                 } finally {
@@ -2096,7 +2121,7 @@ export class AparteClient {
             return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;
         };
         const approvalResolver = this.options.approvalResolver
-            ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig));
+            ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
 
         const usage = await streamRunner({
             messageId,

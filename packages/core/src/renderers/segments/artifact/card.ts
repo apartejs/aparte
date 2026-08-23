@@ -565,6 +565,16 @@ function mountPreviewFrame(element: HTMLElement, fallback: AparteArtifactSegment
     const build = contextConfig().getArtifactPreviewBuilder() ?? buildSafePreviewDocument;
     const srcdoc = build(kind, stripCodeFences(segment.content || ''), title);
 
+    /*
+     * `sandbox="allow-scripts"` and nothing else: no `allow-same-origin` (opaque
+     * origin — the frame cannot read this page, its storage, or the key), no
+     * `allow-forms` (it cannot POST out), no `allow-top-navigation` (it cannot move
+     * the tab), no `allow-popups`.
+     *
+     * It CAN navigate itself, which no sandbox token and no CSP directive prevents —
+     * see the note on PREVIEW_CSP. `referrerpolicy="no-referrer"` at least keeps the
+     * host URL out of that request.
+     */
     pane.innerHTML = `<iframe class="aparte-art-card__frame"`
         + ` sandbox="allow-scripts"`
         + ` csp="${escapeAttr(PREVIEW_CSP)}"`

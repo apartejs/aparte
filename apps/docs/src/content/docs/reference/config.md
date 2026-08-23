@@ -52,7 +52,32 @@ show/hide, class hooks). Each accepts `string | HTMLElement` and `null` clears i
 - `setSiblingNavRenderer(renderer: AparteSiblingNavRenderer | null): void` / `getSiblingNavRenderer(): AparteSiblingNavRenderer | null` — the `‹ N / M ›` branch-position indicator.
 - `setBubbleShellRenderer(renderer: AparteBubbleShellRenderer | null): void` / `getBubbleShellRenderer(): AparteBubbleShellRenderer | null` — the structural skeleton of `<aparte-chat-bubble>` (advanced; must honor the `.aparte-message` class-hook contract).
 - `setAvatarProvider(provider: AparteAvatarProvider | null): void` / `getAvatarProvider(): AparteAvatarProvider | null` — fills the avatar host element with custom DOM (e.g. a mounted framework component).
-- `setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void` / `getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined` — builds the `srcdoc` HTML for an artifact preview iframe.
+- `setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void` / `getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined` — builds the `srcdoc` HTML for an artifact preview iframe. **This replaces the containment, not just the markup** — see below.
+
+:::danger[A preview builder replaces the sandbox's policy]
+The default builder injects a `<meta http-equiv="Content-Security-Policy">` into the
+document it produces: `default-src 'none'` with inline script and style only, no fetch,
+no XHR, no websocket, no remote image or font. The iframe's `csp` attribute carries the
+same policy, but that attribute is **Chromium-only** — on Firefox and Safari the meta tag
+is the only policy the frame has. So a builder that does not emit it hands
+model-authored code a frame that can load and run anything it likes from any origin.
+
+If you replace the builder, emit that meta tag yourself. Loading a library from a CDN
+inside a preview means dropping the policy, which is the whole reason the default does not.
+
+**What the sandbox contains either way**, because it is worth knowing precisely: the frame
+has `sandbox="allow-scripts"` and nothing else — no `allow-same-origin` (an opaque origin,
+so it cannot read your page, your storage, or your API key), no `allow-forms`, no
+`allow-top-navigation`.
+
+**What nothing contains:** the frame navigating *itself*. Assigning `location.href` is a
+navigation, not a fetch — CSP's `navigate-to` was removed from the spec and never shipped,
+and a parent-page `frame-src` does not apply to it. A previewed artifact can therefore
+phone home once, and on Firefox and Safari render the page it navigated to inside the card.
+Verified in all three engines. Treat previewing model-authored HTML as running untrusted
+content in a box, not as running nothing — which is why the Preview tab requires a click
+rather than opening on its own.
+:::
 
 ### Markdown, highlight & sanitizer
 

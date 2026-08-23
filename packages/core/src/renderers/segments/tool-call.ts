@@ -70,8 +70,11 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         if (segment.status === 'awaiting-approval') {
             const toolCallId = segment.toolCall?.id;
             if (!toolCallId) return;
+            // `targetId` is stamped for a consumer's own listener; the client itself
+            // scopes on DOM containment, which a model-chosen id cannot forge.
+            const host = element.closest('[data-aparte-host], aparte-chat, aparte-chat-viewport') as HTMLElement | null;
             const decide = (approved: boolean) => element.dispatchEvent(new CustomEvent('aparte-tool-decision', {
-                bubbles: true, composed: true, detail: { toolCallId, approved }
+                bubbles: true, composed: true, detail: { toolCallId, approved, targetId: host?.id || undefined }
             }));
             element.querySelector('[data-tool-decision="approve"]')?.addEventListener('click', () => decide(true));
             element.querySelector('[data-tool-decision="reject"]')?.addEventListener('click', () => decide(false));
