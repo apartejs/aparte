@@ -200,3 +200,56 @@ describe('aparte-composer — multi-instance streaming isolation', () => {
         expect(b.streaming).toBe(true);
     });
 });
+
+/**
+ * Raw core: nobody sets `target` on the composer.
+ *
+ * All four wrappers set it themselves, so the attribute alone identified a composer
+ * there — and in hand-written markup, which is the documented quick start, it was
+ * simply absent. `!this.targetId` was then true and the composer accepted EVERY
+ * chat's lifecycle events, so on a two-chat page one chat's Stop tore down the
+ * other's open elicitation panel while its tool call kept waiting: the question
+ * vanished and the turn hung.
+ *
+ * Surfaced by a two-chat test written for the elicitation presenter. Raw core with
+ * two chats is a shape nothing in this repo exercised.
+ */
+describe('aparte-composer — a composer with no target attribute finds its chat', () => {
+    /** The shape the plain-root wrappers render, minus the `target` they would set. */
+    function chatWith(id: string): AparteComposer {
+        const host = document.createElement('div');
+        host.setAttribute('data-aparte-chat', '');
+        host.id = id;
+        const composer = document.createElement('aparte-composer') as AparteComposer;
+        host.appendChild(composer);
+        document.body.appendChild(host);
+        return composer;
+    }
+
+    afterEach(() => { document.body.innerHTML = ''; });
+
+    it('ignores another chat\'s turn', () => {
+        const a = chatWith('chat-a');
+        const b = chatWith('chat-b');
+
+        window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { targetId: 'chat-b' } }));
+
+        expect(a.streaming, 'A must not follow B\'s turn').toBe(false);
+        expect(b.streaming).toBe(true);
+    });
+
+    it('and still follows its own', () => {
+        const a = chatWith('chat-a');
+        window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { targetId: 'chat-a' } }));
+        expect(a.streaming).toBe(true);
+    });
+
+    it('a composer outside any chat host stays a broadcast listener', () => {
+        // Nothing identifies it, so it must keep accepting everything rather than
+        // going deaf — the single-chat page that never sets a target id at all.
+        const lone = document.createElement('aparte-composer') as AparteComposer;
+        document.body.appendChild(lone);
+        window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { targetId: 'whatever' } }));
+        expect(lone.streaming).toBe(true);
+    });
+});

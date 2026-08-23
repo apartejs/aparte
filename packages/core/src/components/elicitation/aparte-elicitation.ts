@@ -50,7 +50,27 @@ interface Pending {
  */
 export class AparteElicitation extends HTMLElement implements AparteConfigAware {
     private _pending: Pending | null = null;
-    private _onTurnEnd = (): void => this._cancelPending();
+    /**
+     * A turn ended — cancel the open question only if it was OUR turn.
+     *
+     * These two listeners sit on `window` and had no instance filter at all, so a
+     * Stop (or an error) in one chat cancelled the question a DIFFERENT chat was
+     * waiting on — and that chat's model was told the user had refused a question
+     * the user was still looking at. Same defect as the `compact()` handler that
+     * emptied both chats, which its four sibling handlers in `AparteClient` already
+     * guarded against.
+     *
+     * The leniency rule is the composer's, deliberately: an event with no
+     * `targetId` is for everyone (a single-chat app never sets one), and a chat we
+     * cannot identify accepts everything rather than becoming deaf. Only a
+     * MISMATCH is ignored.
+     */
+    private _onTurnEnd = (e: Event): void => {
+        const evtTargetId = (e as CustomEvent).detail?.targetId as string | undefined;
+        const own = this._pendingTargetId();
+        if (evtTargetId && own && evtTargetId !== own) return;
+        this._cancelPending();
+    };
 
     connectedCallback(): void {
         this.style.display = 'none';
@@ -142,16 +162,65 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         this._pending?.settle({ action: 'cancel' });
     }
 
+    /**
+     * The host id of the chat whose composer holds the open panel.
+     *
+     * Walks up from the composer rather than from `this`, because the panel lives in
+     * the composer and that is what the turn belongs to. Matches the hosts
+     * `aparte-chat-bubble._resolveTargetId()` matches, for the reason written there:
+     * Angular's wrapper root IS the `<aparte-chat>` element, while the plain-root
+     * wrappers render a `[data-aparte-chat]` div instead, so matching only the tag
+     * resolves `undefined` on three wrappers out of four.
+     */
+    private _pendingTargetId(): string | undefined {
+        let el: HTMLElement | null = this._pending?.composer ?? null;
+        while (el) {
+            const tag = el.tagName?.toLowerCase();
+            const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+            if (isHost && el.id) return el.id;
+            el = el.parentElement;
+        }
+        return undefined;
+    }
+
+    /**
+     * The composer to present in: the nearest one in an ancestor subtree, and
+     * nothing else.
+     *
+     * There used to be a `document.querySelector('aparte-composer')` fallback, which
+     * is the "first chat on the page" bug this repo has now fixed in four other
+     * places: on a page with two chats, an elicitation that could not find its own
+     * composer mounted its panel in the OTHER chat's — so one conversation's question
+     * appeared under the other conversation, and answering it resolved a tool call
+     * belonging to a chat the user was not looking at.
+     *
+     * Returning `null` instead resolves `cancel`, which is honest: nothing was
+     * shown, so nothing was answered. The warning names the fix, because this is a
+     * setup mistake and only the developer can correct it — the guide's own example
+     * puts `<aparte-elicitation>` inside `<aparte-chat>`.
+     */
     private _getComposer(): ComposerEl | null {
-        // Nearest composer/input in an ancestor subtree, then any in the document.
         let node: Element | null = this.parentElement;
         while (node) {
             const composer = node.querySelector('aparte-composer') as ComposerEl | null;
             if (composer && typeof composer.showPanel === 'function') return composer;
+            // Stop AT the chat boundary. Removing the explicit
+            // `document.querySelector` fallback was not enough on its own: this walk
+            // reached `<body>`, and a `querySelector` from there searches the whole
+            // document — so it found another chat's composer anyway, by a longer
+            // route. The two-chat test caught exactly that.
+            const tag = node.tagName?.toLowerCase();
+            const isChatBoundary = tag === 'aparte-chat' || tag === 'aparte-chat-component' || node.hasAttribute?.('data-aparte-chat');
+            if (isChatBoundary) break;
             node = node.parentElement;
         }
-        const doc = document.querySelector('aparte-composer') as ComposerEl | null;
-        return doc && typeof doc.showPanel === 'function' ? doc : null;
+        console.warn(
+            '[aparte-elicitation] No <aparte-composer> in this element\'s subtree, so the request '
+            + 'was cancelled — the model will read that as a refusal. Move <aparte-elicitation> '
+            + 'inside the <aparte-chat> it belongs to. It is deliberately NOT borrowing another '
+            + 'chat\'s composer: on a page with two chats that put the question under the wrong one.',
+        );
+        return null;
     }
 
     private _injectStyles(): void {

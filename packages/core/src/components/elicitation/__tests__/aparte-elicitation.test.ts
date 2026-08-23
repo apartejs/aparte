@@ -72,6 +72,86 @@ describe('<aparte-elicitation> presenter', () => {
         expect(await p).toEqual({ action: 'cancel' });
     });
 
+    /**
+     * Two chats on one page: a question belongs to ONE of them.
+     *
+     * Both of these are the "first chat on the page" family that produced this
+     * release's two CRITICALs, and the elicitation presenter had them too — it was
+     * simply never executed, because no tool ever reached the model.
+     */
+    describe('two chats on one page', () => {
+        /** A wrapper-shaped host: `[data-aparte-chat]` + an id, which is what React, Vue and Svelte render. */
+        function mountHost(id: string, opts: { composer?: boolean; presenter?: boolean } = {}): { host: HTMLElement; composer: ComposerEl | null } {
+            const host = document.createElement('div');
+            host.setAttribute('data-aparte-chat', '');
+            host.id = id;
+            let composer: ComposerEl | null = null;
+            if (opts.composer !== false) {
+                composer = document.createElement('aparte-composer') as ComposerEl;
+                // All four wrappers set this, and raw core now falls back to the host
+                // id — but the fixture says it out loud, because the composer ALSO
+                // listens for `aparte-message-aborted` and tears the panel down. A
+                // composer that cannot name its chat accepts every chat's Stop.
+                composer.setAttribute('target', id);
+                host.appendChild(composer);
+            }
+            if (opts.presenter !== false) host.appendChild(document.createElement('aparte-elicitation'));
+            document.body.appendChild(host);
+            return { host, composer };
+        }
+
+        /** Did the promise settle by the next macrotask, or is it still waiting? */
+        async function settledYet(p: Promise<unknown>): Promise<'settled' | 'pending'> {
+            return Promise.race([
+                p.then(() => 'settled' as const),
+                new Promise<'pending'>((r) => { setTimeout(() => r('pending'), 0); }),
+            ]);
+        }
+
+        it('never borrows the other chat\'s composer', async () => {
+            // Chat A owns a composer. Chat B has a presenter and NO composer of its
+            // own — the removed `document.querySelector` fallback made B mount its
+            // panel inside A, so one conversation's question appeared under the
+            // other, and answering it resolved a tool call for a chat the user was
+            // not even looking at.
+            const a = mountHost('chat-a', { presenter: false });
+            mountHost('chat-b', { composer: false });
+
+            const result = await requestUserInput({ message: '?', schema: { type: 'string' } });
+
+            expect(result, 'nothing was shown, so nothing was answered').toEqual({ action: 'cancel' });
+            expect(
+                a.composer!.querySelector('.aparte-elic-panel'),
+                'the other chat\'s composer must stay untouched',
+            ).toBeNull();
+        });
+
+        it('a Stop in the other chat does not cancel this question', async () => {
+            mountHost('chat-a');
+            const p = requestUserInput({ message: '?', schema: { type: 'string' } });
+            expect(document.querySelector('.aparte-elic-panel')).not.toBeNull();
+
+            // Chat B's turn ends. The two window listeners had no filter at all, so
+            // this cancelled chat A's open question and told A's model the user had
+            // refused — while the user was still looking at it.
+            window.dispatchEvent(new CustomEvent('aparte-message-aborted', { detail: { targetId: 'chat-b' } }));
+
+            expect(await settledYet(p), 'the question must survive another chat\'s Stop').toBe('pending');
+            expect(document.querySelector('.aparte-elic-panel')).not.toBeNull();
+
+            // And OUR turn ending still cancels it.
+            window.dispatchEvent(new CustomEvent('aparte-message-aborted', { detail: { targetId: 'chat-a' } }));
+            expect(await p).toEqual({ action: 'cancel' });
+        });
+
+        it('an event with no targetId still cancels — a single-chat app sets none', async () => {
+            mountHost('chat-a');
+            const p = requestUserInput({ message: '?', schema: { type: 'string' } });
+            window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
+            expect(await p).toEqual({ action: 'cancel' });
+        });
+    });
+
     it('resolves cancel when there is no composer to present in', async () => {
         mountChat(false);
         expect(await requestUserInput({ message: '?', schema: { type: 'string' } })).toEqual({ action: 'cancel' });

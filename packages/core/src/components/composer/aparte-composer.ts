@@ -365,7 +365,37 @@ export class AparteComposer extends HTMLElement {
      *  Without this filter, streaming in one chat flips every composer's state. */
     private _isForThisComposer(e: Event): boolean {
         const evtTargetId = (e as CustomEvent).detail?.targetId as string | undefined;
-        return !evtTargetId || !this.targetId || evtTargetId === this.targetId;
+        return !evtTargetId || !this._ownTargetId() || evtTargetId === this._ownTargetId();
+    }
+
+    /**
+     * Which chat this composer belongs to: its `target` attribute, or the id of the
+     * chat host above it.
+     *
+     * All four wrappers set `target` themselves, so the attribute alone identified a
+     * composer there. In RAW core — the documented quick start, where the markup is
+     * hand-written — nothing sets it, so `!this.targetId` was true and this composer
+     * accepted every chat's lifecycle events: on a two-chat page, one chat's Stop
+     * tore down the other's open elicitation panel while its tool call kept waiting,
+     * i.e. the question vanished and the turn hung.
+     *
+     * Found by a two-chat test written for the elicitation presenter, which is the
+     * only reason it surfaced: raw core with two chats is a shape nothing exercised.
+     * The hosts matched are the ones `aparte-chat-bubble._resolveTargetId()` matches,
+     * for the reason written there — Angular's wrapper root IS `<aparte-chat>`, the
+     * other three render a `[data-aparte-chat]` div.
+     */
+    private _ownTargetId(): string | undefined {
+        const attr = this.targetId;
+        if (attr) return attr;
+        let el: HTMLElement | null = this.parentElement;
+        while (el) {
+            const tag = el.tagName?.toLowerCase();
+            const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+            if (isHost && el.id) return el.id;
+            el = el.parentElement;
+        }
+        return undefined;
     }
 
     private _handleMessageStart(e: Event): void {
