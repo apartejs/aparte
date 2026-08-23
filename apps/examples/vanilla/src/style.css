@@ -2,6 +2,16 @@
 * {
     box-sizing: border-box;
 }
+
+/* `hidden` has to win.
+   The UA stylesheet's `[hidden] { display: none }` loses to ANY author rule, and
+   `.app { display: flex }` below is one — so `<div class="app settings" hidden>`
+   rendered on the chat page anyway. Shipped that way for one commit, and no test
+   looked: the settings spec only ever loaded `?view=settings`, where the form is
+   supposed to be visible. The spec now asserts its absence from `/` too. */
+[hidden] {
+    display: none !important;
+}
 html,
 body {
     height: 100%;

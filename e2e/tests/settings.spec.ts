@@ -37,6 +37,20 @@ test('the settings view offers the three fields, with a local endpoint prefilled
     await expect(endpoint).toHaveValue(/^https?:\/\/.+/);
 });
 
+test('the settings form is not on the chat page', async ({ page }) => {
+    await installLlmMock(page);
+    await page.goto('/');
+
+    // The vanilla example keeps both views in one document and toggles `hidden`.
+    // The UA stylesheet's `[hidden] { display: none }` loses to any author rule, and
+    // `.app { display: flex }` is one — so the form rendered on the chat page. It
+    // shipped that way because this spec only ever loaded `?view=settings`, where
+    // the form is supposed to be visible.
+    await expect(page.getByLabel('System prompt')).toBeHidden();
+    await expect(page.getByLabel('Endpoint')).toBeHidden();
+    await expect(page.getByLabel('Token')).toBeHidden();
+});
+
 test('a system prompt typed in the settings reaches the next request', async ({ page }) => {
     const errors = collectPageErrors(page);
     const mock = await installLlmMock(page);
