@@ -137,9 +137,14 @@ const TOOLBAR = /composer-toolbar\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
 // The waiting-state contract (was `fixme` until the built-in indicator landed).
 const PENDING = /pending-state\.spec\.ts/;
-// Two chats, two configs, and a tool that must ask the user. Runs on the four
-// WRAPPERS and not on `vanilla`: the bug it covers is produced by `bind()` being
-// called from a post-mount hook, which raw core has no equivalent of.
+// Two chats, two configs, and a tool that must ask the user.
+// `react` ONLY — because only the react example has the workbench view. It has to
+// be a WRAPPER (raw core has no `bind()`, so `vanilla` cannot reproduce the bug),
+// and porting the view to the other three was dropped: the components that will
+// plug into it do not exist yet, so the copies would be rewritten before they were
+// read. The cost is stated rather than hidden: Vue, Svelte and Angular's `bind()`
+// timing is covered by unit tests only. Wire this in for an app the moment it
+// gains the view.
 const INSTANCE_CONFIG = /instance-config\.spec\.ts/;
 // The settings a consumer changes first — system prompt, endpoint, token.
 // Runs on the two examples that HAVE the view, and is not ported to the other
@@ -174,7 +179,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
     // mechanisms (hand-written markup, a React prop, a Vue/Svelte named slot, Angular
     // content projection). Parity is exactly what it is for, so it does not get the
     // "prove it twice and trust the rest" treatment the deep suites get.
-    [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG];
+    [SMOKE, REAL, AXE, TOOLBAR];
 
 // Also run under WebKit (Safari engine) — the browser where custom-element
 // upgrade, Shadow DOM and CSS-variable behaviour is most likely to diverge from
