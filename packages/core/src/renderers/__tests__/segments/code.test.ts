@@ -3,7 +3,7 @@
  *
  * One of the eleven files the old 844-line `segment-renderers.test.ts` became.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
     getSegmentRenderer,
     registerDefaultRenderers
@@ -77,5 +77,53 @@ describe('default renderer: code (extra)', () => {
         const html = renderer.render({ id: 'c14', type: 'code', content: 'x', filename: '<img src=x onerror=alert(1)>' } as any);
         expect(html).not.toContain('<img src=x onerror=');
         expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    });
+});
+
+describe('default renderer: code — the copy button', () => {
+    /**
+     * The button copies what is ON SCREEN, not what the segment held when `setup`
+     * ran.
+     *
+     * `setup` runs once, on a streamed fence that is still empty. The bubble
+     * replaces its segment object on every `updateSegment` (`{...old, ...updates}`),
+     * so a closure over that object freezes at creation. This passed for a long
+     * time by accident — deltas arrive through `appendToSegment`, which mutates in
+     * place — and one extra update at the end of a turn was enough to make the
+     * button copy an empty string. Measured in a browser before this test existed:
+     * closure 0 characters, DOM 36.
+     */
+    it('copies the source after the content arrived, not the empty segment setup saw', async () => {
+        const writeText = vi.fn(() => Promise.resolve());
+        const original = globalThis.navigator?.clipboard;
+        Object.defineProperty(globalThis.navigator, 'clipboard', {
+            value: { writeText }, configurable: true,
+        });
+
+        const renderer = getSegmentRenderer('code')!;
+        // 1. The segment as it exists when the fence opens: no content yet.
+        const opening = { id: 'c1', type: 'code', language: 'ts', content: '' } as never;
+        const host = document.createElement('div');
+        host.innerHTML = renderer.render(opening) as string;
+        const el = host.firstElementChild as HTMLElement;
+        document.body.appendChild(host);
+        renderer.setup?.(el, opening);
+        // `setup` kicks off an async highlight of that empty content; let it land
+        // first, exactly as it does in a browser, so the update below is what the
+        // DOM ends up holding.
+        await Promise.resolve();
+
+        // 2. The content arrives, and the bubble hands over a NEW object.
+        const settled = { id: 'c1', type: 'code', language: 'ts', content: 'const answer = 42;', isStreaming: true } as never;
+        renderer.update?.(el, settled);
+
+        (el.querySelector('.code-copy') as HTMLElement).click();
+
+        expect(writeText).toHaveBeenCalledWith('const answer = 42;');
+
+        if (original) {
+            Object.defineProperty(globalThis.navigator, 'clipboard', { value: original, configurable: true });
+        }
+        host.remove();
     });
 });

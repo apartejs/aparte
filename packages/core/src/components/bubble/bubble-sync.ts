@@ -5,6 +5,7 @@ import type {
     AparteSiblingInfo,
     AparteUsage,
 } from '../../types/index.js';
+import { isTerminalStatus } from '../../utils/segments.js';
 
 /**
  * Minimal structural type representing the imperative slice of `AparteChatBubble`
@@ -63,8 +64,11 @@ export function populateBubbleFromMessage(
             // its trailing token-lookahead and would otherwise drop a final
             // glyph (e.g. an emoji). A still-streaming message is left alone so
             // its live incremental rendering (partial **bold**, …) is intact.
-            const settled = message.status != null
-                && message.status !== 'streaming' && message.status !== 'pending';
+            // One rule, one place: the same predicate the two segment-array owners
+            // use to decide a turn is over. It was spelled out inline here and
+            // nowhere else, which is how it came to be applied to the bubble's
+            // segments and never to the model's.
+            const settled = isTerminalStatus(message.status);
             for (const seg of message.segments) {
                 if ('content' in seg) {
                     const patch = { content: (seg as { content: unknown }).content } as Partial<AparteSegment>;

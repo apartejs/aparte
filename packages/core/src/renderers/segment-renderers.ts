@@ -296,8 +296,22 @@ export function injectRendererStyles(config: AparteConfig = contextConfig()): vo
 
 
 export function registerDefaultRenderers(config: AparteConfig = contextConfig()): void {
-    registryFor(config).defaultsInstalled = true;
-    for (const renderer of DEFAULT_RENDERERS) registerSegmentRenderer(renderer, config);
+    const reg = registryFor(config);
+    reg.defaultsInstalled = true;
+    // Additive, exactly like the lazy {@link installDefaultRenderersOnce}: a type
+    // someone registered themselves is never replaced.
+    //
+    // This used to overwrite, and the two paths therefore disagreed about the same
+    // question — which is the divergence this repo keeps finding. It cost a real
+    // hour: the vanilla example registered a `thinking` renderer at startup and
+    // then built its `AparteClient`, whose default `autoRegister` calls this
+    // function, which silently put the built-in back. The registry reported the
+    // custom renderer, the DOM showed the built-in's output, and nothing anywhere
+    // said the order mattered.
+    for (const renderer of DEFAULT_RENDERERS) {
+        if (!reg.renderers.has(renderer.type)) registerSegmentRenderer(renderer, config);
+    }
+    injectRendererStyles(config);
     installArtifactReadyHook();
 }
 

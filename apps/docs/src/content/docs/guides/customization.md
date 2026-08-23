@@ -365,6 +365,119 @@ constructing a client, which [Bring your own loop](/guides/bring-your-own-loop/)
 not to do. All three take an optional trailing config, so each can be scoped to one chat
 rather than the page.
 
+### What a segment knows about itself
+
+Every segment carries where it sits and when it happened, so you can build the chrome the
+market has taught users to expect — a collapsed reasoning line with its duration, a tool
+pill with how long the call took — without replacing a renderer:
+
+| Field | |
+|---|---|
+| `messageId` | the message the segment belongs to |
+| `index` | its position in that message's `segments[]` |
+| `startedAt` | epoch ms when it entered the transcript |
+| `endedAt` | epoch ms when content **last arrived** — advances while streaming, frozen once settled |
+
+All five are optional, and that is not hedging: they describe a lifecycle. A segment you
+built by hand, or one straight out of the parser, has not been inserted yet — so it has no
+start; an open segment has no end. Read the span with `segmentDuration(segment)` rather than
+subtracting the two fields yourself, and ask `isSegmentSettled(segment)` whether the number
+is final.
+| `meta` | anything only *you* can know: token counts, cost, device |
+
+**Core renders none of it.** It measures a duration honestly (it owns the stream) and
+leaves the display to you, because the line you want says "Thought for 8s" in one product
+and "8.2s · 1.2k tokens" in another:
+
+```ts
+import { getSegmentRenderer, registerSegmentRenderer, isSegmentSettled, segmentDuration } from '@aparte/core';
+import type { AparteThinkingSegment } from '@aparte/core';
+
+const builtIn = getSegmentRenderer('thinking')!;
+
+/** A markup string back to the single root element it describes. */
+function parseRoot(html: string): HTMLElement {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  return t.content.firstElementChild as HTMLElement;
+}
+
+registerSegmentRenderer<AparteThinkingSegment>({
+  type: 'thinking',
+  render(segment) {
+    const out = builtIn.render(segment);
+    // Keep the ROOT the built-in produced — do not wrap it in a div of your own.
+    // The bubble finds a segment to update with `:scope > [data-segment-id="…"]`,
+    // so an extra wrapper hides that attribute and every delta falls back to a
+    // full re-render of the transcript instead of an in-place write.
+    const host = typeof out === 'string' ? parseRoot(out) : out;
+    writeDuration(host, segment);
+    return host;
+  },
+  setup: (el, segment) => builtIn.setup?.(el, segment),
+  update(el, segment) {
+    builtIn.update?.(el, segment);
+    // ALSO here, and this is the part that is easy to miss: a block is created
+    // open and settles LATER, and a settle reaches a renderer through `update` —
+    // never through a second `render`. Writing the label only in `render` leaves
+    // it reading "Thinking" forever.
+    writeDuration(el, segment);
+  },
+});
+
+function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void {
+  // Two rules, both core's own, both imported rather than re-derived.
+  // `isSegmentSettled` because a tool call settles by `status` and never by
+  // `isStreaming`; `segmentDuration` because the bounds are optional and hand-rolled
+  // truthiness checks on them are wrong at epoch 0.
+  if (!isSegmentSettled(segment)) return;
+  const ms = segmentDuration(segment);
+  if (ms === undefined) return;
+  const label = host.querySelector('.thinking-label');
+  if (label) label.textContent = `Thought for ${(ms / 1000).toFixed(1)}s`;
+}
+```
+
+Nothing writes `meta` — it is yours, and the imperative API already carries it. A provider
+that knows what a segment cost is where those numbers come from; core has no per-segment
+channel to a provider, so the write happens in your app:
+
+```ts
+import type { AparteChatImperativeApi } from '@aparte/core';
+
+declare const chat: AparteChatImperativeApi;
+
+// After a turn: attach what only you measured.
+chat.updateSegment('seg-7', { meta: { outputTokens: 1_240, device: 'webgpu' } });
+
+// And read it back — `getMessages()` returns the segments with everything on them.
+const last = chat.getMessages().at(-1);
+for (const segment of last?.segments ?? []) {
+  console.info(segment.index, segment.type, segment.meta);
+}
+```
+
+Two notes worth knowing before you rely on the numbers.
+
+**`endedAt` is the last delta, not the moment someone noticed.** That is why
+`isSegmentSettled` exists: during a turn the difference is a live duration that grows, and
+after it, it is final. The two simpler rules are both wrong and were both tried — closing
+at the end of the turn makes a reasoning block span the whole answer that followed it (2s
+of thinking before a 20s reply reads "22s"), and closing when the next segment opens counts
+a ten-second gap as thinking. Note also that only payload counts: collapsing a block or
+writing `meta` is presentation, and does not move the end.
+
+**A segment is finished as soon as the stream says so, not when the turn ends.** The end of
+a delimited segment is in band — `</think>`, a closing fence, `</artifact>`, or the opening
+of the next block — and reasoning delivered on its own channel ends when the first answer
+token arrives. So `isSegmentSettled` flips *during* the turn, and your duration line is
+readable while the answer is still streaming. The one case with no in-band end is a text run
+that stops only because the stream stopped; there, the end of the turn really is its end.
+
+**A segment rehydrated from your storage keeps what it was persisted with.** Core stamps on
+insertion and never overwrites, so a reloaded conversation still shows the durations it
+originally had.
+
 ## Icons
 
 Every icon ships as a zero-dependency inline SVG. Override any of them — with an SVG,

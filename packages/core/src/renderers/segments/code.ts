@@ -42,9 +42,25 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
         const copyBtn = element.querySelector('.code-copy');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
+                // Read the DOM, not the segment this closure captured.
+                //
+                // `setup` runs once, on the segment as it was THEN — for a streamed
+                // fence, empty. The bubble replaces its segment object on every
+                // `updateSegment` (`{...old, ...updates}`), so the captured one is
+                // frozen at creation and this button copied an empty string. It
+                // passed for a long time by accident: the deltas arrived through
+                // `appendToSegment`, which mutates in place, and the object was
+                // only replaced late enough not to matter. Adding one more update
+                // at the end of a turn was enough to expose it — measured, closure
+                // 0 chars against 36 in the DOM.
+                //
+                // `textContent` is the source either way: the highlighter wraps it
+                // in spans, which contribute no text. So this is also what makes
+                // "the source, not the markup" true rather than lucky.
+                const source = element.querySelector('.code-content-wrapper')?.textContent ?? '';
                 // Late execution (user click) — the ambient render config is
                 // gone; resolve from the connected element instead.
-                void navigator.clipboard.writeText(segment.content || '').catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
+                void navigator.clipboard.writeText(source).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
                 setTimeout(() => {

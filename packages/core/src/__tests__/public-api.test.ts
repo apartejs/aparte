@@ -80,6 +80,7 @@ describe('@aparte/core public API', () => {
             "isAwaitingReply",
             "isFormatAdapter",
             "isSafeUrl",
+            "isSegmentSettled",
             "parseAparteEventStream",
             "parseMarkdownToSegments",
             "populateBubbleFromMessage",
@@ -91,6 +92,7 @@ describe('@aparte/core public API', () => {
             "resolveConfig",
             "revokeAttachmentUrls",
             "runWithConfig",
+            "segmentDuration",
             "unregisterSegmentRenderer",
             "uuid",
           ]

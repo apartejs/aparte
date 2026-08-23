@@ -1,57 +1,93 @@
-import { describe, it, expect, afterEach } from 'vitest';
-
 /**
- * The built-in renderers install themselves the first time a segment needs one.
+ * Installing the built-ins never replaces a renderer the app already registered —
+ * on BOTH paths.
  *
- * Here: filling in the built-ins is strictly ADDITIVE. A renderer the app
- * registered itself is never replaced — so a custom `text` renderer survives the
- * sweep that a `code` segment triggers.
+ * There are two ways the built-ins arrive: `registerDefaultRenderers()`, which an
+ * app calls (and which `new AparteClient()` calls for it), and the lazy
+ * `installDefaultRenderersOnce()`, which the bubble calls the first time a segment
+ * has no renderer. The lazy one documented itself as "strictly additive: a type
+ * someone registered themselves is never replaced". The eager one overwrote.
  *
- * Own file because it needs a registry nothing has filled yet (vitest isolates per
- * file), which is also the real-world state: the app registers at startup.
+ * That divergence cost an hour of real debugging, and the shape of it is worth
+ * recording because it is the shape this repo keeps finding. The vanilla example
+ * registered a custom `thinking` renderer at startup and THEN built its
+ * `AparteClient` — the order any reader would write, since the client is the last
+ * thing you construct. `autoRegister` defaults on, so the client put the built-in
+ * back. Everything then lied in the same direction: `getSegmentRenderer('thinking')`
+ * returned the custom renderer when asked, the registry genuinely held it, and the
+ * DOM showed the built-in's output — because the overwrite happened after the probe
+ * and before the first render. Nothing in the API or the docs said order mattered.
+ *
+ * Two paths answering one question differently is the bug. This pins the answer.
  */
+import { describe, it, expect, vi } from 'vitest';
+import {
+    registerSegmentRenderer,
+    registerDefaultRenderers,
+    installDefaultRenderersOnce,
+    getSegmentRenderer,
+} from '../segment-renderers.js';
+import { AparteConfig } from '../../config/aparte-config.js';
+import type { AparteSegmentRenderer } from '../../types/index.js';
 
-import '../../components/bubble/aparte-chat-bubble.js';
-import { getSegmentRenderer, registerSegmentRenderer } from '../segment-renderers.js';
-import type { AparteSegment } from '../../types/index.js';
+const mine: AparteSegmentRenderer = {
+    type: 'thinking',
+    render: () => '<div data-mine="1"></div>',
+};
 
-type BubbleEl = HTMLElement & { setSegments(segments: AparteSegment[]): void };
+describe('installing the built-ins is additive', () => {
+    it('registerDefaultRenderers keeps a renderer the app registered first', () => {
+        // A fresh config per test: the registry is per-config, so this needs no
+        // global reset and cannot leak into its neighbours.
+        const config = new AparteConfig();
+        registerSegmentRenderer(mine, config);
 
-function bubbleWith(segments: AparteSegment[]): BubbleEl {
-    const el = document.createElement('aparte-chat-bubble') as BubbleEl;
-    el.setAttribute('role', 'assistant');
-    el.setAttribute('message-id', `m-${Math.random().toString(36).slice(2)}`);
-    document.body.appendChild(el);
-    el.setSegments(segments);
-    return el;
-}
+        registerDefaultRenderers(config);
 
-const mounted: HTMLElement[] = [];
-afterEach(() => {
-    mounted.splice(0).forEach((el) => el.remove());
-    document.body.innerHTML = '';
-});
+        expect(getSegmentRenderer('thinking', config)).toBe(mine);
+        // …and it still installed everything else.
+        expect(getSegmentRenderer('text', config)).toBeDefined();
+        expect(getSegmentRenderer('code', config)).toBeDefined();
+    });
 
-describe('the lazy install never overwrites a renderer the app registered', () => {
-    it('keeps a custom `text` renderer while filling in the missing built-ins', () => {
-        registerSegmentRenderer({
-            type: 'text',
-            render: () => '<div class="mine">MINE</div>',
-        });
+    it('installDefaultRenderersOnce does the same, as it always claimed', () => {
+        const config = new AparteConfig();
+        registerSegmentRenderer(mine, config);
 
-        // A *different* built-in type triggers the lazy install...
-        const el = bubbleWith([
-            { id: 's1', type: 'code', content: 'print(1)', language: 'python' } as AparteSegment,
-            { id: 's2', type: 'text', content: 'hello' } as AparteSegment,
-        ]);
-        mounted.push(el);
+        installDefaultRenderersOnce(config);
 
-        // ...the built-in `code` renderer is now there,
-        expect(el.querySelector('.segment-code, .code-content-wrapper')).not.toBeNull();
-        // ...and `text` is still the app's.
-        expect(el.querySelector('.mine')?.textContent).toBe('MINE');
-        expect(el.textContent).not.toContain('Unknown segment type');
-        expect(getSegmentRenderer('text')?.render({ id: 'x', type: 'text' } as AparteSegment))
-            .toContain('MINE');
+        expect(getSegmentRenderer('thinking', config)).toBe(mine);
+        expect(getSegmentRenderer('text', config)).toBeDefined();
+    });
+
+    it('registering after the built-ins still wins, so neither order surprises', () => {
+        const config = new AparteConfig();
+        registerDefaultRenderers(config);
+
+        registerSegmentRenderer(mine, config);
+
+        expect(getSegmentRenderer('thinking', config)).toBe(mine);
+    });
+
+    it('a client-shaped sequence — register, then construct — survives', () => {
+        // The exact sequence the vanilla example writes, reduced to its two calls.
+        const config = new AparteConfig();
+        registerSegmentRenderer(mine, config);
+        registerDefaultRenderers(config); // what `new AparteClient()` does for you
+        registerDefaultRenderers(config); // and again, in case something repeats it
+
+        const resolved = getSegmentRenderer('thinking', config)!;
+        // Asserted through the OUTPUT, not just by identity: identity was already
+        // true in the browser while the DOM showed the built-in.
+        expect(resolved.render({ id: 's', type: 'thinking' })).toContain('data-mine');
+    });
+
+    it('does not warn about anything on either path', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => { });
+        const config = new AparteConfig();
+        registerSegmentRenderer(mine, config);
+        registerDefaultRenderers(config);
+        expect(warn).not.toHaveBeenCalled();
+        warn.mockRestore();
     });
 });

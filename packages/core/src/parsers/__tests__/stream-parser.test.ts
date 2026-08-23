@@ -121,3 +121,46 @@ describe('Markdown to Segments Parser', () => {
         });
     });
 });
+
+describe('a closed segment says it is closed', () => {
+    /**
+     * The parser knows the exact end of every delimited segment — the closing token
+     * IS the end — and it used to drop that fact, emitting a finished segment with
+     * no flag. Downstream then had only one signal left, the end of the TURN, so a
+     * reader watched "Thinking" for as long as the answer took to stream and the
+     * Markdown flush waited just as long.
+     */
+    it('marks a thinking block finished at its closing delimiter, not at the end of the stream', () => {
+        const parser = new AparteStreamParser();
+        const mid = parser.parse('<think>still going');
+        expect(mid.segments.filter((s) => s.isStreaming === false)).toHaveLength(0);
+
+        const closed = parser.parse('</think>and the answer');
+        const thinking = closed.segments.find((s) => s.type === 'thinking');
+        expect(thinking, 'the close must emit the block').toBeDefined();
+        expect(thinking!.isStreaming).toBe(false);
+    });
+
+    it('marks a code fence finished at its closing fence', () => {
+        const parser = new AparteStreamParser();
+        parser.parse('```ts\nconst a = 1;');
+        const closed = parser.parse('\n```\nafter');
+        const code = closed.segments.find((s) => s.type === 'code');
+        expect(code!.isStreaming).toBe(false);
+    });
+
+    it('marks a text run finished when the next block opens', () => {
+        const parser = new AparteStreamParser();
+        const out = parser.parse('some prose\n```ts\n');
+        const text = out.segments.find((s) => s.type === 'text');
+        expect(text!.isStreaming).toBe(false);
+    });
+
+    it('marks what finalize emits finished — the stream ending is an end too', () => {
+        const parser = new AparteStreamParser();
+        parser.parse('a trailing sentence');
+        const finals = parser.finalize();
+        expect(finals).not.toHaveLength(0);
+        expect(finals.every((s) => s.isStreaming === false)).toBe(true);
+    });
+});

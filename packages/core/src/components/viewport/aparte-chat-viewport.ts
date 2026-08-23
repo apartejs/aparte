@@ -15,6 +15,14 @@ import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
 import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
+import {
+    stampSegmentOnInsert,
+    stampSegmentOnUpdate,
+    renumberSegments,
+    openSegmentIds,
+    stampSegmentActivity,
+    isTerminalStatus,
+} from '../../utils/segments.js';
 
 /**
  * AparteChatViewport - The Core
@@ -227,6 +235,12 @@ export class AparteChatViewport extends HTMLElement {
             message.segments[index] = {
                 ...segment,
                 content: (segment as { content: string }).content + chunk,
+                // Content arriving IS the segment's activity, so this is what
+                // `endedAt` measures. Without it a thinking block's end would be
+                // whenever someone happened to notice it had stopped — the end of
+                // the turn, or the start of the next segment — and both of those
+                // silently fold the waiting that followed into the duration.
+                ...stampSegmentActivity(segment),
             } as AparteSegment;
         }
 
@@ -298,10 +312,16 @@ export class AparteChatViewport extends HTMLElement {
         if (!message.segments) {
             message.segments = [];
         }
-        message.segments.push(segment);
+        // Identity and start time land BEFORE anyone sees the object: the repo and
+        // the bubble are handed the same segment, so a later stamp would leave one
+        // of the two holding an unstamped copy. This is one of exactly two places
+        // that writes those fields (`aparte-chat-host` is the other) — see
+        // `utils/segments.ts` for why it is not the parser.
+        const stamped = stampSegmentOnInsert(message.segments, segment, messageId);
+        message.segments.push(stamped);
 
         // Notify bubble to render the new segment
-        this._notifyBubble(messageId, 'addSegment', segment);
+        this._notifyBubble(messageId, 'addSegment', stamped);
         this._autoScroll();
     }
 
@@ -325,12 +345,17 @@ export class AparteChatViewport extends HTMLElement {
 
         const segmentIndex = message.segments.findIndex(s => s.id === segmentId);
         if (segmentIndex !== -1) {
+            const current = message.segments[segmentIndex]!;
+            // An update that settles the segment carries its `endedAt`. Stamped
+            // here rather than at each call site, so `completeSegment`, a tool
+            // resolution and an app's own `updateSegment` all measure alike.
+            const stamped = stampSegmentOnUpdate(current, updates);
             message.segments[segmentIndex] = {
-                ...message.segments[segmentIndex],
-                ...updates
+                ...current,
+                ...stamped
             } as AparteSegment;
 
-            this._notifyBubble(messageId, 'updateSegment', { segmentId, updates });
+            this._notifyBubble(messageId, 'updateSegment', { segmentId, updates: stamped });
         }
     }
 
@@ -349,7 +374,11 @@ export class AparteChatViewport extends HTMLElement {
         const message = this._repo.getMessageById(messageId);
         if (message?.segments) {
             const idx = message.segments.findIndex(s => s.id === segmentId);
-            if (idx !== -1) message.segments.splice(idx, 1);
+            if (idx !== -1) {
+                message.segments.splice(idx, 1);
+                // `index` is a position, so a removal has to close the gap it left.
+                renumberSegments(message.segments);
+            }
         }
         this._notifyBubble(messageId, 'removeSegment', segmentId);
     }
@@ -395,13 +424,31 @@ export class AparteChatViewport extends HTMLElement {
             message.isStreaming = false;
             message.status = 'completed';
 
-            // Mark all segments as complete
-            message.segments?.forEach(s => {
-                (s as { isStreaming?: boolean }).isStreaming = false;
-            });
+            // The message's end IS its segments' end: nothing in the stream says a
+            // thinking block is over. Routed through `updateSegment` rather than
+            // written onto the objects, so the bubble is told as well — a silent
+            // mutation stamped the model and left the renderer thinking it was still
+            // streaming, which is exactly what a browser run showed.
+            this._settleSegments(messageId, message);
 
             this._notifyBubble(messageId, 'complete', { status: 'completed' });
             this._recalculateSpacer();
+        }
+    }
+
+    /**
+     * Close a finished message's still-open segments, one `updateSegment` each.
+     *
+     * Deliberately NOT a loop that writes `isStreaming` onto the objects: that path
+     * stamps the model and tells the bubble nothing, so a renderer never learns its
+     * segment settled — no `endedAt` in the rendered label, and no final Markdown
+     * flush either. Going through `updateSegment` reuses the one path that does
+     * both.
+     */
+    private _settleSegments(messageId: string, message: AparteMessage): void {
+        if (!message.segments) return;
+        for (const id of openSegmentIds(message.segments)) {
+            this.updateSegment(messageId, id, { isStreaming: false });
         }
     }
 
@@ -419,6 +466,13 @@ export class AparteChatViewport extends HTMLElement {
         // Map AparteStatus to isStreaming for legacy bubble support
         if (updates.status) {
             message.isStreaming = updates.status === 'streaming' || updates.status === 'pending';
+            // …and close the segments, because THIS is the path a completed turn
+            // takes: both agent loops report the end with
+            // `updateMessage({ status: 'completed' })`, and `completeMessage()` is
+            // called by nobody. Without this a thinking segment kept `isStreaming`
+            // unset forever and never recorded an `endedAt` — the duration only
+            // worked for tool calls, which settle by their own status.
+            if (isTerminalStatus(updates.status)) this._settleSegments(messageId, message);
         }
 
         // Notify bubble

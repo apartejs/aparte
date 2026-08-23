@@ -84,9 +84,13 @@ export default defineConfig({
       // decorative by deleting all four client suites this lot added (462 lines, 14
       // tests) and staying green.
       thresholds: {
-        lines: 81,
-        statements: 81,
-        functions: 77,
+        // Raised 81 -> 83 / 77 -> 79 by the segment-identity lot: the two-owner
+        // suite, the real-stream stamping test and the renderer-additivity tests
+        // moved the global to 84.67% lines and 80.05% functions. The ratchet guard
+        // asked for it — that is what a two-sided floor is for.
+        lines: 83,
+        statements: 83,
+        functions: 79,
         branches: 83,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
@@ -115,7 +119,11 @@ export default defineConfig({
         // follows its own stream: nine tests over a renderer that had four, measured
         // 61.93%. The guard asked for it, which is the whole point of a two-sided
         // ratchet — a floor four points under the real number cannot fail.
-        'packages/core/src/renderers/**': { lines: 61, statements: 61, functions: 76, branches: 72 },
+        // Raised 61 -> 64 lines/statements and 76 -> 79 functions by the
+        // segment-identity lot: the additivity suite and the code-copy test reach
+        // paths nothing exercised (both registration entry points, a copy handler
+        // after an update), measured 65.53% / 80.60%.
+        'packages/core/src/renderers/**': { lines: 64, statements: 64, functions: 79, branches: 72 },
       },
     },
   },

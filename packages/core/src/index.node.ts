@@ -237,6 +237,9 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 // be importable. It touches no DOM, so the SSR barrel carries it too.
 export { cssEscape } from './utils/css-escape.js';
 export { uuid } from './utils/uuid.js';
+// Pure and DOM-free, so the SSR barrel carries it too — and that is the point: a
+// consumer can assert their own duration logic in Node, with no browser.
+export { isSegmentSettled, segmentDuration } from './utils/segments.js';
 // The PARAMETER types of two documented setters. They existed and were the declared
 // argument types, but were not exported — so anyone typing a settings layer over
 // `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.

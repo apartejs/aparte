@@ -19,6 +19,7 @@
  */
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
+import { segmentContentUpdate } from '../utils/segments.js';
 import type { AparteConfig } from '../config/aparte-config.js';
 import type { AparteSegment, AparteMessage, AparteStreamEvent } from '../types/index.js';
 import type {
@@ -193,7 +194,15 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'text-delta': {
                 // Collapse the thinking block when response text starts.
                 if (thinkingId && !thinkingCollapsed) {
-                    target.updateSegment?.(thinkingId, { collapsed: true });
+                    // Reasoning arrived on its OWN channel (`reasoning_content`),
+                    // so it never passes through the parser and has no closing
+                    // delimiter. Its end in band is exactly this: the provider
+                    // started sending answer text, so it has stopped sending
+                    // reasoning. Saying `isStreaming: false` here is what lets a UI
+                    // show the block's duration WHILE the answer streams, instead of
+                    // holding "Thinking" on screen until the turn ends. `endedAt` is
+                    // unaffected — it was frozen by the last reasoning delta.
+                    target.updateSegment?.(thinkingId, { collapsed: true, isStreaming: false });
                     thinkingCollapsed = true;
                 }
                 // Reduced pre-tag path (XML mode): render only completed segments;
@@ -217,7 +226,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                             // the active segment and the residual buffer, never one
                             // that already completed. Core's twin (`emitChatText`)
                             // has always had both arms.
-                            target.updateSegment?.(segment.id, { content: (segment as { content?: string }).content });
+                            target.updateSegment?.(segment.id, segmentContentUpdate(segment));
                         }
                     }
                     // The raw-delta fallback is gone from BOTH loops. It fired only
@@ -252,7 +261,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         target.addSegment?.(segment);
                         streaming.add(segment.id);
                     } else if ('content' in segment) {
-                        target.updateSegment?.(segment.id, { content: (segment as { content: string }).content });
+                        target.updateSegment?.(segment.id, segmentContentUpdate(segment));
                     }
                     if (segment.type === 'artifact') {
                         dispatchArtifactLifecycle(target, messageId, segment as AparteArtifactSegment, artifactProgress, true);
@@ -267,7 +276,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                             dispatchArtifactLifecycle(target, messageId, active as AparteArtifactSegment, artifactProgress, false);
                         }
                     } else {
-                        target.updateSegment?.(active.id, { content: (active as { content: string }).content });
+                        target.updateSegment?.(active.id, segmentContentUpdate(active));
                         if (active.type === 'artifact') {
                             dispatchArtifactLifecycle(target, messageId, active as AparteArtifactSegment, artifactProgress, false);
                         }
@@ -304,7 +313,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 }
                 for (const s of finals) {
                     if (!streaming.has(s.id)) target.addSegment?.(s);
-                    else if ('content' in s) target.updateSegment?.(s.id, { content: (s as { content: string }).content });
+                    else if ('content' in s) target.updateSegment?.(s.id, segmentContentUpdate(s));
                     if (s.type === 'artifact') {
                         dispatchArtifactLifecycle(target, messageId, s as AparteArtifactSegment, artifactProgress, true);
                     }
