@@ -147,19 +147,20 @@ describe('buildElicitationPanel', () => {
             expect(p.getContent()).toEqual({ q1: 'blue', q2: 'round' });
         });
 
-        it('keeps one action row whatever question you are on', () => {
-            // Nothing in the row appears or disappears as you move, so the panel — and
-            // the composer around it — never changes height. That used to be four
-            // rules propping up a Next button; now it is a consequence of not having
-            // one.
+        it('the whole-request escape sits in a corner, not beside the question controls', () => {
+            // Position, not decoration. It was a row at the bottom next to the button
+            // that advances through the form, and adjacency promised "skip THIS
+            // question" while it declines the lot. Nothing in the corner changes as you
+            // move between questions either, so the panel never changes height.
             const p = buildElicitationPanel('', twoQuestions, noop);
-            expect(p.el.contains(p.actions)).toBe(true);
-            const before = p.actions.childElementCount;
+            expect(p.el.contains(p.dismiss), 'the corner belongs to the panel').toBe(true);
+            expect(p.el.querySelector('.aparte-elic-footer'), 'the bottom row is gone').toBeNull();
+            const before = p.dismiss.childElementCount;
 
             select(p.el, 'blue');
             chips(p)[1]!.click();
 
-            expect(p.actions.childElementCount, 'the row is unchanged').toBe(before);
+            expect(p.dismiss.childElementCount, 'the corner is unchanged').toBe(before);
         });
 
         it('a chip goes back to a question already answered', () => {
@@ -173,6 +174,34 @@ describe('buildElicitationPanel', () => {
             expect(visible(p)[0]!.textContent, 'free navigation, not a hunt for a Back button').toContain('Which colour?');
             expect(chips(p)[0]!.getAttribute('aria-selected')).toBe('true');
             expect(chips(p)[0]!.hasAttribute('data-answered'), 'and it shows as answered').toBe(true);
+        });
+
+        it('the composer button advances, then submits on the last question', () => {
+            // One button, four meanings — send, stop, advance, submit. Giving it the
+            // fourth is why this panel needs no Next of its own: no second row, no
+            // height that changes, and the tabs stay for jumping around. A check on a
+            // form with two questions left was as wrong as a paper plane was.
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            expect(p.mode()).toBe('advance');
+            expect(p.canProceed(), 'nothing answered yet').toBe(false);
+
+            select(p.el, 'blue');
+            expect(p.canProceed(), 'THIS question answered is enough to advance').toBe(true);
+
+            p.proceed();
+            expect(p.mode(), 'the last question submits').toBe('submit');
+            expect(p.canProceed(), 'and submitting needs them ALL').toBe(false);
+
+            select(p.el, 'round');
+            expect(p.canProceed()).toBe(true);
+            expect(p.isComplete()).toBe(true);
+        });
+
+        it('a single question only ever submits', () => {
+            const p = buildElicitationPanel('?', { type: 'enum', options: [{ value: 'a' }] }, noop);
+            expect(p.mode()).toBe('submit');
+            p.proceed();   // a no-op, and must not throw
+            expect(p.mode()).toBe('submit');
         });
 
         it('a single question is never stepped', () => {

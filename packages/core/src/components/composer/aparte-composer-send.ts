@@ -86,18 +86,24 @@ export class AparteComposerSend extends HTMLElement {
             root._on('attachments-change', () => this._syncState())
         );
         this._unsubscribes.push(
-            root._on('panel-change', ({ active, submitEnabled }) => {
+            root._on('panel-change', ({ active, submitEnabled, mode }) => {
                 if (!this._button) return;
                 if (active) {
-                    // Panel is shown — override to "Submit answer" state regardless of streaming
+                    // Panel is shown — this one button now means "answer", and WHICH
+                    // answer depends on where you are in the form.
+                    //
+                    // The icon has to move with the meaning: it drew a paper plane while
+                    // the label already said "Submit", so it read as "send a message"
+                    // while it meant "answer this question". And a check on a form with
+                    // three questions left was just as wrong — hence a chevron while
+                    // there is more ahead. The visual is what a user reads.
                     this._button.disabled = !submitEnabled;
-                    // The ICON changes too, and that was the whole complaint: the label
-                    // already said "Submit" while the button still drew a paper plane, so
-                    // it read as "send a message" while it meant "answer this question".
-                    // The visual is what a user reads. A check, falling back to the send
-                    // icon if a consumer's icon set has none.
-                    this._button.innerHTML = this._getSubmitIcon();
-                    const label = resolveConfig(this).t('submitButton') || 'Submit';
+                    const cfg = resolveConfig(this);
+                    const advancing = mode === 'advance';
+                    this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();
+                    const label = advancing
+                        ? (cfg.t('elicitationNext') || 'Next')
+                        : (cfg.t('submitButton') || 'Submit');
                     this._button.setAttribute('aria-label', label);
                     this._button.setAttribute('title', label);
                     this._button.classList.remove('is-streaming');

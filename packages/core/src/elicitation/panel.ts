@@ -18,28 +18,43 @@ import { contextConfig } from '../config/config-context.js';
 export interface BuiltElicitationPanel {
     readonly el: HTMLElement;
     /**
-     * The single row of actions at the bottom of the panel.
+     * The corner where the presenter puts its escape from the WHOLE request.
      *
-     * The presenter puts its own affordance here — "Skip", which declines — instead
-     * of appending a second row. Two stacked rows made the panel taller, and made it
-     * CHANGE HEIGHT when the last question hid "Next": the whole composer jumped.
-     * One row, whose height is reserved, and the panel decides the layout because the
-     * panel is what has to stay still.
+     * Top-right, away from anything that answers a question — and the position is the
+     * whole point. This affordance lived in a row at the bottom, beside the button
+     * that advances through the form, and adjacency made a promise the behaviour does
+     * not keep: next to "next question", "Skip" reads as "skip THIS question", while
+     * it declines everything (MCP's `decline`, including questions already answered).
      *
-     * **PREPEND a secondary affordance.** The panel's own primary action ("Next") is
-     * already in here, and the row is right-aligned, so the primary has to stay
-     * closest to the composer's send button — which is what takes over on the last
-     * question. Appending put the escape hatch between the two forward actions.
-     * Prepending also keeps the focus order matching the visual order, which a CSS
-     * `order` would have quietly broken.
+     * That is also why the reference implementations put theirs in a corner, which I
+     * had read as a preference for the glyph. It is not about the glyph.
+     *
+     * A row at the bottom is gone with it, and so is the reserved height it needed:
+     * with the composer's own button carrying advance-then-submit, the panel has no
+     * action of its own left to place.
      */
-    readonly actions: HTMLElement;
+    readonly dismiss: HTMLElement;
     /** The current response content, shaped to match the schema. */
     getContent(): unknown;
     /** True when every required field has a usable value. */
     isComplete(): boolean;
     /** Focus the first input (called after mount). */
     focus(): void;
+    /**
+     * What the composer's one button means on the question currently shown:
+     * `'advance'` while there are more questions ahead, `'submit'` on the last.
+     *
+     * The composer already has a button, in a place the user knows, and it already
+     * changes meaning (send / stop / submit). Giving it a fourth — advance — is why
+     * this panel needs no "Next" of its own: no second row, no height that changes,
+     * and the tabs stay for jumping around. It also makes the button honest, which a
+     * check on a form with three questions left was not.
+     */
+    mode(): 'advance' | 'submit';
+    /** Whether that button is enabled: this question answered, or all of them. */
+    canProceed(): boolean;
+    /** Act on it. Advancing shows the next question; submitting is the presenter's. */
+    proceed(): void;
 }
 
 interface BuiltField {
@@ -308,9 +323,10 @@ export function buildElicitationPanel(
     const body = el('div', 'aparte-elic-body');
     panel.appendChild(body);
 
-    // Always present, always last, height reserved by CSS: whatever appears in here
-    // must not move the panel.
-    const actions = el('div', 'aparte-elic-footer');
+    // The corner for the whole-request escape. First in the DOM so it is reachable
+    // before the questions, positioned out of their way by CSS.
+    const dismiss = el('div', 'aparte-elic-dismiss');
+    panel.appendChild(dismiss);
 
     if (schema.type === 'object') {
         const entries = Object.entries(schema.properties);
@@ -333,13 +349,17 @@ export function buildElicitationPanel(
             return { key, field: built, required: requiredKeys.has(key), header: field.header };
         });
 
-        panel.appendChild(actions);
+        const isComplete = (): boolean => fields.every(f => !f.required || f.field.isComplete());
         const api: BuiltElicitationPanel = {
             el: panel,
-            actions,
+            dismiss,
             getContent: () => Object.fromEntries(fields.map(f => [f.key, f.field.getValue()])),
-            isComplete: () => fields.every(f => !f.required || f.field.isComplete()),
+            isComplete,
             focus: () => fields[0]?.field.focus(),
+            // A form of one behaves like a single field; only a real form steps.
+            mode: () => 'submit',
+            canProceed: isComplete,
+            proceed: () => {},
         };
 
         // ONE QUESTION AT A TIME, past the first.
@@ -411,9 +431,20 @@ export function buildElicitationPanel(
         };
 
         show(0);
+        const last = (): boolean => current === fields.length - 1;
         return {
             ...api,
             focus: () => fields[current]?.field.focus(),
+            mode: () => (last() ? 'submit' : 'advance'),
+            // Advancing needs only THIS question answered; submitting needs them all,
+            // which is what stops the last question from accepting a form with a hole
+            // in it.
+            canProceed: () => (last() ? isComplete() : !!fields[current]?.field.isComplete()),
+            proceed: () => {
+                if (last()) return;
+                show(current + 1);
+                fields[current]?.field.focus();
+            },
         };
     }
 
@@ -421,12 +452,14 @@ export function buildElicitationPanel(
     // field. In the object shape each field carries its own title instead.
     const field = buildField(schema, onChange, message);
     body.appendChild(field.el);
-    panel.appendChild(actions);
     return {
         el: panel,
-        actions,
+        dismiss,
         getContent: () => field.getValue(),
         isComplete: () => field.isComplete(),
         focus: () => field.focus(),
+        mode: () => 'submit',
+        canProceed: () => field.isComplete(),
+        proceed: () => {},
     };
 }

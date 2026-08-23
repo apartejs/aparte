@@ -261,8 +261,8 @@
      A step indicator is a TAB — text on a rail, and the current one carries a thick
      underline. No box, no fill, no border. */
   --aparte-elic-step-underline: 2px;
-  /* Reserved so the action row never changes height — see .aparte-elic-footer. */
-  --aparte-elic-actions-height: 30px;
+  /* Space kept clear at the end of the tab rail for the corner escape. */
+  --aparte-elic-dismiss-room: 72px;
 
   /* Code Blocks */
   --aparte-code-bg: var(--aparte-surface-1);
@@ -533,9 +533,11 @@ aparte-composer[data-panel-active] aparte-composer-add-attachment {
   width: 100%;
   box-sizing: border-box;
   max-height: var(--aparte-elic-max-height, 50vh);
-  /* The panel itself does not scroll: its BODY does, so the step chips stay at the
-     top and Next/Skip stay at the bottom instead of sliding under the fold. */
+  /* The panel itself does not scroll: its BODY does, so the tabs stay at the top and
+     the corner escape stays put instead of sliding under the fold. */
   overflow: hidden;
+  /* The dismiss corner positions against this. */
+  position: relative;
 }
 
 .aparte-elic-body {
@@ -658,16 +660,15 @@ textarea.aparte-elic-text {
   background: color-mix(in srgb, var(--aparte-primary, #6366f1) 6%, transparent);
 }
 
-/* ONE action row. Everything the panel and its presenter offer goes in here, and
-   its height is RESERVED: hiding "Next" on the last question used to remove a whole
-   row, so the panel — and the composer around it — jumped. */
-.aparte-elic-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 6px;
-  min-height: var(--aparte-elic-actions-height, 30px);
+/* The whole-request escape, in the corner and out of the way of anything that
+   answers a question. It used to be a row at the bottom beside the button that
+   advances through the form, and that adjacency promised "skip this question" while
+   it declines the lot. */
+.aparte-elic-dismiss {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  z-index: 1;
 }
 
 .aparte-elic-skip {
@@ -701,7 +702,8 @@ textarea.aparte-elic-text {
   display: flex;
   flex-wrap: wrap;
   gap: var(--aparte-elic-step-gap, 14px);
-  margin: 0 6px 8px;
+  /* Room on the end for the corner escape, so the tabs never run under it. */
+  margin: 0 var(--aparte-elic-dismiss-room, 72px) 8px 6px;
   border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-border, rgba(128, 128, 128, 0.15));
 }
 

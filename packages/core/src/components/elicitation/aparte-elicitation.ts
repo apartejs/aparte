@@ -23,14 +23,20 @@
 
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import type { AparteConfig } from '../../config/aparte-config.js';
+import type { AparteComposer } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
 
-type ComposerEl = HTMLElement & {
-    showPanel(panel: HTMLElement, options?: { submitEnabled?: boolean; onSubmit?: () => void }): void;
-    hidePanel(): void;
-    setPanelSubmitEnabled(enabled: boolean): void;
-};
+/**
+ * The slice of the composer this presenter drives.
+ *
+ * DERIVED from the component rather than re-typed by hand. It used to be a literal
+ * copy of the three signatures, which is a twin: adding a parameter to the real
+ * `setPanelSubmitEnabled` left this one behind, and the compiler pointed at the
+ * CALLER instead of the stale declaration. `import type` is erased, so nothing here
+ * pulls the composer element into a runtime import — which is why the copy existed.
+ */
+type ComposerEl = HTMLElement & Pick<AparteComposer, 'showPanel' | 'hidePanel' | 'setPanelSubmitEnabled'>;
 
 interface Pending {
     settle(result: AparteElicitationResult): void;
@@ -142,25 +148,32 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             const cfg = resolveConfig(this);
             const panel: BuiltElicitationPanel = runWithConfig(cfg, () =>
                 buildElicitationPanel(request.message, request.schema, () => {
-                    composer.setPanelSubmitEnabled(panel.isComplete());
+                    composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
                 }));
 
-            // Inline "Skip" → decline (MCP's decline: the user chose not to answer).
-            // Into the panel's OWN action row: a second row of its own made the panel
-            // taller and made it change height when the last question hid "Next".
+            // "Skip" → decline (MCP's decline: the user chose not to answer), in the
+            // panel's CORNER. It sat beside the button that advances through the form,
+            // and that adjacency read as "skip this question" while it declines the
+            // whole request — see `dismiss` on BuiltElicitationPanel.
             const skip = document.createElement('button');
             skip.type = 'button';
             skip.className = 'aparte-elic-skip';
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
-            // PREPENDED: the panel's "Next" is the primary and stays closest to the
-            // send button — see `actions` on BuiltElicitationPanel.
-            panel.actions.prepend(skip);
+            panel.dismiss.appendChild(skip);
 
             this._pending = { settle, composer };
             composer.showPanel(panel.el, {
-                submitEnabled: panel.isComplete(),
+                submitEnabled: panel.canProceed(),
+                mode: panel.mode(),
                 onSubmit: () => {
+                    // The same button advances through the form and submits at the end;
+                    // the panel is what knows which of the two this click is.
+                    if (panel.mode() === 'advance') {
+                        panel.proceed();
+                        composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
+                        return;
+                    }
                     if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() });
                 },
             });

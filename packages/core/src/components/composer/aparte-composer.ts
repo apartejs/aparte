@@ -12,7 +12,7 @@ export interface AparteComposerEventMap {
     'attachments-change': { attachments: File[] };
     'submit': { value: string; attachments: File[] };
     'cancel': Record<string, never>;
-    'panel-change': { active: boolean; submitEnabled: boolean };
+    'panel-change': { active: boolean; submitEnabled: boolean; mode: 'advance' | 'submit' };
 }
 
 export type AparteComposerEventType = keyof AparteComposerEventMap;
@@ -63,6 +63,8 @@ export class AparteComposer extends HTMLElement {
     private _attachments: File[] = [];
     private _listeners = new Map<string, Set<(payload: unknown) => void>>();
     private _panelActive = false;
+    /** What the send button means while a panel is up — see `showPanel`. */
+    private _panelMode: 'advance' | 'submit' = 'submit';
     private _panelSubmitEnabled = false;
     private _panelOnSubmit: (() => void) | null = null;
 
@@ -237,7 +239,7 @@ export class AparteComposer extends HTMLElement {
      * own rules, and does not clobber a `display` the consumer had set (the restore
      * wrote `''`, not the previous value).
      */
-    showPanel(panel: HTMLElement, options?: { submitEnabled?: boolean; onSubmit?: () => void }): void {
+    showPanel(panel: HTMLElement, options?: { submitEnabled?: boolean; onSubmit?: () => void; mode?: 'advance' | 'submit' }): void {
         this.hidePanel();
         const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
         this.setAttribute('data-panel-active', '');
@@ -249,8 +251,9 @@ export class AparteComposer extends HTMLElement {
         }
         this._panelActive = true;
         this._panelSubmitEnabled = options?.submitEnabled ?? false;
+        this._panelMode = options?.mode ?? 'submit';
         this._panelOnSubmit = options?.onSubmit ?? null;
-        this._emit('panel-change', { active: true, submitEnabled: this._panelSubmitEnabled });
+        this._emit('panel-change', { active: true, submitEnabled: this._panelSubmitEnabled, mode: this._panelMode });
     }
 
     /** Remove the panel and restore the composer's own controls. */
@@ -260,16 +263,25 @@ export class AparteComposer extends HTMLElement {
         this.removeAttribute('data-panel-active');
         this._panelActive = false;
         this._panelSubmitEnabled = false;
+        this._panelMode = 'submit';
         this._panelOnSubmit = null;
-        this._emit('panel-change', { active: false, submitEnabled: false });
+        this._emit('panel-change', { active: false, submitEnabled: false, mode: 'submit' });
         this.focus();
     }
 
-    /** Update the send button enabled state while a panel is active. */
-    setPanelSubmitEnabled(enabled: boolean): void {
+    /**
+     * Update the send button's state while a panel is active.
+     *
+     * `mode` moves with it because both change on the same event — answering the
+     * question you are on can enable the button AND turn it from "advance" into
+     * "submit" (when it was the last one), and two separate calls would flash a
+     * wrong icon between them.
+     */
+    setPanelSubmitEnabled(enabled: boolean, mode?: 'advance' | 'submit'): void {
         if (!this._panelActive) return;
         this._panelSubmitEnabled = enabled;
-        this._emit('panel-change', { active: true, submitEnabled: enabled });
+        if (mode) this._panelMode = mode;
+        this._emit('panel-change', { active: true, submitEnabled: enabled, mode: this._panelMode });
     }
 
     get panelActive(): boolean { return this._panelActive; }

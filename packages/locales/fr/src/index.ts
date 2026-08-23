@@ -18,6 +18,7 @@ export const fr: AparteLocale = {
     elicitationOtherPlaceholder: "Écrivez votre réponse…",
     elicitationOtherLabel: "Réponse libre",
     submitButton: "Valider",
+    elicitationNext: "Suivant",
     elicitationSkip: "Passer",
     elicitationYes: "Oui",
     elicitationNo: "Non",

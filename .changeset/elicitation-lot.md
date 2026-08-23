@@ -68,6 +68,18 @@ truncating a sentence. The protocol is untouched: the answer is still one object
 every key, and the composer's send button still means submit. `layout: 'stacked'`
 keeps the form case, which is real — it was just never the right default.
 
+The composer's one button carries the progression: a chevron while questions remain,
+a check on the last one, and the panel is what knows which. That is why there is no
+"Next" button — the composer already has a button, in a place the user knows, and it
+already changes meaning between sending and stopping. Adding a second row for a Next
+made the panel taller and made it change height when that row went; folding the meaning
+into the existing button removed both problems and the button now says what it does.
+
+And the escape from the whole request sits in the panel's CORNER, not in a row beside
+the button that advances through the form: adjacency promised "skip this question"
+while it declines everything. Position, not decoration — which is also why the
+reference implementations put theirs in a corner.
+
 **What a consumer can replace.** `setElicitationFieldRenderer` renders one field while
 the panel keeps everything around it. It returns a control rather than
 `string | HTMLElement` because a field must hand back a value, and the schema

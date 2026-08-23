@@ -83,6 +83,15 @@ export interface AparteLocale {
      */
     submitButton?: string;
     /**
+     * The send button while a form of several questions has more ahead — it advances
+     * instead of submitting (default: "Next").
+     *
+     * This key existed briefly for a Next button inside the panel, and went when that
+     * button did. It comes back because the MEANING came back, on a different element:
+     * the composer's one button, which is where it belonged.
+     */
+    elicitationNext?: string;
+    /**
      * The affordance that declines the request (default: "Skip").
      *
      * "Skip" reads as "skip THIS one" on a form of several questions, while it
@@ -123,6 +132,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationOtherPlaceholder: "Type your answer…",
     elicitationOtherLabel: "Custom answer",
     submitButton: "Submit",
+    elicitationNext: "Next",
     elicitationSkip: "Skip",
     elicitationYes: "Yes",
     elicitationNo: "No",
