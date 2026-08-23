@@ -88,7 +88,47 @@ if (missing.length) {
     process.exit(1);
 }
 
+/**
+ * The GLOBAL AUGMENTATIONS, which a name diff cannot see.
+ *
+ * `HTMLElementEventMap` and `HTMLElementTagNameMap` are augmented by side-effect
+ * modules: `import './types/event-map.js'` declares into an existing global
+ * interface and EXPORTS NOTHING. So the check above — a set difference over export
+ * names — was structurally blind to them, and both were pulled in by the browser
+ * entry only. A consumer on `moduleResolution: node16`/`nodenext` resolves
+ * `index.node.d.ts` and silently loses typed `e.detail` on every aparté event and
+ * typed `querySelector('aparte-…')`.
+ *
+ * Checked on the SOURCE entries rather than the `.d.ts`: an augmentation-only
+ * import leaves no trace in the emitted declaration beyond the reference itself,
+ * and the source is where the omission is fixed.
+ */
+const AUGMENTATIONS = ['./types/event-map.js', './types/element-map.js'];
+const SRC_BROWSER = 'packages/core/src/index.ts';
+const SRC_NODE = 'packages/core/src/index.node.ts';
+
+const browserSrc = readFileSync(SRC_BROWSER, 'utf8');
+const nodeSrc = readFileSync(SRC_NODE, 'utf8');
+const missingAugmentations = AUGMENTATIONS.filter(
+    (m) => browserSrc.includes(`import '${m}'`) && !nodeSrc.includes(`import '${m}'`),
+);
+
+if (missingAugmentations.length) {
+    console.error(
+        `\n[node-barrel-types] ${missingAugmentations.length} global type augmentation(s) reach the`
+        + ' browser entry and not the SSR one:\n',
+    );
+    for (const m of missingAugmentations) console.error(`  import '${m}'`);
+    console.error(
+        `\nAdd them to ${SRC_NODE}. They are \`import type\` throughout, so nothing is\n`
+        + 'emitted and no DOM global is touched — but without them an SSR consumer loses\n'
+        + 'every typed event detail and every typed element lookup, with no error to\n'
+        + 'explain why.\n',
+    );
+    process.exit(1);
+}
+
 console.log(
     `[node-barrel-types] OK: the SSR barrel carries all ${browser.size - elements.size} `
-    + 'non-element exports of the browser barrel.',
+    + 'non-element exports of the browser barrel, and both global type augmentations.',
 );

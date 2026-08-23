@@ -124,7 +124,7 @@ export function registerSegmentRenderer<T extends AparteSegmentBase>(
     config: AparteConfig = contextConfig(),
 ): void {
     registryFor(config).renderers.set(renderer.type, renderer as AparteSegmentRenderer);
-    injectRendererStyles();
+    injectRendererStyles(config);
 }
 
 /**
@@ -159,7 +159,7 @@ export function installDefaultRenderersOnce(config: AparteConfig = contextConfig
     for (const renderer of DEFAULT_RENDERERS) {
         if (!reg.renderers.has(renderer.type)) reg.renderers.set(renderer.type, renderer);
     }
-    injectRendererStyles();
+    injectRendererStyles(config);
     installArtifactReadyHook();
 }
 
@@ -188,7 +188,10 @@ export function getAllRenderers(config: AparteConfig = contextConfig()): readonl
 }
 
 /**
- * Collect all renderer styles
+ * Collect all renderer styles for one config.
+ *
+ * Its OWN renderers, not the inherited view: a config that inherits the global's
+ * renderers also inherits their stylesheet, which the global already injected.
  */
 export function collectRendererStyles(config: AparteConfig = contextConfig()): string {
     return Array.from(registryFor(config).renderers.values())
@@ -198,18 +201,47 @@ export function collectRendererStyles(config: AparteConfig = contextConfig()): s
 }
 
 /**
- * Inject renderer styles into the document head
+ * Inject a config's renderer styles into the document head.
+ *
+ * Takes the config, and ACCUMULATES rather than replaces. Both matter.
+ *
+ * It used to take nothing and assign `collectRendererStyles()` — no argument — so
+ * the styles collected were `contextConfig()`'s. At app startup there is no ambient
+ * render config, which means the global singleton's: a renderer registered on an
+ * instance config wrote into that config's registry and then had the GLOBAL's
+ * stylesheet re-emitted over it. The renderer drew, unstyled, and nothing said so.
+ *
+ * Accumulating (rather than assigning the latest config's sheet) is the other half:
+ * one `<style>` serves the whole document, so the second config to register must
+ * not erase the first one's rules. Deduped per renderer stylesheet, so the
+ * built-ins shared by every config are emitted once.
  */
-export function injectRendererStyles(): void {
+const injectedRendererStyles = new Set<string>();
+
+export function injectRendererStyles(config: AparteConfig = contextConfig()): void {
     if (typeof document === 'undefined') return;
 
-    if (!styleElement) {
+    // `isConnected` as well as null: a detached element still satisfied the old
+    // check, so once anything removed the sheet — a test teardown, a framework
+    // hot-reload, a consumer tidying `<head>` — every later injection wrote into a
+    // node no document could see, and every renderer after that point drew
+    // unstyled. Found by a test's own cleanup.
+    if (!styleElement || !styleElement.isConnected) {
         styleElement = document.createElement('style');
         styleElement.id = 'aparte-renderer-styles';
         document.head.appendChild(styleElement);
+        // A fresh sheet holds nothing, so everything has to be re-emitted into it.
+        styleElement.textContent = Array.from(injectedRendererStyles).join('\n');
     }
 
-    styleElement.textContent = collectRendererStyles();
+    let added = false;
+    for (const renderer of registryFor(config).renderers.values()) {
+        const css = renderer.getStyles?.();
+        if (!css || injectedRendererStyles.has(css)) continue;
+        injectedRendererStyles.add(css);
+        added = true;
+    }
+    if (added) styleElement.textContent = Array.from(injectedRendererStyles).join('\n');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

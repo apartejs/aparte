@@ -211,6 +211,20 @@ export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-p
 // Same rule: DOM-free at import (it only reaches for `URL.createObjectURL` when
 // CALLED, which is a browser-side concern), so it belongs on the SSR surface too.
 export { filesToAttachments, revokeAttachmentUrls } from './utils/files-to-attachments.js';
+
+/*
+ * The global type augmentations, which only the BROWSER entry pulled in.
+ *
+ * TypeScript applies the `node` export condition under `moduleResolution: node16`
+ * / `nodenext`, so a consumer in that mode resolves `index.node.d.ts` — and
+ * silently lost typed `e.detail` on every aparté event and typed
+ * `querySelector('aparte-…')`. Not a runtime concern and not an SSR hazard: both
+ * modules are `import type` throughout, so nothing is emitted and no DOM global is
+ * touched. `check:node-barrel-types` diffed export NAMES, which an augmentation
+ * has none of, so it saw nothing.
+ */
+import './types/event-map.js';
+import './types/element-map.js';
 // Is a message waiting for a reply? Shared by the viewport, the four wrappers and
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';

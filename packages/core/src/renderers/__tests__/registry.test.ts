@@ -163,3 +163,44 @@ describe('an instance config inherits what was registered globally', () => {
         expect(getSegmentRenderer('zz-inherited', byo)).toBeUndefined();
     });
 });
+
+/**
+ * A renderer registered on an INSTANCE config must get its stylesheet into the
+ * document.
+ *
+ * `injectRendererStyles()` used to take no argument and assign
+ * `collectRendererStyles()` — also no argument — so the styles collected were
+ * `contextConfig()`'s. At app startup that is the global singleton: a renderer
+ * registered on an instance config wrote into that config's registry and then had
+ * the GLOBAL's stylesheet re-emitted over it. It drew, unstyled, silently.
+ */
+describe('renderer styles reach the document for an instance config', () => {
+    const SENTINEL = '.zz-styled-sentinel{color:rebeccapurple}';
+
+    afterEach(() => {
+        unregisterSegmentRenderer('zz-styled');
+        document.getElementById('aparte-renderer-styles')?.remove();
+    });
+
+    it('injects the styles of the config it was registered on', () => {
+        const chat = new AparteConfig();
+        registerSegmentRenderer({ type: 'zz-styled', render: () => '<p/>', getStyles: () => SENTINEL }, chat);
+
+        const sheet = document.getElementById('aparte-renderer-styles');
+        expect(sheet, 'the stylesheet element must exist').toBeTruthy();
+        expect(sheet!.textContent, 'and carry the instance renderer rules').toContain(SENTINEL);
+    });
+
+    it('does not erase another config styles already injected', () => {
+        const first = new AparteConfig();
+        const second = new AparteConfig();
+        registerSegmentRenderer({ type: 'zz-styled', render: () => '<p/>', getStyles: () => SENTINEL }, first);
+        registerSegmentRenderer({ type: 'zz-styled-2', render: () => '<p/>', getStyles: () => '.zz-two{color:red}' }, second);
+
+        const sheet = document.getElementById('aparte-renderer-styles')!;
+        // One <style> serves the document, so the second registration must add to it.
+        expect(sheet.textContent).toContain(SENTINEL);
+        expect(sheet.textContent).toContain('.zz-two{color:red}');
+        unregisterSegmentRenderer('zz-styled-2');
+    });
+});
