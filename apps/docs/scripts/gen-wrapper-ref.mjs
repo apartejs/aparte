@@ -46,8 +46,23 @@ for (const slot of slots) {
 }
 
 md += `\n## What each one is for\n`;
+/*
+ * A table row is not an example.
+ *
+ * The four slots × four frameworks were a 16-cell grid of one-line syntax with no
+ * code block anywhere — and this project's own rule says a capability cited in
+ * passing, with no example, is functionally invisible. That rule was LEARNED here:
+ * the first external consumer built his own bar under the chat rather than find the
+ * toolbar slot, which was cited in exactly this way.
+ *
+ * So each slot now emits one fence per framework, generated from the same source as
+ * the table, which is what stops the two from drifting.
+ */
 for (const slot of slots) {
     md += `\n### \`${slot.slot}\`\n\n${slot.summary || '_(undocumented — add a JSDoc comment to the React prop.)_'}\n`;
+    for (const f of frameworks) {
+        md += `\n${f.label}:\n\n\`\`\`${f.lang}\n${f.example(slot)}\n\`\`\`\n`;
+    }
 }
 
 md += `

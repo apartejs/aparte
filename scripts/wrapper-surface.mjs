@@ -110,20 +110,28 @@ export const IMPLEMENTATIONS = {
         usage: (s) => `${s.react}={…}`,
         // The source of truth itself: a prop cannot be missing from where it is read.
         proves: () => true,
+        example: (s) => `<AparteChat ${s.react}={<MyThing />} />`,
+        lang: 'tsx',
     },
     vue: {
         label: 'Vue',
         usage: (s) => `<template #${s.slot}>`,
         proves: (src, s) => stripComments(src).includes(`name="${s.slot}"`),
+        example: (s) => `<AparteChat>\n  <template #${s.slot}><MyThing /></template>\n</AparteChat>`,
+        lang: 'vue',
     },
     svelte: {
         label: 'Svelte',
         usage: (s) => `<svelte:fragment slot="${s.slot}">`,
         proves: (src, s) => stripComments(src).includes(`name="${s.slot}"`),
+        example: (s) => `<AparteChat>\n  <svelte:fragment slot="${s.slot}"><MyThing /></svelte:fragment>\n</AparteChat>`,
+        lang: 'svelte',
     },
     angular: {
         label: 'Angular',
         usage: (s) => `slot="${s.slot}"`,
         proves: (src, s) => stripComments(src).includes(`select="[slot='${s.slot}']"`),
+        example: (s) => `<aparte-chat>\n  <div slot="${s.slot}"><app-my-thing /></div>\n</aparte-chat>`,
+        lang: 'html',
     },
 };
