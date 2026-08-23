@@ -569,10 +569,34 @@ async function invokeToolHandler(
     const controller = new AbortController();
     const onParentAbort = () => controller.abort();
     signal.addEventListener('abort', onParentAbort, { once: true });
-    const timeout = setTimeout(() => controller.abort(), toolTimeoutMs);
+
+    /*
+     * RACED, not just signalled.
+     *
+     * Aborting the controller is a request the handler is free to ignore, and the
+     * default shape of a consumer tool ignores it —
+     * `async () => ({ content: await fetch(...).then(r => r.text()) })` never reads
+     * its signal. So the timeout fired, nothing rejected, and the loop waited
+     * forever on an option whose JSDoc promises a timeout.
+     *
+     * The signal still fires first, because a handler that DOES honour it should
+     * get the chance to clean up and reject on its own terms; the race is what
+     * makes the promise true when it does not.
+     */
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<{ status: 'aborted' }>((resolve) => {
+        timeout = setTimeout(() => {
+            controller.abort();
+            resolve({ status: 'aborted' });
+        }, toolTimeoutMs);
+    });
+
     try {
-        const result = await handler(call, controller.signal);
-        return { status: 'resolved', content: result.content };
+        const result = await Promise.race([
+            handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content })),
+            timedOut,
+        ]);
+        return result;
     } catch (err: unknown) {
         if ((err as { name?: string })?.name === 'AbortError') return { status: 'aborted' };
         throw err;

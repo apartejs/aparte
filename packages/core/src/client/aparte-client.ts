@@ -234,6 +234,40 @@ export interface AparteClientOptions {
  * client.start();
  * ```
  */
+/**
+ * Race a tool handler against its timeout, and reject as an `AbortError` when the
+ * timeout wins.
+ *
+ * Aborting a controller is a REQUEST the handler is free to ignore, and the default
+ * shape of a consumer tool ignores it —
+ * `async () => ({ content: await fetch(...).then(r => r.text()) })` never reads its
+ * signal. So `setTimeout(() => controller.abort(), ms)` on its own fired, nothing
+ * rejected, and the loop waited forever on an option whose JSDoc promises a
+ * timeout. Three copies of that shape existed: two here and one in the engine.
+ *
+ * Rejecting as `AbortError` rather than returning a sentinel is what keeps both
+ * call sites unchanged: each already catches that name and marks its segment
+ * aborted. The signal is still fired first, so a handler that DOES honour it gets
+ * to clean up and reject on its own terms.
+ */
+function withToolTimeout<T>(
+    work: (signal: AbortSignal) => Promise<T>,
+    controller: AbortController,
+    timeoutMs: number,
+): { raced: Promise<T>; done: () => void } {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+            controller.abort();
+            reject(Object.assign(new Error(`tool handler exceeded ${timeoutMs}ms`), { name: 'AbortError' }));
+        }, timeoutMs);
+    });
+    return {
+        raced: Promise.race([work(controller.signal), timedOut]),
+        done: () => clearTimeout(timer),
+    };
+}
+
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
@@ -1289,12 +1323,16 @@ export class AparteClient {
 
         const controller = new AbortController();
         this._activeToolControllers.add(controller);
-        const timeout = setTimeout(() => controller.abort(), this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS);
-        try {
-            const result = await handler(syntheticCall, controller.signal, {
+        const { raced, done: clearToolTimeout } = withToolTimeout(
+            (sig) => handler(syntheticCall, sig, {
                 target: targetElement as unknown as HTMLElement,
                 config: this._config,
-            });
+            }),
+            controller,
+            this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS,
+        );
+        try {
+            const result = await raced;
             targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
             messages.push({ role: 'tool_call', content: '', toolCalls: [syntheticCall] });
             messages.push({ role: 'tool_result', content: result.content, toolCallId: syntheticId });
@@ -1307,7 +1345,7 @@ export class AparteClient {
             }
             throw err;
         } finally {
-            clearTimeout(timeout);
+            clearToolTimeout();
             this._activeToolControllers.delete(controller);
         }
     }
@@ -1480,14 +1518,18 @@ export class AparteClient {
 
             const controller = new AbortController();
             this._activeToolControllers.add(controller);
-            const timeout = setTimeout(() => controller.abort(), this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS);
+            const { raced, done: clearToolTimeout } = withToolTimeout(
+                (sig) => handler(
+                    { id: event.id, name: event.name, input: effectiveInput },
+                    sig,
+                    { target: targetElement as unknown as HTMLElement, config: this._config },
+                ),
+                controller,
+                this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS,
+            );
 
             try {
-                const result = await handler(
-                    { id: event.id, name: event.name, input: effectiveInput },
-                    controller.signal,
-                    { target: targetElement as unknown as HTMLElement, config: this._config },
-                );
+                const result = await raced;
                 targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
 
                 // Inject tool_call + tool_result into message history for re-call
@@ -1515,7 +1557,7 @@ export class AparteClient {
                     throw err;
                 }
             } finally {
-                clearTimeout(timeout);
+                clearToolTimeout();
                 this._activeToolControllers.delete(controller);
             }
         } else {
@@ -2103,10 +2145,24 @@ export class AparteClient {
         };
 
         if (target.updateMessage) {
-            // ATOMIC UPDATE (V2)
+            /*
+             * APPEND the error, never replace the reply.
+             *
+             * This used to pass `segments: [errorSegment]`, which destroyed
+             * everything already streamed and rendered — text, the thinking block,
+             * artifacts, resolved tool calls — the moment a provider emitted a
+             * mid-stream `error` event, or a tool handler threw anything that was
+             * not an `AbortError`.
+             *
+             * It is the same defect as "Stop erased the reply", fixed one release
+             * earlier on the abort path and left standing on the error path. A
+             * partial answer plus an error is the truth; an empty bubble with an
+             * error in it is a lie about what the model said.
+             */
+            const rendered = target.getMessages?.()?.find(m => m.id === messageId)?.segments ?? [];
             target.updateMessage(messageId, {
                 status: 'error',
-                segments: [errorSegment]
+                segments: [...rendered, errorSegment],
             });
         } else if (target.appendMessage) {
             // FALLBACK (V1) - Still try to be smart
