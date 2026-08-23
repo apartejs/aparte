@@ -4,6 +4,13 @@ import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type Apart
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
+  /**
+   * The host element's `id`, and therefore the `targetId` every event this chat
+   * dispatches carries. Generated when omitted — but it used to be generated and
+   * neither accepted nor exposed, which made `AparteClientOptions.scopeToTargetId`
+   * unreachable from this component.
+   */
+  id?: string;
   /** Optional: omit for an uncontrolled chat (defaults to []); use `v-model:messages` to control. */
   messages?: AparteMessage[];
   placeholder?: string;
@@ -77,7 +84,9 @@ const emit = defineEmits<{
 }>();
 
 // useId() (Vue 3.5+) is SSR-stable — server and client agree, no hydration mismatch.
-const hostId = `aparte-chat-${useId()}`;
+// A caller-supplied `id` wins, so `scopeToTargetId` has something to match; the
+// generated one stays SSR-stable for the common case.
+const hostId = props.id ?? `aparte-chat-${useId()}`;
 const rootRef = ref<HTMLElement>();
 const viewportRef = ref<HTMLElement>();
 const composerRef = ref<HTMLElement>();

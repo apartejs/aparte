@@ -13,6 +13,19 @@ import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } fr
 
 export interface AparteChatProps {
     /**
+     * The host element's `id`, and therefore the `targetId` every event this chat
+     * dispatches carries.
+     *
+     * Generated when omitted, which is the right default — but it used to be
+     * generated and neither accepted nor exposed, so
+     * `AparteClientOptions.scopeToTargetId` (the documented way to run several
+     * independent clients on one page) was unreachable from this component: there
+     * was no way to learn the id the client had to match. Angular exposed it; React,
+     * Vue and Svelte did not.
+     */
+    id?: string;
+
+    /**
      * Messages on the active path. **Optional** — omit for an uncontrolled chat
      * that starts empty (defaults to `[]`); pass it together with
      * `onMessagesChange` to control the list from the parent.
@@ -166,12 +179,15 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         onMessageAppended,
         onTypingChange,
         onConversationCreated,
+        id: providedId,
     },
     ref,
 ) {
     // useId() is SSR-stable (server and client agree), so no hydration mismatch.
     // Strip ':' so the id is also safe in CSS/querySelector, not just getElementById.
-    const hostId = `aparte-chat-${useId().replace(/:/g, '')}`;
+    // A caller-supplied id wins, so `scopeToTargetId` has something to match.
+    const generatedId = `aparte-chat-${useId().replace(/:/g, '')}`;
+    const hostId = providedId ?? generatedId;
     const hostElRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLElement>(null);
     const composerRef = useRef<HTMLElement>(null);

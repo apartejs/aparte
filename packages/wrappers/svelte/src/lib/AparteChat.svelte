@@ -3,6 +3,13 @@
   import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
 
+  /**
+   * The host element's `id`, and therefore the `targetId` every event this chat
+   * dispatches carries. Generated when omitted — but it used to be generated and
+   * neither accepted nor exposed, which made `scopeToTargetId` unreachable from
+   * this component.
+   */
+  export let id: string | undefined = undefined;
   export let messages: AparteMessage[] = [];
   export let placeholder = 'Type a message...';
   export let disabled = false;
@@ -115,7 +122,8 @@
   }
 
   onMount(() => {
-    hostId = `aparte-chat-${uuid()}`;
+    // A caller-supplied `id` wins, so `scopeToTargetId` has something to match.
+    hostId = id ?? `aparte-chat-${uuid()}`;
     // Set the id imperatively (deterministic, like Angular's ngAfterViewInit) rather
     // than waiting on a reactive re-render of `id={hostId}`; the composer target
     // reactive block below picks up the same hostId.
