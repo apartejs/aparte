@@ -152,6 +152,25 @@ function versionsIn(changelog) {
  * The aggregate section for one version: `{ text, changed, bumpedOnly }` where the
  * last two are package-name lists (for the caller's summary line), or null when no
  * package released that version.
+ *
+ * ## Grouped by CHANGE, not by package — and why that is not a style choice
+ *
+ * A changeset names every package it touches, and `changeset version` copies its
+ * prose into each of those packages' changelogs verbatim. So one entry about the
+ * wrappers' slot parity is written four times, and one about a core behaviour that
+ * the wrappers re-export is written fifteen. Grouping the aggregate by package
+ * therefore multiplies its own body by the size of the lockstep group.
+ *
+ * 0.8.0 is where that stopped being merely verbose: the section came out at
+ * **416 KB**, and the release-notes workflow died on `HTTP 422 — body is too long
+ * (maximum is 125000 characters)`. The breakdown was unambiguous — four packages
+ * carried the same 30 531 bytes, three the same 19 685, two the same 24 717.
+ * Fourteen of the fifteen headings were a copy.
+ *
+ * So an entry is emitted once, keyed on its text, and the packages that share it are
+ * named under it. A reader loses nothing (the per-package `CHANGELOG.md` files are
+ * the source of truth and npm shows those); the aggregate stops being fifteen
+ * near-identical documents concatenated.
  */
 function buildSection(version, packages) {
     const changed = [];
@@ -167,20 +186,44 @@ function buildSection(version, packages) {
     if (changed.length === 0 && bumpedOnly.length === 0) return null;
     const names = { changed: changed.map((c) => c.name), bumpedOnly };
 
+    /*
+     * `bucket → entry text → [package, …]`, in first-seen order.
+     *
+     * The insertion order follows PACKAGE_GLOBS, so core's changes lead and a
+     * wrapper-only entry lands after them — the reading order the per-package
+     * layout used to give for free.
+     */
+    const byBucket = new Map();
+    for (const { name, buckets } of changed) {
+        for (const [bucket, entries] of buckets) {
+            const seen = byBucket.get(bucket) ?? byBucket.set(bucket, new Map()).get(bucket);
+            for (const entry of entries) {
+                (seen.get(entry) ?? seen.set(entry, []).get(entry)).push(name);
+            }
+        }
+    }
+
     const out = [`## ${version}`, ''];
     out.push('Every `@aparte/*` package ships at this version (they are released in lockstep).', '');
 
     // Order matters for a reader: Major before Minor before Patch.
     const ORDER = ['Major Changes', 'Minor Changes', 'Patch Changes'];
-    for (const { name, buckets } of changed) {
-        out.push(`### ${name}`, '');
-        const names = [...buckets.keys()].sort((a, b) => {
-            const ia = ORDER.indexOf(a), ib = ORDER.indexOf(b);
-            return (ia === -1 ? ORDER.length : ia) - (ib === -1 ? ORDER.length : ib);
-        });
-        for (const bucket of names) {
-            out.push(`#### ${bucket}`, '');
-            for (const entry of buckets.get(bucket)) out.push(linkifyHashes(entry), '');
+    const bucketNames = [...byBucket.keys()].sort((a, b) => {
+        const ia = ORDER.indexOf(a), ib = ORDER.indexOf(b);
+        return (ia === -1 ? ORDER.length : ia) - (ib === -1 ? ORDER.length : ib);
+    });
+
+    const released = names.changed.length + bumpedOnly.length;
+    for (const bucket of bucketNames) {
+        out.push(`### ${bucket}`, '');
+        for (const [entry, owners] of byBucket.get(bucket)) {
+            out.push(linkifyHashes(entry));
+            // Indented so it stays inside the bullet. "every package" rather than a
+            // list of fifteen names, which is the whole point of the lockstep.
+            const who = owners.length === released && released > 1
+                ? 'every package'
+                : owners.map((n) => `\`${n}\``).join(', ');
+            out.push(`  <sub>${who}</sub>`, '');
         }
     }
 

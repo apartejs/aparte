@@ -31,7 +31,30 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           node scripts/gen-root-changelog.mjs --section "$version" > "$RUNNER_TEMP/notes.md"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          wc -l < "$RUNNER_TEMP/notes.md"
+
+          # The Releases API refuses a body over 125000 characters with an HTTP 422,
+          # which is how the 0.8.0 Release failed to exist: its section was 416 KB,
+          # because the aggregate repeated every shared changeset once per package in
+          # the lockstep group. That is fixed at the source (see `buildSection` in
+          # gen-root-changelog.mjs, now grouped by change), and this is the belt: a
+          # release that grows past the ceiling anyway gets a truncated body and a
+          # link, never a missing Release. Truncation happens on a line boundary so
+          # the body cannot end mid-fence.
+          limit=120000
+          size=$(wc -c < "$RUNNER_TEMP/notes.md")
+          echo "notes: $size characters, $(wc -l < "$RUNNER_TEMP/notes.md") lines"
+          if [ "$size" -gt "$limit" ]; then
+            echo "::warning::release notes are $size characters (>$limit) — truncating"
+            head -c "$limit" "$RUNNER_TEMP/notes.md" | sed '$d' > "$RUNNER_TEMP/notes.trunc"
+            {
+              echo
+              echo "---"
+              echo
+              echo "_These notes were truncated at ${limit} characters (the GitHub Releases limit"
+              echo "is 125000). The full section is in [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/${GITHUB_REF_NAME}/CHANGELOG.md)._"
+            } >> "$RUNNER_TEMP/notes.trunc"
+            mv "$RUNNER_TEMP/notes.trunc" "$RUNNER_TEMP/notes.md"
+          fi
         id: notes
 
       - name: Create the GitHub Release
