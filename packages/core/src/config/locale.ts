@@ -83,11 +83,14 @@ export interface AparteLocale {
      */
     submitButton?: string;
     /**
-     * The affordance that declines the request (default: "Don't answer").
+     * The affordance that declines the request (default: "Skip").
      *
-     * It was "Skip", which on a form of several questions reads as "skip THIS one" —
-     * and it declines the whole request, including questions already answered. That
-     * is MCP's `decline` and the right behaviour; the label was the part that lied.
+     * "Skip" reads as "skip THIS one" on a form of several questions, while it
+     * declines the whole request — including questions already answered. That is MCP's
+     * `decline` and the right behaviour. It was briefly renamed to carry the warning;
+     * reverted, because the RECEIPT now shows the outcome unambiguously (one declined
+     * row, no question attached), so the label no longer has to do that work — and
+     * "Skip" is the short conventional word for it.
      */
     elicitationSkip?: string;
     /** Affirmative choice of a yes/no question (default: "Yes") */
@@ -120,7 +123,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationOtherPlaceholder: "Type your answer…",
     elicitationOtherLabel: "Custom answer",
     submitButton: "Submit",
-    elicitationSkip: "Don't answer",
+    elicitationSkip: "Skip",
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
