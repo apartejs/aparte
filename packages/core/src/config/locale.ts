@@ -81,6 +81,8 @@ export interface AparteLocale {
     elicitationNo?: string;
     /** Last-resort accessible name for a free-text answer (default: "Your answer") */
     elicitationAnswerLabel?: string;
+    /** Advance to the next question of a stepped form (default: "Next") */
+    elicitationNext?: string;
 
     // --- Metadata ---
     /** Direction of the text (ltr or rtl) - defaults to ltr */
@@ -108,6 +110,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
+    elicitationNext: "Next",
     typing: "Typing...",
     error: "Error",
     running: "Running...",

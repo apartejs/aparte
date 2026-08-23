@@ -21,6 +21,7 @@ export const fr: AparteLocale = {
     elicitationYes: "Oui",
     elicitationNo: "Non",
     elicitationAnswerLabel: "Votre réponse",
+    elicitationNext: "Suivant",
     typing: "Écrit...",
     error: "Erreur",
     running: "Exécution...",

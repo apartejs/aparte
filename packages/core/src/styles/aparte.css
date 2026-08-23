@@ -250,6 +250,9 @@
   --aparte-elic-input-radius: 6px;
   --aparte-elic-textarea-min-height: 64px;
   --aparte-elic-skip-size: 0.8rem;
+  --aparte-elic-step-size: 0.75rem;
+  --aparte-elic-step-radius: 999px;
+  --aparte-elic-step-padding: 3px 10px;
 
   /* Code Blocks */
   --aparte-code-bg: var(--aparte-surface-1);
@@ -652,6 +655,66 @@ textarea.aparte-elic-text {
 .aparte-elic-skip:hover {
   background: var(--aparte-surface-2, rgba(128, 128, 128, 0.08));
   color: var(--aparte-text);
+}
+
+/* One question at a time: a chip per question, and the chip is also how you go
+   back. In this layout the fields are siblings with only one shown, so the
+   separator between them would draw a border above whichever one is visible. */
+.aparte-elic-panel--stepped .aparte-elic-field + .aparte-elic-field {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.aparte-elic-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 6px 8px;
+}
+
+.aparte-elic-step {
+  border: var(--aparte-border-width, 1px) solid var(--aparte-border, rgba(128, 128, 128, 0.2));
+  background: transparent;
+  color: var(--aparte-text-muted, rgba(128, 128, 128, 0.75));
+  font-size: var(--aparte-elic-step-size, 0.75rem);
+  font-family: inherit;
+  padding: var(--aparte-elic-step-padding, 3px 10px);
+  border-radius: var(--aparte-elic-step-radius, 999px);
+  cursor: pointer;
+}
+
+.aparte-elic-step[data-answered] {
+  color: var(--aparte-text);
+  border-color: var(--aparte-primary, #6366f1);
+}
+
+.aparte-elic-step[aria-selected='true'] {
+  background: var(--aparte-primary, #6366f1);
+  border-color: var(--aparte-primary, #6366f1);
+  color: var(--aparte-on-primary, #ffffff);
+}
+
+.aparte-elic-nav {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.aparte-elic-next {
+  border: var(--aparte-border-width, 1px) solid var(--aparte-primary, #6366f1);
+  background: transparent;
+  color: var(--aparte-primary, #6366f1);
+  font-size: var(--aparte-elic-skip-size, 0.8rem);
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: var(--aparte-elic-input-radius, 6px);
+}
+
+.aparte-elic-next:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 aparte-composer {

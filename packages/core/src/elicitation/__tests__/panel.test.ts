@@ -73,6 +73,117 @@ describe('buildElicitationPanel', () => {
      * cancel, send-button gating, focus and teardown. Every other customisation point
      * in this library is a hook; this one was missing.
      */
+    /**
+     * Several questions are asked ONE AT A TIME.
+     *
+     * Stacking them in one box came from MCP elicitation without being examined:
+     * MCP describes a form for collecting structured data, which is not the same
+     * thing as asking a person two questions in the middle of a conversation. No
+     * product does the latter by stacking, and the shape they all use — one question
+     * at a time, a chip per question — is what `header` exists for.
+     *
+     * The protocol is untouched: `isComplete()` still means every required field, so
+     * the composer's send button still means submit and advancing is the panel's own
+     * affordance.
+     */
+    describe('a form of several questions', () => {
+        const twoQuestions: AparteElicitationSchema = {
+            type: 'object',
+            properties: {
+                q1: { type: 'enum', title: 'Which colour?', header: 'Colour', options: [{ value: 'blue' }] },
+                q2: { type: 'enum', title: 'Which shape?', header: 'Shape', options: [{ value: 'round' }] },
+            },
+        };
+        const visible = (p: { el: HTMLElement }) =>
+            Array.from(p.el.querySelectorAll<HTMLElement>('.aparte-elic-field')).filter((f) => !f.hidden);
+        const chips = (p: { el: HTMLElement }) =>
+            Array.from(p.el.querySelectorAll<HTMLButtonElement>('.aparte-elic-step'));
+
+        it('shows one question, with a chip per question', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            expect(visible(p), 'one question on screen, not two').toHaveLength(1);
+            expect(visible(p)[0]!.textContent).toContain('Which colour?');
+            expect(chips(p).map((c) => c.textContent)).toEqual(['Colour', 'Shape']);
+        });
+
+        it('falls back to the position when the model gave no short label', () => {
+            const p = buildElicitationPanel('', {
+                type: 'object',
+                properties: { q1: { type: 'string', title: 'A?' }, q2: { type: 'string', title: 'B?' } },
+            }, noop);
+            // A number, not a truncated sentence: a chip cannot hold a question.
+            expect(chips(p).map((c) => c.textContent)).toEqual(['1', '2']);
+        });
+
+        it('cannot advance past an unanswered question, and can once answered', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            const next = p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!;
+            expect(next.disabled, 'monotonic — the same rule the send button follows').toBe(true);
+
+            select(p.el, 'blue');
+            expect(next.disabled).toBe(false);
+
+            next.click();
+            expect(visible(p)[0]!.textContent).toContain('Which shape?');
+        });
+
+        it('is not submittable until every question is answered', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            select(p.el, 'blue');
+            expect(p.isComplete(), 'one of two answered').toBe(false);
+
+            p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!.click();
+            select(p.el, 'round');
+
+            expect(p.isComplete()).toBe(true);
+            expect(p.getContent()).toEqual({ q1: 'blue', q2: 'round' });
+        });
+
+        it('hides Next on the last question — the send button is the submit there', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            const nav = p.el.querySelector<HTMLElement>('.aparte-elic-nav')!;
+            expect(nav.hidden).toBe(false);
+
+            select(p.el, 'blue');
+            p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!.click();
+
+            expect(nav.hidden, 'a second button that does nothing is worse than none').toBe(true);
+        });
+
+        it('a chip goes back to a question already answered', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            select(p.el, 'blue');
+            p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!.click();
+            expect(visible(p)[0]!.textContent).toContain('Which shape?');
+
+            chips(p)[0]!.click();
+
+            expect(visible(p)[0]!.textContent, 'free navigation, not a hunt for a Back button').toContain('Which colour?');
+            expect(chips(p)[0]!.getAttribute('aria-selected')).toBe('true');
+            expect(chips(p)[0]!.hasAttribute('data-answered'), 'and it shows as answered').toBe(true);
+        });
+
+        it('a single question is never stepped', () => {
+            const p = buildElicitationPanel('', {
+                type: 'object',
+                properties: { q1: { type: 'enum', title: 'Only one?', options: [{ value: 'a' }] } },
+            }, noop);
+            expect(chips(p), 'one question needs no chips').toHaveLength(0);
+            expect(visible(p)).toHaveLength(1);
+        });
+
+        it('the host can ask for the form shape instead', () => {
+            // MCP's case — collecting structured data in one go — is real. It is just
+            // not what asking someone two questions looks like.
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ layout: 'stacked' });
+            const p = runWithConfig(cfg, () => buildElicitationPanel('', twoQuestions, noop));
+
+            expect(visible(p), 'both questions at once').toHaveLength(2);
+            expect(chips(p)).toHaveLength(0);
+        });
+    });
+
     describe('a custom field renderer', () => {
         function chips(): AparteConfig {
             const cfg = new AparteConfig();

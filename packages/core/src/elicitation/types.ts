@@ -11,6 +11,15 @@
 export interface AparteElicitationEnumField {
     type: 'enum';
     title?: string;
+    /**
+     * A SHORT label for this question — two or three words, no sentence.
+     *
+     * A multi-question form is presented one question at a time, with a chip per
+     * question, and a chip cannot hold a sentence. `title` is the question as the
+     * user reads it; `header` is how it is referred to. Omitted, the chip falls back
+     * to the question's position, which is honest and never truncates badly.
+     */
+    header?: string;
     description?: string;
     options: Array<{ value: string; label?: string; description?: string; recommended?: boolean }>;
     /** Checkboxes (multi-select) instead of radios. */
@@ -25,6 +34,15 @@ export interface AparteElicitationEnumField {
 export interface AparteElicitationBooleanField {
     type: 'boolean';
     title?: string;
+    /**
+     * A SHORT label for this question — two or three words, no sentence.
+     *
+     * A multi-question form is presented one question at a time, with a chip per
+     * question, and a chip cannot hold a sentence. `title` is the question as the
+     * user reads it; `header` is how it is referred to. Omitted, the chip falls back
+     * to the question's position, which is honest and never truncates badly.
+     */
+    header?: string;
     description?: string;
     default?: boolean;
     /** Labels for the two choices (fall back to the locale yes/no). */
@@ -36,6 +54,15 @@ export interface AparteElicitationBooleanField {
 export interface AparteElicitationStringField {
     type: 'string';
     title?: string;
+    /**
+     * A SHORT label for this question — two or three words, no sentence.
+     *
+     * A multi-question form is presented one question at a time, with a chip per
+     * question, and a chip cannot hold a sentence. `title` is the question as the
+     * user reads it; `header` is how it is referred to. Omitted, the chip falls back
+     * to the question's position, which is honest and never truncates badly.
+     */
+    header?: string;
     description?: string;
     placeholder?: string;
     default?: string;

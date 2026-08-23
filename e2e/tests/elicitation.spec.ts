@@ -18,6 +18,7 @@ import {
     installLlmMock,
     MOCK_ASK_OPTIONS,
     MOCK_ASK_QUESTION,
+    MOCK_ASK_TWO,
     MOCK_REPLY_MARK,
 } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
@@ -92,6 +93,62 @@ test('answering restores the composer and resumes the turn', async ({ page }) =>
         expect(mock.chatRequests.length, 'a second turn was sent').toBeGreaterThan(1);
         const messages = JSON.stringify(mock.chatRequests.at(-1)?.['messages'] ?? []);
         expect(messages, 'the tool result carries the chosen option').toContain(MOCK_ASK_OPTIONS[0]);
+    }).toPass();
+
+    expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
+test('two questions are asked one at a time, with a chip each', async ({ page }) => {
+    const errors = collectPageErrors(page);
+    const mock = await installLlmMock(page, { scenario: 'ask-two-questions' });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+
+    await chat.editor.fill('ask me two things');
+    await chat.sendButton.click();
+
+    const panel = page.locator(PANEL);
+    await expect(panel).toBeVisible();
+
+    // THE assertion. Both questions used to be stacked in the same box — a shape
+    // inherited from MCP elicitation, which describes a FORM for structured data and
+    // not two questions asked of a person mid-conversation.
+    const shown = panel.locator('.aparte-elic-field:not([hidden])');
+    await expect(shown, 'one question on screen, not two').toHaveCount(1);
+    await expect(shown).toContainText(MOCK_ASK_TWO[0].question);
+
+    // A chip per question, labelled by the model's short header.
+    const chips = panel.locator('.aparte-elic-step');
+    await expect(chips).toHaveText(MOCK_ASK_TWO.map((q) => q.header));
+
+    // Monotonic: no advancing past a question you have not answered.
+    const next = panel.locator('.aparte-elic-next');
+    await expect(next).toBeDisabled();
+    await panel.getByText(MOCK_ASK_TWO[0].options[0], { exact: false }).first().click();
+    await expect(next).toBeEnabled();
+    await next.click();
+
+    await expect(shown).toContainText(MOCK_ASK_TWO[1].question);
+    // On the last question the composer's send button IS the submit.
+    await expect(next).toBeHidden();
+
+    // A chip goes back to the first, which now shows as answered.
+    await chips.first().click();
+    await expect(shown).toContainText(MOCK_ASK_TWO[0].question);
+    await expect(chips.first()).toHaveAttribute('data-answered', '');
+
+    // Answer the second and submit: both answers reach the model, each named by its
+    // own question rather than by a form key.
+    await chips.nth(1).click();
+    await panel.getByText(MOCK_ASK_TWO[1].options[1], { exact: false }).first().click();
+    await chat.sendButton.click();
+    await expect(panel).toHaveCount(0);
+
+    await expect(async () => {
+        expect(mock.chatRequests.length, 'a second turn was sent').toBeGreaterThan(1);
+        const messages = JSON.stringify(mock.chatRequests.at(-1)?.['messages'] ?? []);
+        expect(messages).toContain(MOCK_ASK_TWO[0].question);
+        expect(messages).toContain(MOCK_ASK_TWO[1].options[1]);
     }).toPass();
 
     expect(errors, 'no uncaught page errors').toEqual([]);

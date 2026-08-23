@@ -275,20 +275,104 @@ export function buildElicitationPanel(
     if (schema.type === 'object') {
         const entries = Object.entries(schema.properties);
         const requiredKeys = new Set(schema.required ?? entries.map(([k]) => k));
+        const cfg = contextConfig();
+
+        // Re-entrant: a field's change has to refresh the step nav (which chip is
+        // answered, whether Next is available) BEFORE the presenter re-reads
+        // isComplete() for the send button.
+        let syncNav = (): void => {};
+        const notify = (): void => { syncNav(); onChange(); };
+
         const fields = entries.map(([key, field]) => {
-            const built = buildField(field, onChange, undefined, key);
+            const built = buildField(field, notify, undefined, key);
             // Ensure a title so each field in a form is labelled.
             if (!field.title && !built.el.querySelector('.aparte-elic-title')) {
                 built.el.insertBefore(el('p', 'aparte-elic-title', key), built.el.firstChild);
             }
             panel.appendChild(built.el);
-            return { key, field: built, required: requiredKeys.has(key) };
+            return { key, field: built, required: requiredKeys.has(key), header: field.header };
         });
-        return {
+
+        const api: BuiltElicitationPanel = {
             el: panel,
             getContent: () => Object.fromEntries(fields.map(f => [f.key, f.field.getValue()])),
             isComplete: () => fields.every(f => !f.required || f.field.isComplete()),
             focus: () => fields[0]?.field.focus(),
+        };
+
+        // ONE QUESTION AT A TIME, past the first.
+        //
+        // Stacking every question in one box was inherited from MCP elicitation
+        // without examining it: MCP describes a FORM for collecting structured data,
+        // which is a different thing from asking a person two questions in the middle
+        // of a conversation. No product does the latter by stacking — the shape they
+        // all use is one question at a time with a chip per question, and it is what
+        // `header` exists for. `layout: 'stacked'` keeps the form case, because that
+        // case is real; it is just not the default.
+        //
+        // `isComplete()` is deliberately unchanged — still "every required field" —
+        // so the protocol is untouched and the composer's send button still means
+        // submit. Advancing is the panel's own affordance.
+        if (fields.length < 2 || cfg.getElicitationOptions().layout !== 'stepped') return api;
+
+        panel.classList.add('aparte-elic-panel--stepped');
+        let current = 0;
+
+        const steps = el('div', 'aparte-elic-steps');
+        steps.setAttribute('role', 'tablist');
+        const chips = fields.map((f, i) => {
+            const chip = el('button', 'aparte-elic-step');
+            chip.type = 'button';
+            chip.setAttribute('role', 'tab');
+            // The position when the model gave no short label: honest, and it never
+            // truncates a sentence into nonsense.
+            chip.textContent = f.header?.trim() || String(i + 1);
+            // A chip is how you go BACK. Free navigation rather than a Previous
+            // button: an answer you have already given is the thing you most want to
+            // revisit, and hunting for a Back button to do it is the frustrating
+            // half of every stepped form.
+            chip.addEventListener('click', () => { show(i); f.field.focus(); });
+            steps.appendChild(chip);
+            return chip;
+        });
+        panel.insertBefore(steps, fields[0]!.field.el);
+
+        const nav = el('div', 'aparte-elic-nav');
+        const nextBtn = el('button', 'aparte-elic-next');
+        nextBtn.type = 'button';
+        nextBtn.textContent = cfg.t('elicitationNext');
+        nextBtn.addEventListener('click', () => {
+            show(Math.min(current + 1, fields.length - 1));
+            fields[current]?.field.focus();
+        });
+        nav.appendChild(nextBtn);
+        panel.appendChild(nav);
+
+        function show(index: number): void {
+            current = index;
+            fields.forEach((f, i) => { f.field.el.hidden = i !== index; });
+            syncNav();
+        }
+
+        syncNav = (): void => {
+            chips.forEach((chip, i) => {
+                chip.setAttribute('aria-selected', String(i === current));
+                // Answered, so a reader can see at a glance what is left.
+                chip.toggleAttribute('data-answered', fields[i]!.field.isComplete());
+            });
+            const last = current === fields.length - 1;
+            // On the last step the composer's send button IS the submit, so a Next
+            // there would be a second button that does nothing.
+            nav.hidden = last;
+            // Monotonic: you cannot skip past a question you have not answered, which
+            // is the same rule the send button follows.
+            nextBtn.disabled = !fields[current]?.field.isComplete();
+        };
+
+        show(0);
+        return {
+            ...api,
+            focus: () => fields[current]?.field.focus(),
         };
     }
 

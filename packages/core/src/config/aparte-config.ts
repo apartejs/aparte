@@ -161,6 +161,7 @@ export class AparteConfig {
     private _requireModelSelection = false;
     /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
     private _elicitationAllowOther = true;
+    private _elicitationLayout: 'stepped' | 'stacked' = 'stepped';
     private _elicitationFieldRenderer?: AparteElicitationFieldRenderer | undefined;
     // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
     private _transport: AparteTransport = new AparteDirectTransport();
@@ -831,15 +832,24 @@ export class AparteConfig {
      * panel did before, so nothing a user sees changes — only who gets to say so.
      * A direct `requestUserInput` caller can still set `allowOther` per field; that
      * is the app talking, and it wins.
+     *
+     * `layout` decides how a form of SEVERAL questions is presented.
+     * `'stepped'` (default) asks them one at a time with a chip per question;
+     * `'stacked'` puts them all in the panel at once. Stacked was the only shape,
+     * inherited unexamined from MCP elicitation — which describes a FORM for
+     * collecting structured data, not two different questions asked mid-conversation.
+     * No product asks a person two questions by stacking them in one box; it is kept
+     * as an option because the form case is real, not because it was the right default.
      */
-    setElicitationOptions(options: { allowOther?: boolean }): void {
+    setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked' }): void {
         if (options.allowOther !== undefined) this._elicitationAllowOther = options.allowOther;
+        if (options.layout !== undefined) this._elicitationLayout = options.layout;
         this._notify();
     }
 
     /** The elicitation policy (see {@link setElicitationOptions}). */
-    getElicitationOptions(): { allowOther: boolean } {
-        return { allowOther: this._elicitationAllowOther };
+    getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' } {
+        return { allowOther: this._elicitationAllowOther, layout: this._elicitationLayout };
     }
 
     /**
@@ -1121,6 +1131,7 @@ export class AparteConfig {
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._elicitationAllowOther = true;
+        this._elicitationLayout = 'stepped';
         this._elicitationFieldRenderer = undefined;
         this._modelPreferenceProvider = undefined;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };

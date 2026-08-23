@@ -81,6 +81,50 @@ if (answer.action === 'accept') {
 }
 ```
 
+### Several questions are asked one at a time
+
+A form of two or more questions is presented **one question at a time**, with a chip
+per question above it. The chips are also how you go back: an answer you have already
+given is the thing you most want to revisit, and hunting for a "Back" button to do it
+is the frustrating half of every stepped form.
+
+Give each question a short `header` — two or three words — because that is what the
+chip holds. Without one the chip falls back to the question's position, which is
+honest and never truncates a sentence into nonsense.
+
+```ts
+import { requestUserInput } from '@aparte/core';
+
+const answer = await requestUserInput({
+  message: '',                       // each question carries its own title
+  schema: {
+    type: 'object',
+    properties: {
+      engine: { type: 'enum', header: 'Engine', title: 'Which engine?', options: [{ value: 'chromium' }, { value: 'webkit' }] },
+      theme: { type: 'enum', header: 'Theme', title: 'Which theme?', options: [{ value: 'light' }, { value: 'dark' }] },
+    },
+  },
+});
+void answer;
+```
+
+The protocol does not change: the answer is still one object with every key, and the
+composer's send button still means *submit*, enabled only once every required question
+has an answer. Advancing between questions is the panel's own affordance.
+
+If what you actually want is a **form** — several fields filled in one go, which is
+what structured data collection looks like — ask for it:
+
+```ts
+aparteGlobalConfig.setElicitationOptions({ layout: 'stacked' });
+```
+
+That was the only shape until now, inherited from MCP elicitation without being
+examined. MCP describes a form for collecting structured data; asking a person two
+different questions in the middle of a conversation is not that, and no product does
+it by stacking them in one box. The form case is real, so it stays — it was just never
+the right default.
+
 ## Always handle all three answers
 
 ```ts

@@ -29,6 +29,8 @@ export interface AskQuestionOption {
 /** A single question within an ask_question call (multi-question form). */
 export interface AskQuestionItem {
     question: string;
+    /** A short label — the chip a stepped form shows for this question. */
+    header?: string;
     options: AskQuestionOption[];
     /** If true, renders checkboxes (multi-select). Default false (radio). */
     multiple?: boolean;
@@ -81,6 +83,11 @@ several options can apply simultaneously.`,
                         question: {
                             type: 'string',
                             description: 'The question to display to the user'
+                        },
+                        header: {
+                            type: 'string',
+                            maxLength: 16,
+                            description: 'A SHORT label for this question — two or three words, no sentence (e.g. "Colour", "Framework"). Several questions are asked one at a time, with a chip per question, and a chip cannot hold a sentence.'
                         },
                         options: {
                             type: 'array',
@@ -198,11 +205,12 @@ export const askQuestionHandler: AparteToolHandler = async (call, signal, contex
 function questionField(item: AskQuestionItem): AparteElicitationEnumField | AparteElicitationStringField {
     const options = item.options ?? [];
     if (options.length === 0) {
-        return { type: 'string', title: item.question, default: item.defaultValue };
+        return { type: 'string', title: item.question, header: item.header, default: item.defaultValue };
     }
     return {
         type: 'enum',
         title: item.question,
+        header: item.header,
         options: options.map((o) => ({
             value: o.title,
             label: o.title,
@@ -231,6 +239,7 @@ function buildRequest(input: Record<string, unknown>): {
     const raw = input['questions'];
     const toItem = (o: Record<string, unknown>): AskQuestionItem => ({
         question: (o['question'] as string) ?? '',
+        header: (o['header'] as string) ?? undefined,
         options: normalizeOptions(o['options']),
         multiple: (o['multiple'] as boolean) ?? false,
         // `allow_other` is read from nowhere on purpose — it is the host's call.

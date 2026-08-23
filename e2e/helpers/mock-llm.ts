@@ -87,6 +87,17 @@ export const MOCK_ASK_QUESTION = 'Which engine should the workbench use?';
 /** The two options offered, in order. */
 export const MOCK_ASK_OPTIONS = ['Chromium', 'WebKit'] as const;
 
+/**
+ * Two questions in ONE tool call — the shape that used to stack them in one box.
+ *
+ * Each carries a short `header`, which is what a chip holds: a chip cannot hold a
+ * sentence, and truncating one is worse than numbering it.
+ */
+export const MOCK_ASK_TWO = [
+    { header: 'Engine', question: 'Which engine should it use?', options: ['Chromium', 'WebKit'] },
+    { header: 'Theme', question: 'Which theme should it use?', options: ['Light', 'Dark'] },
+] as const;
+
 /** A model id carrying characters that break a naive attribute selector. */
 export const MOCK_HOSTILE_MODEL_ID = 'a"b]c-model';
 
@@ -119,6 +130,7 @@ export type LlmScenario =
     | 'code'
     | 'tool-call'
     | 'ask-question'
+    | 'ask-two-questions'
     | 'slow'
     | 'http-500'
     | 'malformed-sse'
@@ -223,6 +235,35 @@ function bodyForScenario(scenario: LlmScenario): string {
          * answered the model `cancel`. Nothing was ever shown, and nothing in the
          * browser suite could see it, because no example wired the two together.
          */
+        case 'ask-two-questions':
+            return [
+                contentEvent('Two things first.'),
+                sse({
+                    choices: [{
+                        index: 0,
+                        delta: {
+                            tool_calls: [{
+                                index: 0,
+                                id: 'call_e2e_ask_2',
+                                function: {
+                                    name: MOCK_ASK_TOOL_NAME,
+                                    arguments: JSON.stringify({
+                                        questions: MOCK_ASK_TWO.map((q) => ({
+                                            question: q.question,
+                                            header: q.header,
+                                            options: q.options.map((title) => ({ title })),
+                                        })),
+                                    }),
+                                },
+                            }],
+                        },
+                    }],
+                }),
+                finishEvent('tool_calls'),
+                usageEvent(),
+                DONE,
+            ].join('');
+
         case 'ask-question':
             return [
                 contentEvent('Let me check with you.'),
