@@ -11,7 +11,7 @@ message say?
 
 **Elicitation** is the primitive for that: pause the run, render a typed input in the
 composer, and resolve with what the user chose. It is a generalisation of the
-`ask-question` plugin — there, the *kind* of question was baked into a dedicated tool;
+`ask-user` plugin — there, the *kind* of question was baked into a dedicated tool;
 here it is carried by a schema, so one call covers all of them.
 
 The shape follows [MCP elicitation](https://modelcontextprotocol.io/) (a message plus a
@@ -308,15 +308,15 @@ model's:
 aparteGlobalConfig.setElicitationOptions({ allowOther: false });
 ```
 
-`@aparte/plugin-ask-question` used to expose `allow_other` in the schema it hands the
+`@aparte/plugin-ask-user` used to expose `allow_other` in the schema it hands the
 model, which meant the model decided your UX — and a small model fills a field it does
 not understand: one sent two questions with `allow_other: true` and no options at all,
 so the panel rendered a radio list whose only entry was "Other…". A field of a schema
 you build yourself can still set `allowOther`, and it wins: that is your app talking.
 
-## Elicitation or the ask-question plugin?
+## Elicitation or the ask-user plugin?
 
-`@aparte/plugin-ask-question` is still there and still useful: it gives the *model* a
+`@aparte/plugin-ask-user` is still there and still useful: it gives the *model* a
 tool it can call to ask a question, with a rendered receipt of what was asked and
 answered. Reach for it when the model should decide to ask.
 

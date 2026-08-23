@@ -30,8 +30,8 @@ import {
 } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
-import { setupAskQuestion } from '@aparte/plugin-ask-question';
-import '@aparte/plugin-ask-question';   // registers <aparte-ask-question>, the semantic alias
+import { setupAskUser } from '@aparte/plugin-ask-user';
+import '@aparte/plugin-ask-user';   // registers <aparte-ask-user>, the semantic alias
 
 /** One workbench pane: a label a human reads, and the config that backs it. */
 export interface WorkbenchPane {
@@ -46,7 +46,7 @@ export interface WorkbenchPane {
  * Build one pane's config from scratch.
  *
  * Everything is registered on `cfg`, never on `aparteGlobalConfig`: the markdown
- * renderer, the provider, the transport, the model choice, and the `ask_question`
+ * renderer, the provider, the transport, the model choice, and the `ask_user`
  * tool whose handler suspends the turn on `requestUserInput`. A single call left on
  * the global would make this whole view prove the opposite of what it claims.
  */
@@ -61,7 +61,7 @@ function makePane(title: string, providerLabel: string, provider: AparteAIProvid
     // The plugin registers the tool AND hides its pill; its handler calls
     // `requestUserInput`, which is answered by the <aparte-elicitation> mounted
     // inside THIS pane's chat. That is the path the CRITICAL broke.
-    setupAskQuestion(config);
+    setupAskUser(config);
 
     // Retry/edit are honoured by the client below, so they may be shown.
     config.setBubbleActions({ retry: true, edit: true });

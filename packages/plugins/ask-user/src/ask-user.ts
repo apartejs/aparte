@@ -1,5 +1,5 @@
 /**
- * ask_question tool for aparté.
+ * ask_user tool for aparté.
  *
  * Lets the AI ask the user a structured question (title + optional description),
  * as single (radio) or multiple (checkbox) choice. The handler is a thin ADAPTER
@@ -8,7 +8,7 @@
  * framework coupling, no window events, no per-tool contract to drift.
  *
  * Usage:
- *   aparteGlobalConfig.registerTool(askQuestionTool, askQuestionHandler);
+ *   aparteGlobalConfig.registerTool(askUserTool, askUserHandler);
  */
 
 import type { AparteTool, AparteToolHandler, AparteToolResult } from '@aparte/core';
@@ -19,44 +19,44 @@ import type {
     AparteElicitationStringField,
 } from '@aparte/core';
 
-export interface AskQuestionOption {
+export interface AskUserOption {
     title: string;
     description?: string;
     /** Highlights this option as the recommended choice */
     recommended?: boolean;
 }
 
-/** A single question within an ask_question call (multi-question form). */
-export interface AskQuestionItem {
+/** A single question within an ask_user call (multi-question form). */
+export interface AskUserItem {
     question: string;
     /** A short label — the chip a stepped form shows for this question. */
     header?: string;
-    options: AskQuestionOption[];
+    options: AskUserOption[];
     /** If true, renders checkboxes (multi-select). Default false (radio). */
     multiple?: boolean;
     /** Pre-select the option whose title matches this value */
     defaultValue?: string;
 }
 
-export interface AskQuestionDetail {
+export interface AskUserDetail {
     toolCallId: string;
     /**
      * Multi-question form. When present and non-empty, EVERY question is rendered
      * and this takes precedence over the single-question fields below.
      */
-    questions?: AskQuestionItem[];
+    questions?: AskUserItem[];
     // ── Single-question fields — honoured for callers that build a request directly. ──
     question?: string;
-    options?: AskQuestionOption[];
+    options?: AskUserOption[];
     multiple?: boolean;
     /** Pre-select the option whose title matches this value */
     defaultValue?: string;
 }
 
-export const askQuestionTool: AparteTool = {
-    name: 'ask_question',
+export const askUserTool: AparteTool = {
+    name: 'ask_user',
     description: 'Ask the user a question with structured options (title + optional description). Use for single or multiple choice input.',
-    systemPrompt: `You have access to the ask_question tool.
+    systemPrompt: `You have access to the ask_user tool.
 
 WHEN TO USE IT: only when the user's request is genuinely ambiguous and requires a choice between distinct options before you can proceed (e.g. "which framework should I use?", "what style do you prefer?").
 
@@ -171,13 +171,13 @@ several options can apply simultaneously.`,
 };
 
 /**
- * ask_question is a thin ADAPTER over the core elicitation primitive: the handler
+ * ask_user is a thin ADAPTER over the core elicitation primitive: the handler
  * maps the tool input to an elicitation schema (`enum` for one question, an
  * `object` form for several) and awaits `requestUserInput`, which routes to the
  * `<aparte-elicitation>` presenter. `accept` → the answer, `decline` → a
  * model-usable note, `cancel` → an AbortError the loop surfaces as a failed call.
  */
-export const askQuestionHandler: AparteToolHandler = async (call, signal, context): Promise<AparteToolResult> => {
+export const askUserHandler: AparteToolHandler = async (call, signal, context): Promise<AparteToolResult> => {
     const { message, schema, labels } = buildRequest(call.input);
     // `target` is what makes the RIGHT chat answer. Without it `requestUserInput`
     // resolves its presenter from the global config, so a chat given its own
@@ -192,7 +192,7 @@ export const askQuestionHandler: AparteToolHandler = async (call, signal, contex
     if (result.action === 'decline') {
         return { toolCallId: call.id, content: 'The user declined to answer.' };
     }
-    throw new DOMException('ask_question aborted', 'AbortError');
+    throw new DOMException('ask_user aborted', 'AbortError');
 };
 
 /**
@@ -210,7 +210,7 @@ export const askQuestionHandler: AparteToolHandler = async (call, signal, contex
  * because it falls back to printing the key when a field has no title — a label that
  * worked by accident.
  */
-function questionField(item: AskQuestionItem): AparteElicitationEnumField | AparteElicitationStringField {
+function questionField(item: AskUserItem): AparteElicitationEnumField | AparteElicitationStringField {
     const options = item.options ?? [];
     if (options.length === 0) {
         return { type: 'string', title: item.question, header: item.header, default: item.defaultValue };
@@ -245,7 +245,7 @@ function buildRequest(input: Record<string, unknown>): {
     labels: Record<string, string>;
 } {
     const raw = input['questions'];
-    const toItem = (o: Record<string, unknown>): AskQuestionItem => ({
+    const toItem = (o: Record<string, unknown>): AskUserItem => ({
         question: (o['question'] as string) ?? '',
         header: (o['header'] as string) ?? undefined,
         options: normalizeOptions(o['options']),
@@ -306,7 +306,7 @@ function formatAnswer(content: unknown, labels: Record<string, string> = {}): st
 const _OPT_DESC_KEYS = new Set(['description', 'desc', 'detail']);
 
 /**
- * Normalise a raw options array into AskQuestionOption[]. The schema asks the
+ * Normalise a raw options array into AskUserOption[]. The schema asks the
  * model for `{title, description}`, but a small model may improvise the option
  * shape at inference: a plain string, or the label under `label`/`value`/`text`/
  * `name`/`option`, or some other key entirely. Accept all of these — and as a last
@@ -314,9 +314,9 @@ const _OPT_DESC_KEYS = new Set(['description', 'desc', 'detail']);
  * options instead of collapsing to a lone "Other…". Entries with no usable label
  * are dropped.
  */
-function normalizeOptions(raw: unknown): AskQuestionOption[] {
+function normalizeOptions(raw: unknown): AskUserOption[] {
     if (!Array.isArray(raw)) return [];
-    const out: AskQuestionOption[] = [];
+    const out: AskUserOption[] = [];
     for (const item of raw) {
         if (item == null) continue;
         if (typeof item === 'string') {

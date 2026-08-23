@@ -56,7 +56,7 @@ const BARRELS = [
     { pkg: '@aparte/plugin-shiki', types: 'packages/plugins/shiki/dist/index.d.ts', readme: 'packages/plugins/shiki/README.md' },
     { pkg: '@aparte/plugin-streaming-markdown', types: 'packages/plugins/streaming-markdown/dist/index.d.ts', readme: 'packages/plugins/streaming-markdown/README.md' },
     { pkg: '@aparte/plugin-model-selector', types: 'packages/plugins/model-selector/dist/index.d.ts', readme: 'packages/plugins/model-selector/README.md' },
-    { pkg: '@aparte/plugin-ask-question', types: 'packages/plugins/ask-question/dist/index.d.ts', readme: 'packages/plugins/ask-question/README.md' },
+    { pkg: '@aparte/plugin-ask-user', types: 'packages/plugins/ask-user/dist/index.d.ts', readme: 'packages/plugins/ask-user/README.md' },
     { pkg: '@aparte/provider-openai-compat', types: 'packages/providers/ai/openai-compat/dist/index.d.ts', readme: 'packages/providers/ai/openai-compat/README.md' },
     { pkg: '@aparte/provider-ai-sdk', types: 'packages/providers/ai/ai-sdk/dist/index.d.ts', readme: 'packages/providers/ai/ai-sdk/README.md' },
     { pkg: '@aparte/provider-transformers', types: 'packages/providers/ai/transformers/dist/index.d.ts', readme: 'packages/providers/ai/transformers/README.md' },
@@ -104,14 +104,14 @@ const MAX_UNMENTIONED = new Map([
     ['@aparte/svelte', 9],      // of 17, incl. AparteChatStore
     ['@aparte/angular', 12],    // of 20, incl. APARTE_CONFIG_TOKEN and ProvideAparteOptions
     // First measurement of these nine. They are VALUE exports a consumer calls —
-    // `setupShikiProvider`, `askQuestionTool`, `createAiSdkProvider` — so they matter
+    // `setupShikiProvider`, `askUserTool`, `createAiSdkProvider` — so they matter
     // more than a type, and the ratchet is only the first step: it makes the number
     // visible and stops it growing. Writing the pages is a lot of its own.
     ['@aparte/plugin-marked', 0],
     ['@aparte/plugin-shiki', 3],
     ['@aparte/plugin-streaming-markdown', 0],
     ['@aparte/plugin-model-selector', 2],
-    ['@aparte/plugin-ask-question', 6],
+    ['@aparte/plugin-ask-user', 6],
     ['@aparte/provider-openai-compat', 2],
     ['@aparte/provider-ai-sdk', 5],
     ['@aparte/provider-transformers', 9],

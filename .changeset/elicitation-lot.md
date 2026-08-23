@@ -1,6 +1,6 @@
 ---
 '@aparte/core': minor
-'@aparte/plugin-ask-question': minor
+'@aparte/plugin-ask-user': minor
 '@aparte/locale-fr': minor
 ---
 

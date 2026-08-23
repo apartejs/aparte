@@ -14,7 +14,7 @@
  * Result: `getTools()` held the tool an app had explicitly registered, `tools: []`
  * went on the wire, and the model answered — correctly — that it had no such tool.
  * A user hit exactly that against LM Studio. No error, no warning: the whole tools
- * guide, `needsApproval`, HITL and `@aparte/plugin-ask-question` were inert.
+ * guide, `needsApproval`, HITL and `@aparte/plugin-ask-user` were inert.
  *
  * Two fixes, and this file pins both: a fetched list now reaches
  * `getCurrentModel()` (see config/__tests__/fetched-model-capabilities.test.ts),
@@ -27,7 +27,7 @@ import { AparteConfig } from '../../config/index.js';
 import type { AparteAIModel, AparteTool } from '../../types/index.js';
 
 const TOOL: AparteTool = {
-    name: 'ask_question',
+    name: 'ask_user',
     description: 'Ask the user something',
     inputSchema: { type: 'object', properties: {} },
 };
@@ -79,13 +79,13 @@ describe('the tools array that reaches the transport', () => {
         // current model is unknown. An app that registered a tool meant it.
         const turn = turnWith([]);
         await turn.run();
-        expect(turn.sent()?.map(t => t.name)).toContain('ask_question');
+        expect(turn.sent()?.map(t => t.name)).toContain('ask_user');
     });
 
     it('carries it when the model declares function_calling', async () => {
         const turn = turnWith([{ id: 'm', name: 'M', capabilities: ['streaming', 'function_calling'] }]);
         await turn.run();
-        expect(turn.sent()?.map(t => t.name)).toContain('ask_question');
+        expect(turn.sent()?.map(t => t.name)).toContain('ask_user');
     });
 
     it('sends none when the model declares capabilities WITHOUT function calling', async () => {

@@ -1,6 +1,6 @@
 ---
 title: Plugins
-description: Opt-in extensions for aparté — Markdown rendering, syntax highlighting, a model selector, and the ask_question tool. Each is a separate package the consumer installs.
+description: Opt-in extensions for aparté — Markdown rendering, syntax highlighting, a model selector, and the ask_user tool. Each is a separate package the consumer installs.
 sidebar:
   order: 1
   label: Overview
@@ -16,7 +16,7 @@ and wire in one call, so core stays small and you pay only for what you use.
 | Stream Markdown token-by-token | [`streaming-markdown`](/plugins/streaming-markdown/) | `setStreamingMarkdownProvider` |
 | Highlight code blocks | [`shiki`](/plugins/shiki/) | `setHighlightProvider` |
 | Let the user pick a provider + model | [`model-selector`](/plugins/model-selector/) | `<aparte-model-selector>` element |
-| Let the AI ask the user a question | [`ask-question`](/plugins/ask-question/) | `registerTool` + elicitation |
+| Let the AI ask the user a question | [`ask-user`](/plugins/ask-user/) | `registerTool` + elicitation |
 
 Every plugin lists `@aparte/core` as a peer dependency and, where it wraps a third-party library
 (marked, streaming-markdown, shiki), that library too — so you control its version and it is never

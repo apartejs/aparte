@@ -29,7 +29,7 @@ const PANEL = '.aparte-elic-panel';
 
 test('a tool that asks the user shows a panel with its options', async ({ page }) => {
     const errors = collectPageErrors(page);
-    await installLlmMock(page, { scenario: 'ask-question' });
+    await installLlmMock(page, { scenario: 'ask-user' });
     const chat = new ChatPage(page);
     await page.goto('/');
 
@@ -47,7 +47,7 @@ test('a tool that asks the user shows a panel with its options', async ({ page }
 });
 
 test('while a question is open, the composer offers nothing that leads nowhere', async ({ page }) => {
-    await installLlmMock(page, { scenario: 'ask-question' });
+    await installLlmMock(page, { scenario: 'ask-user' });
     const chat = new ChatPage(page);
     await page.goto('/');
 
@@ -70,7 +70,7 @@ test('while a question is open, the composer offers nothing that leads nowhere',
 
 test('answering restores the composer and resumes the turn', async ({ page }) => {
     const errors = collectPageErrors(page);
-    const mock = await installLlmMock(page, { scenario: 'ask-question' });
+    const mock = await installLlmMock(page, { scenario: 'ask-user' });
     const chat = new ChatPage(page);
     await page.goto('/');
 
@@ -181,7 +181,7 @@ test('an open question has no critical/serious axe violations', async ({ page })
     // group at critical/serious. Four unit tests in `panel.test.ts` are the guard
     // for that; this scan is the regression net for everything else the panel puts
     // on screen (contrast, focus order, labels on the inputs themselves).
-    await installLlmMock(page, { scenario: 'ask-question' });
+    await installLlmMock(page, { scenario: 'ask-user' });
     const chat = new ChatPage(page);
     await page.goto('/');
 
@@ -194,7 +194,7 @@ test('an open question has no critical/serious axe violations', async ({ page })
 });
 
 test('Skip declines, and the composer comes back', async ({ page }) => {
-    await installLlmMock(page, { scenario: 'ask-question' });
+    await installLlmMock(page, { scenario: 'ask-user' });
     const chat = new ChatPage(page);
     await page.goto('/');
 

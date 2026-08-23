@@ -87,7 +87,7 @@ export type AparteToolHandler = (
  * Optional and third, so every existing handler keeps compiling and working —
  * nothing has to be rewritten to ignore it.
  *
- * It exists because a handler had NO way to know. `@aparte/plugin-ask-question`
+ * It exists because a handler had NO way to know. `@aparte/plugin-ask-user`
  * calls `requestUserInput({ message, schema, signal })` with no `target`, and
  * `requestUserInput` resolves its presenter with `resolveConfig(request.target ??
  * null)` — so with an instance config carrying the presenter, the call resolved
@@ -121,7 +121,7 @@ export interface AparteToolContext {
  * When the AI calls a tool, this renderer controls what appears in the bubble
  * for that specific tool instead of the generic tool_call renderer.
  *
- * Return an empty string from render() to render nothing (e.g. for UI-only tools like ask_question).
+ * Return an empty string from render() to render nothing (e.g. for UI-only tools like ask_user).
  */
 export interface AparteToolRenderer {
     /**
@@ -145,7 +145,7 @@ export interface AparteToolRenderer {
      * model-to-DOM XSS in the host page's origin.
      *
      * Return an empty string to render nothing (e.g. a UI-only tool like
-     * `ask_question`).
+     * `ask_user`).
      */
     render: (segment: AparteToolCallSegment) => string | HTMLElement;
     /** Optional DOM setup (event listeners etc.) called after HTML is injected */

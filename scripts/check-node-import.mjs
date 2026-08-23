@@ -112,12 +112,12 @@ check('createAparteChatHandler answers a real Request in Node', async () => {
  * EVERY published package must at least IMPORT in Node — not just core.
  *
  * This guard covered core, engine and one provider. A cold audit imported all 15
- * and found two that crash outright: `@aparte/plugin-ask-question` threw
+ * and found two that crash outright: `@aparte/plugin-ask-user` threw
  * `SyntaxError: … does not provide an export named 'AparteElicitation'` (its barrel
  * pulls a browser-only export of core), and `@aparte/plugin-model-selector` threw
  * `ReferenceError: HTMLElement is not defined` (it subclasses HTMLElement at module
  * scope). Any SSR framework that evaluates the import on the server died — and
- * ask-question's message named `@aparte/core`, sending the reader to the wrong
+ * ask-user's message named `@aparte/core`, sending the reader to the wrong
  * package entirely.
  *
  * Core built an elaborate DOM-free entry and a contract test for exactly this case.
@@ -126,7 +126,7 @@ check('createAparteChatHandler answers a real Request in Node', async () => {
  * covered the day it exists.
  */
 const SATELLITES = [
-    ['@aparte/plugin-ask-question', 'packages/plugins/ask-question'],
+    ['@aparte/plugin-ask-user', 'packages/plugins/ask-user'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector'],
     ['@aparte/plugin-marked', 'packages/plugins/marked'],
     ['@aparte/plugin-shiki', 'packages/plugins/shiki'],

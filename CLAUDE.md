@@ -45,7 +45,7 @@ apartejs/
 │   ├── locales/              @aparte/locale-fr   (EN = core's built-in APARTE_DEFAULT_LOCALE)
 │   ├── providers/            @aparte/provider-{openai-compat, ai-sdk, transformers}
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
-│   │                         model-selector (light), ask-question}
+│   │                         model-selector (light), ask-user}
 │   └── wrappers/             @aparte/{react, vue, svelte, angular}
 └── nx.json
 ```

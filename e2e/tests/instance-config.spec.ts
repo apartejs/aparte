@@ -20,7 +20,7 @@
  * five times — parity across four different lifecycle hooks is exactly the claim.
  *
  * Fixture: `?view=workbench`, two `<AparteChat config={…}>` panes, each with its
- * own provider, its own `AparteClient`, `setupAskQuestion(config)` and an
+ * own provider, its own `AparteClient`, `setupAskUser(config)` and an
  * `<aparte-elicitation>` mounted inside.
  */
 
@@ -91,7 +91,7 @@ test('a reply lands only in the pane that asked', async ({ page }) => {
  *   req#0 tools=[]   req#1 tools=[]
  * and in Node: `getModels() = []`, `getCurrentModel() = undefined`,
  * `getTools().length = 1`, gate `false`. Which made the whole tools guide,
- * `needsApproval`, HITL and `@aparte/plugin-ask-question` inert — and is why that
+ * `needsApproval`, HITL and `@aparte/plugin-ask-user` inert — and is why that
  * plugin had no in-repo consumer and the mock's `tool-call` scenario was used by
  * no spec.
  *
@@ -103,7 +103,7 @@ test('a reply lands only in the pane that asked', async ({ page }) => {
  */
 test('a tool that asks the user shows its panel in the pane that asked', async ({ page }) => {
     const errors = collectPageErrors(page);
-    const mock = await installLlmMock(page, { scenario: 'ask-question' });
+    const mock = await installLlmMock(page, { scenario: 'ask-user' });
     await page.goto('/?view=workbench');
 
     const left = new ChatPage(page, LEFT);
@@ -130,14 +130,14 @@ test('a tool that asks the user shows its panel in the pane that asked', async (
     const first = mock.chatRequests[0];
     const toolNames = ((first?.['tools'] ?? []) as Array<{ function?: { name?: string } }>)
         .map((t) => t.function?.name);
-    expect(toolNames, 'the pane config had the ask_question tool registered').toContain(MOCK_ASK_TOOL_NAME);
+    expect(toolNames, 'the pane config had the ask_user tool registered').toContain(MOCK_ASK_TOOL_NAME);
 
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
 test('answering the panel resumes the turn and the answer reaches the model', async ({ page }) => {
     const errors = collectPageErrors(page);
-    const mock = await installLlmMock(page, { scenario: 'ask-question' });
+    const mock = await installLlmMock(page, { scenario: 'ask-user' });
     await page.goto('/?view=workbench');
 
     const left = new ChatPage(page, LEFT);

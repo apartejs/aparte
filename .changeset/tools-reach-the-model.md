@@ -21,7 +21,7 @@ wrote its result anywhere the resolver could see; and it declared only
 `tools: []` went on the wire. The model then answered, correctly, that it had no
 such tool — which is exactly what a tester saw, with no error and no warning
 anywhere. The whole tools guide, `needsApproval`, human-in-the-loop approval and
-`@aparte/plugin-ask-question` were inert.
+`@aparte/plugin-ask-user` were inert.
 
 Three changes, each with the reasoning where it lives. `AparteConfig` caches what
 `refreshProviderModels()` brings back and `getCurrentModel()` consults it before

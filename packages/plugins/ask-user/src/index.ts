@@ -1,34 +1,34 @@
 /**
- * @aparte/plugin-ask-question
+ * @aparte/plugin-ask-user
  *
- * The built-in `ask_question` tool — a thin adapter over the core elicitation
+ * The built-in `ask_user` tool — a thin adapter over the core elicitation
  * primitive. The AI asks the user a structured choice; the handler forwards it to
  * `requestUserInput`, presented by `<aparte-elicitation>` (or the semantic
- * `<aparte-ask-question>` alias registered by importing this package).
+ * `<aparte-ask-user>` alias registered by importing this package).
  *
  * Usage:
- *   import { setupAskQuestion } from '@aparte/plugin-ask-question';
- *   setupAskQuestion();   // registers the tool + hides its bubble segment
- *   // mount <aparte-elicitation> (or <aparte-ask-question>) in your chat
+ *   import { setupAskUser } from '@aparte/plugin-ask-user';
+ *   setupAskUser();   // registers the tool + hides its bubble segment
+ *   // mount <aparte-elicitation> (or <aparte-ask-user>) in your chat
  */
 
 import { aparteGlobalConfig, registerSegmentRenderer, type AparteConfig } from '@aparte/core';
-import { askQuestionTool, askQuestionHandler } from './ask-question.js';
+import { askUserTool, askUserHandler } from './ask-user.js';
 import { questionReceiptRenderer } from './question-receipt.renderer.js';
 import { buildReceipt } from './receipt.js';
 
-// Register the <aparte-ask-question> semantic alias (subclass of <aparte-elicitation>).
-import './aparte-ask-question.js';
+// Register the <aparte-ask-user> semantic alias (subclass of <aparte-elicitation>).
+import './aparte-ask-user.js';
 
 /**
- * Register the `ask_question` tool + its handler, and hide its bubble segment
+ * Register the `ask_user` tool + its handler, and hide its bubble segment
  * (it is a UI-only tool presented via the elicitation panel, not a tool pill).
  * Explicit setup — rather than a top-level import side-effect — keeps the
  * aparteGlobalConfig singleton mutation predictable in SSR/test and tree-shaking
  * friendly. Call once at application startup.
  */
-export function setupAskQuestion(config: AparteConfig = aparteGlobalConfig): void {
-    config.registerTool(askQuestionTool, askQuestionHandler);
+export function setupAskUser(config: AparteConfig = aparteGlobalConfig): void {
+    config.registerTool(askUserTool, askUserHandler);
 
     /*
      * The conversation keeps the record.
@@ -49,15 +49,15 @@ export function setupAskQuestion(config: AparteConfig = aparteGlobalConfig): voi
      * builds `question-receipt` segments of its own gets the same card.
      */
     registerSegmentRenderer(questionReceiptRenderer, config);
-    config.registerToolRenderer('ask_question', {
+    config.registerToolRenderer('ask_user', {
         render: (segment) => buildReceipt({ input: segment.toolCall.input, result: segment.result }),
     });
 }
 
-export { askQuestionTool, askQuestionHandler } from './ask-question.js';
-export type { AskQuestionOption, AskQuestionItem, AskQuestionDetail } from './ask-question.js';
+export { askUserTool, askUserHandler } from './ask-user.js';
+export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 
-export { AparteAskQuestion } from './aparte-ask-question.js';
+export { AparteAskUser } from './aparte-ask-user.js';
 
 export { questionReceiptRenderer } from './question-receipt.renderer.js';
 export { buildReceipt, receiptRows } from './receipt.js';

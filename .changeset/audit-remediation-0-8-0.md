@@ -5,7 +5,7 @@
 "@aparte/provider-ai-sdk": minor
 "@aparte/provider-transformers": minor
 "@aparte/plugin-shiki": minor
-"@aparte/plugin-ask-question": minor
+"@aparte/plugin-ask-user": minor
 "@aparte/plugin-model-selector": minor
 "@aparte/plugin-marked": minor
 "@aparte/plugin-streaming-markdown": minor

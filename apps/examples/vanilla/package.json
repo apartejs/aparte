@@ -13,7 +13,7 @@
     "dependencies": {
         "@aparte/core": "workspace:*",
         "@aparte/engine": "workspace:*",
-        "@aparte/plugin-ask-question": "workspace:*",
+        "@aparte/plugin-ask-user": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*"

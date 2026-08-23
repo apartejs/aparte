@@ -1,7 +1,7 @@
 {
-    "name": "@aparte/plugin-ask-question",
+    "name": "@aparte/plugin-ask-user",
     "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-    "sourceRoot": "packages/plugins/ask-question/src",
+    "sourceRoot": "packages/plugins/ask-user/src",
     "projectType": "library",
     "targets": {
         "build": {
@@ -13,8 +13,8 @@
             "executor": "@nx/vite:test",
             "outputs": ["{options.reportsDirectory}"],
             "options": {
-                "reportsDirectory": "../../../coverage/packages/plugins/ask-question",
-                "cwd": "packages/plugins/ask-question"
+                "reportsDirectory": "../../../coverage/packages/plugins/ask-user",
+                "cwd": "packages/plugins/ask-user"
             }
         }
     }

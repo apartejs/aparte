@@ -3,7 +3,7 @@
  * The conversation keeps the record.
  *
  * The panel lives in the composer, so once it is answered it is gone — and the
- * tool renderer for `ask_question` was `render: () => ''`, "it is a UI-only tool".
+ * tool renderer for `ask_user` was `render: () => ''`, "it is a UI-only tool".
  * So scrolling back showed nothing: no question, no answer, no sign the assistant
  * had asked anything at all. Reported from a real session, and the pieces were all
  * present and wired to nothing: `questionReceiptRenderer` had its own markup, styles

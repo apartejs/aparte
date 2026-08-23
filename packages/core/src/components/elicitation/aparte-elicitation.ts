@@ -4,7 +4,7 @@
  * Registers itself as the presenter for the config governing its subtree
  * (`resolveConfig(this)`), so `requestUserInput()` from a tool handler is routed
  * here WITHOUT any window events — the typed presenter contract replaces the
- * stringly-typed `aparte-ask-question-*` events that drifted in Phase 1.
+ * stringly-typed `aparte-ask-user-*` events that drifted in Phase 1.
  *
  * On a request it builds the schema-appropriate panel (enum / boolean / string /
  * object) and mounts it inside the nearest `<aparte-composer>` via its

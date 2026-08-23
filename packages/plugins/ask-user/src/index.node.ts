@@ -1,10 +1,10 @@
 /**
- * `@aparte/plugin-ask-question` — the DOM-free entry, for Node and SSR.
+ * `@aparte/plugin-ask-user` — the DOM-free entry, for Node and SSR.
  *
- * Why this file exists: the browser barrel imports `./aparte-ask-question.js`,
+ * Why this file exists: the browser barrel imports `./aparte-ask-user.js`,
  * which subclasses `AparteElicitation` — a browser-only export of `@aparte/core`.
  * Resolved through core's `node` condition that export does not exist, so
- * `import '@aparte/plugin-ask-question'` threw
+ * `import '@aparte/plugin-ask-user'` threw
  *
  *     SyntaxError: The requested module '@aparte/core' does not provide an
  *     export named 'AparteElicitation'
@@ -20,20 +20,20 @@
  * What is here: everything a server can legitimately use — the tool definition,
  * its handler, the setup call, and the types. What is NOT here: the custom
  * element and the segment renderer, both of which need a DOM. Calling
- * `setupAskQuestion()` on the server registers the tool without a presenter,
+ * `setupAskUser()` on the server registers the tool without a presenter,
  * which is the correct outcome: nothing is being rendered there.
  */
 
 import { aparteGlobalConfig, type AparteConfig } from '@aparte/core';
-import { askQuestionTool, askQuestionHandler } from './ask-question.js';
+import { askUserTool, askUserHandler } from './ask-user.js';
 
-/** Register the `ask_question` tool + handler, and hide its bubble segment. */
-export function setupAskQuestion(config: AparteConfig = aparteGlobalConfig): void {
-    config.registerTool(askQuestionTool, askQuestionHandler);
-    config.registerToolRenderer('ask_question', { render: () => '' });
+/** Register the `ask_user` tool + handler, and hide its bubble segment. */
+export function setupAskUser(config: AparteConfig = aparteGlobalConfig): void {
+    config.registerTool(askUserTool, askUserHandler);
+    config.registerToolRenderer('ask_user', { render: () => '' });
 }
 
-export { askQuestionTool, askQuestionHandler } from './ask-question.js';
-export type { AskQuestionOption, AskQuestionItem, AskQuestionDetail } from './ask-question.js';
+export { askUserTool, askUserHandler } from './ask-user.js';
+export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 export type { QuestionReceiptSegment } from './question-receipt.renderer.js';
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';

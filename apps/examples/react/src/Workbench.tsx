@@ -6,7 +6,7 @@ import { workbenchPanes, type WorkbenchPane } from './workbench-setup';
  * page.
  *
  * `config` is the whole point: every registration this pane made — its provider,
- * its transport, its markdown renderer, its `ask_question` tool — lives on that
+ * its transport, its markdown renderer, its `ask_user` tool — lives on that
  * object, so a pane can only work if the elements inside it resolve THIS config
  * rather than the page-global singleton.
  *

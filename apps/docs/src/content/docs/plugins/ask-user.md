@@ -1,29 +1,29 @@
 ---
-title: ask_question tool
-description: The built-in ask_question tool for aparté — the AI asks the user a structured choice, presented via the core elicitation panel.
+title: ask_user tool
+description: The built-in ask_user tool for aparté — the AI asks the user a structured choice, presented via the core elicitation panel.
 sidebar:
   order: 6
-  label: ask-question
+  label: ask-user
 ---
 
-The built-in `ask_question` tool: it lets the AI ask the user a structured question (title + optional
+The built-in `ask_user` tool: it lets the AI ask the user a structured question (title + optional
 description), as single (radio) or multiple (checkbox) choice. The handler is a thin adapter over core's
 **elicitation** primitive — it maps the tool input to an elicitation schema and awaits `requestUserInput`,
 presented by `<aparte-elicitation>`.
 
 ```bash
-npm install @aparte/plugin-ask-question @aparte/core
+npm install @aparte/plugin-ask-user @aparte/core
 ```
 
 `@aparte/core` is the only **peer dependency**.
 
 ```ts
-import { setupAskQuestion } from '@aparte/plugin-ask-question';
+import { setupAskUser } from '@aparte/plugin-ask-user';
 
-setupAskQuestion(); // registers the tool + hides its bubble segment
+setupAskUser(); // registers the tool + hides its bubble segment
 ```
 
-Then mount `<aparte-elicitation>` (or the semantic `<aparte-ask-question>` alias, registered by importing
+Then mount `<aparte-elicitation>` (or the semantic `<aparte-ask-user>` alias, registered by importing
 the package) in your chat to present the panel.
 
 ## Shapes
@@ -35,12 +35,12 @@ the package) in your chat to present the panel.
 aborts the tool call. Options improvised by smaller models (bare strings, or `label`/`value`/`text` keys
 instead of `title`) are normalised so the panel always renders real choices.
 
-To wire it manually instead of `setupAskQuestion()`:
+To wire it manually instead of `setupAskUser()`:
 
 ```ts
 import { aparteGlobalConfig } from '@aparte/core';
-import { askQuestionTool, askQuestionHandler } from '@aparte/plugin-ask-question';
+import { askUserTool, askUserHandler } from '@aparte/plugin-ask-user';
 
-aparteGlobalConfig.registerTool(askQuestionTool, askQuestionHandler);
-aparteGlobalConfig.registerToolRenderer('ask_question', { render: () => '' }); // hide the tool-call pill
+aparteGlobalConfig.registerTool(askUserTool, askUserHandler);
+aparteGlobalConfig.registerToolRenderer('ask_user', { render: () => '' }); // hide the tool-call pill
 ```

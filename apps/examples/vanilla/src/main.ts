@@ -15,11 +15,11 @@ import {
 } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
-// Registers the `ask_question` tool AND the <aparte-elicitation> panel that answers
+// Registers the `ask_user` tool AND the <aparte-elicitation> panel that answers
 // it. This example had no tool at all, which made the whole tools path — approval,
 // elicitation, the guide — undemonstrated on the one app that is raw core: asking a
 // local model to "use the question tool" got a truthful "I have no such tool".
-import { setupAskQuestion } from '@aparte/plugin-ask-question';
+import { setupAskUser } from '@aparte/plugin-ask-user';
 import { runStreamAgent } from '@aparte/engine';
 import {
     DEFAULT_SETTINGS,
@@ -34,7 +34,7 @@ import {
 // 1. Renderers + Markdown rendering for assistant replies.
 registerDefaultRenderers();
 setupMarkedProvider();
-setupAskQuestion();
+setupAskUser();
 
 // 2. Real providers — both LOCAL and keyless, so this example runs with zero
 //    setup and zero account. A cloud provider used to be registered here too; it

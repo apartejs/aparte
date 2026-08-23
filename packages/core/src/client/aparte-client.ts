@@ -2156,7 +2156,7 @@ export class AparteClient {
         };
         // Wrapped, so the INJECTED runner hands a handler the same context core's
         // inline loop does. Without this, `streamRunner: runStreamAgent` would be the
-        // one configuration where `ask_question` still silently cancelled — a new
+        // one configuration where `ask_user` still silently cancelled — a new
         // parity divergence introduced by fixing the old one.
         const toolLookup = (name: string) => {
             const handler = this._config.getToolHandler(name);

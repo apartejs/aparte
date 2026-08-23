@@ -15,7 +15,7 @@ the exact loop core embeds inline — extracted so a backend can run it server-s
 identical behaviour.
 
 It is deliberately **just the loop core drives, plus the agnostic conversation compactor**.
-Opt-in *tools* (ask-question, RAG, skills, code execution) belong in `plugins/*`; product
+Opt-in *tools* (ask-user, RAG, skills, code execution) belong in `plugins/*`; product
 behaviour (memory, intent orchestration) and the not-yet-wired text agent loop live elsewhere.
 None of that ships here.
 

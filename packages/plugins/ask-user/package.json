@@ -1,7 +1,7 @@
 {
-    "name": "@aparte/plugin-ask-question",
+    "name": "@aparte/plugin-ask-user",
     "version": "0.7.1",
-    "description": "The ask_question tool for apart\u00e9 \u2014 the AI asks the user a structured choice, presented via the core elicitation panel.",
+    "description": "The ask_user tool for apart\u00e9 \u2014 the AI asks the user a structured choice, presented via the core elicitation panel.",
     "type": "module",
     "sideEffects": true,
     "main": "./dist/index.js",
@@ -47,14 +47,14 @@
         "aparte",
         "plugin",
         "tool",
-        "ask-question",
+        "ask-user",
         "elicitation"
     ],
     "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/apartejs/aparte.git",
-        "directory": "packages/plugins/ask-question"
+        "directory": "packages/plugins/ask-user"
     },
     "bugs": {
         "url": "https://github.com/apartejs/aparte/issues"

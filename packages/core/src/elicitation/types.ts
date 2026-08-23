@@ -1,6 +1,6 @@
 /**
  * Elicitation — the generic "pause the run and ask the user for typed input"
- * primitive. Generalises the bespoke `ask_question` tool: the KIND of question
+ * primitive. Generalises the bespoke `ask_user` tool: the KIND of question
  * is carried by a flat schema, not by a dedicated tool. Shape is aligned with
  * MCP elicitation (message + requested schema, accept/decline/cancel), but the
  * mechanism is transport-agnostic and framework-agnostic — a typed presenter

@@ -8,7 +8,7 @@
  * by the stream-parity suite.
  *
  * Deliberately just the loop core drives, plus the agnostic context compactor. Opt-in
- * *tools* (ask-question / RAG / skills / code) belong in `plugins/*`; product behaviour
+ * *tools* (ask-user / RAG / skills / code) belong in `plugins/*`; product behaviour
  * (memory, intent orchestration) and the not-yet-wired text agent loop live elsewhere.
  */
 

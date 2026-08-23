@@ -125,7 +125,7 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/provider-ai-sdk` | Vercel AI SDK bridge (Anthropic, Google, 25+ vendors) |
 | `@aparte/provider-transformers` | In-browser inference via Transformers.js |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
-| `@aparte/plugin-model-selector` · `-ask-question` | A provider/model picker; a question-elicitation UI |
+| `@aparte/plugin-model-selector` · `-ask-user` | A provider/model picker; a question-elicitation UI |
 | `@aparte/locale-fr` | French UI strings (English is core's built-in default) |
 
 ## Documentation

@@ -22,7 +22,7 @@ export default defineConfig({
                 // The DOM-free entry the `node` export condition points at.
                 'index.node': resolve(__dirname, 'src/index.node.ts'),
             },
-            name: 'ApartePluginAskQuestion',
+            name: 'ApartePluginAskUser',
             fileName: (_format, entryName) => `${entryName}.js`,
             formats: ['es'],
         },

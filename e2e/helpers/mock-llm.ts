@@ -77,11 +77,11 @@ export const MOCK_CODE_MARK = 'aparteCodeFixture';
 export const MOCK_TOOL_NAME = 'e2e_echo';
 
 /**
- * The `ask-question` scenario calls the REAL tool `@aparte/plugin-ask-question`
+ * The `ask-user` scenario calls the REAL tool `@aparte/plugin-ask-user`
  * registers, not a fixture of our own — the point is to drive the actual
  * `requestUserInput` path that `<aparte-elicitation>` answers.
  */
-export const MOCK_ASK_TOOL_NAME = 'ask_question';
+export const MOCK_ASK_TOOL_NAME = 'ask_user';
 /** The question text the scenario asks, so a spec asserts a constant. */
 export const MOCK_ASK_QUESTION = 'Which engine should the workbench use?';
 /** The two options offered, in order. */
@@ -116,7 +116,7 @@ const DEFAULT_MODELS: MockModel[] = [{ id: MOCK_MODEL_ID, name: 'Aparte E2E Mode
  * - `thinking` — `reasoning_content` deltas, then text: a thinking segment
  * - `code` — a fenced block: the code segment, its header and copy button
  * - `tool-call` — a streamed tool call the app's registered tool answers
- * - `ask-question` — calls the real `ask_question` tool, which SUSPENDS the turn
+ * - `ask-user` — calls the real `ask_user` tool, which SUSPENDS the turn
  *   on `requestUserInput` until a presenter shows a panel and it is answered
  * - `slow` — response held open (see `delayMs`): pending/streaming/stop/cancel
  * - `http-500` — vendor error status: the error segment + recovery
@@ -129,7 +129,7 @@ export type LlmScenario =
     | 'long-thinking'
     | 'code'
     | 'tool-call'
-    | 'ask-question'
+    | 'ask-user'
     | 'ask-two-questions'
     | 'slow'
     | 'http-500'
@@ -225,7 +225,7 @@ function bodyForScenario(scenario: LlmScenario): string {
             ].join('');
 
         /**
-         * A tool call the model cannot answer on its own: `ask_question` suspends
+         * A tool call the model cannot answer on its own: `ask_user` suspends
          * the turn on `requestUserInput`, which only resolves once a presenter has
          * shown a panel and the user has answered it.
          *
@@ -264,7 +264,7 @@ function bodyForScenario(scenario: LlmScenario): string {
                 DONE,
             ].join('');
 
-        case 'ask-question':
+        case 'ask-user':
             return [
                 contentEvent('Let me check with you.'),
                 sse({
@@ -476,7 +476,7 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
          * appends the result, and asks again — so a scenario that answers every
          * request with the same tool call loops until `maxTurns`.
          *
-         * `ask-question` therefore answers the FIRST request with the call and
+         * `ask-user` therefore answers the FIRST request with the call and
          * every later one with plain text. That is what a real model does, and it
          * lets a spec follow the whole path: the panel appears, the user answers,
          * the answer reaches the model, a reply lands. Asserting only that a panel
@@ -486,7 +486,7 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
          * `tool-call` keeps its old shape: no spec consumes it today, and changing
          * a fixture nobody reads is churn.
          */
-        if (scenario === 'ask-question' && chatRequests.length > 1) {
+        if (scenario === 'ask-user' && chatRequests.length > 1) {
             await fulfill(route, bodyForScenario('text'), 'text/event-stream');
             return;
         }

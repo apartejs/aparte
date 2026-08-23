@@ -170,7 +170,7 @@ export class AparteConfig {
     // Conversation persistence (optional, agnostic)
     private _conversationManager?: AparteConversationManager;
 
-    // Human-in-the-loop: presents typed input requests (ask_question,
+    // Human-in-the-loop: presents typed input requests (ask_user,
     // tool approval, forms). Set by the <aparte-elicitation> Web Component.
     private _elicitationPresenter?: AparteElicitationPresenter;
     /** Warn once per config, not once per request — a tool loop can ask repeatedly. */
@@ -821,7 +821,7 @@ export class AparteConfig {
     /**
      * Elicitation policy: whether a choice offers a free-text "Other…" escape.
      *
-     * This is the HOST's decision, not the model's. `ask_question` used to carry an
+     * This is the HOST's decision, not the model's. `ask_user` used to carry an
      * `allow_other` field in the schema it hands the model, which meant the model
      * decided your UX — and a small model fills a field it does not understand: one
      * sent two questions with `allow_other: true` and no options at all, so the
@@ -979,7 +979,7 @@ export class AparteConfig {
      * Register a tool and its handler together.
      * The handler is called when the AI invokes the tool during streaming.
      * @example
-     * aparteGlobalConfig.registerTool(askQuestionTool, askQuestionHandler);
+     * aparteGlobalConfig.registerTool(askUserTool, askUserHandler);
      */
     registerTool(tool: AparteTool, handler: AparteToolHandler): void {
         this._tools.set(tool.name, { tool, handler });
@@ -1006,8 +1006,8 @@ export class AparteConfig {
      * Use this instead of the generic `tool_call` segment renderer for tool-specific UI.
      *
      * @example
-     * // Hide the segment entirely (UI-only tool like ask_question)
-     * aparteGlobalConfig.registerToolRenderer('ask_question', { render: () => '' });
+     * // Hide the segment entirely (UI-only tool like ask_user)
+     * aparteGlobalConfig.registerToolRenderer('ask_user', { render: () => '' });
      *
      * @example
      * // Custom pill for a web-search tool
@@ -1065,7 +1065,7 @@ export class AparteConfig {
 
     /**
      * Ask the user for typed input mid-run and await their response. This is the
-     * generic primitive behind `ask_question` and tool approval — the KIND of
+     * generic primitive behind `ask_user` and tool approval — the KIND of
      * question is the schema, not a bespoke tool. Resolves `accept` with the
      * value, `decline` when the user declines, or `cancel` when the turn is
      * cancelled.

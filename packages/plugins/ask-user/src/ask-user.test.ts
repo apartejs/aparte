@@ -2,16 +2,16 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { aparteGlobalConfig, AparteConfig, attachConfig } from '@aparte/core';
 import type { AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
-import { askQuestionTool, askQuestionHandler } from './ask-question.js';
+import { askUserTool, askUserHandler } from './ask-user.js';
 
 // The LLM-facing tool schema.
-describe('askQuestionTool', () => {
+describe('askUserTool', () => {
     it('has the correct name', () => {
-        expect(askQuestionTool.name).toBe('ask_question');
+        expect(askUserTool.name).toBe('ask_user');
     });
 
     it('accepts either a questions array or a single question (agnostic)', () => {
-        const schema = askQuestionTool.inputSchema as any;
+        const schema = askUserTool.inputSchema as any;
         expect(schema.properties.questions.type).toBe('array');
         expect(schema.properties.question.type).toBe('string');
         const forms = (schema.anyOf as any[]).map((f) => f.required[0]);
@@ -25,7 +25,7 @@ describe('askQuestionTool', () => {
         // exactly that call. The panel then rendered a radio list whose single entry
         // was "Other…". The 2–6 range was stated in the system prompt, in prose; a
         // small model reads the schema.
-        const schema = askQuestionTool.inputSchema as any;
+        const schema = askUserTool.inputSchema as any;
         const item = schema.properties.questions.items;
         expect(item.required).toContain('question');
         expect(item.required).toContain('options');
@@ -37,10 +37,10 @@ describe('askQuestionTool', () => {
     });
 });
 
-describe('askQuestionHandler — elicitation adapter', () => {
+describe('askUserHandler — elicitation adapter', () => {
     let lastRequest: AparteElicitationRequest | undefined;
     const sig = () => new AbortController().signal;
-    const call = (input: Record<string, unknown>) => ({ id: 'c1', name: 'ask_question', input });
+    const call = (input: Record<string, unknown>) => ({ id: 'c1', name: 'ask_user', input });
 
     /** Register a scripted presenter and capture the request it receives. */
     function presenter(result: AparteElicitationResult): void {
@@ -55,7 +55,7 @@ describe('askQuestionHandler — elicitation adapter', () => {
 
     it('maps a single question to an enum schema and returns the answer', async () => {
         presenter({ action: 'accept', content: 'Paris' });
-        const res = await askQuestionHandler(call({ question: 'Where?', options: [{ title: 'Paris' }, { title: 'London' }] }), sig());
+        const res = await askUserHandler(call({ question: 'Where?', options: [{ title: 'Paris' }, { title: 'London' }] }), sig());
         expect(lastRequest?.message).toBe('Where?');
         expect(schema().type).toBe('enum');
         expect(schema().options.map((o: any) => o.value)).toEqual(['Paris', 'London']);
@@ -64,14 +64,14 @@ describe('askQuestionHandler — elicitation adapter', () => {
 
     it('accepts the single-element questions[] form as an enum', async () => {
         presenter({ action: 'accept', content: 'react' });
-        await askQuestionHandler(call({ questions: [{ question: 'FW?', options: [{ title: 'react' }] }] }), sig());
+        await askUserHandler(call({ questions: [{ question: 'FW?', options: [{ title: 'react' }] }] }), sig());
         expect(schema().type).toBe('enum');
     });
 
     /**
      * The call a real model actually made, reproduced.
      *
-     * `ask_question(questions=[{question: "Quelle est ta couleur préférée ?",
+     * `ask_user(questions=[{question: "Quelle est ta couleur préférée ?",
      * allow_other: true}, {…}])` — no options at all. The schema now forbids that,
      * but a model ignoring the schema is the normal case, and the old adapter built
      * `{type: 'enum', options: []}`, which the panel rendered as a radio list whose
@@ -80,7 +80,7 @@ describe('askQuestionHandler — elicitation adapter', () => {
      */
     it('a question the model sent with NO options becomes a labelled text field', async () => {
         presenter({ action: 'accept', content: { q1: 'bleu', q2: 'ronde' } });
-        const res = await askQuestionHandler(call({
+        const res = await askUserHandler(call({
             questions: [
                 { question: 'Quelle est ta couleur préférée ?', allow_other: true },
                 { question: 'Quelle est ta forme préférée ?', allow_other: true },
@@ -97,14 +97,14 @@ describe('askQuestionHandler — elicitation adapter', () => {
 
     it('a single question with no options is a text field too', async () => {
         presenter({ action: 'accept', content: 'anything' });
-        await askQuestionHandler(call({ question: 'Ton prénom ?' }), sig());
+        await askUserHandler(call({ question: 'Ton prénom ?' }), sig());
         expect(schema().type).toBe('string');
         expect(schema().title).toBe('Ton prénom ?');
     });
 
     it('maps several questions to an object (form) schema and flattens the answer', async () => {
         presenter({ action: 'accept', content: { 'A?': 'x', 'B?': 'y' } });
-        const res = await askQuestionHandler(call({
+        const res = await askUserHandler(call({
             questions: [
                 { question: 'A?', options: [{ title: 'x' }] },
                 { question: 'B?', options: [{ title: 'y' }] },
@@ -123,25 +123,25 @@ describe('askQuestionHandler — elicitation adapter', () => {
 
     it('decline resolves to a model-usable note', async () => {
         presenter({ action: 'decline' });
-        const res = await askQuestionHandler(call({ question: 'q', options: [{ title: 'a' }] }), sig());
+        const res = await askUserHandler(call({ question: 'q', options: [{ title: 'a' }] }), sig());
         expect(res.content).toBe('The user declined to answer.');
     });
 
     it('cancel rejects with an AbortError', async () => {
         presenter({ action: 'cancel' });
-        await expect(askQuestionHandler(call({ question: 'q', options: [{ title: 'a' }] }), sig()))
+        await expect(askUserHandler(call({ question: 'q', options: [{ title: 'a' }] }), sig()))
             .rejects.toMatchObject({ name: 'AbortError' });
     });
 
     it('joins multi-select answers into one string', async () => {
         presenter({ action: 'accept', content: ['a', 'b'] });
-        const res = await askQuestionHandler(call({ question: 'q', options: [{ title: 'a' }, { title: 'b' }], multiple: true }), sig());
+        const res = await askUserHandler(call({ question: 'q', options: [{ title: 'a' }, { title: 'b' }], multiple: true }), sig());
         expect(res.content).toBe('a, b');
     });
 
     it('honours multiple, and IGNORES a model-sent allow_other', async () => {
         presenter({ action: 'decline' });
-        await askQuestionHandler(call({
+        await askUserHandler(call({
             questions: [{ question: 'Pick', options: [{ title: 'a' }], multiple: true, allow_other: false }],
         }), sig());
 
@@ -157,7 +157,7 @@ describe('askQuestionHandler — elicitation adapter', () => {
 
     it('normalises improvised option shapes into enum options', async () => {
         presenter({ action: 'decline' });
-        await askQuestionHandler(call({
+        await askUserHandler(call({
             questions: [{
                 question: 'Which file?',
                 options: [
@@ -201,8 +201,8 @@ describe('the handler asks the RIGHT chat', () => {
 
     it('reaches the instance presenter when given the context', async () => {
         const { el, asked } = chatUnderInstanceConfig();
-        const result = await askQuestionHandler(
-            { id: 't1', name: 'ask_question', input: { question: 'Which environment?', options: ['staging'] } },
+        const result = await askUserHandler(
+            { id: 't1', name: 'ask_user', input: { question: 'Which environment?', options: ['staging'] } },
             new AbortController().signal,
             { target: el },
         );
@@ -215,8 +215,8 @@ describe('the handler asks the RIGHT chat', () => {
         // No presenter on the global config, so this resolves `cancel`, which this
         // handler turns into an AbortError. Asserted so the fix's value is explicit:
         // the ONLY thing that changed is that the context now exists.
-        await expect(askQuestionHandler(
-            { id: 't2', name: 'ask_question', input: { question: 'Which environment?', options: ['staging'] } },
+        await expect(askUserHandler(
+            { id: 't2', name: 'ask_user', input: { question: 'Which environment?', options: ['staging'] } },
             new AbortController().signal,
         )).rejects.toThrow();
         expect(asked, 'the instance presenter must not be reached without a target').toHaveLength(0);
