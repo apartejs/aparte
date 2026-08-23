@@ -146,15 +146,14 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                 }));
 
             // Inline "Skip" → decline (MCP's decline: the user chose not to answer).
-            const footer = document.createElement('div');
-            footer.className = 'aparte-elic-footer';
+            // Into the panel's OWN action row: a second row of its own made the panel
+            // taller and made it change height when the last question hid "Next".
             const skip = document.createElement('button');
             skip.type = 'button';
             skip.className = 'aparte-elic-skip';
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
-            footer.appendChild(skip);
-            panel.el.appendChild(footer);
+            panel.actions.appendChild(skip);
 
             this._pending = { settle, composer };
             composer.showPanel(panel.el, {

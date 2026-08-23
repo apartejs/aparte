@@ -139,15 +139,22 @@ describe('buildElicitationPanel', () => {
             expect(p.getContent()).toEqual({ q1: 'blue', q2: 'round' });
         });
 
-        it('hides Next on the last question — the send button is the submit there', () => {
+        it('hides Next on the last question, without moving the panel', () => {
             const p = buildElicitationPanel('', twoQuestions, noop);
-            const nav = p.el.querySelector<HTMLElement>('.aparte-elic-nav')!;
-            expect(nav.hidden).toBe(false);
+            const next = p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!;
+            expect(next.hidden).toBe(false);
 
             select(p.el, 'blue');
-            p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!.click();
+            next.click();
 
-            expect(nav.hidden, 'a second button that does nothing is worse than none').toBe(true);
+            // The BUTTON goes, not its row: Next used to live in a second row of its
+            // own, so the panel was taller throughout and then shrank by a whole row
+            // at the last question. The row stays, with its height reserved in CSS.
+            expect(next.hidden, 'a second button that does nothing is worse than none').toBe(true);
+            // `isConnected` would need the panel mounted in a document; what matters
+            // here is that the row is still part of it.
+            expect(p.el.contains(p.actions), 'the action row stays').toBe(true);
+            expect(p.actions.contains(next), 'and Next lives in it, next to Skip').toBe(true);
         });
 
         it('a chip goes back to a question already answered', () => {

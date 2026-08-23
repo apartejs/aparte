@@ -250,12 +250,19 @@
   --aparte-elic-input-radius: 6px;
   --aparte-elic-textarea-min-height: 64px;
   --aparte-elic-skip-size: 0.8rem;
-  --aparte-elic-step-size: 0.75rem;
-  /* The library's own scale. A fully-round pill was the only 9999px thing in a panel
-     built entirely from 4/6/8px corners, and it read as a primary button rather than
-     as the quiet step indicator it is. */
-  --aparte-elic-step-radius: var(--aparte-radius-sm, 4px);
-  --aparte-elic-step-padding: 2px 8px;
+  --aparte-elic-step-size: 0.78rem;
+  --aparte-elic-step-padding: 4px 2px;
+  --aparte-elic-step-gap: 14px;
+  /* Tabs, not pills.
+     Two passes to get here, both wrong for the same reason — decorating a control
+     instead of choosing what it IS. First a fully-round pill filled with the primary
+     colour: the only 9999px thing in a panel built from 4/6/8px corners, and it read
+     as a second send button. Then a small bordered rectangle: still a button.
+     A step indicator is a TAB — text on a rail, and the current one carries a thick
+     underline. No box, no fill, no border. */
+  --aparte-elic-step-underline: 2px;
+  /* Reserved so the action row never changes height — see .aparte-elic-footer. */
+  --aparte-elic-actions-height: 30px;
 
   /* Code Blocks */
   --aparte-code-bg: var(--aparte-surface-1);
@@ -651,10 +658,16 @@ textarea.aparte-elic-text {
   background: color-mix(in srgb, var(--aparte-primary, #6366f1) 6%, transparent);
 }
 
+/* ONE action row. Everything the panel and its presenter offer goes in here, and
+   its height is RESERVED: hiding "Next" on the last question used to remove a whole
+   row, so the panel — and the composer around it — jumped. */
 .aparte-elic-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 6px;
+  min-height: var(--aparte-elic-actions-height, 30px);
 }
 
 .aparte-elic-skip {
@@ -682,42 +695,44 @@ textarea.aparte-elic-text {
   border-top: none;
 }
 
+/* The tab rail: a hairline the tabs sit on, so the active underline reads as a tab
+   rather than as a dash floating under a word. */
 .aparte-elic-steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--aparte-elic-step-gap, 14px);
   margin: 0 6px 8px;
+  border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-border, rgba(128, 128, 128, 0.15));
 }
 
 .aparte-elic-step {
-  border: var(--aparte-border-width, 1px) solid var(--aparte-border, rgba(128, 128, 128, 0.2));
+  border: none;
   background: transparent;
   color: var(--aparte-text-muted, rgba(128, 128, 128, 0.75));
-  font-size: var(--aparte-elic-step-size, 0.75rem);
+  font-size: var(--aparte-elic-step-size, 0.78rem);
   font-family: inherit;
-  padding: var(--aparte-elic-step-padding, 3px 10px);
-  border-radius: var(--aparte-elic-step-radius, 999px);
+  padding: var(--aparte-elic-step-padding, 4px 2px);
   cursor: pointer;
+  /* Reserved on every tab, so switching does not shift the text by two pixels. */
+  border-bottom: var(--aparte-elic-step-underline, 2px) solid transparent;
+  /* The underline sits ON the rail, not above it. */
+  margin-bottom: calc(-1 * var(--aparte-border-width, 1px));
 }
 
+/* Answered: readable, but it is not where you are. */
 .aparte-elic-step[data-answered] {
   color: var(--aparte-text);
-  border-color: var(--aparte-primary, #6366f1);
 }
 
-/* Quiet: the current step is marked by weight and a rule under it, not by a filled
-   block competing with the send button for attention. */
 .aparte-elic-step[aria-selected='true'] {
-  background: var(--aparte-surface-2, rgba(128, 128, 128, 0.08));
-  border-color: var(--aparte-primary, #6366f1);
   color: var(--aparte-text);
   font-weight: var(--aparte-font-weight-semibold, 600);
+  border-bottom-color: var(--aparte-primary, #6366f1);
 }
 
-.aparte-elic-nav {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 6px;
+.aparte-elic-step:hover:not([aria-selected='true']) {
+  color: var(--aparte-text);
+  border-bottom-color: var(--aparte-border, rgba(128, 128, 128, 0.35));
 }
 
 .aparte-elic-next {

@@ -17,6 +17,16 @@ import { contextConfig } from '../config/config-context.js';
 
 export interface BuiltElicitationPanel {
     readonly el: HTMLElement;
+    /**
+     * The single row of actions at the bottom of the panel.
+     *
+     * The presenter puts its own affordance here — "Skip", which declines — instead
+     * of appending a second row. Two stacked rows made the panel taller, and made it
+     * CHANGE HEIGHT when the last question hid "Next": the whole composer jumped.
+     * One row, whose height is reserved, and the panel decides the layout because the
+     * panel is what has to stay still.
+     */
+    readonly actions: HTMLElement;
     /** The current response content, shaped to match the schema. */
     getContent(): unknown;
     /** True when every required field has a usable value. */
@@ -291,6 +301,10 @@ export function buildElicitationPanel(
     const body = el('div', 'aparte-elic-body');
     panel.appendChild(body);
 
+    // Always present, always last, height reserved by CSS: whatever appears in here
+    // must not move the panel.
+    const actions = el('div', 'aparte-elic-footer');
+
     if (schema.type === 'object') {
         const entries = Object.entries(schema.properties);
         const requiredKeys = new Set(schema.required ?? entries.map(([k]) => k));
@@ -312,8 +326,10 @@ export function buildElicitationPanel(
             return { key, field: built, required: requiredKeys.has(key), header: field.header };
         });
 
+        panel.appendChild(actions);
         const api: BuiltElicitationPanel = {
             el: panel,
+            actions,
             getContent: () => Object.fromEntries(fields.map(f => [f.key, f.field.getValue()])),
             isComplete: () => fields.every(f => !f.required || f.field.isComplete()),
             focus: () => fields[0]?.field.focus(),
@@ -357,7 +373,6 @@ export function buildElicitationPanel(
         // Above the scroll region rather than inside it: the chips are navigation.
         panel.insertBefore(steps, body);
 
-        const nav = el('div', 'aparte-elic-nav');
         const nextBtn = el('button', 'aparte-elic-next');
         nextBtn.type = 'button';
         nextBtn.textContent = cfg.t('elicitationNext');
@@ -365,8 +380,8 @@ export function buildElicitationPanel(
             show(Math.min(current + 1, fields.length - 1));
             fields[current]?.field.focus();
         });
-        nav.appendChild(nextBtn);
-        panel.appendChild(nav);
+        // Into the SAME row as the presenter's Skip — see `actions` on the contract.
+        actions.appendChild(nextBtn);
 
         function show(index: number): void {
             current = index;
@@ -382,8 +397,9 @@ export function buildElicitationPanel(
             });
             const last = current === fields.length - 1;
             // On the last step the composer's send button IS the submit, so a Next
-            // there would be a second button that does nothing.
-            nav.hidden = last;
+            // there would be a second button that does nothing. The row keeps its
+            // reserved height, so nothing moves when it goes.
+            nextBtn.hidden = last;
             // Monotonic: you cannot skip past a question you have not answered, which
             // is the same rule the send button follows.
             nextBtn.disabled = !fields[current]?.field.isComplete();
@@ -400,8 +416,10 @@ export function buildElicitationPanel(
     // field. In the object shape each field carries its own title instead.
     const field = buildField(schema, onChange, message);
     body.appendChild(field.el);
+    panel.appendChild(actions);
     return {
         el: panel,
+        actions,
         getContent: () => field.getValue(),
         isComplete: () => field.isComplete(),
         focus: () => field.focus(),
