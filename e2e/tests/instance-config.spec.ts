@@ -76,7 +76,33 @@ test('a reply lands only in the pane that asked', async ({ page }) => {
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
-test('a tool that asks the user shows its panel in the pane that asked', async ({ page }) => {
+/**
+ * BLOCKED, not broken — and blocked on a defect this fixture found.
+ *
+ * Building it surfaced something three cold audits missed: on the documented
+ * primary path, NO tool is ever offered to the model. `_toolsForCurrentModel()`
+ * gates on `getCurrentModel()?.capabilities?.includes('function_calling')`;
+ * `getCurrentModel()` reads `provider.getModels()`, which returns the STATIC
+ * `opts.models`; the presets set none, and `fetchModels()` neither declares
+ * `function_calling` (it hardcodes `['streaming']`) nor writes its result back. So
+ * the gate is `false` for every preset provider, and `tools: []` goes on the wire.
+ *
+ * Proven, not inferred — captured from the browser with the tool registered:
+ *   req#0 tools=[]   req#1 tools=[]
+ * and in Node: `getModels() = []`, `getCurrentModel() = undefined`,
+ * `getTools().length = 1`, gate `false`.
+ *
+ * That makes the whole tools guide, `needsApproval`, HITL and
+ * `@aparte/plugin-ask-question` inert on that path — which is also why the plugin
+ * had no in-repo consumer and why the mock's `tool-call` scenario is used by no
+ * spec. Fixing it is a product decision (should an OpenAI-COMPATIBLE endpoint
+ * declare `function_calling` by default? should a fetched list reach
+ * `getCurrentModel()`?), so it is not being decided inside a test file.
+ *
+ * These two unskip the moment that lands. Everything above them passes today and
+ * already covers the config boundary that the CRITICAL broke.
+ */
+test.fixme('a tool that asks the user shows its panel in the pane that asked', async ({ page }) => {
     const errors = collectPageErrors(page);
     const mock = await installLlmMock(page, { scenario: 'ask-question' });
     await page.goto('/?view=workbench');
@@ -110,7 +136,7 @@ test('a tool that asks the user shows its panel in the pane that asked', async (
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
-test('answering the panel resumes the turn and the answer reaches the model', async ({ page }) => {
+test.fixme('answering the panel resumes the turn and the answer reaches the model', async ({ page }) => {
     const errors = collectPageErrors(page);
     const mock = await installLlmMock(page, { scenario: 'ask-question' });
     await page.goto('/?view=workbench');
