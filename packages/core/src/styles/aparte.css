@@ -1451,48 +1451,55 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content p,
-.segment-content p {
+.segment-content p,
+.thinking-content p {
   margin: var(--aparte-prose-p-margin, 0.4em 0);
 }
 
 .aparte-content p:first-child,
-.segment-content p:first-child {
+.segment-content p:first-child,
+.thinking-content p:first-child {
   margin-top: 0;
 }
 
 .aparte-content p:last-child,
-.segment-content p:last-child {
+.segment-content p:last-child,
+.thinking-content p:last-child {
   margin-bottom: 0;
 }
 
-.aparte-content h1, .segment-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.6em 0 0.2em; }
-.aparte-content h2, .segment-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.5em 0 0.2em; }
-.aparte-content h3, .segment-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.4em 0 0.15em; }
-.aparte-content h4, .segment-content h4,
-.aparte-content h5, .segment-content h5,
-.aparte-content h6, .segment-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.3em 0 0.1em; }
+.aparte-content h1, .segment-content h1, .thinking-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.6em 0 0.2em; }
+.aparte-content h2, .segment-content h2, .thinking-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.5em 0 0.2em; }
+.aparte-content h3, .segment-content h3, .thinking-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.4em 0 0.15em; }
+.aparte-content h4, .segment-content h4, .thinking-content h4,
+.aparte-content h5, .segment-content h5, .thinking-content h5,
+.aparte-content h6, .segment-content h6, .thinking-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.3em 0 0.1em; }
 
 .aparte-content ul,
-.segment-content ul {
+.segment-content ul,
+.thinking-content ul {
   list-style: disc;
   padding-left: var(--aparte-prose-list-indent, 1.5em);
   margin: var(--aparte-prose-list-margin, 0.4em 0);
 }
 
 .aparte-content ol,
-.segment-content ol {
+.segment-content ol,
+.thinking-content ol {
   list-style: decimal;
   padding-left: var(--aparte-prose-list-indent, 1.5em);
   margin: var(--aparte-prose-list-margin, 0.4em 0);
 }
 
 .aparte-content li,
-.segment-content li {
+.segment-content li,
+.thinking-content li {
   margin: var(--aparte-prose-li-margin, 0.15em 0);
 }
 
 .aparte-content blockquote,
-.segment-content blockquote {
+.segment-content blockquote,
+.thinking-content blockquote {
   border-left: var(--aparte-prose-blockquote-border-width, 3px) solid var(--aparte-prose-blockquote-border, var(--aparte-border, #e5e7eb));
   padding-left: 1em;
   margin: 0.4em 0;
@@ -1501,17 +1508,20 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content strong,
-.segment-content strong {
+.segment-content strong,
+.thinking-content strong {
   font-weight: var(--aparte-font-weight-semibold, 600);
 }
 
 .aparte-content em,
-.segment-content em {
+.segment-content em,
+.thinking-content em {
   font-style: italic;
 }
 
 .aparte-content code,
-.segment-content code {
+.segment-content code,
+.thinking-content code {
   font-family: var(--aparte-code-font-family, ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace);
   font-size: var(--aparte-code-inline-font-size, 0.875em);
   background: var(--aparte-prose-code-bg, var(--aparte-code-bg, #f3f4f6));
@@ -1520,13 +1530,15 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content a,
-.segment-content a {
+.segment-content a,
+.thinking-content a {
   color: var(--aparte-primary, #6366f1);
   text-decoration: underline;
 }
 
 .aparte-content hr,
-.segment-content hr {
+.segment-content hr,
+.thinking-content hr {
   border: none;
   border-top: var(--aparte-border-width, 1px) solid var(--aparte-border, #e5e7eb);
   margin: 0.75em 0;
@@ -1576,7 +1588,6 @@ details[open] .thinking-toggle {
   padding: var(--aparte-space-2, 4px) 0 var(--aparte-space-1, 2px) var(--aparte-space-5, 10px);
   font-size: var(--aparte-font-size-md, 13px);
   line-height: var(--aparte-thinking-content-line-height, 1.55);
-  white-space: pre-wrap;
   color: var(--aparte-thinking-content, #4b5563);
   background: transparent;
   max-height: var(--aparte-thinking-content-max-height, 300px);

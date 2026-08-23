@@ -47,6 +47,32 @@ export const MOCK_THINKING_MARK = 'weighing the options';
  */
 const THINKING_CHUNKS = ['Let me start by ', MOCK_THINKING_MARK, '.'];
 export const MOCK_THINKING_FULL = THINKING_CHUNKS.join('');
+
+/**
+ * A reasoning trace long enough to OVERFLOW the thinking block.
+ *
+ * `.thinking-content` is its own scroll container (`max-height: 300px`), and the
+ * three chunks above never come close to filling it — which is why nothing ever
+ * observed what the box does once it scrolls. It did nothing: `update()` replaced
+ * the text without touching `scrollTop`, so the newest reasoning piled up below the
+ * fold while the block sat frozen on its first screenful.
+ *
+ * Numbered so a spec can assert WHICH line is in view rather than that some text is.
+ */
+const LONG_THINKING_LINES = [
+    // Markdown, because a model that formats its answer formats its reasoning too —
+    // and the block used to render this as literal asterisks in a pre-wrap box.
+    `A **${'bold conclusion'}** first.
+
+`,
+    ...Array.from({ length: 30 }, (_, i) => `reasoning step ${i + 1}
+
+`),
+];
+/** The bold run a spec asserts is real markup rather than literal asterisks. */
+export const MOCK_THINKING_BOLD = 'bold conclusion';
+/** The last line — the one that must be visible if the box follows the stream. */
+export const MOCK_THINKING_LAST_LINE = 'reasoning step 30';
 export const MOCK_CODE_MARK = 'aparteCodeFixture';
 export const MOCK_TOOL_NAME = 'e2e_echo';
 
@@ -89,6 +115,7 @@ const DEFAULT_MODELS: MockModel[] = [{ id: MOCK_MODEL_ID, name: 'Aparte E2E Mode
 export type LlmScenario =
     | 'text'
     | 'thinking'
+    | 'long-thinking'
     | 'code'
     | 'tool-call'
     | 'ask-question'
@@ -161,6 +188,13 @@ function eventsForScenario(scenario: LlmScenario): string[] {
 
 function bodyForScenario(scenario: LlmScenario): string {
     switch (scenario) {
+        case 'long-thinking':
+            return [
+                ...LONG_THINKING_LINES.map(thinkingEvent),
+                ...REPLY_CHUNKS.map(contentEvent),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
         case 'thinking':
             return [
                 ...THINKING_CHUNKS.map(thinkingEvent),
