@@ -22,6 +22,7 @@ import {
 } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+import { gatedViolations } from '../helpers/axe.js';
 
 const PANEL = '.aparte-elic-panel';
 
@@ -94,6 +95,28 @@ test('answering restores the composer and resumes the turn', async ({ page }) =>
     }).toPass();
 
     expect(errors, 'no uncaught page errors').toEqual([]);
+});
+
+test('an open question has no critical/serious axe violations', async ({ page }) => {
+    // The a11y suite scans the idle chat, a streamed exchange and an open model
+    // dropdown — never this, because nothing could make it appear.
+    //
+    // What it does NOT do, measured rather than assumed: catch the grouping defect
+    // this panel actually had. Stripping `role="radiogroup"` and `aria-labelledby`
+    // from the options leaves this scan GREEN — axe does not flag an unnamed radio
+    // group at critical/serious. Four unit tests in `panel.test.ts` are the guard
+    // for that; this scan is the regression net for everything else the panel puts
+    // on screen (contrast, focus order, labels on the inputs themselves).
+    await installLlmMock(page, { scenario: 'ask-question' });
+    const chat = new ChatPage(page);
+    await page.goto('/');
+
+    await chat.editor.fill('ask me something');
+    await chat.sendButton.click();
+    await expect(page.locator(PANEL)).toBeVisible();
+
+    const violations = await gatedViolations(page);
+    expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
 });
 
 test('Skip declines, and the composer comes back', async ({ page }) => {

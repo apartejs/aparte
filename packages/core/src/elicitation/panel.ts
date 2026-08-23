@@ -39,17 +39,47 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
     return node;
 }
 
-function fieldHeader(parent: HTMLElement, field: AparteElicitationField): void {
-    if (field.title) parent.appendChild(el('p', 'aparte-elic-title', field.title));
+/**
+ * Write the field's title and description, and return the id of the title.
+ *
+ * The id is what lets a group of radios be NAMED by its question. Without it the
+ * options were announced with nothing attached to them: a screen reader read
+ * "Chromium, radio button, 1 of 2" and never the question it answered, because
+ * nothing tied the `<p>` above the list to the list itself.
+ */
+function fieldHeader(parent: HTMLElement, field: AparteElicitationField): string | undefined {
+    let titleId: string | undefined;
+    if (field.title) {
+        const title = el('p', 'aparte-elic-title', field.title);
+        titleId = `elic-title-${uuid()}`;
+        title.id = titleId;
+        parent.appendChild(title);
+    }
     if (field.description) parent.appendChild(el('p', 'aparte-elic-desc', field.description));
+    return titleId;
+}
+
+/**
+ * Name a group of choices, and say what kind of group it is.
+ *
+ * `radiogroup` is only correct for radios; a multi-select is a plain `group`. The
+ * name comes from the field's own title when it has one (the multi-question form),
+ * and otherwise from the panel's message — which IS the question in the
+ * single-question form, and would otherwise leave the group unnamed.
+ */
+function labelGroup(list: HTMLElement, opts: { multiple?: boolean; titleId?: string; fallbackLabel?: string }): void {
+    list.setAttribute('role', opts.multiple ? 'group' : 'radiogroup');
+    if (opts.titleId) list.setAttribute('aria-labelledby', opts.titleId);
+    else if (opts.fallbackLabel) list.setAttribute('aria-label', opts.fallbackLabel);
 }
 
 // ─── enum ────────────────────────────────────────────────────────────────────
 
-function buildEnumField(field: AparteElicitationEnumField, onChange: () => void): BuiltField {
+function buildEnumField(field: AparteElicitationEnumField, onChange: () => void, fallbackLabel?: string): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-enum');
-    fieldHeader(wrap, field);
+    const titleId = fieldHeader(wrap, field);
     const list = el('div', 'aparte-elic-options');
+    labelGroup(list, { multiple: field.multiple, titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
     const type = field.multiple ? 'checkbox' : 'radio';
     const allowOther = field.allowOther ?? true;
@@ -137,10 +167,11 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void)
 
 // ─── boolean ───────────────────────────────────────────────────────────────
 
-function buildBooleanField(field: AparteElicitationBooleanField, onChange: () => void): BuiltField {
+function buildBooleanField(field: AparteElicitationBooleanField, onChange: () => void, fallbackLabel?: string): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-boolean');
-    fieldHeader(wrap, field);
+    const titleId = fieldHeader(wrap, field);
     const list = el('div', 'aparte-elic-options');
+    labelGroup(list, { titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
     const mk = (val: 'true' | 'false', label: string): void => {
         const row = el('label', 'aparte-elic-option');
@@ -154,8 +185,9 @@ function buildBooleanField(field: AparteElicitationBooleanField, onChange: () =>
         row.append(control, body);
         list.appendChild(row);
     };
-    mk('true', field.trueLabel ?? 'Yes');
-    mk('false', field.falseLabel ?? 'No');
+    const t = contextConfig();
+    mk('true', field.trueLabel ?? t.t('elicitationYes'));
+    mk('false', field.falseLabel ?? t.t('elicitationNo'));
     wrap.appendChild(list);
     list.addEventListener('change', onChange);
 
@@ -170,7 +202,7 @@ function buildBooleanField(field: AparteElicitationBooleanField, onChange: () =>
 
 // ─── string ────────────────────────────────────────────────────────────────
 
-function buildStringField(field: AparteElicitationStringField, onChange: () => void): BuiltField {
+function buildStringField(field: AparteElicitationStringField, onChange: () => void, fallbackLabel?: string): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-string');
     fieldHeader(wrap, field);
     const input = field.multiline
@@ -180,7 +212,10 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
     if (field.placeholder) input.setAttribute('placeholder', field.placeholder);
     if (field.default) (input as HTMLInputElement | HTMLTextAreaElement).value = field.default;
     if (field.maxLength != null) input.setAttribute('maxlength', String(field.maxLength));
-    input.setAttribute('aria-label', field.title ?? field.description ?? 'Your answer');
+    // The visible title is a `<p>`, not a `<label for>`, so the input needs its own
+    // accessible name — and the panel's message is the question in the
+    // single-question form. 'Your answer' is the last resort, localised like the rest.
+    input.setAttribute('aria-label', field.title ?? field.description ?? fallbackLabel ?? contextConfig().t('elicitationAnswerLabel'));
     wrap.appendChild(input);
     input.addEventListener('input', onChange);
 
@@ -198,11 +233,18 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
     };
 }
 
-function buildField(field: AparteElicitationField, onChange: () => void): BuiltField {
+/**
+ * The four schema kinds, exhaustively.
+ *
+ * `fallbackLabel` is the panel's message, passed down for the SINGLE-field shape
+ * where the message is the question and the field itself carries no title — without
+ * it, that field's group or input has no accessible name at all.
+ */
+function buildField(field: AparteElicitationField, onChange: () => void, fallbackLabel?: string): BuiltField {
     switch (field.type) {
-        case 'enum': return buildEnumField(field, onChange);
-        case 'boolean': return buildBooleanField(field, onChange);
-        case 'string': return buildStringField(field, onChange);
+        case 'enum': return buildEnumField(field, onChange, fallbackLabel);
+        case 'boolean': return buildBooleanField(field, onChange, fallbackLabel);
+        case 'string': return buildStringField(field, onChange, fallbackLabel);
     }
 }
 
@@ -236,7 +278,9 @@ export function buildElicitationPanel(
         };
     }
 
-    const field = buildField(schema, onChange);
+    // The single-field shape: the panel's message IS the question, so it names the
+    // field. In the object shape each field carries its own title instead.
+    const field = buildField(schema, onChange, message);
     panel.appendChild(field.el);
     return {
         el: panel,

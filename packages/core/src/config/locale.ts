@@ -75,6 +75,12 @@ export interface AparteLocale {
     elicitationOtherLabel?: string;
     /** The inline affordance that declines the question (default: "Skip") */
     elicitationSkip?: string;
+    /** Affirmative choice of a yes/no question (default: "Yes") */
+    elicitationYes?: string;
+    /** Negative choice of a yes/no question (default: "No") */
+    elicitationNo?: string;
+    /** Last-resort accessible name for a free-text answer (default: "Your answer") */
+    elicitationAnswerLabel?: string;
 
     // --- Metadata ---
     /** Direction of the text (ltr or rtl) - defaults to ltr */
@@ -99,6 +105,9 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationOtherPlaceholder: "Type your answer…",
     elicitationOtherLabel: "Custom answer",
     elicitationSkip: "Skip",
+    elicitationYes: "Yes",
+    elicitationNo: "No",
+    elicitationAnswerLabel: "Your answer",
     typing: "Typing...",
     error: "Error",
     running: "Running...",

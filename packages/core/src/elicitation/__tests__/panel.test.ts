@@ -26,6 +26,60 @@ describe('buildElicitationPanel', () => {
      * OPTIONAL and `t()` falls back to `APARTE_DEFAULT_LOCALE` per key, so an
      * existing locale package keeps compiling and keeps working.
      */
+    /**
+     * A group of choices has to be NAMED by the question it answers.
+     *
+     * Nothing tied the `<p>` holding the question to the list of radios below it, so
+     * a screen reader announced "Chromium, radio button, 1 of 2" with no question
+     * attached — and in the multi-question form, several such lists in a row with no
+     * way to tell which was which. `role="radiogroup"` + `aria-labelledby` rather
+     * than `<fieldset><legend>`: same semantics, and it changes no layout.
+     */
+    describe('accessible grouping', () => {
+        it('names a single question group from the panel message', () => {
+            const p = buildElicitationPanel('Which engine?', { type: 'enum', options: [{ value: 'a' }] }, noop);
+            const list = p.el.querySelector('.aparte-elic-options')!;
+            expect(list.getAttribute('role')).toBe('radiogroup');
+            // No field title in this shape — the message IS the question.
+            expect(list.getAttribute('aria-label')).toBe('Which engine?');
+        });
+
+        it('names each question of a form from its own title', () => {
+            const p = buildElicitationPanel('', {
+                type: 'object',
+                properties: {
+                    q1: { type: 'enum', title: 'Colour?', options: [{ value: 'blue' }] },
+                    q2: { type: 'enum', title: 'Shape?', options: [{ value: 'round' }] },
+                },
+            }, noop);
+
+            const lists = Array.from(p.el.querySelectorAll('.aparte-elic-options'));
+            expect(lists).toHaveLength(2);
+            const names = lists.map((list) => {
+                const id = list.getAttribute('aria-labelledby');
+                return id ? p.el.querySelector(`#${id}`)?.textContent : null;
+            });
+            expect(names, 'each group points at its own question').toEqual(['Colour?', 'Shape?']);
+        });
+
+        it('a multi-select is a group, not a radiogroup', () => {
+            const p = buildElicitationPanel('?', { type: 'enum', multiple: true, options: [{ value: 'a' }] }, noop);
+            expect(p.el.querySelector('.aparte-elic-options')!.getAttribute('role')).toBe('group');
+        });
+
+        it('a yes/no question is a named radiogroup too', () => {
+            const p = buildElicitationPanel('Proceed?', { type: 'boolean' }, noop);
+            const list = p.el.querySelector('.aparte-elic-options')!;
+            expect(list.getAttribute('role')).toBe('radiogroup');
+            expect(list.getAttribute('aria-label')).toBe('Proceed?');
+        });
+
+        it('a free-text field takes its accessible name from the question', () => {
+            const p = buildElicitationPanel('Your name?', { type: 'string' }, noop);
+            expect(p.el.querySelector('.aparte-elic-text')!.getAttribute('aria-label')).toBe('Your name?');
+        });
+    });
+
     describe('localisation', () => {
         const withOther: AparteElicitationSchema = { type: 'enum', options: [{ value: 'a' }], allowOther: true };
 
