@@ -4,6 +4,22 @@ import { aparteGlobalConfig, AparteConfig, attachConfig, detachConfig } from '@a
 import type { AparteAIProvider, AparteModelChangeEventDetail } from '@aparte/core';
 import './aparte-model-selector.js';
 
+/**
+ * A provider whose `/models` answers after `delayMs` — the shape that made the
+ * dropdown's order a race. A local server waking up is slow; a CDN is not.
+ */
+function slowProvider(id: string, modelName: string, delayMs: number): AparteAIProvider {
+    return {
+        id,
+        getMetadata: () => ({ id, name: `Provider ${id}` }),
+        getModels: () => [{ id: `${id}-model`, name: modelName }],
+        fetchModels: async () => {
+            await new Promise((r) => setTimeout(r, delayMs));
+            return [{ id: `${id}-model`, name: modelName }];
+        },
+    } as unknown as AparteAIProvider;
+}
+
 function fakeProvider(id: string, modelName: string): AparteAIProvider {
     return {
         id,
@@ -186,6 +202,28 @@ describe('aparte-model-selector', () => {
 
             // Whatever the sequence, the LAST thing anyone hears must be the pick.
             expect(seen.at(-1)).toBe('beta-model');
+        });
+
+        it('auto-selects the FIRST registered provider, not the fastest to answer', async () => {
+            // The order an app registers providers in is the only lever it has over
+            // what `auto-select` lands on. The fetches run in parallel, so filling
+            // the list on completion made that lever a race — and the provider most
+            // likely to win a race is a cloud endpoint, i.e. the one that costs
+            // money. Here the first registered is 30ms slower than the second.
+            aparteGlobalConfig.registerAIProvider(
+                slowProvider('local', 'Local One', 30),
+                fakeProvider('cloud', 'Cloud One'),
+            );
+
+            const sel = await mountSelector(document.createElement('div'));
+            sel.setAttribute('auto-select', '');
+            sel.setAttribute('persist', '');
+            await vi.waitFor(() => {
+                expect(aparteGlobalConfig.getModelConfig().defaultModel).toBeTruthy();
+            });
+
+            expect(aparteGlobalConfig.getModelConfig().defaultProvider).toBe('local');
+            expect(aparteGlobalConfig.getModelConfig().defaultModel).toBe('local-model');
         });
     });
 });

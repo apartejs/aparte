@@ -208,11 +208,20 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
 
             const config = this._cfg.getModelConfig();
 
-            // Store in a temporary list to avoid mid-render state corruption
-            const tempList: ProviderModels[] = [];
+            // Store in a temporary list to avoid mid-render state corruption.
+            //
+            // Indexed by REGISTRATION order, not filled by completion order. The
+            // fetches run in parallel, so a `push` here ordered the dropdown — and
+            // therefore what `auto-select` picks — by whichever /models endpoint
+            // answered first. A cloud provider on a CDN beats a local server that
+            // has to wake up, so an app registering `[OLLAMA, LMSTUDIO, OPENROUTER]`
+            // could silently land on the paid one, and land on a different one on
+            // the next reload. `auto-select` documents itself as "the first model";
+            // first has to mean first, not fastest.
+            const tempList: (ProviderModels | undefined)[] = new Array(uniqueProviders.length);
 
             // Fetch all providers in parallel
-            await Promise.all(uniqueProviders.map(async (provider) => {
+            await Promise.all(uniqueProviders.map(async (provider, i) => {
                 try {
                     const models = await this._cfg.refreshProviderModels(provider.id);
 
@@ -223,14 +232,16 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                         : models;
 
                     if (filteredModels.length > 0) {
-                        tempList.push({ provider, models: filteredModels });
+                        tempList[i] = { provider, models: filteredModels };
                     }
                 } catch (error) {
                     console.warn(`[AparteModelSelector] Failed to load models for ${provider.id}:`, error);
                 }
             }));
 
-            this._providerModels = tempList;
+            // The holes are the providers that failed or returned nothing: dropped,
+            // which keeps the order of the survivors.
+            this._providerModels = tempList.filter((pm): pm is ProviderModels => pm !== undefined);
         } finally {
             this._isLoading = false;
         }
