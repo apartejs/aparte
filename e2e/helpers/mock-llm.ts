@@ -288,6 +288,7 @@ function bodyForScenario(scenario: LlmScenario): string {
                                 function: {
                                     arguments: JSON.stringify({
                                         question: MOCK_ASK_QUESTION,
+                                        header: 'Engine',
                                         options: MOCK_ASK_OPTIONS.map((title) => ({ title })),
                                     }),
                                 },

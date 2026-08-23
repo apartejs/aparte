@@ -66,9 +66,10 @@ WHEN NOT TO USE IT — respond directly instead:
 - Coding tasks where you can make a reasonable default choice
 - Any question you can answer without needing user input
 
-When you do use it, every question needs 2 to 4 options, each with a short "title" —
-that is enforced by the schema, not a preference. Set "multiple: true" only when
-several options can apply simultaneously.`,
+When you do use it, every question needs a short "header" (one or two words — it is the
+tab a user clicks to come back to that question) and 2 to 4 options, each with a short
+"title". Both are enforced by the schema, not preferences. Set "multiple: true" only
+when several options can apply simultaneously.`,
     inputSchema: {
         type: 'object',
         properties: {
@@ -87,7 +88,7 @@ several options can apply simultaneously.`,
                         header: {
                             type: 'string',
                             maxLength: 16,
-                            description: 'A SHORT label for this question — two or three words, no sentence (e.g. "Colour", "Framework"). Several questions are asked one at a time, with a chip per question, and a chip cannot hold a sentence.'
+                            description: 'A SHORT label for this question — one or two words, no sentence (e.g. "Colour", "Framework"). It is the tab a user clicks to come back to this question, so it has to read as a name.'
                         },
                         options: {
                             type: 'array',
@@ -132,7 +133,13 @@ several options can apply simultaneously.`,
                         // entry was "Other…". An `allow_other` still sent is ignored, so
                         // no existing call breaks.
                     },
-                    required: ['question', 'options']
+                    // `header` is REQUIRED, and that is the difference between tabs
+                    // reading "Forme" and "Couleur" or reading "1" and "2". Left
+                    // optional, a model simply omits it — observed on the first real
+                    // run against a local model. The adapter still falls back to the
+                    // position, so a model that ignores this produces a usable panel
+                    // rather than an error; requiring it makes the good case normal.
+                    required: ['question', 'header', 'options']
                 }
             },
             // ── Single-question form — also accepted (agnostic). ──

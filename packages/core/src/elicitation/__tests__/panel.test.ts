@@ -155,6 +155,12 @@ describe('buildElicitationPanel', () => {
             // here is that the row is still part of it.
             expect(p.el.contains(p.actions), 'the action row stays').toBe(true);
             expect(p.actions.contains(next), 'and Next lives in it, next to Skip').toBe(true);
+
+            // The primary is LAST in the row, so it sits closest to the composer's
+            // send button — which is what takes over on this very question. A
+            // presenter prepends its own affordance; appending put the escape hatch
+            // between the two forward actions.
+            expect(p.actions.lastElementChild).toBe(next);
         });
 
         it('a chip goes back to a question already answered', () => {

@@ -153,7 +153,9 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.className = 'aparte-elic-skip';
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
-            panel.actions.appendChild(skip);
+            // PREPENDED: the panel's "Next" is the primary and stays closest to the
+            // send button — see `actions` on BuiltElicitationPanel.
+            panel.actions.prepend(skip);
 
             this._pending = { settle, composer };
             composer.showPanel(panel.el, {

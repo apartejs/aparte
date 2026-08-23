@@ -29,6 +29,9 @@ describe('askUserTool', () => {
         const item = schema.properties.questions.items;
         expect(item.required).toContain('question');
         expect(item.required).toContain('options');
+        // `header` too: left optional, a model omits it and the tabs read "1" and
+        // "2" instead of "Forme" and "Couleur" — observed on the first real run.
+        expect(item.required).toContain('header');
         expect(item.properties.options.minItems).toBe(2);
         // FOUR: six options plus the free-text escape is seven rows in a composer,
         // and it looked like a form that had escaped into a chat. A model asked for

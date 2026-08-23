@@ -25,6 +25,13 @@ export interface BuiltElicitationPanel {
      * CHANGE HEIGHT when the last question hid "Next": the whole composer jumped.
      * One row, whose height is reserved, and the panel decides the layout because the
      * panel is what has to stay still.
+     *
+     * **PREPEND a secondary affordance.** The panel's own primary action ("Next") is
+     * already in here, and the row is right-aligned, so the primary has to stay
+     * closest to the composer's send button — which is what takes over on the last
+     * question. Appending put the escape hatch between the two forward actions.
+     * Prepending also keeps the focus order matching the visual order, which a CSS
+     * `order` would have quietly broken.
      */
     readonly actions: HTMLElement;
     /** The current response content, shaped to match the schema. */
