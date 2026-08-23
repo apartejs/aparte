@@ -218,11 +218,29 @@ export class AparteComposer extends HTMLElement {
         this._emit('attachments-change', { attachments: [] });
     }
 
-    /** Inject a panel into the composer, hiding the text input. The send button calls onSubmit when clicked. */
+    /**
+     * Inject a panel into the composer. The send button calls `onSubmit` when clicked.
+     *
+     * While a panel is up, the composer is answering a QUESTION, not composing a
+     * message — so the affordances that lead nowhere go away with the text input:
+     * the attachment picker above all, which stayed clickable while the user was
+     * being asked something ("on voyait encore l'icône de upload", reported from a
+     * real session). Ratified decision #8: an affordance nothing can honour is not
+     * rendered.
+     *
+     * What STAYS, deliberately: the attachments strip, because pending attachments
+     * are the user's state and not an action to offer — hiding them would look like
+     * losing them; and the toolbar, because switching model still does something.
+     *
+     * Declared with an attribute + CSS rather than the inline `style.display` this
+     * used to set on a child: an attribute is themeable, is visible to a consumer's
+     * own rules, and does not clobber a `display` the consumer had set (the restore
+     * wrote `''`, not the previous value).
+     */
     showPanel(panel: HTMLElement, options?: { submitEnabled?: boolean; onSubmit?: () => void }): void {
         this.hidePanel();
         const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
-        if (inputEl) inputEl.style.display = 'none';
+        this.setAttribute('data-panel-active', '');
         panel.dataset['apartePanel'] = 'true';
         if (inputEl) {
             inputEl.insertAdjacentElement('afterend', panel);
@@ -235,12 +253,11 @@ export class AparteComposer extends HTMLElement {
         this._emit('panel-change', { active: true, submitEnabled: this._panelSubmitEnabled });
     }
 
-    /** Remove the panel and restore the text input. */
+    /** Remove the panel and restore the composer's own controls. */
     hidePanel(): void {
         const existing = this.querySelector('[data-aparte-panel]') as HTMLElement | null;
         if (existing) existing.remove();
-        const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
-        if (inputEl) inputEl.style.display = '';
+        this.removeAttribute('data-panel-active');
         this._panelActive = false;
         this._panelSubmitEnabled = false;
         this._panelOnSubmit = null;

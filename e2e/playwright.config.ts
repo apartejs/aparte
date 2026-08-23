@@ -153,6 +153,12 @@ const INSTANCE_CONFIG = /instance-config\.spec\.ts/;
 // INSTANCE_CONFIG above, which HAS to run on a wrapper, because the bug it covers
 // is produced by `bind()` firing post-mount and raw core has no equivalent.
 const SETTINGS = /settings\.spec\.ts/;
+// The elicitation panel: a tool that has to ASK the user. `vanilla` only, and
+// deliberately — raw core, hand-written markup, an attachment picker really in the
+// DOM, and the app the first real test session used. Nothing exercised this surface
+// in a browser before, because no tool ever reached the model, so nothing could
+// make the panel appear.
+const ELICITATION = /elicitation\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -169,7 +175,7 @@ const SETTINGS = /settings\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep

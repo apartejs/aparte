@@ -471,6 +471,17 @@ aparte-composer[data-model-gated] aparte-composer-send {
   pointer-events: none;
 }
 
+/* Panel mode: the composer is answering a question, not composing a message.
+   The text input goes, and so does the attachment picker — an affordance nothing
+   can honour is not rendered (ratified decision #8), and it stayed clickable
+   through a whole elicitation. The attachments strip stays: pending attachments
+   are the user's STATE, not an action to offer. So does the toolbar —
+   switching model still does something. */
+aparte-composer[data-panel-active] aparte-composer-input,
+aparte-composer[data-panel-active] aparte-composer-add-attachment {
+  display: none;
+}
+
 aparte-composer {
   flex: 0 0 auto;
 }

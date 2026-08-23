@@ -152,6 +152,48 @@ describe('<aparte-elicitation> presenter', () => {
         });
     });
 
+    /**
+     * While a panel is up, the composer is answering a QUESTION.
+     *
+     * It used to hide only `aparte-composer-input`, with an inline
+     * `style.display`, and leave everything else — so the attachment picker stayed
+     * clickable while the user was being asked something. Ratified decision #8: an
+     * affordance nothing can honour is not rendered. Reported from a real session
+     * ("on voyait encore l'icône de upload").
+     *
+     * The CONTRACT is the attribute; jsdom applies no external stylesheet, so what
+     * the attribute makes invisible is asserted in the browser suite instead.
+     */
+    describe('panel mode', () => {
+        it('marks the composer, and unmarks it when the panel goes', async () => {
+            const { composer } = mountChat();
+            const p = requestUserInput({ message: '?', schema: { type: 'string' } });
+
+            expect(composer!.hasAttribute('data-panel-active'), 'the composer is in panel mode').toBe(true);
+
+            window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
+            await p;
+
+            expect(composer!.hasAttribute('data-panel-active'), 'and back to composing').toBe(false);
+        });
+
+        it('does not leave an inline display on the input', async () => {
+            // The old implementation wrote `style.display = 'none'` and restored `''`
+            // — not the previous value — so it silently clobbered a display a
+            // consumer had set, and was invisible to their own CSS.
+            const { composer } = mountChat();
+            const input = document.createElement('aparte-composer-input');
+            input.style.display = 'flex';
+            composer!.appendChild(input);
+
+            const p = requestUserInput({ message: '?', schema: { type: 'string' } });
+            window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
+            await p;
+
+            expect(input.style.display, 'the consumer\'s own display survives').toBe('flex');
+        });
+    });
+
     it('resolves cancel when there is no composer to present in', async () => {
         mountChat(false);
         expect(await requestUserInput({ message: '?', schema: { type: 'string' } })).toEqual({ action: 'cancel' });
