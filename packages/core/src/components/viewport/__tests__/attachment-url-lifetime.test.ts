@@ -27,8 +27,10 @@ function messageWithAttachment(): AparteMessage {
         role: 'user',
         content: 'here it is',
         timestamp: Date.now(),
-        attachments: [{ id: 'a1', name: 'shot.png', mimeType: 'image/png', size: 10, url: BLOB }],
-    } as AparteMessage;
+        // `type`, not `mimeType` — the field is named `type` on AparteAttachment, and
+        // the test tsconfig caught the fixture being wrong. No cast needed now.
+        attachments: [{ id: 'a1', name: 'shot.png', type: 'image/png', size: 10, url: BLOB }],
+    };
 }
 
 describe('attachment object-URL lifetime', () => {

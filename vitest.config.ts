@@ -94,7 +94,11 @@ export default defineConfig({
         // the gate stayed GREEN, because the glob sat 10 to 22 points above its own
         // floor. A floor with that much slack is the same defect as the global 68
         // it was introduced to fix.
-        'packages/core/src/client/**': { lines: 82, statements: 82, functions: 95, branches: 95 },
+        // Raised 82 -> 85 by the audit-4 remediation suites (config scoping, the
+        // error that keeps its reply, tool-approval scoping): measured 85.75%. The
+        // ratchet guard is what asked for it — it compares floor to measurement and
+        // refuses more than 3 points of slack, in either direction.
+        'packages/core/src/client/**': { lines: 85, statements: 85, functions: 95, branches: 95 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -105,7 +109,9 @@ export default defineConfig({
         // Raised 56 -> 58 when the nine built-ins became nine files: the split moved
         // code out of one thinly-covered module into files the existing tests reach,
         // and measured coverage went to 59.11%. The ratchet guard caught the slack.
-        'packages/core/src/renderers/**': { lines: 58, statements: 58, functions: 73, branches: 72 },
+        // Functions raised 73 -> 76 by the renderer-style re-injection test of the
+        // audit-4 lot: measured 76.92%. Same guard, same reason.
+        'packages/core/src/renderers/**': { lines: 58, statements: 58, functions: 76, branches: 72 },
       },
     },
   },

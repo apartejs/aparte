@@ -57,7 +57,7 @@ describe('the tool timeout is raced, not merely signalled', () => {
             },
             toolConfigLookup: () => undefined,
             approvalResolver: async () => ({ approved: true }),
-            emitter: (e) => { events.push(e.type); },
+            emitter: (e: { type: string }) => { events.push(e.type); },
             signal: new AbortController().signal,
             toolTimeoutMs: 30,
         } as never);
@@ -92,7 +92,7 @@ describe('the tool timeout is raced, not merely signalled', () => {
             messageId: 'a1',
             baseRequest: { modelId: 'm', messages: [] } as never,
             transportCall: toolCallOnce() as never,
-            toolLookup: () => async (_call, signal) => {
+            toolLookup: () => async (_call: unknown, signal: AbortSignal) => {
                 // A well-behaved handler rejects on its own terms — which is why the
                 // signal is still fired before the race resolves.
                 await new Promise((_res, rej) => {
