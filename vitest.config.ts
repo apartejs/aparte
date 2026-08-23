@@ -111,7 +111,11 @@ export default defineConfig({
         // and measured coverage went to 59.11%. The ratchet guard caught the slack.
         // Functions raised 73 -> 76 by the renderer-style re-injection test of the
         // audit-4 lot: measured 76.92%. Same guard, same reason.
-        'packages/core/src/renderers/**': { lines: 58, statements: 58, functions: 76, branches: 72 },
+        // Lines/statements raised 58 -> 61 when the reasoning block became prose that
+        // follows its own stream: nine tests over a renderer that had four, measured
+        // 61.93%. The guard asked for it, which is the whole point of a two-sided
+        // ratchet — a floor four points under the real number cannot fail.
+        'packages/core/src/renderers/**': { lines: 61, statements: 61, functions: 76, branches: 72 },
       },
     },
   },
