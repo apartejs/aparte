@@ -12,6 +12,15 @@ import {
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { runStreamAgent } from '@aparte/engine';
+import {
+    DEFAULT_SETTINGS,
+    applySystemPrompt,
+    isSettingsView,
+    loadSettings,
+    saveSettings,
+    settingsKeyResolver,
+    type ExampleSettings,
+} from './settings-store';
 
 const KEY_STORAGE = 'aparte.openrouter.key';
 
@@ -51,11 +60,22 @@ aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 //
 //    Core works identically without it — remove the option and the inline loop
 //    runs. That equivalence is what the engine parity suite asserts.
+const fromSettings = settingsKeyResolver(loadSettings);
 const client = new AparteClient({
     streamRunner: runStreamAgent,
-    keyResolver: (providerId) =>
-        providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
+    // The endpoint + token the settings view holds, for ANY provider — with the
+    // OpenRouter field still winning for that one, so the topbar flow is unchanged.
+    keyResolver: (providerId) => {
+        if (providerId === 'openrouter') {
+            const key = localStorage.getItem(KEY_STORAGE);
+            if (key) return key;
+        }
+        return fromSettings(providerId);
+    },
 });
+
+// The stored system prompt has to be on the config before the first turn.
+applySystemPrompt(aparteGlobalConfig, loadSettings());
 client.start(); // listens for aparte-send/retry/edit and streams replies into the chat
 
 // Register <aparte-model-selector> AFTER providers are registered, so its async
@@ -170,3 +190,55 @@ function wireAttachmentLightbox(): void {
 }
 
 wireAttachmentLightbox();
+
+// ── The settings view ────────────────────────────────────────────────────────
+//
+// Reachable at `?view=settings`, so it is a link a reader can share rather than a
+// hidden mode. Applied on change: the system prompt goes onto the config, and the
+// endpoint and token are read live by the resolver above on the next request — so
+// there is nothing to commit and a Save button would imply otherwise.
+//
+// Two of these three fields exist BECAUSE they have no setter. `setSystemPrompt`
+// is an API; an endpoint and a token are not — they travel through the key
+// resolver as `{ apiKey, endpoint }`, which core's own JSDoc calls "the legacy
+// `string | Record` auth shape" and which no example demonstrated.
+function wireSettingsView(): void {
+    const view = document.querySelector<HTMLElement>('#settings-view');
+    const chat = document.querySelector<HTMLElement>('.app:not(.settings)');
+    if (!view || !chat) return;
+
+    if (!isSettingsView()) return;
+    chat.hidden = true;
+    view.hidden = false;
+
+    const promptEl = view.querySelector<HTMLTextAreaElement>('#system-prompt')!;
+    const endpointEl = view.querySelector<HTMLInputElement>('#endpoint')!;
+    const tokenEl = view.querySelector<HTMLInputElement>('#token')!;
+
+    const render = (settings: ExampleSettings): void => {
+        promptEl.value = settings.systemPrompt;
+        endpointEl.value = settings.endpoint;
+        tokenEl.value = settings.token;
+    };
+    render(loadSettings());
+
+    const commit = (): void => {
+        const next: ExampleSettings = {
+            systemPrompt: promptEl.value,
+            endpoint: endpointEl.value,
+            token: tokenEl.value,
+        };
+        saveSettings(next);
+        applySystemPrompt(aparteGlobalConfig, next);
+    };
+    // `input`, not `change`: a reader who types and navigates away without blurring
+    // the field would otherwise lose what they typed.
+    for (const el of [promptEl, endpointEl, tokenEl]) el.addEventListener('input', commit);
+
+    view.querySelector<HTMLButtonElement>('#settings-reset')?.addEventListener('click', () => {
+        render({ ...DEFAULT_SETTINGS });
+        commit();
+    });
+}
+
+wireSettingsView();

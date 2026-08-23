@@ -46,6 +46,73 @@
       </aparte-chat>
     </div>
 
+    <!-- The settings a consumer changes first. Two of the three have no setter: an
+         endpoint and a token reach a provider only through the KEY RESOLVER, which
+         may return `{ apiKey, endpoint }` instead of a bare string. Reachable at
+         ?view=settings, so it is a link rather than a hidden mode. -->
+    <div class="app settings" id="settings-view" hidden>
+      <header class="topbar">
+        <div class="brand">aparté <span>· vanilla settings</span></div>
+        <a class="viewswitch" href="?">← back to the chat</a>
+      </header>
+
+      <div class="fields">
+        <div class="field">
+          <label class="field-label" for="system-prompt">System prompt</label>
+          <textarea
+            id="system-prompt"
+            aria-describedby="system-prompt-hint"
+            class="field-input field-textarea"
+            rows="6"
+            spellcheck="false"
+            placeholder="Leave empty to send no system turn."
+          ></textarea>
+          <span class="field-hint" id="system-prompt-hint">
+            Sent as the <code>system</code> turn. Supports <code>{{key}}</code> placeholders — resolve
+            them with <code>setSystemPromptVarsProvider()</code>.
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="endpoint">Endpoint</label>
+          <input
+            id="endpoint"
+            aria-describedby="endpoint-hint"
+            class="field-input"
+            type="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Empty = the selected provider's own default"
+          />
+          <span class="field-hint" id="endpoint-hint">
+            Any OpenAI-compatible base URL — LM Studio, Ollama, vLLM, llama.cpp, a hosted API.
+            Reaches the provider through the key resolver as <code>{ endpoint }</code>, which is the
+            only runtime channel for it.
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="token">Token</label>
+          <input
+            id="token"
+            aria-describedby="token-hint"
+            class="field-input"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Empty is correct for a local server"
+          />
+          <span class="field-hint" id="token-hint">
+            Stays in this browser — it is sent straight to the endpoint above, which is what BYOK
+            means. For a key that must not reach the browser, use <code>AparteBackendTransport</code>
+            instead.
+          </span>
+        </div>
+
+        <button class="chip" type="button" id="settings-reset">Reset to defaults</button>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

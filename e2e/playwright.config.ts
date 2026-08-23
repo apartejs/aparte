@@ -141,9 +141,12 @@ const PENDING = /pending-state\.spec\.ts/;
 // WRAPPERS and not on `vanilla`: the bug it covers is produced by `bind()` being
 // called from a post-mount hook, which raw core has no equivalent of.
 const INSTANCE_CONFIG = /instance-config\.spec\.ts/;
-// The settings a consumer changes first — system prompt, endpoint, token. Runs on
-// every example that HAS the view, for the same reason TOOLBAR does: five apps
-// wiring the same form through five different mechanisms.
+// The settings a consumer changes first — system prompt, endpoint, token.
+// Runs on the two examples that HAVE the view, and is not ported to the other
+// three: this is app chrome, not a wrapper-boundary claim, so proving it once was
+// enough — the remaining examples would be four more copies of a form. Contrast
+// INSTANCE_CONFIG above, which HAS to run on a wrapper, because the bug it covers
+// is produced by `bind()` firing post-mount and raw core has no equivalent.
 const SETTINGS = /settings\.spec\.ts/;
 
 // Which specs a given app runs.
@@ -161,7 +164,7 @@ const SETTINGS = /settings\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep

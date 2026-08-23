@@ -12,7 +12,6 @@
     },
     "dependencies": {
         "@aparte/core": "workspace:*",
-        "@aparte/plugin-ask-question": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",
