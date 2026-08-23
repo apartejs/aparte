@@ -82,7 +82,10 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
     labelGroup(list, { multiple: field.multiple, titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
     const type = field.multiple ? 'checkbox' : 'radio';
-    const allowOther = field.allowOther ?? true;
+    // The field wins when it says something — that is the APP calling
+    // `requestUserInput` directly. Otherwise it is the host's policy, not a
+    // hardcoded `true` and no longer anything the model can decide.
+    const allowOther = field.allowOther ?? contextConfig().getElicitationOptions().allowOther;
     const defaults = new Set(Array.isArray(field.default) ? field.default : field.default != null ? [field.default] : []);
 
     const buildOption = (value: string, label: string, description?: string, recommended?: boolean): HTMLElement => {

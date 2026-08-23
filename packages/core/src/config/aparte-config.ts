@@ -158,6 +158,8 @@ export class AparteConfig {
     private _modelConfig: AparteModelConfig = {};
     /** Opt-in: gate the composer (block send + grey out) until a model is selected. */
     private _requireModelSelection = false;
+    /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
+    private _elicitationAllowOther = true;
     // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
     private _transport: AparteTransport = new AparteDirectTransport();
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
@@ -813,6 +815,31 @@ export class AparteConfig {
      * still fetching its list). Off by default so single-model / backend setups
      * that never select a model are unaffected.
      */
+    /**
+     * Elicitation policy: whether a choice offers a free-text "Other…" escape.
+     *
+     * This is the HOST's decision, not the model's. `ask_question` used to carry an
+     * `allow_other` field in the schema it hands the model, which meant the model
+     * decided your UX — and a small model fills a field it does not understand: one
+     * sent two questions with `allow_other: true` and no options at all, so the
+     * panel rendered a radio list whose only entry was "Other…", twice.
+     *
+     * Every serious implementation of this pattern makes the escape hatch a property
+     * of the surface rather than of the request. Default `true`, which is what the
+     * panel did before, so nothing a user sees changes — only who gets to say so.
+     * A direct `requestUserInput` caller can still set `allowOther` per field; that
+     * is the app talking, and it wins.
+     */
+    setElicitationOptions(options: { allowOther?: boolean }): void {
+        if (options.allowOther !== undefined) this._elicitationAllowOther = options.allowOther;
+        this._notify();
+    }
+
+    /** The elicitation policy (see {@link setElicitationOptions}). */
+    getElicitationOptions(): { allowOther: boolean } {
+        return { allowOther: this._elicitationAllowOther };
+    }
+
     setRequireModelSelection(required: boolean): void {
         if (this._requireModelSelection === required) return;
         this._requireModelSelection = required;
@@ -1074,6 +1101,7 @@ export class AparteConfig {
         this._toolRenderers.clear();
         this._modelConfig = {};
         this._requireModelSelection = false;
+        this._elicitationAllowOther = true;
         this._modelPreferenceProvider = undefined;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
         this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };

@@ -32,8 +32,6 @@ export interface AskQuestionItem {
     options: AskQuestionOption[];
     /** If true, renders checkboxes (multi-select). Default false (radio). */
     multiple?: boolean;
-    /** Show the free-text "Other…" fallback option. Defaults to true. */
-    allowOther?: boolean;
     /** Pre-select the option whose title matches this value */
     defaultValue?: string;
 }
@@ -51,8 +49,6 @@ export interface AskQuestionDetail {
     multiple?: boolean;
     /** Pre-select the option whose title matches this value */
     defaultValue?: string;
-    /** Show the free-text "Other…" fallback option. Defaults to true. */
-    allowOther?: boolean;
 }
 
 export const askQuestionTool: AparteTool = {
@@ -68,7 +64,9 @@ WHEN NOT TO USE IT — respond directly instead:
 - Coding tasks where you can make a reasonable default choice
 - Any question you can answer without needing user input
 
-When you do use it, provide 2–6 options with a short "title" each. Set "multiple: true" only when several options can apply simultaneously.`,
+When you do use it, every question needs 2 to 6 options, each with a short "title" —
+that is enforced by the schema, not a preference. Set "multiple: true" only when
+several options can apply simultaneously.`,
     inputSchema: {
         type: 'object',
         properties: {
@@ -110,11 +108,14 @@ When you do use it, provide 2–6 options with a short "title" each. Set "multip
                         multiple: {
                             type: 'boolean',
                             description: 'If true, renders checkboxes (multi-select) for this question. Default: false (radio).'
-                        },
-                        allow_other: {
-                            type: 'boolean',
-                            description: 'Show a free-text "Other…" option for this question. Default: true.'
                         }
+                        // No `allow_other`. Whether a choice offers a free-text escape
+                        // is the HOST's decision — `setElicitationOptions({ allowOther })`
+                        // — not a field for the model to fill. It used to be here, and a
+                        // small model sent `allow_other: true` with no options at all,
+                        // which is how the panel came to render a radio list whose only
+                        // entry was "Other…". An `allow_other` still sent is ignored, so
+                        // no existing call breaks.
                     },
                     required: ['question', 'options']
                 }
@@ -209,7 +210,8 @@ function questionField(item: AskQuestionItem): AparteElicitationEnumField | Apar
             recommended: o.recommended,
         })),
         multiple: item.multiple,
-        allowOther: item.allowOther ?? true,
+        // Deliberately unset: the panel falls back to the host's policy
+        // (`setElicitationOptions`). See the schema comment above.
         default: item.defaultValue,
     };
 }
@@ -231,7 +233,7 @@ function buildRequest(input: Record<string, unknown>): {
         question: (o['question'] as string) ?? '',
         options: normalizeOptions(o['options']),
         multiple: (o['multiple'] as boolean) ?? false,
-        allowOther: (o['allow_other'] as boolean) ?? (o['allowOther'] as boolean) ?? true,
+        // `allow_other` is read from nowhere on purpose — it is the host's call.
         defaultValue: (o['default_value'] as string) ?? (o['defaultValue'] as string) ?? undefined,
     });
 

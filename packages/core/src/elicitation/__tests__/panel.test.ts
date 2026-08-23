@@ -35,6 +35,36 @@ describe('buildElicitationPanel', () => {
      * way to tell which was which. `role="radiogroup"` + `aria-labelledby` rather
      * than `<fieldset><legend>`: same semantics, and it changes no layout.
      */
+    /**
+     * Who decides whether a choice offers a free-text escape.
+     *
+     * It used to be a hardcoded `true` in the panel and a field in the schema the
+     * MODEL fills — so the model decided the host's UX, and a small one filled it
+     * without understanding it. It is now the host's policy, overridable per field by
+     * an app calling `requestUserInput` directly.
+     */
+    describe('the free-text escape is the host\'s policy', () => {
+        const plain: AparteElicitationSchema = { type: 'enum', options: [{ value: 'a' }] };
+        const other = (panel: { el: HTMLElement }) => panel.el.querySelector('.aparte-elic-option--other');
+
+        it('is offered by default', () => {
+            expect(other(buildElicitationPanel('?', plain, noop))).not.toBeNull();
+        });
+
+        it('can be turned off for the whole surface', () => {
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ allowOther: false });
+            expect(other(runWithConfig(cfg, () => buildElicitationPanel('?', plain, noop)))).toBeNull();
+        });
+
+        it('and a field that says so wins over the policy — that is the app talking', () => {
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ allowOther: false });
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', { ...plain, allowOther: true }, noop));
+            expect(other(p)).not.toBeNull();
+        });
+    });
+
     describe('accessible grouping', () => {
         it('names a single question group from the panel message', () => {
             const p = buildElicitationPanel('Which engine?', { type: 'enum', options: [{ value: 'a' }] }, noop);

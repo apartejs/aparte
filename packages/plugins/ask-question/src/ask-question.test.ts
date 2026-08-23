@@ -136,13 +136,20 @@ describe('askQuestionHandler — elicitation adapter', () => {
         expect(res.content).toBe('a, b');
     });
 
-    it('honours multiple + allow_other on a question item', async () => {
+    it('honours multiple, and IGNORES a model-sent allow_other', async () => {
         presenter({ action: 'decline' });
         await askQuestionHandler(call({
             questions: [{ question: 'Pick', options: [{ title: 'a' }], multiple: true, allow_other: false }],
         }), sig());
-        expect(schema().multiple).toBe(true);
-        expect(schema().allowOther).toBe(false);
+
+        expect(schema().multiple, 'multi-select is a property of the question').toBe(true);
+        // Whether a choice offers a free-text escape is the HOST's decision —
+        // `setElicitationOptions({ allowOther })` — so the field is left unset and the
+        // panel falls back to that policy. It used to be in the schema handed to the
+        // model, which is how a small model came to send `allow_other: true` with no
+        // options at all and get a radio list whose only entry was "Other…". A model
+        // still sending it is ignored rather than rejected, so no existing call breaks.
+        expect(schema().allowOther, 'the model does not decide the UX').toBeUndefined();
     });
 
     it('normalises improvised option shapes into enum options', async () => {
