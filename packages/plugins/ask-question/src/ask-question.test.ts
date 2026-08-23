@@ -19,11 +19,17 @@ describe('askQuestionTool', () => {
         expect(forms).toContain('question');
     });
 
-    it('each question requires a question string, options optional (maxItems 6)', () => {
+    it('each question requires BOTH a question string and 2 to 6 options', () => {
+        // `options` used to be optional with no `minItems`, so a call carrying only
+        // `{question, allow_other: true}` was schema-valid — and a local model made
+        // exactly that call. The panel then rendered a radio list whose single entry
+        // was "Other…". The 2–6 range was stated in the system prompt, in prose; a
+        // small model reads the schema.
         const schema = askQuestionTool.inputSchema as any;
         const item = schema.properties.questions.items;
         expect(item.required).toContain('question');
-        expect(item.required).not.toContain('options');
+        expect(item.required).toContain('options');
+        expect(item.properties.options.minItems).toBe(2);
         expect(item.properties.options.maxItems).toBe(6);
     });
 });
@@ -59,6 +65,40 @@ describe('askQuestionHandler — elicitation adapter', () => {
         expect(schema().type).toBe('enum');
     });
 
+    /**
+     * The call a real model actually made, reproduced.
+     *
+     * `ask_question(questions=[{question: "Quelle est ta couleur préférée ?",
+     * allow_other: true}, {…}])` — no options at all. The schema now forbids that,
+     * but a model ignoring the schema is the normal case, and the old adapter built
+     * `{type: 'enum', options: []}`, which the panel rendered as a radio list whose
+     * only entry was "Other…". Selecting a radio to reveal the text box you needed
+     * all along is a worse text box.
+     */
+    it('a question the model sent with NO options becomes a labelled text field', async () => {
+        presenter({ action: 'accept', content: { q1: 'bleu', q2: 'ronde' } });
+        const res = await askQuestionHandler(call({
+            questions: [
+                { question: 'Quelle est ta couleur préférée ?', allow_other: true },
+                { question: 'Quelle est ta forme préférée ?', allow_other: true },
+            ],
+        }), sig());
+
+        const props = schema().properties as any;
+        expect(props['q1'].type, 'no options is not a choice — it is a text answer').toBe('string');
+        expect(props['q1'].title).toBe('Quelle est ta couleur préférée ?');
+        expect(props['q2'].type).toBe('string');
+        // And the model still reads which question each answer belongs to.
+        expect(res.content).toContain('Quelle est ta couleur préférée ? → bleu');
+    });
+
+    it('a single question with no options is a text field too', async () => {
+        presenter({ action: 'accept', content: 'anything' });
+        await askQuestionHandler(call({ question: 'Ton prénom ?' }), sig());
+        expect(schema().type).toBe('string');
+        expect(schema().title).toBe('Ton prénom ?');
+    });
+
     it('maps several questions to an object (form) schema and flattens the answer', async () => {
         presenter({ action: 'accept', content: { 'A?': 'x', 'B?': 'y' } });
         const res = await askQuestionHandler(call({
@@ -68,7 +108,13 @@ describe('askQuestionHandler — elicitation adapter', () => {
             ],
         }), sig());
         expect(schema().type).toBe('object');
-        expect(Object.keys(schema().properties)).toEqual(['A?', 'B?']);
+        // STABLE keys, not the question text. The text used to be the property key,
+        // so two identically-worded questions collapsed into one field and a long
+        // question became a long key. It now travels as the field's `title` — and
+        // the answer assertion below proves the model still reads the question
+        // rather than `q1`.
+        expect(Object.keys(schema().properties)).toEqual(['q1', 'q2']);
+        expect((schema().properties as any)['q1'].title).toBe('A?');
         expect(res.content).toBe('A? → x\nB? → y');
     });
 
