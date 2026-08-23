@@ -77,32 +77,31 @@ test('a reply lands only in the pane that asked', async ({ page }) => {
 });
 
 /**
- * BLOCKED, not broken — and blocked on a defect this fixture found.
+ * These two were BLOCKED, and what blocked them was a defect this fixture found.
  *
  * Building it surfaced something three cold audits missed: on the documented
- * primary path, NO tool is ever offered to the model. `_toolsForCurrentModel()`
+ * primary path, NO tool was ever offered to the model. `_toolsForCurrentModel()`
  * gates on `getCurrentModel()?.capabilities?.includes('function_calling')`;
- * `getCurrentModel()` reads `provider.getModels()`, which returns the STATIC
- * `opts.models`; the presets set none, and `fetchModels()` neither declares
- * `function_calling` (it hardcodes `['streaming']`) nor writes its result back. So
- * the gate is `false` for every preset provider, and `tools: []` goes on the wire.
+ * `getCurrentModel()` read `provider.getModels()`, the STATIC `opts.models`, which
+ * every preset leaves empty; and `fetchModels()` neither declared
+ * `function_calling` nor wrote its result anywhere the resolver could see. So the
+ * gate was `false` for every preset provider, and `tools: []` went on the wire.
  *
  * Proven, not inferred — captured from the browser with the tool registered:
  *   req#0 tools=[]   req#1 tools=[]
  * and in Node: `getModels() = []`, `getCurrentModel() = undefined`,
- * `getTools().length = 1`, gate `false`.
+ * `getTools().length = 1`, gate `false`. Which made the whole tools guide,
+ * `needsApproval`, HITL and `@aparte/plugin-ask-question` inert — and is why that
+ * plugin had no in-repo consumer and the mock's `tool-call` scenario was used by
+ * no spec.
  *
- * That makes the whole tools guide, `needsApproval`, HITL and
- * `@aparte/plugin-ask-question` inert on that path — which is also why the plugin
- * had no in-repo consumer and why the mock's `tool-call` scenario is used by no
- * spec. Fixing it is a product decision (should an OpenAI-COMPATIBLE endpoint
- * declare `function_calling` by default? should a fetched list reach
- * `getCurrentModel()`?), so it is not being decided inside a test file.
- *
- * These two unskip the moment that lands. Everything above them passes today and
- * already covers the config boundary that the CRITICAL broke.
+ * Both halves are fixed: `AparteConfig` caches what `refreshProviderModels()`
+ * brings back and `getCurrentModel()` consults it, and `openai-compat` declares
+ * `function_calling` because a `tools` array is a property of the wire format it
+ * implements, not a guess about the model. A user hit the symptom while testing
+ * against LM Studio — the model replied, correctly, that it had no such tool.
  */
-test.fixme('a tool that asks the user shows its panel in the pane that asked', async ({ page }) => {
+test('a tool that asks the user shows its panel in the pane that asked', async ({ page }) => {
     const errors = collectPageErrors(page);
     const mock = await installLlmMock(page, { scenario: 'ask-question' });
     await page.goto('/?view=workbench');
@@ -136,7 +135,7 @@ test.fixme('a tool that asks the user shows its panel in the pane that asked', a
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
-test.fixme('answering the panel resumes the turn and the answer reaches the model', async ({ page }) => {
+test('answering the panel resumes the turn and the answer reaches the model', async ({ page }) => {
     const errors = collectPageErrors(page);
     const mock = await installLlmMock(page, { scenario: 'ask-question' });
     await page.goto('/?view=workbench');

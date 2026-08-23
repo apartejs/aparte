@@ -57,8 +57,12 @@ registerDefaultRenderers();
 new AparteClient().start();
 ```
 
-`AparteClient` sends every registered tool with the request — but only when the selected
-model's `capabilities` include `function_calling`. When the model calls one:
+`AparteClient` sends every registered tool with the request. The one case where it does
+not is a model that declares its `capabilities` and leaves `function_calling` out — a
+statement the client respects. A model that says nothing (which is what a
+`GET /models` listing usually amounts to) gets the tools: registering one is an explicit
+act, and dropping it silently because a listing is terse would turn your registration
+into a no-op with nothing to read anywhere. When the model calls one:
 
 1. A **`tool_call`** segment is added (`status: 'pending'`) — the built-in renderer shows
    a pill with the tool name + a spinner.

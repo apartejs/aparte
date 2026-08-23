@@ -788,15 +788,37 @@ export class AparteClient {
      * using the same conversation history minus the retried reply.
      */
     /**
-     * Registered tools, gated by capability: only returned when the current model
-     * declares `function_calling` support (else `[]`). Single source for the gate so
-     * send / retry / edit can't drift — the drift is exactly what shipped `tools` on
-     * the initial send while retry/edit correctly omitted them.
+     * The registered tools, unless the current model says it cannot call one.
+     *
+     * Single source for the gate, so send / retry / edit cannot drift — that drift
+     * is what once shipped `tools` on the initial send while retry and edit omitted
+     * them.
+     *
+     * The gate used to be "the model DECLARES function_calling", defaulting to
+     * stripping — and that made the whole tool surface unreachable on the primary
+     * documented path. Three things had to line up for a tool to be sent, and one
+     * never did: the app sets a model id by hand (`setModelConfig`) or a selector
+     * sets it from a fetched list, and in both cases the model's declared
+     * capabilities are commonly unknown. `undefined` capabilities then read as "no
+     * function calling", so `tools: []` went on the wire while `getTools()` held
+     * the tool the app had explicitly registered. The model answered, correctly,
+     * that it had no such tool, and nothing anywhere said why.
+     *
+     * So the question is now "did this model say it cannot", not "did it say it
+     * can". Registering a tool is an explicit act by the app; silently dropping it
+     * because a `/models` listing is terse is the library second-guessing the
+     * developer. A model that declares its capabilities and omits function calling
+     * is still honoured — that is a statement, and it is respected.
+     *
+     * Failure modes, both ways round: over-sending means a model that cannot use
+     * tools does not call one, or its own endpoint rejects the array with an error
+     * the developer can read. Under-sending was silent, total, and looked like a
+     * lying model.
      */
     private _toolsForCurrentModel(): AparteTool[] {
-        const supportsFunctionCalling =
-            this._config.getCurrentModel()?.capabilities?.includes('function_calling') ?? false;
-        return supportsFunctionCalling ? this._config.getTools() : [];
+        const capabilities = this._config.getCurrentModel()?.capabilities;
+        const declinesTools = capabilities ? !capabilities.includes('function_calling') : false;
+        return declinesTools ? [] : this._config.getTools();
     }
 
     private async _handleRetry(event: CustomEvent): Promise<void> {
@@ -998,6 +1020,32 @@ export class AparteClient {
 
     private async _handleSend(event: CustomEvent): Promise<void> {
         const { content, modelId, providerId: explicitProviderId } = event.detail;
+
+        // The model gate is a POLICY, so the thing that runs the turn has to hold
+        // it — not only the composer that draws it.
+        //
+        // `setRequireModelSelection(true)` means "no send before a model is chosen",
+        // and `aparte-composer.submit()` honours it. But any other way of sending
+        // walked straight past: an app's suggestion chip, a "try this prompt"
+        // button, a host dispatching `aparte-send` itself. The turn then ran with
+        // `config.defaultModel || ''` — an empty model id on the wire, i.e. a real
+        // request to the provider that can only fail. Reported from an example: the
+        // chips above the composer are clickable while the composer is still greyed
+        // out, waiting for `GET /models`.
+        //
+        // Refused rather than queued: a send is a user action tied to a moment, and
+        // holding it to replay after an async fetch would surprise anyone whose
+        // fetch takes ten seconds. `warn` and not silence, because the developer is
+        // the one who can fix it — an app that gates SHOULD also disable its own
+        // buttons, and this is how it finds out it did not.
+        if (this._config.getRequireModelSelection() && !this._config.hasSelectedModel() && !modelId) {
+            console.warn(
+                '[AparteClient] Send refused: requireModelSelection is on and no model is selected yet. '
+                + 'The composer blocks this, but this send did not come from it — disable your own '
+                + 'send affordances while `hasSelectedModel()` is false.',
+            );
+            return;
+        }
 
         // 1. Use targetId from event detail — the most reliable path.
         //    The composer sets detail.targetId = host.id (set by AparteChatComponent).

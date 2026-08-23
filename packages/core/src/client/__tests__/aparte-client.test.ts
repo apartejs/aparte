@@ -199,6 +199,12 @@ describe('AparteClient', () => {
     // Regression: send/retry/edit must gate `tools` identically. The gate lives in
     // one place (_toolsForCurrentModel) so they can't drift — the drift is exactly
     // what shipped `tools` on the initial send while retry/edit omitted them.
+    //
+    // The gate asks whether the model said it CANNOT, not whether it said it can.
+    // The old default — strip unless `function_calling` is declared — made the whole
+    // tool surface unreachable on the primary path, because a compat provider
+    // declares no models synchronously and a `/models` listing says nothing about
+    // tools. See client/__tests__/tools-reach-the-model.test.ts for the full story.
     describe('_toolsForCurrentModel — function_calling capability gate', () => {
         const tool = { name: 'search', description: 'Search', parameters: {} } as unknown;
 
@@ -219,9 +225,14 @@ describe('AparteClient', () => {
             expect((client as unknown as { _toolsForCurrentModel(): unknown[] })._toolsForCurrentModel()).toEqual([]);
         });
 
-        it('returns [] when there is no current model', () => {
+        it('returns the registered tools when there is no current model', () => {
+            // Not `[]`. An unknown model is the COMMON case — `setModelConfig` with
+            // an id, or a selector filling one from a fetched list — and stripping
+            // there turned an explicit `registerTool` into a silent no-op. A model
+            // that declares its capabilities and omits function calling is still
+            // honoured, which is the test just above.
             client = clientWith(undefined);
-            expect((client as unknown as { _toolsForCurrentModel(): unknown[] })._toolsForCurrentModel()).toEqual([]);
+            expect((client as unknown as { _toolsForCurrentModel(): unknown[] })._toolsForCurrentModel()).toEqual([tool]);
         });
     });
 

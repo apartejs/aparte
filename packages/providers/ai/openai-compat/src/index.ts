@@ -206,7 +206,22 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
                     id: m.id,
                     name: m.name || m.id,
                     contextWindow: m.context_length,
-                    capabilities: ['streaming'],
+                    // `function_calling` is declared because it is a property of the
+                    // WIRE FORMAT, which is what this provider is: `/chat/completions`
+                    // takes a `tools` array, and every server behind a compat endpoint
+                    // accepts one. `/models` returns `{id, object, owned_by}` and says
+                    // nothing about tools, so waiting for it to declare the capability
+                    // means never declaring it — and core gates tools on exactly this
+                    // field, so a registered tool, an approval gate and the whole
+                    // elicitation path were dead on this provider: the model was asked
+                    // to use a tool it had never been sent.
+                    //
+                    // The failure mode of over-declaring is mild and visible: a model
+                    // that cannot call tools simply does not call one. The failure mode
+                    // of under-declaring was silent and total. A server that rejects a
+                    // `tools` array outright surfaces as an error from its own endpoint,
+                    // which is the right place for that argument to happen.
+                    capabilities: ['streaming', 'function_calling'],
                 }));
             } catch (error) {
                 console.error(`[${displayName}] Failed to fetch models:`, error);

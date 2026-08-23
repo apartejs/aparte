@@ -73,9 +73,26 @@ describe.each(CLOUD_PRESETS)('preset %s', (_label, preset, helpDomain) => {
         const models = await provider.fetchModels!({ apiKey: 'sk-test' });
         expect(vi.mocked(fetch).mock.calls[0][0]).toBe(`${preset.baseURL}/models`);
         expect(models).toEqual([
-            { id: 'model-a', name: 'Model A', contextWindow: 32768, capabilities: ['streaming'] },
-            { id: 'model-b', name: 'model-b', contextWindow: undefined, capabilities: ['streaming'] },
+            { id: 'model-a', name: 'Model A', contextWindow: 32768, capabilities: ['streaming', 'function_calling'] },
+            { id: 'model-b', name: 'model-b', contextWindow: undefined, capabilities: ['streaming', 'function_calling'] },
         ]);
+    });
+
+    /**
+     * `function_calling` is not a guess about the model — it is a property of the
+     * wire format this provider IS. Core gates the request's `tools` array on
+     * exactly this field, so omitting it made every registered tool, every
+     * approval gate and the whole elicitation path inert on the primary path: the
+     * model was asked to use a tool it had never been sent, and answered — quite
+     * correctly — that it had no such tool.
+     *
+     * `/models` returns `{id, object, owned_by}` and will never say anything about
+     * tools, so waiting for it to declare the capability means never declaring it.
+     */
+    it('declares function_calling, because a compat endpoint takes a tools array', async () => {
+        vi.mocked(fetch).mockResolvedValue(jsonResponse({ data: [{ id: 'qwen3-8b' }] }));
+        const models = await provider.fetchModels!({ apiKey: 'sk-test' });
+        expect(models[0]?.capabilities).toContain('function_calling');
     });
 
     it('drives a streaming chat through AparteDirectTransport with Bearer auth', async () => {

@@ -141,6 +141,20 @@ export class AparteConfig {
 
     // AI Provider Management (BYORK)
     private _aiProviders: Map<string, AparteAIProvider> = new Map();
+    /**
+     * What `refreshProviderModels()` last brought back, per provider.
+     *
+     * Without it, `getCurrentModel()` read `provider.getModels()` only — the
+     * SYNCHRONOUS, hand-declared list, which every preset of
+     * `@aparte/provider-openai-compat` leaves empty because a compat endpoint's
+     * list is fetched at runtime. So the current model resolved to `undefined`
+     * for the documented primary path, and everything that reads a capability off
+     * it silently got nothing: `AparteClient._toolsForCurrentModel()` gates tools
+     * on `capabilities.includes('function_calling')`, so NO tool was ever sent to
+     * the model. A registered tool, an approval gate, `<aparte-elicitation>` — all
+     * dead, with the model answering, correctly, that it had been given no tools.
+     */
+    private _fetchedModels: Map<string, AparteAIModel[]> = new Map();
     private _modelConfig: AparteModelConfig = {};
     /** Opt-in: gate the composer (block send + grey out) until a model is selected. */
     private _requireModelSelection = false;
@@ -627,7 +641,11 @@ export class AparteConfig {
         try {
             const apiKey = await this.getKey(providerId);
             // apiKey may be undefined for keyless local providers (e.g. LMStudio) — provider handles it
-            return await provider.fetchModels(apiKey);
+            const models = await provider.fetchModels(apiKey);
+            // Cached so `getCurrentModel()` can see it: a fetched list is the only
+            // list a compat endpoint has, and capabilities are read off the model.
+            this._fetchedModels.set(providerId, models);
+            return models;
         } catch (error) {
             console.warn(`[AparteConfig] Failed to refresh models for ${providerId}`, error);
             return [];
@@ -816,13 +834,19 @@ export class AparteConfig {
         if (!defaultProvider || !defaultModel) return undefined;
         const provider = this._aiProviders.get(defaultProvider);
         if (!provider) return undefined;
+        // The fetched list FIRST: it is fresher, and for a provider whose list only
+        // exists at runtime it is the only one there is. `getModels()` stays the
+        // fallback, so a provider that declares its models statically is unchanged.
+        const fetched = this._fetchedModels.get(defaultProvider);
+        const fromFetch = fetched?.find(m => m.id === defaultModel);
+        if (fromFetch) return fromFetch;
         const models = provider.getModels();
         if (models instanceof Promise) {
             // Contract violation kept survivable for plain-JS consumers: the
             // type is sync-only, async lists belong in fetchModels().
             console.warn(
                 `[AparteConfig] Provider "${defaultProvider}".getModels() returned a Promise — it is ignored here, ` +
-                'so model capabilities (e.g. function_calling) resolve to none and tools are disabled. ' +
+                'so this model resolves to undefined and nothing can read its capabilities. ' +
                 'getModels() must return the list synchronously; implement fetchModels() for async fetching.'
             );
             return undefined;
@@ -1045,6 +1069,7 @@ export class AparteConfig {
         this._sanitizer = defaultSanitizer;
         // Registries — the leak the audit flagged.
         this._aiProviders.clear();
+        this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
         this._modelConfig = {};
