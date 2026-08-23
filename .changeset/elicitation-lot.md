@@ -57,6 +57,17 @@ into the stylesheet with fifteen `--aparte-elic-*` tokens: it was the one surfac
 could not be themed, its variables were absent from the generated reference, and the
 injection was never re-created if anything removed it.
 
+**How several questions are asked.** A form of two or more questions put them all in
+one box — a shape inherited from MCP elicitation without being examined. MCP describes
+a form for collecting structured data; asking a person two different questions in the
+middle of a conversation is not that, and no product does it by stacking. Several
+questions are now asked ONE AT A TIME, with a chip per question that is also how you go
+back. Each field takes a short  for that chip (the tool schema asks the model
+for two or three words) and falls back to the question's position rather than
+truncating a sentence. The protocol is untouched: the answer is still one object with
+every key, and the composer's send button still means submit.  keeps
+the form case, which is real — it was just never the right default.
+
 **What a consumer can replace.** `setElicitationFieldRenderer` renders one field while
 the panel keeps everything around it. It returns a control rather than
 `string | HTMLElement` because a field must hand back a value, and the schema
