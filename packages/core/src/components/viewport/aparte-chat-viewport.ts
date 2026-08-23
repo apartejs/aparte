@@ -666,7 +666,10 @@ export class AparteChatViewport extends HTMLElement {
      *   branch arrows on already-rendered bubbles.
      */
     importTree(tree: ExportedMessageRepository): void {
-        this.clearAll();
+        // Not `clearAll()`: an import re-populates from a snapshot that may hold the
+        // very attachment objects currently in the repo — which is exactly what a
+        // conversation load does. See the note in `clearAll`.
+        this.clearAll({ revokeAttachments: false });
         this._repo.import(tree);
         this._reRenderActivePath();
     }
@@ -680,13 +683,28 @@ export class AparteChatViewport extends HTMLElement {
      * so desynchronises the framework's view tree from the live DOM and the
      * next change-detection pass throws `NotFoundError` on insertBefore.
      */
-    clearAll(): void {
-        // Release the attachments' object URLs before dropping the messages: after
-        // `_repo.clear()` there is no way left to reach them, and nothing else
-        // revoked them — so every `File` a session had sent stayed reachable for the
-        // life of the page.
-        for (const message of this._repo.getMessages()) {
-            revokeAttachmentUrls(message.attachments);
+    clearAll(options?: { revokeAttachments?: boolean }): void {
+        /*
+         * Release the attachments' object URLs before dropping the messages: after
+         * `_repo.clear()` there is no way left to reach them, and nothing else
+         * revoked them — so every `File` a session had sent stayed reachable for
+         * the life of the page.
+         *
+         * UNLESS the caller is about to put the same messages back. Two callers do:
+         * `setMessages` and `importTree`, and `ConversationController._load` runs
+         * BOTH in sequence over one conversation. `export()` stores live `node.current`
+         * references, so `conv.messages` and `conv.tree` share the very same
+         * attachment objects — meaning the second clear revoked the object URLs of
+         * the conversation being opened. Every image and file chip was dead on load,
+         * and re-opening revoked twice.
+         *
+         * A reset (`aparte-reset`, the public `clearAll()`) still revokes: there the
+         * messages really are gone.
+         */
+        if (options?.revokeAttachments !== false) {
+            for (const message of this._repo.getMessages()) {
+                revokeAttachmentUrls(message.attachments);
+            }
         }
         this._repo.clear();
         if (!this._frameworkManagedDOM) {
@@ -720,7 +738,9 @@ export class AparteChatViewport extends HTMLElement {
      * build chat history).
      */
     setMessages(messages: AparteMessage[]): void {
-        this.clearAll();
+        // Same reason as `importTree`: the incoming messages may BE the outgoing
+        // ones, and a conversation the user can switch back to still holds them.
+        this.clearAll({ revokeAttachments: false });
         for (const m of messages) {
             this.appendMessage(m);
         }

@@ -66,9 +66,16 @@ function makePane(title: string, providerLabel: string, provider: AparteAIProvid
     // Retry/edit are honoured by the client below, so they may be shown.
     config.setBubbleActions({ retry: true, edit: true });
 
-    // One client per config. `{ config }` is what scopes the loop — without it the
-    // client would drive this chat from the global singleton and the pane's own
-    // registrations would never be read.
+    // One client per config.
+    //
+    // `{ config }` scopes what this client READS. For a while it did not scope what
+    // it ANSWERS: both clients listen on `window`, and with no `scopeToTargetId`
+    // neither had any instance filter — so one send ran two agentic turns against
+    // two providers and appended both replies into the pane that asked. This view
+    // is what surfaced it, and the comment here used to assert the opposite.
+    //
+    // A config-scoped client now declines a target whose boundary resolves a
+    // different config, which is what makes two panes on one page work.
     new AparteClient({ config }).start();
 
     return { title, providerLabel, config };

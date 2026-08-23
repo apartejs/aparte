@@ -1,4 +1,5 @@
 import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
+import { resolveConfig } from '../config/config-context.js';
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
 import { feedXmlArtifactDelta, finalizeXmlArtifact, type XmlArtifactStreamState } from './xml-artifact-feed.js';
 
@@ -256,13 +257,48 @@ export class AparteClient {
      * broadcast into an action on every chat on the page.
      */
     private _isForThisInstance(e?: Event): boolean {
-        const scope = this.options.scopeToTargetId;
-        if (!scope) return true;
         // No event at all means a direct, programmatic call — not a broadcast, so
-        // the addressing rule does not apply to it.
+        // no addressing rule applies to it.
         if (!e) return true;
         const detail = (e as CustomEvent).detail as { targetId?: string } | undefined;
-        return detail?.targetId === scope;
+
+        const scope = this.options.scopeToTargetId;
+        if (scope) return detail?.targetId === scope;
+
+        /*
+         * No `scopeToTargetId`, but a client given its own `config` is still not a
+         * page-wide client: it must answer only the chats that resolve THAT config.
+         *
+         * Without this, `{ config }` scoped what the client READ and nothing about
+         * what it ANSWERED. Two config-scoped clients on one page therefore both
+         * ran a full agentic turn for every send — two provider calls, two paid
+         * completions, and both replies appended into the single target the event
+         * named. The showcase that demonstrates per-instance config constructed
+         * exactly that pair, and its comment asserted the opposite.
+         *
+         * `scopeToTargetId` was the documented remedy and is not reachable from any
+         * wrapper (they generate the host id internally and do not expose it), so a
+         * framework consumer had no way to apply it.
+         *
+         * A client on the GLOBAL config is deliberately unchanged: it answers
+         * everything, which is every single-chat app on the planet, and narrowing
+         * that would be a silent break for the common case.
+         */
+        if (this._config === aparteGlobalConfig) return true;
+        const target = this._resolveTarget(detail?.targetId);
+        if (!target) return true;
+        const owner = resolveConfig(target);
+        /*
+         * Reject only a target that demonstrably belongs to ANOTHER instance — one
+         * whose boundary resolves a different, non-global config.
+         *
+         * Not "the target must resolve OUR config", which was the first attempt and
+         * was too strict: passing `{ config }` without ever calling `attachConfig`
+         * is a legitimate shape — the config as a settings bag for the one chat on
+         * the page — and three existing tests do exactly that. A chat with no
+         * boundary is unclaimed, so answering it is correct.
+         */
+        return owner === this._config || owner === aparteGlobalConfig;
     }
     /** Aborts the in-flight vendor/transport fetch when the user stops a stream. */
     private _streamController: AbortController | null = null;
