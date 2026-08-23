@@ -3,6 +3,7 @@ import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
+import { applySystemPrompt, loadSettings, settingsKeyResolver } from './settings-store';
 
 export const KEY_STORAGE = 'aparte.openrouter.key';
 
@@ -36,10 +37,22 @@ export function setupAparte(): void {
     aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
     aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 
+    // The endpoint + token from the settings view, for ANY provider — plus the
+    // OpenRouter key the topbar field still holds, which wins for that one provider
+    // so the existing single-field flow keeps working.
+    const fromSettings = settingsKeyResolver(loadSettings);
     new AparteClient({
-        keyResolver: (providerId) =>
-            providerId === 'openrouter' ? (localStorage.getItem(KEY_STORAGE) ?? undefined) : undefined,
+        keyResolver: (providerId) => {
+            if (providerId === 'openrouter') {
+                const key = localStorage.getItem(KEY_STORAGE);
+                if (key) return key;
+            }
+            return fromSettings(providerId);
+        },
     }).start();
+
+    // The stored system prompt has to be on the config before the first turn.
+    applySystemPrompt(aparteGlobalConfig, loadSettings());
 
     wireAttachmentLightbox();
 }

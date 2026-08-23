@@ -159,3 +159,52 @@ body {
     font-size: 0.85rem;
     opacity: 0.85;
 }
+
+/* ── The settings view: the three things a consumer changes first ─────────────
+   A plain stacked form. Each field carries a hint naming the API behind it, because
+   the endpoint and the token do not have setters — they travel through the key
+   resolver, and a reader has no way to guess that from the UI alone. */
+.app.settings {
+    max-width: 720px;
+}
+.fields {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    padding-block-end: 12px;
+}
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.field-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.field-input {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--aparte-border, #3a3229);
+    background: var(--aparte-surface-2, #1e1a15);
+    color: inherit;
+    font: inherit;
+}
+.field-textarea {
+    resize: vertical;
+    min-height: 96px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+.field-hint {
+    font-size: 0.8rem;
+    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
+    line-height: 1.45;
+}
+.field-hint code {
+    font-size: 0.95em;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--aparte-surface-2, #1e1a15);
+}
