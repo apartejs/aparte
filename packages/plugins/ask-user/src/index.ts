@@ -13,7 +13,7 @@
  */
 
 import { aparteGlobalConfig, registerSegmentRenderer, type AparteConfig } from '@aparte/core';
-import { askUserTool, askUserHandler } from './ask-user.js';
+import { createAskUserTool, askUserHandler, type AskUserToolOptions } from './ask-user.js';
 import { questionReceiptRenderer } from './question-receipt.renderer.js';
 import { buildReceipt } from './receipt.js';
 
@@ -27,8 +27,10 @@ import './aparte-ask-user.js';
  * aparteGlobalConfig singleton mutation predictable in SSR/test and tree-shaking
  * friendly. Call once at application startup.
  */
-export function setupAskUser(config: AparteConfig = aparteGlobalConfig): void {
-    config.registerTool(askUserTool, askUserHandler);
+export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options: AskUserToolOptions = {}): void {
+    // The bounds the schema puts on the model are the HOST's, so they arrive here
+    // rather than being frozen into a constant. Defaults are the normal call.
+    config.registerTool(createAskUserTool(options), askUserHandler);
 
     /*
      * The conversation keeps the record.
@@ -54,7 +56,8 @@ export function setupAskUser(config: AparteConfig = aparteGlobalConfig): void {
     });
 }
 
-export { askUserTool, askUserHandler } from './ask-user.js';
+export { createAskUserTool, askUserHandler } from './ask-user.js';
+export type { AskUserToolOptions } from './ask-user.js';
 export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 
 export { AparteAskUser } from './aparte-ask-user.js';

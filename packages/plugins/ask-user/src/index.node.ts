@@ -25,15 +25,21 @@
  */
 
 import { aparteGlobalConfig, type AparteConfig } from '@aparte/core';
-import { askUserTool, askUserHandler } from './ask-user.js';
+import { createAskUserTool, askUserHandler, type AskUserToolOptions } from './ask-user.js';
 
-/** Register the `ask_user` tool + handler, and hide its bubble segment. */
-export function setupAskUser(config: AparteConfig = aparteGlobalConfig): void {
-    config.registerTool(askUserTool, askUserHandler);
+/**
+ * Register the `ask_user` tool + handler on the server.
+ *
+ * No receipt renderer here: it builds DOM, and this entry exists precisely so an SSR
+ * build can import the package without a document. The browser entry registers it.
+ */
+export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options: AskUserToolOptions = {}): void {
+    config.registerTool(createAskUserTool(options), askUserHandler);
     config.registerToolRenderer('ask_user', { render: () => '' });
 }
 
-export { askUserTool, askUserHandler } from './ask-user.js';
+export { createAskUserTool, askUserHandler } from './ask-user.js';
+export type { AskUserToolOptions } from './ask-user.js';
 export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 export type { QuestionReceiptSegment } from './question-receipt.renderer.js';
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';

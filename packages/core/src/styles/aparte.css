@@ -735,21 +735,6 @@ textarea.aparte-elic-text {
   border-bottom-color: var(--aparte-border, rgba(128, 128, 128, 0.35));
 }
 
-.aparte-elic-next {
-  border: var(--aparte-border-width, 1px) solid var(--aparte-primary, #6366f1);
-  background: transparent;
-  color: var(--aparte-primary, #6366f1);
-  font-size: var(--aparte-elic-skip-size, 0.8rem);
-  font-family: inherit;
-  cursor: pointer;
-  padding: 4px 12px;
-  border-radius: var(--aparte-elic-input-radius, 6px);
-}
-
-.aparte-elic-next:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
 
 aparte-composer {
   flex: 0 0 auto;

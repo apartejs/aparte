@@ -2,10 +2,14 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { aparteGlobalConfig, AparteConfig, attachConfig } from '@aparte/core';
 import type { AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
-import { askUserTool, askUserHandler } from './ask-user.js';
+import { createAskUserTool, askUserHandler } from './ask-user.js';
 
 // The LLM-facing tool schema.
-describe('askUserTool', () => {
+describe('createAskUserTool', () => {
+    // The bounds are the HOST's, so the tool is built rather than imported. Every
+    // assertion below is on the DEFAULTS, which is the normal call.
+    const askUserTool = createAskUserTool();
+
     it('has the correct name', () => {
         expect(askUserTool.name).toBe('ask_user');
     });
@@ -37,6 +41,18 @@ describe('askUserTool', () => {
         // and it looked like a form that had escaped into a chat. A model asked for
         // four also writes better options than one asked for six — it has to choose.
         expect(item.properties.options.maxItems).toBe(4);
+    });
+
+    it('lets the host move the bounds', () => {
+        // The reason this is a factory and not a constant: a bound the host cannot
+        // move is a bound the host has to fork the tool to change. Four options is
+        // where every serious implementation of this pattern lands, so it is the
+        // default — not a law.
+        const schema = createAskUserTool({ maxOptions: 6, maxQuestions: 2 }).inputSchema as any;
+        expect(schema.properties.questions.items.properties.options.maxItems).toBe(6);
+        expect(schema.properties.questions.maxItems).toBe(2);
+        // And the system prompt says what the schema enforces, so it moves too.
+        expect(createAskUserTool({ maxOptions: 6 }).systemPrompt).toContain('2 to 6 options');
     });
 });
 

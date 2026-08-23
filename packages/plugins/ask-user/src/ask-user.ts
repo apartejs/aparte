@@ -8,7 +8,7 @@
  * framework coupling, no window events, no per-tool contract to drift.
  *
  * Usage:
- *   aparteGlobalConfig.registerTool(askUserTool, askUserHandler);
+ *   aparteGlobalConfig.registerTool(createAskUserTool(), askUserHandler);
  */
 
 import type { AparteTool, AparteToolHandler, AparteToolResult } from '@aparte/core';
@@ -53,7 +53,35 @@ export interface AskUserDetail {
     defaultValue?: string;
 }
 
-export const askUserTool: AparteTool = {
+/** Bounds the schema puts on what the model may ask for. */
+export interface AskUserToolOptions {
+    /**
+     * Options per question. Default 4.
+     *
+     * Four because six plus the free-text escape is seven rows in a composer, and it
+     * reads as a form that escaped into a chat — and because a model asked for four
+     * writes better options than one asked for six: it has to choose. Configurable
+     * because a real case may differ, and because a bound the host cannot move is a
+     * bound the host has to fork the tool to change.
+     */
+    maxOptions?: number;
+    /** Questions per call. Default 5. */
+    maxQuestions?: number;
+}
+
+/**
+ * Build the `ask_user` tool.
+ *
+ * A factory rather than a constant because the schema carries BOUNDS, and bounds are
+ * the host's to set: this is the same reasoning that moved the free-text escape out
+ * of the model's schema and onto the config. The defaults are what every serious
+ * implementation of this pattern lands near (four options, a handful of questions),
+ * so `createAskUserTool()` with no argument is the normal call.
+ */
+export function createAskUserTool(options: AskUserToolOptions = {}): AparteTool {
+    const maxOptions = options.maxOptions ?? 4;
+    const maxQuestions = options.maxQuestions ?? 5;
+    return {
     name: 'ask_user',
     description: 'Ask the user a question with structured options (title + optional description). Use for single or multiple choice input.',
     systemPrompt: `You have access to the ask_user tool.
@@ -67,16 +95,16 @@ WHEN NOT TO USE IT — respond directly instead:
 - Any question you can answer without needing user input
 
 When you do use it, every question needs a short "header" (one or two words — it is the
-tab a user clicks to come back to that question) and 2 to 4 options, each with a short
-"title". Both are enforced by the schema, not preferences. Set "multiple: true" only
-when several options can apply simultaneously.`,
+tab a user clicks to come back to that question) and 2 to ${maxOptions} options, each
+with a short "title". Both are enforced by the schema, not preferences. Set
+"multiple: true" only when several options can apply simultaneously.`,
     inputSchema: {
         type: 'object',
         properties: {
             questions: {
                 type: 'array',
                 minItems: 1,
-                maxItems: 5,
+                maxItems: maxQuestions,
                 description: 'One or more questions to ask the user (each rendered with its own options).',
                 items: {
                     type: 'object',
@@ -110,8 +138,8 @@ when several options can apply simultaneously.`,
                             // pattern caps around four, and a model asked for four
                             // writes better options than one asked for six — it has to
                             // choose. Reversible if a real case needs more.
-                            maxItems: 4,
-                            description: 'The selectable options (2 to 4). A question with no options is not a choice — answer the user directly instead.',
+                            maxItems: maxOptions,
+                            description: `The selectable options (2 to ${maxOptions}). A question with no options is not a choice — answer the user directly instead.`,
                             items: {
                                 type: 'object',
                                 properties: {
@@ -150,8 +178,8 @@ when several options can apply simultaneously.`,
             options: {
                 type: 'array',
                 minItems: 2,
-                maxItems: 4,
-                description: 'Options for the single-question form (2 to 4).',
+                maxItems: maxOptions,
+                description: `Options for the single-question form (2 to ${maxOptions}).`,
                 items: {
                     type: 'object',
                     properties: {
@@ -175,7 +203,8 @@ when several options can apply simultaneously.`,
             { required: ['question', 'options'] }
         ]
     }
-};
+    };
+}
 
 /**
  * ask_user is a thin ADAPTER over the core elicitation primitive: the handler

@@ -115,58 +115,57 @@ describe('buildElicitationPanel', () => {
             expect(chips(p).map((c) => c.textContent)).toEqual(['1', '2']);
         });
 
-        it('cannot advance past an unanswered question, and can once answered', () => {
+        it('has NO next button — a tab is the navigation', () => {
+            // A stepped form usually grows a Next button, and this one did: which then
+            // needed a disabled state, a hidden state on the last question, a row that
+            // reserved its height so hiding it did not move the panel, and a rule about
+            // whether it or the composer's send button was the real submit. The
+            // reference implementations have none of it; clicking a tab moves you, and
+            // it is also how you go back, so one affordance does both.
             const p = buildElicitationPanel('', twoQuestions, noop);
-            const next = p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!;
-            expect(next.disabled, 'monotonic — the same rule the send button follows').toBe(true);
+            expect(p.el.querySelector('.aparte-elic-next')).toBeNull();
+            expect(chips(p), 'the tabs are what you click').toHaveLength(2);
+        });
 
-            select(p.el, 'blue');
-            expect(next.disabled).toBe(false);
-
-            next.click();
+        it('a tab moves to its question', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            chips(p)[1]!.click();
             expect(visible(p)[0]!.textContent).toContain('Which shape?');
         });
 
         it('is not submittable until every question is answered', () => {
+            // With no Next button this is the whole progress mechanism: the tabs show
+            // what is answered, and the send button stays disabled until they all are.
             const p = buildElicitationPanel('', twoQuestions, noop);
             select(p.el, 'blue');
             expect(p.isComplete(), 'one of two answered').toBe(false);
 
-            p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!.click();
+            chips(p)[1]!.click();
             select(p.el, 'round');
 
             expect(p.isComplete()).toBe(true);
             expect(p.getContent()).toEqual({ q1: 'blue', q2: 'round' });
         });
 
-        it('hides Next on the last question, without moving the panel', () => {
+        it('keeps one action row whatever question you are on', () => {
+            // Nothing in the row appears or disappears as you move, so the panel — and
+            // the composer around it — never changes height. That used to be four
+            // rules propping up a Next button; now it is a consequence of not having
+            // one.
             const p = buildElicitationPanel('', twoQuestions, noop);
-            const next = p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!;
-            expect(next.hidden).toBe(false);
+            expect(p.el.contains(p.actions)).toBe(true);
+            const before = p.actions.childElementCount;
 
             select(p.el, 'blue');
-            next.click();
+            chips(p)[1]!.click();
 
-            // The BUTTON goes, not its row: Next used to live in a second row of its
-            // own, so the panel was taller throughout and then shrank by a whole row
-            // at the last question. The row stays, with its height reserved in CSS.
-            expect(next.hidden, 'a second button that does nothing is worse than none').toBe(true);
-            // `isConnected` would need the panel mounted in a document; what matters
-            // here is that the row is still part of it.
-            expect(p.el.contains(p.actions), 'the action row stays').toBe(true);
-            expect(p.actions.contains(next), 'and Next lives in it, next to Skip').toBe(true);
-
-            // The primary is LAST in the row, so it sits closest to the composer's
-            // send button — which is what takes over on this very question. A
-            // presenter prepends its own affordance; appending put the escape hatch
-            // between the two forward actions.
-            expect(p.actions.lastElementChild).toBe(next);
+            expect(p.actions.childElementCount, 'the row is unchanged').toBe(before);
         });
 
         it('a chip goes back to a question already answered', () => {
             const p = buildElicitationPanel('', twoQuestions, noop);
             select(p.el, 'blue');
-            p.el.querySelector<HTMLButtonElement>('.aparte-elic-next')!.click();
+            chips(p)[1]!.click();
             expect(visible(p)[0]!.textContent).toContain('Which shape?');
 
             chips(p)[0]!.click();

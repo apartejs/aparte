@@ -380,16 +380,20 @@ export function buildElicitationPanel(
         // Above the scroll region rather than inside it: the chips are navigation.
         panel.insertBefore(steps, body);
 
-        const nextBtn = el('button', 'aparte-elic-next');
-        nextBtn.type = 'button';
-        nextBtn.textContent = cfg.t('elicitationNext');
-        nextBtn.addEventListener('click', () => {
-            show(Math.min(current + 1, fields.length - 1));
-            fields[current]?.field.focus();
-        });
-        // Into the SAME row as the presenter's Skip — see `actions` on the contract.
-        actions.appendChild(nextBtn);
-
+        /*
+         * There is no "Next", and that is the point.
+         *
+         * A stepped form usually grows a Next button, and this one did: which then
+         * needed a disabled state, a hidden state on the last question, a row that
+         * reserved its height so hiding it did not move the panel, and a rule about
+         * whether it or the composer's send button was the real submit. Four rules to
+         * support one button.
+         *
+         * The reference implementations do not have it. Clicking a tab is the
+         * navigation — which is also how you go BACK, so one affordance does both —
+         * and the only button is the submit. Removing it deleted every one of those
+         * four rules with it.
+         */
         function show(index: number): void {
             current = index;
             fields.forEach((f, i) => { f.field.el.hidden = i !== index; });
@@ -399,17 +403,11 @@ export function buildElicitationPanel(
         syncNav = (): void => {
             chips.forEach((chip, i) => {
                 chip.setAttribute('aria-selected', String(i === current));
-                // Answered, so a reader can see at a glance what is left.
+                // Answered, so a reader sees at a glance what is left — and with no
+                // Next button this is the ONLY progress signal, along with the send
+                // button staying disabled until every question has an answer.
                 chip.toggleAttribute('data-answered', fields[i]!.field.isComplete());
             });
-            const last = current === fields.length - 1;
-            // On the last step the composer's send button IS the submit, so a Next
-            // there would be a second button that does nothing. The row keeps its
-            // reserved height, so nothing moves when it goes.
-            nextBtn.hidden = last;
-            // Monotonic: you cannot skip past a question you have not answered, which
-            // is the same rule the send button follows.
-            nextBtn.disabled = !fields[current]?.field.isComplete();
         };
 
         show(0);

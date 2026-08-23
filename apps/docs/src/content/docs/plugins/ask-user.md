@@ -74,15 +74,35 @@ default renderer shows nothing until it settles — the live UI is the panel, an
 places to read the same open question is one too many. `buildReceipt` is the default
 card if you want it verbatim.
 
+## The bounds the model is given
+
+The schema caps what the model may ask for: **2 to 4 options** per question and **5
+questions** per call. Four because six options plus the free-text escape is seven rows
+in a composer — a form that escaped into a chat — and because a model asked for four
+writes better options than one asked for six: it has to choose.
+
+Those are defaults, not laws. They are the host's to move:
+
+```ts
+import { setupAskUser } from '@aparte/plugin-ask-user';
+
+setupAskUser(undefined, { maxOptions: 6, maxQuestions: 2 });
+```
+
+The tool is built rather than imported for exactly this reason — `createAskUserTool()`
+with no argument is the normal call, and the system prompt states whatever bounds you
+chose, because a prompt asking for what the schema does not enforce is how the original
+defect got in.
+
 ## Wiring it by hand
 
 Instead of `setupAskUser()`:
 
 ```ts
 import { aparteGlobalConfig, registerSegmentRenderer } from '@aparte/core';
-import { askUserTool, askUserHandler, buildReceipt, questionReceiptRenderer } from '@aparte/plugin-ask-user';
+import { createAskUserTool, askUserHandler, buildReceipt, questionReceiptRenderer } from '@aparte/plugin-ask-user';
 
-aparteGlobalConfig.registerTool(askUserTool, askUserHandler);
+aparteGlobalConfig.registerTool(createAskUserTool(), askUserHandler);
 registerSegmentRenderer(questionReceiptRenderer);   // the receipt card's styles
 aparteGlobalConfig.registerToolRenderer('ask_user', {
   render: (segment) => buildReceipt({ input: segment.toolCall.input, result: segment.result }),

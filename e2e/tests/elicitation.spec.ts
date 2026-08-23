@@ -133,21 +133,19 @@ test('two questions are asked one at a time, with a chip each', async ({ page })
     const chips = panel.locator('.aparte-elic-step');
     await expect(chips).toHaveText(MOCK_ASK_TWO.map((q) => q.header));
 
-    // Monotonic: no advancing past a question you have not answered.
-    const next = panel.locator('.aparte-elic-next');
-    await expect(next).toBeDisabled();
-    // And REACHABLE without scrolling. The questions scroll, the actions do not —
-    // with everything in one scroll box, Next sat below the fold and Skip was off
-    // screen entirely. jsdom cannot see this and clicking by selector does not care.
-    await expect(next, 'the way forward must not be something you scroll to find').toBeInViewport();
+    // NO next button: a tab is the navigation, and the same tab is how you go back.
+    // A Next button needed a disabled state, a hidden state on the last question, a
+    // row that reserved its height so hiding it did not move the panel, and a rule
+    // about whether it or the send button was the real submit. The reference
+    // implementations have none of it.
+    await expect(panel.locator('.aparte-elic-next')).toHaveCount(0);
+    // Skip stays REACHABLE without scrolling: the questions scroll, the actions do
+    // not. jsdom cannot see this, and clicking by selector does not care.
     await expect(panel.locator('.aparte-elic-skip')).toBeInViewport();
-    await panel.getByText(MOCK_ASK_TWO[0].options[0], { exact: false }).first().click();
-    await expect(next).toBeEnabled();
-    await next.click();
 
+    await panel.getByText(MOCK_ASK_TWO[0].options[0], { exact: false }).first().click();
+    await chips.nth(1).click();
     await expect(shown).toContainText(MOCK_ASK_TWO[1].question);
-    // On the last question the composer's send button IS the submit.
-    await expect(next).toBeHidden();
 
     // A chip goes back to the first, which now shows as answered.
     await chips.first().click();
