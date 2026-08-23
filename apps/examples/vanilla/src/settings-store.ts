@@ -12,9 +12,14 @@
  * central, described that dismissively and demonstrated nowhere is exactly the
  * capability a reader never finds.
  *
- * Kept framework-agnostic so the other four examples use the same file, in their
- * own idiom, without a shared package: these apps are deliberately five copies of
- * one app — that IS the parity they exist to prove.
+ * Kept framework-agnostic — no DOM, no framework import — so an app copies it as
+ * is. Two do: `vanilla` (raw core) and `react`. It was deliberately NOT ported to
+ * vue, svelte4/5 and angular: a settings form is app chrome, not a claim about the
+ * wrapper boundary, so proving it once on raw core and once on a wrapper is the
+ * whole coverage, and the components that will plug into these views do not exist
+ * yet — the four copies would be rewritten before anyone read them. Contrast the
+ * workbench view, which HAS to be a wrapper because the bug it covers is produced
+ * by `bind()` firing post-mount.
  */
 
 export interface ExampleSettings {
