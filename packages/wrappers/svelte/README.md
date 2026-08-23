@@ -10,7 +10,7 @@ component library is meant to be published, and the only arrangement that can se
 majors: Svelte-4 output imports `svelte/internal`, which Svelte 5 removed, and Svelte-5
 output does not run on 4. No prebuilt artifact works for both.
 
-Both are exercised in a browser on every run: `apps/examples/svelte` builds these
+Both are exercised in a browser on every run: `apps/examples/svelte4` builds these
 sources with Svelte 4, `apps/examples/svelte5` with Svelte 5.
 
 One thing differs between the two, and it is in YOUR entry point rather than here:

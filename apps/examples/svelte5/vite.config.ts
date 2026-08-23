@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// The same app as `apps/examples/svelte`, on Svelte 5 — and its whole reason for
+// The same app as `apps/examples/svelte4`, on Svelte 5 — and its whole reason for
 // existing is to be the thing that would have caught the defect.
 //
 // `@aparte/svelte` used to publish a PRECOMPILED bundle importing `svelte/internal`,
@@ -14,5 +14,5 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 export default defineConfig({
     base: './',
     plugins: [svelte()],
-    resolve: { dedupe: ['svelte'] },
+    resolve: { dedupe: ['svelte4'] },
 });

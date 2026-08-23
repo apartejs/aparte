@@ -4,7 +4,7 @@ A minimal Svelte example: `@aparte/svelte`'s `<AparteChat>` driving a **real** m
 `model-selector` and `marked` plugins.
 
 ```bash
-pnpm --filter @aparte-workspace/example-svelte dev
+pnpm --filter @aparte-workspace/example-svelte4 dev
 ```
 
 `setupAparte()` ([`src/aparte.ts`](./src/aparte.ts)) registers the providers + transport and starts the

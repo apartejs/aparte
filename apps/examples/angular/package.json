@@ -3,7 +3,7 @@
     "version": "0.0.4",
     "private": true,
     "type": "module",
-    "description": "Minimal Angular example \u2014 @aparte/angular + a real (BYOK / local) model.",
+    "description": "Minimal Angular example — @aparte/angular + a real (BYOK / local) model.",
     "scripts": {
         "dev": "ng serve",
         "build": "ng build",
@@ -17,6 +17,7 @@
         "@angular/platform-browser": "^19.2.0",
         "@aparte/angular": "workspace:*",
         "@aparte/core": "workspace:*",
+        "@aparte/plugin-ask-question": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",

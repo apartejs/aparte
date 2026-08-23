@@ -21,7 +21,7 @@ const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PORTS = {
     react: 5301,
     vue: 5302,
-    svelte: 5303,
+    svelte4: 5303,
     angular: 5304,
     vanilla: 5305,
     'vanilla-dist': 5306,
@@ -37,7 +37,7 @@ const url = (app: AppKey) => `http://localhost:${PORTS[app]}`;
 const APP_DIRS: Record<AppKey, string> = {
     react: 'apps/examples/react',
     vue: 'apps/examples/vue',
-    svelte: 'apps/examples/svelte',
+    svelte4: 'apps/examples/svelte4',
     svelte5: 'apps/examples/svelte5',
     vanilla: 'apps/examples/vanilla',
     'vanilla-dist': 'apps/examples/vanilla-dist',
@@ -95,7 +95,7 @@ function viteServer(app: AppKey) {
 const APPS: Record<AppKey, { server: ReturnType<typeof viteServer> }> = {
     react: { server: viteServer('react') },
     vue: { server: viteServer('vue') },
-    svelte: { server: viteServer('svelte') },
+    svelte4: { server: viteServer('svelte4') },
     svelte5: { server: viteServer('svelte5') },
     vanilla: { server: viteServer('vanilla') },
     'vanilla-dist': { server: viteServer('vanilla-dist') },
@@ -179,7 +179,7 @@ const suiteFor = (k: AppKey): RegExp[] =>
 // elements" is exactly the assumption that keeps being wrong at the framework
 // boundary, which is where every browser-only bug in this project has lived.
 // Angular stays Chromium-only (its dev server is slow enough to dominate the run).
-const WEBKIT_APPS: AppKey[] = ['vanilla', 'vanilla-dist', 'react', 'vue', 'svelte'];
+const WEBKIT_APPS: AppKey[] = ['vanilla', 'vanilla-dist', 'react', 'vue', 'svelte4'];
 
 // Local escape hatch: `E2E_NO_WEBKIT=1 pnpm e2e` drops the WebKit projects. Playwright's
 // WebKit build on Windows creates a real OS window even headless, so a full run pops

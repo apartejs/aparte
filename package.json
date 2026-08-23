@@ -31,7 +31,7 @@
         "example:vanilla": "pnpm --filter @aparte-workspace/example-vanilla dev",
         "example:react": "pnpm --filter @aparte-workspace/example-react dev",
         "example:vue": "pnpm --filter @aparte-workspace/example-vue dev",
-        "example:svelte": "pnpm --filter @aparte-workspace/example-svelte dev",
+        "example:svelte4": "pnpm --filter @aparte-workspace/example-svelte4 dev",
         "example:angular": "pnpm --filter @aparte-workspace/example-angular dev",
         "example:vanilla-dist": "pnpm --filter @aparte-workspace/example-vanilla-dist dev",
         "examples:build": "pnpm -r --filter \"@aparte-workspace/example-*\" run build",

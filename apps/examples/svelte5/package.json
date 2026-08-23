@@ -3,7 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "description": "The Svelte example again, on Svelte 5 \u2014 the proof that one shipped source serves both majors.",
+    "description": "The Svelte example again, on Svelte 5 — the proof that one shipped source serves both majors.",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@aparte/core": "workspace:*",
+        "@aparte/plugin-ask-question": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",

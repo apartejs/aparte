@@ -3,7 +3,7 @@
     "version": "0.0.4",
     "private": true,
     "type": "module",
-    "description": "Minimal Vue example \u2014 @aparte/vue + a real (BYOK / local) model.",
+    "description": "Minimal Vue example — @aparte/vue + a real (BYOK / local) model.",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
@@ -12,6 +12,7 @@
     },
     "dependencies": {
         "@aparte/core": "workspace:*",
+        "@aparte/plugin-ask-question": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",

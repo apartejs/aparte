@@ -1,9 +1,9 @@
 {
-    "name": "@aparte-workspace/example-svelte",
+    "name": "@aparte-workspace/example-svelte4",
     "version": "0.0.4",
     "private": true,
     "type": "module",
-    "description": "Minimal Svelte example \u2014 @aparte/svelte + a real (BYOK / local) model.",
+    "description": "Minimal Svelte example — @aparte/svelte + a real (BYOK / local) model.",
     "scripts": {
         "dev": "vite",
         "build": "vite build",
@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@aparte/core": "workspace:*",
+        "@aparte/plugin-ask-question": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",

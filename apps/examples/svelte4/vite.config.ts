@@ -11,10 +11,10 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 // does not exist in 5 — so the published package simply could not be used there, and
 // nothing in the repo could notice.
 //
-// `dedupe: ['svelte']` still keeps a single runtime; the plugin adds the `svelte`
+// `dedupe: ['svelte4']` still keeps a single runtime; the plugin adds the `svelte`
 // condition to resolution itself.
 export default defineConfig({
     base: './',
     plugins: [svelte()],
-    resolve: { dedupe: ['svelte'] },
+    resolve: { dedupe: ['svelte4'] },
 });
