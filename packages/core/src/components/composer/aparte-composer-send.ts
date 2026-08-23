@@ -91,7 +91,12 @@ export class AparteComposerSend extends HTMLElement {
                 if (active) {
                     // Panel is shown — override to "Submit answer" state regardless of streaming
                     this._button.disabled = !submitEnabled;
-                    this._button.innerHTML = this._getSendIcon();
+                    // The ICON changes too, and that was the whole complaint: the label
+                    // already said "Submit" while the button still drew a paper plane, so
+                    // it read as "send a message" while it meant "answer this question".
+                    // The visual is what a user reads. A check, falling back to the send
+                    // icon if a consumer's icon set has none.
+                    this._button.innerHTML = this._getSubmitIcon();
                     const label = resolveConfig(this).t('submitButton') || 'Submit';
                     this._button.setAttribute('aria-label', label);
                     this._button.setAttribute('title', label);
@@ -139,6 +144,17 @@ export class AparteComposerSend extends HTMLElement {
         } else {
             this._syncState();
         }
+    }
+
+    /**
+     * The icon for submitting an ANSWER, which is not the same act as sending a
+     * message — one button, two meanings, and it has to say which one it is.
+     */
+    private _getSubmitIcon(): string {
+        // No fallback chain: `getIcon` already returns a built-in when the consumer's
+        // icon set has no entry, so `|| getIcon('send')` was dead code — written on the
+        // assumption that it could come back empty, and a test proved it cannot.
+        return resolveConfig(this).getIcon('check');
     }
 
     private _getSendIcon(): string {

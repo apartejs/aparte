@@ -213,6 +213,16 @@ with a short "title". Both are enforced by the schema, not preferences. Set
  * `<aparte-elicitation>` presenter. `accept` → the answer, `decline` → a
  * model-usable note, `cancel` → an AbortError the loop surfaces as a failed call.
  */
+/**
+ * What the model is told when the user declines.
+ *
+ * A constant rather than a literal because the RECEIPT has to recognise it: the
+ * transcript must show "declined" instead of pairing this sentence with the first
+ * question as though the user had said it. Matching English at a distance would have
+ * been the alternative, and it breaks the moment this string is localised.
+ */
+export const ASK_USER_DECLINED = 'The user declined to answer.';
+
 export const askUserHandler: AparteToolHandler = async (call, signal, context): Promise<AparteToolResult> => {
     const { message, schema, labels } = buildRequest(call.input);
     // `target` is what makes the RIGHT chat answer. Without it `requestUserInput`
@@ -226,7 +236,7 @@ export const askUserHandler: AparteToolHandler = async (call, signal, context): 
         return { toolCallId: call.id, content: formatAnswer(result.content, labels) };
     }
     if (result.action === 'decline') {
-        return { toolCallId: call.id, content: 'The user declined to answer.' };
+        return { toolCallId: call.id, content: ASK_USER_DECLINED };
     }
     throw new DOMException('ask_user aborted', 'AbortError');
 };

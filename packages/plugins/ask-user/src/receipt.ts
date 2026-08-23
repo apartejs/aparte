@@ -13,11 +13,22 @@
  */
 
 import type { AparteToolCall } from '@aparte/core';
+import { ASK_USER_DECLINED } from './ask-user.js';
 
 /** One line of the record. */
 interface ReceiptRow {
     question: string;
     answer: string;
+    /**
+     * The user declined the whole request — so this row is the OUTCOME, not an
+     * answer, and it has no question of its own.
+     *
+     * Without this the decline sentence was split as though it were the answer to the
+     * first question, leaving the others blank: "Quelle est ta couleur préférée ? →
+     * The user declined to answer." next to an empty row. Reported from a real
+     * session, and it is worse than useless — it attributes words to the user.
+     */
+    declined?: true;
 }
 
 /**
@@ -58,6 +69,15 @@ export function receiptRows(call: ReceiptSource): ReceiptRow[] {
     const raw = call.result ?? '';
     if (!raw.trim()) return [];
 
+    // Declining is a whole-request outcome: ONE row, no question attached, and
+    // certainly not this sentence pinned to the first question as if the user had
+    // typed it. `Skip` declines everything by design (MCP's `decline`), including
+    // questions already answered — which is exactly what made the old rendering a
+    // lie rather than merely wrong.
+    if (raw.trim() === ASK_USER_DECLINED) {
+        return [{ question: '', answer: raw.trim(), declined: true }];
+    }
+
     if (questions.length <= 1) {
         return [{ question: questions[0] ?? '', answer: raw.trim() }];
     }
@@ -87,21 +107,27 @@ export function buildReceipt(call: ReceiptSource): HTMLElement {
     wrap.className = 'seg-qreceipt-group';
     for (const row of rows) {
         const card = document.createElement('div');
-        card.className = 'segment seg-qreceipt';
+        card.className = 'segment seg-qreceipt' + (row.declined ? ' seg-qreceipt--declined' : '');
 
-        const q = document.createElement('span');
-        q.className = 'qr-question';
-        q.textContent = row.question;
+        // A declined request has no question → answer pair to show, so it gets neither
+        // a question nor an arrow: one line saying what happened.
+        if (!row.declined) {
+            const q = document.createElement('span');
+            q.className = 'qr-question';
+            q.textContent = row.question;
 
-        const sep = document.createElement('span');
-        sep.className = 'qr-sep';
-        sep.textContent = '→';
+            const sep = document.createElement('span');
+            sep.className = 'qr-sep';
+            sep.textContent = '→';
+
+            card.append(q, sep);
+        }
 
         const a = document.createElement('span');
-        a.className = 'qr-answer';
+        a.className = row.declined ? 'qr-declined' : 'qr-answer';
         a.textContent = row.answer;
 
-        card.append(q, sep, a);
+        card.appendChild(a);
         wrap.appendChild(card);
     }
     return wrap;

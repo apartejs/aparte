@@ -73,7 +73,22 @@ export interface AparteLocale {
     elicitationOtherPlaceholder?: string;
     /** Accessible name of that input, which has no visible label (default: "Custom answer") */
     elicitationOtherLabel?: string;
-    /** The inline affordance that declines the question (default: "Skip") */
+    /**
+     * The send button while a question panel is open, where it submits an ANSWER
+     * rather than sending a message (default: "Submit").
+     *
+     * The component has been reading this key since the panel API existed; it was
+     * never declared, so `t()` returned "" and the hardcoded fallback showed. A key
+     * read and never declared is worse than a literal: it looks translated.
+     */
+    submitButton?: string;
+    /**
+     * The affordance that declines the request (default: "Don't answer").
+     *
+     * It was "Skip", which on a form of several questions reads as "skip THIS one" —
+     * and it declines the whole request, including questions already answered. That
+     * is MCP's `decline` and the right behaviour; the label was the part that lied.
+     */
     elicitationSkip?: string;
     /** Affirmative choice of a yes/no question (default: "Yes") */
     elicitationYes?: string;
@@ -104,7 +119,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationOther: "Other…",
     elicitationOtherPlaceholder: "Type your answer…",
     elicitationOtherLabel: "Custom answer",
-    elicitationSkip: "Skip",
+    submitButton: "Submit",
+    elicitationSkip: "Don't answer",
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",

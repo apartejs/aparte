@@ -37,6 +37,12 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
 /* Several questions leave several cards, stacked. The tool renderer builds this
    group; the card below is shared with a question-receipt segment an app emits
    itself. (No backticks in here: this whole block is a template literal.) */
+/* A declined request: the outcome, in the muted voice of something that did not
+   happen — not the green of an answer given. */
+.qr-declined {
+    color: var(--aparte-text-muted);
+    font-style: italic;
+}
 .seg-qreceipt-group {
     display: flex;
     flex-direction: column;
