@@ -19,6 +19,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # The changeset guard below needs a MERGE BASE, and a shallow clone has
+          # none: `changeset status --since` died with "Failed to find where HEAD
+          # diverged from origin/main" on the first pull request this repo ever had.
+          # The guard could never have worked — it is PR-only, and there had been no
+          # PR. Full history for this job only; the others do not diff against a base.
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
@@ -171,8 +178,22 @@ jobs:
       - name: Check a changeset accompanies the change
         if: github.event_name == 'pull_request'
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          pnpm exec changeset status --since="origin/${{ github.base_ref }}"
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          # A RELEASE pull request has no changesets left: `pnpm version-packages`
+          # consumed them into the per-package CHANGELOGs and the root aggregate, in
+          # this very branch. `changeset status` exits 1 when it finds none — which is
+          # exactly what makes it a useful guard on a feature PR and a false alarm on
+          # a release one.
+          #
+          # The root CHANGELOG.md is the signal: nothing writes it except
+          # `scripts/gen-root-changelog.mjs`, which only `pnpm version-packages` runs.
+          # If this PR touches it, the versions moved inside it and the changesets are
+          # already spent.
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qx 'CHANGELOG.md'; then
+            echo "release PR (root CHANGELOG.md moved) — the changesets were consumed here"
+          else
+            pnpm exec changeset status --since="origin/${{ github.base_ref }}"
+          fi
 
   # Portability guard: the packages declare engines.node ">=18" and the repo is
   # developed on Windows, yet the authoritative gate above runs a single target.
