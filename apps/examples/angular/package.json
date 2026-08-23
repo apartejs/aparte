@@ -1,6 +1,6 @@
 {
     "name": "@aparte-workspace/example-angular",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "private": true,
     "type": "module",
     "description": "Minimal Angular example — @aparte/angular + a real (BYOK / local) model.",
