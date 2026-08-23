@@ -283,6 +283,39 @@ Constructor options (all optional):
 - `abort(): void` — abort the current streaming response and all active tool calls; dispatches `aparte-message-aborted` on the target element.
 - `compact(): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
 
+### The turn lifecycle events
+
+Dispatched on the target element (bubbling and composed), each stamped with the
+host's `targetId` so several chats on one page stay isolated. All four are in the
+typed event map, so `e.detail` is typed on an `<aparte-chat>` or a viewport — and,
+since 0.8.0, under the `node` export condition too.
+
+| Event | Detail | Fired when |
+|---|---|---|
+| `aparte-message-start` | `AparteMessageStartEventDetail` — `{ targetId?, messageId }` | the assistant turn begins, before the first token |
+| `aparte-message-done` | `AparteMessageDoneEventDetail` — `{ targetId?, messageId, usage? }` | the turn completed normally. `usage` carries the token counts when the provider reported them |
+| `aparte-message-aborted` | `AparteMessageAbortedEventDetail` | the user pressed Stop, or `abort()` was called |
+| `aparte-message-error` | `AparteMessageErrorEventDetail` | the turn failed. What already streamed stays rendered |
+| `aparte-artifact-start` | `AparteArtifactStartEventDetail` | an `<artifact>` block opened mid-stream |
+| `aparte-artifact-delta` | `AparteArtifactDeltaEventDetail` — carries a byte progress count | more of that artifact arrived |
+| `aparte-artifact-ready` | `AparteArtifactReadyEventDetail` | the artifact is complete. For a binary kind this is also the app's cue to generate the file — see the handshake above |
+
+Use them for what the chat itself does not do: a progress bar, a token-cost meter,
+analytics, or disabling an unrelated control while a turn is in flight.
+
+```ts
+// Typed because the event map is augmented — no cast needed on the element.
+const chat = document.querySelector('aparte-chat')!;
+
+chat.addEventListener('aparte-message-start', (e) => {
+  console.log('turn started for', e.detail.messageId);
+});
+
+chat.addEventListener('aparte-message-done', (e) => {
+  if (e.detail.usage) console.log('tokens', e.detail.usage.totalTokens);
+});
+```
+
 ## Transports
 
 A transport decides **where** a chat request goes and **how** the API key is handled.

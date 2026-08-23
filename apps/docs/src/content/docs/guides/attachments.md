@@ -99,12 +99,17 @@ Driving your own loop? `filesToAttachments(files)` converts that `File[]` into t
 `attachments` an `AparteChatMessage` renders — the same conversion the built-in send path
 does, so your user bubble shows the chips instead of a bare line of text:
 
-<!-- doc-check: skip excerpt — `chat`, `id`, `content` and `files` come from the surrounding send handler -->
+<!-- doc-check: skip excerpt — `id`, `content` and `files` come from the surrounding send handler -->
 ```ts
 import { filesToAttachments } from '@aparte/core';
 
-chat.appendMessage({
-  id, role: 'user', content,
+// The VIEWPORT owns `appendMessage`, not `<aparte-chat>`. The shell matches the
+// host selectors but delegates rendering to the viewport inside it, so calling
+// `appendMessage` on the shell is a runtime `TypeError` — this snippet used to.
+const viewport = document.querySelector('aparte-chat-viewport')!;
+
+viewport.appendMessage({
+  id, role: 'user', content, timestamp: Date.now(),
   ...(files?.length ? { attachments: filesToAttachments(files) } : {}),
 });
 ```

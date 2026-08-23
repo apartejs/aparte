@@ -215,6 +215,23 @@ function workspacePaths() {
 writeFileSync(join(OUT, 'tsconfig.json'), JSON.stringify({
     compilerOptions: {
         strict: true,
+        /*
+         * The SAME strictness the repo compiles itself with, not a weaker profile.
+         *
+         * `tsconfig.base.json` sets these four on top of `strict`, and this gate did
+         * not — so a snippet could be reported as compiling while the reader's own
+         * build (following the docs' own recommended settings) rejected it. The
+         * flagship getting-started example was exactly that: `tokens[i++]` yields
+         * `string | undefined` under `noUncheckedIndexedAccess`, and
+         * `appendToken(id, chunk: string)` refuses it.
+         *
+         * A gate that is easier than the project it guards certifies the wrong
+         * thing.
+         */
+        noUncheckedIndexedAccess: true,
+        noImplicitReturns: true,
+        noFallthroughCasesInSwitch: true,
+        noImplicitOverride: true,
         module: 'esnext',
         target: 'es2022',
         moduleResolution: 'bundler',

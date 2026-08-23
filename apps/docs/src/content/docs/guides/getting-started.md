@@ -135,7 +135,11 @@ function streamReply(text: string) {
       viewport.completeMessage(id);
       return;
     }
-    viewport.appendToken(id, tokens[i++]);
+    // `?? ''` because indexing an array yields `string | undefined` under
+    // `noUncheckedIndexedAccess`, which this project — and this snippet — compile
+    // with. The loop above already guarantees the index is in range; the compiler
+    // cannot see that, and neither can a reader who moves the code.
+    viewport.appendToken(id, tokens[i++] ?? '');
   }, 40);
 }
 
