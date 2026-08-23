@@ -15,6 +15,14 @@ import {
 import type { AparteConfig } from '../config/aparte-config.js';
 import { attachConfig, detachConfig } from '../config/config-context.js';
 import { cssEscape } from '../utils/css-escape.js';
+import {
+    stampSegmentOnInsert,
+    stampSegmentOnUpdate,
+    renumberSegments,
+    openSegmentIds,
+    stampSegmentActivity,
+    isTerminalStatus,
+} from '../utils/segments.js';
 
 /**
  * Imperative slice of `<aparte-chat-bubble>` the host mutates directly during
@@ -321,12 +329,22 @@ export class AparteChatHost {
         const index = msgs.findIndex((m) => m.id === messageId);
         if (index === -1) return;
         const next = [...msgs];
-        next[index] = { ...next[index]!, ...updates };
+        const merged = { ...next[index]!, ...updates };
+        next[index] = merged;
         this.binding.setMessages(next);
         this.binding.onMessagesChange?.(next);
         // Immediate visual feedback for a status change (e.g. streaming class).
         if (updates.status) {
             this._bubbleById(messageId)?.updateMessage?.({ status: updates.status });
+        }
+        // A finished turn closes its segments — same rule and same helper as the
+        // viewport, because this is the method both agent loops call to report the
+        // end. Routed through `updateSegment` for the same reason: the bubble has to
+        // hear about it, not just the list.
+        if (isTerminalStatus(merged.status) && merged.segments) {
+            for (const id of openSegmentIds(merged.segments)) {
+                this.updateSegment(id, { isStreaming: false });
+            }
         }
     }
 
@@ -346,13 +364,23 @@ export class AparteChatHost {
     /** Add a segment to the last message (immediate bubble + state sync). */
     addSegment(segment: AparteSegment): void {
         this._flushStreamState(); // buffered chunks belong before a new segment
-        const msgs = this.binding.getMessages();
-        const last = msgs[msgs.length - 1];
-        if (last && this._isOrphan(last.id)) return;
+        const before = this.binding.getMessages();
+        const target = before[before.length - 1];
+        if (target && this._isOrphan(target.id)) return;
         this.binding.onTypingChange?.(false);
-        this._lastBubble()?.addSegment?.(segment);
+        const msgs = before;
+        const last = target;
+
+        // Stamped before the bubble is told, because the bubble is told FIRST here
+        // (that ordering is deliberate — the paint must not wait on a list rebuild).
+        // Stamping after it would render an unstamped segment and store a stamped
+        // one. Second of exactly two owners; see `utils/segments.ts`.
+        const stamped = last
+            ? stampSegmentOnInsert(last.segments || [], segment, last.id)
+            : segment;
+        this._lastBubble()?.addSegment?.(stamped);
         if (!last) return;
-        const segments = [...(last.segments || []), segment];
+        const segments = [...(last.segments || []), stamped];
         const next = [...msgs.slice(0, -1), { ...last, segments }];
         this.binding.setMessages(next);
         this.binding.onMessagesChange?.(next);
@@ -364,10 +392,14 @@ export class AparteChatHost {
         const msgs = this.binding.getMessages();
         const last = msgs[msgs.length - 1];
         if (last && this._isOrphan(last.id)) return;
-        this._lastBubble()?.updateSegment?.(segmentId, updates);
+        const current = last?.segments?.find((s) => s.id === segmentId);
+        // Same ordering trap as `addSegment`: the bubble is written first, so the
+        // `endedAt` has to be computed before that write, not after it.
+        const stamped = current ? stampSegmentOnUpdate(current, updates) : updates;
+        this._lastBubble()?.updateSegment?.(segmentId, stamped);
         if (!last || !last.segments) return;
         const segments = last.segments.map((s) =>
-            s.id === segmentId ? ({ ...s, ...updates } as AparteSegment) : s,
+            s.id === segmentId ? ({ ...s, ...stamped } as AparteSegment) : s,
         );
         const next = [...msgs.slice(0, -1), { ...last, segments }];
         this.binding.setMessages(next);
@@ -383,6 +415,8 @@ export class AparteChatHost {
         if (!last?.segments) return;
         const segments = last.segments.filter((s) => s.id !== segmentId);
         if (segments.length === last.segments.length) return;
+        // `index` is a position: a removal has to close the gap it left.
+        renumberSegments(segments);
         const next = [...msgs.slice(0, -1), { ...last, segments }];
         this.binding.setMessages(next);
         this.binding.onMessagesChange?.(next);
@@ -488,9 +522,16 @@ export class AparteChatHost {
                     // Absolute, not `s.content + chunk`: `s` may be the object the
                     // paint already appended to (they are shared), so adding the
                     // chunk again is what doubled every chunk.
-                    return buffered !== undefined && 'content' in s
-                        ? ({ ...s, content: buffered.base + buffered.text } as AparteSegment)
-                        : s;
+                    if (buffered === undefined || !('content' in s)) return s;
+                    // Content arriving IS the segment's activity, so this is what
+                    // `endedAt` measures — same rule as the viewport's append. The
+                    // resolution is one frame here rather than one chunk, which is
+                    // finer than any duration a person reads.
+                    return {
+                        ...s,
+                        content: buffered.base + buffered.text,
+                        ...stampSegmentActivity(s),
+                    } as AparteSegment;
                 });
                 msgs = [...msgs.slice(0, -1), { ...last, segments }];
                 changed = true;

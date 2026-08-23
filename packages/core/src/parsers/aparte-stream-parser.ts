@@ -154,12 +154,12 @@ export class AparteStreamParser {
                 if (seg.type === 'text') content = stripTrailingFence(content);
                 seg.content = content;
             }
-            finalSegments.push(this._state.activeSegment);
+            finalSegments.push(this._closed(this._state.activeSegment));
             this._state.activeSegment = null;
             this._state.buffer = '';
         } else if (this._state.buffer.trim()) {
             // Remaining buffer becomes text segment
-            finalSegments.push(this._createTextSegment(stripTrailingFence(this._state.buffer)));
+            finalSegments.push(this._closed(this._createTextSegment(stripTrailingFence(this._state.buffer))));
             this._state.buffer = '';
         }
 
@@ -259,7 +259,9 @@ export class AparteStreamParser {
         // Pattern is at the start index 0. Finish current text segment if any.
         let segmentToEmit: AparteSegment | null = null;
         if (this._state.activeSegment && this._state.activeSegment.type === 'text') {
-            segmentToEmit = this._state.activeSegment;
+            // The text is over BECAUSE something else is starting — an end as
+            // definite as a closing delimiter.
+            segmentToEmit = this._closed(this._state.activeSegment);
             this._state.activeSegment = null;
         }
 
@@ -337,7 +339,7 @@ export class AparteStreamParser {
                 if (this._state.activeSegment && 'content' in this._state.activeSegment) {
                     (this._state.activeSegment as { content: string }).content += codeContent;
                 }
-                const segment = this._state.activeSegment;
+                const segment = this._closed(this._state.activeSegment);
                 this._state.mode = 'text';
                 this._state.activeSegment = null;
                 return { segment, remaining: '' };
@@ -360,7 +362,7 @@ export class AparteStreamParser {
             (this._state.activeSegment as { content: string }).content += codeContent;
         }
 
-        const segment = this._state.activeSegment;
+        const segment = this._closed(this._state.activeSegment);
         this._state.mode = 'text';
         this._state.activeSegment = null;
 
@@ -424,7 +426,7 @@ export class AparteStreamParser {
             (this._state.activeSegment as { content: string }).content += thinkingContent;
         }
 
-        const segment = this._state.activeSegment;
+        const segment = this._closed(this._state.activeSegment);
         this._state.mode = 'text';
         this._state.activeSegment = null;
         this._state.thinkingEnd = undefined;
@@ -512,7 +514,7 @@ export class AparteStreamParser {
             (this._state.activeSegment as { content: string }).content += tail;
         }
 
-        const segment = this._state.activeSegment;
+        const segment = this._closed(this._state.activeSegment);
         this._state.mode = 'text';
         this._state.activeSegment = null;
 
@@ -536,6 +538,35 @@ export class AparteStreamParser {
     private _generateId(): string {
         ++this._state.segmentCounter;
         return `${this._options.idPrefix}-${uuid()}`;
+    }
+
+    /**
+     * Mark a segment the parser has just CLOSED.
+     *
+     * The end of a delimited segment is not a guess: the closing token IS the end.
+     * `</think>`, a closing fence, `</artifact>` — and, for a text run, the opening
+     * of whatever comes next. The parser computes that moment at six sites and used
+     * to drop it, emitting the finished segment with no flag saying so.
+     *
+     * What that cost: nothing downstream could tell a finished reasoning block from
+     * one still streaming, so the only remaining signal was the END OF THE TURN. A
+     * reader watched "Thinking" for as long as the answer took to stream — twenty
+     * seconds after the model had stopped thinking — and the Markdown flush and the
+     * highlight-on-settle waited exactly as long. Two workarounds were written
+     * before this one: close at the end of the message (wrong value), and close when
+     * the next segment opens (right value, wrong moment, and no help for a reply
+     * that is reasoning and nothing else).
+     *
+     * Both agent loops share this parser, so saying it here says it once.
+     *
+     * Not every end is in band, and the exceptions are honest: a text run that ends
+     * only because the STREAM ended has no delimiter — `finalize()` is its truth —
+     * and a `tool_call` never passes through here at all, since its end is its
+     * `status`.
+     */
+    private _closed<T extends AparteSegment | null>(segment: T): T {
+        if (segment) (segment as AparteSegment).isStreaming = false;
+        return segment;
     }
 
     private _createTextSegment(content: string): AparteTextSegment {

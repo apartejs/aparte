@@ -16,6 +16,7 @@
  * `this` zero times: the state it mutates is owned by its caller and passed in.
  */
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
+import { segmentContentUpdate } from '../utils/segments.js';
 import { dispatchArtifactLifecycle, type AparteLifecycleTarget } from './lifecycle-events.js';
 import { uuid } from '../utils/uuid.js';
 import type { AparteSegment, AparteArtifactSegment } from '../types/index.js';
@@ -121,7 +122,7 @@ export function feedXmlArtifactDelta(
                 targetElement.addSegment?.(seg);
                 streamingSegmentIds.add(seg.id);
             } else if ('content' in seg) {
-                targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
+                targetElement.updateSegment?.(seg.id, segmentContentUpdate(seg));
             }
         }
         // The active segment is always CONSULTED (the imperative fallback below
@@ -134,7 +135,7 @@ export function feedXmlArtifactDelta(
                 targetElement.addSegment?.(active);
                 streamingSegmentIds.add(active.id);
             } else {
-                targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
+                targetElement.updateSegment?.(active.id, segmentContentUpdate(active));
             }
         } else if (!r.segments.length && !active) {
             // Nothing: see the note on the other feeder. The parser is holding
@@ -324,7 +325,7 @@ export function finalizeXmlArtifact(
                     targetElement.addSegment?.(seg);
                     ctx.streamingSegmentIds.add(seg.id);
                 } else if ('content' in seg) {
-                    targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
+                    targetElement.updateSegment?.(seg.id, segmentContentUpdate(seg));
                 }
             }
             const active = ctx.textParser.getState().activeSegment;
@@ -333,7 +334,7 @@ export function finalizeXmlArtifact(
                     targetElement.addSegment?.(active);
                     ctx.streamingSegmentIds.add(active.id);
                 } else {
-                    targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
+                    targetElement.updateSegment?.(active.id, segmentContentUpdate(active));
                 }
             }
         }

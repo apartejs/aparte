@@ -17,6 +17,59 @@ export interface AparteSegmentBase {
 
     /** Whether segment is currently being streamed */
     isStreaming?: boolean;
+
+    // ── Identity and measurement ─────────────────────────────────────────────
+    // A segment used to know only what it WAS, never where it sat or when it
+    // happened — while the message one level up already carried a `timestamp`, a
+    // `usage` and a `metadata` bag. The gap was not theoretical: `render(segment)`
+    // takes one argument, so a custom renderer could not learn its message;
+    // `aparte-terminal-run` shipped a `segmentId` nobody could resolve; and the
+    // artifact renderer FABRICATED a message id (`__reload__${Date.now()}`) to get
+    // past a consumer dedupe keyed on the pair it did not have.
+    //
+    // All five are optional, so nothing that exists today changes shape, and all
+    // five are stamped in ONE place — `utils/segments.ts`, called by the two owners
+    // of a message's segment array (`aparte-chat-viewport`, `aparte-chat-host`).
+    // Not by the parser: `tool_call` and `pipeline-waiting` segments never go
+    // through it, which would have left a tool call — the most useful duration of
+    // all — unmeasured.
+
+    /** Id of the message this segment belongs to. Stamped on insertion. */
+    messageId?: string;
+
+    /**
+     * Position in the owning message's `segments[]`, maintained across
+     * insertions and removals.
+     */
+    index?: number;
+
+    /** Epoch ms when the segment entered the transcript. */
+    startedAt?: number;
+
+    /**
+     * Epoch ms when content last arrived on this segment.
+     *
+     * It ADVANCES while the segment streams and freezes when the segment settles,
+     * so `endedAt - startedAt` is a live duration during a turn and a final one
+     * after it — ask `isSegmentSettled(segment)` which you are looking at. Core
+     * never renders either.
+     *
+     * Why not simply "when it finished": the two obvious rules are both wrong, and
+     * measurably. Closing at the end of the turn makes a reasoning block span the
+     * whole answer that followed it (2s of thinking before a 20s reply reads
+     * "22s"). Closing when the next segment opens is the same error, smaller — a
+     * gap of ten seconds before the next segment is counted as thinking, while the
+     * person watching knows nothing happened. The last delta is the only moment
+     * the segment itself can vouch for.
+     */
+    endedAt?: number;
+
+    /**
+     * Extras only the producer of the segment can know — token counts, cost,
+     * compute device. Core writes nothing here: fill it from an app with
+     * `updateSegment(segmentId, { meta })`. Mirrors `AparteMessage.metadata`.
+     */
+    meta?: Record<string, unknown>;
 }
 
 /** Text segment - plain text content */

@@ -10,6 +10,7 @@ import { contextConfig } from '../../config/index.js';
 import type {
     AparteSegmentRenderer,
     AparteTerminalSegment,
+    AparteTerminalRunEventDetail,
 } from '../../types/index.js';
 
 export const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
@@ -38,7 +39,7 @@ export const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
             : ''}
         </div>
     `,
-    setup: (element) => {
+    setup: (element, segment) => {
         const copyBtn = element.querySelector('.terminal-copy-btn');
         const command = element.querySelector('.terminal-command');
         if (copyBtn && command) {
@@ -54,16 +55,22 @@ export const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
             });
         }
 
-        // Run button dispatches a custom event
+        // Run button dispatches a custom event.
+        //
+        // Read from the SEGMENT, not from the DOM. The id used to come off a
+        // `data-segment-id` attribute — hence the old `string | null` on the detail
+        // — and the message id was simply missing, so a consumer knew a command had
+        // been asked for and could not say which turn asked. `addSegment` stamps
+        // both onto the object now, and the object is right here.
         const runBtn = element.querySelector('.terminal-run-btn');
         if (runBtn) {
             runBtn.addEventListener('click', () => {
-                const segmentId = element.getAttribute('data-segment-id');
-                element.dispatchEvent(new CustomEvent('aparte-terminal-run', {
+                element.dispatchEvent(new CustomEvent<AparteTerminalRunEventDetail>('aparte-terminal-run', {
                     bubbles: true,
                     composed: true,
                     detail: {
-                        segmentId,
+                        segmentId: segment.id,
+                        messageId: segment.messageId,
                         command: command?.textContent || ''
                     }
                 }));

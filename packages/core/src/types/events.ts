@@ -450,11 +450,17 @@ export interface AparteAttachmentPreviewEventDetail {
  * @event aparte-terminal-run
  */
 export interface AparteTerminalRunEventDetail {
+    /** Owning segment id. */
+    segmentId: string;
     /**
-     * Owning segment id — nullable because it is read from a DOM attribute that a
-     * custom renderer may not have set.
+     * Id of the message the terminal belongs to.
+     *
+     * Without it this event was not resolvable: a consumer knew a command was
+     * asked for and could not say which turn asked. Absent only when the segment
+     * reached the renderer without passing through `addSegment` (an app rendering
+     * a segment it built by hand), because core stamps identity exactly there.
      */
-    segmentId: string | null;
+    messageId?: string;
     /** The command text the user asked to run. */
     command: string;
 }

@@ -159,6 +159,13 @@ const SETTINGS = /settings\.spec\.ts/;
 // in a browser before, because no tool ever reached the model, so nothing could
 // make the panel appear.
 const ELICITATION = /elicitation\.spec\.ts/;
+// A segment's own identity and span, plus the app-side line built from it.
+// `vanilla` only, same reasoning as LAYOUT: the "Thought for 1.4s" wrapper is APP
+// code that lives in the vanilla example, so porting it to the other four would be
+// four more copies of a `toFixed` proving nothing about the wrapper boundary. The
+// DATA half is covered on both segment-array owners by the unit suite; this is the
+// only place the whole chain — provider mock, parser, owner, bubble — runs.
+const SEGMENT_META = /segment-metadata\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -175,7 +182,7 @@ const ELICITATION = /elicitation\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep

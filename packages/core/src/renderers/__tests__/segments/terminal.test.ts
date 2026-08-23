@@ -82,4 +82,40 @@ describe('default renderer: terminal', () => {
         const html = renderer.render({ id: 'term8', type: 'terminal', command: 'sleep 1' } as any);
         expect(html).not.toContain('terminal-error');
     });
+
+    // The event used to carry a `segmentId` read off a DOM attribute and NOTHING
+    // else: a consumer knew a command had been asked for and could not say which
+    // turn asked it. Both ids now come off the segment object, which `addSegment`
+    // stamps.
+    it('the run button reports the message the terminal belongs to', () => {
+        aparteGlobalConfig.setHostHandlers({ terminalRun: true });
+        const renderer = getSegmentRenderer('terminal')!;
+        const segment = {
+            id: 'term-run',
+            type: 'terminal',
+            command: 'ls -la',
+            messageId: 'm-77',
+            index: 2,
+        } as never;
+
+        const host = document.createElement('div');
+        host.innerHTML = renderer.render(segment) as string;
+        document.body.appendChild(host);
+        const el = host.firstElementChild as HTMLElement;
+        renderer.setup?.(el, segment);
+
+        const seen: Array<{ segmentId: string; messageId?: string; command: string }> = [];
+        document.addEventListener('aparte-terminal-run', (e) => {
+            seen.push((e as CustomEvent).detail);
+        });
+
+        (el.querySelector('.terminal-run-btn') as HTMLElement).click();
+
+        expect(seen).toHaveLength(1);
+        expect(seen[0]!.messageId).toBe('m-77');
+        expect(seen[0]!.segmentId).toBe('term-run');
+        expect(seen[0]!.command).toBe('ls -la');
+
+        host.remove();
+    });
 });

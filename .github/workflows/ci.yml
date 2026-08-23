@@ -128,6 +128,9 @@ jobs:
       - name: Check crypto.randomUUID stays behind uuid()
         run: pnpm check:secure-context
 
+      - name: Check a segment is stamped in one place
+        run: pnpm check:segment-stamp
+
       - name: Check the typed event map is honest
         run: pnpm check:event-map
 

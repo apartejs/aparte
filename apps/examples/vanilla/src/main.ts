@@ -8,11 +8,16 @@ import '@aparte/core/styles.css';
 
 import {
     registerDefaultRenderers,
+    registerSegmentRenderer,
+    getSegmentRenderer,
+    isSegmentSettled,
+    segmentDuration,
     aparteGlobalConfig,
     AparteClient,
     AparteDirectTransport,
     filesToAttachments,
 } from '@aparte/core';
+import type { AparteThinkingSegment } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 // Registers the `ask_user` tool AND the <aparte-elicitation> panel that answers
@@ -35,6 +40,64 @@ import {
 registerDefaultRenderers();
 setupMarkedProvider();
 setupAskUser();
+
+// 1b. "Thought for 1.4s" — the market's collapsed reasoning line, built HERE.
+//
+// Core measures the span (it owns the stream, so it stamps `startedAt`/`endedAt`
+// on every segment) and deliberately renders nothing: the line reads "Thought for
+// 8s" in one product and "8.2s · 1.2k tokens" in another, and a library that
+// picks one is wrong in the other. So this is ~15 lines of app code, and it is
+// here rather than only in the guide because a capability with no running
+// consumer is a capability nobody can see working.
+//
+// Two things this wrapping has to get right, both learned the hard way:
+//  - keep the ROOT the built-in produced. The bubble finds a segment to update
+//    with `:scope > [data-segment-id="…"]`, so wrapping it in a div of your own
+//    hides that attribute and every token falls back to a full transcript
+//    re-render instead of the in-place write.
+//  - delegate `setup` and `update`. They carry the scroll anchoring, the
+//    incremental markdown writer and the highlight-on-settle; reimplementing them
+//    is how you lose 80 lines of behaviour without noticing.
+const builtInThinking = getSegmentRenderer('thinking')!;
+registerSegmentRenderer<AparteThinkingSegment>({
+    type: 'thinking',
+    render(segment) {
+        const out = builtInThinking.render(segment);
+        const host = typeof out === 'string' ? parseRoot(out) : out;
+        writeDuration(host, segment);
+        return host;
+    },
+    setup: (el, segment) => builtInThinking.setup?.(el, segment),
+    update(el, segment) {
+        builtInThinking.update?.(el, segment);
+        // ALSO here, and this is the whole trick: a block is created open and
+        // settles later, and a settle reaches a renderer through `update` — never
+        // through a second `render`. Writing the label in `render` alone leaves it
+        // reading "Thinking" forever, which is exactly what the first browser run
+        // showed.
+        writeDuration(el, segment);
+    },
+});
+
+/** "Thinking" → "Thought for 1.4s", once the span is closed. */
+function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void {
+    // `isSegmentSettled` and `segmentDuration` are core's own rules, imported rather
+    // than re-derived. The hand-written version of this was
+    //     if (!isSegmentSettled(s) || !s.startedAt || !s.endedAt) return;
+    // which is three conditions to get right and wrong at epoch 0.
+    if (!isSegmentSettled(segment)) return;
+    const ms = segmentDuration(segment);
+    if (ms === undefined) return;
+    const label = host.querySelector('.thinking-label');
+    if (label) label.textContent = `Thought for ${(ms / 1000).toFixed(1)}s`;
+}
+
+/** A markup string back to the single root element it describes. */
+function parseRoot(html: string): HTMLElement {
+    const t = document.createElement('template');
+    t.innerHTML = html;
+    return t.content.firstElementChild as HTMLElement;
+}
 
 // 2. Real providers — both LOCAL and keyless, so this example runs with zero
 //    setup and zero account. A cloud provider used to be registered here too; it

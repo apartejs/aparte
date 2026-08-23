@@ -1,6 +1,7 @@
 import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig } from '../config/config-context.js';
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
+import { segmentContentUpdate } from '../utils/segments.js';
 import { feedXmlArtifactDelta, finalizeXmlArtifact, type XmlArtifactStreamState } from './xml-artifact-feed.js';
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
@@ -1878,7 +1879,12 @@ export class AparteClient {
                         case 'text': {
                             // Collapse thinking block when the response text starts
                             if (thinkingSegmentId && !thinkingCollapsed) {
-                                targetElement.updateSegment?.(thinkingSegmentId, { collapsed: true });
+                                // Same reasoning as the adapter's `text-delta` arm,
+                                // kept in step because the parity suite diffs these
+                                // two call sequences: reasoning on its own channel
+                                // has no closing delimiter, so the first answer
+                                // token IS its end.
+                                targetElement.updateSegment?.(thinkingSegmentId, { collapsed: true, isStreaming: false });
                                 thinkingCollapsed = true;
                             }
                             precedingText += event.delta;
@@ -1925,7 +1931,7 @@ export class AparteClient {
                                     streamingSegmentIds.add(segment.id);
                                 } else if ('content' in segment) {
                                     // Segment was already streaming — sync the final content
-                                    targetElement.updateSegment?.(segment.id, { content: (segment as { content?: string }).content });
+                                    targetElement.updateSegment?.(segment.id, segmentContentUpdate(segment));
                                 }
                                 if (segment.type === 'artifact') {
                                     dispatchArtifactLifecycle(targetElement, messageId, segment, artifactProgress, true);
@@ -1940,7 +1946,7 @@ export class AparteClient {
                                         dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
                                 } else {
-                                    targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
+                                    targetElement.updateSegment?.(active.id, segmentContentUpdate(active));
                                     if (active.type === 'artifact') {
                                         dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
@@ -2060,7 +2066,7 @@ export class AparteClient {
                         targetElement.addSegment?.(s);
                     } else if ('content' in s) {
                         // finalize() appended the residual buffer — sync to DOM
-                        targetElement.updateSegment?.(s.id, { content: (s as { content?: string }).content });
+                        targetElement.updateSegment?.(s.id, segmentContentUpdate(s));
                     }
                     if (s.type === 'artifact') {
                         dispatchArtifactLifecycle(targetElement, messageId, s, artifactProgress, true);
