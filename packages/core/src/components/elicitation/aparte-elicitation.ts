@@ -13,6 +13,10 @@
  *   - decline — the inline "Skip" affordance
  *   - cancel  — the assistant turn was stopped/errored while pending
  *
+ * Its CSS ships in `@aparte/core/styles.css` like every other component — it used
+ * to inject its own <style> from here, which made it the one surface that could not
+ * be themed and whose variables were missing from the generated CSS reference.
+ *
  * Place anywhere inside the chat (it renders nothing itself):
  *   <aparte-elicitation></aparte-elicitation>
  */
@@ -74,7 +78,6 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
 
     connectedCallback(): void {
         this.style.display = 'none';
-        this._injectStyles();
         // Become the presenter for this instance's config (or the global one).
         resolveConfig(this).setElicitationPresenter(this._present);
         // Safety net: if the turn is stopped/errored while a request is open,
@@ -227,35 +230,6 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             + 'chat\'s composer: on a page with two chats that put the question under the wrong one.',
         );
         return null;
-    }
-
-    private _injectStyles(): void {
-        const id = 'aparte-elicitation-styles';
-        if (document.getElementById(id)) return;
-        const style = document.createElement('style');
-        style.id = id;
-        style.textContent = `
-.aparte-elic-panel { display:flex; flex-direction:column; gap:6px; padding:6px 4px; width:100%; box-sizing:border-box; max-height:50vh; overflow-y:auto; }
-.aparte-elic-message { margin:0 6px 6px; font-size:.82rem; font-weight:600; color:var(--aparte-text); line-height:1.4; }
-.aparte-elic-field + .aparte-elic-field { margin-top:8px; padding-top:8px; border-top:1px solid var(--aparte-border, rgba(128,128,128,0.12)); }
-.aparte-elic-title { margin:0 6px 4px; font-size:.8rem; font-weight:600; color:var(--aparte-text); }
-.aparte-elic-desc { margin:0 6px 6px; font-size:.76rem; color:var(--aparte-text-muted, rgba(128,128,128,0.75)); }
-.aparte-elic-options { display:flex; flex-direction:column; gap:1px; }
-.aparte-elic-option { display:flex; align-items:flex-start; gap:10px; padding:7px 10px; border-radius:8px; cursor:pointer; border:1px solid transparent; transition:background .12s,border-color .12s; }
-.aparte-elic-option:hover { background:var(--aparte-surface-2, rgba(128,128,128,0.08)); border-color:var(--aparte-border, rgba(128,128,128,0.15)); }
-.aparte-elic-control { margin-top:3px; flex-shrink:0; accent-color:var(--aparte-primary, #6366f1); width:15px; height:15px; cursor:pointer; }
-.aparte-elic-option-body { display:flex; flex-direction:column; gap:2px; flex:1; }
-.aparte-elic-option-title { font-size:.875rem; font-weight:500; color:var(--aparte-text, inherit); line-height:1.4; }
-.aparte-elic-option-desc { font-size:.78rem; color:var(--aparte-text-muted, rgba(128,128,128,0.75)); line-height:1.4; }
-.aparte-elic-other-input, .aparte-elic-text { margin-top:4px; width:100%; padding:6px 8px; border:1px solid var(--aparte-border, rgba(128,128,128,0.2)); border-radius:6px; font-size:.875rem; background:var(--aparte-surface-2, rgba(128,128,128,0.06)); color:var(--aparte-text, inherit); outline:none; box-sizing:border-box; font-family:inherit; }
-textarea.aparte-elic-text { min-height:64px; resize:vertical; }
-.aparte-elic-other-input:focus, .aparte-elic-text:focus { border-color:var(--aparte-primary, #6366f1); }
-.aparte-elic-option--recommended { border-color:var(--aparte-primary, #6366f1) !important; background:color-mix(in srgb, var(--aparte-primary, #6366f1) 6%, transparent); }
-.aparte-elic-footer { display:flex; justify-content:flex-end; margin-top:6px; }
-.aparte-elic-skip { border:none; background:transparent; color:var(--aparte-text-muted, rgba(128,128,128,0.75)); font-size:.8rem; cursor:pointer; padding:4px 8px; border-radius:6px; font-family:inherit; }
-.aparte-elic-skip:hover { background:var(--aparte-surface-2, rgba(128,128,128,0.08)); color:var(--aparte-text); }
-`;
-        document.head.appendChild(style);
     }
 }
 
