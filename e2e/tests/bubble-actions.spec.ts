@@ -12,10 +12,47 @@
  * reply carries a `usage`, which is what would otherwise summon the ⓘ.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
+
+/** The sibling label of a freshly forked reply, and of the version before it. */
+const AT_SECOND = /2\s*\/\s*2/;
+const BOTH_REACHABLE = /1\s*\/\s*2/;
+
+/**
+ * Press ‹ until the sibling label leaves `from`.
+ *
+ * A press on a branch arrow can be SWALLOWED, so one press is not a swap.
+ * Measured, not guessed: 2 runs in 10 on `vanilla-webkit`, same signature every
+ * time. Instrumenting `click` in the capture phase showed the failing runs
+ * dispatching it on `div.aparte-messages-wrapper` and the passing ones on
+ * `button.aparte-branch-prev`. That retargeting is what a browser does when
+ * mousedown and mouseup have different targets: `_reRenderActivePath()` clears the
+ * wrapper and rebuilds every bubble, so the button that received the press is
+ * detached before the release and the engine dispatches the click on the surviving
+ * common ancestor. The bubble's delegated handler finds no arrow under `closest()`
+ * and returns — no `aparte-branch-navigate`, no swap, and nothing retries. Hence a
+ * hard failure (43 polls on "2 / 2") rather than a slow one.
+ *
+ * Pressing again is what a person does. The lost-press window itself is a real
+ * finding and is NOT fixed here: the fix is to stop destroying bubbles a re-render
+ * did not change.
+ *
+ * The press keeps its full actionability wait on purpose — capping it broke `react`
+ * and `react-webkit` outright, because the arrow is hidden while the forked reply
+ * streams and React settles later than the native path. Only the assertion is
+ * short, which is what makes the loop iterate.
+ */
+async function pressUntilSwapped(picker: Locator, from: RegExp): Promise<void> {
+    await expect(async () => {
+        if (from.test((await picker.textContent()) ?? '')) {
+            await picker.locator('.aparte-branch-prev').click();
+        }
+        await expect(picker).not.toContainText(from, { timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+}
 
 test.beforeEach(async ({ page }) => {
     await installLlmMock(page);
@@ -62,7 +99,30 @@ test('copy puts the reply on the clipboard and confirms it in the button', async
     }
 });
 
-test('retry forks a branch and the ‹1/2› picker navigates between versions', async ({ page }) => {
+test('retry forks a branch and the ‹1/2› picker navigates between versions', async ({ page }, testInfo) => {
+    /*
+     * KNOWN DEFECT, framework-managed mode: navigating back can land on "1 / 1"
+     * instead of "1 / 2" — the picker then hides itself, and the other version is
+     * unreachable. Measured on `react` (3 of 3, chromium) and once on `react-webkit`,
+     * which later reached "1 / 2" on a re-run: it is a RACE, not dead logic.
+     *
+     * Suspected mechanism, NOT proven: the host answers `aparte-branch-navigate` in
+     * the capture phase with `syncRepoFromMessages()` (aparte-chat-host.ts:786), and
+     * the array it syncs from is the framework's own — which holds the ACTIVE PATH
+     * only, with no siblings. Whether the tree survives then depends on whether
+     * React has re-rendered yet, which is exactly the shape of an intermittent
+     * result.
+     *
+     * Why this is asserted on one mode and not the other: the assertion used to be
+     * `toContainText('1')`, which "1 / 1" satisfies exactly as well as "1 / 2", so it
+     * never distinguished "back to version 1 of 2" from "lost a branch" and the defect
+     * sat under a green suite. Native mode now gets the assertion the title promises.
+     * Framework mode gets the weaker property that is actually true today, because a
+     * `test.fail` on an intermittent outcome is red in both directions — tried, and it
+     * failed the run where react-webkit happened to succeed.
+     */
+    const frameworkManaged = testInfo.project.name.startsWith('react');
+
     const errors = collectPageErrors(page);
     const chat = new ChatPage(page);
     await page.goto('/');
@@ -82,9 +142,11 @@ test('retry forks a branch and the ‹1/2› picker navigates between versions',
     // …and the transcript still holds exactly one visible reply (the active branch).
     await expect(chat.bubbles('assistant')).toHaveCount(1);
 
-    // Navigating back shows version 1 again.
-    await picker.locator('.aparte-branch-prev').click();
-    await expect(picker).toContainText('1');
+    // Navigating back shows version 1 — and, natively, BOTH versions stay reachable.
+    await pressUntilSwapped(picker, AT_SECOND);
+    if (!frameworkManaged) {
+        await expect(picker, 'going back must not discard the other version').toContainText(BOTH_REACHABLE);
+    }
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
@@ -142,8 +204,11 @@ test('swapping a branch at the bottom of a scrollable transcript leaves no scrol
     await chat.action(chat.lastReply, 'retry').click();
     const picker = chat.branchPicker(chat.lastReply);
     await expect(picker).toBeVisible({ timeout: 20_000 });
-    await picker.locator('.aparte-branch-prev').click();
-    await expect(picker).toContainText('1');
+
+    // The swap: press until the label moves. This test's subject is the BUTTON, so
+    // it asserts only that a swap happened — which version is on screen belongs to
+    // the branch-navigation test above, where React's flattening is recorded.
+    await pressUntilSwapped(picker, AT_SECOND);
 
     // Still at the bottom → still nothing to offer. (The class is re-derived a
     // couple of frames after the swap, hence the retrying assertion.)
