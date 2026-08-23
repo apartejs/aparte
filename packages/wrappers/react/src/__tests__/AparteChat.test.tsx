@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
-import { AparteChat, type AparteChatHandle } from '../components/AparteChat';
-import { registerAllComponents, resolveConfig, AparteConfig, AparteConfigClass } from '@aparte/core';
+import { AparteChat } from '../components/AparteChat';
+import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 // Ensure components are registered
@@ -53,7 +53,7 @@ describe('AparteChat React Wrapper', () => {
     });
 
     it('exposes getViewport() on the handle (cross-wrapper accessor)', () => {
-        const ref = React.createRef<AparteChatHandle>();
+        const ref = React.createRef<AparteChatImperativeApi>();
         const { container } = render(<AparteChat ref={ref} messages={[]} />);
         const viewport = ref.current?.getViewport();
         expect(viewport).not.toBeNull();
@@ -141,7 +141,7 @@ describe('AparteChat React Wrapper', () => {
         // neither. In a wrapper that is by design — the bubble re-renders from the
         // message list. Which only works because streamTokens now syncs that list;
         // before, the DOM had the reply and React state still had `content: ''`.
-        const ref = React.createRef<AparteChatHandle>();
+        const ref = React.createRef<AparteChatImperativeApi>();
         const { container } = render(
             <AparteChat
                 ref={ref}
@@ -287,6 +287,31 @@ describe('AparteChat React Wrapper', () => {
         expect([...toolbar!.children].map((c) => c.className)).toEqual(['mode', 'model']);
     });
 
+    it('projects emptyState while there are no messages, and drops it on the first', () => {
+        // Every example fills this slot and NOTHING proved it — not one unit test in
+        // any of the four wrappers, and no browser assertion either. Its contract is two
+        // halves ("Replaced by the message list on the first message") and the second is
+        // the one that silently rots: a welcome block still showing under a live
+        // conversation is the visible bug.
+        const { container, rerender } = render(
+            <AparteChat
+                messages={[]}
+                onMessageSent={mockOnMessageSent}
+                emptyState={<div className="welcome-block">welcome</div>}
+            />,
+        );
+        expect(container.querySelector('.welcome-block')).not.toBeNull();
+
+        rerender(
+            <AparteChat
+                messages={[{ id: '1', role: 'user', content: 'hi', timestamp: 0 }]}
+                onMessageSent={mockOnMessageSent}
+                emptyState={<div className="welcome-block">welcome</div>}
+            />,
+        );
+        expect(container.querySelector('.welcome-block')).toBeNull();
+    });
+
     it('renders no toolbar element at all when no toolbar is given', () => {
         const { container } = render(
             <AparteChat messages={[]} onMessageSent={mockOnMessageSent} />,
@@ -309,7 +334,7 @@ describe('AparteChat React Wrapper', () => {
     });
 
     it('forwards a per-instance config so components inside resolve it', () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const { container } = render(
             <AparteChat messages={[]} config={cfg} onMessageSent={mockOnMessageSent} />,
         );
@@ -317,12 +342,12 @@ describe('AparteChat React Wrapper', () => {
         expect(resolveConfig(host)).toBe(cfg);
     });
 
-    it('resolves the global AparteConfig when no config prop is passed', () => {
+    it('resolves `aparteGlobalConfig` when no config prop is passed', () => {
         const { container } = render(
             <AparteChat messages={[]} onMessageSent={mockOnMessageSent} />,
         );
         const host = container.querySelector('[id^="aparte-chat-"]') as HTMLElement;
-        expect(resolveConfig(host)).toBe(AparteConfig);
+        expect(resolveConfig(host)).toBe(aparteGlobalConfig);
     });
 
     it('derives an SSR-stable host id from useId (not a random UUID)', () => {

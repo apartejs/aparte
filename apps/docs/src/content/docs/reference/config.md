@@ -1,6 +1,6 @@
 ---
-title: AparteConfig & core API
-description: The core JS API in one place — the AparteConfig singleton, AparteClient, and the transports — signatures straight from packages/core/src.
+title: aparteGlobalConfig & core API
+description: The core JS API in one place — the aparteGlobalConfig singleton, AparteClient, and the transports — signatures straight from packages/core/src.
 sidebar:
   order: 4
 ---
@@ -8,18 +8,18 @@ sidebar:
 The [Elements](/reference/api/), [CSS variables](/reference/css-variables/) and
 [`@aparte/engine`](/reference/engine/) pages are generated references for those surfaces.
 This page is the companion for the single biggest surface that has none: the **core JS
-API** — `AparteConfig`, `AparteClient`, and the transports. Every signature below is
+API** — `aparteGlobalConfig`, `AparteClient`, and the transports. Every signature below is
 copied from `packages/core/src`; where a type is complex it is simplified for
 readability without changing its meaning — follow the source links for the full shape.
 
-## `AparteConfig`
+## `aparteGlobalConfig`
 
-`AparteConfig` is a global **singleton** instance of the `AparteConfigClass`
+`aparteGlobalConfig` is the page-wide **singleton** instance of `AparteConfig`
 (`packages/core/src/config/aparte-config.ts`) — the "Invisible but Flexible" dependency-injection
-hub. Everything below is a method on it, e.g. `AparteConfig.registerAIProvider(...)`.
+hub. Everything below is a method on it, e.g. `aparteGlobalConfig.registerAIProvider(...)`.
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 ```
 
 Most setters call an internal `_notify()`, which re-renders already-mounted components
@@ -38,7 +38,7 @@ where the request is sent.
 - `refreshProviderModels(providerId: string): Promise<AparteAIModel[]>` — resolve the key then call the provider's `fetchModels`.
 - `setKeyProvider(provider: AparteKeyProvider): void` — register a function that resolves an API key for a given provider id.
 - `getKey(providerId: string): Promise<string | undefined>` — read the key for a provider via the registered key provider.
-- `setTransport(transport: AparteTransport): void` — set where chat requests go and how auth is handled. Defaults to `DirectTransport`.
+- `setTransport(transport: AparteTransport): void` — set where chat requests go and how auth is handled. Defaults to `AparteDirectTransport`.
 - `getTransport(): AparteTransport` — the active transport.
 
 ### Renderers & render hooks
@@ -52,7 +52,32 @@ show/hide, class hooks). Each accepts `string | HTMLElement` and `null` clears i
 - `setSiblingNavRenderer(renderer: AparteSiblingNavRenderer | null): void` / `getSiblingNavRenderer(): AparteSiblingNavRenderer | null` — the `‹ N / M ›` branch-position indicator.
 - `setBubbleShellRenderer(renderer: AparteBubbleShellRenderer | null): void` / `getBubbleShellRenderer(): AparteBubbleShellRenderer | null` — the structural skeleton of `<aparte-chat-bubble>` (advanced; must honor the `.aparte-message` class-hook contract).
 - `setAvatarProvider(provider: AparteAvatarProvider | null): void` / `getAvatarProvider(): AparteAvatarProvider | null` — fills the avatar host element with custom DOM (e.g. a mounted framework component).
-- `setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void` / `getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined` — builds the `srcdoc` HTML for an artifact preview iframe.
+- `setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void` / `getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined` — builds the `srcdoc` HTML for an artifact preview iframe. **This replaces the containment, not just the markup** — see below.
+
+:::danger[A preview builder replaces the sandbox's policy]
+The default builder injects a `<meta http-equiv="Content-Security-Policy">` into the
+document it produces: `default-src 'none'` with inline script and style only, no fetch,
+no XHR, no websocket, no remote image or font. The iframe's `csp` attribute carries the
+same policy, but that attribute is **Chromium-only** — on Firefox and Safari the meta tag
+is the only policy the frame has. So a builder that does not emit it hands
+model-authored code a frame that can load and run anything it likes from any origin.
+
+If you replace the builder, emit that meta tag yourself. Loading a library from a CDN
+inside a preview means dropping the policy, which is the whole reason the default does not.
+
+**What the sandbox contains either way**, because it is worth knowing precisely: the frame
+has `sandbox="allow-scripts"` and nothing else — no `allow-same-origin` (an opaque origin,
+so it cannot read your page, your storage, or your API key), no `allow-forms`, no
+`allow-top-navigation`.
+
+**What nothing contains:** the frame navigating *itself*. Assigning `location.href` is a
+navigation, not a fetch — CSP's `navigate-to` was removed from the spec and never shipped,
+and a parent-page `frame-src` does not apply to it. A previewed artifact can therefore
+phone home once, and on Firefox and Safari render the page it navigated to inside the card.
+Verified in all three engines. Treat previewing model-authored HTML as running untrusted
+content in a box, not as running nothing — which is why the Preview tab requires a click
+rather than opening on its own.
+:::
 
 ### Markdown, highlight & sanitizer
 
@@ -79,19 +104,19 @@ HTML before it is injected via `innerHTML`.
 ### Locale
 
 Translatable UI strings (composer placeholder, Copy/Retry buttons, "thinking…", etc.).
-English ships in core as `DEFAULT_LOCALE`; other languages are injected.
+English ships in core as `APARTE_DEFAULT_LOCALE`; other languages are injected.
 
 - `setLocale(locale: AparteLocale): void` — replace the active locale.
 - `getLocale(): AparteLocale` — the active locale.
 - `extendLocale(translations: Partial<AparteLocale>): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
-- `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `DEFAULT_LOCALE`.
+- `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `APARTE_DEFAULT_LOCALE`.
 
 See the [Localization](/guides/localization/) guide.
 
 ### Icons & skeleton
 
 - `setIconProvider(provider: AparteIconProvider): void` — a set of icon functions (`() => string` HTML each), e.g. a FontAwesome bridge.
-- `getIconProvider(): AparteIconProvider` — the registered provider, or a fallback built from `DEFAULT_ICON_FALLBACKS`.
+- `getIconProvider(): AparteIconProvider` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`.
 - `getIcon(name: AparteIconName): string` — HTML for one icon by name, falling back to the built-in default.
 - `setSkeletonProvider(provider: AparteSkeletonProvider): void` — a custom loading-state generator (`getSkeleton(type) => string`).
 - `getSkeleton(type: AparteSkeletonType): string` — skeleton HTML for a type (`message` / `code` / `thinking` / `input` / `list` / `text`), via the provider or a minimal built-in fallback.
@@ -107,18 +132,71 @@ merged registry, a `zones` parameter picks where each appears.
 - `setActionHidden(id: string, hidden: boolean): void` — show/hide a composer action button at runtime.
 - `setBubbleActions(config: AparteBubbleActionsConfig): void` — configure which built-in buttons (`copy`/`retry`/`edit`/`feedback`/`info`) appear in bubbles, or set explicit per-role ordered lists. Only `copy` is on by default; the others need a host to honour them (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 - `getBubbleActions(): { copy, retry, edit, feedback, info, user?, assistant? }` — the resolved bubble-actions config (defaults applied).
-- `DEFAULT_BUBBLE_ACTIONS` — the shipped defaults, exported so you can read them instead of hard-coding them.
+- `APARTE_DEFAULT_BUBBLE_ACTIONS` — the shipped defaults, exported so you can read them instead of hard-coding them.
 
 ### Host handlers
 
 The affordances core renders but cannot complete — it only asks, through a DOM event, and
 your app does the work. Declare what you handle; the rest isn't offered.
 
-- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare `attachmentPreview` (image tiles ask for a lightbox via `aparte-attachment-preview`), `terminalRun` (the Run button on a terminal segment → `aparte-terminal-run`), and/or `artifactRedownload` (the download button on a **binary** artifact → `aparte-artifact-redownload`). All default to `false`.
-- `getHostHandlers(): { attachmentPreview, terminalRun, artifactRedownload }` — the resolved declarations.
-- `DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
+- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **four**:
+  - `attachmentPreview` — image tiles ask for a lightbox via `aparte-attachment-preview`.
+  - `terminalRun` — the Run button on a terminal segment → `aparte-terminal-run`.
+  - `artifactRedownload` — the download button on a **binary** artifact → `aparte-artifact-redownload`.
+  - `artifactRehydrate` — re-generating a **persisted** binary artifact when a saved conversation is re-opened → `aparte-artifact-ready`, dispatched on mount rather than at the end of a stream. Off by default for a stronger reason than the others: it is an automatic dispatch nobody asked for, carrying model-authored content the receiving app is expected to run. Reloading a conversation would otherwise re-execute whatever a prompt injection had persuaded the model to persist, on every reload.
+
+  All four default to `false`.
+- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all four fields present. `Required<…>` on purpose: adding a fifth handler then fails to compile until every reader handles it, which is how the fourth came to be added at all.
+- `APARTE_DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.
+
+#### Completing a binary artifact: the file-generation handshake
+
+For a `pdf`, `xlsx` or `docx` artifact, core renders the card and then **waits on
+your app**: it owns no sandbox and no file generator. It dispatches
+`aparte-artifact-ready` on `window`, and the card stays at *Running sandbox…* until
+you answer with one of two events. Answering is not optional — a card with no answer
+waits forever.
+
+```ts
+// The artifact core wants generated.
+window.addEventListener('aparte-artifact-ready', async (e) => {
+  // `AparteArtifactReadyEventDetail`: the artifact's identity plus its content —
+  // { messageId, segmentId, mimeType, artifactType, title?, content }.
+  const { segmentId, content, mimeType } = e.detail;
+  try {
+    // Your generator, in your sandbox. Core never executes the model's code.
+    const { buffer, mime, filename, previewHtml } = await generateInSandbox(content, mimeType);
+    window.dispatchEvent(new CustomEvent('aparte-file-gen-ready', {
+      detail: {
+        segmentId,
+        filename,
+        buffer,                       // the file itself: Uint8Array | ArrayBuffer
+        bytes: buffer.byteLength,     // its SIZE, for the card's label
+        mime,
+        previewHtml,                  // markup for the preview pane, or null
+      },
+    }));
+  } catch (error) {
+    window.dispatchEvent(new CustomEvent('aparte-file-gen-error', {
+      detail: { segmentId, phase: 'generate', error: String(error) },
+    }));
+  }
+});
+```
+
+`aparte-file-gen-ready` carries
+`{ segmentId, filename, buffer, bytes, mime, previewHtml }`. Note the two that read
+alike: `buffer` is the file (`Uint8Array | ArrayBuffer`), `bytes` is its **size** as
+a number. `previewHtml` is markup for the card's preview pane, or `null`.
+`aparte-file-gen-error` carries
+`{ segmentId, phase?, error? }` and puts the card into its failed state. Both are
+matched on `segmentId`, so several artifacts can be in flight at once.
+
+Re-opening a saved conversation dispatches `aparte-artifact-ready` again only if you
+declared `artifactRehydrate` — see the handler list above for why that is off by
+default.
 
 ### Tools & tool renderers
 
@@ -145,8 +223,8 @@ See the [Tools & human-in-the-loop](/guides/tools/) guide.
 
 ### Conversation manager
 
-- `setConversationManager(manager: ConversationManager): void` — register a `ConversationManager` so any UI controller can persist/load conversations without a framework coupling.
-- `getConversationManager(): ConversationManager | undefined` — the registered manager, if any.
+- `setConversationManager(manager: AparteConversationManager): void` — register a `AparteConversationManager` so any UI controller can persist/load conversations without a framework coupling.
+- `getConversationManager(): AparteConversationManager | undefined` — the registered manager, if any.
 
 See the [Conversation persistence](/guides/conversation-persistence/) guide.
 
@@ -193,8 +271,9 @@ Constructor options (all optional):
 | `targetResolver` | `() => HTMLElement \| null` | Resolve the render target when the default event-bubble walk / DOM scan can't reach it. |
 | `scopeToTargetId` | `string` | Scope this client instance to one target id, for multiple independent conversations on one page. |
 | `maxTurns` | `number` (default `10`) | Max agentic tool-call loop turns before the loop is forcibly stopped. |
+| `toolTimeoutMs` | `number` (default `300000` — 5 min) | Per-call ceiling for a tool handler to resolve before its `AbortSignal` fires. Same name and same default as `runStreamAgent`, so the value means one thing whichever loop runs. |
 | `rawFileInject` | `'all' \| 'images-only' \| 'none'` (default `'all'`) | Which attached files are injected as raw content parts vs. left to the app layer (e.g. a RAG pipeline). |
-| `config` | `AparteConfigClass` | The config instance this client reads. Defaults to the global `AparteConfig`. |
+| `config` | `AparteConfig` | The config instance this client reads. Defaults to `aparteGlobalConfig`. |
 
 ### Public methods
 
@@ -204,19 +283,52 @@ Constructor options (all optional):
 - `abort(): void` — abort the current streaming response and all active tool calls; dispatches `aparte-message-aborted` on the target element.
 - `compact(): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
 
+### The turn lifecycle events
+
+Dispatched on the target element (bubbling and composed), each stamped with the
+host's `targetId` so several chats on one page stay isolated. All four are in the
+typed event map, so `e.detail` is typed on an `<aparte-chat>` or a viewport — and,
+since 0.8.0, under the `node` export condition too.
+
+| Event | Detail | Fired when |
+|---|---|---|
+| `aparte-message-start` | `AparteMessageStartEventDetail` — `{ targetId?, messageId }` | the assistant turn begins, before the first token |
+| `aparte-message-done` | `AparteMessageDoneEventDetail` — `{ targetId?, messageId, usage? }` | the turn completed normally. `usage` carries the token counts when the provider reported them |
+| `aparte-message-aborted` | `AparteMessageAbortedEventDetail` | the user pressed Stop, or `abort()` was called |
+| `aparte-message-error` | `AparteMessageErrorEventDetail` | the turn failed. What already streamed stays rendered |
+| `aparte-artifact-start` | `AparteArtifactStartEventDetail` | an `<artifact>` block opened mid-stream |
+| `aparte-artifact-delta` | `AparteArtifactDeltaEventDetail` — carries a byte progress count | more of that artifact arrived |
+| `aparte-artifact-ready` | `AparteArtifactReadyEventDetail` | the artifact is complete. For a binary kind this is also the app's cue to generate the file — see the handshake above |
+
+Use them for what the chat itself does not do: a progress bar, a token-cost meter,
+analytics, or disabling an unrelated control while a turn is in flight.
+
+```ts
+// Typed because the event map is augmented — no cast needed on the element.
+const chat = document.querySelector('aparte-chat')!;
+
+chat.addEventListener('aparte-message-start', (e) => {
+  console.log('turn started for', e.detail.messageId);
+});
+
+chat.addEventListener('aparte-message-done', (e) => {
+  if (e.detail.usage) console.log('tokens', e.detail.usage.totalTokens);
+});
+```
+
 ## Transports
 
 A transport decides **where** a chat request goes and **how** the API key is handled.
-`AparteConfig.setTransport(...)` (default: `DirectTransport`) wires one in.
+`aparteGlobalConfig.setTransport(...)` (default: `AparteDirectTransport`) wires one in.
 
-- **`DirectTransport`** (`packages/core/src/transport/direct-transport.ts`) — calls the vendor
+- **`AparteDirectTransport`** (`packages/core/src/transport/direct-transport.ts`) — calls the vendor
   endpoint straight from the browser. The default; only safe for BYOK or local models. Options:
   `{ byok?: boolean }` — set `true` to silence the one-time insecure-key `console.warn`.
-- **`BackendTransport`** (`packages/core/src/transport/backend-transport.ts`) — POSTs
+- **`AparteBackendTransport`** (`packages/core/src/transport/backend-transport.ts`) — POSTs
   `{ providerId, request }` to your own endpoint; the key never reaches the browser. Options:
   `{ endpoint: string; headers?: Record<string,string>; buildBody?: (request, providerId) => unknown }`.
 - **`createAparteChatHandler(options)`** (`packages/core/src/transport/backend-handler.ts`) — builds
   the matching framework-free `/api/chat` handler (`(req: Request) => Promise<Response>`) for
-  `BackendTransport`: same `@aparte/provider-*` adapters, run server-side, key never leaves the server.
+  `AparteBackendTransport`: same `@aparte/provider-*` adapters, run server-side, key never leaves the server.
 
 See the [Backend transport](/guides/backend-transport/) guide for the full walkthrough.

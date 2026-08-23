@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { setupShikiProviderFromHighlighter, type ShikiHighlighterLike } from './core.js';
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import type { HighlighterCore } from 'shiki/core';
 
 /**
@@ -27,7 +27,7 @@ type Captured = ((code: string, lang: string) => string | Promise<string>) | und
 
 function captureProvider(): { get: () => Captured } {
     let captured: Captured;
-    vi.spyOn(AparteConfig, 'setHighlightProvider').mockImplementation((p) => {
+    vi.spyOn(aparteGlobalConfig, 'setHighlightProvider').mockImplementation((p) => {
         captured = p as Captured;
     });
     return { get: () => captured };

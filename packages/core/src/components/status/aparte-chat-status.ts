@@ -8,7 +8,7 @@
  * @attr {boolean} visible - Show/hide the indicator
  * @attr {string} text - Custom text (default: "Typing...")
  */
-import { AparteConfigClass } from '../../config/aparte-config.js';
+import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 
 /**
@@ -22,7 +22,16 @@ export class AparteChatStatus extends HTMLElement {
     return ['visible', 'text'];
   }
 
-  private _cfg!: AparteConfigClass;
+  /**
+   * Resolved LIVE, not cached. Caching it at connect made this element
+   * permanently deaf to its own instance: `_onConfigChange` filters on
+   * `detail.config !== this._cfg`, so once `_cfg` had latched the global config no
+   * change for the real instance ever matched, and the filter meant to isolate
+   * chats became the thing that silenced one.
+   */
+  private get _cfg(): AparteConfig {
+    return resolveConfig(this);
+  }
 
   constructor() {
     super();
@@ -31,7 +40,6 @@ export class AparteChatStatus extends HTMLElement {
   connectedCallback(): void {
     // Cache the resolved config (instance boundary or global fallback), like the
     // other Aparte elements — so a scoped setStatusRenderer applies here too.
-    this._cfg = resolveConfig(this);
     this._render();
     // Re-render on a live config change (e.g. setStatusRenderer called after this
     // element already upgraded — it self-registers on import, so a persistent
@@ -173,10 +181,4 @@ export class AparteChatStatus extends HTMLElement {
 // Register the custom element
 if (!customElements.get('aparte-chat-status')) {
   customElements.define('aparte-chat-status', AparteChatStatus);
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'aparte-chat-status': AparteChatStatus;
-  }
 }

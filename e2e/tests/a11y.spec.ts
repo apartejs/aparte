@@ -6,52 +6,12 @@
  */
 
 import { test, expect } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
 import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
 import { ChatPage } from '../helpers/chat.js';
-
-const GATED_IMPACTS = ['critical', 'serious'];
-
-/**
- * Let CSS transitions land before scanning.
- *
- * axe computes contrast from the **composited** colors, so a scan taken mid-fade
- * sees a half-transparent foreground and reports a violation that does not exist
- * once the animation settles. That is what made the idle scan fail intermittently
- * on the welcome block's fade-in (`#878387 on #f7f3ea`, 3.37:1 — a blend, not a
- * declared colour).
- *
- * Infinite animations are skipped on purpose: the typing dots and the spinners
- * never finish, by design.
- */
-async function settleTransitions(page: import('@playwright/test').Page) {
-    await page.evaluate(() => Promise.all(
-        document.getAnimations()
-            .filter((a) => {
-                const iterations = (a.effect as KeyframeEffect | null)?.getTiming?.().iterations;
-                return a.playState === 'running' && iterations !== Infinity;
-            })
-            .map((a) => a.finished.catch(() => undefined)),
-    ));
-}
-
-async function gatedViolations(page: import('@playwright/test').Page) {
-    await settleTransitions(page);
-    const results = await new AxeBuilder({ page }).analyze();
-    return results.violations
-        .filter((v) => v.impact && GATED_IMPACTS.includes(v.impact))
-        .map((v) => ({
-            id: v.id,
-            impact: v.impact,
-            description: v.description,
-            // The summary names the exact attribute/child that is missing, which is
-            // what makes a failure actionable instead of a puzzle.
-            nodes: v.nodes.slice(0, 3).map((n) => ({
-                target: n.target.join(' '),
-                summary: n.failureSummary?.replace(/\s+/g, ' ').slice(0, 300),
-            })),
-        }));
-}
+// The scan itself lives in a helper: a second spec needed it, and the two
+// subtleties it carries (settling transitions before measuring contrast, and
+// keeping only the gated severities) must not exist in two copies.
+import { gatedViolations } from '../helpers/axe.js';
 
 test.beforeEach(async ({ page }) => {
     await installLlmMock(page);
@@ -82,7 +42,7 @@ test('an open model dropdown has no critical/serious axe violations', async ({ p
     const chat = new ChatPage(page);
     await page.goto('/');
     await chat.waitUngated();
-    if ((await chat.modelTrigger.count()) === 0) test.skip(true, 'no model selector in this playground');
+    if ((await chat.modelTrigger.count()) === 0) test.skip(true, 'no model selector in this example');
 
     // Expanded, so the scan sees the options and their aria wiring, not just the
     // collapsed provider groups.

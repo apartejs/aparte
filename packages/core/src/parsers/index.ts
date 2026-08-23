@@ -5,5 +5,5 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 // rework): parseOpenAIStream lives on as @aparte/provider-openai-compat's
 // parseOpenAICompatStream; anthropic/gemini ride the AI SDK bridge
 // (@aparte/provider-ai-sdk); ollama is served via its OpenAI-compat /v1.
-// Core keeps only the Aparte-native NDJSON parser (BackendTransport's wire).
+// Core keeps only the Aparte-native NDJSON parser (AparteBackendTransport's wire).
 export { parseAparteEventStream } from './aparte-event-stream.js';

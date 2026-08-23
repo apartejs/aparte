@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { AparteMessage, AparteSegment } from '../types.js';
-import type { AparteChatHandle } from '../components/AparteChat.js';
+import type { AparteChatImperativeApi } from '@aparte/core';
 
 /**
  * Idiomatic React ergonomics for `<AparteChat>`. Owns the `messages` state and
@@ -26,7 +26,7 @@ export interface UseAparteChat {
     // typechecks verbatim — @types/react 18.3's variance rejects the
     // useRef(null) `RefObject<T | null>` shape against `Ref<T>`, so the (safe)
     // cast lives here once, not in every consumer.
-    ref: React.RefObject<AparteChatHandle>;
+    ref: React.RefObject<AparteChatImperativeApi>;
     // ── imperative helpers (delegate to the component handle) ──
     appendMessage: (message: AparteMessage) => void;
     updateMessage: (messageId: string, updates: Partial<AparteMessage>) => void;
@@ -48,12 +48,12 @@ export interface UseAparteChat {
 
 export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
     const [messages, setMessages] = useState<AparteMessage[]>(initial);
-    const ref = useRef<AparteChatHandle | null>(null);
+    const ref = useRef<AparteChatImperativeApi | null>(null);
     const h = () => ref.current;
     return {
         messages,
         setMessages,
-        ref: ref as React.RefObject<AparteChatHandle>,
+        ref: ref as React.RefObject<AparteChatImperativeApi>,
         appendMessage: (m) => h()?.appendMessage(m),
         updateMessage: (id, u) => h()?.updateMessage(id, u),
         updateLastMessage: (c, o) => h()?.updateLastMessage(c, o),

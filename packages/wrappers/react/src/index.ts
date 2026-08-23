@@ -4,7 +4,12 @@
  */
 
 export { AparteChat } from './components/AparteChat.js';
-export type { AparteChatProps, AparteChatHandle } from './components/AparteChat.js';
+export type { AparteChatProps } from './components/AparteChat.js';
+// The imperative surface, re-exported straight from `@aparte/core` — the single
+// source of truth. This wrapper used to alias it as `AparteChatHandle`, Vue and
+// Svelte as `AparteChatInstance`, and Angular exposed no name at all: one
+// contract wearing three names in a suite that ships all four together.
+export type { AparteChatImperativeApi } from '@aparte/core';
 
 // Idiomatic ergonomics: a hook that owns the messages state + component ref.
 export { useAparteChat } from './hooks/useAparteChat.js';
@@ -60,7 +65,6 @@ interface AparteIntrinsicElements {
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-namespace -- JSX augmentation requires a namespace
     namespace JSX {
-        // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges the shared list in
         interface IntrinsicElements extends AparteIntrinsicElements {}
     }
 }
@@ -68,7 +72,6 @@ declare global {
 declare module 'react' {
     // eslint-disable-next-line @typescript-eslint/no-namespace -- React 19 resolves React.JSX
     namespace JSX {
-        // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- merges the shared list in
         interface IntrinsicElements extends AparteIntrinsicElements {}
     }
 }

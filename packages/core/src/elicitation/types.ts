@@ -1,6 +1,6 @@
 /**
  * Elicitation — the generic "pause the run and ask the user for typed input"
- * primitive. Generalises the bespoke `ask_question` tool: the KIND of question
+ * primitive. Generalises the bespoke `ask_user` tool: the KIND of question
  * is carried by a flat schema, not by a dedicated tool. Shape is aligned with
  * MCP elicitation (message + requested schema, accept/decline/cancel), but the
  * mechanism is transport-agnostic and framework-agnostic — a typed presenter
@@ -11,6 +11,15 @@
 export interface AparteElicitationEnumField {
     type: 'enum';
     title?: string;
+    /**
+     * A SHORT label for this question — two or three words, no sentence.
+     *
+     * A multi-question form is presented one question at a time, with a chip per
+     * question, and a chip cannot hold a sentence. `title` is the question as the
+     * user reads it; `header` is how it is referred to. Omitted, the chip falls back
+     * to the question's position, which is honest and never truncates badly.
+     */
+    header?: string;
     description?: string;
     options: Array<{ value: string; label?: string; description?: string; recommended?: boolean }>;
     /** Checkboxes (multi-select) instead of radios. */
@@ -25,6 +34,15 @@ export interface AparteElicitationEnumField {
 export interface AparteElicitationBooleanField {
     type: 'boolean';
     title?: string;
+    /**
+     * A SHORT label for this question — two or three words, no sentence.
+     *
+     * A multi-question form is presented one question at a time, with a chip per
+     * question, and a chip cannot hold a sentence. `title` is the question as the
+     * user reads it; `header` is how it is referred to. Omitted, the chip falls back
+     * to the question's position, which is honest and never truncates badly.
+     */
+    header?: string;
     description?: string;
     default?: boolean;
     /** Labels for the two choices (fall back to the locale yes/no). */
@@ -36,6 +54,15 @@ export interface AparteElicitationBooleanField {
 export interface AparteElicitationStringField {
     type: 'string';
     title?: string;
+    /**
+     * A SHORT label for this question — two or three words, no sentence.
+     *
+     * A multi-question form is presented one question at a time, with a chip per
+     * question, and a chip cannot hold a sentence. `title` is the question as the
+     * user reads it; `header` is how it is referred to. Omitted, the chip falls back
+     * to the question's position, which is honest and never truncates badly.
+     */
+    header?: string;
     description?: string;
     placeholder?: string;
     default?: string;
@@ -94,7 +121,7 @@ export type AparteElicitationResult =
 
 /**
  * Presents an elicitation request and resolves with the user's response.
- * Registered per config instance via `AparteConfig.setElicitationPresenter`
+ * Registered per config instance via `aparteGlobalConfig.setElicitationPresenter`
  * (the `<aparte-elicitation>` Web Component is the default presenter).
  */
 export type AparteElicitationPresenter = (request: AparteElicitationRequest) => Promise<AparteElicitationResult>;

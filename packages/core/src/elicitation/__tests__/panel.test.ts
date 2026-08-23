@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildElicitationPanel } from '../panel';
+import { aparteGlobalConfig, runWithConfig, AparteConfig } from '../../config/index.js';
 import type { AparteElicitationSchema } from '../types';
 
 const noop = () => {};
@@ -14,6 +15,374 @@ describe('buildElicitationPanel', () => {
     it('renders the message', () => {
         const p = buildElicitationPanel('Pick one', { type: 'enum', options: [{ value: 'a' }] }, noop);
         expect(p.el.querySelector('.aparte-elic-message')!.textContent).toBe('Pick one');
+    });
+
+    /**
+     * The panel's own words are the user's words.
+     *
+     * "Other…", its placeholder, its accessible name and "Skip" were hardcoded
+     * English, so a French model's questions arrived under English chrome — visible
+     * the first time anyone ran this with a non-English locale. The keys are
+     * OPTIONAL and `t()` falls back to `APARTE_DEFAULT_LOCALE` per key, so an
+     * existing locale package keeps compiling and keeps working.
+     */
+    /**
+     * A group of choices has to be NAMED by the question it answers.
+     *
+     * Nothing tied the `<p>` holding the question to the list of radios below it, so
+     * a screen reader announced "Chromium, radio button, 1 of 2" with no question
+     * attached — and in the multi-question form, several such lists in a row with no
+     * way to tell which was which. `role="radiogroup"` + `aria-labelledby` rather
+     * than `<fieldset><legend>`: same semantics, and it changes no layout.
+     */
+    /**
+     * Who decides whether a choice offers a free-text escape.
+     *
+     * It used to be a hardcoded `true` in the panel and a field in the schema the
+     * MODEL fills — so the model decided the host's UX, and a small one filled it
+     * without understanding it. It is now the host's policy, overridable per field by
+     * an app calling `requestUserInput` directly.
+     */
+    describe('the free-text escape is the host\'s policy', () => {
+        const plain: AparteElicitationSchema = { type: 'enum', options: [{ value: 'a' }] };
+        const other = (panel: { el: HTMLElement }) => panel.el.querySelector('.aparte-elic-option--other');
+
+        it('is offered by default', () => {
+            expect(other(buildElicitationPanel('?', plain, noop))).not.toBeNull();
+        });
+
+        it('can be turned off for the whole surface', () => {
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ allowOther: false });
+            expect(other(runWithConfig(cfg, () => buildElicitationPanel('?', plain, noop)))).toBeNull();
+        });
+
+        it('and a field that says so wins over the policy — that is the app talking', () => {
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ allowOther: false });
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', { ...plain, allowOther: true }, noop));
+            expect(other(p)).not.toBeNull();
+        });
+    });
+
+    /**
+     * A consumer can replace ONE field and keep the rest.
+     *
+     * Until this hook existed the surface was all-or-nothing: the built-in panel, or
+     * `setElicitationPresenter` and you reimplemented placement, accept/decline/
+     * cancel, send-button gating, focus and teardown. Every other customisation point
+     * in this library is a hook; this one was missing.
+     */
+    /**
+     * Several questions are asked ONE AT A TIME.
+     *
+     * Stacking them in one box came from MCP elicitation without being examined:
+     * MCP describes a form for collecting structured data, which is not the same
+     * thing as asking a person two questions in the middle of a conversation. No
+     * product does the latter by stacking, and the shape they all use — one question
+     * at a time, a chip per question — is what `header` exists for.
+     *
+     * The protocol is untouched: `isComplete()` still means every required field, so
+     * the composer's send button still means submit and advancing is the panel's own
+     * affordance.
+     */
+    describe('a form of several questions', () => {
+        const twoQuestions: AparteElicitationSchema = {
+            type: 'object',
+            properties: {
+                q1: { type: 'enum', title: 'Which colour?', header: 'Colour', options: [{ value: 'blue' }] },
+                q2: { type: 'enum', title: 'Which shape?', header: 'Shape', options: [{ value: 'round' }] },
+            },
+        };
+        const visible = (p: { el: HTMLElement }) =>
+            Array.from(p.el.querySelectorAll<HTMLElement>('.aparte-elic-field')).filter((f) => !f.hidden);
+        const chips = (p: { el: HTMLElement }) =>
+            Array.from(p.el.querySelectorAll<HTMLButtonElement>('.aparte-elic-step'));
+
+        it('shows one question, with a chip per question', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            expect(visible(p), 'one question on screen, not two').toHaveLength(1);
+            expect(visible(p)[0]!.textContent).toContain('Which colour?');
+            expect(chips(p).map((c) => c.textContent)).toEqual(['Colour', 'Shape']);
+        });
+
+        it('falls back to the position when the model gave no short label', () => {
+            const p = buildElicitationPanel('', {
+                type: 'object',
+                properties: { q1: { type: 'string', title: 'A?' }, q2: { type: 'string', title: 'B?' } },
+            }, noop);
+            // A number, not a truncated sentence: a chip cannot hold a question.
+            expect(chips(p).map((c) => c.textContent)).toEqual(['1', '2']);
+        });
+
+        it('has NO next button — a tab is the navigation', () => {
+            // A stepped form usually grows a Next button, and this one did: which then
+            // needed a disabled state, a hidden state on the last question, a row that
+            // reserved its height so hiding it did not move the panel, and a rule about
+            // whether it or the composer's send button was the real submit. The
+            // reference implementations have none of it; clicking a tab moves you, and
+            // it is also how you go back, so one affordance does both.
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            expect(p.el.querySelector('.aparte-elic-next')).toBeNull();
+            expect(chips(p), 'the tabs are what you click').toHaveLength(2);
+        });
+
+        it('a tab moves to its question', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            chips(p)[1]!.click();
+            expect(visible(p)[0]!.textContent).toContain('Which shape?');
+        });
+
+        it('is not submittable until every question is answered', () => {
+            // With no Next button this is the whole progress mechanism: the tabs show
+            // what is answered, and the send button stays disabled until they all are.
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            select(p.el, 'blue');
+            expect(p.isComplete(), 'one of two answered').toBe(false);
+
+            chips(p)[1]!.click();
+            select(p.el, 'round');
+
+            expect(p.isComplete()).toBe(true);
+            expect(p.getContent()).toEqual({ q1: 'blue', q2: 'round' });
+        });
+
+        it('the whole-request escape sits in a corner, not beside the question controls', () => {
+            // Position, not decoration. It was a row at the bottom next to the button
+            // that advances through the form, and adjacency promised "skip THIS
+            // question" while it declines the lot. Nothing in the corner changes as you
+            // move between questions either, so the panel never changes height.
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            expect(p.el.contains(p.dismiss), 'the corner belongs to the panel').toBe(true);
+            expect(p.el.querySelector('.aparte-elic-footer'), 'the bottom row is gone').toBeNull();
+            const before = p.dismiss.childElementCount;
+
+            select(p.el, 'blue');
+            chips(p)[1]!.click();
+
+            expect(p.dismiss.childElementCount, 'the corner is unchanged').toBe(before);
+        });
+
+        it('a chip goes back to a question already answered', () => {
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            select(p.el, 'blue');
+            chips(p)[1]!.click();
+            expect(visible(p)[0]!.textContent).toContain('Which shape?');
+
+            chips(p)[0]!.click();
+
+            expect(visible(p)[0]!.textContent, 'free navigation, not a hunt for a Back button').toContain('Which colour?');
+            expect(chips(p)[0]!.getAttribute('aria-selected')).toBe('true');
+            expect(chips(p)[0]!.hasAttribute('data-answered'), 'and it shows as answered').toBe(true);
+        });
+
+        it('the composer button advances, then submits on the last question', () => {
+            // One button, four meanings — send, stop, advance, submit. Giving it the
+            // fourth is why this panel needs no Next of its own: no second row, no
+            // height that changes, and the tabs stay for jumping around. A check on a
+            // form with two questions left was as wrong as a paper plane was.
+            const p = buildElicitationPanel('', twoQuestions, noop);
+            expect(p.mode()).toBe('advance');
+            expect(p.canProceed(), 'nothing answered yet').toBe(false);
+
+            select(p.el, 'blue');
+            expect(p.canProceed(), 'THIS question answered is enough to advance').toBe(true);
+
+            p.proceed();
+            expect(p.mode(), 'the last question submits').toBe('submit');
+            expect(p.canProceed(), 'and submitting needs them ALL').toBe(false);
+
+            select(p.el, 'round');
+            expect(p.canProceed()).toBe(true);
+            expect(p.isComplete()).toBe(true);
+        });
+
+        it('a single question only ever submits', () => {
+            const p = buildElicitationPanel('?', { type: 'enum', options: [{ value: 'a' }] }, noop);
+            expect(p.mode()).toBe('submit');
+            p.proceed();   // a no-op, and must not throw
+            expect(p.mode()).toBe('submit');
+        });
+
+        it('a single question is never stepped', () => {
+            const p = buildElicitationPanel('', {
+                type: 'object',
+                properties: { q1: { type: 'enum', title: 'Only one?', options: [{ value: 'a' }] } },
+            }, noop);
+            expect(chips(p), 'one question needs no chips').toHaveLength(0);
+            expect(visible(p)).toHaveLength(1);
+        });
+
+        it('the host can ask for the form shape instead', () => {
+            // MCP's case — collecting structured data in one go — is real. It is just
+            // not what asking someone two questions looks like.
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ layout: 'stacked' });
+            const p = runWithConfig(cfg, () => buildElicitationPanel('', twoQuestions, noop));
+
+            expect(visible(p), 'both questions at once').toHaveLength(2);
+            expect(chips(p)).toHaveLength(0);
+        });
+    });
+
+    describe('a custom field renderer', () => {
+        function chips(): AparteConfig {
+            const cfg = new AparteConfig();
+            cfg.setElicitationFieldRenderer((field, ctx) => {
+                if (field.type !== 'enum') return null;   // the built-in keeps the rest
+                const el = document.createElement('div');
+                el.className = 'my-chips';
+                let picked = '';
+                for (const opt of field.options) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = opt.label ?? opt.value;
+                    b.addEventListener('click', () => { picked = opt.value; ctx.notifyChange(); });
+                    el.appendChild(b);
+                }
+                return { el, getValue: () => picked, isComplete: () => picked !== '' };
+            });
+            return cfg;
+        }
+
+        it('renders instead of the built-in, and its value is the answer', () => {
+            const cfg = chips();
+            let changes = 0;
+            const p = runWithConfig(cfg, () => buildElicitationPanel(
+                '?',
+                { type: 'enum', options: [{ value: 'a' }, { value: 'b' }] },
+                () => { changes += 1; },
+            ));
+
+            expect(p.el.querySelector('.my-chips'), 'the custom field is placed').not.toBeNull();
+            expect(p.el.querySelector('.aparte-elic-options'), 'and the built-in is not').toBeNull();
+            expect(p.isComplete()).toBe(false);
+
+            p.el.querySelectorAll('button')[1]!.click();
+
+            expect(changes, 'notifyChange reaches the panel, which re-gates the send button').toBe(1);
+            expect(p.isComplete()).toBe(true);
+            expect(p.getContent()).toBe('b');
+        });
+
+        it('returning null falls back to the built-in for that kind', () => {
+            const p = runWithConfig(chips(), () => buildElicitationPanel('?', { type: 'string' }, noop));
+            expect(p.el.querySelector('.my-chips')).toBeNull();
+            expect(p.el.querySelector('.aparte-elic-text'), 'the built-in text field').not.toBeNull();
+        });
+
+        it('is told which question it is answering in a form', () => {
+            const seen: Array<string | undefined> = [];
+            const cfg = new AparteConfig();
+            cfg.setElicitationFieldRenderer((field, ctx) => {
+                seen.push(ctx.key);
+                void field;
+                const el = document.createElement('div');
+                return { el, getValue: () => '', isComplete: () => true };
+            });
+
+            runWithConfig(cfg, () => buildElicitationPanel('', {
+                type: 'object',
+                properties: { q1: { type: 'string' }, q2: { type: 'string' } },
+            }, noop));
+
+            expect(seen, 'the form key, so a renderer can vary per question').toEqual(['q1', 'q2']);
+        });
+    });
+
+    /**
+     * The schema vocabulary is CLOSED, and small on purpose: a custom presenter or
+     * field renderer can `switch` over it exhaustively. Nothing said so, and nothing
+     * stopped it growing quietly — this test is what makes adding a kind a decision
+     * with a paper trail rather than a commit.
+     */
+    describe('the schema vocabulary', () => {
+        it('is exactly three field kinds, plus the object form', () => {
+            const kinds: AparteElicitationSchema[] = [
+                { type: 'enum', options: [{ value: 'a' }] },
+                { type: 'boolean' },
+                { type: 'string' },
+            ];
+            for (const schema of kinds) {
+                expect(buildElicitationPanel('?', schema, noop).el.querySelector('.aparte-elic-field')).not.toBeNull();
+            }
+            expect(kinds, 'adding a kind means updating the guides that promise exhaustiveness').toHaveLength(3);
+
+            const form = buildElicitationPanel('', { type: 'object', properties: { a: { type: 'string' } } }, noop);
+            expect(form.el.querySelector('.aparte-elic-field')).not.toBeNull();
+        });
+    });
+
+    describe('accessible grouping', () => {
+        it('names a single question group from the panel message', () => {
+            const p = buildElicitationPanel('Which engine?', { type: 'enum', options: [{ value: 'a' }] }, noop);
+            const list = p.el.querySelector('.aparte-elic-options')!;
+            expect(list.getAttribute('role')).toBe('radiogroup');
+            // No field title in this shape — the message IS the question.
+            expect(list.getAttribute('aria-label')).toBe('Which engine?');
+        });
+
+        it('names each question of a form from its own title', () => {
+            const p = buildElicitationPanel('', {
+                type: 'object',
+                properties: {
+                    q1: { type: 'enum', title: 'Colour?', options: [{ value: 'blue' }] },
+                    q2: { type: 'enum', title: 'Shape?', options: [{ value: 'round' }] },
+                },
+            }, noop);
+
+            const lists = Array.from(p.el.querySelectorAll('.aparte-elic-options'));
+            expect(lists).toHaveLength(2);
+            const names = lists.map((list) => {
+                const id = list.getAttribute('aria-labelledby');
+                return id ? p.el.querySelector(`#${id}`)?.textContent : null;
+            });
+            expect(names, 'each group points at its own question').toEqual(['Colour?', 'Shape?']);
+        });
+
+        it('a multi-select is a group, not a radiogroup', () => {
+            const p = buildElicitationPanel('?', { type: 'enum', multiple: true, options: [{ value: 'a' }] }, noop);
+            expect(p.el.querySelector('.aparte-elic-options')!.getAttribute('role')).toBe('group');
+        });
+
+        it('a yes/no question is a named radiogroup too', () => {
+            const p = buildElicitationPanel('Proceed?', { type: 'boolean' }, noop);
+            const list = p.el.querySelector('.aparte-elic-options')!;
+            expect(list.getAttribute('role')).toBe('radiogroup');
+            expect(list.getAttribute('aria-label')).toBe('Proceed?');
+        });
+
+        it('a free-text field takes its accessible name from the question', () => {
+            const p = buildElicitationPanel('Your name?', { type: 'string' }, noop);
+            expect(p.el.querySelector('.aparte-elic-text')!.getAttribute('aria-label')).toBe('Your name?');
+        });
+    });
+
+    describe('localisation', () => {
+        const withOther: AparteElicitationSchema = { type: 'enum', options: [{ value: 'a' }], allowOther: true };
+
+        it('takes the free-text option and its placeholder from the locale', () => {
+            const cfg = new AparteConfig();
+            cfg.setLocale({ ...aparteGlobalConfig.getLocale(), elicitationOther: 'Autre…', elicitationOtherPlaceholder: 'Votre réponse…' });
+
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', withOther, noop));
+
+            expect(p.el.querySelector('.aparte-elic-option--other .aparte-elic-option-title')!.textContent).toBe('Autre…');
+            expect(p.el.querySelector<HTMLInputElement>('.aparte-elic-other-input')!.placeholder).toBe('Votre réponse…');
+        });
+
+        it('falls back to English for a locale that predates these keys', () => {
+            const cfg = new AparteConfig();
+            // A locale package built before the keys existed: every other key set,
+            // these four absent. `t()` must reach the default, not print the key.
+            cfg.setLocale({ ...aparteGlobalConfig.getLocale(), elicitationOther: undefined });
+
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', withOther, noop));
+
+            const label = p.el.querySelector('.aparte-elic-option--other .aparte-elic-option-title')!.textContent;
+            expect(label).toBe('Other…');
+            expect(label, 'never the raw key').not.toBe('elicitationOther');
+        });
     });
 
     describe('enum', () => {

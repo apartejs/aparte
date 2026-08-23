@@ -55,7 +55,7 @@ export interface StreamRunOptions {
      * closed over by the adapter.
      */
     transportCall: (request: StreamChatRequest) => Promise<AsyncIterable<StreamChatEvent> | string>;
-    /** Resolves a tool's handler by name (mirrors `AparteConfig.getToolHandler`). */
+    /** Resolves a tool's handler by name (mirrors `aparteGlobalConfig.getToolHandler`). */
     toolLookup: (name: string) => StreamToolHandler | undefined;
     /** Resolves a tool's loop config by name (maxTurns / needsApproval). */
     toolConfigLookup?: (name: string) => StreamToolConfig | undefined;
@@ -100,6 +100,19 @@ export interface StreamRunOptions {
  * the caller (adapter) routes that to its lifecycle-error handler, exactly as
  * `_handleSend`/`_handleRetry`/`_handleEdit` catch `_streamLoop`.
  */
+/** Warn once per event type for something this version does not map, then skip it. */
+const warnedUnknownEvents = new Set<string>();
+function warnUnknownStreamEvent(event: unknown): void {
+    const type = String((event as { type?: unknown })?.type ?? 'undefined');
+    if (warnedUnknownEvents.has(type)) return;
+    warnedUnknownEvents.add(type);
+    console.warn(
+        `[runStreamAgent] Ignoring unrecognised stream event "${type}". The reply is`
+        + ' unaffected; this usually means the provider or its SDK emits a part this'
+        + ' version of aparté does not map yet.',
+    );
+}
+
 export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsage | undefined> {
     const {
         transportCall,
@@ -173,7 +186,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             !Array.isArray(toolChoice) &&
             (toolChoice as { input?: unknown }).input !== undefined
         ) {
-            const tc = toolChoice as { name: string; input: unknown };
+            // Narrowed to the declared shape rather than `input: unknown`: now that
+            // `StreamChatRequest.toolChoice` mirrors core's type, the cast can be exact.
+            const tc = toolChoice as { name: string; input: Record<string, unknown> };
             const syntheticId = idGen('synthetic-tool');
             emitter({ type: 'tool-start', toolCallId: syntheticId, name: tc.name, input: tc.input });
 
@@ -216,13 +231,46 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         }
 
         const request: StreamChatRequest = { ...baseRequest, messages: phaseMessages, _meta: phaseMeta };
-        const response = await transportCall(request);
+        // A stop that lands before the first event surfaces here as a REJECTION,
+        // not as an `error` event — the fetch is aborted while still in flight, so
+        // it never reaches the stream the loop reads. Letting it propagate made a
+        // deliberate stop indistinguishable from a transport failure for anyone
+        // driving this loop directly. (Core's `_streamTurn` has the mirror of this
+        // guard; the browser suite is what found the path, after the two
+        // event-level guards were already closed.)
+        let response: Awaited<ReturnType<typeof transportCall>>;
+        try {
+            response = await transportCall(request);
+        } catch (err: unknown) {
+            if (signal.aborted || (err as { name?: string } | undefined)?.name === 'AbortError') {
+                // `break`, not `return`: the post-loop `run-done` below is documented
+                // as running on EVERY exit path, and five of the six abort paths fall
+                // through to it. Returning here skipped it, so a consumer wiring
+                // `runStreamAgent` + `createStreamAdapter` directly never got the
+                // `completed` status and the bubble stayed flagged streaming — which
+                // is verbatim the defect the client-side guard was added to fix.
+                emitter({ type: 'run-aborted' });
+                continueLoop = false;
+                break;
+            }
+            throw err;
+        }
 
         // Non-streaming provider: the string IS the full assistant message. The
         // adapter writes it and completes (no done{usage}); spike scenarios
         // always stream, so we finish the run here.
+        //
+        // `text-flush` is not optional here. It is the adapter's ONLY caller of
+        // `parser.finalize()`, and the parser deliberately withholds an ambiguous
+        // tail — a lone backtick, a triple backtick, a `<`, or the safe window
+        // inside an unterminated fence. Breaking out before the flush dropped all
+        // of it, so a non-streaming reply ending on any of those characters lost
+        // them and one consisting only of them rendered nothing at all. Core's
+        // inline loop does `parse()` AND `finalize()` on its whole-response
+        // branch; this is the twin.
         if (typeof response === 'string') {
             emitter({ type: 'text-delta', delta: response });
+            emitter({ type: 'text-flush' });
             break;
         }
 
@@ -266,18 +314,28 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         let precedingText = '';
         const toolCallsThisTurn: StreamToolCall[] = [];
 
-        // ── inner (SSE) loop — manual iteration so we can abort before each read
+        // ── inner (SSE) loop — manual iteration so we can abort around each read.
+        // Checked on BOTH sides of the read, and the second check is the one that
+        // matters: the loop spends nearly all of its time parked on `next()`, so an
+        // abort arriving while parked — the user pressing Stop while watching text
+        // stream — is invisible to a check that only runs before the await. It also
+        // covers both shapes a provider takes on abort: an `error` event or a quiet
+        // close. Without it the `error` branch below throws and the caller reports a
+        // deliberate stop as a failure. Mirrors `_streamLoop`'s `bailOnAbort`.
         const iterator = response[Symbol.asyncIterator]();
+        const bailOnAbort = async (): Promise<boolean> => {
+            if (!signal.aborted) return false;
+            await iterator.return?.(undefined);
+            emitter({ type: 'run-aborted' });
+            continueLoop = false;
+            return true;
+        };
         try {
             while (true) {
-                if (signal.aborted) {
-                    await iterator.return?.(undefined);
-                    emitter({ type: 'run-aborted' });
-                    continueLoop = false;
-                    break;
-                }
+                if (await bailOnAbort()) break;
 
                 const step = await iterator.next();
+                if (await bailOnAbort()) break;
                 if (step.done) break;
                 const event = step.value;
 
@@ -315,7 +373,22 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     throw new Error(event.message);
                 }
 
-                // event.type === 'tool_use'
+                // A DISCRIMINANT GUARD, not a comment.
+                //
+                // This used to be the bare comment `// event.type === 'tool_use'`, so
+                // anything the chain above did not recognise fell in here and was
+                // treated as a tool call: a `tool-start` / `tool-aborted` pair with an
+                // undefined id and name, and — worse — the rest of the stream was
+                // never processed, so the reply was truncated too.
+                //
+                // Core's inline loop had the opposite failure on the same input (it
+                // threw and replaced the reply with an error bubble). Both now ignore
+                // the event and carry on, which is what forward compatibility with a
+                // provider SDK actually requires.
+                if (event.type !== 'tool_use') {
+                    warnUnknownStreamEvent(event);
+                    continue;
+                }
                 toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
 
                 // Built-in create_artifact: bypass the generic tool path entirely
@@ -380,14 +453,33 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     toolTimeoutMs,
                 );
                 if (outcome.status === 'aborted') {
+                    // Same rule as the rejection / turn-limit / missing-handler
+                    // exits above, which this branch was missing: a stopped turn
+                    // must not go on running the tool calls that follow it.
                     emitter({ type: 'tool-aborted', toolCallId: event.id });
                     continueLoop = false;
+                    break;
                 } else {
                     emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content });
                     pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
                     append({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
                 }
             }
+
+            // artifactXml finalize comes FIRST, and the order is load-bearing.
+            //
+            // Its `scanning` branch hands back text the machine was holding — a
+            // proper prefix of `<artifact` it could not yet classify. That text
+            // travels as `chat-text` -> `text-delta`, and the adapter feeds every
+            // `text-delta` into the parser. Emitted AFTER `text-flush` it reached a
+            // parser that had already been finalized and never would be again, and
+            // since every held value is a prefix of the open tag the parser
+            // withholds all of them: the loss was total, not probabilistic.
+            //
+            // Core's twin sidesteps this by bypassing its parser entirely for held
+            // text. This side cannot — the adapter owns the parser — so it flushes
+            // in the right order instead.
+            if (xmlMachine) emitXml(xmlMachine.finalize());
 
             // Turn boundary: finalize the parser (flush residual text). Mirrors
             // `_streamLoop`'s `textParser.finalize()` call — runs on normal
@@ -401,9 +493,8 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 const inline = rawContent.split('\n').length < 15;
                 emitter({ type: 'artifact-close', id: rawSegId, content: rawContent, inline });
             }
-            // artifactXml finalize flushes a truncated (unclosed) artifact —
-            // after text-flush, mirroring the finalize-block order in _streamLoop.
-            if (xmlMachine) emitXml(xmlMachine.finalize());
+            // (artifactXml finalize ran above, before the parser flush — its held
+            // text has to reach the parser while the parser can still be flushed.)
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator.
             await iterator.return?.(undefined).catch(() => { /* best effort */ });
@@ -478,10 +569,34 @@ async function invokeToolHandler(
     const controller = new AbortController();
     const onParentAbort = () => controller.abort();
     signal.addEventListener('abort', onParentAbort, { once: true });
-    const timeout = setTimeout(() => controller.abort(), toolTimeoutMs);
+
+    /*
+     * RACED, not just signalled.
+     *
+     * Aborting the controller is a request the handler is free to ignore, and the
+     * default shape of a consumer tool ignores it —
+     * `async () => ({ content: await fetch(...).then(r => r.text()) })` never reads
+     * its signal. So the timeout fired, nothing rejected, and the loop waited
+     * forever on an option whose JSDoc promises a timeout.
+     *
+     * The signal still fires first, because a handler that DOES honour it should
+     * get the chance to clean up and reject on its own terms; the race is what
+     * makes the promise true when it does not.
+     */
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<{ status: 'aborted' }>((resolve) => {
+        timeout = setTimeout(() => {
+            controller.abort();
+            resolve({ status: 'aborted' });
+        }, toolTimeoutMs);
+    });
+
     try {
-        const result = await handler(call, controller.signal);
-        return { status: 'resolved', content: result.content };
+        const result = await Promise.race([
+            handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content })),
+            timedOut,
+        ]);
+        return result;
     } catch (err: unknown) {
         if ((err as { name?: string })?.name === 'AbortError') return { status: 'aborted' };
         throw err;

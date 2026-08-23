@@ -21,12 +21,12 @@ import '../../components/bubble/aparte-chat-bubble.js';
 import '../../components/composer/aparte-composer.js';
 import '../../components/viewport/aparte-chat-viewport.js';
 import '../../components/conversation-list/aparte-conversation-list.js';
-import { AparteConfig } from '../aparte-config.js';
-import { DEFAULT_LOCALE, type AparteLocale } from '../locale.js';
+import { aparteGlobalConfig } from '../aparte-config.js';
+import { APARTE_DEFAULT_LOCALE, type AparteLocale } from '../locale.js';
 
 /** A locale that differs in every string this file asserts on. */
 const FR: AparteLocale = {
-    ...DEFAULT_LOCALE,
+    ...APARTE_DEFAULT_LOCALE,
     roleNameUser: 'Vous',
     roleNameAssistant: 'Assistant IA',
     previousResponse: 'Réponse précédente',
@@ -36,7 +36,7 @@ const FR: AparteLocale = {
 };
 
 /** Same, plus a right-to-left reading direction. */
-const AR: AparteLocale = { ...DEFAULT_LOCALE, direction: 'rtl', roleNameUser: 'أنت' };
+const AR: AparteLocale = { ...APARTE_DEFAULT_LOCALE, direction: 'rtl', roleNameUser: 'أنت' };
 
 const mounted: HTMLElement[] = [];
 function mount<T extends HTMLElement>(tag: string, attrs: Record<string, string> = {}): T {
@@ -50,7 +50,7 @@ function mount<T extends HTMLElement>(tag: string, attrs: Record<string, string>
 afterEach(() => {
     while (mounted.length) mounted.pop()!.remove();
     document.body.innerHTML = '';
-    AparteConfig.reset();
+    aparteGlobalConfig.reset();
 });
 
 describe('a live locale switch reaches a mounted bubble', () => {
@@ -58,7 +58,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
         const bubble = mount('aparte-chat-bubble', { role: 'user', 'message-id': 'u1' });
         expect(bubble.querySelector('.aparte-name')?.textContent).toBe('You');
 
-        AparteConfig.setLocale(FR);
+        aparteGlobalConfig.setLocale(FR);
 
         expect(bubble.querySelector('.aparte-name')?.textContent).toBe('Vous');
     });
@@ -66,17 +66,17 @@ describe('a live locale switch reaches a mounted bubble', () => {
     it('renames an assistant bubble too, and switches back on resetLocale()', () => {
         const bubble = mount('aparte-chat-bubble', { role: 'assistant', 'message-id': 'a1' });
 
-        AparteConfig.setLocale(FR);
+        aparteGlobalConfig.setLocale(FR);
         expect(bubble.querySelector('.aparte-name')?.textContent).toBe('Assistant IA');
 
-        AparteConfig.resetLocale();
+        aparteGlobalConfig.resetLocale();
         expect(bubble.querySelector('.aparte-name')?.textContent).toBe('Assistant');
     });
 
     it('leaves an explicit name attribute alone — the app outranks the locale', () => {
         const bubble = mount('aparte-chat-bubble', { role: 'user', 'message-id': 'u2', name: 'Paul' });
 
-        AparteConfig.setLocale(FR);
+        aparteGlobalConfig.setLocale(FR);
 
         expect(bubble.querySelector('.aparte-name')?.textContent).toBe('Paul');
     });
@@ -84,7 +84,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
     it('re-labels the branch arrows and the action toolbar (announced strings)', () => {
         const bubble = mount('aparte-chat-bubble', { role: 'assistant', 'message-id': 'a2' });
 
-        AparteConfig.setLocale(FR);
+        aparteGlobalConfig.setLocale(FR);
 
         expect(bubble.querySelector('.aparte-branch-prev')?.getAttribute('aria-label'))
             .toBe('Réponse précédente');
@@ -98,7 +98,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
         const bubble = mount('aparte-chat-bubble', { role: 'assistant', 'message-id': 'a3', streaming: '' });
         expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Typing...');
 
-        AparteConfig.setLocale(FR);
+        aparteGlobalConfig.setLocale(FR);
 
         expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Écrit…');
     });
@@ -110,15 +110,15 @@ describe('a live locale switch reaches a mounted viewport', () => {
         const container = vp.querySelector('.aparte-viewport-container')!;
         expect(container.getAttribute('dir')).toBe('ltr');
 
-        AparteConfig.setLocale(AR);
+        aparteGlobalConfig.setLocale(AR);
 
         expect(vp.querySelector('.aparte-viewport-container')!.getAttribute('dir')).toBe('rtl');
     });
 
     it('and back to LTR', () => {
         const vp = mount('aparte-chat-viewport');
-        AparteConfig.setLocale(AR);
-        AparteConfig.resetLocale();
+        aparteGlobalConfig.setLocale(AR);
+        aparteGlobalConfig.resetLocale();
         expect(vp.querySelector('.aparte-viewport-container')!.getAttribute('dir')).toBe('ltr');
     });
 });
@@ -135,15 +135,15 @@ describe('a live locale switch reaches a mounted composer', () => {
         const composer = mount('aparte-composer');
         expect(composer.getAttribute('dir')).toBe('ltr');
 
-        AparteConfig.setLocale(AR);
+        aparteGlobalConfig.setLocale(AR);
 
         expect(composer.getAttribute('dir')).toBe('rtl');
     });
 
     it('and back to LTR', () => {
         const composer = mount('aparte-composer');
-        AparteConfig.setLocale(AR);
-        AparteConfig.resetLocale();
+        aparteGlobalConfig.setLocale(AR);
+        aparteGlobalConfig.resetLocale();
         expect(composer.getAttribute('dir')).toBe('ltr');
     });
 
@@ -152,7 +152,7 @@ describe('a live locale switch reaches a mounted composer', () => {
         const toolbar = document.createElement('aparte-composer-toolbar');
         composer.appendChild(toolbar);
 
-        AparteConfig.setLocale(AR);
+        aparteGlobalConfig.setLocale(AR);
 
         // Inherited, not stamped per element: one attribute on the composer is the
         // whole mechanism, so anything the consumer puts in the row follows.
@@ -169,9 +169,9 @@ describe('a live locale switch reaches a mounted conversation list', () => {
     it('re-labels its rows', () => {
         const list = mount<HTMLElement & { conversations: unknown[] }>('aparte-conversation-list');
         list.conversations = [{ id: 'c1', title: 'Une conversation', updatedAt: 1 }];
-        expect(deleteLabelOf(list)).toBe(DEFAULT_LOCALE.deleteConversation);
+        expect(deleteLabelOf(list)).toBe(APARTE_DEFAULT_LOCALE.deleteConversation);
 
-        AparteConfig.setLocale({ ...FR, deleteConversation: 'Supprimer la conversation' });
+        aparteGlobalConfig.setLocale({ ...FR, deleteConversation: 'Supprimer la conversation' });
 
         expect(deleteLabelOf(list)).toBe('Supprimer la conversation');
     });
@@ -179,9 +179,9 @@ describe('a live locale switch reaches a mounted conversation list', () => {
     it('re-labels an untitled row, whose title IS a locale string', () => {
         const list = mount<HTMLElement & { conversations: unknown[] }>('aparte-conversation-list');
         list.conversations = [{ id: 'c1', title: '', updatedAt: 1 }];
-        expect(list.textContent).toContain(DEFAULT_LOCALE.newChat);
+        expect(list.textContent).toContain(APARTE_DEFAULT_LOCALE.newChat);
 
-        AparteConfig.setLocale({ ...FR, newChat: 'Nouvelle discussion' });
+        aparteGlobalConfig.setLocale({ ...FR, newChat: 'Nouvelle discussion' });
 
         expect(list.textContent).toContain('Nouvelle discussion');
     });

@@ -53,6 +53,22 @@ export class AparteSelect extends HTMLElement {
     private _observer: MutationObserver | null = null;
 
     // Bound handlers for cleanup
+    /**
+     * Bound, like its two neighbours below — because an inline arrow on `this` can
+     * never be removed.
+     *
+     * `_setupEventListeners()` runs on EVERY `connectedCallback`, and `_render()`'s
+     * idempotency guard means the host element survives a re-connect. So each move
+     * of the element (a portal, a Vue teleport, any framework re-parent) added
+     * another option-click listener: measured, one click fired the change handler
+     * FIVE times after five re-connects. `disconnectedCallback` removed the two
+     * document-level handlers and could not touch this one.
+     *
+     * This is verbatim the bug class `aparte-chat-viewport` documents having fixed
+     * for its own listeners; a repo sweep found this as the last inline-arrow
+     * listener on a persistent node.
+     */
+    private _boundHandleOptionClick = this._handleOptionClick.bind(this);
     private _boundHandleDocumentClick = this._handleDocumentClick.bind(this);
     private _boundHandleKeydown = this._handleKeydown.bind(this);
 
@@ -69,6 +85,7 @@ export class AparteSelect extends HTMLElement {
     }
 
     disconnectedCallback(): void {
+        this.removeEventListener('click', this._boundHandleOptionClick);
         document.removeEventListener('click', this._boundHandleDocumentClick);
         document.removeEventListener('keydown', this._boundHandleKeydown);
         this._observer?.disconnect();
@@ -309,13 +326,12 @@ export class AparteSelect extends HTMLElement {
             }
         });
 
-        // Option selection
-        this.addEventListener('click', (e) => {
-            const option = (e.target as HTMLElement).closest('aparte-option');
-            if (option && !option.hasAttribute('disabled')) {
-                this._selectOption(option as HTMLElement);
-            }
-        });
+        // Option selection. Removed first: `_setupEventListeners` runs on every
+        // connect, and adding the same bound reference twice is a no-op per spec —
+        // but being explicit costs nothing and survives a future refactor that
+        // rebinds.
+        this.removeEventListener('click', this._boundHandleOptionClick);
+        this.addEventListener('click', this._boundHandleOptionClick);
 
         // Search filter
         this._searchInput?.addEventListener('input', (e) => {
@@ -328,6 +344,13 @@ export class AparteSelect extends HTMLElement {
 
         // Keyboard navigation
         document.addEventListener('keydown', this._boundHandleKeydown);
+    }
+
+    private _handleOptionClick(e: Event): void {
+        const option = (e.target as HTMLElement).closest('aparte-option');
+        if (option && !option.hasAttribute('disabled')) {
+            this._selectOption(option as HTMLElement);
+        }
     }
 
     private _handleDocumentClick(e: Event): void {
@@ -577,10 +600,4 @@ export class AparteSelect extends HTMLElement {
 // Register
 if (!customElements.get('aparte-select')) {
     customElements.define('aparte-select', AparteSelect);
-}
-
-declare global {
-    interface HTMLElementTagNameMap {
-        'aparte-select': AparteSelect;
-    }
 }

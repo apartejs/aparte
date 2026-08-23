@@ -15,7 +15,7 @@ import type { AparteAttachment } from '../types/models.js';
  * clicks your own way.
  *
  * @example
- * AparteConfig.setAttachmentRenderer((att) => {
+ * aparteGlobalConfig.setAttachmentRenderer((att) => {
  *   if (att.type === 'application/pdf') {
  *     const el = document.createElement('div');
  *     el.className = 'my-pdf-chip';

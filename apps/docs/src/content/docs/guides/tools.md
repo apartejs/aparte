@@ -14,10 +14,10 @@ wait for a human to click **Approve** before your handler ever runs.
 ## Define and register a tool
 
 A tool is a plain `AparteTool` object plus an `AparteToolHandler`, registered together
-with `AparteConfig.registerTool`:
+with `aparteGlobalConfig.registerTool`:
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteTool, AparteToolHandler } from '@aparte/core';
 
 const getTimeTool: AparteTool = {
@@ -35,7 +35,7 @@ const getTimeHandler: AparteToolHandler = async (call) => ({
   content: new Date().toLocaleString('en-US', { timeZone: call.input.timezone as string }),
 });
 
-AparteConfig.registerTool(getTimeTool, getTimeHandler);
+aparteGlobalConfig.registerTool(getTimeTool, getTimeHandler);
 ```
 
 - **`inputSchema`** is a plain JSON Schema object, sent to the model as-is.
@@ -57,12 +57,16 @@ registerDefaultRenderers();
 new AparteClient().start();
 ```
 
-`AparteClient` sends every registered tool with the request — but only when the selected
-model's `capabilities` include `function_calling`. When the model calls one:
+`AparteClient` sends every registered tool with the request. The one case where it does
+not is a model that declares its `capabilities` and leaves `function_calling` out — a
+statement the client respects. A model that says nothing (which is what a
+`GET /models` listing usually amounts to) gets the tools: registering one is an explicit
+act, and dropping it silently because a listing is terse would turn your registration
+into a no-op with nothing to read anywhere. When the model calls one:
 
 1. A **`tool_call`** segment is added (`status: 'pending'`) — the built-in renderer shows
    a pill with the tool name + a spinner.
-2. The client resolves the handler via `AparteConfig.getToolHandler(name)`, runs it, and
+2. The client resolves the handler via `aparteGlobalConfig.getToolHandler(name)`, runs it, and
    on resolve flips the segment to `status: 'resolved'`.
 3. The `tool_call` and its result are appended to history and the provider is re-called
    automatically, so the model sees the outcome and continues.
@@ -88,7 +92,7 @@ const deleteFilesTool: AparteTool = {
   needsApproval: true,
 };
 
-AparteConfig.registerTool(deleteFilesTool, async (call) => {
+aparteGlobalConfig.registerTool(deleteFilesTool, async (call) => {
   // ... actually delete call.input.path ...
   return { toolCallId: call.id, content: `Deleted ${call.input.path}` };
 });
@@ -134,11 +138,13 @@ valid? If you proxy through `createAparteChatHandler`, its
 ## Custom tool renderer
 
 Replace the generic pill for a specific tool name with `registerToolRenderer`. `render`
-returns the segment's HTML (`''` renders nothing — e.g. a UI-only tool); `setup` runs once
-after injection for listeners; `getStyles` is injected into `document.head` once per tool.
-For a `needsApproval` tool this only takes over *after* approval:
+returns either an HTML string or a ready DOM element (`''` renders nothing — e.g. a
+UI-only tool); `setup` runs once after injection for listeners; `getStyles` is injected
+into `document.head` once per tool. For a `needsApproval` tool this only takes over
+*after* approval:
 
 ```ts
+import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteToolRenderer } from '@aparte/core';
 
 const webSearchRenderer: AparteToolRenderer = {
@@ -146,14 +152,62 @@ const webSearchRenderer: AparteToolRenderer = {
   setup: (element, segment) => { /* wire listeners after injection, if any */ },
 };
 
-AparteConfig.registerToolRenderer('web_search', webSearchRenderer);
+aparteGlobalConfig.registerToolRenderer('web_search', webSearchRenderer);
 ```
+
+:::danger[The segment carries model-chosen data]
+`segment.toolCall.input` is whatever the **model** decided to pass, and
+`segment.toolCall.result` is whatever the tool returned. Both are untrusted. The
+obvious first thing to write is the one that breaks:
+
+```ts
+// DON'T — a direct model-to-DOM XSS in your page's origin.
+render: (segment) => `<div>Searching for ${segment.toolCall?.input?.['query']}</div>`,
+```
+
+Two ways out. **Return an element** and there is no `innerHTML` surface at all:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolRenderer } from '@aparte/core';
+
+const searchRenderer: AparteToolRenderer = {
+  render: (segment) => {
+    const el = document.createElement('div');
+    el.className = 'tool-pill';
+    // textContent, so the value is text no matter what it contains.
+    el.textContent = `Searching for ${String(segment.toolCall?.input?.['query'] ?? '')}`;
+    return el;
+  },
+};
+
+aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
+```
+
+Or **keep the string and escape every interpolation** — `escapeHtml` in text
+position, `escapeAttr` inside an attribute, exactly as in
+[Customization](/guides/customization/):
+
+```ts
+import { aparteGlobalConfig, escapeHtml, escapeAttr } from '@aparte/core';
+import type { AparteToolRenderer } from '@aparte/core';
+
+const searchRenderer: AparteToolRenderer = {
+  render: (segment) => {
+    const query = String(segment.toolCall?.input?.['query'] ?? '');
+    return `<div class="tool-pill" title="${escapeAttr(query)}">Searching for ${escapeHtml(query)}</div>`;
+  },
+};
+
+aparteGlobalConfig.registerToolRenderer('web_search', searchRenderer);
+```
+:::
 
 ## Complete example: approve/reject with no backend
 
 This runs with no model and no API key — it drives the viewport the same way
 `AparteClient` would, so you can see the whole mechanic. Adapted from
-`apps/playgrounds/demo-vanilla`:
+`apps/examples/vanilla-dist`:
 
 ```ts
 import '@aparte/core';

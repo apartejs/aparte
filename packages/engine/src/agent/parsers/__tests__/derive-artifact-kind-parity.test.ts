@@ -1,3 +1,8 @@
+// @vitest-environment jsdom
+//
+// jsdom only because `@aparte/core` now resolves from SOURCE (see this package's
+// vitest config), and core's browser entry defines custom elements at import
+// time. The function under test is pure; the DOM is just what loading core costs.
 import { describe, it, expect } from 'vitest';
 import { deriveArtifactKind as engineDerive } from '../artifact-xml-state-machine';
 import { deriveArtifactKind as coreDerive } from '@aparte/core';

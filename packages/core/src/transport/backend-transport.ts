@@ -35,7 +35,7 @@ export interface BackendTransportOptions {
  * server-side, key held server-side). Drop it into a Next.js route handler,
  * Deno, Bun, or a Worker rather than hand-rolling one.
  */
-export class BackendTransport implements AparteTransport {
+export class AparteBackendTransport implements AparteTransport {
     constructor(private readonly options: BackendTransportOptions) {}
 
     async chat(

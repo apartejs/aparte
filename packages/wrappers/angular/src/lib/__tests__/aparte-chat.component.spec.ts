@@ -38,6 +38,21 @@ class AttachmentsWithCustomComposerHost { }
 })
 class BubbleTemplateHost { messages: AparteMessage[] = []; }
 
+// Host projecting the two slots this spec never covered: `empty-state`, which no
+// wrapper tested at all despite all four examples filling it, and
+// `above-composer`, which the other three wrappers assert and Angular did not.
+@Component({
+    standalone: true,
+    imports: [AparteChatComponent],
+    template: `
+      <aparte-chat [messages]="messages">
+        <div slot="empty-state" class="welcome-block">welcome</div>
+        <div slot="above-composer" class="above-banner">banner</div>
+      </aparte-chat>
+    `,
+})
+class SlotHost { messages: AparteMessage[] = []; }
+
 // Host using the BARE boolean-attribute form — exactly what the docs/README show.
 @Component({
     standalone: true,
@@ -185,6 +200,31 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         const host = fixture.nativeElement as HTMLElement;
         expect(host.querySelector('.my-custom-composer')).not.toBeNull();
         expect(host.querySelector('.aparte-composer-shell')).toBeNull();
+    });
+
+    it('projects empty-state and above-composer, and drops empty-state on the first message', async () => {
+        // `empty-state`'s contract is two halves ("Replaced by the message list on the
+        // first message") and the second is the one that silently rots: a welcome block
+        // still showing under a live conversation is the visible bug.
+        const fixture = TestBed.createComponent(SlotHost);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.querySelector('.welcome-block')).not.toBeNull();
+
+        // above-composer renders before the composer element, same as the other three.
+        const banner = host.querySelector('.above-banner')!;
+        const composer = host.querySelector('aparte-composer')!;
+        expect(banner).not.toBeNull();
+        expect(banner.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        fixture.componentInstance.messages = mockMessages;
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(host.querySelector('.welcome-block')).toBeNull();
+        // The banner is NOT tied to emptiness — it must survive the first message.
+        expect(host.querySelector('.above-banner')).not.toBeNull();
     });
 
     it('coerces BARE boolean attributes — the form the docs show — via booleanAttribute', async () => {

@@ -22,7 +22,7 @@ import { setupStreamingMarkdownProvider } from '@aparte/plugin-streaming-markdow
 setupStreamingMarkdownProvider();
 ```
 
-Call it once at startup. It fills the `AparteConfig.setStreamingMarkdownProvider` seam, which the chat
+Call it once at startup. It fills the `aparteGlobalConfig.setStreamingMarkdownProvider` seam, which the chat
 bubble uses while a message is streaming. Pair it with [`marked`](/plugins/marked/) — the one-shot
 provider re-renders the finished message at full fidelity.
 

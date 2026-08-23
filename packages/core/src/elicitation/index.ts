@@ -4,7 +4,7 @@
  * `requestUserInput(req)` is the free-function entry a tool handler calls: it
  * resolves the config governing `req.target` (the instance the request belongs
  * to, or the global default) and delegates to that config's presenter. This is
- * what `ask_question` and tool-approval adapters use — they never touch window
+ * what `ask_user` and tool-approval adapters use — they never touch window
  * events, so there is no stringly-typed contract to drift.
  */
 

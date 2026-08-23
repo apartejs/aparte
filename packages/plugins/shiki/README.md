@@ -34,6 +34,12 @@ else:
 An option listing the languages would not change that — a static import is a static import (measured:
 still 302 files). So if what you ship matters, build the highlighter yourself and hand it over:
 
+Those fine-grained entry points live in **separate packages** — add them alongside `shiki`:
+
+```bash
+npm install @shikijs/langs @shikijs/themes
+```
+
 ```ts
 import { createHighlighterCore } from 'shiki/core';
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';

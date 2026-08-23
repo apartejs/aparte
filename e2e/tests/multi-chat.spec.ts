@@ -8,7 +8,7 @@
  * a reply into the wrong transcript. That is precisely the class of bug jsdom
  * hides.
  *
- * Fixture: the vanilla playground mounts a second chat under `?chats=2`, both
+ * Fixture: the vanilla example mounts a second chat under `?chats=2`, both
  * composers carrying `target`, one client serving both.
  */
 

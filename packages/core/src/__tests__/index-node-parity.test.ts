@@ -37,6 +37,6 @@ describe('index.node — runtime export parity with the browser barrel', () => {
     it('exposes the two interop helpers every wrapper AparteUi value-imports', () => {
         // The exact symbols whose omission crashed the wrapper barrels under SSR.
         expect(typeof (node as Record<string, unknown>).applyElementProps).toBe('function');
-        expect(Array.isArray((node as Record<string, unknown>).DEFAULT_UI_EVENTS)).toBe(true);
+        expect(Array.isArray((node as Record<string, unknown>).APARTE_DEFAULT_UI_EVENTS)).toBe(true);
     });
 });

@@ -12,8 +12,9 @@ import {
     AparteConversationController,
     type AparteChatBinding,
 } from '../conversations/conversation-controller.js';
-import type { AparteConfigClass } from '../config/aparte-config.js';
+import type { AparteConfig } from '../config/aparte-config.js';
 import { attachConfig, detachConfig } from '../config/config-context.js';
+import { cssEscape } from '../utils/css-escape.js';
 
 /**
  * Imperative slice of `<aparte-chat-bubble>` the host mutates directly during
@@ -96,10 +97,10 @@ export interface AparteChatHostOptions {
      * Instance config for this chat. When provided, {@link bind} marks the host
      * element as a `[data-aparte-host]` boundary so every Aparte component inside it
      * (bubbles, composer, renderers) resolves THIS config instead of the global
-     * `AparteConfig` — the seam that lets several independently-configured chats
+     * `aparteGlobalConfig` — the seam that lets several independently-configured chats
      * coexist on one page. Omit to keep the global-config behaviour.
      */
-    config?: AparteConfigClass;
+    config?: AparteConfig;
 }
 
 /**
@@ -245,7 +246,7 @@ export class AparteChatHost {
         const convBinding: AparteChatBinding = {
             hostId: this.binding.hostId,
             host,
-            // Controller-driven flushes mirror ConversationManager state, not
+            // Controller-driven flushes mirror AparteConversationManager state, not
             // user intent — deliberately NOT emitted as `messagesChange` to
             // avoid a feedback loop with hosts using a two-way `messages` input.
             setMessages: (msgs) => {
@@ -691,7 +692,7 @@ export class AparteChatHost {
         const vp = this.binding.viewport;
         if (!vp) return null;
         return vp.querySelector(
-            `aparte-chat-bubble[message-id="${id}"]`,
+            `aparte-chat-bubble[message-id="${cssEscape(id)}"]`,
         ) as unknown as StreamingBubble | null;
     }
 

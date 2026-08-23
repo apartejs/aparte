@@ -1,8 +1,8 @@
 // Environment (jsdom) + `@aparte/core` source resolution are configured in
-// vitest.config.ts: this suite drives the browser-direct `DirectTransport`, which
+// vitest.config.ts: this suite drives the browser-direct `AparteDirectTransport`, which
 // core exposes only from its browser entry.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { DirectTransport } from '@aparte/core';
+import { AparteDirectTransport } from '@aparte/core';
 import type { AparteStreamEvent } from '@aparte/core';
 import { createOpenAICompatProvider, parseOpenAICompatStream, presets } from '../index';
 
@@ -73,14 +73,31 @@ describe.each(CLOUD_PRESETS)('preset %s', (_label, preset, helpDomain) => {
         const models = await provider.fetchModels!({ apiKey: 'sk-test' });
         expect(vi.mocked(fetch).mock.calls[0][0]).toBe(`${preset.baseURL}/models`);
         expect(models).toEqual([
-            { id: 'model-a', name: 'Model A', contextWindow: 32768, capabilities: ['streaming'] },
-            { id: 'model-b', name: 'model-b', contextWindow: undefined, capabilities: ['streaming'] },
+            { id: 'model-a', name: 'Model A', contextWindow: 32768, capabilities: ['streaming', 'function_calling'] },
+            { id: 'model-b', name: 'model-b', contextWindow: undefined, capabilities: ['streaming', 'function_calling'] },
         ]);
     });
 
-    it('drives a streaming chat through DirectTransport with Bearer auth', async () => {
+    /**
+     * `function_calling` is not a guess about the model — it is a property of the
+     * wire format this provider IS. Core gates the request's `tools` array on
+     * exactly this field, so omitting it made every registered tool, every
+     * approval gate and the whole elicitation path inert on the primary path: the
+     * model was asked to use a tool it had never been sent, and answered — quite
+     * correctly — that it had no such tool.
+     *
+     * `/models` returns `{id, object, owned_by}` and will never say anything about
+     * tools, so waiting for it to declare the capability means never declaring it.
+     */
+    it('declares function_calling, because a compat endpoint takes a tools array', async () => {
+        vi.mocked(fetch).mockResolvedValue(jsonResponse({ data: [{ id: 'qwen3-8b' }] }));
+        const models = await provider.fetchModels!({ apiKey: 'sk-test' });
+        expect(models[0]?.capabilities).toContain('function_calling');
+    });
+
+    it('drives a streaming chat through AparteDirectTransport with Bearer auth', async () => {
         vi.mocked(fetch).mockResolvedValue(streamResponse());
-        const result = await new DirectTransport({ byok: true }).chat(
+        const result = await new AparteDirectTransport({ byok: true }).chat(
             provider,
             { modelId: 'm', messages: [{ role: 'user', content: 'Hello' }] },
             { apiKey: 'sk-test' },
@@ -315,5 +332,67 @@ describe('parseOpenAICompatStream', () => {
 
         expect(events.filter(e => e.type === 'tool_use')).toHaveLength(1);
         expect(events.filter(e => e.type === 'done')).toHaveLength(1);
+    });
+});
+
+// One complete SSE frame (a `data:` line terminated by a blank line).
+const SSE_PARTIAL = `data: {"choices":[{"delta":{"content":"Partial"}}]}
+
+`;
+
+describe('parseOpenAICompatStream — the caller aborts', () => {
+    /**
+     * An abort is a deliberate stop, not a stream failure. Reporting it as an
+     * `error` event makes the agent loop throw, and the loop's error handler
+     * replaces the message segments — erasing the answer the user was reading.
+     * ai-sdk already ends quietly here; this provider must agree, because it is
+     * the one every example and every doc snippet uses.
+     */
+    it('ends quietly instead of emitting an error event', async () => {
+        const controller = new AbortController();
+        const upstream = new ReadableStream<Uint8Array>({
+            start(c) {
+                c.enqueue(new TextEncoder().encode(SSE_PARTIAL));
+                // The fetch body rejects with AbortError once the signal fires.
+                controller.signal.addEventListener('abort', () => {
+                    c.error(Object.assign(new Error('The user aborted a request.'), { name: 'AbortError' }));
+                });
+            },
+        });
+
+        const events: AparteStreamEvent[] = [];
+        const reader = parseOpenAICompatStream(upstream).getReader();
+        const first = await reader.read();
+        if (first.value) events.push(first.value);
+
+        controller.abort();
+
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) events.push(value);
+        }
+
+        expect(events.filter(e => e.type === 'text')).toHaveLength(1);
+        expect(
+            events.filter(e => e.type === 'error'),
+            'an aborted stream must not surface as an error event',
+        ).toHaveLength(0);
+    });
+
+    it('still reports a genuine stream failure as an error event', async () => {
+        const upstream = new ReadableStream<Uint8Array>({
+            start(c) { c.error(new Error('socket hang up')); },
+        });
+
+        const events: AparteStreamEvent[] = [];
+        const reader = parseOpenAICompatStream(upstream).getReader();
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) events.push(value);
+        }
+
+        expect(events.filter(e => e.type === 'error')).toHaveLength(1);
     });
 });

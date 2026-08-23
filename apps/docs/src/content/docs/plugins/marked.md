@@ -22,7 +22,7 @@ import { setupMarkedProvider } from '@aparte/plugin-marked';
 setupMarkedProvider();
 ```
 
-Call it once at startup. It registers a function on `AparteConfig.setMarkdownProvider` that parses raw
+Call it once at startup. It registers a function on `aparteGlobalConfig.setMarkdownProvider` that parses raw
 Markdown to sanitised HTML. Pass a [`MarkedExtension`](https://marked.js.org/using_advanced) to customise
 the parser:
 

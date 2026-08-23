@@ -62,7 +62,7 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 :root {
   --aparte-primary: #b45309;          /* accent — send button, links, focus, caret */
   --aparte-primary-hover: #92400e;
-  --aparte-bg: #fbf7f0;               /* page background */
+  --aparte-bg: #fbf7f0;               /* YOUR page background — see the note below */
   --aparte-surface-1: #ffffff;        /* cards, code blocks */
   --aparte-surface-2: #f4ece0;        /* headers, inline code */
   --aparte-text: #241a12;
@@ -70,6 +70,17 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
   --aparte-border: #e7dccb;
 }
 ```
+
+:::note[`--aparte-bg` is yours to paint]
+Core sets no background on the chat root — it inherits from your page on purpose, so a
+chat drops into any layout without punching an opaque rectangle through it. So
+`--aparte-bg` is a **palette base**: aparté declares it and reads it nowhere. Keep it in
+your theme block as the value your own page background and surfaces derive from, and give
+the page that background yourself (`body { background: var(--aparte-bg); }`).
+
+The generated [CSS variables](/reference/css-variables/) reference marks every token in
+this position **palette only**, so you can tell a knob from a base at a glance.
+:::
 
 ## The scales
 

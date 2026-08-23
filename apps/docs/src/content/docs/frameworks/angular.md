@@ -14,6 +14,16 @@ npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
 
 `@aparte/core`, `@angular/core`, `@angular/common` and `rxjs` are **peer dependencies**.
 
+:::caution[Angular 19 only, deliberately]
+The peer range is `^19.2.0` because 19 is the only major this wrapper is built and
+browser-tested against. It is a thin bridge over standard custom elements — no private
+Angular API, no `NgModule` — so 20 through 22 will very likely work, and an override or
+`--legacy-peer-deps` will let you try. We do not widen the range on "very likely":
+[`@aparte/svelte`](/frameworks/svelte/) claims two majors because each is compiled and
+driven in a real browser in CI, and Angular has no second example yet. Tell us if you
+need a newer major — that is what would justify building one.
+:::
+
 ## `<aparte-chat>`
 
 The components are **standalone** — import them directly, no NgModule:
@@ -66,14 +76,15 @@ The wrapper is **provider-agnostic**. `provideAparte()` registers your providers
 at bootstrap **and starts the client** (`autoConnect`, on by default) — composer sends stream
 replies with zero extra wiring:
 
+<!-- doc-check: skip excerpt — `App` is the reader's root component, and @angular/platform-browser is theirs to install -->
 ```ts
 // main.ts
 import { bootstrapApplication } from '@angular/platform-browser';
-import { DirectTransport, AparteConfig } from '@aparte/core';
+import { AparteDirectTransport, aparteGlobalConfig } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { provideAparte } from '@aparte/angular';
 
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 bootstrapApplication(App, {
   providers: [
@@ -101,11 +112,11 @@ export class Chat {
 ```
 
 `provideAparte()` is **config sugar and fully optional** — the components work without it, and you
-can call `AparteConfig.*` directly exactly like the React/Vue/Svelte wrappers do. Its `plugins` slots
+can call `aparteGlobalConfig.*` directly exactly like the React/Vue/Svelte wrappers do. Its `plugins` slots
 take **objects or loader functions** you supply, and `locale` takes an `AparteLocale` **object** (e.g.
 `locale: fr` from `@aparte/locale-fr`) — none of them take package-name strings — so this package
 stays a leaf with no plugin catalog. Pass a per-instance `[config]` to scope providers/transport to a
-single `<aparte-chat>` instead of the global `AparteConfig`.
+single `<aparte-chat>` instead of `aparteGlobalConfig`.
 
 :::note
 `clientOptions` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
@@ -114,7 +125,7 @@ agent loop** instead of core's inline one, inject it:
 [`@aparte/engine`](/guides/engine/) — an optional swap-in, not required. For file uploads add
 `attachments` to `<aparte-chat>` (off by default) — see [Attachments](/guides/attachments/).
 `provideAparte` wires the client, so switch the retry/edit buttons on with
-`AparteConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
+`aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 :::
 
@@ -131,7 +142,16 @@ interactive aparté events by default; pass `[events]` to listen to others:
 />
 ```
 
+:::note[Where that element comes from]
+`aparte-model-selector` is **not** in `@aparte/core` — it is defined by
+[`@aparte/plugin-model-selector`](/plugins/model-selector/), and importing that package is
+what registers it. Until then the tag renders as an empty, inert element with no error:
+a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
+own the moment the definition arrives — which is exactly why `provideAparte`'s lazy
+`plugins` loaders work. `<aparte-ui>` mounts any element name, including your own.
+:::
+
 ## Also exported
 
-- `ConversationManagerService` — signal-based view over the core `ConversationManager` (list /
+- `ConversationManagerService` — signal-based view over the core `AparteConversationManager` (list /
   create / archive), for a multi-conversation sidebar.

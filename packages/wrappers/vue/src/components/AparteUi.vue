@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, toRaw } from 'vue';
-import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
+import { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
 
 const p = defineProps<{
   /** The custom element tag name (e.g. 'aparte-model-selector'). */
@@ -9,7 +9,7 @@ const p = defineProps<{
   props?: Record<string, unknown>;
   /**
    * Which custom events to forward through `elementEvent`. Defaults to the
-   * interactive aparté surface (DEFAULT_UI_EVENTS); pass your own list to listen to
+   * interactive aparté surface (APARTE_DEFAULT_UI_EVENTS); pass your own list to listen to
    * other events (e.g. ['aparte-composer-change'] for attachments).
    */
   events?: string[];
@@ -19,7 +19,7 @@ const emit = defineEmits<{ elementEvent: [event: CustomEvent] }>();
 
 // A stable key so a fresh inline `:events` array doesn't thrash the element —
 // only a real change to the event names rebinds (mirrors React's evtsKey).
-const evtsKey = computed(() => (p.events ?? DEFAULT_UI_EVENTS).join('|'));
+const evtsKey = computed(() => (p.events ?? APARTE_DEFAULT_UI_EVENTS).join('|'));
 
 const hostRef = ref<HTMLElement>();
 let el: HTMLElement | null = null;

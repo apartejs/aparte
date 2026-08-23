@@ -1,31 +1,33 @@
 /**
  * AparteConfig
  * 
- * Central configuration singleton for Aparte.
+ * Central configuration class for Aparte. `aparteGlobalConfig` is the page-wide instance.
  * Manages providers for Markdown rendering, Syntax Highlighting, Icons, and Skeleton loading.
  * 
  * "Invisible but Flexible": Works out-of-the-box with sensible defaults,
  * but allows complete customization via dependency injection.
  */
 
-import { AparteIconProvider, AparteIconName, DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
+import { AparteIconProvider, AparteIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 import { AparteAvatarProvider } from './avatar-provider.js';
-import { AparteLocale, DEFAULT_LOCALE } from './locale.js';
+import { AparteLocale, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
 import { AparteSkeletonProvider, AparteSkeletonType } from './skeleton-provider.js';
 import type { AparteStatusRenderer } from './status-renderer.js';
 import type { AparteErrorRenderer } from './error-renderer.js';
 import type { AparteAttachmentRenderer } from './attachment-renderer.js';
+import type { AparteElicitationFieldRenderer } from './elicitation-field-renderer.js';
 import type { AparteSiblingNavRenderer } from './sibling-nav-renderer.js';
 import type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
 import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../types/model-provider.js';
 import type { AparteTransport } from '../transport/index.js';
-import { DirectTransport } from '../transport/index.js';
+import { AparteDirectTransport } from '../transport/index.js';
 import type { AparteTool, AparteToolHandler, AparteToolRenderer } from '../types/tools.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
-import type { ConversationManager } from '../conversations/conversation-manager.js';
+import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
+import { escapeHtml } from '../utils/escape.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
 export type AparteHighlightProvider =
@@ -47,7 +49,7 @@ export type AparteKeyProvider = (providerId: string) => string | Promise<string 
  *
  * Exported so a consumer can read the defaults instead of hard-coding them.
  */
-export const DEFAULT_BUBBLE_ACTIONS = {
+export const APARTE_DEFAULT_BUBBLE_ACTIONS = {
     copy: true,
     retry: false,
     edit: false,
@@ -58,15 +60,16 @@ export const DEFAULT_BUBBLE_ACTIONS = {
 /**
  * The host-handler declarations — nothing declared.
  *
- * Same rule as {@link DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
+ * Same rule as {@link APARTE_DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
  * image tile you can click, a Run button, a download button on a binary artifact
  * are all requests core forwards to the app. Undeclared, they are not rendered
  * (and the tile is not even signalled as clickable) instead of doing nothing.
  */
-export const DEFAULT_HOST_HANDLERS = {
+export const APARTE_DEFAULT_HOST_HANDLERS = {
     attachmentPreview: false,
     terminalRun: false,
     artifactRedownload: false,
+    artifactRehydrate: false,
 } as const;
 
 export interface AparteModelPreference {
@@ -109,11 +112,11 @@ export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStr
  * Core ships only a CDN-free fallback (svg/css/html/js render offline; other
  * kinds degrade to a read-only code view), so the engine stays zero-network and
  * framework-agnostic. The app opts into richer previews via
- * {@link AparteConfigClass.setArtifactPreviewBuilder}.
+ * {@link AparteConfig.setArtifactPreviewBuilder}.
  */
 export type AparteArtifactPreviewBuilder = (kind: string, body: string, title: string) => string;
 
-export class AparteConfigClass {
+export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
     private _streamingMarkdownProvider?: AparteStreamingMarkdownProvider;
     private _highlightProvider?: AparteHighlightProvider;
@@ -133,36 +136,56 @@ export class AparteConfigClass {
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
     private _artifactPreviewBuilder?: AparteArtifactPreviewBuilder;
-    private _locale: AparteLocale = DEFAULT_LOCALE;
+    private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
 
     // AI Provider Management (BYORK)
     private _aiProviders: Map<string, AparteAIProvider> = new Map();
+    /**
+     * What `refreshProviderModels()` last brought back, per provider.
+     *
+     * Without it, `getCurrentModel()` read `provider.getModels()` only — the
+     * SYNCHRONOUS, hand-declared list, which every preset of
+     * `@aparte/provider-openai-compat` leaves empty because a compat endpoint's
+     * list is fetched at runtime. So the current model resolved to `undefined`
+     * for the documented primary path, and everything that reads a capability off
+     * it silently got nothing: `AparteClient._toolsForCurrentModel()` gates tools
+     * on `capabilities.includes('function_calling')`, so NO tool was ever sent to
+     * the model. A registered tool, an approval gate, `<aparte-elicitation>` — all
+     * dead, with the model answering, correctly, that it had been given no tools.
+     */
+    private _fetchedModels: Map<string, AparteAIModel[]> = new Map();
     private _modelConfig: AparteModelConfig = {};
     /** Opt-in: gate the composer (block send + grey out) until a model is selected. */
     private _requireModelSelection = false;
-    // Transport: where chat requests go + how auth is handled (DirectTransport = browser-direct).
-    private _transport: AparteTransport = new DirectTransport();
+    /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
+    private _elicitationAllowOther = true;
+    private _elicitationLayout: 'stepped' | 'stacked' = 'stepped';
+    private _elicitationFieldRenderer?: AparteElicitationFieldRenderer | undefined;
+    // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
+    private _transport: AparteTransport = new AparteDirectTransport();
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
 
     // Conversation persistence (optional, agnostic)
-    private _conversationManager?: ConversationManager;
+    private _conversationManager?: AparteConversationManager;
 
-    // Human-in-the-loop: presents typed input requests (ask_question,
+    // Human-in-the-loop: presents typed input requests (ask_user,
     // tool approval, forms). Set by the <aparte-elicitation> Web Component.
     private _elicitationPresenter?: AparteElicitationPresenter;
+    /** Warn once per config, not once per request — a tool loop can ask repeatedly. */
+    private _warnedNoPresenter = false;
 
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
 
     // Host handlers — what the app declares it can actually complete.
-    private _hostHandlers: AparteHostHandlersConfig = { ...DEFAULT_HOST_HANDLERS };
+    private _hostHandlers: AparteHostHandlersConfig = { ...APARTE_DEFAULT_HOST_HANDLERS };
 
-    // Bubble Actions — DEFAULT_BUBBLE_ACTIONS is the single source of truth
+    // Bubble Actions — APARTE_DEFAULT_BUBBLE_ACTIONS is the single source of truth
     // (init here, restored by reset(), and the fallback in getBubbleActions()).
-    private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
+    private _bubbleActionsConfig: AparteBubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
 
     // ─────────────────────────────────────────────────────────────────────────
     // Provider Setters (Dependency Injection)
@@ -212,15 +235,15 @@ export class AparteConfigClass {
 
     /**
      * Configure which action buttons appear in message bubbles.
-     * Unset keys keep their defaults — see {@link DEFAULT_BUBBLE_ACTIONS}: `copy`
+     * Unset keys keep their defaults — see {@link APARTE_DEFAULT_BUBBLE_ACTIONS}: `copy`
      * only, because every other button needs a host to honor it.
      *
      * @example
-     * AparteConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
-     * AparteConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
-     * AparteConfig.setBubbleActions({ copy: false })             // hide everything
+     * aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
+     * aparteGlobalConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
+     * aparteGlobalConfig.setBubbleActions({ copy: false })             // hide everything
      * // Explicit per-role ordered sets (replace the flag defaults for that role):
-     * AparteConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
+     * aparteGlobalConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
      */
     setBubbleActions(config: AparteBubbleActionsConfig): void {
         this._bubbleActionsConfig = { ...this._bubbleActionsConfig, ...config };
@@ -232,7 +255,7 @@ export class AparteConfigClass {
      * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
      *
      * @example
-     * AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
      */
     setHostHandlers(config: AparteHostHandlersConfig): void {
         this._hostHandlers = { ...this._hostHandlers, ...config };
@@ -240,11 +263,17 @@ export class AparteConfigClass {
     }
 
     /** Returns the resolved host-handler declarations (undeclared = false). */
-    getHostHandlers(): { attachmentPreview: boolean; terminalRun: boolean; artifactRedownload: boolean } {
+    // `Required<...>` rather than a hand-written shape: the previous signature
+    // listed the three keys literally, so adding a fourth to the interface left
+    // this method silently returning a type without it — the caller's read did not
+    // even typecheck. Derived from the interface, a new declaration cannot be
+    // forgotten here.
+    getHostHandlers(): Required<AparteHostHandlersConfig> {
         return {
-            attachmentPreview: this._hostHandlers.attachmentPreview ?? DEFAULT_HOST_HANDLERS.attachmentPreview,
-            terminalRun: this._hostHandlers.terminalRun ?? DEFAULT_HOST_HANDLERS.terminalRun,
-            artifactRedownload: this._hostHandlers.artifactRedownload ?? DEFAULT_HOST_HANDLERS.artifactRedownload,
+            attachmentPreview: this._hostHandlers.attachmentPreview ?? APARTE_DEFAULT_HOST_HANDLERS.attachmentPreview,
+            terminalRun: this._hostHandlers.terminalRun ?? APARTE_DEFAULT_HOST_HANDLERS.terminalRun,
+            artifactRedownload: this._hostHandlers.artifactRedownload ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRedownload,
+            artifactRehydrate: this._hostHandlers.artifactRehydrate ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRehydrate,
         };
     }
 
@@ -259,11 +288,11 @@ export class AparteConfigClass {
         assistant?: AparteBubbleActionName[];
     } {
         return {
-            copy: this._bubbleActionsConfig.copy ?? DEFAULT_BUBBLE_ACTIONS.copy,
-            retry: this._bubbleActionsConfig.retry ?? DEFAULT_BUBBLE_ACTIONS.retry,
-            edit: this._bubbleActionsConfig.edit ?? DEFAULT_BUBBLE_ACTIONS.edit,
-            feedback: this._bubbleActionsConfig.feedback ?? DEFAULT_BUBBLE_ACTIONS.feedback,
-            info: this._bubbleActionsConfig.info ?? DEFAULT_BUBBLE_ACTIONS.info,
+            copy: this._bubbleActionsConfig.copy ?? APARTE_DEFAULT_BUBBLE_ACTIONS.copy,
+            retry: this._bubbleActionsConfig.retry ?? APARTE_DEFAULT_BUBBLE_ACTIONS.retry,
+            edit: this._bubbleActionsConfig.edit ?? APARTE_DEFAULT_BUBBLE_ACTIONS.edit,
+            feedback: this._bubbleActionsConfig.feedback ?? APARTE_DEFAULT_BUBBLE_ACTIONS.feedback,
+            info: this._bubbleActionsConfig.info ?? APARTE_DEFAULT_BUBBLE_ACTIONS.info,
             user: this._bubbleActionsConfig.user,
             assistant: this._bubbleActionsConfig.assistant,
         };
@@ -322,9 +351,23 @@ export class AparteConfigClass {
      *   hardened coverage, or `null` to DISABLE sanitization. Disabling exposes
      *   you to XSS from LLM-authored content — only do so for content you fully
      *   trust and have already sanitized upstream.
-     * @example AparteConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
+     * @example aparteGlobalConfig.setHtmlSanitizer((html) => DOMPurify.sanitize(html));
      */
     setHtmlSanitizer(sanitizer: AparteSanitizer | null): void {
+        if (sanitizer === null) {
+            // Passing null is a legitimate choice — an app that fully trusts its
+            // own pipeline, or one swapping in DOMPurify at a different layer. But
+            // it turns every renderer in this library into a raw `innerHTML` sink
+            // for model output, and it used to happen in complete silence, which
+            // is indistinguishable from a typo or a half-finished migration. One
+            // line in the console, once, so the decision is visible where it takes
+            // effect rather than only where it was written.
+            console.warn(
+                '[aparte] HTML sanitization is now DISABLED (setHtmlSanitizer(null)). '
+                + 'Model-authored HTML will be inserted verbatim. Pass a sanitizer '
+                + '(e.g. DOMPurify.sanitize) unless you sanitize upstream yourself.',
+            );
+        }
         this._sanitizer = sanitizer;
     }
 
@@ -408,7 +451,7 @@ export class AparteConfigClass {
 
     /**
      * The icon set as a **complete** provider: every name resolves, falling back
-     * to `DEFAULT_ICON_FALLBACKS` for anything the registered provider doesn't
+     * to `APARTE_DEFAULT_ICON_FALLBACKS` for anything the registered provider doesn't
      * implement. Callers (bubble action bar, composer controls) can therefore
      * invoke `icons.copy()` unconditionally.
      *
@@ -420,9 +463,9 @@ export class AparteConfigClass {
     getIconProvider(): Required<AparteIconProvider> {
         const registered = this._iconProvider;
         const complete = {} as Required<AparteIconProvider>;
-        for (const name of Object.keys(DEFAULT_ICON_FALLBACKS) as AparteIconName[]) {
+        for (const name of Object.keys(APARTE_DEFAULT_ICON_FALLBACKS) as AparteIconName[]) {
             const fn = registered?.[name];
-            complete[name] = fn ?? (() => DEFAULT_ICON_FALLBACKS[name]);
+            complete[name] = fn ?? (() => APARTE_DEFAULT_ICON_FALLBACKS[name]);
         }
         return complete;
     }
@@ -538,12 +581,12 @@ export class AparteConfigClass {
     }
 
     /**
-     * Restore the built-in English locale (the same `DEFAULT_LOCALE` core ships
+     * Restore the built-in English locale (the same `APARTE_DEFAULT_LOCALE` core ships
      * with). Counterpart of {@link setLocale} for language toggles — avoids
-     * having to import `DEFAULT_LOCALE` yourself.
+     * having to import `APARTE_DEFAULT_LOCALE` yourself.
      */
     resetLocale(): void {
-        this._locale = DEFAULT_LOCALE;
+        this._locale = APARTE_DEFAULT_LOCALE;
         this._notify();
     }
 
@@ -571,7 +614,7 @@ export class AparteConfigClass {
     getIcon(name: AparteIconName): string {
         const icon = this._iconProvider?.[name];
         if (icon) return icon();
-        return DEFAULT_ICON_FALLBACKS[name];
+        return APARTE_DEFAULT_ICON_FALLBACKS[name];
     }
 
     /**
@@ -603,7 +646,11 @@ export class AparteConfigClass {
         try {
             const apiKey = await this.getKey(providerId);
             // apiKey may be undefined for keyless local providers (e.g. LMStudio) — provider handles it
-            return await provider.fetchModels(apiKey);
+            const models = await provider.fetchModels(apiKey);
+            // Cached so `getCurrentModel()` can see it: a fetched list is the only
+            // list a compat endpoint has, and capabilities are read off the model.
+            this._fetchedModels.set(providerId, models);
+            return models;
         } catch (error) {
             console.warn(`[AparteConfig] Failed to refresh models for ${providerId}`, error);
             return [];
@@ -618,8 +665,8 @@ export class AparteConfigClass {
      * Register one or more AI providers (e.g., OpenRouter, Gemini, Anthropic)
      * @param providers AparteAIProvider implementations
      * @example
-     * AparteConfig.registerAIProvider(OpenRouterProvider);
-     * AparteConfig.registerAIProvider(GeminiProvider, AnthropicProvider);
+     * aparteGlobalConfig.registerAIProvider(OpenRouterProvider);
+     * aparteGlobalConfig.registerAIProvider(GeminiProvider, AnthropicProvider);
      */
     registerAIProvider(...providers: AparteAIProvider[]): void {
         for (const provider of providers) {
@@ -665,15 +712,15 @@ export class AparteConfigClass {
 
     /**
      * Set the transport that decides where chat requests go and how auth is
-     * handled. Defaults to {@link DirectTransport} (browser-direct — BYOK/local).
-     * Use a `BackendTransport` to keep API keys server-side (recommended for
+     * handled. Defaults to {@link AparteDirectTransport} (browser-direct — BYOK/local).
+     * Use a `AparteBackendTransport` to keep API keys server-side (recommended for
      * production).
      */
     setTransport(transport: AparteTransport): void {
         this._transport = transport;
     }
 
-    /** Get the active transport (DirectTransport by default). */
+    /** Get the active transport (AparteDirectTransport by default). */
     getTransport(): AparteTransport {
         return this._transport;
     }
@@ -682,7 +729,7 @@ export class AparteConfigClass {
      * Register a model preference provider for agnostic persistence.
      * The host app decides how/where to store the selected provider & model.
      * @example
-     * AparteConfig.setModelPreferenceProvider({
+     * aparteGlobalConfig.setModelPreferenceProvider({
      *   save: (p, m) => localStorage.setItem('model', JSON.stringify({p, m})),
      *   load: () => JSON.parse(localStorage.getItem('model') ?? 'null')
      * });
@@ -744,7 +791,7 @@ export class AparteConfigClass {
         // resolving to a different instance (or the global) skip the rebuild
         // instead of every bubble on the page reacting to every config's change.
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('aparte-config-change', {
+            window.dispatchEvent(new CustomEvent<AparteConfigChangeEventDetail>('aparte-config-change', {
                 detail: { config: this, modelConfig: this._modelConfig },
             }));
         }
@@ -771,6 +818,57 @@ export class AparteConfigClass {
      * still fetching its list). Off by default so single-model / backend setups
      * that never select a model are unaffected.
      */
+    /**
+     * Elicitation policy: whether a choice offers a free-text "Other…" escape.
+     *
+     * This is the HOST's decision, not the model's. `ask_user` used to carry an
+     * `allow_other` field in the schema it hands the model, which meant the model
+     * decided your UX — and a small model fills a field it does not understand: one
+     * sent two questions with `allow_other: true` and no options at all, so the
+     * panel rendered a radio list whose only entry was "Other…", twice.
+     *
+     * Every serious implementation of this pattern makes the escape hatch a property
+     * of the surface rather than of the request. Default `true`, which is what the
+     * panel did before, so nothing a user sees changes — only who gets to say so.
+     * A direct `requestUserInput` caller can still set `allowOther` per field; that
+     * is the app talking, and it wins.
+     *
+     * `layout` decides how a form of SEVERAL questions is presented.
+     * `'stepped'` (default) asks them one at a time with a chip per question;
+     * `'stacked'` puts them all in the panel at once. Stacked was the only shape,
+     * inherited unexamined from MCP elicitation — which describes a FORM for
+     * collecting structured data, not two different questions asked mid-conversation.
+     * No product asks a person two questions by stacking them in one box; it is kept
+     * as an option because the form case is real, not because it was the right default.
+     */
+    setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked' }): void {
+        if (options.allowOther !== undefined) this._elicitationAllowOther = options.allowOther;
+        if (options.layout !== undefined) this._elicitationLayout = options.layout;
+        this._notify();
+    }
+
+    /** The elicitation policy (see {@link setElicitationOptions}). */
+    getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' } {
+        return { allowOther: this._elicitationAllowOther, layout: this._elicitationLayout };
+    }
+
+    /**
+     * Render one field of the question panel yourself.
+     *
+     * See {@link AparteElicitationFieldRenderer}. Return `null` for a field to let
+     * the built-in render it, which is what makes overriding a single kind practical.
+     * Pass `null` here to remove the renderer.
+     */
+    setElicitationFieldRenderer(fn: AparteElicitationFieldRenderer | null): void {
+        this._elicitationFieldRenderer = fn ?? undefined;
+        this._notify();
+    }
+
+    /** The custom field renderer, if one is registered. */
+    getElicitationFieldRenderer(): AparteElicitationFieldRenderer | undefined {
+        return this._elicitationFieldRenderer;
+    }
+
     setRequireModelSelection(required: boolean): void {
         if (this._requireModelSelection === required) return;
         this._requireModelSelection = required;
@@ -792,13 +890,19 @@ export class AparteConfigClass {
         if (!defaultProvider || !defaultModel) return undefined;
         const provider = this._aiProviders.get(defaultProvider);
         if (!provider) return undefined;
+        // The fetched list FIRST: it is fresher, and for a provider whose list only
+        // exists at runtime it is the only one there is. `getModels()` stays the
+        // fallback, so a provider that declares its models statically is unchanged.
+        const fetched = this._fetchedModels.get(defaultProvider);
+        const fromFetch = fetched?.find(m => m.id === defaultModel);
+        if (fromFetch) return fromFetch;
         const models = provider.getModels();
         if (models instanceof Promise) {
             // Contract violation kept survivable for plain-JS consumers: the
             // type is sync-only, async lists belong in fetchModels().
             console.warn(
                 `[AparteConfig] Provider "${defaultProvider}".getModels() returned a Promise — it is ignored here, ` +
-                'so model capabilities (e.g. function_calling) resolve to none and tools are disabled. ' +
+                'so this model resolves to undefined and nothing can read its capabilities. ' +
                 'getModels() must return the list synchronously; implement fetchModels() for async fetching.'
             );
             return undefined;
@@ -814,7 +918,7 @@ export class AparteConfigClass {
      * Get translated string by key
      */
     t(key: keyof AparteLocale): string {
-        const val = this._locale[key] || DEFAULT_LOCALE[key];
+        const val = this._locale[key] || APARTE_DEFAULT_LOCALE[key];
         // Ensure we always return a string for template interpolation
         // For optional properties like 'direction', this might need specific handling or casting
         return (val === undefined) ? '' : val;
@@ -875,7 +979,7 @@ export class AparteConfigClass {
      * Register a tool and its handler together.
      * The handler is called when the AI invokes the tool during streaming.
      * @example
-     * AparteConfig.registerTool(askQuestionTool, askQuestionHandler);
+     * aparteGlobalConfig.registerTool(askUserTool, askUserHandler);
      */
     registerTool(tool: AparteTool, handler: AparteToolHandler): void {
         this._tools.set(tool.name, { tool, handler });
@@ -902,12 +1006,12 @@ export class AparteConfigClass {
      * Use this instead of the generic `tool_call` segment renderer for tool-specific UI.
      *
      * @example
-     * // Hide the segment entirely (UI-only tool like ask_question)
-     * AparteConfig.registerToolRenderer('ask_question', { render: () => '' });
+     * // Hide the segment entirely (UI-only tool like ask_user)
+     * aparteGlobalConfig.registerToolRenderer('ask_user', { render: () => '' });
      *
      * @example
      * // Custom pill for a web-search tool
-     * AparteConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="tool-pill">Searching...</div>` });
+     * aparteGlobalConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="tool-pill">Searching...</div>` });
      */
     registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void {
         this._toolRenderers.set(toolName, renderer);
@@ -928,15 +1032,15 @@ export class AparteConfigClass {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register a ConversationManager so any UI controller can persist & load
+     * Register a AparteConversationManager so any UI controller can persist & load
      * conversations without coupling to a framework wrapper.
      */
-    setConversationManager(manager: ConversationManager): void {
+    setConversationManager(manager: AparteConversationManager): void {
         this._conversationManager = manager;
     }
 
-    /** Returns the registered ConversationManager, or undefined if none. */
-    getConversationManager(): ConversationManager | undefined {
+    /** Returns the registered AparteConversationManager, or undefined if none. */
+    getConversationManager(): AparteConversationManager | undefined {
         return this._conversationManager;
     }
 
@@ -961,14 +1065,34 @@ export class AparteConfigClass {
 
     /**
      * Ask the user for typed input mid-run and await their response. This is the
-     * generic primitive behind `ask_question` and tool approval — the KIND of
+     * generic primitive behind `ask_user` and tool approval — the KIND of
      * question is the schema, not a bespoke tool. Resolves `accept` with the
      * value, `decline` when the user declines, or `cancel` when the turn is
-     * cancelled. With no presenter registered it resolves `cancel` (nothing can
-     * present it) rather than hanging.
+     * cancelled.
+     *
+     * With NO presenter registered it resolves `cancel` rather than hanging — and
+     * warns, once, because that `cancel` is otherwise a lie told quietly. The
+     * model reads it as "the user refused"; the user was never asked, and the
+     * developer sees nothing at all. The default presenter is
+     * `<aparte-elicitation>`, which registers itself from its `connectedCallback`
+     * — so it has to be IN THE DOM. A docs page of ours claimed it "installs
+     * itself — nothing to register", which is how this failure mode was found.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
-        if (!this._elicitationPresenter) return Promise.resolve({ action: 'cancel' });
+        if (!this._elicitationPresenter) {
+            if (!this._warnedNoPresenter) {
+                this._warnedNoPresenter = true;
+                console.warn(
+                    '[aparte] requestUserInput() was called with no elicitation presenter, '
+                    + 'so it resolved `cancel` — the model will read that as the user refusing, '
+                    + 'but nothing was ever shown. Add <aparte-elicitation></aparte-elicitation> '
+                    + 'inside your <aparte-chat>, or register your own by calling '
+                    + 'setElicitationPresenter() on the config this chat resolves — '
+                    + 'the scoped one if you passed a `config`, aparteGlobalConfig otherwise.',
+                );
+            }
+            return Promise.resolve({ action: 'cancel' });
+        }
         return this._elicitationPresenter(request);
     }
 
@@ -996,18 +1120,22 @@ export class AparteConfigClass {
         this._keyProvider = undefined;
         this._conversationManager = undefined;
         this._elicitationPresenter = undefined;
-        this._locale = DEFAULT_LOCALE;
+        this._locale = APARTE_DEFAULT_LOCALE;
         this._actions = [];
         this._sanitizer = defaultSanitizer;
         // Registries — the leak the audit flagged.
         this._aiProviders.clear();
+        this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
         this._modelConfig = {};
         this._requireModelSelection = false;
+        this._elicitationAllowOther = true;
+        this._elicitationLayout = 'stepped';
+        this._elicitationFieldRenderer = undefined;
         this._modelPreferenceProvider = undefined;
-        this._bubbleActionsConfig = { ...DEFAULT_BUBBLE_ACTIONS };
-        this._hostHandlers = { ...DEFAULT_HOST_HANDLERS };
+        this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
+        this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };
         this._notify();
     }
 
@@ -1017,13 +1145,13 @@ export class AparteConfigClass {
 
     private _defaultMarkdownRenderer(raw: string): string {
         // Simple security: Escape HTML tags
-        const escaped = this._escapeHtml(raw);
+        const escaped = escapeHtml(raw);
         // Convert newlines to breaks
         return escaped.replace(/\n/g, '<br>');
     }
 
     private _defaultHighlightRenderer(code: string): string {
-        return `<pre><code>${this._escapeHtml(code)}</code></pre>`;
+        return `<pre><code>${escapeHtml(code)}</code></pre>`;
     }
 
     private _defaultSkeletonRenderer(type: AparteSkeletonType): string {
@@ -1040,38 +1168,65 @@ export class AparteConfigClass {
         return fallbacks[type] || fallbacks.text;
     }
 
-    private _escapeHtml(text: string): string {
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export Singleton
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GLOBAL_CONFIG_KEY = '__APARTE_CONFIG_SINGLETON__';
+/**
+ * The page-global singleton's key.
+ *
+ * A `Symbol.for`, and versioned — matching the discipline the instance boundary
+ * next door already uses (`Symbol.for('aparte.instanceConfig')`). It used to be the
+ * enumerable string `'__APARTE_CONFIG_SINGLETON__'` with no version segment, so any
+ * two copies of `@aparte/core` on one page — the ordinary outcome of a `~` peer next
+ * to an app-level dependency, or two consumers on different wrapper versions — got
+ * the instance built by whichever module evaluated first, while their `AparteConfig`
+ * classes, their `Symbol.for('aparte.instanceConfig')` reads and their WeakMap
+ * renderer registries stayed distinct. One object, seen through two classes across
+ * which `instanceof` is false.
+ *
+ * The trailing number is a CONTRACT version, not the package version: bump it when
+ * the config's shape changes in a way that makes sharing unsafe. Two copies then
+ * simply get one global each, which is correct — a copy is consistent with itself.
+ */
+const GLOBAL_CONFIG_KEY = Symbol.for('aparte.globalConfig.1');
 
-function getGlobalConfig(): AparteConfigClass {
+function getGlobalConfig(): AparteConfig {
     if (typeof window !== 'undefined') {
-        if (!(window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY]) {
-            (window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY] = new AparteConfigClass();
+        if (!(window as unknown as Record<symbol, AparteConfig>)[GLOBAL_CONFIG_KEY]) {
+            (window as unknown as Record<symbol, AparteConfig>)[GLOBAL_CONFIG_KEY] = new AparteConfig();
         }
-        return (window as unknown as Record<string, AparteConfigClass>)[GLOBAL_CONFIG_KEY]!;
+        return (window as unknown as Record<symbol, AparteConfig>)[GLOBAL_CONFIG_KEY]!;
     }
     // Fallback for non-browser environments (e.g., SSR, tests)
-    return new AparteConfigClass();
+    return new AparteConfig();
 }
 
 /**
  * Global configuration singleton for Aparte.
  * Use this to register providers and configure behavior.
  */
-export const AparteConfig = getGlobalConfig();
+export const aparteGlobalConfig = getGlobalConfig();
 
 // Inject default styles for skeletons if needed (optional)
 // Note: In a real app we might want to use a stylesheet or shadow DOM styles
+
+/**
+ * Detail payload for `aparte-config-change`, dispatched on `window` whenever any
+ * provider, locale, action or model setting changes.
+ *
+ * Five core components listen for it — the widest listener footprint of any event
+ * that had no declared type. `config` is what makes per-instance config work: a
+ * component resolving to a different instance compares it and skips the rebuild
+ * instead of every chat on the page reacting to every config's change.
+ *
+ * @event aparte-config-change
+ */
+export interface AparteConfigChangeEventDetail {
+    /** The config instance that changed — compare against your own before reacting. */
+    config: AparteConfig;
+    /** Its model configuration, after the change. */
+    modelConfig: AparteModelConfig;
+}

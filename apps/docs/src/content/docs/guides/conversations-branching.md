@@ -25,7 +25,7 @@ Both buttons need a host to mean anything, so core ships them **off**. One line 
 on, next to wherever you start your client:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 Details — and the full list of what ships enabled — in
@@ -83,15 +83,18 @@ sibling with **`viewport.addSiblingOf(messageId, newMessage)`** — it returns t
 message's id — then stream into it:
 
 ```ts
-const viewport = document.querySelector('aparte-chat-viewport'); // or chat.viewport
+const viewport = document.querySelector('aparte-chat-viewport')!; // or chat.viewport
+declare const yourModelStream: AsyncIterable<string>;
 
-document.addEventListener('aparte-retry', (e) => {
+// `async`, because of the `for await` below.
+document.addEventListener('aparte-retry', async (e) => {
   const id = viewport.addSiblingOf(e.detail.messageId, {
     id: crypto.randomUUID(),
     role: 'assistant',
     content: '',
     timestamp: Date.now(),
   });
+  if (!id) return;
 
   // Stream your model's new answer into the branch:
   for await (const token of yourModelStream) viewport.appendToken(id, token);
@@ -113,7 +116,7 @@ and stream a fresh one. This mirrors what `AparteClient` does — an in-place up
 branch:
 
 ```ts
-document.addEventListener('aparte-edit', (e) => {
+document.addEventListener('aparte-edit', async (e) => {
   const { messageId, content } = e.detail;
 
   viewport.updateMessage(messageId, { content });   // replace the user text in place
@@ -125,6 +128,7 @@ document.addEventListener('aparte-edit', (e) => {
     content: '',
     timestamp: Date.now(),
   });
+  if (!id) return;
 
   for await (const token of yourModelStream) viewport.appendToken(id, token);
   viewport.completeMessage(id);
@@ -137,8 +141,8 @@ Both actions are off until you ask for them, so "turning it off" is usually just
 opting in. To take one back after the fact:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: false });   // keep edit, drop retry
-AparteConfig.setBubbleActions({ user: ['copy'] }); // user bubbles: copy only, no editor
+aparteGlobalConfig.setBubbleActions({ retry: false });   // keep edit, drop retry
+aparteGlobalConfig.setBubbleActions({ user: ['copy'] }); // user bubbles: copy only, no editor
 ```
 
 It applies live — already-rendered bubbles rebuild their action bar — and a bar left with
@@ -167,13 +171,13 @@ viewport.importTree(tree);
 ```
 
 For multi-conversation storage (list, switch, delete — against localStorage, IndexedDB,
-or your API), core also ships a `ConversationManager` + a storage-adapter contract — a
+or your API), core also ships a `AparteConversationManager` + a storage-adapter contract — a
 topic of its own.
 
 ## Customizing the picker
 
 The `‹ 1/2 ›` control is a render hook: swap it for your own markup with
-`AparteConfig.setSiblingNavRenderer(({ count, index }) => …)`. See
+`aparteGlobalConfig.setSiblingNavRenderer(({ count, index }) => …)`. See
 [Customization](/guides/customization#render-hooks).
 
 ---

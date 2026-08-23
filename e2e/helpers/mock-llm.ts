@@ -1,8 +1,8 @@
 /**
  * Deterministic network mock for the OpenAI-compatible model API.
  *
- * The playgrounds wire a REAL pipeline (`createOpenAICompatProvider` →
- * `DirectTransport` → `AparteClient`). We do NOT touch that wiring — instead we
+ * The examples wire a REAL pipeline (`createOpenAICompatProvider` →
+ * `AparteDirectTransport` → `AparteClient`). We do NOT touch that wiring — instead we
  * intercept the only two calls that leave the browser and answer them from
  * here, so the E2E is fast, offline, and identical on every machine:
  *
@@ -13,7 +13,7 @@
  * assert the real request half ran — the auto-selected model id and the typed
  * message actually reached the transport, not just the canned response coming
  * back. The glob matches any host (LM Studio :1234, Ollama :11434, OpenRouter…),
- * so every provider the playgrounds register resolves to the same fixture.
+ * so every provider the examples register resolves to the same fixture.
  *
  * **Scenarios.** One canned happy-path reply only ever exercised plain markdown,
  * which is why no segment renderer, no error path and no mid-stream state had any
@@ -47,8 +47,54 @@ export const MOCK_THINKING_MARK = 'weighing the options';
  */
 const THINKING_CHUNKS = ['Let me start by ', MOCK_THINKING_MARK, '.'];
 export const MOCK_THINKING_FULL = THINKING_CHUNKS.join('');
+
+/**
+ * A reasoning trace long enough to OVERFLOW the thinking block.
+ *
+ * `.thinking-content` is its own scroll container (`max-height: 300px`), and the
+ * three chunks above never come close to filling it — which is why nothing ever
+ * observed what the box does once it scrolls. It did nothing: `update()` replaced
+ * the text without touching `scrollTop`, so the newest reasoning piled up below the
+ * fold while the block sat frozen on its first screenful.
+ *
+ * Numbered so a spec can assert WHICH line is in view rather than that some text is.
+ */
+const LONG_THINKING_LINES = [
+    // Markdown, because a model that formats its answer formats its reasoning too —
+    // and the block used to render this as literal asterisks in a pre-wrap box.
+    `A **${'bold conclusion'}** first.
+
+`,
+    ...Array.from({ length: 30 }, (_, i) => `reasoning step ${i + 1}
+
+`),
+];
+/** The bold run a spec asserts is real markup rather than literal asterisks. */
+export const MOCK_THINKING_BOLD = 'bold conclusion';
 export const MOCK_CODE_MARK = 'aparteCodeFixture';
 export const MOCK_TOOL_NAME = 'e2e_echo';
+
+/**
+ * The `ask-user` scenario calls the REAL tool `@aparte/plugin-ask-user`
+ * registers, not a fixture of our own — the point is to drive the actual
+ * `requestUserInput` path that `<aparte-elicitation>` answers.
+ */
+export const MOCK_ASK_TOOL_NAME = 'ask_user';
+/** The question text the scenario asks, so a spec asserts a constant. */
+export const MOCK_ASK_QUESTION = 'Which engine should the workbench use?';
+/** The two options offered, in order. */
+export const MOCK_ASK_OPTIONS = ['Chromium', 'WebKit'] as const;
+
+/**
+ * Two questions in ONE tool call — the shape that used to stack them in one box.
+ *
+ * Each carries a short `header`, which is what a chip holds: a chip cannot hold a
+ * sentence, and truncating one is worse than numbering it.
+ */
+export const MOCK_ASK_TWO = [
+    { header: 'Engine', question: 'Which engine should it use?', options: ['Chromium', 'WebKit'] },
+    { header: 'Theme', question: 'Which theme should it use?', options: ['Light', 'Dark'] },
+] as const;
 
 /** A model id carrying characters that break a naive attribute selector. */
 export const MOCK_HOSTILE_MODEL_ID = 'a"b]c-model';
@@ -68,6 +114,8 @@ const DEFAULT_MODELS: MockModel[] = [{ id: MOCK_MODEL_ID, name: 'Aparte E2E Mode
  * - `thinking` — `reasoning_content` deltas, then text: a thinking segment
  * - `code` — a fenced block: the code segment, its header and copy button
  * - `tool-call` — a streamed tool call the app's registered tool answers
+ * - `ask-user` — calls the real `ask_user` tool, which SUSPENDS the turn
+ *   on `requestUserInput` until a presenter shows a panel and it is answered
  * - `slow` — response held open (see `delayMs`): pending/streaming/stop/cancel
  * - `http-500` — vendor error status: the error segment + recovery
  * - `malformed-sse` — unparseable events: must degrade, not crash
@@ -76,8 +124,11 @@ const DEFAULT_MODELS: MockModel[] = [{ id: MOCK_MODEL_ID, name: 'Aparte E2E Mode
 export type LlmScenario =
     | 'text'
     | 'thinking'
+    | 'long-thinking'
     | 'code'
     | 'tool-call'
+    | 'ask-user'
+    | 'ask-two-questions'
     | 'slow'
     | 'http-500'
     | 'malformed-sse'
@@ -92,6 +143,23 @@ export interface LlmMockOptions {
     models?: MockModel[];
     /** How long `scenario: 'slow'` holds the response. Default 2000ms. */
     delayMs?: number;
+    /**
+     * Milliseconds between SSE events — REAL progressive delivery.
+     *
+     * Without this, `route.fulfill` hands the whole body over at once, so nothing
+     * in the browser ever observed a reply arriving over time: incremental markdown
+     * re-parse, mid-stream re-highlight, scroll-follow under mutation pressure and
+     * "Stop keeps the text already on screen" had no coverage at all, in the one
+     * suite that runs a real engine.
+     *
+     * When set, the response is delivered by a `fetch` shim inside the page instead
+     * of by Playwright's router, because a fulfil cannot be streamed. Everything
+     * above `fetch` — provider, transport, client, renderers — is still the real
+     * pipeline, which is what these tests are about. The trade-off, stated: the
+     * route interceptor proves a request LEFT the browser; the shim proves the same
+     * body reached the shim. Request capture works either way.
+     */
+    pace?: number;
 }
 
 // A markdown-flavored reply: the `**bold**` proves the marked plugin runs, and
@@ -115,8 +183,28 @@ const usageEvent = (): string =>
     sse({ choices: [], usage: { prompt_tokens: 12, completion_tokens: 20, total_tokens: 32 } });
 const DONE = 'data: [DONE]\n\n';
 
+/**
+ * The same body `bodyForScenario` serves, split back into individual SSE frames.
+ *
+ * Derived from the joined string rather than rebuilt per scenario on purpose: a
+ * paced run and a buffered run then differ ONLY in timing, which is the variable
+ * under test. Every frame the builders emit already ends in a blank line.
+ */
+function eventsForScenario(scenario: LlmScenario): string[] {
+    const body = bodyForScenario(scenario);
+    const TERM = '\n\n';
+    return body.split(TERM).filter(Boolean).map(frame => frame + TERM);
+}
+
 function bodyForScenario(scenario: LlmScenario): string {
     switch (scenario) {
+        case 'long-thinking':
+            return [
+                ...LONG_THINKING_LINES.map(thinkingEvent),
+                ...REPLY_CHUNKS.map(contentEvent),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
+
         case 'thinking':
             return [
                 ...THINKING_CHUNKS.map(thinkingEvent),
@@ -132,6 +220,83 @@ function bodyForScenario(scenario: LlmScenario): string {
                 contentEvent('```\n'),
                 contentEvent('\nThat is all.'),
                 finishEvent(), usageEvent(), DONE,
+            ].join('');
+
+        /**
+         * A tool call the model cannot answer on its own: `ask_user` suspends
+         * the turn on `requestUserInput`, which only resolves once a presenter has
+         * shown a panel and the user has answered it.
+         *
+         * That is the whole path the instance-config bug broke — under every
+         * wrapper, `<aparte-elicitation>` registered on the global singleton while
+         * the tool handler resolved the chat's own config, found no presenter, and
+         * answered the model `cancel`. Nothing was ever shown, and nothing in the
+         * browser suite could see it, because no example wired the two together.
+         */
+        case 'ask-two-questions':
+            return [
+                contentEvent('Two things first.'),
+                sse({
+                    choices: [{
+                        index: 0,
+                        delta: {
+                            tool_calls: [{
+                                index: 0,
+                                id: 'call_e2e_ask_2',
+                                function: {
+                                    name: MOCK_ASK_TOOL_NAME,
+                                    arguments: JSON.stringify({
+                                        questions: MOCK_ASK_TWO.map((q) => ({
+                                            question: q.question,
+                                            header: q.header,
+                                            options: q.options.map((title) => ({ title })),
+                                        })),
+                                    }),
+                                },
+                            }],
+                        },
+                    }],
+                }),
+                finishEvent('tool_calls'),
+                usageEvent(),
+                DONE,
+            ].join('');
+
+        case 'ask-user':
+            return [
+                contentEvent('Let me check with you.'),
+                sse({
+                    choices: [{
+                        index: 0,
+                        delta: {
+                            tool_calls: [{
+                                index: 0,
+                                id: 'call_e2e_ask_1',
+                                function: { name: MOCK_ASK_TOOL_NAME, arguments: '' },
+                            }],
+                        },
+                    }],
+                }),
+                sse({
+                    choices: [{
+                        index: 0,
+                        delta: {
+                            tool_calls: [{
+                                index: 0,
+                                function: {
+                                    arguments: JSON.stringify({
+                                        question: MOCK_ASK_QUESTION,
+                                        header: 'Engine',
+                                        options: MOCK_ASK_OPTIONS.map((title) => ({ title })),
+                                    }),
+                                },
+                            }],
+                        },
+                    }],
+                }),
+                finishEvent('tool_calls'),
+                usageEvent(),
+                DONE,
             ].join('');
 
         case 'tool-call':
@@ -198,12 +363,71 @@ async function fulfill(route: Route, body: string, contentType: string, status =
     await route.fulfill({ status, headers: { ...CORS_HEADERS, 'content-type': contentType }, body });
 }
 
+
+/**
+ * Deliver `POST **\/chat/completions` from inside the page, one SSE event at a
+ * time, `pace` ms apart.
+ *
+ * `route.fulfill` cannot stream a body, so progressive arrival has to come from
+ * somewhere the page can pull from lazily. This shims `window.fetch` for that one
+ * URL and returns a `Response` whose body is a `ReadableStream` that enqueues on a
+ * timer — real backpressure, real `reader.read()` boundaries in the client loop.
+ *
+ * Installed as an init script so it is in place before any app code runs.
+ */
+async function installPacedChatStream(page: Page, events: string[], pace: number): Promise<void> {
+    await page.addInitScript(
+        ({ events: sse, pace: gap }: { events: string[]; pace: number }) => {
+            const captured: unknown[] = [];
+            (window as unknown as { __apartePacedRequests: unknown[] }).__apartePacedRequests = captured;
+
+            const real = window.fetch.bind(window);
+            window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+                const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+                if (!url.includes('/chat/completions')) return real(input as RequestInfo, init);
+
+                const bodyText = typeof init?.body === 'string' ? init.body : null;
+                if (bodyText) { try { captured.push(JSON.parse(bodyText)); } catch { /* not JSON */ } }
+
+                const signal = init?.signal ?? null;
+                const encoder = new TextEncoder();
+                const stream = new ReadableStream<Uint8Array>({
+                    async start(controller) {
+                        for (const event of sse) {
+                            if (signal?.aborted) {
+                                controller.error(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+                                return;
+                            }
+                            controller.enqueue(encoder.encode(event));
+                            await new Promise(r => setTimeout(r, gap));
+                        }
+                        controller.close();
+                    },
+                });
+                return new Response(stream, {
+                    status: 200,
+                    headers: { 'content-type': 'text/event-stream' },
+                });
+            };
+        },
+        { events, pace },
+    );
+}
+
 /** Handle returned by {@link installLlmMock} for asserting the request half. */
 export interface LlmMock {
     /** Chat-completions request bodies captured in order. */
     readonly chatRequests: Record<string, unknown>[];
     /** The most recent chat-completions request body, or null if none yet. */
     lastChatRequest(): Record<string, unknown> | null;
+    /**
+     * Request bodies captured by the PACED path, read out of the page.
+     *
+     * A separate accessor rather than folding it into `chatRequests`: the paced
+     * path answers inside the page, so reading it is asynchronous, and making the
+     * synchronous getter async would touch every existing spec.
+     */
+    pacedRequests(): Promise<Record<string, unknown>[]>;
     /** The scenario this mock is serving. */
     readonly scenario: LlmScenario;
 }
@@ -220,7 +444,13 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
 
     await page.route('**/models', (route) => fulfill(route, JSON.stringify({ data: models }), 'application/json'));
 
-    await page.route('**/chat/completions', async (route) => {
+    // Paced delivery is answered inside the page (a fulfil cannot stream), so the
+    // chat route below is not installed for it — the shim owns that URL.
+    const paced = opts.pace !== undefined;
+    if (paced) await installPacedChatStream(page, eventsForScenario(scenario), opts.pace ?? 40);
+
+
+    if (!paced) await page.route('**/chat/completions', async (route) => {
         const request = route.request();
         if (request.method() === 'POST') {
             const body = request.postDataJSON() as Record<string, unknown> | null;
@@ -240,8 +470,44 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
             await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
 
+        /**
+         * A tool-call turn is not the whole exchange. The client runs the handler,
+         * appends the result, and asks again — so a scenario that answers every
+         * request with the same tool call loops until `maxTurns`.
+         *
+         * `ask-user` therefore answers the FIRST request with the call and
+         * every later one with plain text. That is what a real model does, and it
+         * lets a spec follow the whole path: the panel appears, the user answers,
+         * the answer reaches the model, a reply lands. Asserting only that a panel
+         * appeared would have left the half that actually resolves the turn
+         * untested.
+         *
+         * `tool-call` keeps its old shape: no spec consumes it today, and changing
+         * a fixture nobody reads is churn.
+         */
+        // Both ask-user scenarios: the SECOND turn answers with text.
+        //
+        // `ask-two-questions` did not, so it re-asked forever — and the spec asserting
+        // "the panel is gone" passed on Chromium only because it looked in the window
+        // between the first panel closing and the next one opening. WebKit's timing put
+        // the new panel up first and the assertion saw it. A racy fixture, not a racy
+        // product: the receipt in that failure showed both answers submitted correctly.
+        if ((scenario === 'ask-user' || scenario === 'ask-two-questions') && chatRequests.length > 1) {
+            await fulfill(route, bodyForScenario('text'), 'text/event-stream');
+            return;
+        }
+
         await fulfill(route, bodyForScenario(scenario), 'text/event-stream');
     });
 
-    return { chatRequests, lastChatRequest: () => chatRequests.at(-1) ?? null, scenario };
+    // Paced runs capture in the page, so the handle reads from there. `async` on
+    // both would be a wider change than this earns; the paced getter is separate.
+    return {
+        chatRequests,
+        lastChatRequest: () => chatRequests.at(-1) ?? null,
+        pacedRequests: () => page.evaluate(
+            () => (window as unknown as { __apartePacedRequests?: unknown[] }).__apartePacedRequests ?? [],
+        ) as Promise<Record<string, unknown>[]>,
+        scenario,
+    };
 }

@@ -2,6 +2,7 @@ import type { AparteMessage } from '../types/index.js';
 import type { AparteConversation, AparteStorageAdapter } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { APARTE_CONVERSATION_SCHEMA_VERSION } from './types.js';
+import { uuid } from '../utils/uuid.js';
 
 type Listener = (conversations: AparteConversation[]) => void;
 
@@ -65,7 +66,7 @@ export function applyRetention(
  *
  * Usage:
  * ```ts
- * const manager = new ConversationManager(myAdapter);
+ * const manager = new AparteConversationManager(myAdapter);
  * await manager.init();                    // load from storage
  * const conv = await manager.createNew(); // returns new AparteConversation
  * ```
@@ -74,7 +75,7 @@ export function applyRetention(
  * mutation so framework wrappers (Angular signals, Vue reactive, etc.) can
  * react without polling.
  */
-export class ConversationManager {
+export class AparteConversationManager {
     private _adapter: AparteStorageAdapter;
     private _conversations: AparteConversation[] = [];
     private _activeId: string | null = null;
@@ -142,7 +143,7 @@ export class ConversationManager {
     async createNew(title = 'New Chat'): Promise<AparteConversation> {
         const now = Date.now();
         const conv: AparteConversation = {
-            id: crypto.randomUUID(),
+            id: uuid(),
             title,
             createdAt: now,
             updatedAt: now,
@@ -304,7 +305,7 @@ export class ConversationManager {
             try {
                 l(snapshot);
             } catch (err) {
-                console.error('[ConversationManager] listener threw:', err);
+                console.error('[AparteConversationManager] listener threw:', err);
             }
         });
     }

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { setupMarkedProvider } from './index.js';
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 
 describe('@aparte/plugin-marked', () => {
     it('registers marked as the markdown provider', () => {
-        const spy = vi.spyOn(AparteConfig, 'setMarkdownProvider');
+        const spy = vi.spyOn(aparteGlobalConfig, 'setMarkdownProvider');
         setupMarkedProvider();
         expect(spy).toHaveBeenCalled();
         spy.mockRestore();
@@ -12,7 +12,7 @@ describe('@aparte/plugin-marked', () => {
 
     it('renders markdown to HTML synchronously', () => {
         let provider: ((raw: string) => string) | undefined;
-        vi.spyOn(AparteConfig, 'setMarkdownProvider').mockImplementation((p) => { provider = p; });
+        vi.spyOn(aparteGlobalConfig, 'setMarkdownProvider').mockImplementation((p) => { provider = p; });
 
         setupMarkedProvider();
 
@@ -26,7 +26,7 @@ describe('@aparte/plugin-marked', () => {
 
     it('applies extension options via marked.use', () => {
         let provider: ((raw: string) => string) | undefined;
-        vi.spyOn(AparteConfig, 'setMarkdownProvider').mockImplementation((p) => { provider = p; });
+        vi.spyOn(aparteGlobalConfig, 'setMarkdownProvider').mockImplementation((p) => { provider = p; });
 
         setupMarkedProvider({ breaks: true });
         const html = provider!('a\nb');

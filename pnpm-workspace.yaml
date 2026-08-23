@@ -9,9 +9,9 @@ packages:
   - 'packages/plugins/*'
   - 'packages/wrappers/*'
 
-  # Apps: docs (Starlight), playgrounds (one runnable example per framework)
+  # Apps: docs (Starlight), examples (one runnable example per framework)
   - 'apps/*'
-  - 'apps/playgrounds/*'
+  - 'apps/examples/*'
 
-  # Browser smoke E2E (Playwright) — drives the playgrounds in a real browser
+  # Browser smoke E2E (Playwright) — drives the examples in a real browser
   - 'e2e'

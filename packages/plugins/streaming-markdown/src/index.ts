@@ -1,4 +1,4 @@
-import { AparteConfig, isSafeUrl } from '@aparte/core';
+import { aparteGlobalConfig, isSafeUrl , type AparteConfig} from '@aparte/core';
 import { parser, parser_write, parser_end, default_renderer, HREF, SRC } from 'streaming-markdown';
 
 /**
@@ -14,7 +14,7 @@ import { parser, parser_write, parser_end, default_renderer, HREF, SRC } from 's
  * Framework-agnostic — vanilla DOM, no framework imports.
  *
  * **Security**: the streaming path writes DOM nodes directly and therefore
- * bypasses the one-shot `AparteConfig.sanitizeHtml`. To keep the same URL policy
+ * bypasses the one-shot `aparteGlobalConfig.sanitizeHtml`. To keep the same URL policy
  * live (an attacker-controlled `[x](javascript:…)` streamed token would produce
  * a clickable `javascript:` link before the final re-render sanitises it), the
  * renderer's `set_attr` is wrapped to drop any `href`/`src` whose scheme fails
@@ -23,8 +23,8 @@ import { parser, parser_write, parser_end, default_renderer, HREF, SRC } from 's
  *
  * Call once at application startup.
  */
-export function setupStreamingMarkdownProvider(): void {
-    AparteConfig.setStreamingMarkdownProvider((target: HTMLElement) => {
+export function setupStreamingMarkdownProvider(config: AparteConfig = aparteGlobalConfig): void {
+    config.setStreamingMarkdownProvider((target: HTMLElement) => {
         const renderer = default_renderer(target);
         const originalSetAttr = renderer.set_attr;
         renderer.set_attr = (data, type, value) => {

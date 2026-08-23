@@ -1,5 +1,6 @@
 import { resolveConfig, type AparteIconName } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /**
  * @element aparte-composer-action
@@ -7,7 +8,7 @@ import type { AparteComposer } from './aparte-composer.js';
  * Generic action button primitive for <aparte-composer>.
  * The consumer declares it directly in markup — no global registration needed.
  *
- * @attr icon      - Icon key for AparteConfig.getIcon(), or raw SVG/HTML starting with `<`
+ * @attr icon      - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`
  * @attr label     - Accessible label (also used as tooltip)
  * @attr disabled  - Disables the button
  *
@@ -69,8 +70,8 @@ export class AparteComposerAction extends HTMLElement {
         // `label` is a host-set attribute (often bound to dynamic/translated
         // text by the consumer) — escape before it lands in a double-quoted
         // attribute so a stray `"` can't break out and inject markup.
-        const label = this._escapeAttr(this.getAttribute('label') ?? '');
-        const icon = this._resolveIcon(this.getAttribute('icon') ?? '');
+        const label = escapeAttr(this.getAttribute('label') ?? '');
+        const icon = this._resolveIcon(this.getAttribute('icon') ?? '');  // safe-text: _resolveIcon returns provider SVG, or the host-set icon attribute verbatim when it starts with < — documented as trusted markup, same contract as AparteIconProvider
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
         this.innerHTML = `<button
@@ -102,7 +103,7 @@ export class AparteComposerAction extends HTMLElement {
     }
 
     private _handleClick(_e: MouseEvent): void {
-        this.dispatchEvent(new CustomEvent('aparte-action-click', {
+        this.dispatchEvent(new CustomEvent<AparteActionClickEventDetail>('aparte-action-click', {
             bubbles: true,
             composed: true,
             detail: { actionId: this.getAttribute('action-id') ?? '', composer: this._getRoot() },
@@ -116,11 +117,25 @@ export class AparteComposerAction extends HTMLElement {
     }
 
     /** Escape a value before it lands in a double-quoted HTML attribute. */
-    private _escapeAttr(str: string): string {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    }
 }
 
 if (!customElements.get('aparte-composer-action')) {
     customElements.define('aparte-composer-action', AparteComposerAction);
+}
+
+/**
+ * Detail payload for `aparte-action-click`.
+ *
+ * `<aparte-composer-action>` is a publicly exported element whose only purpose is
+ * to emit this event, and nothing in core listens for it — so the app IS the
+ * consumer, and it had no type to read `e.detail` with. The shape was already
+ * published in prose in the generated API reference; this makes it compile.
+ *
+ * @event aparte-action-click
+ */
+export interface AparteActionClickEventDetail {
+    /** The `action-id` attribute of the button that was clicked, or `''`. */
+    actionId: string;
+    /** The owning composer, or `null` when the button is used outside one. */
+    composer: AparteComposer | null;
 }

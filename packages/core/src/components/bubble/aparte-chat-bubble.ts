@@ -12,10 +12,11 @@ import type {
   AparteMessage,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
-import { AparteConfigClass } from '../../config/aparte-config.js';
+import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
+import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 
 /**
  * Warn ONCE when a segment has no renderer — now only for types core has never
@@ -35,11 +36,21 @@ function warnMissingRenderer(type: string): void {
  * `[Unknown segment type: text]` on screen (it is still honoured, and
  * `AparteClient({ autoRegister: false })` still keeps the built-ins out).
  */
-function resolveSegmentRenderer(type: string): ReturnType<typeof getSegmentRenderer> {
-    const renderer = getSegmentRenderer(type);
+function resolveSegmentRenderer(
+    type: string,
+    config: AparteConfig,
+): ReturnType<typeof getSegmentRenderer> {
+    // The CONFIG is passed in, not read ambiently.
+    //
+    // `runWithConfig` wrapped only `render` / `setup` / `update`, so the renderer's
+    // OWN work was per-instance while the question "which renderer is this?" was
+    // answered from a module-level registry. Two chats on a page therefore shared
+    // their segment renderers no matter what `config` prop the wrapper was given —
+    // half of the promise those props make.
+    const renderer = getSegmentRenderer(type, config);
     if (renderer) return renderer;
-    installDefaultRenderersOnce();
-    return getSegmentRenderer(type);
+    installDefaultRenderersOnce(config);
+    return getSegmentRenderer(type, config);
 }
 
 /**
@@ -159,7 +170,7 @@ export class AparteChatBubble extends HTMLElement {
    * AFTER this bubble mounts (AparteChatHost.bind() runs post-mount), so a
    * connect-time cache would freeze the wrong config.
    */
-  private get _cfg(): AparteConfigClass {
+  private get _cfg(): AparteConfig {
     return resolveConfig(this);
   }
 
@@ -173,10 +184,13 @@ export class AparteChatBubble extends HTMLElement {
     // attribute is absent (set later → attributeChangedCallback handles it).
     this._updateTimestamp(this.getAttribute('timestamp'));
     window.addEventListener('aparte-config-change', this._onConfigChange);
+    // Delegated, so a re-render cannot lose a click on the branch arrows.
+    this.addEventListener('click', this._onBranchPickerClick);
   }
 
   disconnectedCallback(): void {
     window.removeEventListener('aparte-config-change', this._onConfigChange);
+    this.removeEventListener('click', this._onBranchPickerClick);
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -275,12 +289,26 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /** Remove a segment by id (e.g. to discard a transient waiting indicator) */
+  /**
+   * Scoped to DIRECT children on purpose.
+   *
+   * Segments are appended as direct children of the container, but a descendant
+   * query returns the first match in document order — and sanitized model
+   * markdown renders inside that same container, with `data-*` attributes
+   * deliberately preserved (they are inert). So a decoy `data-segment-id` planted
+   * in an earlier segment's prose used to win over the real segment element.
+   *
+   * Parser ids are unguessable UUIDs, but a tool segment is `tool-${toolCallId}`
+   * and the MODEL chooses that id — so this was reachable, and pointing an update
+   * at a decoy left a rejected tool rendering as still-running: a spoof against
+   * the human-in-the-loop control.
+   */
   removeSegment(segmentId: string): void {
     const index = this._segments.findIndex(s => s.id === segmentId);
     if (index !== -1) {
       this._segments.splice(index, 1);
     }
-    const el = this._segmentsEl?.querySelector(`[data-segment-id="${cssEscape(segmentId)}"]`);
+    const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
     this._updateWaiting();
   }
@@ -296,7 +324,7 @@ export class AparteChatBubble extends HTMLElement {
    *
    * This is the *precondition* for the info ("i") action, not the trigger: the
    * button appears only if the app also declared it wants it —
-   * `AparteConfig.setBubbleActions({ info: true })` — because the stats popover it
+   * `aparteGlobalConfig.setBubbleActions({ info: true })` — because the stats popover it
    * opens (`aparte-message-info`) is the app's, and core has none. Without usage
    * there is nothing to show, so the button never renders either way.
    */
@@ -355,7 +383,7 @@ export class AparteChatBubble extends HTMLElement {
         console.warn(`[AparteChatBubble] _appendSegmentEl ABORT: _segmentsEl is null`);
         return;
     }
-    const renderer = resolveSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
       // this bubble's config as the ambient render config for the duration.
@@ -376,12 +404,12 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   private _applySegmentUpdate(segmentId: string, segment: AparteSegment, updates: Partial<AparteSegment>): void {
-    const el = this._segmentsEl?.querySelector(`[data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
+    const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`) as HTMLElement | null;
     if (!el) {
       this._renderSegments();
       return;
     }
-    const renderer = resolveSegmentRenderer(segment.type);
+    const renderer = resolveSegmentRenderer(segment.type, this._cfg);
     if (!renderer) return;
 
     if (renderer.update) {
@@ -445,7 +473,7 @@ export class AparteChatBubble extends HTMLElement {
     const displayName = this._getDisplayName();
     const initial = this._getAvatarInitial();
 
-    // Custom structural shell (AparteConfig.setBubbleShellRenderer). Must root at
+    // Custom structural shell (aparteGlobalConfig.setBubbleShellRenderer). Must root at
     // .aparte-message + carry the region hooks; the queries below are null-guarded
     // so a partial shell degrades gracefully. See AparteBubbleShellRenderer.
     const shell = this._cfg.getBubbleShellRenderer?.();
@@ -455,11 +483,11 @@ export class AparteChatBubble extends HTMLElement {
       else this.innerHTML = out;
     } else {
     this.innerHTML = `
-      <div class="aparte-message" data-role="${role}" role="article" aria-label="${this._getAriaLabel()}">
-        <div class="aparte-avatar" data-role="${role}"></div>
+      <div class="aparte-message" data-role="${escapeAttr(role)}" role="article" aria-label="${escapeAttr(this._getAriaLabel())}">
+        <div class="aparte-avatar" data-role="${escapeAttr(role)}"></div>
         <div class="aparte-body">
           <div class="aparte-header">
-            <span class="aparte-name">${this._escapeHtml(displayName)}</span>
+            <span class="aparte-name">${escapeHtml(displayName)}</span>
             <span class="aparte-timestamp"></span>
           </div>
           <div class="aparte-attachments" hidden></div>
@@ -473,11 +501,11 @@ export class AparteChatBubble extends HTMLElement {
           </div>
           <div class="aparte-footer">
             <div class="aparte-branch-picker" hidden>
-              <button class="aparte-branch-prev" aria-label="${this._cfg.getLocale().previousResponse ?? 'Previous response'}">&#8249;</button>
+              <button class="aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
               <span class="aparte-branch-label">1 / 1</span>
-              <button class="aparte-branch-next" aria-label="${this._cfg.getLocale().nextResponse ?? 'Next response'}">&#8250;</button>
+              <button class="aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
             </div>
-            <div class="aparte-action-bar" role="toolbar" aria-label="${this._cfg.getLocale().messageActions ?? 'Message actions'}"></div>
+            <div class="aparte-action-bar" role="toolbar" aria-label="${escapeAttr(this._cfg.getLocale().messageActions ?? 'Message actions')}"></div>
           </div>
         </div>
       </div>
@@ -491,7 +519,6 @@ export class AparteChatBubble extends HTMLElement {
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
     this._footerEl = this.querySelector('.aparte-footer');
 
-    this._setupBranchPickerListeners();
     this._updateActionBar();
     this._renderAvatar();
     // Re-apply the streaming state onto the freshly-built `.aparte-message`.
@@ -637,7 +664,7 @@ export class AparteChatBubble extends HTMLElement {
     this._segmentsEl.innerHTML = '';
 
     for (const segment of this._segments) {
-      const renderer = resolveSegmentRenderer(segment.type);
+      const renderer = resolveSegmentRenderer(segment.type, this._cfg);
       if (renderer) {
         const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
         if (el) {
@@ -713,7 +740,7 @@ export class AparteChatBubble extends HTMLElement {
 
     this._attachmentsEl.hidden = false;
 
-    // Custom attachment chips (AparteConfig.setAttachmentRenderer) — one node per
+    // Custom attachment chips (aparteGlobalConfig.setAttachmentRenderer) — one node per
     // attachment; the consumer owns markup + interactions (no default preview wiring).
     const customAttachment = this._cfg.getAttachmentRenderer?.();
     if (customAttachment) {
@@ -726,14 +753,14 @@ export class AparteChatBubble extends HTMLElement {
     }
 
     this._attachmentsEl.innerHTML = this._attachments.map(a => {
-      const name = this._escapeHtml(a.name);
+      const name = escapeHtml(a.name);
       if (a.type.startsWith('image/')) {
         return `<div class="aparte-thumb aparte-thumb--image" title="${name}">`
-          + `<img class="aparte-thumb__img" src="${this._escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
+          + `<img class="aparte-thumb__img" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
           + `<span class="aparte-thumb__name">${name}</span></div>`;
       }
       return `<div class="aparte-thumb aparte-thumb--file" title="${name}">`
-        + `<span class="aparte-thumb__ext">${this._escapeHtml(this._fileExt(a.name))}</span>`
+        + `<span class="aparte-thumb__ext">${escapeHtml(this._fileExt(a.name))}</span>`
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');
 
@@ -773,25 +800,40 @@ export class AparteChatBubble extends HTMLElement {
   // Branch Picker
   // ─────────────────────────────────────────────────────────────────────────
 
-  private _setupBranchPickerListeners(): void {
-    const prevBtn = this._branchPickerEl?.querySelector('.aparte-branch-prev');
-    const nextBtn = this._branchPickerEl?.querySelector('.aparte-branch-next');
-
-    const dispatchNav = (direction: 'prev' | 'next') => {
-      const messageId = this.getAttribute('message-id');
-      if (!messageId) return;
-      const detail: AparteBranchNavigateEventDetail = { messageId, direction };
-      // Tree-based navigation: let the viewport handle the branch switch
-      this.dispatchEvent(new CustomEvent<AparteBranchNavigateEventDetail>('aparte-branch-navigate', {
-        bubbles: true,
-        composed: true,
-        detail,
-      }));
-    };
-
-    prevBtn?.addEventListener('click', () => dispatchNav('prev'));
-    nextBtn?.addEventListener('click', () => dispatchNav('next'));
-  }
+  /**
+   * The branch arrows are handled by DELEGATION, on this element, bound once.
+   *
+   * They used to get a fresh listener each, attached by `_render()` to the buttons
+   * `_render()` had just created. So a click that landed while a re-render was
+   * swapping those nodes hit an element about to be discarded, and did nothing at
+   * all — not late, nothing. Invisible on a fast machine; reproducible on
+   * WebKit-Linux in CI, where `‹` left the picker on "2 / 2" and a 20-second
+   * assertion watched it stay there.
+   *
+   * Delegation makes `_render()` irrelevant to it: the listener lives on the host,
+   * which is never replaced, and `closest()` finds whichever button exists at the
+   * moment of the click. It is also less work — one listener per bubble instead of
+   * two per bubble per render.
+   *
+   * Bound in `connectedCallback` and removed in `disconnectedCallback` as a stable
+   * field, because an inline arrow re-added on every re-connect is how this repo has
+   * stacked listeners twice before (the viewport, and `aparte-select`).
+   */
+  private _onBranchPickerClick = (event: Event): void => {
+    const target = event.target as HTMLElement | null;
+    const button = target?.closest?.('.aparte-branch-prev, .aparte-branch-next');
+    if (!button || !this.contains(button)) return;
+    const direction = button.classList.contains('aparte-branch-prev') ? 'prev' : 'next';
+    const messageId = this.getAttribute('message-id');
+    if (!messageId) return;
+    const detail: AparteBranchNavigateEventDetail = { messageId, direction };
+    // Tree-based navigation: let the viewport handle the branch switch
+    this.dispatchEvent(new CustomEvent<AparteBranchNavigateEventDetail>('aparte-branch-navigate', {
+      bubbles: true,
+      composed: true,
+      detail,
+    }));
+  };
 
   private _updateBranchPicker(): void {
     if (!this._branchPickerEl) return;
@@ -804,7 +846,7 @@ export class AparteChatBubble extends HTMLElement {
     this._syncFooterVisibility();
     const label = this._branchPickerEl.querySelector('.aparte-branch-label');
     if (label) {
-      // Custom position indicator (AparteConfig.setSiblingNavRenderer) — e.g. dots —
+      // Custom position indicator (aparteGlobalConfig.setSiblingNavRenderer) — e.g. dots —
       // fills the label between the arrows; the arrows keep their behavior.
       const customNav = this._cfg.getSiblingNavRenderer?.();
       if (customNav) {
@@ -844,7 +886,7 @@ export class AparteChatBubble extends HTMLElement {
         for (const a of config.user) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
         // Flag-driven set. Only `copy` is on by default — see
-        // DEFAULT_BUBBLE_ACTIONS: edit needs a host to keep the new text.
+        // APARTE_DEFAULT_BUBBLE_ACTIONS: edit needs a host to keep the new text.
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.edit) buttons.push(this._actionButtonHtml('edit', icons, locale));
       }
@@ -867,7 +909,7 @@ export class AparteChatBubble extends HTMLElement {
 
     this._actionBarEl.innerHTML = buttons.join('');
 
-    // Custom actions registered via AparteConfig.registerAction — appended
+    // Custom actions registered via aparteGlobalConfig.registerAction — appended
     // after the built-ins, built as DOM (label goes to attributes, never
     // interpolated into innerHTML) so a consumer label can't inject markup.
     this._appendCustomActions(icons);
@@ -897,7 +939,7 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /** Append the registered custom action buttons for this bubble's role. */
-  private _appendCustomActions(icons: ReturnType<AparteConfigClass['getIconProvider']>): void {
+  private _appendCustomActions(icons: ReturnType<AparteConfig['getIconProvider']>): void {
     if (!this._actionBarEl) return;
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
@@ -920,36 +962,36 @@ export class AparteChatBubble extends HTMLElement {
   /** Build the `<button>` HTML for a single named action (shared by flag + per-role rendering). */
   private _actionButtonHtml(
     action: string,
-    icons: ReturnType<AparteConfigClass['getIconProvider']>,
-    locale: ReturnType<AparteConfigClass['getLocale']>,
+    icons: ReturnType<AparteConfig['getIconProvider']>,
+    locale: ReturnType<AparteConfig['getLocale']>,
   ): string {
     switch (action) {
       case 'copy': {
         const l = locale.copy ?? 'Copy';
-        return `<button class="aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${l}" title="${l}">${icons.copy()}</button>`;
+        return `<button class="aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
       }
       case 'edit': {
         const l = locale.edit ?? 'Edit message';
-        return `<button class="aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${l}" title="${l}">${icons.edit()}</button>`;
+        return `<button class="aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
       }
       case 'retry': {
         const l = locale.retry ?? 'Retry';
-        return `<button class="aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${l}" title="${l}">${icons.retry()}</button>`;
+        return `<button class="aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
       }
       case 'thumbUp': {
         const l = locale.feedbackPositive ?? 'Good response';
-        return `<button class="aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${l}" title="${l}">${icons.thumbUp()}</button>`;
+        return `<button class="aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
       }
       case 'thumbDown': {
         const l = locale.feedbackNegative ?? 'Bad response';
-        return `<button class="aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${l}" title="${l}">${icons.thumbDown()}</button>`;
+        return `<button class="aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
       }
       case 'info': {
         // Only when there are numbers to show: a details button over nothing is a
         // dead button. The popover itself is the app's (see `aparte-message-info`).
         if (!this._usage) return '';
         const l = locale.messageInfo ?? 'Details';
-        return `<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${l}" title="${l}">${INFO_ICON_SVG}</button>`;
+        return `<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${INFO_ICON_SVG}</button>`;
       }
       default:
         return '';
@@ -964,9 +1006,9 @@ export class AparteChatBubble extends HTMLElement {
     const cancelLabel = locale.editCancel ?? 'Cancel';
     this._actionBarEl.innerHTML =
       `<button class="aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
-      `aria-label="${saveLabel}" title="${saveLabel}">${this._cfg.getIcon('check')}</button>` +
+      `aria-label="${escapeAttr(saveLabel)}" title="${escapeAttr(saveLabel)}">${this._cfg.getIcon('check')}</button>` +
       `<button class="aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
-      `aria-label="${cancelLabel}" title="${cancelLabel}">${this._cfg.getIcon('close')}</button>`;
+      `aria-label="${escapeAttr(cancelLabel)}" title="${escapeAttr(cancelLabel)}">${this._cfg.getIcon('close')}</button>`;
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
@@ -980,7 +1022,7 @@ export class AparteChatBubble extends HTMLElement {
     // Read dynamically — attribute may not be set yet at render time
     const messageId = this.getAttribute('message-id');
 
-    // Custom actions (AparteConfig.registerAction) emit a generic aparte-action
+    // Custom actions (aparteGlobalConfig.registerAction) emit a generic aparte-action
     // event carrying the action id — same DOM-event contract as retry/feedback.
     if (action?.startsWith('custom:') && messageId) {
       const actionId = action.slice('custom:'.length);
@@ -1165,9 +1207,6 @@ export class AparteChatBubble extends HTMLElement {
   // Utilities
   // ─────────────────────────────────────────────────────────────────────────
 
-  private _escapeHtml(str: string): string {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-  }
 
   private _updateStreaming(streaming: boolean): void {
     const wasStreaming = this._streaming;
@@ -1196,10 +1235,4 @@ export class AparteChatBubble extends HTMLElement {
 // Register the custom element
 if (!customElements.get('aparte-chat-bubble')) {
   customElements.define('aparte-chat-bubble', AparteChatBubble);
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'aparte-chat-bubble': AparteChatBubble;
-  }
 }

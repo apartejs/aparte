@@ -1,0 +1,179 @@
+/* App shell only — the chat itself is styled by @aparte/core's theme variables.
+   Core's stylesheet is deliberately NOT @imported here: a CSS `@import` of a bare
+   specifier does not go through vite's `resolve.conditions`, so it resolved to the
+   package's BUILT `dist/index.css` instead of the source the dev server serves —
+   two copies of the theme in the page, the stale one winning on anything edited
+   since the last `pnpm build`. It stays a JS import in main.ts, where the source
+   condition applies. What this link fixes is the SHELL, which is static HTML and
+   was the visible flash. */
+* {
+    box-sizing: border-box;
+}
+
+/* `hidden` has to win.
+   The UA stylesheet's `[hidden] { display: none }` loses to ANY author rule, and
+   `.app { display: flex }` below is one — so `<div class="app settings" hidden>`
+   rendered on the chat page anyway. Shipped that way for one commit, and no test
+   looked: the settings spec only ever loaded `?view=settings`, where the form is
+   supposed to be visible. The spec now asserts its absence from `/` too. */
+[hidden] {
+    display: none !important;
+}
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--aparte-surface, #16130f);
+    color: var(--aparte-text, #f5f0e6);
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 12px;
+    gap: 10px;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.brand {
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+.brand span {
+    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
+    font-weight: 500;
+}
+.topbar aparte-model-selector {
+    min-width: 200px;
+}
+/* Both topbar links — to the settings view and back. There was no rule for this
+   at all, which is why the settings view's own "back to the chat" rendered as a
+   default browser link on a dark header. */
+.viewswitch {
+    margin-inline-start: auto;
+    color: inherit;
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+
+.welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px 16px;
+    text-align: center;
+}
+.welcome h2 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.suggestions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 8px;
+}
+.chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--aparte-border, #3a3229);
+    background: var(--aparte-surface-2, #1e1a15);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.chip:hover {
+    border-color: var(--aparte-primary, #d9a24b);
+}
+
+aparte-chat {
+    flex: 1;
+    min-height: 0;
+    /* Override core's height:100% — it fights flex:1 in a column with a header. */
+    height: auto;
+    overflow: hidden;
+}
+
+/* The attachment lightbox this app opens when core asks for a preview
+   (aparte-attachment-preview). Core owns no modal — this is ours. */
+.lightbox {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+.lightbox::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+.lightbox img {
+  display: block;
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 10px;
+}
+/* ── The settings view: the three things a consumer changes first ─────────────
+   A plain stacked form. Each field carries a hint naming the API behind it, because
+   the endpoint and the token do not have setters — they travel through the key
+   resolver, and a reader has no way to guess that from the UI alone.
+
+   No width of its own: it used to be 720px against the chat's 820px, which made the
+   topbar and the brand jump sideways every time you switched view. A narrower
+   measure is right for a form in the abstract and wrong for two views of one app. */
+.fields {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    padding-block-end: 12px;
+}
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.field-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.field-input {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--aparte-border, #3a3229);
+    background: var(--aparte-surface-2, #1e1a15);
+    color: inherit;
+    font: inherit;
+}
+.field-textarea {
+    resize: vertical;
+    min-height: 96px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+.field-hint {
+    font-size: 0.8rem;
+    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
+    line-height: 1.45;
+}
+.field-hint code {
+    font-size: 0.95em;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--aparte-surface-2, #1e1a15);
+}

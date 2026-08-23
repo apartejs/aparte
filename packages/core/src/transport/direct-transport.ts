@@ -3,13 +3,13 @@ import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteTransport, AparteTransportContext } from './types.js';
 import { isFormatAdapter, readAuth, vendorErrorMessage, parseNonStreamText } from './types.js';
 
-/** Options for {@link DirectTransport}. */
+/** Options for {@link AparteDirectTransport}. */
 export interface DirectTransportOptions {
     /**
      * Set when the key is the end-user's own (BYOK) or the model runs locally —
      * i.e. you *intend* the credential to live in the browser. This silences the
      * one-time insecure-key warning. Leave it unset for keys that must stay
-     * server-side, and use `BackendTransport` for those instead.
+     * server-side, and use `AparteBackendTransport` for those instead.
      */
     byok?: boolean;
 }
@@ -20,7 +20,7 @@ export interface DirectTransportOptions {
  * Calls the vendor endpoint straight from the browser, injecting the resolved
  * key via the adapter's `authHeaders`. This is the pre-refactor behaviour and
  * is only safe when the user brings their own key or the model runs locally.
- * Production apps that must keep a key server-side should use `BackendTransport`.
+ * Production apps that must keep a key server-side should use `AparteBackendTransport`.
  *
  * When a real key is sent straight from the browser and the transport was not
  * flagged `{ byok: true }`, a one-time `console.warn` names the exposure — the
@@ -29,7 +29,7 @@ export interface DirectTransportOptions {
  * Legacy providers (still exposing `chat()` rather than the adapter surface) are
  * delegated to untouched, so the migration can proceed provider-by-provider.
  */
-export class DirectTransport implements AparteTransport {
+export class AparteDirectTransport implements AparteTransport {
     private readonly byok: boolean;
     private warnedBrowserKey = false;
 
@@ -98,10 +98,10 @@ export class DirectTransport implements AparteTransport {
         if (this.warnedBrowserKey) return;
         this.warnedBrowserKey = true;
         console.warn(
-            `[Aparte] DirectTransport is sending the "${providerId}" API key straight from the browser — ` +
+            `[Aparte] AparteDirectTransport is sending the "${providerId}" API key straight from the browser — ` +
             `it is visible to anyone who opens devtools. Fine for BYOK or local models: pass ` +
-            `new DirectTransport({ byok: true }) to silence this. For a server-held key, use ` +
-            `BackendTransport so the key never reaches the client.`,
+            `new AparteDirectTransport({ byok: true }) to silence this. For a server-held key, use ` +
+            `AparteBackendTransport so the key never reaches the client.`,
         );
     }
 }

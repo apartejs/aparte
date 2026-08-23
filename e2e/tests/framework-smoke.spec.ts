@@ -82,7 +82,7 @@ test('a sent message streams a reply, ordered after the user bubble, with the se
     await expect(chat.bubbles('user')).toContainText('ordering probe');
 
     // The user bubble must precede the assistant bubble in the DOM (React once
-    // appended the assistant first). No playground seeds a chat bubble before the
+    // appended the assistant first). No example seeds a chat bubble before the
     // first send, so indices 0/1 are user/assistant.
     const roles = await chat.roles();
     expect(roles[0]).toBe('user');

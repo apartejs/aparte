@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
-import { AparteClient, AparteConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteClient, aparteGlobalConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { useAparteChat } from '../hooks/useAparteChat';
 import { useAparteClient } from '../hooks/useAparteClient';
 import { useConversationManager } from '../hooks/useConversationManager';
@@ -30,7 +30,7 @@ class MemoryAdapter implements AparteStorageAdapter {
 }
 
 beforeEach(() => { cleanup(); vi.clearAllMocks(); });
-afterEach(() => { AparteConfig.setConversationManager(null as never); });
+afterEach(() => { aparteGlobalConfig.setConversationManager(null as never); });
 
 describe('useAparteChat', () => {
     it('starts with an empty, settable message list', () => {
@@ -129,7 +129,7 @@ describe('useConversationManager', () => {
         expect(result.current.activeConversations).toHaveLength(1);
         expect(result.current.activeConversation?.title).toBe('First');
         // The chat component reads the manager off the global config.
-        expect(AparteConfig.getConversationManager()).not.toBeNull();
+        expect(aparteGlobalConfig.getConversationManager()).not.toBeNull();
     });
 
     it('splits active from archived, newest first', async () => {

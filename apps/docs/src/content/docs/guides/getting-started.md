@@ -18,6 +18,26 @@ entirely in the browser.
 npm install @aparte/core
 ```
 
+:::note[These snippets assume a bundler]
+Every import below uses a bare specifier (`@aparte/core`), which a browser cannot
+resolve on its own — Vite, Next, Astro, Parcel, esbuild and friends all can. "No
+framework" means no React/Vue/Svelte/Angular, not no build step.
+
+For a single `index.html` with no build at all, name the files in an import map:
+
+```html
+<script type="importmap">
+  { "imports": { "@aparte/core": "https://esm.sh/@aparte/core@latest" } }
+</script>
+<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/styles.css" />
+<script type="module">
+  import '@aparte/core';
+  import { registerDefaultRenderers } from '@aparte/core';
+  registerDefaultRenderers();
+</script>
+```
+:::
+
 ## Register the components
 
 Import the package once (it registers the `<aparte-*>` custom elements), pull in
@@ -94,13 +114,16 @@ Three viewport methods are all you need:
 - `completeMessage(id)` — mark it done (stops the streaming caret)
 
 ```ts
-const chat = document.querySelector('aparte-chat');
-const viewport = chat.viewport;
+// `!` because the import above has already upgraded the element, so both lookups
+// succeed — but TypeScript cannot know that, and neither can a reader who moves
+// this code above the markup. If in doubt, use `?.` instead of asserting.
+const chat = document.querySelector('aparte-chat')!;
+const viewport = chat.viewport!;
 
 let n = 0;
 
 // Stream a string into a fresh assistant bubble, a few characters at a time.
-function streamReply(text) {
+function streamReply(text: string) {
   const id = 'a' + ++n;
   viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
 
@@ -112,7 +135,11 @@ function streamReply(text) {
       viewport.completeMessage(id);
       return;
     }
-    viewport.appendToken(id, tokens[i++]);
+    // `?? ''` because indexing an array yields `string | undefined` under
+    // `noUncheckedIndexedAccess`, which this project — and this snippet — compile
+    // with. The loop above already guarantees the index is in range; the compiler
+    // cannot see that, and neither can a reader who moves the code.
+    viewport.appendToken(id, tokens[i++] ?? '');
   }, 40);
 }
 
@@ -145,11 +172,11 @@ Faking the reply is fine for a first look. To talk to a real LLM, you configure 
 with two things and let **`AparteClient`** drive the streaming loop for you:
 
 1. **A provider** — the wire-format adapter for your model (an opt-in
-   `@aparte/provider-*` package), registered with `AparteConfig.registerAIProvider(…)`.
+   `@aparte/provider-*` package), registered with `aparteGlobalConfig.registerAIProvider(…)`.
 2. **A transport** — *where* the request goes and *how* the key is handled:
-   - **`DirectTransport`** — the browser talks to the provider directly (bring-your-own-key
-     or a local model): `AparteConfig.setTransport(new DirectTransport({ byok: true }))`.
-   - **`BackendTransport`** — the browser calls *your* endpoint, and the key stays
+   - **`AparteDirectTransport`** — the browser talks to the provider directly (bring-your-own-key
+     or a local model): `aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }))`.
+   - **`AparteBackendTransport`** — the browser calls *your* endpoint, and the key stays
      server-side.
 
 Once a provider and transport are set, **construct an `AparteClient` and call `.start()`** —
@@ -167,7 +194,7 @@ Now that something can honour them, switch the retry and edit buttons on — cor
 off precisely because without a client they would do nothing:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 The full list of what ships enabled and why is in

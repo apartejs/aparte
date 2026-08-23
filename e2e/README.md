@@ -1,6 +1,6 @@
 # Browser E2E
 
-Playwright drives the six playgrounds against a deterministic, network-mocked model.
+Playwright drives the six examples against a deterministic, network-mocked model.
 This is the net for everything jsdom can't see — real layout, real custom-element
 upgrade, real event routing. Every browser-only bug the project has hit lived here.
 
@@ -20,8 +20,8 @@ and pulls you off a fullscreen app. Use it while iterating; never to decide a ch
 safe — every browser-only bug this project has had was a WebKit one.
 
 Touching `@aparte/core`? Rebuild it first (`nx build @aparte/core`): the Svelte, Angular
-and demo-vanilla apps consume the built `dist`, and Angular additionally caches its
-prebundle — delete `apps/playgrounds/angular/.angular/` if a change seems ignored. A red
+and vanilla-dist apps consume the built `dist`, and Angular additionally caches its
+prebundle — delete `apps/examples/angular/.angular/` if a change seems ignored. A red
 run right after a core edit is usually a **stale dev server**, not a real failure.
 
 ## How to write a spec here
@@ -59,7 +59,7 @@ run right after a core edit is usually a **stale dev server**, not a real failur
 | `multi-chat` | two chats on one page: replies land only in the sender, retry/streaming don't leak (vanilla `?chats=2`) |
 | `responsive` | 390×844: usable composer, no sideways page scroll, dropdown inside the viewport |
 | `bubble-layout` | real-geometry invariants of the bubble (vanilla, incl. WebKit) |
-| `demo-vanilla` | human-in-the-loop tool approval, against core's published `dist` |
+| `vanilla-dist` | human-in-the-loop tool approval, against core's published `dist` |
 | `real-model` | opt-in un-mocked smoke against a local model (`E2E_REAL_MODEL=1`) |
 
 Which spec runs on which app is decided by `suiteFor()` in `playwright.config.ts`: the

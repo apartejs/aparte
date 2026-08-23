@@ -1,16 +1,20 @@
-import { AparteConfig, AparteConfigClass } from '../config/aparte-config.js';
+import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
+import { resolveConfig } from '../config/config-context.js';
 import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
+import { feedXmlArtifactDelta, finalizeXmlArtifact, type XmlArtifactStreamState } from './xml-artifact-feed.js';
+
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
-import { assertNever } from '../utils/assert-never.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
+import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
 import type { AparteStreamRunner, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteThinkingSegment } from '../types/segments.js';
 import type { AparteToolCallSegment } from '../types/segments.js';
 import type { AparteToolCall, AparteTool } from '../types/tools.js';
-import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, AparteArtifactHint, contentToText } from '../types/chat.js';
+import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
+import { uuid } from '../utils/uuid.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -19,19 +23,6 @@ import { AparteError, AparteErrorCode } from '../types/errors.js';
  * client always calls them through optional chaining. Mirrors the shape the
  * wrappers and `AparteChatHost` already conform to.
  */
-/** Mutable state for streaming a Claude-style `<artifact>` XML block out of the
- *  text stream — owned by _streamLoop, fed to _feedXmlArtifactDelta per delta. */
-interface XmlArtifactStreamState {
-    state: 'normal' | 'scanning' | 'in-artifact';
-    scanBuf: string;
-    closeBuf: string;
-    segId: string | null;
-    content: string;
-    mime: string;
-    kind: string;
-    title: string;
-}
-
 interface AparteChatTargetElement extends HTMLElement {
     appendMessage?(message: AparteMessage): void;
     updateMessage?(id: string, updates: Partial<AparteMessage>): void;
@@ -46,8 +37,16 @@ interface AparteChatTargetElement extends HTMLElement {
     typeName?(text: string): void;
 }
 
-/** Timeout (ms) for a tool handler to resolve before it is aborted */
-const TOOL_HANDLER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+/**
+ * Default timeout (ms) for a tool handler to resolve before it is aborted.
+ *
+ * Same value `runStreamAgent` uses, and now overridable by the same option name
+ * (`toolTimeoutMs`). It used to be reachable only as this constant here while the
+ * engine runner exposed it — so a consumer who set `toolTimeoutMs` got it honoured
+ * on one of the two loops and silently ignored on the other. Found by writing the
+ * tool-timeout parity scenario the seam never had.
+ */
+const DEFAULT_TOOL_HANDLER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Resolves a human-in-the-loop tool approval for a `needsApproval` tool call.
@@ -166,6 +165,12 @@ export interface AparteClientOptions {
      * @default 10
      */
     maxTurns?: number;
+    /**
+     * Per-call ceiling (ms) for a tool handler to resolve before its signal is
+     * aborted. Defaults to 5 minutes — the same default, and the same option name,
+     * as `runStreamAgent`, so the value means one thing whichever loop runs.
+     */
+    toolTimeoutMs?: number;
 
     /**
      * Controls which files attached by the user are injected as raw content
@@ -202,11 +207,11 @@ export interface AparteClientOptions {
 
     /**
      * Config this client reads (providers, model selection, tools, system
-     * prompt). Defaults to the global `AparteConfig` singleton. Pass a host's
+     * prompt). Defaults to `aparteGlobalConfig`. Pass a host's
      * instance config when scoping a client to one chat among several
      * (pairs with `scopeToTargetId`).
      */
-    config?: AparteConfigClass;
+    config?: AparteConfig;
 }
 
 /**
@@ -229,33 +234,131 @@ export interface AparteClientOptions {
  * client.start();
  * ```
  */
+/**
+ * Race a tool handler against its timeout, and reject as an `AbortError` when the
+ * timeout wins.
+ *
+ * Aborting a controller is a REQUEST the handler is free to ignore, and the default
+ * shape of a consumer tool ignores it —
+ * `async () => ({ content: await fetch(...).then(r => r.text()) })` never reads its
+ * signal. So `setTimeout(() => controller.abort(), ms)` on its own fired, nothing
+ * rejected, and the loop waited forever on an option whose JSDoc promises a
+ * timeout. Three copies of that shape existed: two here and one in the engine.
+ *
+ * Rejecting as `AbortError` rather than returning a sentinel is what keeps both
+ * call sites unchanged: each already catches that name and marks its segment
+ * aborted. The signal is still fired first, so a handler that DOES honour it gets
+ * to clean up and reject on its own terms.
+ */
+function withToolTimeout<T>(
+    work: (signal: AbortSignal) => Promise<T>,
+    controller: AbortController,
+    timeoutMs: number,
+): { raced: Promise<T>; done: () => void } {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+            controller.abort();
+            reject(Object.assign(new Error(`tool handler exceeded ${timeoutMs}ms`), { name: 'AbortError' }));
+        }, timeoutMs);
+    });
+    return {
+        raced: Promise.race([work(controller.signal), timedOut]),
+        done: () => clearTimeout(timer),
+    };
+}
+
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
-    private _boundCompactHandler: (() => void) | null = null;
+    private _boundCompactHandler: ((e: Event) => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
     private _activeToolControllers: Set<AbortController> = new Set();
     private _isAborted = false;
+
+    /**
+     * Does this window event belong to this client?
+     *
+     * One rule for all five handlers, because it used to be four near-copies and
+     * one omission: `aparte-compact` had no guard at all, so in the two-client
+     * layout the JSDoc documents, a single compact event made BOTH clients run —
+     * two paid summarisation calls against whichever chat the DOM scan found
+     * first, and a global reset that wiped the other conversation.
+     *
+     * A scoped client also answers only events ADDRESSED to it. The old guard let
+     * an untargeted event through to every scoped client, which turned one
+     * broadcast into an action on every chat on the page.
+     */
+    private _isForThisInstance(e?: Event): boolean {
+        // No event at all means a direct, programmatic call — not a broadcast, so
+        // no addressing rule applies to it.
+        if (!e) return true;
+        const detail = (e as CustomEvent).detail as { targetId?: string } | undefined;
+
+        const scope = this.options.scopeToTargetId;
+        if (scope) return detail?.targetId === scope;
+
+        /*
+         * No `scopeToTargetId`, but a client given its own `config` is still not a
+         * page-wide client: it must answer only the chats that resolve THAT config.
+         *
+         * Without this, `{ config }` scoped what the client READ and nothing about
+         * what it ANSWERED. Two config-scoped clients on one page therefore both
+         * ran a full agentic turn for every send — two provider calls, two paid
+         * completions, and both replies appended into the single target the event
+         * named. The showcase that demonstrates per-instance config constructed
+         * exactly that pair, and its comment asserted the opposite.
+         *
+         * `scopeToTargetId` was the documented remedy and is not reachable from any
+         * wrapper (they generate the host id internally and do not expose it), so a
+         * framework consumer had no way to apply it.
+         *
+         * A client on the GLOBAL config is deliberately unchanged: it answers
+         * everything, which is every single-chat app on the planet, and narrowing
+         * that would be a silent break for the common case.
+         */
+        if (this._config === aparteGlobalConfig) return true;
+        const target = this._resolveTarget(detail?.targetId);
+        if (!target) return true;
+        const owner = resolveConfig(target);
+        /*
+         * Reject only a target that demonstrably belongs to ANOTHER instance — one
+         * whose boundary resolves a different, non-global config.
+         *
+         * Not "the target must resolve OUR config", which was the first attempt and
+         * was too strict: passing `{ config }` without ever calling `attachConfig`
+         * is a legitimate shape — the config as a settings bag for the one chat on
+         * the page — and three existing tests do exactly that. A chat with no
+         * boundary is unclaimed, so answering it is correct.
+         */
+        return owner === this._config || owner === aparteGlobalConfig;
+    }
     /** Aborts the in-flight vendor/transport fetch when the user stops a stream. */
     private _streamController: AbortController | null = null;
+
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
-    private readonly _config: AparteConfigClass;
+    private readonly _config: AparteConfig;
 
     constructor(options: AparteClientOptions = {}) {
         this.options = {
             autoRegister: true,
             ...options
         };
-        this._config = options.config ?? AparteConfig;
+        this._config = options.config ?? aparteGlobalConfig;
 
+        // Both take THIS client's config, not the global one. Segment renderers are
+        // registered per config as of 0.8.0, so a client constructed with
+        // `{ config }` must register — or decline — on that instance; otherwise
+        // `autoRegister: false` on a scoped client silently muted the global chat
+        // instead of its own.
         if (this.options.autoRegister) {
-            registerDefaultRenderers();
+            registerDefaultRenderers(this._config);
         } else {
             // Explicit: keep core's built-ins out, including the lazy install the
             // bubble would otherwise do on first render.
-            declineDefaultRenderers();
+            declineDefaultRenderers(this._config);
         }
 
         this._setupListeners();
@@ -272,10 +375,7 @@ export class AparteClient {
             const event = e as CustomEvent;
             if (event.type !== 'aparte-send') return;
             // Scope guard: ignore events not for this instance
-            if (this.options.scopeToTargetId) {
-                const evtTargetId = (event.detail as { targetId?: string })?.targetId as string | undefined;
-                if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-            }
+            if (!this._isForThisInstance(event)) return;
             // Reset abort flag and cancel any tool calls from a previous turn
             this._isAborted = false;
             for (const controller of this._activeToolControllers) {
@@ -300,26 +400,24 @@ export class AparteClient {
         if (!this._boundAbortHandler) {
             this._boundAbortHandler = (e?: Event) => {
                 // Scope guard
-                if (this.options.scopeToTargetId) {
-                    const evtTargetId = ((e as CustomEvent)?.detail as { targetId?: string })?.targetId as string | undefined;
-                    if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-                }
+                if (!this._isForThisInstance(e)) return;
                 this.abort();
             };
         }
         window.addEventListener('aparte-abort', this._boundAbortHandler);
         if (!this._boundCompactHandler) {
-            this._boundCompactHandler = () => { void this.compact(); };
+            this._boundCompactHandler = (e: Event) => {
+                if (!this._isForThisInstance(e)) return;
+                const detail = (e as CustomEvent).detail as { targetId?: string } | undefined;
+                void this.compact(detail?.targetId);
+            };
         }
         window.addEventListener('aparte-compact', this._boundCompactHandler);
 
         if (!this._boundRetryHandler) {
             this._boundRetryHandler = (e: Event) => {
                 const evt = e as CustomEvent;
-                if (this.options.scopeToTargetId) {
-                    const evtTargetId = (evt.detail as { targetId?: string })?.targetId as string | undefined;
-                    if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-                }
+                if (!this._isForThisInstance(evt)) return;
                 void this._handleRetry(evt);
             };
         }
@@ -328,10 +426,7 @@ export class AparteClient {
         if (!this._boundEditHandler) {
             this._boundEditHandler = (e: Event) => {
                 const evt = e as CustomEvent;
-                if (this.options.scopeToTargetId) {
-                    const evtTargetId = (evt.detail as { targetId?: string })?.targetId as string | undefined;
-                    if (evtTargetId && evtTargetId !== this.options.scopeToTargetId) return;
-                }
+                if (!this._isForThisInstance(evt)) return;
                 void this._handleEdit(evt);
             };
         }
@@ -342,6 +437,17 @@ export class AparteClient {
      * Stop listening.
      */
     stop(): void {
+        // Abort what is in flight, not just the listeners.
+        //
+        // `stop()` used to remove event handlers and nothing else, so a wrapper
+        // unmounting mid-stream — both `useAparteClient` and the Svelte store call
+        // this on teardown — left the vendor request running: the user navigates
+        // away and the tokens keep being generated and billed, with nothing left on
+        // the page to render them.
+        //
+        // Before the early return: a client that was never `start()`ed can still
+        // have a stream, because `_handleSend` can be invoked directly.
+        this.abort();
         if (!this._boundHandler) return;
         window.removeEventListener('aparte-send', this._boundHandler);
         this._boundHandler = null;
@@ -387,7 +493,27 @@ export class AparteClient {
      * approval to `{ approved: false }` — there is no timeout, since a human may
      * take any amount of time to decide.
      */
-    private _awaitToolDecision(toolCallId: string, signal: AbortSignal): Promise<{ approved: boolean; payload?: unknown }> {
+    /**
+     * Await the human's Approve/Reject for one tool call.
+     *
+     * `target` is not decoration: it is the scope of the consent. The listener sits
+     * on `document` and used to accept any `aparte-tool-decision` whose
+     * `detail.toolCallId` matched — and that id is the tool-call id the MODEL chose.
+     * The built-in buttons dispatch with `bubbles: true, composed: true`, so on a
+     * page with two chats a click aimed at one tool could satisfy the gate awaiting
+     * a different tool in a different conversation. The consented action and the
+     * executed action came apart, which is the entire failure mode an approval gate
+     * exists to prevent — and the handler behind it is arbitrary consumer code.
+     *
+     * The check is DOM CONTAINMENT rather than a `targetId` string comparison. A
+     * model can choose an id; it cannot choose where in the tree the click happened.
+     * It also needs no change on the dispatch side, so a consumer's own Approve
+     * button keeps working as long as it fires from inside its own chat.
+     *
+     * The request half of this handshake was hardened with `targetId` for exactly
+     * this hazard. This is its sibling, and it was missed.
+     */
+    private _awaitToolDecision(toolCallId: string, signal: AbortSignal, target?: HTMLElement): Promise<{ approved: boolean; payload?: unknown }> {
         return new Promise<{ approved: boolean; payload?: unknown }>((resolve) => {
             if (signal.aborted) { resolve({ approved: false }); return; }
             const cleanup = () => {
@@ -397,6 +523,11 @@ export class AparteClient {
             const onDecision = (e: Event) => {
                 const detail = (e as CustomEvent).detail as { toolCallId?: string; approved?: boolean; payload?: unknown } | undefined;
                 if (detail?.toolCallId !== toolCallId) return;
+                // Only a decision made INSIDE the chat that asked counts. A
+                // programmatic dispatch on `window`/`document` (no node inside the
+                // target) is still honoured: that is a host answering on the user's
+                // behalf, which is a documented path.
+                if (target && e.target instanceof Node && e.target !== document && !target.contains(e.target)) return;
                 cleanup();
                 resolve({ approved: detail?.approved === true, payload: detail?.payload });
             };
@@ -408,7 +539,7 @@ export class AparteClient {
 
     /**
      * Resolve the auth for a provider: `options.keyResolver` takes precedence,
-     * then the AparteConfig key channel (`setKeyProvider`) so a key registered
+     * then the aparteGlobalConfig key channel (`setKeyProvider`) so a key registered
      * there reaches the request. One key source on the happy path.
      */
     private async _resolveAuth(providerId: string): Promise<string | Record<string, string> | undefined> {
@@ -456,12 +587,43 @@ export class AparteClient {
             baseRequest = { ...baseRequest, tools: undefined };
         }
 
-        this._isAborted = false;
-        this._dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
+        // Stopped while we were resolving auth or reading attachments: the stream
+        // controller did not exist yet, so `abort()` had nothing to cancel — the
+        // flag is the only trace, and it must not be thrown away here.
+        if (this._isAborted) {
+            dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+            return;
+        }
+        dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
         try {
             const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
-            this._dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
+            if (this._isAborted) {
+                // A stopped turn is FINISHED, and someone has to say so. The inline
+                // loop marks the message completed on its way out; the injected
+                // runner returns through `run-aborted` and never emits `run-done`,
+                // so nothing did — and the bubble stayed flagged as streaming
+                // forever. Caught by the browser suite, which is the only place a
+                // stuck flag is visible.
+                //
+                // Not `done`, though: announcing a normal completion on top of an
+                // abort is what a provider that ends quietly used to produce.
+                this._updateMessage(targetElement, messageId, { status: 'completed' });
+            } else {
+                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
+            }
         } catch (error: unknown) {
+            // A THIRD abort path, and the one the browser suite caught after the
+            // other two were closed: when the user stops before any event has
+            // arrived, the fetch rejection escapes `transportCall` as an exception.
+            // It never reaches the event stream, so neither the guard around
+            // `reader.read()` nor the one on the `error` event can see it — and
+            // `_handleLifecycleError` would REPLACE the message with an error
+            // segment, turning a deliberate stop into a rendered failure.
+            if (this._isAborted) {
+                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                this._updateMessage(targetElement, messageId, { status: 'completed' });
+                return;
+            }
             const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
             this._handleLifecycleError(targetElement, messageId, aparteError);
         }
@@ -474,22 +636,13 @@ export class AparteClient {
      * Triggered programmatically or by dispatching `window.dispatchEvent(new CustomEvent('aparte-compact'))`.
      * Dispatches `aparte-compact-done` on window when complete, or `aparte-compact-error` on failure.
      */
-    async compact(): Promise<void> {
-        // 1. Resolve target element
-        let target: AparteChatTargetElement | null = null;
-        if (this.options.targetResolver) {
-            target = this.options.targetResolver() as AparteChatTargetElement | null;
-        }
-        if (!target) {
-            // Walk the DOM for any element exposing getMessages
-            const candidates = document.querySelectorAll<AparteChatTargetElement>('aparte-chat, [data-aparte-chat]');
-            for (const el of Array.from(candidates)) {
-                if (typeof el.getMessages === 'function') {
-                    target = el;
-                    break;
-                }
-            }
-        }
+    async compact(targetId?: string): Promise<void> {
+        // 1. Resolve target element — through the same resolver every other
+        // handler uses, so an explicit id wins over a document-wide scan. The
+        // scan alone meant a scoped client summarised whichever chat happened to
+        // come first in the DOM, not its own.
+        let target = this._resolveTarget<AparteChatTargetElement>(targetId);
+        if (target && typeof target.getMessages !== 'function') target = null;
         if (!target) {
             window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: 'No aparte-chat target found' } }));
             return;
@@ -561,8 +714,19 @@ export class AparteClient {
                 stream: false
             };
 
-            // 6. Call provider (non-streaming)
-            const response = await this._config.getTransport().chat(provider, summarizeRequest, authConfig, { providerId: provider.id });
+            // 6. Call provider (non-streaming), WITH a signal.
+            //
+            // This call had none, so `abort()` could not stop it: a summarisation the
+            // user cancelled kept running and kept being billed, and its result
+            // arrived to overwrite a conversation the user had moved on from. It goes
+            // through the same controller slot as a turn so `abort()` and `stop()`
+            // reach it.
+            const compactController = new AbortController();
+            this._streamController = compactController;
+            const response = await this._config.getTransport().chat(
+                provider, summarizeRequest, authConfig,
+                { providerId: provider.id, signal: compactController.signal },
+            );
             let summary: string;
             if (typeof response === 'string') {
                 summary = response;
@@ -583,14 +747,20 @@ export class AparteClient {
                 throw new Error('Empty summary returned by model');
             }
 
-            // 7. Clear viewport and inject summary
-            window.dispatchEvent(new CustomEvent('aparte-reset'));
+            // 7. Clear THIS viewport and inject the summary. The global
+            // `aparte-reset` used to go out instead, and every mounted viewport
+            // listens for it — so compacting one chat cleared the others too,
+            // with no summary injected into them. The broadcast remains only as
+            // the fallback for a host whose target exposes no clearAll.
+            const clearAll = (target as { clearAll?: () => void }).clearAll;
+            if (typeof clearAll === 'function') clearAll.call(target);
+            else window.dispatchEvent(new CustomEvent('aparte-reset'));
 
             // Small delay to let clearAll() finish DOM cleanup
             await new Promise<void>(resolve => setTimeout(resolve, 50));
 
             target.appendMessage?.({
-                id: crypto.randomUUID(),
+                id: uuid(),
                 role: 'assistant',
                 content: `📝 **Conversation summary**\n\n${summary}`,
                 timestamp: Date.now(),
@@ -618,19 +788,48 @@ export class AparteClient {
      * using the same conversation history minus the retried reply.
      */
     /**
-     * Registered tools, gated by capability: only returned when the current model
-     * declares `function_calling` support (else `[]`). Single source for the gate so
-     * send / retry / edit can't drift — the drift is exactly what shipped `tools` on
-     * the initial send while retry/edit correctly omitted them.
+     * The registered tools, unless the current model says it cannot call one.
+     *
+     * Single source for the gate, so send / retry / edit cannot drift — that drift
+     * is what once shipped `tools` on the initial send while retry and edit omitted
+     * them.
+     *
+     * The gate used to be "the model DECLARES function_calling", defaulting to
+     * stripping — and that made the whole tool surface unreachable on the primary
+     * documented path. Three things had to line up for a tool to be sent, and one
+     * never did: the app sets a model id by hand (`setModelConfig`) or a selector
+     * sets it from a fetched list, and in both cases the model's declared
+     * capabilities are commonly unknown. `undefined` capabilities then read as "no
+     * function calling", so `tools: []` went on the wire while `getTools()` held
+     * the tool the app had explicitly registered. The model answered, correctly,
+     * that it had no such tool, and nothing anywhere said why.
+     *
+     * So the question is now "did this model say it cannot", not "did it say it
+     * can". Registering a tool is an explicit act by the app; silently dropping it
+     * because a `/models` listing is terse is the library second-guessing the
+     * developer. A model that declares its capabilities and omits function calling
+     * is still honoured — that is a statement, and it is respected.
+     *
+     * Failure modes, both ways round: over-sending means a model that cannot use
+     * tools does not call one, or its own endpoint rejects the array with an error
+     * the developer can read. Under-sending was silent, total, and looked like a
+     * lying model.
      */
     private _toolsForCurrentModel(): AparteTool[] {
-        const supportsFunctionCalling =
-            this._config.getCurrentModel()?.capabilities?.includes('function_calling') ?? false;
-        return supportsFunctionCalling ? this._config.getTools() : [];
+        const capabilities = this._config.getCurrentModel()?.capabilities;
+        const declinesTools = capabilities ? !capabilities.includes('function_calling') : false;
+        return declinesTools ? [] : this._config.getTools();
     }
 
     private async _handleRetry(event: CustomEvent): Promise<void> {
         const { messageId, targetId } = event.detail ?? {};
+        // A fresh user action clears a previous turn's abort, the same way the
+        // `aparte-send` handler does. It has to happen HERE, at the start of the
+        // action, rather than inside `_streamTurn` — which runs after the auth and
+        // file-reading awaits, so a reset there erased an abort that arrived while
+        // the user was still waiting for a large attachment to be read.
+        this._isAborted = false;
+
         if (!messageId) return;
 
         const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
@@ -646,11 +845,15 @@ export class AparteClient {
         // For user messages: include the user message in history (AI needs to see the question).
         // For assistant messages: exclude it (we are regenerating that response).
         const sliceEnd = retryMsg?.role === 'user' ? retryIdx + 1 : retryIdx;
-        const historyMessages = retryIdx > 0 ? allMessages.slice(0, sliceEnd) : allMessages;
+        // `>= 0`, not `> 0`: index 0 is a legitimate retry target (a thread seeded
+        // with an assistant greeting), and treating it as "not found" discarded the
+        // computed slice and resent the ENTIRE transcript — including the reply
+        // being regenerated, so the retry produced a continuation, not a redo.
+        const historyMessages = retryIdx >= 0 ? allMessages.slice(0, sliceEnd) : allMessages;
 
         // Create new sibling message and get its ID for streaming
         const newMsg: AparteMessage = {
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: 'assistant',
             content: '',
             status: 'pending',
@@ -689,6 +892,13 @@ export class AparteClient {
      */
     private async _handleEdit(event: CustomEvent): Promise<void> {
         const { messageId, content: newContent, targetId } = event.detail ?? {};
+        // A fresh user action clears a previous turn's abort, the same way the
+        // `aparte-send` handler does. It has to happen HERE, at the start of the
+        // action, rather than inside `_streamTurn` — which runs after the auth and
+        // file-reading awaits, so a reset there erased an abort that arrived while
+        // the user was still waiting for a large attachment to be read.
+        this._isAborted = false;
+
         if (!messageId || newContent === undefined) return;
 
         const targetElement = this._resolveTarget<AparteChatTargetElement>(targetId);
@@ -735,7 +945,7 @@ export class AparteClient {
 
         const authConfig = await this._resolveAuth(providerId);
 
-        const newMessageId = crypto.randomUUID();
+        const newMessageId = uuid();
         targetElement.appendMessage?.({
             id: newMessageId,
             role: 'assistant',
@@ -811,6 +1021,32 @@ export class AparteClient {
     private async _handleSend(event: CustomEvent): Promise<void> {
         const { content, modelId, providerId: explicitProviderId } = event.detail;
 
+        // The model gate is a POLICY, so the thing that runs the turn has to hold
+        // it — not only the composer that draws it.
+        //
+        // `setRequireModelSelection(true)` means "no send before a model is chosen",
+        // and `aparte-composer.submit()` honours it. But any other way of sending
+        // walked straight past: an app's suggestion chip, a "try this prompt"
+        // button, a host dispatching `aparte-send` itself. The turn then ran with
+        // `config.defaultModel || ''` — an empty model id on the wire, i.e. a real
+        // request to the provider that can only fail. Reported from an example: the
+        // chips above the composer are clickable while the composer is still greyed
+        // out, waiting for `GET /models`.
+        //
+        // Refused rather than queued: a send is a user action tied to a moment, and
+        // holding it to replay after an async fetch would surprise anyone whose
+        // fetch takes ten seconds. `warn` and not silence, because the developer is
+        // the one who can fix it — an app that gates SHOULD also disable its own
+        // buttons, and this is how it finds out it did not.
+        if (this._config.getRequireModelSelection() && !this._config.hasSelectedModel() && !modelId) {
+            console.warn(
+                '[AparteClient] Send refused: requireModelSelection is on and no model is selected yet. '
+                + 'The composer blocks this, but this send did not come from it — disable your own '
+                + 'send affordances while `hasSelectedModel()` is false.',
+            );
+            return;
+        }
+
         // 1. Use targetId from event detail — the most reliable path.
         //    The composer sets detail.targetId = host.id (set by AparteChatComponent).
         //    document.getElementById works even when the composer is temporarily detached.
@@ -880,7 +1116,7 @@ export class AparteClient {
             return;
         }
 
-        const messageId = crypto.randomUUID();
+        const messageId = uuid();
         const config = this._config.getModelConfig();
         const providerId = explicitProviderId || config.defaultProvider;
 
@@ -991,14 +1227,65 @@ export class AparteClient {
             .filter(m => m.content.length > 0);
     }
 
+    /**
+     * What the model is told it said last turn — reconstructed from what was
+     * RENDERED, not from the raw-text field.
+     *
+     * The order used to be the other way round, and it silently corrupted the
+     * context on the most common opening in a coding chat: a reply starting with a
+     * code fence was sent back as three backticks and nothing else. Three
+     * correct-in-isolation decisions composed into it:
+     *
+     *  1. the parser withholds an ambiguous prefix (``` ``` ```, `` ` ``, `<`)
+     *     waiting for the next delta, and creates no active segment while it waits;
+     *  2. so `_streamLoop` sees zero segments, concludes the parser produced
+     *     nothing, and appends the raw delta straight to `message.content`;
+     *  3. and this method preferred `content`.
+     *
+     * The bubble hides its content element as soon as segments exist, so the UI was
+     * perfect and only the NEXT request showed it. No unit test, no example and
+     * no browser test could see it.
+     *
+     * `content` stays as the fallback, and that is not vestigial: a non-streaming
+     * transport writes the whole reply there and creates no segments at all.
+     */
     private _extractText(message: AparteMessage): string {
+        const rendered = this._segmentsToText(message.segments);
+        if (rendered) return rendered;
         if (typeof message.content === 'string' && message.content) return message.content;
-        if (!message.segments) return '';
-        return message.segments
-            .filter(s => s.type === 'text' || s.type === 'code')
-            .map(s => (s as { content?: string }).content ?? '')
-            .join('\n')
-            .trim();
+        return '';
+    }
+
+    /**
+     * Segments → the text a model can read back.
+     *
+     * Fences and the language tag are kept. Without them the model re-reads its own
+     * code as prose — which is how it starts explaining a snippet it believes it
+     * wrote in English. Artifacts are included for the same reason: dropping them
+     * made an artifact the model had just produced invisible on the very next turn,
+     * so it could not be asked to change the thing it had built.
+     *
+     * `thinking` stays out on purpose — it is the model's own scratchpad, and most
+     * APIs neither want it back nor bill for it kindly.
+     */
+    private _segmentsToText(segments: AparteMessage['segments']): string {
+        if (!segments?.length) return '';
+        const fence = '```';
+        const parts: string[] = [];
+        for (const segment of segments) {
+            const content = (segment as { content?: string }).content ?? '';
+            if (segment.type === 'text') {
+                if (content) parts.push(content);
+            } else if (segment.type === 'code') {
+                const lang = (segment as { language?: string }).language ?? '';
+                parts.push(`${fence}${lang}\n${content}\n${fence}`);
+            } else if (segment.type === 'artifact') {
+                const title = (segment as { title?: string }).title ?? 'artifact';
+                const kind = (segment as { artifactType?: string }).artifactType ?? '';
+                parts.push(`${fence}${kind}\n<!-- artifact: ${title} -->\n${content}\n${fence}`);
+            }
+        }
+        return parts.join('\n').trim();
     }
 
     /**
@@ -1064,145 +1351,6 @@ export class AparteClient {
     }
 
     /**
-     * Stream loop: runs one provider.chat() call and repeats if a tool was called.
-     * Maintains a running messages array to inject tool_call / tool_result turns.
-     */
-    /**
-     * Feed one text delta to the Claude-style `<artifact>` XML streamer. Scans for
-     * `<artifact …>` / `</artifact>`, routing chat text through the text parser and
-     * artifact content into a dedicated artifact segment (handling tags split across
-     * deltas). Mutates `xml` in place. Extracted from _streamLoop.
-     */
-    private _feedXmlArtifactDelta(
-        delta: string,
-        xml: XmlArtifactStreamState,
-        ctx: {
-            targetElement: AparteChatTargetElement;
-            messageId: string;
-            textParser: AparteStreamParser;
-            streamingSegmentIds: Set<string>;
-            artifactProgress: Map<string, number>;
-            artifactXmlHint: AparteArtifactHint;
-        },
-    ): void {
-        const { targetElement, messageId, textParser, streamingSegmentIds, artifactProgress, artifactXmlHint } = ctx;
-        let remaining = delta;
-
-        while (remaining.length > 0) {
-            if (xml.state === 'normal') {
-                const tagStart = remaining.indexOf('<artifact');
-                if (tagStart === -1) {
-                    // Pure chat text — route through normal text parser
-                    const r = textParser.parse(remaining);
-                    for (const seg of r.segments) {
-                        if (!streamingSegmentIds.has(seg.id)) {
-                            targetElement.addSegment?.(seg);
-                            streamingSegmentIds.add(seg.id);
-                        } else if ('content' in seg) {
-                            targetElement.updateSegment?.(seg.id, { content: (seg as { content?: string }).content });
-                        }
-                    }
-                    const active = textParser.getState().activeSegment;
-                    if (active) {
-                        if (!streamingSegmentIds.has(active.id)) {
-                            targetElement.addSegment?.(active);
-                            streamingSegmentIds.add(active.id);
-                        } else {
-                            targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
-                        }
-                    } else if (!r.segments.length) {
-                        if (targetElement.typeName) targetElement.typeName(remaining);
-                        else targetElement.updateLastMessage?.(remaining, { append: true });
-                    }
-                    remaining = '';
-                } else {
-                    // Emit chat text before the opening tag
-                    const before = remaining.slice(0, tagStart);
-                    if (before) {
-                        const r = textParser.parse(before);
-                        for (const seg of r.segments) {
-                            if (!streamingSegmentIds.has(seg.id)) {
-                                targetElement.addSegment?.(seg);
-                                streamingSegmentIds.add(seg.id);
-                            }
-                        }
-                        if (!r.segments.length && !textParser.getState().activeSegment) {
-                            if (targetElement.typeName) targetElement.typeName(before);
-                            else targetElement.updateLastMessage?.(before, { append: true });
-                        }
-                    }
-                    xml.scanBuf = remaining.slice(tagStart);
-                    remaining = '';
-                    xml.state = 'scanning';
-                }
-            } else if (xml.state === 'scanning') {
-                // Accumulate until we have the full opening tag (ends with >)
-                xml.scanBuf += remaining;
-                remaining = '';
-                const gtIdx = xml.scanBuf.indexOf('>');
-                if (gtIdx !== -1) {
-                    const tag = xml.scanBuf.slice(0, gtIdx + 1);
-                    // Parse mimeType and title attributes (single or double quotes)
-                    const mimeMatch = /mimeType=['"]([^'"]+)['"]/.exec(tag);
-                    const titleMatch = /title=['"]([^'"]+)['"]/.exec(tag);
-                    xml.mime = mimeMatch?.[1] ?? artifactXmlHint.mimeType;
-                    xml.title = titleMatch?.[1] ?? artifactXmlHint.kind;
-                    xml.kind = deriveArtifactKind(xml.mime, artifactXmlHint.kind);
-                    xml.segId = `artifact-xml-${crypto.randomUUID()}`;
-                    xml.content = '';
-                    const openSeg: import('../types/segments.js').AparteArtifactSegment = {
-                        id: xml.segId, type: 'artifact',
-                        mimeType: xml.mime, artifactType: xml.kind,
-                        title: xml.title, content: '',
-                    };
-                    targetElement.addSegment?.(openSeg);
-                    streamingSegmentIds.add(xml.segId);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, openSeg, artifactProgress, false);
-                    xml.state = 'in-artifact';
-                    remaining = xml.scanBuf.slice(gtIdx + 1);
-                    xml.scanBuf = '';
-                }
-            } else { // in-artifact
-                const CLOSE = '</artifact>';
-                const combined = xml.closeBuf + remaining;
-                const closeIdx = combined.indexOf(CLOSE);
-                if (closeIdx !== -1) {
-                    // Closing tag found — finalize the artifact
-                    xml.content += combined.slice(0, closeIdx);
-                    const lineCount = xml.content.split('\n').length;
-                    const isInline = lineCount < 15;
-                    const finalSeg: import('../types/segments.js').AparteArtifactSegment = {
-                        id: xml.segId!, type: 'artifact',
-                        mimeType: xml.mime, artifactType: xml.kind,
-                        title: xml.title, content: xml.content,
-                        inline: isInline,
-                    };
-                    targetElement.updateSegment?.(xml.segId!, { content: xml.content, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, finalSeg, artifactProgress, true);
-                    xml.state = 'normal';
-                    xml.closeBuf = '';
-                    remaining = combined.slice(closeIdx + CLOSE.length);
-                } else {
-                    // Buffer a tail chunk to handle closing tag split across deltas
-                    const safeLen = Math.max(0, combined.length - CLOSE.length + 1);
-                    const safe = combined.slice(0, safeLen);
-                    xml.content += safe;
-                    xml.closeBuf = combined.slice(safeLen);
-                    remaining = '';
-                    if (xml.segId) {
-                        targetElement.updateSegment?.(xml.segId, { content: xml.content });
-                        this._dispatchArtifactLifecycle(targetElement, messageId, {
-                            id: xml.segId, type: 'artifact',
-                            mimeType: xml.mime, artifactType: xml.kind,
-                            title: xml.title, content: xml.content,
-                        } as import('../types/segments.js').AparteArtifactSegment, artifactProgress, false);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
      * Turn-1 forced tool call. When `toolChoice = { name, input }`
      * (orchestrator-driven), execute the handler directly instead of consulting
      * the LLM, render the tool segment, inject the result as `tool_result`, and
@@ -1221,7 +1369,7 @@ export class AparteClient {
             return { baseRequest, skip: false };
         }
 
-        const syntheticId = crypto.randomUUID();
+        const syntheticId = uuid();
         const syntheticCall: AparteToolCall = { id: syntheticId, name: toolChoice.name, input: toolChoice.input };
 
         // Render the tool segment so the UI shows the tool was called.
@@ -1248,9 +1396,16 @@ export class AparteClient {
 
         const controller = new AbortController();
         this._activeToolControllers.add(controller);
-        const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
+        const { raced, done: clearToolTimeout } = withToolTimeout(
+            (sig) => handler(syntheticCall, sig, {
+                target: targetElement as unknown as HTMLElement,
+                config: this._config,
+            }),
+            controller,
+            this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS,
+        );
         try {
-            const result = await handler(syntheticCall, controller.signal);
+            const result = await raced;
             targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
             messages.push({ role: 'tool_call', content: '', toolCalls: [syntheticCall] });
             messages.push({ role: 'tool_result', content: result.content, toolCallId: syntheticId });
@@ -1263,7 +1418,7 @@ export class AparteClient {
             }
             throw err;
         } finally {
-            clearTimeout(timeout);
+            clearToolTimeout();
             this._activeToolControllers.delete(controller);
         }
     }
@@ -1305,15 +1460,13 @@ export class AparteClient {
                 content?: string;
             };
             const mimeType = input.mimeType ?? 'text/plain';
-            const kind = mimeType.includes('react') ? 'react'
-                : mimeType.includes('html') ? 'html'
-                : mimeType.includes('javascript') ? 'js'
-                : mimeType.includes('css') ? 'css'
-                : mimeType.includes('svg') ? 'svg'
-                : mimeType.includes('json') ? 'json'
-                : mimeType.includes('csv') ? 'csv'
-                : mimeType.includes('markdown') ? 'markdown'
-                : 'text';
+            // The canonical derivation, not a third hand-rolled copy: the inline
+            // chain that used to live here knew nothing of Anthropic's
+            // `application/vnd.ant.*` namespace, so the same create_artifact call
+            // rendered differently depending on whether the engine runner was
+            // injected. `deriveArtifactKind` is already imported at the top of
+            // this file, and engine's copy is locked to it by a parity test.
+            const kind = deriveArtifactKind(mimeType, 'text');
             const artifactSeg: import('../types/segments.js').AparteArtifactSegment = {
                 id: `artifact-${event.id}`,
                 type: 'artifact',
@@ -1323,7 +1476,7 @@ export class AparteClient {
                 content: input.content ?? '',
             };
             targetElement.addSegment?.(artifactSeg);
-            this._dispatchArtifactLifecycle(targetElement, messageId, artifactSeg, artifactProgress, true);
+            dispatchArtifactLifecycle(targetElement, messageId, artifactSeg, artifactProgress, true);
 
             messages.push({
                 role: 'tool_call',
@@ -1394,13 +1547,18 @@ export class AparteClient {
                 const approvalController = new AbortController();
                 this._activeToolControllers.add(approvalController);
                 targetElement.updateSegment?.(toolSeg.id, { status: 'awaiting-approval' });
-                targetElement.dispatchEvent?.(new CustomEvent('aparte-tool-approval-request', {
-                    bubbles: true, composed: true,
-                    detail: { toolCallId: event.id, toolName: event.name, input: event.input }
-                }));
+                // Through the helper, like every other lifecycle event this class
+                // emits — it stamps `targetId`. The engine path already goes
+                // through `dispatchLifecycleEvent` and stamps it, so dispatching
+                // raw here gave one event two shapes depending on which loop
+                // produced it, and a composer filtering on `targetId` saw the
+                // approval request from the other chat on the page.
+                dispatchLifecycleEvent(targetElement, 'aparte-tool-approval-request', {
+                    toolCallId: event.id, toolName: event.name, input: event.input,
+                });
                 let decision: { approved: boolean; payload?: unknown };
                 const resolveApproval = this.options.approvalResolver
-                    ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig));
+                    ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
                 try {
                     decision = await resolveApproval(event.id, approvalController.signal);
                 } finally {
@@ -1433,13 +1591,18 @@ export class AparteClient {
 
             const controller = new AbortController();
             this._activeToolControllers.add(controller);
-            const timeout = setTimeout(() => controller.abort(), TOOL_HANDLER_TIMEOUT_MS);
+            const { raced, done: clearToolTimeout } = withToolTimeout(
+                (sig) => handler(
+                    { id: event.id, name: event.name, input: effectiveInput },
+                    sig,
+                    { target: targetElement as unknown as HTMLElement, config: this._config },
+                ),
+                controller,
+                this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS,
+            );
 
             try {
-                const result = await handler(
-                    { id: event.id, name: event.name, input: effectiveInput },
-                    controller.signal
-                );
+                const result = await raced;
                 targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
 
                 // Inject tool_call + tool_result into message history for re-call
@@ -1467,7 +1630,7 @@ export class AparteClient {
                     throw err;
                 }
             } finally {
-                clearTimeout(timeout);
+                clearToolTimeout();
                 this._activeToolControllers.delete(controller);
             }
         } else {
@@ -1478,6 +1641,10 @@ export class AparteClient {
         return { continueLoop };
     }
 
+    /**
+     * Stream loop: runs one provider.chat() call and repeats if a tool was called.
+     * Maintains a running messages array to inject tool_call / tool_result turns.
+     */
     private async _streamLoop(
         targetElement: AparteChatTargetElement,
         messageId: string,
@@ -1488,6 +1655,23 @@ export class AparteClient {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
         // rather than only stopping client-side reading of the stream.
+        // A NEW turn abandons the previous one, and abandoning means cutting it.
+        //
+        // `_streamController` is a single slot overwritten on each turn, and nothing
+        // guards `_handleSend` / `_handleRetry` / `_handleEdit` against a turn already
+        // in flight — so the first turn became unabortable: `abort()` reached only the
+        // newest signal while the older stream kept generating and kept being billed,
+        // with nothing left on the page to render it.
+        //
+        // Reachable without doing anything unusual: the composer converts
+        // submit-while-streaming into a cancel, but the action bar is hidden only on
+        // the bubble carrying `data-streaming`, so retry or edit on any EARLIER bubble
+        // is clickable mid-stream and starts a second loop.
+        //
+        // Cutting the old one rather than tracking both, because two simultaneous
+        // assistant turns on one chat is not a state this UI has — and "we walked away
+        // from a stream, so cancel it" is already the rule everywhere else here.
+        this._streamController?.abort();
         const streamController = new AbortController();
         this._streamController = streamController;
 
@@ -1523,7 +1707,7 @@ export class AparteClient {
 
         while (continueLoop) {
             if (this._isAborted) {
-                this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 break;
             }
 
@@ -1531,7 +1715,7 @@ export class AparteClient {
             if (turns > globalMaxTurns) {
                 console.warn(`[AparteClient] maxTurns (${globalMaxTurns}) exceeded — stopping loop.`);
                 targetElement.addSegment?.({
-                    id: `max-turns-${crypto.randomUUID()}`,
+                    id: `max-turns-${uuid()}`,
                     type: 'error',
                     content: `Stopped after ${globalMaxTurns} tool calls to prevent an infinite loop.`,
                     details: 'MAX_TURNS_EXCEEDED'
@@ -1565,7 +1749,25 @@ export class AparteClient {
             const response = await this._config.getTransport().chat(provider, request, authConfig, { providerId: provider.id, signal: streamController.signal });
 
             if (typeof response === 'string') {
-                this._updateMessage(targetElement, messageId, { content: response, status: 'completed' });
+                // PARSED, like every other reply. Writing the raw string to `content`
+                // meant a non-streaming backend rendered literal ``` fences and got no
+                // code, thinking or artifact segments at all — while the SAME backend
+                // through the engine seam rendered them properly, because
+                // `runStreamAgent` emits the string as a `text-delta` and the adapter
+                // parses it. Two loops, two different products from one response.
+                const wholeParser = new AparteStreamParser();
+                const parsed = [
+                    ...wholeParser.parse(response).segments,
+                    ...wholeParser.finalize(),
+                ];
+                if (parsed.length > 0) {
+                    for (const segment of parsed) targetElement.addSegment?.(segment);
+                    this._updateMessage(targetElement, messageId, { status: 'completed' });
+                } else {
+                    // Nothing parseable (an empty or whitespace-only reply): keep the
+                    // old shape so the bubble still has something to show.
+                    this._updateMessage(targetElement, messageId, { content: response, status: 'completed' });
+                }
                 return undefined;
             }
 
@@ -1594,7 +1796,7 @@ export class AparteClient {
 
             if (artifactRawHint) {
                 // Create the artifact segment immediately (pill during streaming)
-                rawSegId = `artifact-raw-${crypto.randomUUID()}`;
+                rawSegId = `artifact-raw-${uuid()}`;
                 const rawSeg: import('../types/segments.js').AparteArtifactSegment = {
                     id: rawSegId, type: 'artifact',
                     mimeType: artifactRawHint.mimeType,
@@ -1604,11 +1806,11 @@ export class AparteClient {
                 };
                 targetElement.addSegment?.(rawSeg);
                 streamingSegmentIds.add(rawSegId);
-                this._dispatchArtifactLifecycle(targetElement, messageId, rawSeg, artifactProgress, false);
+                dispatchArtifactLifecycle(targetElement, messageId, rawSeg, artifactProgress, false);
             }
             // ── END artifactRaw ──────────────────────────────────────────────
 
-            // ── XML artifact streaming state (Claude-like) — fed to _feedXmlArtifactDelta ──
+            // ── XML artifact streaming state (Claude-like) — fed to ./xml-artifact-feed.ts ──
             const artifactXmlHint = baseRequest._meta?.artifactXml;
             const xmlCtx: XmlArtifactStreamState = {
                 state: 'normal', scanBuf: '', closeBuf: '', segId: null, content: '', mime: '', kind: '', title: '',
@@ -1619,30 +1821,47 @@ export class AparteClient {
             // Tool calls emitted during this turn
             const toolCallsThisTurn: AparteToolCall[] = [];
 
+            // Honor abort INSIDE the SSE event loop too (not only between tool-call
+            // turns). Without this, late events buffered after an `aparte-abort`
+            // (e.g. after the user switches conversation mid-stream) keep mutating
+            // the target's last message — which may now belong to a different
+            // conversation, causing the user message in the new conv to be
+            // overwritten by the assistant reply from the old one.
+            //
+            // Checked on BOTH sides of the read, and that is the whole point: the
+            // loop spends nearly all of its time parked on `reader.read()`, so an
+            // abort arriving while parked — the user pressing Stop while watching
+            // text stream, i.e. the only case that actually happens — is invisible
+            // to a check that only runs before the await. Checking after the read
+            // also covers both shapes a provider can take on abort: an `error`
+            // event (openai-compat) or a quiet close (ai-sdk). Miss it and the
+            // error branch throws, `_handleLifecycleError` REPLACES `segments`,
+            // and the answer the user was reading is erased and blamed on a fault.
+            const bailOnAbort = (): boolean => {
+                if (!this._isAborted) return false;
+                try { void reader.cancel(); } catch { /* best effort */ }
+                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                continueLoop = false;
+                return true;
+            };
+
+            // Did the vendor stream reach its own end, or are we walking away from
+            // it? Only the second case needs a cancel (see the finally below).
+            let streamDrained = false;
+
             try {
                 while (true) {
-                    // Honor abort INSIDE the SSE event loop too (not only between
-                    // tool-call turns). Without this, late events buffered after
-                    // a `aparte-abort` (e.g. after the user switches conversation
-                    // mid-stream) keep mutating the target's last message — which
-                    // may now belong to a different conversation, causing the
-                    // user message in the new conv to be overwritten by the
-                    // assistant reply from the old one.
-                    if (this._isAborted) {
-                        try { void reader.cancel(); } catch { /* best effort */ }
-                        this._dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
-                        continueLoop = false;
-                        break;
-                    }
+                    if (bailOnAbort()) break;
                     const { done, value: event } = await reader.read();
-                    if (done) break;
+                    if (bailOnAbort()) break;
+                    if (done) { streamDrained = true; break; }
 
                     switch (event.type) {
                         case 'thinking': {
                             thinkingContent += event.delta;
                             if (!thinkingSegmentId) {
                                 const seg: AparteThinkingSegment = {
-                                    id: `think-${crypto.randomUUID()}`,
+                                    id: `think-${uuid()}`,
                                     type: 'thinking',
                                     content: thinkingContent,
                                     collapsed: true,
@@ -1668,7 +1887,7 @@ export class AparteClient {
                             if (artifactRawHint && rawSegId) {
                                 rawContent += event.delta;
                                 targetElement.updateSegment?.(rawSegId, { content: rawContent });
-                                this._dispatchArtifactLifecycle(targetElement, messageId, {
+                                dispatchArtifactLifecycle(targetElement, messageId, {
                                     id: rawSegId, type: 'artifact',
                                     mimeType: artifactRawHint.mimeType,
                                     artifactType: artifactRawHint.kind,
@@ -1678,9 +1897,9 @@ export class AparteClient {
                                 break;
                             }
 
-                            // XML artifact streaming (Claude-like) — extracted to _feedXmlArtifactDelta.
+                            // XML artifact streaming (Claude-like) — see ./xml-artifact-feed.ts.
                             if (artifactXmlHint) {
-                                this._feedXmlArtifactDelta(event.delta, xmlCtx, {
+                                feedXmlArtifactDelta(event.delta, xmlCtx, {
                                     targetElement, messageId, textParser, streamingSegmentIds, artifactProgress, artifactXmlHint,
                                 });
                                 break;
@@ -1709,7 +1928,7 @@ export class AparteClient {
                                     targetElement.updateSegment?.(segment.id, { content: (segment as { content?: string }).content });
                                 }
                                 if (segment.type === 'artifact') {
-                                    this._dispatchArtifactLifecycle(targetElement, messageId, segment, artifactProgress, true);
+                                    dispatchArtifactLifecycle(targetElement, messageId, segment, artifactProgress, true);
                                 }
                             }
                             const active = textParser.getState().activeSegment;
@@ -1718,17 +1937,30 @@ export class AparteClient {
                                     targetElement.addSegment?.(active);
                                     streamingSegmentIds.add(active.id);
                                     if (active.type === 'artifact') {
-                                        this._dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
+                                        dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
                                 } else {
                                     targetElement.updateSegment?.(active.id, { content: (active as { content?: string }).content });
                                     if (active.type === 'artifact') {
-                                        this._dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
+                                        dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
                                     }
                                 }
                             } else if (result.segments.length === 0) {
-                                if (targetElement.typeName) targetElement.typeName(event.delta);
-                                else targetElement.updateLastMessage?.(event.delta, { append: true });
+                                // NOTHING here on purpose. This branch used to write
+                                // the raw delta into `message.content`, and it is the
+                                // second half of the history corruption: it only ever
+                                // fires when the parser has withheld an ambiguous
+                                // prefix (``` / ` / <) — a real text delta always
+                                // leaves an ACTIVE segment, which the branch above
+                                // handles. Measured: `parse('a b')` gives 0 segments
+                                // and an active text segment; `parse('```')` gives 0
+                                // and none.
+                                //
+                                // So the parser is holding those characters, and
+                                // `finalize()` flushes them as a text segment if the
+                                // stream ends there — verified. Writing them out here
+                                // duplicated them into a field that history then
+                                // preferred over what was rendered.
                             }
                             break;
                         }
@@ -1745,10 +1977,41 @@ export class AparteClient {
                         case 'done':
                             if (event.usage) lastUsage = event.usage;
                             break;
-                        default:
-                            assertNever(event);
+                        default: {
+                            // Compile-time exhaustiveness is KEPT: add a member to the
+                            // union and this assignment stops typechecking. What is gone
+                            // is the runtime throw.
+                            //
+                            // `assertNever` threw here, `_streamTurn` caught it, and
+                            // `_handleLifecycleError` REPLACED the message's segments with
+                            // an error bubble — so one unrecognised event destroyed a reply
+                            // the user was already reading. That is reachable on any
+                            // provider/SDK version skew: the ai-sdk mapper already drops
+                            // `source`/`file`/`abort` parts by design, so a new member is a
+                            // normal event, not a corrupt stream.
+                            const exhaustive: never = event;
+                            void exhaustive;
+                            this._warnUnknownStreamEvent(event);
+                            break;
+                        }
                     }
+
+                    // A `break` inside the switch above leaves the SWITCH, not this
+                    // loop. Without this line a turn the loop already decided to
+                    // stop — a tool the human rejected, a per-tool turn limit, a
+                    // missing handler — went on to execute every remaining tool
+                    // call of the same turn: side effects ran after an explicit
+                    // refusal, and their results were appended to a stopped loop's
+                    // history. `runStreamAgent` exits its inner loop for the same
+                    // reasons; this is the core side of that agreement.
+                    if (!continueLoop) break;
                 }
+
+                // artifactXml finalize comes FIRST: its `scanning` branch pushes
+                // held text back into the parser, which only works while the parser
+                // can still be flushed. Same ordering as the engine twin, and the
+                // parity suite now asserts the two agree.
+                finalizeXmlArtifact(xmlCtx, { targetElement, messageId, artifactProgress, artifactXmlHint, textParser, streamingSegmentIds });
 
                 // Finalize text parser
                 const finals = textParser.finalize();
@@ -1758,7 +2021,7 @@ export class AparteClient {
                     const lineCount = rawContent.split('\n').length;
                     const isInline = lineCount < 15;
                     targetElement.updateSegment?.(rawSegId, { content: rawContent, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, {
+                    dispatchArtifactLifecycle(targetElement, messageId, {
                         id: rawSegId, type: 'artifact',
                         mimeType: artifactRawHint.mimeType, artifactType: artifactRawHint.kind,
                         title: artifactRawHint.kind, content: rawContent, inline: isInline,
@@ -1766,23 +2029,6 @@ export class AparteClient {
                 }
                 // ── END artifactRaw finalize ──────────────────────────────────
 
-                // ── XML artifact finalize ─────────────────────────────────────
-                // If the stream ended while still inside an <artifact> tag
-                // (model truncated — common on small models with low maxTokens),
-                // flush whatever was buffered and render the partial artifact.
-                if (artifactXmlHint && xmlCtx.state === 'in-artifact' && xmlCtx.segId) {
-                    xmlCtx.content += xmlCtx.closeBuf;
-                    const lineCount = xmlCtx.content.split('\n').length;
-                    const isInline = lineCount < 15;
-                    targetElement.updateSegment?.(xmlCtx.segId, { content: xmlCtx.content, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
-                    this._dispatchArtifactLifecycle(targetElement, messageId, {
-                        id: xmlCtx.segId, type: 'artifact',
-                        mimeType: xmlCtx.mime, artifactType: xmlCtx.kind,
-                        title: xmlCtx.title, content: xmlCtx.content, inline: isInline,
-                    } as import('../types/segments.js').AparteArtifactSegment, artifactProgress, true);
-                    console.warn('[AparteClient] XML artifact finalized without closing tag — content may be partial.');
-                }
-                // ── END XML artifact finalize ─────────────────────────────────
 
                 // ── Artifact hint promotion (finalize) ───────────────────────
                 // Handles the case where the code fence was not yet finalized
@@ -1817,7 +2063,7 @@ export class AparteClient {
                         targetElement.updateSegment?.(s.id, { content: (s as { content?: string }).content });
                     }
                     if (s.type === 'artifact') {
-                        this._dispatchArtifactLifecycle(targetElement, messageId, s, artifactProgress, true);
+                        dispatchArtifactLifecycle(targetElement, messageId, s, artifactProgress, true);
                     }
                 }
 
@@ -1832,7 +2078,7 @@ export class AparteClient {
                         // Show pulsing dots while we wait for the next phase.
                         // The segment removes itself automatically via MutationObserver
                         // when the next segment appears — no manual cleanup needed.
-                        const pwId = `pw-${crypto.randomUUID()}`;
+                        const pwId = `pw-${uuid()}`;
                         targetElement.addSegment?.({ id: pwId, type: 'pipeline-waiting' });
                         // continueLoop stays true — next iteration handles the new phase
                     } else {
@@ -1841,6 +2087,14 @@ export class AparteClient {
                 }
 
             } finally {
+                // Leaving before the stream ended on its own — a thrown error, a
+                // rejected tool, a per-tool turn limit — used to just release the
+                // lock, so the vendor happily kept generating (and billing) into a
+                // body nobody would ever read. Releasing a reader does not stop a
+                // stream; cancelling it does.
+                if (!streamDrained) {
+                    try { await reader.cancel(); } catch { /* best effort */ }
+                }
                 reader.releaseLock();
             }
         }
@@ -1878,7 +2132,8 @@ export class AparteClient {
     ): Promise<AparteUsage | undefined> {
         const signal = streamController.signal;
 
-        // Leading writes (mirror inline :1034-1042).
+        // Leading writes: mirror the `status: 'streaming'` update and the
+        // `prefixSegments` injection at the top of the inline `_streamLoop`.
         this._updateMessage(targetElement, messageId, { status: 'streaming' });
         const prefixSegments = baseRequest._meta?.['prefixSegments'] as AparteSegment[] | undefined;
         if (prefixSegments?.length) {
@@ -1899,13 +2154,22 @@ export class AparteClient {
                 ? response
                 : readableToAsyncIterable(response as ReadableStream<AparteStreamEvent>, signal);
         };
-        const toolLookup = (name: string) => this._config.getToolHandler(name);
+        // Wrapped, so the INJECTED runner hands a handler the same context core's
+        // inline loop does. Without this, `streamRunner: runStreamAgent` would be the
+        // one configuration where `ask_user` still silently cancelled — a new
+        // parity divergence introduced by fixing the old one.
+        const toolLookup = (name: string) => {
+            const handler = this._config.getToolHandler(name);
+            if (!handler) return undefined;
+            const context = { target: targetElement as unknown as HTMLElement, config: this._config };
+            return (call: AparteToolCall, sig: AbortSignal) => handler(call, sig, context);
+        };
         const toolConfigLookup = (name: string) => {
             const tool = this._config.getTools().find(t => t.name === name);
             return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;
         };
         const approvalResolver = this.options.approvalResolver
-            ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig));
+            ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
 
         const usage = await streamRunner({
             messageId,
@@ -1917,9 +2181,14 @@ export class AparteClient {
             emitter,
             signal,
             maxTurns: this.options.maxTurns,
+            // Forwarded, because the option's own JSDoc promises it means one thing
+            // whichever loop runs — and the fix that introduced it only wired the
+            // inline path, so setting it was silently ignored here. Exactly the
+            // asymmetry the option was added to remove.
+            toolTimeoutMs: this.options.toolTimeoutMs,
             // Match the inline loop's id conventions: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
-            idGen: (prefix) => (prefix === 'synthetic-tool' ? crypto.randomUUID() : `${prefix}-${crypto.randomUUID()}`),
+            idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
         });
         return usage ?? undefined;
     }
@@ -1942,17 +2211,31 @@ export class AparteClient {
         // `error.data` — still reaches consumers via the `aparte-message-error` event
         // below). The error code is preserved as `details`.
         const errorSegment: AparteErrorSegment = {
-            id: `error-${crypto.randomUUID()}`,
+            id: `error-${uuid()}`,
             type: 'error',
             content: error.message,
             details: error.code,
         };
 
         if (target.updateMessage) {
-            // ATOMIC UPDATE (V2)
+            /*
+             * APPEND the error, never replace the reply.
+             *
+             * This used to pass `segments: [errorSegment]`, which destroyed
+             * everything already streamed and rendered — text, the thinking block,
+             * artifacts, resolved tool calls — the moment a provider emitted a
+             * mid-stream `error` event, or a tool handler threw anything that was
+             * not an `AbortError`.
+             *
+             * It is the same defect as "Stop erased the reply", fixed one release
+             * earlier on the abort path and left standing on the error path. A
+             * partial answer plus an error is the truth; an empty bubble with an
+             * error in it is a lie about what the model said.
+             */
+            const rendered = target.getMessages?.()?.find(m => m.id === messageId)?.segments ?? [];
             target.updateMessage(messageId, {
                 status: 'error',
-                segments: [errorSegment]
+                segments: [...rendered, errorSegment],
             });
         } else if (target.appendMessage) {
             // FALLBACK (V1) - Still try to be smart
@@ -1965,76 +2248,19 @@ export class AparteClient {
             });
         }
 
-        this._dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
+        dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
     }
 
-    private _dispatchLifecycleEvent(target: HTMLElement, name: string, detail: Record<string, unknown>) {
-        target.dispatchEvent(new CustomEvent(name, {
-            bubbles: true,
-            composed: true,
-            // Tag every lifecycle event with the target's id so several chats on
-            // one page stay isolated — a composer reacts only to its own host's
-            // turn (id-less single-instance pages still broadcast).
-            detail: { targetId: target.id || undefined, ...detail },
-        }));
-    }
-
-    /**
-     * Dispatch the artifact lifecycle (`aparte-artifact-start` / `delta` / `ready`)
-     * on the host bubble element. Idempotent for `start` (fires once per segment id)
-     * and emits `delta` only when the body actually grew. `isFinal=true` fires `ready`.
-     */
-    private _dispatchArtifactLifecycle(
-        target: HTMLElement,
-        messageId: string,
-        segment: import('../types/segments.js').AparteArtifactSegment,
-        progress: Map<string, number>,
-        isFinal: boolean
-    ): void {
-        const id = segment.id as string;
-        const content = (segment.content as string) ?? '';
-        const seen = progress.get(id);
-
-        if (seen === undefined) {
-            // First time we see this artifact → start
-            target.dispatchEvent(new CustomEvent('aparte-artifact-start', {
-                bubbles: true,
-                composed: true,
-                detail: {
-                    messageId,
-                    segmentId: id,
-                    mimeType: segment.mimeType,
-                    artifactType: segment.artifactType,
-                    title: segment.title,
-                },
-            }));
-            progress.set(id, 0);
-        }
-
-        const lastLen = progress.get(id) ?? 0;
-        if (content.length > lastLen) {
-            const chunk = content.slice(lastLen);
-            target.dispatchEvent(new CustomEvent('aparte-artifact-delta', {
-                bubbles: true,
-                composed: true,
-                detail: { segmentId: id, chunk },
-            }));
-            progress.set(id, content.length);
-        }
-
-        if (isFinal) {
-            target.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
-                bubbles: true,
-                composed: true,
-                detail: {
-                    messageId,
-                    segmentId: id,
-                    mimeType: segment.mimeType,
-                    artifactType: segment.artifactType,
-                    title: segment.title,
-                    content,
-                },
-            }));
-        }
+    /** Warn once per client for an unrecognised stream event, then carry on. */
+    private _warnedUnknownEvents = new Set<string>();
+    private _warnUnknownStreamEvent(event: unknown): void {
+        const type = String((event as { type?: unknown })?.type ?? 'undefined');
+        if (this._warnedUnknownEvents.has(type)) return;
+        this._warnedUnknownEvents.add(type);
+        console.warn(
+            `[AparteClient] Ignoring unrecognised stream event "${type}". The reply is`
+            + ' unaffected; this usually means the provider or its SDK emits a part this'
+            + ' version of aparté does not map yet.',
+        );
     }
 }

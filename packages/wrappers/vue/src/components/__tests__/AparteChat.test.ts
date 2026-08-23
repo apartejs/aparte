@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import AparteChat from '../AparteChat.vue';
-import { registerAllComponents, resolveConfig, AparteConfig, AparteConfigClass } from '@aparte/core';
+import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 // Ensure all backend components are registered
@@ -33,11 +33,13 @@ describe('AparteChat.vue', () => {
             }
         });
 
-        // Wait for Vue and Custom Elements to settle
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        expect(wrapper.find('aparte-chat-viewport').exists()).toBe(true);
-        expect(wrapper.find('aparte-chat-status').exists()).toBe(true);
+        // Wait for the OBSERVATION, not for 50ms. What this test wants is "the
+        // elements are there"; asserting that inside `waitFor` says so directly and
+        // cannot go red because a CI runner was busy.
+        await vi.waitFor(() => {
+            expect(wrapper.find('aparte-chat-viewport').exists()).toBe(true);
+            expect(wrapper.find('aparte-chat-status').exists()).toBe(true);
+        });
 
         // Find bubbles using vanilla querySelector as backup
         const bubbles = wrapper.element.querySelectorAll('aparte-chat-bubble');
@@ -228,6 +230,22 @@ describe('AparteChat.vue', () => {
         expect([...toolbar.children].map((c) => c.className)).toEqual(['mode', 'model']);
     });
 
+    it('projects empty-state while there are no messages, and drops it on the first', async () => {
+        // Every example fills this slot and NOTHING proved it — not one unit test in
+        // any of the four wrappers, and no browser assertion either. Its contract is two
+        // halves ("Replaced by the message list on the first message") and the second is
+        // the one that silently rots: a welcome block still showing under a live
+        // conversation is the visible bug.
+        const wrapper = mount(AparteChat, {
+            props: { messages: [] },
+            slots: { 'empty-state': '<div class="welcome-block">welcome</div>' },
+        });
+        expect((wrapper.element as HTMLElement).querySelector('.welcome-block')).not.toBeNull();
+
+        await wrapper.setProps({ messages: [{ id: '1', role: 'user', content: 'hi', timestamp: 0 }] });
+        expect((wrapper.element as HTMLElement).querySelector('.welcome-block')).toBeNull();
+    });
+
     it('renders no toolbar element at all when the slot is unused', () => {
         const wrapper = mount(AparteChat, { props: { messages: [] } });
         const composer = (wrapper.element as HTMLElement).querySelector('aparte-composer')!;
@@ -263,16 +281,16 @@ describe('AparteChat.vue', () => {
     });
 
     it('forwards a per-instance config so components inside resolve it', async () => {
-        const cfg = new AparteConfigClass();
+        const cfg = new AparteConfig();
         const wrapper = mount(AparteChat, { props: { messages: [], config: cfg } });
         await new Promise(resolve => setTimeout(resolve, 0));
         expect(resolveConfig(wrapper.element as HTMLElement)).toBe(cfg);
     });
 
-    it('resolves the global AparteConfig when no config prop is passed', async () => {
+    it('resolves `aparteGlobalConfig` when no config prop is passed', async () => {
         const wrapper = mount(AparteChat, { props: { messages: [] } });
         await new Promise(resolve => setTimeout(resolve, 0));
-        expect(resolveConfig(wrapper.element as HTMLElement)).toBe(AparteConfig);
+        expect(resolveConfig(wrapper.element as HTMLElement)).toBe(aparteGlobalConfig);
     });
 
     it('derives an SSR-stable host id from useId (not a random UUID)', async () => {

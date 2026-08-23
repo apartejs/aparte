@@ -19,9 +19,12 @@ import './primitives/progress-spinner/progress-spinner.css';
 
 // Global HTMLElementEventMap augmentation — typed `e.detail` for aparté events.
 import './types/event-map.js';
+// Global HTMLElementTagNameMap augmentation — `querySelector('aparte-…')` returns
+// the concrete element, not `Element`. Both are DOM-only, hence browser-entry only.
+import './types/element-map.js';
 
 // Export primitives
-export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, AparteProgressSpinner } from './primitives/index.js';
+export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner } from './primitives/index.js';
 
 // Export types
 export type {
@@ -29,7 +32,6 @@ export type {
     AparteMessage,
     AparteContentParser,
     AparteSendEventDetail,
-    AparteTokenEventDetail,
     AparteViewportConfig,
     AparteInputConfig,
     AparteThemeVariables,
@@ -48,6 +50,10 @@ export type {
     AparteCustomSegment,
     AparteToolCallSegment,
     AparteArtifactSegment,
+    // The detail of the `aparte-segment-update` event. It reached types/index.ts and
+    // stopped there — and types/index.ts is not an entry point, so a consumer could
+    // bind the event (it is in the published event table) and never name its detail.
+    AparteSegmentUpdateEventDetail,
     // AI Provider types (BYORK)
     AparteAIProvider,
     AparteAIModel,
@@ -58,6 +64,17 @@ export type {
     ModelLoadProgress,
     AparteModelChangeEventDetail,
     AparteMessageDoneEventDetail,
+    AparteMessageStartEventDetail,
+    AparteMessageErrorEventDetail,
+    AparteMessageAbortedEventDetail,
+    AparteAbortEventDetail,
+    AparteCompactEventDetail,
+    AparteCompactDoneEventDetail,
+    AparteCompactErrorEventDetail,
+    AparteAttachmentPreviewEventDetail,
+    AparteTerminalRunEventDetail,
+    AparteFileGenReadyEventDetail,
+    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
@@ -69,7 +86,7 @@ export type {
     AparteArtifactStartEventDetail,
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
-    AparteArtifactOpenEventDetail,
+    AparteArtifactRedownloadEventDetail,
     // Chat types
     AparteChatRequest,
     AparteChatResponse,
@@ -86,10 +103,10 @@ export type {
     AparteToolCall,
     AparteToolResult,
     AparteToolHandler,
+    AparteToolContext,
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
-    AparteToolActionDetail,
     // Canonical imperative surface (aliased by every wrapper's handle type).
     AparteChatImperativeApi
 } from './types/index.js';
@@ -102,7 +119,18 @@ export {
     unregisterSegmentRenderer,
     getSegmentRenderer,
     collectRendererStyles,
-    registerDefaultRenderers
+    registerDefaultRenderers,
+    // The three the public barrel left behind. `renderers/index.ts` has always
+    // exported all eight; this one published five, which made the registry
+    // half-public: `declineDefaultRenderers` is the ONLY way to say "do not install
+    // the built-ins on this config" without constructing an `AparteClient`
+    // (`autoRegister: false`), and the bring-your-own-loop guide tells you not to
+    // construct one. `installDefaultRenderersOnce` is what a hand-written bubble
+    // needs, and `getAllRenderers` is the introspection half — the same reason
+    // `hasHighlightProvider` and `renderMarkdown` are public.
+    installDefaultRenderersOnce,
+    declineDefaultRenderers,
+    getAllRenderers
 } from './renderers/index.js';
 
 // Export components
@@ -114,11 +142,11 @@ export { AparteChatViewport } from './components/index.js';
 
 // Export composer primitives
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './components/index.js';
-export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail } from './components/index.js';
+export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 
 // Export conversations (types, adapter contract, manager)
 export type {
@@ -130,7 +158,7 @@ export type {
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
-export { ConversationManager, type ConversationManagerOptions } from './conversations/index.js';
+export { AparteConversationManager, type ConversationManagerOptions } from './conversations/index.js';
 export {
     AparteConversationController,
     type AparteChatBinding,
@@ -151,34 +179,58 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 export { parseAparteEventStream } from './parsers/index.js';
 
 // Export config
-export { AparteConfig, AparteConfigClass, DEFAULT_BUBBLE_ACTIONS, DEFAULT_HOST_HANDLERS } from './config/index.js';
+export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
+export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteSkeletonProvider, AparteSkeletonType, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
-export { DEFAULT_ICON_FALLBACKS, DEFAULT_SKELETON_FALLBACKS, DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
+export type { AparteConfigAware } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteSkeletonProvider, AparteSkeletonType, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
+export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client
 export { AparteClient } from './client/aparte-client.js';
 
 // Custom-element interop helpers shared by the framework wrappers' AparteUi.
-export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
+export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
 // Turns the `File[]` an `aparte-send` carries into renderable attachments — the
 // same conversion ConversationController does, for consumers driving the
 // imperative API themselves.
-export { filesToAttachments } from './utils/files-to-attachments.js';
+export { filesToAttachments, revokeAttachmentUrls } from './utils/files-to-attachments.js';
 // Is a message waiting for a reply? Shared by the viewport, the four wrappers and
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';
+
+// HTML escaping — one implementation for the whole scope. Exported because the
+// plugins render their own HTML (they cannot reach into core's internals) and
+// because a consumer writing a render hook needs it for exactly the same reason.
+// Nine private copies existed before this line; three of them had drifted to
+// escape only four of the five characters that matter.
+export { escapeHtml, escapeAttr } from './utils/escape.js';
+// `cssEscape` belongs beside them: `pnpm check:attr-escaping` tells a renderer
+// author "in a selector, use cssEscape()", and the customization guide says the
+// same — while it was not exported at all, so the only way to follow that advice
+// was `CSS.escape`, which over-escapes inside a quoted attribute selector.
+export { cssEscape } from './utils/css-escape.js';
+// Exported because the same wall is hit outside core: a wrapper naming its host
+// element, a provider tagging a request, or any bring-your-own-loop consumer
+// generating message ids all reach for `crypto.randomUUID`, which does not exist
+// on `http://` — the LAN deployment this library's own audience runs.
+export { uuid } from './utils/uuid.js';
+// The PARAMETER types of two documented setters. They existed and were the declared
+// argument types, but were not exported — so anyone typing a settings layer over
+// `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.
+export type { AparteHostHandlersConfig } from './types/models.js';
+export type { AparteKeyProvider } from './config/aparte-config.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 
 // Export transport seam (where chat requests go + how auth is handled)
-export { DirectTransport, BackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
 export type { AparteTransport, AparteTransportContext, AparteFormatAdapter, AparteVendorRequest, BackendTransportOptions, DirectTransportOptions, AparteChatHandlerOptions } from './transport/index.js';
 
 // Export runtime utilities
-export { MessageRepository } from './runtime/message-repository.js';
+export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
 
 // Export elicitation (human-in-the-loop typed input)

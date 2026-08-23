@@ -17,6 +17,7 @@ import type {
     AparteThinkingSegment,
     AparteArtifactSegment,
 } from '../types/index.js';
+import { uuid } from '../utils/uuid.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -262,16 +263,30 @@ export class AparteStreamParser {
             this._state.activeSegment = null;
         }
 
+        // Every branch below can fail to start its block because the opening line
+        // is not complete yet (a tokenizer routinely splits ``` from its language
+        // tag). When that happens the text segment detached above must go BACK —
+        // dropping it loses the prose that preceded the block, and the caller,
+        // seeing no segments at all, appends the raw delta to the bubble instead,
+        // which is how a literal ```python ends up in the rendered message.
         if (firstPattern.type === 'code') {
             const res = this._startCodeBlock(buffer);
-            return res ? { segment: segmentToEmit, remaining: res.remaining } : null;
+            if (!res) {
+                if (segmentToEmit) this._state.activeSegment = segmentToEmit;
+                return null;
+            }
+            return { segment: segmentToEmit, remaining: res.remaining };
         } else if (firstPattern.type === 'thinking') {
             const res = this._startThinkingBlock(buffer);
-            return res ? { segment: segmentToEmit, remaining: res.remaining } : null;
+            if (!res) {
+                if (segmentToEmit) this._state.activeSegment = segmentToEmit;
+                return null;
+            }
+            return { segment: segmentToEmit, remaining: res.remaining };
         } else {
             const res = this._startArtifactBlock(buffer);
             if (!res) {
-                // Opening tag incomplete — restore the text segment we were about to emit
+                // Opening tag incomplete — same restore as the two branches above.
                 if (segmentToEmit) this._state.activeSegment = segmentToEmit;
                 return null;
             }
@@ -437,10 +452,19 @@ export class AparteStreamParser {
         const tag = buffer.slice(0, tagEnd + 1);
         const inner = tag.slice('<artifact'.length, -1); // attributes string
 
+        // BOTH spellings are read. This parser accepted `type=` only, while the XML
+        // state machine that handles the very same tag on the artifact-xml path reads
+        // `mimeType=` — so one `<artifact mimeType="text/html">` became `text/html`
+        // or `text/plain` depending on which path happened to consume it, and a whole
+        // artifact silently degraded to plain text. `mimeType` wins when both are
+        // present; `type` stays supported so existing prompts keep working.
+        const mimeMatch = inner.match(/\bmimeType\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
         const typeMatch = inner.match(/\btype\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
         const titleMatch = inner.match(/\btitle\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
 
-        const mimeType = (typeMatch && (typeMatch[1] ?? typeMatch[2])) ?? 'text/plain';
+        const mimeType = (mimeMatch && (mimeMatch[1] ?? mimeMatch[2]))
+            ?? (typeMatch && (typeMatch[1] ?? typeMatch[2]))
+            ?? 'text/plain';
         const title = titleMatch ? (titleMatch[1] ?? titleMatch[2]) : undefined;
 
         this._state.mode = 'artifact';
@@ -511,7 +535,7 @@ export class AparteStreamParser {
 
     private _generateId(): string {
         ++this._state.segmentCounter;
-        return `${this._options.idPrefix}-${crypto.randomUUID()}`;
+        return `${this._options.idPrefix}-${uuid()}`;
     }
 
     private _createTextSegment(content: string): AparteTextSegment {

@@ -32,10 +32,18 @@ const raw = readFileSync(SRC, 'utf8');
 const firstVersion = raw.indexOf('\n## ');
 const body = firstVersion === -1 ? raw : raw.slice(firstVersion + 1);
 
+// Four of the five generated docs pages announced themselves with this marker and
+// this one did not, which is worth a line of its own: it is the signal a human (or
+// an agent) reads before editing a file whose edits will be overwritten on the next
+// build. `check-doc-snippets` also reads these markers, though it keys on the
+// generator NAMED in them rather than on their mere presence — this page has no code
+// fences at all, so it is unaffected either way.
 const page = `---
 title: Changelog
 description: What shipped in each version of the @aparte/* packages — they are released together, at one version.
 ---
+
+<!-- AUTO-GENERATED from CHANGELOG.md by apps/docs/scripts/gen-release-notes.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:release-notes\` to refresh. -->
 
 Every \`@aparte/*\` package is released **together at one version**, so a single entry
 covers the whole suite. Per-package detail lives in each package's own

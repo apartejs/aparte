@@ -6,15 +6,15 @@
  * 
  * @example
  * // Register an icon provider (e.g. a FontAwesome bridge)
- * AparteConfig.setIconProvider({
+ * aparteGlobalConfig.setIconProvider({
  *   copy: () => '<i class="fas fa-copy"></i>',
  *   check: () => '<i class="fas fa-check"></i>',
  *   // ...
  * });
  */
 export interface AparteIconProvider {
-    // EVERY key is optional: `AparteConfig.getIcon()` falls back to
-    // `DEFAULT_ICON_FALLBACKS` for any name a provider doesn't implement, so an
+    // EVERY key is optional: `aparteGlobalConfig.getIcon()` falls back to
+    // `APARTE_DEFAULT_ICON_FALLBACKS` for any name a provider doesn't implement, so an
     // icon pack may cover just the icons it cares about (as the example above
     // shows). Requiring the full set made the type contradict the runtime and
     // forced consumers — and this repo's own tests — into `as any`.
@@ -66,7 +66,7 @@ export interface AparteIconProvider {
 export type AparteIconName = keyof AparteIconProvider;
 
 /** Default textual fallbacks - zero dependency */
-export const DEFAULT_ICON_FALLBACKS: Record<AparteIconName, string> = {
+export const APARTE_DEFAULT_ICON_FALLBACKS: Record<AparteIconName, string> = {
     copy: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
     check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
     send: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,

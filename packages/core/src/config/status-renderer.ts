@@ -9,7 +9,7 @@
  *
  * @example
  * // A custom spinner, driven by the typing text.
- * AparteConfig.setStatusRenderer((text) => {
+ * aparteGlobalConfig.setStatusRenderer((text) => {
  *   const el = document.createElement('div');
  *   el.className = 'my-typing';
  *   el.textContent = text;

@@ -19,6 +19,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # The changeset guard below needs a MERGE BASE, and a shallow clone has
+          # none: `changeset status --since` died with "Failed to find where HEAD
+          # diverged from origin/main" on the first pull request this repo ever had.
+          # The guard could never have worked — it is PR-only, and there had been no
+          # PR. Full history for this job only; the others do not diff against a base.
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
@@ -67,26 +74,150 @@ jobs:
       - name: Check Node import contract
         run: pnpm check:node-import
 
+      # The rest of the mechanical guards.
+      #
+      # A follow-up audit caught this: `pnpm gate` chains twelve `check:*` scripts and
+      # CI ran three of them. So five guards added in this very lot — under a commit
+      # titled "the guards that did not bite now bite" — fired only when a human
+      # remembered to type `pnpm gate`. A PR deleting the engine wiring, unescaping an
+      # attribute, or dropping a documented export went green.
+      #
+      # Listed individually rather than as `pnpm gate` so a failure names the guard
+      # instead of a 20-minute chain, and so the coverage/build steps keep their own
+      # jobs.
+      - name: Check attribute escaping
+        run: pnpm check:attr-escaping
+
+      - name: Check the engine seam has a consumer
+        run: pnpm check:engine-consumer
+
+      - name: Check every export is documented or exempt
+        run: pnpm check:export-mentions
+
+      - name: Check the SSR barrel carries every type
+        run: pnpm check:node-barrel-types
+
+      - name: Check the entry-point weight contracts
+        run: pnpm check:bundle-entries
+
+      - name: Check published READMEs
+        run: pnpm check:readmes
+
+      - name: Check wrapper slot parity
+        run: pnpm check:wrapper-slots
+
+      - name: Check every element documents an example
+        run: pnpm check:examples
+
+      # The seven below were in `pnpm gate` and in NO workflow — five of them guards
+      # that bite. The comment at the top of this block already narrated a previous
+      # audit finding this exact shape, on a lot titled "the guards that did not bite
+      # now bite", and it drifted again anyway. So the list is no longer maintained
+      # by hand: `pnpm check:gate-in-ci` (below) diffs this file's `run:` lines
+      # against the gate chain and fails on anything missing. A lesson written down
+      # and not mechanised is a lesson that gets learned twice.
+      - name: Check the lockfile matches every manifest
+        run: pnpm check:lockfile
+
+      - name: Check internal peer ranges are literal and bounded
+        run: pnpm check:peer-ranges
+
+      - name: Check text-position escaping
+        run: pnpm check:text-escaping
+
+      - name: Check crypto.randomUUID stays behind uuid()
+        run: pnpm check:secure-context
+
+      - name: Check the typed event map is honest
+        run: pnpm check:event-map
+
+      - name: Check no comment cites code by line number
+        run: pnpm check:cross-refs
+
+      - name: Check every gate step runs in a workflow
+        run: pnpm check:gate-in-ci
+
       - name: Test (with coverage gate)
         run: pnpm test:coverage
 
-      # Added as packages land: docs build + link-check.
+      # Runs AFTER the coverage gate: it reads coverage/coverage-summary.json.
+      - name: Check the coverage floors sit on the measurement
+        run: pnpm check:coverage-floors
 
-  # Portability guard: the packages declare engines.node ">=18" and the repo is
-  # developed on Windows, yet the authoritative gate above runs a single target.
-  # This job re-runs build + test across the supported Node range and on Windows
-  # so an incompatibility can't ship undetected. (Node 24 + the full lint/
-  # typecheck/packaging gate stay on the `ci` job to avoid duplicating them.)
-  test-matrix:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        node: ['18', '20', '22']
-        include:
-          - os: windows-latest
-            node: '22'
-    runs-on: ${{ matrix.os }}
+      # Runs after the build job's artifacts are not available here, so this only
+      # asserts freshness for a tree that built in THIS job — which the docs build
+      # below performs.
+      - name: Check dist is current with src
+        run: pnpm build && pnpm check:dist-freshness
+
+      # The documentation, checked rather than assumed.
+      #
+      # A cold audit found FOUR broken snippets — including the headline
+      # `streamRunner: runStreamAgent` composition printed on five pages and a
+      # README, which did not typecheck at all. Every one was the direct
+      # consequence of nothing ever compiling them: the repo enforced that each
+      # element documents an example and that no README imports a removed symbol,
+      # and never checked whether the examples RUN.
+      - name: Compile the docs' self-contained snippets
+        run: pnpm check:doc-snippets
+
+      # The build also runs the four reference generators, so this is what proves
+      # they still produce a site — and it is the only place the generated pages
+      # exist for the link check below.
+      - name: Build the docs site
+        run: pnpm --filter @aparte-workspace/docs build
+
+      - name: Check internal links and anchors
+        run: pnpm check:doc-links
+
+      # CLAUDE.md requires a changeset for any package with an API or CSS change,
+      # and nothing enforced it. In a `fixed` lockstep group a missing changeset does
+      # not just skip one version — the whole 15-package train stays put, release.yml
+      # opens no Version PR, and the published `alpha`/`latest` drift away from the
+      # source everyone reads. PR-only: a direct push to main has no base to diff.
+      - name: Check a changeset accompanies the change
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          # A RELEASE pull request has no changesets left: `pnpm version-packages`
+          # consumed them into the per-package CHANGELOGs and the root aggregate, in
+          # this very branch. `changeset status` exits 1 when it finds none — which is
+          # exactly what makes it a useful guard on a feature PR and a false alarm on
+          # a release one.
+          #
+          # The root CHANGELOG.md is the signal: nothing writes it except
+          # `scripts/gen-root-changelog.mjs`, which only `pnpm version-packages` runs.
+          # If this PR touches it, the versions moved inside it and the changesets are
+          # already spent.
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qx 'CHANGELOG.md'; then
+            echo "release PR (root CHANGELOG.md moved) — the changesets were consumed here"
+          else
+            pnpm exec changeset status --since="origin/${{ github.base_ref }}"
+          fi
+
+  # Portability guard for the ONE claim nothing else checks: engines.node ">=18".
+  #
+  # This was four jobs — Node 18, 20 and 22 on ubuntu plus Node 22 on Windows — and
+  # across the three CI runs of the release that first exercised them, all four
+  # passed every time while the two jobs beside them found three real breakages.
+  # Thirty minutes of compute per push, finding nothing, because three of the four
+  # were already covered:
+  #
+  #   - Node 24 on Linux: the `ci` job above runs the whole gate on it.
+  #   - Windows: the maintainer develops on Windows, on Node 24, continuously. A
+  #     Windows-only break reaches him before it reaches a runner.
+  #   - Node 20 and 22: between a floor that is tested and a ceiling that is tested.
+  #     Not nothing, but the thinnest band imaginable.
+  #
+  # What is left is the floor, and it is not theoretical: `check:node-import` is
+  # the only thing that resolves the published `node` export condition in a real
+  # Node — publint/attw read the map statically and the unit suite runs under jsdom —
+  # and on 18, `Request`, `ReadableStream` and `structuredClone` are genuinely not
+  # the same surface. Test the promise, not the interpolation.
+  #
+  # Add a version back the day a break is found in that band, with the break named.
+  node-floor:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
@@ -95,10 +226,12 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
-      - name: Use Node.js ${{ matrix.node }}
+      # The FLOOR of engines.node. Bump both together, or the promise drifts from
+      # what is tested.
+      - name: Use Node.js 18
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: '18'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -110,7 +243,16 @@ jobs:
       - name: Test
         run: pnpm test
 
-  # Browser smoke E2E — drives every playground in a real browser against a
+      # The packages declare `engines.node: ">=18"`, and the Node import contract is
+      # the ONLY thing that resolves the published `node` export condition in real
+      # Node — publint/attw check the map statically, and the unit test runs under
+      # jsdom against the source entry. It used to run once, on the newest Node in
+      # the `ci` job, so the `>=18` claim was untested on 18: `Request`,
+      # `ReadableStream` and `structuredClone` are not the same surface there.
+      - name: Check Node import contract
+        run: pnpm check:node-import
+
+  # Browser smoke E2E — drives every example in a real browser against a
   # network-mocked model (no key/LM Studio). Separate job: it boots six dev
   # servers + a browser, so it is heavier and isolated from the fast gate above.
   e2e:
@@ -128,6 +270,17 @@ jobs:
     # silently — but bump both together.
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
+    # Firefox refuses to launch when $HOME is not owned by the current user, which is
+    # the case inside this container. Playwright says so itself, in the failure:
+    # "Workaround: Set the HOME=/root environment variable". Chromium and WebKit do not
+    # care, which is why the Firefox projects were the only ones failing — in 2ms, before
+    # a single page loaded.
+    #
+    # Firefox joined the matrix locally and this job never ran it: the repo had no pull
+    # request until 0.8.0, so its first CI run was also the first run of the Firefox
+    # projects.
+    env:
+      HOME: /root
     permissions:
       contents: read
     steps:
@@ -145,7 +298,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # demo-vanilla consumes @aparte/core from its dist, so the packages must be
+      # vanilla-dist consumes @aparte/core from its dist, so the packages must be
       # built before the E2E dev servers boot.
       - name: Build
         run: pnpm build

@@ -12,7 +12,7 @@
  * dispatch your own events / use the imperative API from your rendered output.
  *
  * @example
- * AparteConfig.setSiblingNavRenderer(({ count, index }) =>
+ * aparteGlobalConfig.setSiblingNavRenderer(({ count, index }) =>
  *   Array.from({ length: count }, (_, i) =>
  *     `<span class="dot${i === index ? ' active' : ''}"></span>`).join(''));
  *

@@ -1,8 +1,9 @@
 /**
  * artifact-xml-state-machine.ts — streaming `<artifact>` XML parser (pure).
  *
- * The framework-free extraction of the XML-artifact branch inside
- * `AparteClient._streamLoop` (aparte-client.ts :1268-1392 + finalize :1658-1669).
+ * The framework-free extraction of core's `client/xml-artifact-feed.ts` (the
+ * scanning half) plus the `XML artifact finalize` block inside
+ * `AparteClient._streamLoop`.
  * Small models emit artifacts as `…chat text… <artifact mimeType="…" title="…">
  * BODY</artifact> …more text…`, streamed in arbitrary chunks that can split the
  * opening tag, the body, or the closing tag across delta boundaries.
@@ -29,10 +30,11 @@ export interface XmlArtifactHint {
 /** DOM-free micro-events the machine emits; the adapter renders them. */
 export type XmlArtifactEvent =
     // `reduced: true` marks chat text that precedes an `<artifact>` open tag in
-    // the same delta. `_streamLoop` renders that text through a REDUCED path
-    // (aparte-client.ts :1300-1313: only completed segments are added; the trailing
-    // active segment is NOT rendered until a later, tag-free delta). The adapter
-    // must honor it or the pre-artifact text streams one update too eagerly.
+    // the same delta. Core renders that text through a REDUCED path — its twin's
+    // `emitChatText(text, syncActive = false)`: only completed segments are added,
+    // the trailing active segment is NOT rendered until a later, tag-free delta.
+    // The adapter must honor it or the pre-artifact text streams one update too
+    // eagerly.
     | { type: 'chat-text'; text: string; reduced?: boolean }
     | { type: 'artifact-open'; id: string; mimeType: string; kind: string; title: string }
     | { type: 'artifact-chunk'; id: string; content: string }
@@ -40,6 +42,19 @@ export type XmlArtifactEvent =
 
 const CLOSE_TAG = '</artifact>';
 const OPEN_TAG = '<artifact';
+
+/**
+ * Length of the longest suffix of `text` that is a PROPER prefix of `<artifact`
+ * (0 when there is none). Lets the machine hold `…<arti` back instead of
+ * emitting it as chat text and losing the artifact that follows it.
+ */
+function partialOpenTagLength(text: string): number {
+    const max = Math.min(text.length, OPEN_TAG.length - 1);
+    for (let k = max; k > 0; k--) {
+        if (text.endsWith(OPEN_TAG.slice(0, k))) return k;
+    }
+    return 0;
+}
 /** Artifacts under this many lines render inline (mirrors `lineCount < 15`). */
 const INLINE_MAX_LINES = 15;
 
@@ -105,19 +120,50 @@ export class ArtifactXmlStateMachine {
             if (this.state === 'normal') {
                 const tagStart = remaining.indexOf(OPEN_TAG);
                 if (tagStart === -1) {
-                    out.push({ type: 'chat-text', text: remaining });
+                    // No whole tag — but the delta may END on a piece of one. `<`
+                    // and `artifact` are separate tokens in most vocabularies, so
+                    // `<arti` closing a delta is routine, not exotic. Emitting it
+                    // as chat text loses the artifact entirely: the machine never
+                    // enters `scanning`, and the fallback path that then produces
+                    // the artifact emits no lifecycle events at all.
+                    const held = partialOpenTagLength(remaining);
+                    if (held > 0) {
+                        const before = remaining.slice(0, remaining.length - held);
+                        if (before) out.push({ type: 'chat-text', text: before, reduced: true });
+                        this.scanBuf = remaining.slice(remaining.length - held);
+                        this.state = 'scanning';
+                    } else {
+                        out.push({ type: 'chat-text', text: remaining });
+                    }
                     remaining = '';
                 } else {
                     const before = remaining.slice(0, tagStart);
                     if (before) out.push({ type: 'chat-text', text: before, reduced: true });
-                    this.scanBuf = remaining.slice(tagStart);
-                    remaining = '';
+                    // The tail continues through `remaining`, so a complete
+                    // `<artifact …>…</artifact>` arriving in ONE delta is parsed in the
+                    // same call. Parking it in `scanBuf` and clearing `remaining` ended
+                    // the loop, and `finalize()` then handed the buffer back as raw
+                    // chat text — so the artifact rendered as a literal tag instead of a
+                    // card. Core had the same parking bug with a different outcome: it
+                    // dropped the artifact AND the prose after it entirely.
+                    this.scanBuf = '';
+                    remaining = remaining.slice(tagStart);
                     this.state = 'scanning';
                 }
             } else if (this.state === 'scanning') {
                 // Accumulate until we have the full opening tag (ends with `>`).
                 this.scanBuf += remaining;
                 remaining = '';
+                // We may have entered on a partial prefix that turns out to be a
+                // different tag (`<article>`). As soon as the buffer contradicts
+                // OPEN_TAG, give the text back and return to normal.
+                const cmp = Math.min(this.scanBuf.length, OPEN_TAG.length);
+                if (this.scanBuf.slice(0, cmp) !== OPEN_TAG.slice(0, cmp)) {
+                    out.push({ type: 'chat-text', text: this.scanBuf });
+                    this.scanBuf = '';
+                    this.state = 'normal';
+                    continue;
+                }
                 const gtIdx = this.scanBuf.indexOf('>');
                 if (gtIdx !== -1) {
                     const tag = this.scanBuf.slice(0, gtIdx + 1);
@@ -159,10 +205,19 @@ export class ArtifactXmlStateMachine {
 
     /**
      * Flush a truncated artifact: if the stream ended mid-body (model cut off
-     * before `</artifact>`), emit a close with whatever was buffered. Mirrors
-     * `_streamLoop`'s finalize block (:1658-1669).
+     * before `</artifact>`), emit a close with whatever was buffered. Mirrors the
+     * `XML artifact finalize` block in `AparteClient._streamLoop`.
      */
     finalize(): XmlArtifactEvent[] {
+        // A stream that ends mid-tag — on a held `<arti`, or on an opening tag
+        // that never reached its `>` — must give that text back rather than
+        // swallow it. `scanBuf` is the only place it lives.
+        if (this.state === 'scanning') {
+            const text = this.scanBuf;
+            this.scanBuf = '';
+            this.state = 'normal';
+            return text ? [{ type: 'chat-text', text }] : [];
+        }
         if (this.state === 'in-artifact' && this.segId) {
             this.content += this.closeBuf;
             const inline = this.content.split('\n').length < INLINE_MAX_LINES;

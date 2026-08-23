@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import '@angular/compiler';
 import { ApplicationInitStatus } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { AparteConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { aparteGlobalConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { provideAparte, APARTE_CONFIG_TOKEN } from '../provide-aparte';
 import { APARTE_CLIENT_OPTIONS, AparteAiService } from '../aparte-ai.service';
 import { ConversationManagerService } from '../conversation-manager.service';
@@ -32,7 +32,7 @@ class MemoryAdapter implements AparteStorageAdapter {
 
 afterEach(() => {
     vi.restoreAllMocks();
-    AparteConfig.setConversationManager(null as never);
+    aparteGlobalConfig.setConversationManager(null as never);
 });
 
 describe('provideAparte — injection tokens', () => {
@@ -91,7 +91,7 @@ describe('ConversationManagerService', () => {
 
         expect(svc.conversations()).toHaveLength(1);
         expect(svc.activeConversation()?.title).toBe('First');
-        expect(AparteConfig.getConversationManager()).not.toBeNull();
+        expect(aparteGlobalConfig.getConversationManager()).not.toBeNull();
     });
 
     it('splits active from archived, newest first', async () => {

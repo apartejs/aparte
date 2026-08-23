@@ -7,7 +7,7 @@
 > **What this repo is:** a **framework-agnostic AI-chat library** — vanilla Web
 > Components (`@aparte/core`) + framework wrappers + opt-in providers/plugins.
 > Publishable, backend-agnostic. It talks to any LLM through a **transport**:
-> `DirectTransport` (browser-direct, BYOK/local) or `BackendTransport` (your
+> `AparteDirectTransport` (browser-direct, BYOK/local) or `AparteBackendTransport` (your
 > `/api/chat`, key stays server-side).
 >
 > **What this repo is NOT:** the product. A privacy-first, 100%-in-browser
@@ -37,15 +37,15 @@
 apartejs/
 ├── apps/
 │   ├── docs/                 Starlight (Astro) — EN-first, docs + live showcase
-│   └── playgrounds/          react · vue · svelte · angular · vanilla (+ demo-vanilla)
-├── e2e/                      Playwright browser smoke tests — drives the playgrounds
+│   └── examples/             react · vue · svelte · angular · vanilla (+ vanilla-dist)
+├── e2e/                      Playwright browser smoke tests — drives the examples
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
 │   ├── engine/               @aparte/engine   — runStreamAgent + parity suites
-│   ├── locales/              @aparte/locale-fr   (EN = core's built-in DEFAULT_LOCALE)
+│   ├── locales/              @aparte/locale-fr   (EN = core's built-in APARTE_DEFAULT_LOCALE)
 │   ├── providers/            @aparte/provider-{openai-compat, ai-sdk, transformers}
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
-│   │                         model-selector (light), ask-question}
+│   │                         model-selector (light), ask-user}
 │   └── wrappers/             @aparte/{react, vue, svelte, angular}
 └── nx.json
 ```
@@ -123,7 +123,7 @@ markdown/highlight micro-packages, an eval harness, voice.
    told to the user. An undeclared affordance is not half-rendered either: no role, no tab
    stop, no pointer. The rule was discovered the hard way — attachments were made opt-in in
    0.4.0 for exactly this reason, and the sweep that followed found six more cases, none of
-   which our own playgrounds handled.
+   which our own examples handled.
 9. **A capability is never hostage to `AparteClient`, and never hostage to a bundle.**
    Two halves of the same rule, both learned from the first external consumer:
    (a) *reachability* — every capability ships as a standalone function
@@ -146,7 +146,7 @@ markdown/highlight micro-packages, an eval harness, voice.
 1. **No deps in `@aparte/core`.** The zero-dep promise. Need markdown/highlight/etc.?
    → a `providers/*` or `plugins/*` the consumer opts into.
 2. **No framework at the ROOT.** Angular/React/Vue/Svelte live **only** in their own
-   wrapper package (peer + dev) and their playground. Root = pnpm + NX + TS + vitest +
+   wrapper package (peer + dev) and their example. Root = pnpm + NX + TS + vitest +
    changesets, period. Never let a framework leak into the root.
 3. **No product logic here.** Routing, settings, persistence belong to the product.
    Core stays presentational + transport-agnostic.
@@ -175,17 +175,27 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 
 ## ✅ Conventions & before you ship
 
-- **`pnpm gate` before every commit** (lint · typecheck · test · build · packaging);
-  `pnpm gate:full` adds `pnpm e2e` — required for anything touching the framework boundary
-  or rendering. Git hooks in `.githooks/` enforce the halves automatically (pre-commit:
-  lint+typecheck, pre-push: test+build **and no direct push to `main`**). `--no-verify` is
-  never the answer; feature work goes on a branch + PR.
-- **Conventional commits**, one concern per commit. Tests green before each commit.
+- **`pnpm gate` at the end of a lot, not per commit** — and `pnpm gate:full` (adds
+  `pnpm e2e`) before anything reaches `main`, always. The gate is now 28 steps, 23 of them
+  mechanical guards (`node -e "require('./package.json').scripts.gate"` is the count that
+  can't drift): a full build, coverage with per-glob floors, `publint`/`attw` on 15
+  packages, the docs site build and a link check over the built pages. Running it 25 times
+  in one session is most of the session, and it re-verifies the same thing 25 times.
+  What actually protects each commit is the hooks: **pre-commit** runs lint + typecheck,
+  **pre-push** runs test + build and refuses a direct push to `main`. Gate when a lot is
+  done, when a guard is added, or when you have touched a generated artifact — and always
+  before the merge. `--no-verify` is never the answer; feature work goes on a branch + PR.
+- **Conventional commits**, one concern per commit. Tests green before each commit — the
+  cheap check (`pnpm test`, or `nx test <project>`) is enough per commit; the gate is for
+  the lot.
 - **Never commit** `dist/`, `*.tsbuildinfo`, or `.claude/` — gitignored from day 1.
   Stage explicit files; don't `git add -A`.
-- Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+- **No `Co-Authored-By` trailer.** Commit messages carry no attribution trailer of any
+  kind — this line used to require one, which is why it kept coming back.
 - `pnpm test` passes; `nx affected:build` for touched package(s) succeeds.
-- Don't add `console.log` in `packages/core/`.
+- Don't add `console.log` in `packages/core/` — now an eslint rule rather than a habit
+  (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
+  incomplete).
 - A changeset entry for any package with an API/CSS change.
 - **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
   (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).

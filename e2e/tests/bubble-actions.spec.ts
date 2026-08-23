@@ -6,7 +6,7 @@
  * click-to-outcome path works once a real client and a real transport are wired.
  *
  * What is under test is the OPT-IN, not a default: core ships `copy` alone, and
- * these playgrounds call `setBubbleActions({ retry: true, edit: true })` because
+ * these examples call `setBubbleActions({ retry: true, edit: true })` because
  * they run an AparteClient that can honor both. `feedback` and the details (ⓘ)
  * button are never declared, so they must stay absent — even though the mocked
  * reply carries a `usage`, which is what would otherwise summon the ⓘ.

@@ -354,6 +354,31 @@ export function assembleCompacted(params: AssembleParams): AssembleResult {
         windowToks += t;
     }
 
+    /*
+     * A window must never BEGIN on a `tool` result.
+     *
+     * The walk is newest-to-oldest and keeps the last `minKeep` messages whatever
+     * the budget, so when the second-to-last message is a tool result the compacted
+     * history opens with `role: 'tool'` — an orphan whose requesting assistant turn
+     * was dropped. Every OpenAI-compatible provider rejects that with a 400
+     * ("messages with role 'tool' must be a response to a preceding message with
+     * tool_calls"), so compaction turned a long conversation into an unusable one.
+     *
+     * Dropping the orphan rather than reaching further back for its assistant turn
+     * is deliberate: `CompactionMessage` is `{ role, content }` and cannot represent
+     * the pairing at all — no `toolCallId`, no `toolCalls` — so there is nothing to
+     * reconstruct WITH. Its content already survives in the summary the window sits
+     * under. Carrying the pairing properly means widening the type, which is a
+     * design change and not a bug fix.
+     */
+    while (reversedWindow.length && reversedWindow[0]?.role === 'tool') {
+        const orphan = reversedWindow.shift();
+        if (orphan) {
+            windowToks -= estimateTokens(orphan.content);
+            dropped.oldTurns += 1;
+        }
+    }
+
     out.push(...reversedWindow);
     used.window = windowToks;
 

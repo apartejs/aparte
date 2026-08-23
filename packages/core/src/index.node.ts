@@ -22,7 +22,6 @@ export type {
     AparteMessage,
     AparteContentParser,
     AparteSendEventDetail,
-    AparteTokenEventDetail,
     AparteViewportConfig,
     AparteInputConfig,
     AparteThemeVariables,
@@ -41,6 +40,10 @@ export type {
     AparteCustomSegment,
     AparteToolCallSegment,
     AparteArtifactSegment,
+    // The detail of the `aparte-segment-update` event. It reached types/index.ts and
+    // stopped there — and types/index.ts is not an entry point, so a consumer could
+    // bind the event (it is in the published event table) and never name its detail.
+    AparteSegmentUpdateEventDetail,
     AparteAIProvider,
     AparteAIModel,
     AparteAIProviderConfigField,
@@ -50,6 +53,17 @@ export type {
     ModelLoadProgress,
     AparteModelChangeEventDetail,
     AparteMessageDoneEventDetail,
+    AparteMessageStartEventDetail,
+    AparteMessageErrorEventDetail,
+    AparteMessageAbortedEventDetail,
+    AparteAbortEventDetail,
+    AparteCompactEventDetail,
+    AparteCompactDoneEventDetail,
+    AparteCompactErrorEventDetail,
+    AparteAttachmentPreviewEventDetail,
+    AparteTerminalRunEventDetail,
+    AparteFileGenReadyEventDetail,
+    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
@@ -61,7 +75,7 @@ export type {
     AparteArtifactStartEventDetail,
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
-    AparteArtifactOpenEventDetail,
+    AparteArtifactRedownloadEventDetail,
     AparteChatRequest,
     AparteChatResponse,
     AparteChatMessage,
@@ -76,18 +90,18 @@ export type {
     AparteToolCall,
     AparteToolResult,
     AparteToolHandler,
+    AparteToolContext,
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
-    AparteToolActionDetail,
     AparteChatImperativeApi,
 } from './types/index.js';
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
 // Custom-element TYPES (erased) — keep server consumers fully typed.
-export type { AparteSelectChangeDetail } from './primitives/index.js';
-export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail } from './components/index.js';
+export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
+export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
 export {
@@ -96,6 +110,9 @@ export {
     getSegmentRenderer,
     collectRendererStyles,
     registerDefaultRenderers,
+    installDefaultRenderersOnce,
+    declineDefaultRenderers,
+    getAllRenderers,
 } from './renderers/index.js';
 
 // `populateBubbleFromMessage` is a plain helper — import it from its own module,
@@ -112,7 +129,7 @@ export type {
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
-export { ConversationManager, type ConversationManagerOptions } from './conversations/index.js';
+export { AparteConversationManager, type ConversationManagerOptions } from './conversations/index.js';
 export {
     AparteConversationController,
     type AparteChatBinding,
@@ -134,7 +151,7 @@ export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, ApartePars
 // server-side `/api/chat` handler AND both client transports live here; a browser
 // never runs the handler, and the transports touch no DOM at import. Mirrored in
 // full so a wrapper barrel re-exporting a transport can't crash under SSR.
-export { DirectTransport, BackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
+export { AparteDirectTransport, AparteBackendTransport, createAparteChatHandler, isFormatAdapter } from './transport/index.js';
 export type {
     AparteTransport,
     AparteTransportContext,
@@ -146,8 +163,10 @@ export type {
 } from './transport/index.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
-export { AparteConfig, AparteConfigClass, DEFAULT_BUBBLE_ACTIONS, DEFAULT_HOST_HANDLERS } from './config/index.js';
+export { aparteGlobalConfig, AparteConfig, APARTE_DEFAULT_BUBBLE_ACTIONS, APARTE_DEFAULT_HOST_HANDLERS } from './config/index.js';
+export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
+export type { AparteConfigAware } from './config/index.js';
 export type {
     AparteMarkdownProvider,
     AparteStreamingMarkdownProvider,
@@ -165,6 +184,9 @@ export type {
     AparteStatusRenderer,
     AparteErrorRenderer,
     AparteAttachmentRenderer,
+    AparteElicitationFieldRenderer,
+    AparteElicitationFieldContext,
+    AparteElicitationFieldControl,
     AparteSiblingNavRenderer,
     AparteBubbleShellRenderer,
     AparteModelPreference,
@@ -172,29 +194,54 @@ export type {
     AparteArtifactPreviewBuilder,
     AparteSanitizer,
 } from './config/index.js';
-export { DEFAULT_ICON_FALLBACKS, DEFAULT_SKELETON_FALLBACKS, DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
+export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';
 export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
-export { MessageRepository } from './runtime/message-repository.js';
+export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
 
 // ── Wrapper interop (DOM-free helpers the four wrappers' AparteUi value-imports) ─
-// `applyElementProps`/`DEFAULT_UI_EVENTS` are pure (a string array + a function that
+// `applyElementProps`/`APARTE_DEFAULT_UI_EVENTS` are pure (a string array + a function that
 // only touches its `HTMLElement` argument when CALLED, never at import). They MUST be
 // on the Node surface: every wrapper barrel re-exports `AparteUi`, which value-imports
 // these two — omit them here and any SSR toolchain resolving the `node` condition
 // crashes the whole barrel with "does not provide an export named 'applyElementProps'".
-export { applyElementProps, DEFAULT_UI_EVENTS } from './interop/element-props.js';
+export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
 // Same rule: DOM-free at import (it only reaches for `URL.createObjectURL` when
 // CALLED, which is a browser-side concern), so it belongs on the SSR surface too.
-export { filesToAttachments } from './utils/files-to-attachments.js';
+export { filesToAttachments, revokeAttachmentUrls } from './utils/files-to-attachments.js';
+
+/*
+ * The global type augmentations, which only the BROWSER entry pulled in.
+ *
+ * TypeScript applies the `node` export condition under `moduleResolution: node16`
+ * / `nodenext`, so a consumer in that mode resolves `index.node.d.ts` — and
+ * silently lost typed `e.detail` on every aparté event and typed
+ * `querySelector('aparte-…')`. Not a runtime concern and not an SSR hazard: both
+ * modules are `import type` throughout, so nothing is emitted and no DOM global is
+ * touched. `check:node-barrel-types` diffed export NAMES, which an augmentation
+ * has none of, so it saw nothing.
+ */
+import './types/event-map.js';
+import './types/element-map.js';
 // Is a message waiting for a reply? Shared by the viewport, the four wrappers and
 // any consumer rendering its own bubble — one rule, so they can't disagree.
 export { isAwaitingReply } from './utils/is-awaiting-reply.js';
+export { escapeHtml, escapeAttr } from './utils/escape.js';
+// Same reasoning as the browser barrel: the gate script and the customization
+// guide both tell a renderer author to use `cssEscape` for a selector, so it has to
+// be importable. It touches no DOM, so the SSR barrel carries it too.
+export { cssEscape } from './utils/css-escape.js';
+export { uuid } from './utils/uuid.js';
+// The PARAMETER types of two documented setters. They existed and were the declared
+// argument types, but were not exported — so anyone typing a settings layer over
+// `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.
+export type { AparteHostHandlersConfig } from './types/models.js';
+export type { AparteKeyProvider } from './config/aparte-config.js';
 
 // Elicitation (human-in-the-loop typed input) — DOM-free at import.
 export { requestUserInput, buildElicitationPanel } from './elicitation/index.js';

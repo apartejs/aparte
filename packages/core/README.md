@@ -19,7 +19,7 @@ npm install @aparte/core
 ```ts
 import '@aparte/core';               // registers the <aparte-*> custom elements
 import '@aparte/core/styles.css';    // theme variables + component styles
-import { AparteConfig, AparteClient } from '@aparte/core';
+import { aparteGlobalConfig, AparteClient } from '@aparte/core';
 
 // Drop the shell in your HTML:  <aparte-chat placeholder="Ask anything…"></aparte-chat>
 
@@ -30,7 +30,7 @@ new AparteClient().start();
 
 // The retry / edit buttons only do something with a host like the client above, so
 // core ships them off. One line turns them on:
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 The built-in segment renderers install themselves the first time a segment needs one, so
@@ -66,11 +66,11 @@ every CI run.
   and the host that makes the retry / edit buttons real: retry forks the conversation into a
   **branch** (with a built-in `‹ 1/2 ›` picker), edit rewrites the message in place. Both
   buttons are **off by default** — without a host they would answer to nobody — so switch
-  them on next to the client: `AparteConfig.setBubbleActions({ retry: true, edit: true })`.
-- **Transports** — `DirectTransport` (browser → provider, BYOK / local model) or
-  `BackendTransport` (browser → your endpoint, API key stays server-side).
+  them on next to the client: `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`.
+- **Transports** — `AparteDirectTransport` (browser → provider, BYOK / local model) or
+  `AparteBackendTransport` (browser → your endpoint, API key stays server-side).
 - **Theming** — restyle everything through `--aparte-*` CSS variables (Light DOM, no forking).
-- **Customization** — icons, render hooks, and a zoned action registry via `AparteConfig`.
+- **Customization** — icons, render hooks, and a zoned action registry via `aparteGlobalConfig`.
 
 Zero runtime dependencies: Markdown, syntax highlighting, etc. are **opt-in** providers you inject.
 ESM-only (CJS consumers use `await import()`).
@@ -82,6 +82,20 @@ Full guides and a generated API reference are at
 Attachments, Conversations & branching, Tools, Backend transport, Bring your own loop,
 The agent engine, and Troubleshooting. Source under
 [`apps/docs`](https://github.com/apartejs/aparte/tree/main/apps/docs).
+
+The two most-asked-for pages, directly:
+
+- **[Customization](https://apartejs.dev/guides/customization/)** — every render
+  hook, the action registry, the composer toolbar.
+- **[CSS variables](https://apartejs.dev/reference/css-variables/)** — the full
+  token catalogue, GENERATED from the stylesheet, so it cannot drift from it.
+
+(This package used to carry `CUSTOMIZATION.md` and `THEMING.md` alongside these.
+They were never published — `files` is `dist`, `README.md`, `LICENSE` — nothing
+linked to them, and both had drifted: one taught a `registerBubbleAction` that does
+not exist, the other listed six `--aparte-bubble-*` variables that the stylesheet
+never defined. A wrong orphan a coding agent finds by grepping the repo is worse
+than no orphan, so they are gone rather than fixed twice.)
 
 ## License
 

@@ -1,0 +1,199 @@
+/* App shell only — the chat itself is styled by @aparte/core's theme variables. */
+* {
+    box-sizing: border-box;
+}
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+}
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--aparte-surface, #16130f);
+    color: var(--aparte-text, #f5f0e6);
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 12px;
+    gap: 10px;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.brand {
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+.brand span {
+    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
+    font-weight: 500;
+}
+
+.welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+}
+.welcome h2 {
+    margin: 0;
+    font-weight: 600;
+}
+.suggestions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--aparte-border, #3a3229);
+    background: var(--aparte-surface-2, #1e1a15);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.chip:hover {
+    border-color: var(--aparte-primary, #d9a24b);
+}
+
+.aparte-chat-container {
+    flex: 1;
+    min-height: 0;
+    /* Override core's height:100% on [data-aparte-chat] — it fights flex:1 in a
+       column that also has a topbar (100% ignores the topbar → overflow, no scroll). */
+    height: auto;
+}
+
+/* The attachment lightbox this app opens when core asks for a preview
+   (aparte-attachment-preview). Core owns no modal — this is ours. */
+.lightbox {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+.lightbox::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+.lightbox img {
+  display: block;
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 10px;
+}
+
+/* ── The workbench: two independently configured chats, side by side ──────────
+   Wider than the single-chat shell (two panes need the room) and a plain grid, so
+   the interesting part stays the chats rather than the chrome. Collapses to one
+   column on a phone, where side-by-side would make both panes useless. */
+.app.workbench {
+    max-width: 1200px;
+}
+.panes {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 760px) {
+    .panes {
+        grid-template-columns: 1fr;
+        /* Two panes stacked need to scroll rather than squeeze to nothing. */
+        overflow-y: auto;
+    }
+}
+.pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: 8px;
+}
+.pane-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.pane-head h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+/* The visible evidence that two configs are in play: each pane names the provider
+   registered on ITS config, and they differ. */
+.pane-provider {
+    font-size: 0.8rem;
+    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
+}
+.viewswitch {
+    margin-inline-start: auto;
+    color: inherit;
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+/* ── The settings view: the three things a consumer changes first ─────────────
+   A plain stacked form. Each field carries a hint naming the API behind it, because
+   the endpoint and the token do not have setters — they travel through the key
+   resolver, and a reader has no way to guess that from the UI alone.
+
+   No width of its own: it used to be 720px against the chat's 820px, which made the
+   topbar and the brand jump sideways every time you switched view. A narrower
+   measure is right for a form in the abstract and wrong for two views of one app. */
+.fields {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    padding-block-end: 12px;
+}
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.field-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.field-input {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--aparte-border, #3a3229);
+    background: var(--aparte-surface-2, #1e1a15);
+    color: inherit;
+    font: inherit;
+}
+.field-textarea {
+    resize: vertical;
+    min-height: 96px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+.field-hint {
+    font-size: 0.8rem;
+    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
+    line-height: 1.45;
+}
+.field-hint code {
+    font-size: 0.95em;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--aparte-surface-2, #1e1a15);
+}

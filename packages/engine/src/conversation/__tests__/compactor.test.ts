@@ -120,3 +120,51 @@ describe('compactConversation — end to end', () => {
         expect(breakdown.totalUsed).toBeGreaterThan(0);
     });
 });
+
+describe('assembleCompacted — a window never opens on an orphan tool result', () => {
+    /**
+     * The walk is newest-to-oldest and keeps the last `minKeep = 2` messages
+     * whatever the budget. So when the second-to-last message is a tool result, the
+     * compacted history opened with `role: 'tool'` — an orphan whose requesting
+     * assistant turn had been dropped. Every OpenAI-compatible provider rejects
+     * that with a 400 ("messages with role 'tool' must be a response to a preceding
+     * message with tool_calls"), so compaction turned a long conversation into an
+     * unusable one.
+     *
+     * `CompactionMessage` is `{ role, content }` and cannot represent the pairing —
+     * no `toolCallId`, no `toolCalls` — so there is nothing to reconstruct with. The
+     * orphan is dropped; its content survives in the summary the window sits under.
+     */
+    const long = (n: number): CompactionMessage[] =>
+        Array.from({ length: n }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `turn ${i} ${'x'.repeat(40)}` }));
+
+    it('drops a leading tool result rather than emitting it orphaned', () => {
+        const msgs: CompactionMessage[] = [
+            ...long(4),
+            { role: 'assistant', content: 'calling a tool' },
+            { role: 'tool', content: 'the tool said 42' },
+            { role: 'assistant', content: 'so the answer is 42' },
+        ];
+        // Zero window budget: only the working-memory floor survives, which is the
+        // tool result and the assistant turn after it.
+        const { compactedMessages } = assembleCompacted({
+            messages: msgs, windowBudget: 0, summaryBudget: 0, ragBudget: 0,
+        });
+
+        const nonSystem = compactedMessages.filter(m => m.role !== 'system');
+        expect(nonSystem[0]?.role, 'the window must not open on a tool result').not.toBe('tool');
+        expect(nonSystem.map(m => m.role), 'and the orphan is gone, not merely reordered').not.toContain('tool');
+    });
+
+    it('keeps a tool result that still has its assistant turn in front of it', () => {
+        const msgs: CompactionMessage[] = [
+            { role: 'assistant', content: 'calling a tool' },
+            { role: 'tool', content: 'the tool said 42' },
+        ];
+        const { compactedMessages } = assembleCompacted({
+            messages: msgs, windowBudget: 10_000, summaryBudget: 0, ragBudget: 0,
+        });
+
+        expect(compactedMessages.map(m => m.role), 'a paired tool result is legitimate').toEqual(['assistant', 'tool']);
+    });
+});

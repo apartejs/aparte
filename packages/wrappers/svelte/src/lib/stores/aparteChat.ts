@@ -2,17 +2,11 @@ import { writable, type Writable } from 'svelte/store';
 import type { AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment } from '../types.js';
 
-/**
- * The imperative surface `<AparteChat>` exposes (its `export function`s) — the
- * canonical contract shared by all four wrappers (`AparteChatImperativeApi`).
- */
-export type AparteChatInstance = AparteChatImperativeApi;
-
 export interface AparteChatStore {
     /** Subscribe with `$messages` and bind to `<AparteChat messages={$messages}>`. */
     messages: Writable<AparteMessage[]>;
     /** Register the component instance via `bind:this`. */
-    connect(component: AparteChatInstance | null): void;
+    connect(component: AparteChatImperativeApi | null): void;
     /** Wire to `on:messagesChange={(e) => chat.onMessagesChange(e.detail)}`. */
     onMessagesChange(messages: AparteMessage[]): void;
     appendMessage(message: AparteMessage): void;
@@ -47,7 +41,7 @@ export interface AparteChatStore {
  */
 export function createAparteChat(initial: AparteMessage[] = []): AparteChatStore {
     const messages = writable<AparteMessage[]>([...initial]);
-    let comp: AparteChatInstance | null = null;
+    let comp: AparteChatImperativeApi | null = null;
     return {
         messages,
         connect: (component) => { comp = component; },

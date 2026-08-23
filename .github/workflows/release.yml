@@ -36,6 +36,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # KNOWN GAP, stated rather than left to be discovered.
+      #
+      # This PR is authored by `GITHUB_TOKEN`, and GitHub does not start workflow
+      # runs from events its own token creates. So `ci` never runs on the Version
+      # PR: a `changeset version` that produced a broken `package.json` (an
+      # unresolved `workspace:*`, a malformed changelog) is only validated AFTER it
+      # merges to main.
+      #
+      # The fix needs a credential this workflow cannot mint: set `RELEASE_PR_TOKEN`
+      # to a PAT or a GitHub App installation token and swap it in below, and the PR
+      # starts triggering CI like any other. Until then the version bump is reviewed
+      # by a human and validated post-merge, which is the actual current guarantee.
+      #
+      # `pnpm release` refuses to publish from a dirty tree, off `main`, or out of
+      # sync with origin (scripts/prerelease-checks.mjs) and runs the full gate
+      # first, so a bad bump cannot reach npm through the manual path either.
+      #
+      # NO PROVENANCE, and that is now stated instead of claimed. An earlier attempt
+      # passed `--provenance` to `changeset publish`; a follow-up audit found the word
+      # appears ZERO times in @changesets/cli@2.31.0 — meow swallows the unknown flag
+      # and it never reaches `npm publish`. Setting `publishConfig.provenance` instead
+      # would not help either: npm only mints an attestation inside a supported CI with
+      # `id-token: write`, and it FAILS outside one, which would break the manual path
+      # this repo deliberately uses. Real provenance therefore requires the publish to
+      # move into a tag-triggered job here, with `id-token: write` — the same change
+      # the note above describes for the Version PR. Until then: no attestation, said
+      # plainly rather than advertised.
       - name: Create/update the Version Packages PR
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
         with:
@@ -43,4 +70,4 @@ jobs:
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}

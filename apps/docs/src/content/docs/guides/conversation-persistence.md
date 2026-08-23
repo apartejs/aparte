@@ -1,12 +1,12 @@
 ---
 title: Conversation persistence
-description: Implement an AparteStorageAdapter, register a ConversationManager, and drive a multi-conversation sidebar that loads and saves threads.
+description: Implement an AparteStorageAdapter, register a AparteConversationManager, and drive a multi-conversation sidebar that loads and saves threads.
 sidebar:
   order: 10
 ---
 
 Everything so far lives in memory — reload the page and the thread is gone. aparté's
-persistence subsystem closes that gap. A **`ConversationManager`** holds the list of
+persistence subsystem closes that gap. A **`AparteConversationManager`** holds the list of
 conversations and notifies listeners on every change, but never touches storage directly —
 that's the job of an **`AparteStorageAdapter`** you implement against any backend
 (`localStorage`, IndexedDB, SQLite WASM, your own REST API). A `conversationId` binding
@@ -32,6 +32,9 @@ array (the active path — always kept for sidebar previews and compat), an opti
 (full branch topology, see [Conversations & branching](/guides/conversations-branching/)),
 and optional `archivedAt` / `pinnedAt` / `folderId` / `schemaVersion` (current version is
 `2`; treat `undefined` as legacy data).
+
+The current value is exported as `APARTE_CONVERSATION_SCHEMA_VERSION`, so an adapter
+can compare it against what it stored and migrate instead of guessing.
 
 Here's a complete adapter over `localStorage`, implementing the three required methods plus
 the optional `archive` / `unarchive` pair:
@@ -83,22 +86,23 @@ precisely so any backend fits. Richer backends can additionally implement `loadM
 and the memory-fact / settings / gallery methods — all optional, consulted only when
 present.
 
-## 2. Register a `ConversationManager`
+## 2. Register a `AparteConversationManager`
 
-`ConversationManager` owns the in-memory list, mutates it, and calls your adapter — your
+`AparteConversationManager` owns the in-memory list, mutates it, and calls your adapter — your
 app never calls the adapter directly.
 
+<!-- doc-check: skip excerpt — imports the adapter the reader writes in the fence above -->
 ```ts
-import { AparteConfig, ConversationManager } from '@aparte/core';
+import { aparteGlobalConfig, AparteConversationManager } from '@aparte/core';
 import { LocalStorageAdapter } from './local-storage-adapter';
 
-const manager = new ConversationManager(new LocalStorageAdapter());
+const manager = new AparteConversationManager(new LocalStorageAdapter());
 await manager.init();                          // hydrates the list from the adapter
-AparteConfig.setConversationManager(manager);  // registers it for every <aparte-*> component
+aparteGlobalConfig.setConversationManager(manager);  // registers it for every <aparte-*> component
 ```
 
 Running several independently-configured chats on one page? Call `setConversationManager`
-on each chat's own `AparteConfigClass` instance (passed as `config`) instead of the global
+on each chat's own `AparteConfig` instance (passed as `config`) instead of the global
 singleton.
 
 Useful reads once registered: `manager.conversations`, `manager.activeConversations` /
@@ -107,7 +111,7 @@ Useful reads once registered: `manager.conversations`, `manager.activeConversati
 Mutations: `createNew(title?)`, `delete(id)`, `archive(id)`, `unarchive(id)`.
 
 Optional bounded history:
-`new ConversationManager(adapter, { retention: { maxMessages: 200 } })` trims a persisted
+`new AparteConversationManager(adapter, { retention: { maxMessages: 200 } })` trims a persisted
 conversation to its last N messages on every write — **storage only**, the live session in
 the DOM is never truncated.
 
@@ -176,7 +180,7 @@ list.addEventListener('aparte-unarchive-conversation', (e) => manager.unarchive(
 ```
 
 Each wrapper ships a reactive helper around the same manager — call its `init(adapter)`
-once instead of constructing `ConversationManager` by hand (step 2 is done for you), then
+once instead of constructing `AparteConversationManager` by hand (step 2 is done for you), then
 bind `conversations` / `activeConversations` / `archivedConversations` to the list and
 `createNew` / `addMessage` / `updateMessages` / `delete` / `archive` / `unarchive` to
 actions:

@@ -1,8 +1,15 @@
 <script lang="ts">
   import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
-  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+  import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi, uuid } from '@aparte/core';
   import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from './types';
 
+  /**
+   * The host element's `id`, and therefore the `targetId` every event this chat
+   * dispatches carries. Generated when omitted — but it used to be generated and
+   * neither accepted nor exposed, which made `scopeToTargetId` unreachable from
+   * this component.
+   */
+  export let id: string | undefined = undefined;
   export let messages: AparteMessage[] = [];
   export let placeholder = 'Type a message...';
   export let disabled = false;
@@ -29,15 +36,15 @@
    * `<aparte-composer-attachments>` in it yourself).
    */
   export let attachments = false;
-  /** Active conversation id (loads/persists via the registered ConversationManager). */
+  /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   export let conversationId: string | null = null;
   /**
-   * Instance {@link AparteConfigClass} for this chat. When set, aparté components
-   * inside resolve THIS config instead of the global `AparteConfig` singleton, so
+   * Instance {@link AparteConfig} for this chat. When set, aparté components
+   * inside resolve THIS config instead of `aparteGlobalConfig`, so
    * several independently-configured chats can coexist on one page. Omit for the
    * global config. Read once when the host mounts.
    */
-  export let config: AparteConfigClass | undefined = undefined;
+  export let config: AparteConfig | undefined = undefined;
 
   const dispatch = createEventDispatcher<{
     /**
@@ -115,7 +122,8 @@
   }
 
   onMount(() => {
-    hostId = `aparte-chat-${crypto.randomUUID()}`;
+    // A caller-supplied `id` wins, so `scopeToTargetId` has something to match.
+    hostId = id ?? `aparte-chat-${uuid()}`;
     // Set the id imperatively (deterministic, like Angular's ngAfterViewInit) rather
     // than waiting on a reactive re-render of `id={hostId}`; the composer target
     // reactive block below picks up the same hostId.
@@ -232,11 +240,10 @@
           data-role={m.role}
           timestamp={m.timestamp}
           content={m.content}
-          streaming={isAwaitingReply(m) ? '' : null}
-        />
+          streaming={isAwaitingReply(m) ? '' : null}></aparte-chat-bubble>
       </slot>
     {/each}
-    <aparte-chat-status visible={typingActive ? '' : null} text={typingText} />
+    <aparte-chat-status visible={typingActive ? '' : null} text={typingText}></aparte-chat-status>
   </aparte-chat-viewport>
 
   <!-- Content above the composer (banner, disclaimer, context chip). -->

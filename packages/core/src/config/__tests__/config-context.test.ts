@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { AparteConfig, AparteConfigClass } from '../aparte-config';
+import { aparteGlobalConfig, AparteConfig } from '../aparte-config';
 import { resolveConfig, attachConfig, detachConfig, APARTE_HOST_ATTR } from '../config-context';
 
 describe('config-context — per-instance resolution seam', () => {
@@ -9,28 +9,28 @@ describe('config-context — per-instance resolution seam', () => {
 
     describe('global fallback (no behaviour change until a config is attached)', () => {
         it('returns the global singleton for null/undefined', () => {
-            expect(resolveConfig(null)).toBe(AparteConfig);
-            expect(resolveConfig(undefined)).toBe(AparteConfig);
+            expect(resolveConfig(null)).toBe(aparteGlobalConfig);
+            expect(resolveConfig(undefined)).toBe(aparteGlobalConfig);
         });
 
         it('returns the global singleton for an element under no boundary', () => {
             const el = document.createElement('div');
             document.body.appendChild(el);
-            expect(resolveConfig(el)).toBe(AparteConfig);
+            expect(resolveConfig(el)).toBe(aparteGlobalConfig);
         });
     });
 
     describe('instance boundaries', () => {
         it('resolves a boundary element to its own attached config', () => {
             const host = document.createElement('div');
-            const cfg = new AparteConfigClass();
+            const cfg = new AparteConfig();
             attachConfig(host, cfg);
             expect(resolveConfig(host)).toBe(cfg);
         });
 
         it('marks the boundary with the data-aparte-host attribute', () => {
             const host = document.createElement('div');
-            attachConfig(host, new AparteConfigClass());
+            attachConfig(host, new AparteConfig());
             expect(host.hasAttribute(APARTE_HOST_ATTR)).toBe(true);
         });
 
@@ -41,7 +41,7 @@ describe('config-context — per-instance resolution seam', () => {
             host.appendChild(child);
             child.appendChild(grandchild);
             document.body.appendChild(host);
-            const cfg = new AparteConfigClass();
+            const cfg = new AparteConfig();
             attachConfig(host, cfg);
             expect(resolveConfig(grandchild)).toBe(cfg);
         });
@@ -53,8 +53,8 @@ describe('config-context — per-instance resolution seam', () => {
             outer.appendChild(inner);
             inner.appendChild(leaf);
             document.body.appendChild(outer);
-            const outerCfg = new AparteConfigClass();
-            const innerCfg = new AparteConfigClass();
+            const outerCfg = new AparteConfig();
+            const innerCfg = new AparteConfig();
             attachConfig(outer, outerCfg);
             attachConfig(inner, innerCfg);
             expect(resolveConfig(leaf)).toBe(innerCfg);
@@ -66,18 +66,18 @@ describe('config-context — per-instance resolution seam', () => {
             const child = document.createElement('span');
             host.appendChild(child);
             document.body.appendChild(host);
-            attachConfig(host, new AparteConfigClass());
-            expect(resolveConfig(child)).not.toBe(AparteConfig);
+            attachConfig(host, new AparteConfig());
+            expect(resolveConfig(child)).not.toBe(aparteGlobalConfig);
             detachConfig(host);
             expect(host.hasAttribute(APARTE_HOST_ATTR)).toBe(false);
-            expect(resolveConfig(child)).toBe(AparteConfig);
+            expect(resolveConfig(child)).toBe(aparteGlobalConfig);
         });
     });
 
     describe('instances are isolated', () => {
         it('two instances hold independent model config', () => {
-            const a = new AparteConfigClass();
-            const b = new AparteConfigClass();
+            const a = new AparteConfig();
+            const b = new AparteConfig();
             a.setModelConfig({ defaultProvider: 'anthropic', defaultModel: 'claude' });
             b.setModelConfig({ defaultProvider: 'google', defaultModel: 'gemini' });
             expect(a.getModelConfig().defaultProvider).toBe('anthropic');
@@ -85,8 +85,8 @@ describe('config-context — per-instance resolution seam', () => {
         });
 
         it('a fresh instance does not inherit the global singleton state', () => {
-            AparteConfig.setModelConfig({ defaultProvider: 'global-provider' });
-            const fresh = new AparteConfigClass();
+            aparteGlobalConfig.setModelConfig({ defaultProvider: 'global-provider' });
+            const fresh = new AparteConfig();
             expect(fresh.getModelConfig().defaultProvider).toBeUndefined();
         });
     });

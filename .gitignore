@@ -54,3 +54,12 @@ Thumbs.db
 
 # Angular CLI cache
 .angular/
+
+# Scratch dir for scripts/check-doc-snippets.mjs (kept only when a snippet fails).
+.doc-snippets/
+
+# svelte-package build cache
+packages/wrappers/*/.svelte-kit/
+
+# Content stamps for scripts/check-dist-freshness.mjs (mtime is not content).
+.dist-freshness/

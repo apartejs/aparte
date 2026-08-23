@@ -5,6 +5,7 @@
 </script>
 
 <AparteChat {messages}>
+  <div slot="empty-state" class="welcome-block">welcome</div>
   <div slot="above-composer" class="above-banner">banner</div>
   <!-- `svelte:fragment` projects both nodes with no wrapper element, so the row's own
        flex layout positions them -- the same shape as the React prop and the Vue slot,

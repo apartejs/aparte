@@ -1,0 +1,21 @@
+{
+    "name": "@aparte/plugin-ask-user",
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "packages/plugins/ask-user/src",
+    "projectType": "library",
+    "targets": {
+        "build": {
+            "executor": "nx:run-script",
+            "outputs": ["{projectRoot}/dist"],
+            "options": { "script": "build" }
+        },
+        "test": {
+            "executor": "@nx/vite:test",
+            "outputs": ["{options.reportsDirectory}"],
+            "options": {
+                "reportsDirectory": "../../../coverage/packages/plugins/ask-user",
+                "cwd": "packages/plugins/ask-user"
+            }
+        }
+    }
+}

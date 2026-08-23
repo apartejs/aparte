@@ -1,0 +1,62 @@
+{
+    "name": "@aparte/plugin-ask-user",
+    "version": "0.8.0",
+    "description": "The ask_user tool for aparté — the AI asks the user a structured choice, presented via the core elicitation panel.",
+    "type": "module",
+    "sideEffects": true,
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "@aparte-workspace/source": "./src/index.ts",
+            "node": {
+                "types": "./dist/index.node.d.ts",
+                "default": "./dist/index.node.js"
+            },
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build && tsc -b --emitDeclarationOnly --force",
+        "preview": "vite preview",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "test:coverage": "vitest run --coverage"
+    },
+    "peerDependencies": {
+        "@aparte/core": ">=0.7.0 <1.0.0"
+    },
+    "devDependencies": {
+        "@aparte/core": "workspace:*",
+        "typescript": "^5.4.0",
+        "vite": "^6.0.0"
+    },
+    "keywords": [
+        "aparte",
+        "plugin",
+        "tool",
+        "ask-user",
+        "elicitation"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/apartejs/aparte.git",
+        "directory": "packages/plugins/ask-user"
+    },
+    "bugs": {
+        "url": "https://github.com/apartejs/aparte/issues"
+    }
+}

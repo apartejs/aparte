@@ -2,17 +2,19 @@ import type {
     AparteMessage,
     AparteViewportConfig,
     AparteSegment,
-    AparteSegmentUpdateEvent,
+    AparteSegmentUpdateEventDetail,
     ApartePathChangedEventDetail,
     AparteSiblingInfo,
     AparteUsage,
 } from '../../types/index.js';
 import { resolveConfig } from '../../config/index.js';
-import { MessageRepository } from '../../runtime/message-repository.js';
+import { AparteMessageRepository } from '../../runtime/message-repository.js';
 import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
 import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble-sync.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
+import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
+import { uuid } from '../../utils/uuid.js';
 
 /**
  * AparteChatViewport - The Core
@@ -30,7 +32,7 @@ import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
   *
  * @example
  * // Three calls are a whole streamed turn.
- * const viewport = document.querySelector('aparte-chat-viewport');
+ * const viewport = document.querySelector('aparte-chat-viewport')!;
  *
  * viewport.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: Date.now() });
  * for await (const chunk of tokens) viewport.appendToken('a1', chunk);
@@ -52,7 +54,7 @@ export class AparteChatViewport extends HTMLElement {
     private _spacerRafId: number | null = null;
     private _spacerFrozenUntil: number = 0;
     private _layoutTransitionMs: number = 0;
-    private _repo = new MessageRepository();
+    private _repo = new AparteMessageRepository();
     private _isAutoScrollEnabled: boolean = true;
     private _scrollThreshold: number = 50;
     /** When true, the next _autoScroll() call uses smooth instead of instant, then resets. */
@@ -229,7 +231,7 @@ export class AparteChatViewport extends HTMLElement {
         }
 
         // Dispatch segment update event
-        this.dispatchEvent(new CustomEvent<AparteSegmentUpdateEvent>('aparte-segment-update', {
+        this.dispatchEvent(new CustomEvent<AparteSegmentUpdateEventDetail>('aparte-segment-update', {
             bubbles: true,
             composed: true,
             detail: { messageId, segmentId, content: chunk, append: true }
@@ -248,7 +250,32 @@ export class AparteChatViewport extends HTMLElement {
      * framework wrapper's host element.
      */
     private _activeMessageId(): string | null {
-        return this._repo.headId;
+        // The head, UNLESS a different message is the one actually streaming.
+        //
+        // The 1-argument convention means "operate on the message being streamed",
+        // and this resolved it as "the head" — but `appendMessage` always moves the
+        // head (the repository advances it to any new child). So any message appended
+        // mid-stream re-pointed the rest of the reply: measured with the real element,
+        // segment two of message A landed on message B, and `updateSegment` for a
+        // segment that genuinely lives on A became a silent no-op.
+        //
+        // `AparteChatHost` has had `_isOrphan` for exactly this, which is why the
+        // framework wrappers were protected and the raw viewport — the documented
+        // vanilla quick start — was not. Refusing, like the host does, rather than
+        // routing: losing the tail is visible, writing it onto someone else's message
+        // is not.
+        const head = this._repo.headId;
+        const streaming = this._streamingMessageId();
+        if (streaming !== null && streaming !== head) return null;
+        return head;
+    }
+
+    /** The id of the message currently streaming, if any. */
+    private _streamingMessageId(): string | null {
+        for (const message of this._repo.getMessages()) {
+            if ((message as { isStreaming?: boolean }).isStreaming) return message.id;
+        }
+        return null;
     }
 
     /**
@@ -346,7 +373,7 @@ export class AparteChatViewport extends HTMLElement {
     /**
      * Persist token usage on a message and propagate to the live bubble, which is
      * what allows the info ("i") action to render — provided the app declared it
-     * with `AparteConfig.setBubbleActions({ info: true })`; it is off by default,
+     * with `aparteGlobalConfig.setBubbleActions({ info: true })`; it is off by default,
      * since the popover it opens belongs to the app.
      */
     setUsage(messageId: string, usage: AparteUsage): void {
@@ -491,7 +518,7 @@ export class AparteChatViewport extends HTMLElement {
         if (!meta) return 0;
 
         const newMsg: AparteMessage = {
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: 'assistant',
             content: '',
             status: 'pending',
@@ -639,7 +666,10 @@ export class AparteChatViewport extends HTMLElement {
      *   branch arrows on already-rendered bubbles.
      */
     importTree(tree: ExportedMessageRepository): void {
-        this.clearAll();
+        // Not `clearAll()`: an import re-populates from a snapshot that may hold the
+        // very attachment objects currently in the repo — which is exactly what a
+        // conversation load does. See the note in `clearAll`.
+        this.clearAll({ revokeAttachments: false });
         this._repo.import(tree);
         this._reRenderActivePath();
     }
@@ -653,7 +683,29 @@ export class AparteChatViewport extends HTMLElement {
      * so desynchronises the framework's view tree from the live DOM and the
      * next change-detection pass throws `NotFoundError` on insertBefore.
      */
-    clearAll(): void {
+    clearAll(options?: { revokeAttachments?: boolean }): void {
+        /*
+         * Release the attachments' object URLs before dropping the messages: after
+         * `_repo.clear()` there is no way left to reach them, and nothing else
+         * revoked them — so every `File` a session had sent stayed reachable for
+         * the life of the page.
+         *
+         * UNLESS the caller is about to put the same messages back. Two callers do:
+         * `setMessages` and `importTree`, and `ConversationController._load` runs
+         * BOTH in sequence over one conversation. `export()` stores live `node.current`
+         * references, so `conv.messages` and `conv.tree` share the very same
+         * attachment objects — meaning the second clear revoked the object URLs of
+         * the conversation being opened. Every image and file chip was dead on load,
+         * and re-opening revoked twice.
+         *
+         * A reset (`aparte-reset`, the public `clearAll()`) still revokes: there the
+         * messages really are gone.
+         */
+        if (options?.revokeAttachments !== false) {
+            for (const message of this._repo.getMessages()) {
+                revokeAttachmentUrls(message.attachments);
+            }
+        }
         this._repo.clear();
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
@@ -686,7 +738,9 @@ export class AparteChatViewport extends HTMLElement {
      * build chat history).
      */
     setMessages(messages: AparteMessage[]): void {
-        this.clearAll();
+        // Same reason as `importTree`: the incoming messages may BE the outgoing
+        // ones, and a conversation the user can switch back to still holds them.
+        this.clearAll({ revokeAttachments: false });
         for (const m of messages) {
             this.appendMessage(m);
         }
@@ -1025,18 +1079,29 @@ export class AparteChatViewport extends HTMLElement {
         }
     }
 
+    // Bound fields, not inline arrows: a custom element is re-connected every
+    // time it is MOVED in the DOM (a portal, a dialog, a framework re-parenting),
+    // so `_setupEventListeners` runs again each time. An inline arrow can never
+    // be handed to `removeEventListener`, so it just accumulates — one branch
+    // click then ran N handlers, N active-path re-renders and N storage writes
+    // through the conversation controller. The window listeners next to these
+    // were always removed properly; these two, attached to `this`, were not.
+    private readonly _onScrollBtnClick = (): void => {
+        this._isAutoScrollEnabled = true;
+        this._smoothScrollToBottom();
+        this._updateScrollButton();
+    };
+
+    private readonly _onBranchNavigate = (e: Event): void => {
+        const evt = e as CustomEvent<{ messageId: string; direction: 'prev' | 'next' }>;
+        evt.stopPropagation();
+        this.navigateBranch(evt.detail.messageId, evt.detail.direction);
+    };
+
     private _setupEventListeners(): void {
         this._container?.addEventListener('scroll', this._handleScroll, { passive: true });
-        this._scrollBtn?.addEventListener('click', () => {
-            this._isAutoScrollEnabled = true;
-            this._smoothScrollToBottom();
-            this._updateScrollButton();
-        });
-        this.addEventListener('aparte-branch-navigate', (e: Event) => {
-            const evt = e as CustomEvent<{ messageId: string; direction: 'prev' | 'next' }>;
-            evt.stopPropagation();
-            this.navigateBranch(evt.detail.messageId, evt.detail.direction);
-        });
+        this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
+        this.addEventListener('aparte-branch-navigate', this._onBranchNavigate);
     }
 
     private _setupObservers(): void {
@@ -1071,6 +1136,21 @@ export class AparteChatViewport extends HTMLElement {
         this._mutationObserver = new MutationObserver(() => {
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
+            // The gate is tested HERE, when the frame is queued, and moving it
+            // inside the callback is not the improvement it looks like.
+            //
+            // Queue-time looks like a race — the user could scroll up before the
+            // frame runs and be dragged back. Testing it at run-time instead was
+            // tried and reverted: a branch swap replaces bubbles, the resulting
+            // scroll event makes `_isAtBottom()` briefly false, and the deferred
+            // check then refuses to re-anchor, leaving a scroll-to-bottom button on
+            // a transcript that IS at the bottom (caught by
+            // `bubble-actions.spec.ts` on WebKit, 3 runs out of 3).
+            //
+            // So queue-time is deliberate: it captures the user's intent BEFORE the
+            // DOM churn can confuse the "am I at the bottom?" heuristic. Reading it
+            // correctly in both cases needs a way to tell our own programmatic
+            // scroll from a real gesture — see the note in `_handleScroll`.
             if (this._isAutoScrollEnabled) {
                 requestAnimationFrame(() => this._scrollToBottom());
             }
@@ -1099,6 +1179,19 @@ export class AparteChatViewport extends HTMLElement {
         if (!this._container) return;
         // A scroll IS the user's intent: reaching the bottom re-arms auto-follow,
         // leaving it disarms it.
+        //
+        // `_isAtBottom()` is deliberately generous (`_scrollThreshold`, 50px): a few
+        // pixels of drift must NOT read as "the reader walked away". That generosity
+        // is right here and wrong as a definition of "anchored" — which is why
+        // `_settleAtBottom()` closes a residual gap instead of this method being
+        // tightened. Tightening it would disarm auto-follow on every stray pixel.
+        //
+        // This handler also cannot tell our own programmatic scroll from a real
+        // gesture. Marking them with a counter was tried and reverted: engines
+        // coalesce scroll events, so the counter over-counted and started swallowing
+        // the USER's scrolls — the browser suite caught it stealing the scroll back.
+        // Anything attempted here must identify the scroll by POSITION, not by
+        // counting events.
         this._isAutoScrollEnabled = this._isAtBottom();
         this._updateScrollButton();
     }
@@ -1106,6 +1199,42 @@ export class AparteChatViewport extends HTMLElement {
     private _scrollToBottom(): void {
         if (!this._container) return;
         this._container.scrollTop = this._container.scrollHeight;
+        this._settleAtBottom(4);
+    }
+
+    /**
+     * Confirm over the next few frames that we actually reached the bottom.
+     *
+     * One assignment is not enough, and the reason is measured rather than guessed.
+     * A timeline of a streamed turn on Safari (framework mode) recorded the content
+     * settling in TWO layout passes — 1118 → 1121 → 1152 px. `scrollTop =
+     * scrollHeight` ran against the middle one, clamped to that layout's max (603),
+     * and nothing ran afterwards: the last 31px never closed. Auto-follow stayed
+     * armed the whole time, so the component was not disarmed — it was SATISFIED.
+     * `_isAtBottom()` answers "yes" for any gap under `_scrollThreshold` (50), which
+     * is the right rule for keeping auto-follow armed and the wrong one as a
+     * definition of "anchored".
+     *
+     * Ruled out on the way here, so nobody pays for it twice: not a WebKit
+     * padding-accounting difference (a probe writing `scrollTop = 1e7` reached
+     * exactly `scrollHeight - clientHeight`), not a missing `characterData`
+     * mutation, and not a child resize a ResizeObserver could see.
+     *
+     * A BOUNDED retry, not one corrective frame: a single frame lands on the same
+     * stale layout and was measured leaving a wider gap than doing nothing. Bounded
+     * so it always terminates; re-reads `_isAutoScrollEnabled` every frame so a
+     * reader who scrolls away mid-settle is left alone; stops as soon as the gap is
+     * closed, so the common case costs one frame that does nothing.
+     */
+    private _settleAtBottom(framesLeft: number): void {
+        if (framesLeft <= 0) return;
+        requestAnimationFrame(() => {
+            if (!this._container || !this._isAutoScrollEnabled) return;
+            const max = this._container.scrollHeight - this._container.clientHeight;
+            if (max - this._container.scrollTop <= 1) return;
+            this._container.scrollTop = max;
+            this._settleAtBottom(framesLeft - 1);
+        });
     }
 
     private _smoothScrollToBottom(): void {
@@ -1251,7 +1380,7 @@ export class AparteChatViewport extends HTMLElement {
      * Cap the number of rendered bubbles in the DOM (perf ceiling only).
      *
      * Drops the oldest `<aparte-chat-bubble>` elements beyond `_maxRenderedBubbles`
-     * from the DOM. It **never** touches the MessageRepository — the conversation
+     * from the DOM. It **never** touches the AparteMessageRepository — the conversation
      * model and its persistence snapshot stay complete (retention/eviction is a
      * consumer/persistence concern, not the viewport's). No-op when a framework
      * owns the DOM.
@@ -1274,12 +1403,14 @@ export class AparteChatViewport extends HTMLElement {
             '[Aparte] `maxMessages` / `max-messages` on aparte-chat-viewport is deprecated: ' +
             'it used to silently evict messages from the conversation model. It now only ' +
             'caps rendered bubbles in the DOM — use `maxRenderedBubbles` / `max-rendered-bubbles`. ' +
-            'For actual history retention, configure it on your ConversationManager instead.',
+            'For actual history retention, configure it on your AparteConversationManager instead.',
         );
     }
 
     private _cleanup(): void {
         this._container?.removeEventListener('scroll', this._handleScroll);
+        this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);
+        this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
         this._mutationObserver?.disconnect();
         this._resizeObserver = null;
@@ -1294,10 +1425,4 @@ export class AparteChatViewport extends HTMLElement {
 // Register the custom element
 if (!customElements.get('aparte-chat-viewport')) {
     customElements.define('aparte-chat-viewport', AparteChatViewport);
-}
-
-declare global {
-    interface HTMLElementTagNameMap {
-        'aparte-chat-viewport': AparteChatViewport;
-    }
 }

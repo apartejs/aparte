@@ -154,9 +154,9 @@ export type OpenAICompatProvider =
  *
  * ```ts
  * import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
- * AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+ * aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
  * // or any compat endpoint, no preset needed:
- * AparteConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
+ * aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider({ id: 'groq', baseURL: 'https://api.groq.com/openai/v1' }));
  * ```
  *
  * Returns {@link OpenAICompatProvider}: the full format-adapter surface, non-optional.
@@ -206,7 +206,22 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
                     id: m.id,
                     name: m.name || m.id,
                     contextWindow: m.context_length,
-                    capabilities: ['streaming'],
+                    // `function_calling` is declared because it is a property of the
+                    // WIRE FORMAT, which is what this provider is: `/chat/completions`
+                    // takes a `tools` array, and every server behind a compat endpoint
+                    // accepts one. `/models` returns `{id, object, owned_by}` and says
+                    // nothing about tools, so waiting for it to declare the capability
+                    // means never declaring it — and core gates tools on exactly this
+                    // field, so a registered tool, an approval gate and the whole
+                    // elicitation path were dead on this provider: the model was asked
+                    // to use a tool it had never been sent.
+                    //
+                    // The failure mode of over-declaring is mild and visible: a model
+                    // that cannot call tools simply does not call one. The failure mode
+                    // of under-declaring was silent and total. A server that rejects a
+                    // `tools` array outright surfaces as an error from its own endpoint,
+                    // which is the right place for that argument to happen.
+                    capabilities: ['streaming', 'function_calling'],
                 }));
             } catch (error) {
                 console.error(`[${displayName}] Failed to fetch models:`, error);
@@ -216,7 +231,7 @@ export function createOpenAICompatProvider(opts: OpenAICompatProviderOptions): O
 
         // ── Format-adapter surface (transport ⊥ format) ──────────────────────
         // The vendor concern only: request shape + stream parsing. Auth and
-        // network are the transport's job (DirectTransport / BackendTransport).
+        // network are the transport's job (AparteDirectTransport / AparteBackendTransport).
         defaultEndpoint: opts.baseURL,
 
         buildRequest(request: AparteChatRequest) {
@@ -377,7 +392,15 @@ export function parseOpenAICompatStream(
                 }
                 controller.enqueue({ type: 'done', usage: capturedUsage });
             } catch (err: unknown) {
-                controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
+                // AbortError surfaces here when the caller's signal fires mid-stream:
+                // the consumer (agent loop) cancelled on purpose — end quietly, the
+                // same way the ai-sdk provider does. Reporting it as an `error` event
+                // makes a deliberate Stop indistinguishable from a network failure,
+                // and the loop's error branch then replaces the streamed answer with
+                // an error bubble.
+                if ((err as { name?: string } | undefined)?.name !== 'AbortError') {
+                    controller.enqueue({ type: 'error', message: (err as Error | undefined)?.message ?? 'Stream error' });
+                }
             } finally {
                 reader?.releaseLock();
                 reader = null;

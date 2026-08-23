@@ -25,11 +25,11 @@ import type {
     AparteSegment,
     AparteSendEventDetail,
     AparteChatHostBinding,
-    AparteConfigClass,
+    AparteConfig,
     AparteActionEventDetail,
     AparteChatImperativeApi,
 } from '@aparte/core';
-import { AparteChatHost, isAwaitingReply } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
 
 /**
  * AparteChatComponent — Angular 19 Wrapper
@@ -242,7 +242,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     /**
      * Active conversation id. When provided, the host attaches an
      * `AparteConversationController` that loads/persists messages via the
-     * `ConversationManager` registered in `AparteConfig`. Setting a different id
+     * `AparteConversationManager` registered in `aparteGlobalConfig`. Setting a different id
      * mid-stream aborts the previous request; `null` deselects.
      */
     @Input('conversationId') set conversationIdInput(val: string | null | undefined) {
@@ -254,12 +254,12 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     private _conversationId: string | null = null;
 
     /**
-     * Instance {@link AparteConfigClass} for this chat. When set, aparté components
-     * inside resolve THIS config instead of the global `AparteConfig` singleton, so
+     * Instance {@link AparteConfig} for this chat. When set, aparté components
+     * inside resolve THIS config instead of `aparteGlobalConfig`, so
      * several independently-configured chats can coexist on one page. Omit for the
      * global config. Read once in `ngAfterViewInit` when the host is created.
      */
-    @Input() config?: AparteConfigClass;
+    @Input() config?: AparteConfig;
 
     /**
      * Render your OWN element per message in place of `<aparte-chat-bubble>`.
@@ -284,7 +284,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     readonly messageSent = output<AparteSendEventDetail>();
     /**
      * Emitted when a custom bubble action (registered via
-     * `AparteConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
+     * `aparteGlobalConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
      * wrapper over the bubbling `aparte-action` DOM event. Switch on `$event.actionId`.
      */
     readonly action = output<AparteActionEventDetail>();
@@ -323,7 +323,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
 
         // Ensure a stable id so aparte-composer can reference the host via `target`,
         // letting AparteClient find it without DOM traversal across re-renders.
-        if (!host.id) host.id = `aparte-chat-${crypto.randomUUID()}`;
+        if (!host.id) host.id = `aparte-chat-${uuid()}`;
         const composerEl = this.inputRef?.nativeElement;
         if (composerEl) composerEl.setAttribute('target', host.id);
 
@@ -464,7 +464,7 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      * Set the active conversation id imperatively — parity with the other
      * wrappers' handles (the `conversationId` `@Input` remains the declarative
      * path). Delegates to the host, which loads/persists via the registered
-     * `ConversationManager`.
+     * `AparteConversationManager`.
      */
     setConversationId(id: string | null): Promise<void> {
         return this._host?.setConversationId(id) ?? Promise.resolve();

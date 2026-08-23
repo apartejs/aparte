@@ -231,6 +231,39 @@
   --aparte-thinking-toggle-size: 9px;
   --aparte-thinking-rail-width: 2px;
 
+  /* Elicitation — the panel a tool's question is asked in.
+     These exist because the panel's CSS used to be a <style> injected from JS with
+     every value hardcoded, so it was the one surface in the library that could not
+     be themed and did not appear in the generated CSS reference. */
+  --aparte-elic-gap: 6px;
+  --aparte-elic-padding: 6px 4px;
+  --aparte-elic-max-height: 50vh;
+  --aparte-elic-field-gap: 8px;
+  --aparte-elic-message-size: 0.82rem;
+  --aparte-elic-title-size: 0.8rem;
+  --aparte-elic-desc-size: 0.76rem;
+  --aparte-elic-option-padding: 7px 10px;
+  --aparte-elic-option-radius: 8px;
+  --aparte-elic-option-title-size: 0.875rem;
+  --aparte-elic-option-desc-size: 0.78rem;
+  --aparte-elic-control-size: 15px;
+  --aparte-elic-input-radius: 6px;
+  --aparte-elic-textarea-min-height: 64px;
+  --aparte-elic-skip-size: 0.8rem;
+  --aparte-elic-step-size: 0.78rem;
+  --aparte-elic-step-padding: 4px 2px;
+  --aparte-elic-step-gap: 14px;
+  /* Tabs, not pills.
+     Two passes to get here, both wrong for the same reason — decorating a control
+     instead of choosing what it IS. First a fully-round pill filled with the primary
+     colour: the only 9999px thing in a panel built from 4/6/8px corners, and it read
+     as a second send button. Then a small bordered rectangle: still a button.
+     A step indicator is a TAB — text on a rail, and the current one carries a thick
+     underline. No box, no fill, no border. */
+  --aparte-elic-step-underline: 2px;
+  /* Space kept clear at the end of the tab rail for the corner escape. */
+  --aparte-elic-dismiss-room: 72px;
+
   /* Code Blocks */
   --aparte-code-bg: var(--aparte-surface-1);
   --aparte-code-header-bg: var(--aparte-surface-2);
@@ -459,7 +492,7 @@ aparte-chat > aparte-chat-viewport,
   min-height: 0;
 }
 
-/* Model-selection gate (opt-in via AparteConfig.setRequireModelSelection): grey the
+/* Model-selection gate (opt-in via aparteGlobalConfig.setRequireModelSelection): grey the
    composer and block its send button until a model is selected — e.g. while the
    model selector is still fetching. Ungates automatically on selection.
    Unscoped so it greys the composer in EVERY host (vanilla shell + all wrappers),
@@ -470,6 +503,240 @@ aparte-composer[data-model-gated] {
 aparte-composer[data-model-gated] aparte-composer-send {
   pointer-events: none;
 }
+
+/* Panel mode: the composer is answering a question, not composing a message.
+   The text input goes, and so does the attachment picker — an affordance nothing
+   can honour is not rendered (ratified decision #8), and it stayed clickable
+   through a whole elicitation. The attachments strip stays: pending attachments
+   are the user's STATE, not an action to offer. So does the toolbar —
+   switching model still does something. */
+aparte-composer[data-panel-active] aparte-composer-input,
+aparte-composer[data-panel-active] aparte-composer-add-attachment {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   The elicitation panel — a tool asking the user something, inside the composer.
+
+   This lived in a template string injected as a <style> from
+   `aparte-elicitation.ts`, with every size and radius hardcoded. Three costs, all
+   paid: it was the one surface in the library that could not be themed, its
+   variables were absent from the generated CSS reference, and the injection was a
+   document singleton that was never re-created if anything removed it — the exact
+   latent defect `injectRendererStyles` had until this release.
+   ───────────────────────────────────────────────────────────────────────────── */
+.aparte-elic-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-elic-gap, 6px);
+  padding: var(--aparte-elic-padding, 6px 4px);
+  width: 100%;
+  box-sizing: border-box;
+  max-height: var(--aparte-elic-max-height, 50vh);
+  /* The panel itself does not scroll: its BODY does, so the tabs stay at the top and
+     the corner escape stays put instead of sliding under the fold. */
+  overflow: hidden;
+  /* The dismiss corner positions against this. */
+  position: relative;
+}
+
+.aparte-elic-body {
+  flex: 1 1 auto;
+  /* Without this a flex child refuses to shrink below its content and the scroll
+     never engages — the classic flexbox min-height trap. */
+  min-height: 0;
+  overflow-y: auto;
+  /* A thin, themed scrollbar: the native one is a grey slab across a soft card. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-border, rgba(128, 128, 128, 0.3)) transparent;
+}
+
+.aparte-elic-message {
+  margin: 0 6px 6px;
+  font-size: var(--aparte-elic-message-size, 0.82rem);
+  font-weight: var(--aparte-font-weight-semibold, 600);
+  color: var(--aparte-text);
+  line-height: 1.4;
+}
+
+/* One question per field, separated so a form of several reads as several. */
+.aparte-elic-field + .aparte-elic-field {
+  margin-top: var(--aparte-elic-field-gap, 8px);
+  padding-top: var(--aparte-elic-field-gap, 8px);
+  border-top: var(--aparte-border-width, 1px) solid var(--aparte-border, rgba(128, 128, 128, 0.12));
+}
+
+.aparte-elic-title {
+  margin: 0 6px 4px;
+  font-size: var(--aparte-elic-title-size, 0.8rem);
+  font-weight: var(--aparte-font-weight-semibold, 600);
+  color: var(--aparte-text);
+}
+
+.aparte-elic-desc {
+  margin: 0 6px 6px;
+  font-size: var(--aparte-elic-desc-size, 0.76rem);
+  color: var(--aparte-text-muted, rgba(128, 128, 128, 0.75));
+}
+
+.aparte-elic-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.aparte-elic-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--aparte-elic-option-padding, 7px 10px);
+  border-radius: var(--aparte-elic-option-radius, 8px);
+  cursor: pointer;
+  border: var(--aparte-border-width, 1px) solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.aparte-elic-option:hover {
+  background: var(--aparte-surface-2, rgba(128, 128, 128, 0.08));
+  border-color: var(--aparte-border, rgba(128, 128, 128, 0.15));
+}
+
+.aparte-elic-control {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--aparte-primary, #6366f1);
+  width: var(--aparte-elic-control-size, 15px);
+  height: var(--aparte-elic-control-size, 15px);
+  cursor: pointer;
+}
+
+.aparte-elic-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.aparte-elic-option-title {
+  font-size: var(--aparte-elic-option-title-size, 0.875rem);
+  font-weight: var(--aparte-font-weight-medium, 500);
+  color: var(--aparte-text, inherit);
+  line-height: 1.4;
+}
+
+.aparte-elic-option-desc {
+  font-size: var(--aparte-elic-option-desc-size, 0.78rem);
+  color: var(--aparte-text-muted, rgba(128, 128, 128, 0.75));
+  line-height: 1.4;
+}
+
+.aparte-elic-other-input,
+.aparte-elic-text {
+  margin-top: 4px;
+  width: 100%;
+  padding: 6px 8px;
+  border: var(--aparte-border-width, 1px) solid var(--aparte-border, rgba(128, 128, 128, 0.2));
+  border-radius: var(--aparte-elic-input-radius, 6px);
+  font-size: var(--aparte-elic-option-title-size, 0.875rem);
+  background: var(--aparte-surface-2, rgba(128, 128, 128, 0.06));
+  color: var(--aparte-text, inherit);
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+textarea.aparte-elic-text {
+  min-height: var(--aparte-elic-textarea-min-height, 64px);
+  resize: vertical;
+}
+
+.aparte-elic-other-input:focus,
+.aparte-elic-text:focus {
+  border-color: var(--aparte-primary, #6366f1);
+}
+
+.aparte-elic-option--recommended {
+  border-color: var(--aparte-primary, #6366f1);
+  background: color-mix(in srgb, var(--aparte-primary, #6366f1) 6%, transparent);
+}
+
+/* The whole-request escape, in the corner and out of the way of anything that
+   answers a question. It used to be a row at the bottom beside the button that
+   advances through the form, and that adjacency promised "skip this question" while
+   it declines the lot. */
+.aparte-elic-dismiss {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  z-index: 1;
+}
+
+.aparte-elic-skip {
+  border: none;
+  background: transparent;
+  color: var(--aparte-text-muted, rgba(128, 128, 128, 0.75));
+  font-size: var(--aparte-elic-skip-size, 0.8rem);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--aparte-elic-input-radius, 6px);
+  font-family: inherit;
+}
+
+.aparte-elic-skip:hover {
+  background: var(--aparte-surface-2, rgba(128, 128, 128, 0.08));
+  color: var(--aparte-text);
+}
+
+/* One question at a time: a chip per question, and the chip is also how you go
+   back. In this layout the fields are siblings with only one shown, so the
+   separator between them would draw a border above whichever one is visible. */
+.aparte-elic-panel--stepped .aparte-elic-field + .aparte-elic-field {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* The tab rail: a hairline the tabs sit on, so the active underline reads as a tab
+   rather than as a dash floating under a word. */
+.aparte-elic-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-elic-step-gap, 14px);
+  /* Room on the end for the corner escape, so the tabs never run under it. */
+  margin: 0 var(--aparte-elic-dismiss-room, 72px) 8px 6px;
+  border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-border, rgba(128, 128, 128, 0.15));
+}
+
+.aparte-elic-step {
+  border: none;
+  background: transparent;
+  color: var(--aparte-text-muted, rgba(128, 128, 128, 0.75));
+  font-size: var(--aparte-elic-step-size, 0.78rem);
+  font-family: inherit;
+  padding: var(--aparte-elic-step-padding, 4px 2px);
+  cursor: pointer;
+  /* Reserved on every tab, so switching does not shift the text by two pixels. */
+  border-bottom: var(--aparte-elic-step-underline, 2px) solid transparent;
+  /* The underline sits ON the rail, not above it. */
+  margin-bottom: calc(-1 * var(--aparte-border-width, 1px));
+}
+
+/* Answered: readable, but it is not where you are. */
+.aparte-elic-step[data-answered] {
+  color: var(--aparte-text);
+}
+
+.aparte-elic-step[aria-selected='true'] {
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-semibold, 600);
+  border-bottom-color: var(--aparte-primary, #6366f1);
+}
+
+.aparte-elic-step:hover:not([aria-selected='true']) {
+  color: var(--aparte-text);
+  border-bottom-color: var(--aparte-border, rgba(128, 128, 128, 0.35));
+}
+
 
 aparte-composer {
   flex: 0 0 auto;
@@ -835,7 +1102,7 @@ aparte-chat-bubble {
 }
 
 /* Only an image tile the app declared it can preview is a button — see
-   AparteConfig.setHostHandlers(). Undeclared, it is a picture, not a control. */
+   aparteGlobalConfig.setHostHandlers(). Undeclared, it is a picture, not a control. */
 .aparte-thumb--image[role='button'] {
   cursor: pointer;
 }
@@ -1451,48 +1718,55 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content p,
-.segment-content p {
+.segment-content p,
+.thinking-content p {
   margin: var(--aparte-prose-p-margin, 0.4em 0);
 }
 
 .aparte-content p:first-child,
-.segment-content p:first-child {
+.segment-content p:first-child,
+.thinking-content p:first-child {
   margin-top: 0;
 }
 
 .aparte-content p:last-child,
-.segment-content p:last-child {
+.segment-content p:last-child,
+.thinking-content p:last-child {
   margin-bottom: 0;
 }
 
-.aparte-content h1, .segment-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.6em 0 0.2em; }
-.aparte-content h2, .segment-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.5em 0 0.2em; }
-.aparte-content h3, .segment-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.4em 0 0.15em; }
-.aparte-content h4, .segment-content h4,
-.aparte-content h5, .segment-content h5,
-.aparte-content h6, .segment-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.3em 0 0.1em; }
+.aparte-content h1, .segment-content h1, .thinking-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.6em 0 0.2em; }
+.aparte-content h2, .segment-content h2, .thinking-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.5em 0 0.2em; }
+.aparte-content h3, .segment-content h3, .thinking-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.4em 0 0.15em; }
+.aparte-content h4, .segment-content h4, .thinking-content h4,
+.aparte-content h5, .segment-content h5, .thinking-content h5,
+.aparte-content h6, .segment-content h6, .thinking-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.3em 0 0.1em; }
 
 .aparte-content ul,
-.segment-content ul {
+.segment-content ul,
+.thinking-content ul {
   list-style: disc;
   padding-left: var(--aparte-prose-list-indent, 1.5em);
   margin: var(--aparte-prose-list-margin, 0.4em 0);
 }
 
 .aparte-content ol,
-.segment-content ol {
+.segment-content ol,
+.thinking-content ol {
   list-style: decimal;
   padding-left: var(--aparte-prose-list-indent, 1.5em);
   margin: var(--aparte-prose-list-margin, 0.4em 0);
 }
 
 .aparte-content li,
-.segment-content li {
+.segment-content li,
+.thinking-content li {
   margin: var(--aparte-prose-li-margin, 0.15em 0);
 }
 
 .aparte-content blockquote,
-.segment-content blockquote {
+.segment-content blockquote,
+.thinking-content blockquote {
   border-left: var(--aparte-prose-blockquote-border-width, 3px) solid var(--aparte-prose-blockquote-border, var(--aparte-border, #e5e7eb));
   padding-left: 1em;
   margin: 0.4em 0;
@@ -1501,17 +1775,20 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content strong,
-.segment-content strong {
+.segment-content strong,
+.thinking-content strong {
   font-weight: var(--aparte-font-weight-semibold, 600);
 }
 
 .aparte-content em,
-.segment-content em {
+.segment-content em,
+.thinking-content em {
   font-style: italic;
 }
 
 .aparte-content code,
-.segment-content code {
+.segment-content code,
+.thinking-content code {
   font-family: var(--aparte-code-font-family, ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace);
   font-size: var(--aparte-code-inline-font-size, 0.875em);
   background: var(--aparte-prose-code-bg, var(--aparte-code-bg, #f3f4f6));
@@ -1520,13 +1797,15 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content a,
-.segment-content a {
+.segment-content a,
+.thinking-content a {
   color: var(--aparte-primary, #6366f1);
   text-decoration: underline;
 }
 
 .aparte-content hr,
-.segment-content hr {
+.segment-content hr,
+.thinking-content hr {
   border: none;
   border-top: var(--aparte-border-width, 1px) solid var(--aparte-border, #e5e7eb);
   margin: 0.75em 0;
@@ -1576,7 +1855,6 @@ details[open] .thinking-toggle {
   padding: var(--aparte-space-2, 4px) 0 var(--aparte-space-1, 2px) var(--aparte-space-5, 10px);
   font-size: var(--aparte-font-size-md, 13px);
   line-height: var(--aparte-thinking-content-line-height, 1.55);
-  white-space: pre-wrap;
   color: var(--aparte-thinking-content, #4b5563);
   background: transparent;
   max-height: var(--aparte-thinking-content-max-height, 300px);

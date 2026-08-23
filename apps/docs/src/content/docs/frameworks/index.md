@@ -14,8 +14,10 @@ Each wrapper ships **two layers**:
 - **An opinionated component** — e.g. React's `<AparteChat>`: the full chat surface (viewport +
   composer + slots) as one idiomatic component, plus hooks/stores/services for state and the client.
 - **A generic escape hatch** — e.g. React's `<AparteUi name="aparte-…" />`: mounts **any**
-  `<aparte-*>` custom element as a framework component (props + events forwarded), so you're never
-  boxed in by the opinionated component.
+  custom element as a framework component (props + events forwarded), so you're never
+  boxed in by the opinionated component. It takes a tag name, not a registry lookup, so an
+  element from a [plugin](/plugins/) — or one of your own — works the same way; whatever
+  defines the element has to be imported, and until it is the tag mounts empty and inert.
 
 The wrappers depend **only** on `@aparte/core` — never on a specific provider. You register a
 provider (or none) in the [config](/providers/); the wrapper streams whatever's configured. See

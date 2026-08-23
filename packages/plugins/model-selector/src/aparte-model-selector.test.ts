@@ -1,8 +1,24 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { AparteConfig, AparteConfigClass, attachConfig, detachConfig } from '@aparte/core';
+import { aparteGlobalConfig, AparteConfig, attachConfig, detachConfig } from '@aparte/core';
 import type { AparteAIProvider, AparteModelChangeEventDetail } from '@aparte/core';
 import './aparte-model-selector.js';
+
+/**
+ * A provider whose `/models` answers after `delayMs` — the shape that made the
+ * dropdown's order a race. A local server waking up is slow; a CDN is not.
+ */
+function slowProvider(id: string, modelName: string, delayMs: number): AparteAIProvider {
+    return {
+        id,
+        getMetadata: () => ({ id, name: `Provider ${id}` }),
+        getModels: () => [{ id: `${id}-model`, name: modelName }],
+        fetchModels: async () => {
+            await new Promise((r) => setTimeout(r, delayMs));
+            return [{ id: `${id}-model`, name: modelName }];
+        },
+    } as unknown as AparteAIProvider;
+}
 
 function fakeProvider(id: string, modelName: string): AparteAIProvider {
     return {
@@ -27,7 +43,7 @@ async function mountSelector(host: HTMLElement): Promise<HTMLElement> {
 describe('aparte-model-selector', () => {
     afterEach(() => {
         document.body.innerHTML = '';
-        AparteConfig.reset();
+        aparteGlobalConfig.reset();
     });
 
     it('registers the custom element', () => {
@@ -35,7 +51,7 @@ describe('aparte-model-selector', () => {
     });
 
     it('renders each provider → model into the dropdown', async () => {
-        AparteConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
         const sel = await mountSelector(document.createElement('div'));
         expect(sel.querySelector('aparte-select')).toBeTruthy();
         expect(sel.textContent).toContain('Gamma One');
@@ -43,7 +59,7 @@ describe('aparte-model-selector', () => {
 
     it('escapes a hostile remote model name (XSS) instead of injecting it', async () => {
         // A model whose `name` came from a hostile/aggregating /models endpoint.
-        AparteConfig.registerAIProvider(fakeProvider('gamma', '<img src=x onerror=alert(1)>'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('gamma', '<img src=x onerror=alert(1)>'));
         const sel = await mountSelector(document.createElement('div'));
 
         // No live <img>/<script> element must exist — the payload is inert text.
@@ -54,7 +70,7 @@ describe('aparte-model-selector', () => {
     });
 
     it('emits aparte-model-change on a programmatic selection', async () => {
-        AparteConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
+        aparteGlobalConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
         const sel = await mountSelector(document.createElement('div'));
 
         const detail = await new Promise<AparteModelChangeEventDetail>((res) => {
@@ -72,8 +88,8 @@ describe('aparte-model-selector', () => {
     // ── per-instance config resolution ──────────────────────────────────────
 
     it('reads providers from the nearest instance config, not the global', async () => {
-        const cfgA = new AparteConfigClass();
-        const cfgB = new AparteConfigClass();
+        const cfgA = new AparteConfig();
+        const cfgB = new AparteConfig();
         cfgA.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
         cfgB.registerAIProvider(fakeProvider('beta', 'Beta One'));
 
@@ -91,14 +107,14 @@ describe('aparte-model-selector', () => {
         expect(selB.textContent).not.toContain('Alpha One');
 
         // The global singleton was never touched.
-        expect(AparteConfig.getAIProviders()).toHaveLength(0);
+        expect(aparteGlobalConfig.getAIProviders()).toHaveLength(0);
 
         detachConfig(hostA);
         detachConfig(hostB);
     });
 
     it('persists the selection into ITS config instance only', async () => {
-        const cfgA = new AparteConfigClass();
+        const cfgA = new AparteConfig();
         cfgA.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
         const hostA = document.createElement('div');
         attachConfig(hostA, cfgA);
@@ -111,7 +127,7 @@ describe('aparte-model-selector', () => {
         expect(cfgA.getModelConfig().defaultProvider).toBe('alpha');
         expect(cfgA.getModelConfig().defaultModel).toBe('alpha-model');
         // Global stays empty — the write went to the instance.
-        expect(AparteConfig.getModelConfig().defaultProvider).toBeUndefined();
+        expect(aparteGlobalConfig.getModelConfig().defaultProvider).toBeUndefined();
 
         detachConfig(hostA);
     });
@@ -129,8 +145,8 @@ describe('aparte-model-selector', () => {
     describe('a queued re-render vs a fresh selection', () => {
         /** Two providers so the list has more than one option to move between. */
         const twoProviders = (): void => {
-            AparteConfig.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
-            AparteConfig.registerAIProvider(fakeProvider('beta', 'Beta One'));
+            aparteGlobalConfig.registerAIProvider(fakeProvider('alpha', 'Alpha One'));
+            aparteGlobalConfig.registerAIProvider(fakeProvider('beta', 'Beta One'));
         };
 
         /** Drive the select the way a click or Enter does. */
@@ -143,7 +159,12 @@ describe('aparte-model-selector', () => {
             );
         };
 
-        const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 10));
+        // Two macrotask yields rather than a 10ms bet: the render this waits for is
+        // scheduled as a macrotask, so ordering is what matters, not elapsed time.
+        const flush = async (): Promise<void> => {
+            await new Promise((r) => setTimeout(r, 0));
+            await new Promise((r) => setTimeout(r, 0));
+        };
 
         it("keeps the model the user picked, even when a render was already in flight", async () => {
             twoProviders();
@@ -159,8 +180,8 @@ describe('aparte-model-selector', () => {
             selectValue(sel, 'beta::beta-model');
             await flush();
 
-            expect(AparteConfig.getModelConfig().defaultModel).toBe('beta-model');
-            expect(AparteConfig.getModelConfig().defaultProvider).toBe('beta');
+            expect(aparteGlobalConfig.getModelConfig().defaultModel).toBe('beta-model');
+            expect(aparteGlobalConfig.getModelConfig().defaultProvider).toBe('beta');
         });
 
         it('does not fire a change that puts the previous model back', async () => {
@@ -182,5 +203,80 @@ describe('aparte-model-selector', () => {
             // Whatever the sequence, the LAST thing anyone hears must be the pick.
             expect(seen.at(-1)).toBe('beta-model');
         });
+
+        it('auto-selects the FIRST registered provider, not the fastest to answer', async () => {
+            // The order an app registers providers in is the only lever it has over
+            // what `auto-select` lands on. The fetches run in parallel, so filling
+            // the list on completion made that lever a race — and the provider most
+            // likely to win a race is a cloud endpoint, i.e. the one that costs
+            // money. Here the first registered is 30ms slower than the second.
+            aparteGlobalConfig.registerAIProvider(
+                slowProvider('local', 'Local One', 30),
+                fakeProvider('cloud', 'Cloud One'),
+            );
+
+            const sel = await mountSelector(document.createElement('div'));
+            sel.setAttribute('auto-select', '');
+            sel.setAttribute('persist', '');
+            await vi.waitFor(() => {
+                expect(aparteGlobalConfig.getModelConfig().defaultModel).toBeTruthy();
+            });
+
+            expect(aparteGlobalConfig.getModelConfig().defaultProvider).toBe('local');
+            expect(aparteGlobalConfig.getModelConfig().defaultModel).toBe('local-model');
+        });
+    });
+});
+
+/**
+ * The mount order every wrapper actually produces.
+ *
+ * `mountSelector` above attaches the boundary FIRST, which is the one ordering no
+ * wrapper produces: all four call `AparteChatHost.bind()` — which runs
+ * `attachConfig` — from a post-mount hook. So the selector connects, caches the
+ * global config, and only then does the instance boundary appear above it. Its two
+ * per-instance tests passed over that hole for exactly that reason.
+ */
+describe('aparte-model-selector — boundary attached AFTER mount (every wrapper)', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+        aparteGlobalConfig.reset();
+    });
+
+    it('serves the instance config providers, not the global ones', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('global', 'Global Model'));
+
+        // 1. the element connects with no boundary above it
+        const host = document.createElement('div');
+        const selector = await mountSelector(host);
+        expect(selector.textContent, 'it starts on the global, correctly').toContain('Global Model');
+
+        // 2. then bind() attaches the instance config
+        const instance = new AparteConfig();
+        instance.registerAIProvider(fakeProvider('scoped', 'Scoped Model'));
+        attachConfig(host, instance);
+
+        await vi.waitFor(() => {
+            expect(selector.textContent, 'the chat was given its own providers').toContain('Scoped Model');
+        });
+        expect(selector.textContent, 'and must not still offer the global ones').not.toContain('Global Model');
+    });
+
+    it('stops listening to the config it left behind', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('global', 'Global Model'));
+        const host = document.createElement('div');
+        const selector = await mountSelector(host);
+
+        const instance = new AparteConfig();
+        instance.registerAIProvider(fakeProvider('scoped', 'Scoped Model'));
+        attachConfig(host, instance);
+        await vi.waitFor(() => expect(selector.textContent).toContain('Scoped Model'));
+
+        // A change on the config it no longer resolves must not reach it.
+        aparteGlobalConfig.registerAIProvider(fakeProvider('late', 'Late Global Model'));
+        await new Promise((r) => setTimeout(r, 0));
+        expect(selector.textContent).not.toContain('Late Global Model');
+
+        detachConfig(host);
     });
 });

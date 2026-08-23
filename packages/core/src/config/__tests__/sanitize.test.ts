@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { defaultSanitizer as s } from '../sanitize';
+import { AparteConfig } from '../aparte-config';
 
 describe('defaultSanitizer', () => {
     describe('script & event-handler XSS', () => {
@@ -184,4 +185,99 @@ describe('defaultSanitizer — XSS bypass corpus', () => {
             expect(s(payload)).not.toMatch(FORBIDDEN);
         });
     }
+});
+
+
+describe('defaultSanitizer — bypasses found by the cold audit', () => {
+    // A CSS identifier escape is a legal spelling of any character, so `url(` can
+    // be written without the letters the guard looks for. Composed from a char
+    // code rather than written literally, to keep it exact through any layer that
+    // rewrites backslashes.
+    const BS = String.fromCharCode(92);
+
+    it('strips a url() written with CSS identifier escapes', () => {
+        const payload = `<p style="background-color:u${BS}72 l(//evil)">x</p>`;
+        expect(s(payload)).not.toMatch(/u.?72 ?l|url/i);
+    });
+
+    it('still keeps a plain safe declaration next to it', () => {
+        expect(s('<p style="color:red">x</p>')).toContain('color:red');
+    });
+
+    it('rejects a data: image URL with no media type', () => {
+        // The subtype group used to be optional, so these carried no type at all.
+        for (const bad of ['data:image/,x', 'data:image/;base64,AAA']) {
+            const out = s(`<img src="${bad}">`);
+            expect(out, `${bad} should not survive`).not.toContain('data:image');
+        }
+    });
+
+    it('still allows the named image subtypes, svg+xml included', () => {
+        for (const ok of ['data:image/png;base64,AAA', 'data:image/svg+xml,%3Csvg%3E']) {
+            expect(s(`<img src="${ok}">`), `${ok} should survive`).toContain('data:image');
+        }
+    });
+});
+
+
+describe('aparteGlobalConfig.setHtmlSanitizer(null)', () => {
+    it('warns, because turning every renderer into a raw innerHTML sink should not be silent', () => {
+        const cfg = new AparteConfig();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            cfg.setHtmlSanitizer(null);
+            expect(warn).toHaveBeenCalledTimes(1);
+            expect(String(warn.mock.calls[0]?.[0])).toContain('DISABLED');
+            expect(cfg.sanitizeHtml('<img onerror=x>')).toBe('<img onerror=x>');
+        } finally {
+            warn.mockRestore();
+        }
+    });
+
+    it('does not warn when a real sanitizer is installed', () => {
+        const cfg = new AparteConfig();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            cfg.setHtmlSanitizer(html => html.replace(/</g, '&lt;'));
+            expect(warn).not.toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+        }
+    });
+});
+
+describe('defaultSanitizer — srcset follows the same URL allowlist as src', () => {
+    // Found by an audit: `srcset` had only a `javascript:|vbscript:` substring
+    // test, so the allowlist gave two different answers for one URL depending on
+    // which attribute carried it.
+    const attr = (html: string): string | null => {
+        const d = document.createElement('div');
+        d.innerHTML = s(html);
+        return d.querySelector('img, source')?.getAttribute('srcset') ?? null;
+    };
+
+    it('rejects a smuggled data:text/html candidate', () => {
+        expect(attr('<img srcset="data:text/html,<script>alert(1)</script> 1x">')).toBeNull();
+    });
+
+    it('still rejects javascript:', () => {
+        expect(attr('<img srcset="javascript:alert(1) 1x">')).toBeNull();
+    });
+
+    it('keeps a legitimate data:image candidate, comma and all', () => {
+        // The reason this is scheme-scanned rather than comma-split: a base64
+        // data URL contains a comma, so splitting candidates would break it.
+        expect(attr('<img srcset="data:image/png;base64,iVBORw0KGgo= 2x, small.png 1x">'))
+            .toContain('data:image/png;base64');
+    });
+
+    it('keeps relative and https candidates', () => {
+        expect(attr('<img srcset="a.png 1x, b.png 2x">')).toBe('a.png 1x, b.png 2x');
+        expect(attr('<img srcset="https://cdn.example/a.png 1x">')).toContain('https://');
+    });
+
+    it('allows data:image on <source> too — inside a <picture> it feeds an <img>', () => {
+        expect(attr('<picture><source srcset="data:image/webp;base64,AAA 1x"></picture>'))
+            .toContain('data:image/webp');
+    });
 });

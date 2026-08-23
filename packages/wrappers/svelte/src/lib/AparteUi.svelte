@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
-  import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
+  import { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
 
   /** The custom element tag name (e.g. 'aparte-model-selector'). */
   export let name: string;
@@ -8,7 +8,7 @@
   export let props: Record<string, unknown> = {};
   /**
    * Which custom events to forward through `elementEvent`. Defaults to the
-   * interactive aparté surface (DEFAULT_UI_EVENTS); pass your own list to listen to
+   * interactive aparté surface (APARTE_DEFAULT_UI_EVENTS); pass your own list to listen to
    * other events (e.g. ['aparte-composer-change'] for attachments).
    */
   export let events: string[] | undefined = undefined;
@@ -27,7 +27,7 @@
     if (!host) return;
     el = document.createElement(name);
     applyProps();
-    for (const ev of events ?? DEFAULT_UI_EVENTS) {
+    for (const ev of events ?? APARTE_DEFAULT_UI_EVENTS) {
       const listener = (e: Event) => dispatch('elementEvent', e as CustomEvent);
       el.addEventListener(ev, listener);
       cleanups.push(() => el?.removeEventListener(ev, listener));
@@ -48,9 +48,9 @@
   // Recreate the element when `name` (or the forwarded event set) changes. A
   // joined key so a fresh inline `events` array doesn't thrash the element.
   let lastName = name;
-  let lastEvtsKey = (events ?? DEFAULT_UI_EVENTS).join('|');
+  let lastEvtsKey = (events ?? APARTE_DEFAULT_UI_EVENTS).join('|');
   $: {
-    const evtsKey = (events ?? DEFAULT_UI_EVENTS).join('|');
+    const evtsKey = (events ?? APARTE_DEFAULT_UI_EVENTS).join('|');
     if (el && (name !== lastName || evtsKey !== lastEvtsKey)) {
       lastName = name;
       lastEvtsKey = evtsKey;

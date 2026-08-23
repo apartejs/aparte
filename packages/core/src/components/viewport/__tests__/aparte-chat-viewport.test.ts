@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 /**
  * AparteChatViewport — unit tests
  *
- * Focus: MessageRepository integration — addBranch(), addSiblingOf(),
+ * Focus: AparteMessageRepository integration — addBranch(), addSiblingOf(),
  * navigateBranch(), truncateFrom(), appendToken(), appendMessage(),
  * updateLastMessage(), aparte-path-changed.
  *
@@ -779,7 +779,7 @@ describe('aparte-chat-viewport — reduced motion', () => {
 // up twice".
 //
 // Nothing of ours had ever called this: `AparteClient` writes segment text with
-// `updateSegment` (absolute content), so all six playgrounds and the whole browser
+// `updateSegment` (absolute content), so all six examples and the whole browser
 // suite go around it. `appendToSegment` is the bring-your-own-loop path, and its
 // only unit coverage ran against a MOCKED viewport — a paint that writes nothing
 // cannot double-count. Hence a real viewport and a real bubble here.

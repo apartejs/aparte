@@ -29,8 +29,8 @@ variables. **Zero dependencies** at the core.
 - **Zero dependencies in `@aparte/core`.** Markdown, syntax highlighting, model
   pickers — all opt-in `provider-*` / `plugin-*` packages. The core stays tiny.
 - **Bring your own model, your way.** A **transport** seam decides where the
-  request goes: `DirectTransport` (browser-direct — BYOK or a local model) or
-  `BackendTransport` (your `/api/chat`, key stays server-side). Providers cover
+  request goes: `AparteDirectTransport` (browser-direct — BYOK or a local model) or
+  `AparteBackendTransport` (your `/api/chat`, key stays server-side). Providers cover
   the OpenAI-compatible family, the Vercel AI SDK (25+ vendors), and in-browser
   Transformers.js.
 - **Streaming, typed segments, tools.** Replies stream as typed segments — text,
@@ -55,24 +55,24 @@ npm install @aparte/core @aparte/provider-openai-compat
 ```ts
 import '@aparte/core';                 // registers the <aparte-*> custom elements
 import '@aparte/core/styles.css';      // theme variables + component styles
-import { registerDefaultRenderers, AparteConfig, AparteClient, DirectTransport } from '@aparte/core';
+import { registerDefaultRenderers, aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
 registerDefaultRenderers();
 
 // A local model (LM Studio / Ollama) needs no key — just enable CORS in the app.
 // Swap in presets.OPENAI / .MISTRAL / .OPENROUTER (+ a keyResolver) for a cloud vendor.
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.LMSTUDIO));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.LMSTUDIO));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 new AparteClient().start();            // listens for sends, streams the reply into the chat
 
 // Retry/edit only work with a host like the client above, so core ships them off:
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
 // The bare shell streams the assistant reply; echo the user's own message in:
-const chat = document.querySelector('aparte-chat');
+const chat = document.querySelector('aparte-chat')!;
 chat.addEventListener('aparte-send', (e) =>
-  chat.viewport.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.detail.content, timestamp: Date.now() }),
+  chat.viewport?.appendMessage({ id: crypto.randomUUID(), role: 'user', content: e.detail.content, timestamp: Date.now() }),
 );
 ```
 
@@ -90,12 +90,12 @@ npm install @aparte/react @aparte/core react react-dom
 
 ```tsx
 import { AparteChat, useAparteChat, useAparteClient } from '@aparte/react';
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import '@aparte/core/styles.css';
 
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 export function Chat() {
   const chat = useAparteChat();
@@ -112,7 +112,7 @@ export function Chat() {
 | Angular 19 | `@aparte/angular` | [Angular](./apps/docs/src/content/docs/frameworks/angular.md) |
 
 Runnable examples for every framework (plus vanilla) live in
-[`apps/playgrounds`](./apps/playgrounds).
+[`apps/examples`](./apps/examples).
 
 ## Packages
 
@@ -125,7 +125,7 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/provider-ai-sdk` | Vercel AI SDK bridge (Anthropic, Google, 25+ vendors) |
 | `@aparte/provider-transformers` | In-browser inference via Transformers.js |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
-| `@aparte/plugin-model-selector` · `-ask-question` | A provider/model picker; a question-elicitation UI |
+| `@aparte/plugin-model-selector` · `-ask-user` | A provider/model picker; a question-elicitation UI |
 | `@aparte/locale-fr` | French UI strings (English is core's built-in default) |
 
 ## Documentation
@@ -146,7 +146,7 @@ site in [`apps/docs`](./apps/docs) (run `pnpm run docs` locally):
 ## Status
 
 Alpha, built in the open. The core, engine, four wrappers, providers, plugins and
-six runnable playgrounds are **on npm**, green across the unit suite and a browser
+six runnable examples are **on npm**, green across the unit suite and a browser
 E2E suite (Chromium + WebKit, accessibility gated with axe-core). The API may still
 move before the first stable release.
 

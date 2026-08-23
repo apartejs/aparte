@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>aparté · vanilla example</title>
+    <!-- A real <link>, not a JS import.
+         Importing CSS from main.ts means the dev server injects it AFTER the module
+         graph loads, so this document — which ships its whole shell as static HTML —
+         painted unstyled for a frame or two, visibly. A stylesheet in the head is
+         render-blocking, which is exactly what is wanted here. `style.css` pulls
+         core's theme in with an `@import`, so there is still one entry point. -->
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">aparté <span>· vanilla</span></div>
+        <a class="viewswitch" href="?view=settings">Settings</a>
+      </header>
+
+      <aparte-chat center-empty>
+        <aparte-chat-viewport></aparte-chat-viewport>
+
+        <aparte-composer>
+          <div class="welcome" id="welcome">
+            <h2>Start a conversation</h2>
+            <div class="suggestions">
+              <button class="chip" data-prompt="Explain what aparté is in one sentence.">What is aparté?</button>
+              <button class="chip" data-prompt="Write a haiku about web components.">Write a haiku</button>
+              <button class="chip" data-prompt="Give me a markdown table comparing 3 JS frameworks.">Markdown table</button>
+              <!-- Triggers the ask_user tool: the model has to ask before it can answer,
+                   so this is the one-click way to see the question panel. The prompt is
+                   deliberately under-specified — the tool's system prompt tells the
+                   model to use it only when a real choice is missing. -->
+              <button class="chip" data-prompt="Design a colour scheme for my landing page. Ask me what you need to know first.">Ask me a question</button>
+            </div>
+          </div>
+
+          <!-- The elicitation panel: where a tool that has to ASK the user appears.
+               It must be INSIDE <aparte-chat> and above the composer — the tool
+               suspends the turn until this answers, so it has to be where the user
+               is already looking. -->
+          <aparte-elicitation></aparte-elicitation>
+
+          <div class="aparte-composer-shell">
+            <aparte-composer-attachments></aparte-composer-attachments>
+            <div class="aparte-composer-row">
+              <aparte-composer-add-attachment></aparte-composer-add-attachment>
+              <aparte-composer-input placeholder="Ask anything…"></aparte-composer-input>
+              <aparte-composer-send></aparte-composer-send>
+            </div>
+            <aparte-composer-toolbar>
+              <aparte-model-selector style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
+            </aparte-composer-toolbar>
+          </div>
+        </aparte-composer>
+      </aparte-chat>
+    </div>
+
+    <!-- The settings a consumer changes first. Two of the three have no setter: an
+         endpoint and a token reach a provider only through the KEY RESOLVER, which
+         may return `{ apiKey, endpoint }` instead of a bare string. Reachable at
+         ?view=settings, so it is a link rather than a hidden mode. -->
+    <div class="app settings" id="settings-view" hidden>
+      <header class="topbar">
+        <div class="brand">aparté <span>· vanilla settings</span></div>
+        <a class="viewswitch" href="?">← back to the chat</a>
+      </header>
+
+      <div class="fields">
+        <div class="field">
+          <label class="field-label" for="system-prompt">System prompt</label>
+          <textarea
+            id="system-prompt"
+            aria-describedby="system-prompt-hint"
+            class="field-input field-textarea"
+            rows="6"
+            spellcheck="false"
+            placeholder="Leave empty to send no system turn."
+          ></textarea>
+          <span class="field-hint" id="system-prompt-hint">
+            Sent as the <code>system</code> turn. Supports <code>{{key}}</code> placeholders — resolve
+            them with <code>setSystemPromptVarsProvider()</code>.
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="endpoint">Endpoint</label>
+          <input
+            id="endpoint"
+            aria-describedby="endpoint-hint"
+            class="field-input"
+            type="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Empty = the selected provider's own default"
+          />
+          <span class="field-hint" id="endpoint-hint">
+            Any OpenAI-compatible base URL — LM Studio, Ollama, vLLM, llama.cpp, a hosted API.
+            Reaches the provider through the key resolver as <code>{ endpoint }</code>, which is the
+            only runtime channel for it.
+          </span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="token">Token</label>
+          <input
+            id="token"
+            aria-describedby="token-hint"
+            class="field-input"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Empty is correct for a local server"
+          />
+          <span class="field-hint" id="token-hint">
+            Stays in this browser — it is sent straight to the endpoint above, which is what BYOK
+            means. For a key that must not reach the browser, use <code>AparteBackendTransport</code>
+            instead.
+          </span>
+        </div>
+
+        <button class="chip" type="button" id="settings-reset">Reset to defaults</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

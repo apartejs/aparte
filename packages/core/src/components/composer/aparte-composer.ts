@@ -1,5 +1,5 @@
 import type { AparteSendEventDetail } from '../../types/index.js';
-import { AparteConfig, type AparteConfigClass } from '../../config/aparte-config.js';
+import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@ export interface AparteComposerEventMap {
     'attachments-change': { attachments: File[] };
     'submit': { value: string; attachments: File[] };
     'cancel': Record<string, never>;
-    'panel-change': { active: boolean; submitEnabled: boolean };
+    'panel-change': { active: boolean; submitEnabled: boolean; mode: 'advance' | 'submit' };
 }
 
 export type AparteComposerEventType = keyof AparteComposerEventMap;
@@ -63,6 +63,8 @@ export class AparteComposer extends HTMLElement {
     private _attachments: File[] = [];
     private _listeners = new Map<string, Set<(payload: unknown) => void>>();
     private _panelActive = false;
+    /** What the send button means while a panel is up — see `showPanel`. */
+    private _panelMode: 'advance' | 'submit' = 'submit';
     private _panelSubmitEnabled = false;
     private _panelOnSubmit: (() => void) | null = null;
 
@@ -78,8 +80,25 @@ export class AparteComposer extends HTMLElement {
     private _onMessageDone = this._handleMessageDone.bind(this);
 
     /** Config governing THIS composer (nearest instance boundary, else global). */
-    private _cfg: AparteConfigClass = AparteConfig;
-    private _configUnsub: (() => void) | null = null;
+    /**
+     * Resolved LIVE, not cached at connect.
+     *
+     * A wrapper runs `AparteChatHost.bind()` — which calls `attachConfig` — from its
+     * POST-mount hook, so this element connects BEFORE the boundary exists. Caching
+     * here latched the global config forever: an instance `config` carrying an RTL
+     * locale flipped the transcript and not the composer, and the
+     * `requireModelSelection` gate was read off the wrong object. `aparte-chat-bubble`
+     * has always resolved live, and its JSDoc names this exact race.
+     */
+    private get _cfg(): AparteConfig {
+        return resolveConfig(this);
+    }
+    /** Only OUR config: a change on another chat's instance must not touch us. */
+    private _onConfigChangeEvent = (e: Event): void => {
+        const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
+        if (detail?.config && detail.config !== this._cfg) return;
+        this._onConfigChange();
+    };
     /** True while `requireModelSelection` is on AND no model is selected — blocks send. */
     private _modelGated = false;
     private _onConfigChange = (): void => { this._evaluateModelGate(); this._applyDirection(); };
@@ -111,9 +130,13 @@ export class AparteComposer extends HTMLElement {
         window.addEventListener('aparte-message-done', this._onMessageDone);
         window.addEventListener('aparte-message-error', this._onMessageDone);
         window.addEventListener('aparte-message-aborted', this._onMessageDone);
-        // Model-selection gate (opt-in via AparteConfig.setRequireModelSelection).
-        this._cfg = resolveConfig(this);
-        this._configUnsub = this._cfg.subscribe(this._onConfigChange);
+        // Model-selection gate (opt-in via aparteGlobalConfig.setRequireModelSelection).
+        // A window listener rather than `_cfg.subscribe(...)`: subscribing binds to
+        // whichever config was resolvable AT CONNECT, which is the bug above wearing
+        // a different hat. `_notify()` dispatches `aparte-config-change` with
+        // `detail.config`, so the same information arrives without the early binding
+        // — and the filter below compares against the LIVE config.
+        window.addEventListener('aparte-config-change', this._onConfigChangeEvent);
         this._evaluateModelGate();
         this._applyDirection();
     }
@@ -123,8 +146,7 @@ export class AparteComposer extends HTMLElement {
         window.removeEventListener('aparte-message-done', this._onMessageDone);
         window.removeEventListener('aparte-message-error', this._onMessageDone);
         window.removeEventListener('aparte-message-aborted', this._onMessageDone);
-        this._configUnsub?.();
-        this._configUnsub = null;
+        window.removeEventListener('aparte-config-change', this._onConfigChangeEvent);
         this._listeners.clear();
     }
 
@@ -198,11 +220,29 @@ export class AparteComposer extends HTMLElement {
         this._emit('attachments-change', { attachments: [] });
     }
 
-    /** Inject a panel into the composer, hiding the text input. The send button calls onSubmit when clicked. */
-    showPanel(panel: HTMLElement, options?: { submitEnabled?: boolean; onSubmit?: () => void }): void {
+    /**
+     * Inject a panel into the composer. The send button calls `onSubmit` when clicked.
+     *
+     * While a panel is up, the composer is answering a QUESTION, not composing a
+     * message — so the affordances that lead nowhere go away with the text input:
+     * the attachment picker above all, which stayed clickable while the user was
+     * being asked something ("on voyait encore l'icône de upload", reported from a
+     * real session). Ratified decision #8: an affordance nothing can honour is not
+     * rendered.
+     *
+     * What STAYS, deliberately: the attachments strip, because pending attachments
+     * are the user's state and not an action to offer — hiding them would look like
+     * losing them; and the toolbar, because switching model still does something.
+     *
+     * Declared with an attribute + CSS rather than the inline `style.display` this
+     * used to set on a child: an attribute is themeable, is visible to a consumer's
+     * own rules, and does not clobber a `display` the consumer had set (the restore
+     * wrote `''`, not the previous value).
+     */
+    showPanel(panel: HTMLElement, options?: { submitEnabled?: boolean; onSubmit?: () => void; mode?: 'advance' | 'submit' }): void {
         this.hidePanel();
         const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
-        if (inputEl) inputEl.style.display = 'none';
+        this.setAttribute('data-panel-active', '');
         panel.dataset['apartePanel'] = 'true';
         if (inputEl) {
             inputEl.insertAdjacentElement('afterend', panel);
@@ -211,28 +251,37 @@ export class AparteComposer extends HTMLElement {
         }
         this._panelActive = true;
         this._panelSubmitEnabled = options?.submitEnabled ?? false;
+        this._panelMode = options?.mode ?? 'submit';
         this._panelOnSubmit = options?.onSubmit ?? null;
-        this._emit('panel-change', { active: true, submitEnabled: this._panelSubmitEnabled });
+        this._emit('panel-change', { active: true, submitEnabled: this._panelSubmitEnabled, mode: this._panelMode });
     }
 
-    /** Remove the panel and restore the text input. */
+    /** Remove the panel and restore the composer's own controls. */
     hidePanel(): void {
         const existing = this.querySelector('[data-aparte-panel]') as HTMLElement | null;
         if (existing) existing.remove();
-        const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
-        if (inputEl) inputEl.style.display = '';
+        this.removeAttribute('data-panel-active');
         this._panelActive = false;
         this._panelSubmitEnabled = false;
+        this._panelMode = 'submit';
         this._panelOnSubmit = null;
-        this._emit('panel-change', { active: false, submitEnabled: false });
+        this._emit('panel-change', { active: false, submitEnabled: false, mode: 'submit' });
         this.focus();
     }
 
-    /** Update the send button enabled state while a panel is active. */
-    setPanelSubmitEnabled(enabled: boolean): void {
+    /**
+     * Update the send button's state while a panel is active.
+     *
+     * `mode` moves with it because both change on the same event — answering the
+     * question you are on can enable the button AND turn it from "advance" into
+     * "submit" (when it was the last one), and two separate calls would flash a
+     * wrong icon between them.
+     */
+    setPanelSubmitEnabled(enabled: boolean, mode?: 'advance' | 'submit'): void {
         if (!this._panelActive) return;
         this._panelSubmitEnabled = enabled;
-        this._emit('panel-change', { active: true, submitEnabled: enabled });
+        if (mode) this._panelMode = mode;
+        this._emit('panel-change', { active: true, submitEnabled: enabled, mode: this._panelMode });
     }
 
     get panelActive(): boolean { return this._panelActive; }
@@ -345,7 +394,37 @@ export class AparteComposer extends HTMLElement {
      *  Without this filter, streaming in one chat flips every composer's state. */
     private _isForThisComposer(e: Event): boolean {
         const evtTargetId = (e as CustomEvent).detail?.targetId as string | undefined;
-        return !evtTargetId || !this.targetId || evtTargetId === this.targetId;
+        return !evtTargetId || !this._ownTargetId() || evtTargetId === this._ownTargetId();
+    }
+
+    /**
+     * Which chat this composer belongs to: its `target` attribute, or the id of the
+     * chat host above it.
+     *
+     * All four wrappers set `target` themselves, so the attribute alone identified a
+     * composer there. In RAW core — the documented quick start, where the markup is
+     * hand-written — nothing sets it, so `!this.targetId` was true and this composer
+     * accepted every chat's lifecycle events: on a two-chat page, one chat's Stop
+     * tore down the other's open elicitation panel while its tool call kept waiting,
+     * i.e. the question vanished and the turn hung.
+     *
+     * Found by a two-chat test written for the elicitation presenter, which is the
+     * only reason it surfaced: raw core with two chats is a shape nothing exercised.
+     * The hosts matched are the ones `aparte-chat-bubble._resolveTargetId()` matches,
+     * for the reason written there — Angular's wrapper root IS `<aparte-chat>`, the
+     * other three render a `[data-aparte-chat]` div.
+     */
+    private _ownTargetId(): string | undefined {
+        const attr = this.targetId;
+        if (attr) return attr;
+        let el: HTMLElement | null = this.parentElement;
+        while (el) {
+            const tag = el.tagName?.toLowerCase();
+            const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+            if (isHost && el.id) return el.id;
+            el = el.parentElement;
+        }
+        return undefined;
     }
 
     private _handleMessageStart(e: Event): void {

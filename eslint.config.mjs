@@ -2,7 +2,12 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '.nx/**', '**/.astro/**', '**/.angular/**', '**/*.tsbuildinfo'] },
+  // `.doc-snippets/` is the scratch folder `check-doc-snippets.mjs` writes doc
+  // fences into. It is deleted on success and DELIBERATELY kept when a snippet
+  // fails, so you can open the file tsc complained about — which meant a failing
+  // snippet guard also made `pnpm lint` fail, on unused imports inside an excerpt.
+  // Two reds for one cause, the second one meaningless.
+  { ignores: ['**/dist/**', '**/node_modules/**', '.nx/**', '**/.astro/**', '**/.angular/**', '**/.svelte-kit/**', '**/*.tsbuildinfo', '.doc-snippets/**'] },
 
   // A stale `eslint-disable` is silent debt: it hides a rule that would now
   // pass, or masks one that started firing elsewhere on the line. Report them
@@ -15,6 +20,12 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx}'],
     rules: {
+      // `interface X extends Y {}` is not a mistake here, it is the only way to
+      // merge a set of members into a global interface declared elsewhere — how
+      // `types/event-map.ts` puts the aparté events into HTMLElementEventMap,
+      // DocumentEventMap and WindowEventMap from one declaration. Empty `{}` and
+      // empty `interface X {}` stay banned; only the single-extends form is allowed.
+      '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
@@ -67,6 +78,24 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
+    },
+  },
+
+  // CLAUDE.md: "Don't add console.log in packages/core/". It was a convention with
+  // no mechanism, which is the only kind of rule this repo does not keep.
+  //
+  // `warn` and `error` stay allowed, and that is the point of banning only the rest:
+  // core deliberately warns 35 times and errors 4 — every one of them a documented
+  // affordance telling a developer their setup is incomplete (no elicitation
+  // presenter, a provider returning a Promise from getModels, a plugin that failed
+  // to load). `log` / `info` / `debug` / `trace` / `table` / `dir` are what debugging
+  // leaves behind, and they end up in a consumer's console with nothing they can do
+  // about it.
+  {
+    files: ['packages/core/**/*.ts'],
+    ignores: ['**/*.{test,spec}.ts', '**/__tests__/**'],
+    rules: {
+      'no-console': ['error', { allow: ['warn', 'error'] }],
     },
   },
 

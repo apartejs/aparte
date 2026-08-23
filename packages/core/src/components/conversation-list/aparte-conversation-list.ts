@@ -8,10 +8,11 @@
  * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-select-conversation
  * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-archive-conversation
- * @fires {CustomEvent<AparteConversationUnarchiveDetail>} aparte-unarchive-conversation
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-unarchive-conversation
  */
 
 import { resolveConfig } from '../../config/index.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -34,14 +35,10 @@ export interface AparteConversationArchiveDetail {
     id: string;
 }
 
-export interface AparteConversationUnarchiveDetail {
-    id: string;
-}
-
 /**
  * @example
  * // The host owns the data: set the `conversations` property, listen for the intent.
- * const list = document.querySelector('aparte-conversation-list');
+ * const list = document.querySelector('aparte-conversation-list')!;
  * list.conversations = [
  *   { id: 'c1', title: 'Deploy checklist', updatedAt: Date.now() },
  *   { id: 'c2', title: 'Old thread', updatedAt: 0, archivedAt: Date.now() },
@@ -130,7 +127,7 @@ export class AparteConversationList extends HTMLElement {
         const archiveAction = isArchived ? 'unarchive' : 'archive';
         const archiveAriaLabel = isArchived ? unarchiveLabel : archiveLabel;
         // Distinct icons: a downward tray for archive, an upward tray for unarchive.
-        const archiveIcon = isArchived
+        const archiveIcon = isArchived  // safe-text: both branches are literal inline SVG written here — not input
             ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 8 21 8"/><path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><polyline points="9 14 12 11 15 14"/><line x1="12" y1="11" x2="12" y2="19"/></svg>`
             : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 8 21 8"/><path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><polyline points="9 14 12 17 15 14"/><line x1="12" y1="11" x2="12" y2="17"/></svg>`;
         return `
@@ -146,8 +143,8 @@ export class AparteConversationList extends HTMLElement {
     class="aparte-conv-item__archive"
     type="button"
     data-archive-id="${escapedId}"
-    data-archive-action="${archiveAction}"
-    aria-label="${archiveAriaLabel}"
+    data-archive-action="${escapeAttr(archiveAction)}"
+    aria-label="${escapeAttr(archiveAriaLabel)}"
     tabindex="0"
   >${archiveIcon}</button>
   <button

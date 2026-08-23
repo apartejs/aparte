@@ -12,7 +12,7 @@
  * `DOMParser.parseFromString`), the tree is rebuilt keeping only known-safe tags
  * and attributes, then re-serialized. It is deliberately conservative and covers
  * the realistic threat model (LLM-emitted markup). For hardened, audited
- * coverage, register DOMPurify via `AparteConfig.setHtmlSanitizer`.
+ * coverage, register DOMPurify via `aparteGlobalConfig.setHtmlSanitizer`.
  */
 
 export type AparteSanitizer = (html: string) => string;
@@ -68,7 +68,20 @@ const SAFE_URL = /^(?:https?:|mailto:|tel:|ftp:|sms:)/i;
 /** In-page / relative references (no explicit scheme). */
 const RELATIVE_URL = /^(?:[#/.?]|[a-z0-9._~%+-]+(?:[/?#]|$))/i;
 /** data: URLs are only honoured for images, and only for image media types. */
-const SAFE_DATA_IMG = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|svg\+xml)?[;,]/i;
+/**
+ * `data:` URLs are only honoured for images, and only for a NAMED image subtype.
+ *
+ * The subtype group used to be optional (`(?:png|…)?`), so `data:image/,x` and
+ * `data:image/;whatever,` sailed through with no media type at all.
+ *
+ * `svg+xml` is deliberately kept. An SVG loaded through `<img src>` runs in
+ * secure-static mode — no scripts, no external fetches — in every engine, and
+ * dropping it would break the legitimate case (a model emitting an inline chart
+ * or icon). What it must NOT do is travel: an app that moves this URL into an
+ * `<object>`, `<embed>` or an iframe leaves secure-static mode and the SVG
+ * becomes executable. That constraint belongs to whoever re-hosts it.
+ */
+const SAFE_DATA_IMG = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|svg\+xml)[;,]/i;
 /** Whitespace + C0 control chars, used to obfuscate a scheme (e.g. " javascript:" or "java\tscript:"). */
 // eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
 const CONTROL_WS = /[\u0000-\u0020]+/g;
@@ -79,6 +92,33 @@ const CONTROL_WS = /[\u0000-\u0020]+/g;
  * same URL policy live. `tag` is the host element ('a', 'img', …) — `data:image`
  * URLs are only allowed on `img`.
  */
+/**
+ * `srcset` carries N candidate URLs, so the single-URL check does not fit it —
+ * and splitting on commas is unreliable, because a `data:` URL legitimately
+ * contains one (`data:image/png;base64,AAA 2x, small.png 1x`).
+ *
+ * So rather than parse candidates, every SCHEME token in the value must itself
+ * resolve to an allowed URL: a relative-only srcset has none and passes, while a
+ * smuggled scheme is rejected wherever in the value it sits.
+ *
+ * Found by an audit: `srcset` previously had only a `javascript:|vbscript:`
+ * substring test, so `srcset="data:text/html,<script>…</script> 1x"` walked
+ * straight through the allowlist that rejects the very same URL on `src`. Low
+ * severity — a browser only ever decodes a srcset candidate as an image, never as
+ * a document — but the allowlist should not have two different answers for one
+ * URL depending on which attribute carries it.
+ *
+ * `<source>` is validated as `img`: inside a `<picture>` its candidates feed an
+ * `<img>`, so the `data:image` policy is the same one that applies there.
+ */
+function isSafeSrcset(value: string, tag: string): boolean {
+    const urlTag = tag === 'source' ? 'img' : tag;
+    for (const m of value.matchAll(/[a-z][a-z0-9+.-]*:[^\s,]*/gi)) {
+        if (!isSafeUrl(m[0], urlTag)) return false;
+    }
+    return true;
+}
+
 export function isSafeUrl(value: string, tag: string): boolean {
     const v = value.replace(CONTROL_WS, '');
     if (!v) return true; // empty href/src is harmless
@@ -117,6 +157,17 @@ function scrubStyle(value: string): string | null {
         const prop = trimmed.slice(0, idx).trim().toLowerCase();
         const val = trimmed.slice(idx + 1);
         if (!val.trim() || !SAFE_STYLE_PROPS.has(prop)) continue;
+        // A CSS identifier escape is a legal spelling of any character, so
+        // `u\72 l(//evil)` is `url(//evil)` written to walk straight past a
+        // regex looking for the letters. DECODING it would be the general fix and
+        // is easy to get wrong — stripping the escape yields `ul(`, not `url(`,
+        // which is how the first attempt at this passed its own test.
+        //
+        // So: no backslash survives here at all. None of the properties this
+        // allowlist keeps (colours, font weights, text-decoration, white-space)
+        // has any legitimate use for a CSS escape, so refusing them outright
+        // costs nothing and leaves nothing to decode correctly.
+        if (val.includes('\\')) continue;
         if (/url\s*\(|expression\s*\(|javascript:|vbscript:|[<>]/i.test(val)) continue;
         kept.push(trimmed); // preserve the original declaration text (no reformatting)
     }
@@ -134,7 +185,7 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
         // markdown/highlight tooling — allowed, matching DOMPurify's default.
         if (!name.startsWith('data-') && !GLOBAL_ATTRS.has(name) && !(extra && extra.has(name))) continue;
         if (URL_ATTRS.has(name) && !isSafeUrl(value, tag)) continue;
-        if (name === 'srcset' && /javascript:|vbscript:/i.test(value)) continue;
+        if (name === 'srcset' && !isSafeSrcset(value, tag)) continue;
         if (name === 'style') {
             const scrubbed = scrubStyle(value);
             if (scrubbed === null) continue;
@@ -175,7 +226,7 @@ function sanitizeChildren(src: Node, dest: Node, doc: Document): void {
  * pass cannot match a real HTML parser and has known evasions (split attributes,
  * unclosed tags, entity tricks): it is a safety net, **not** a security boundary.
  * For untrusted content on a non-browser runtime, register a real sanitizer
- * (e.g. DOMPurify + jsdom) via `AparteConfig.setHtmlSanitizer`.
+ * (e.g. DOMPurify + jsdom) via `aparteGlobalConfig.setHtmlSanitizer`.
  */
 function fallbackScrub(html: string): string {
     return html

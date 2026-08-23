@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
-    AparteConfig,
-    ConversationManager,
+    aparteGlobalConfig,
+    type AparteConfig,
+    AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
 } from '@aparte/core';
@@ -26,21 +27,30 @@ export interface UseConversationManager {
 }
 
 /**
- * React-state wrapper around the core `ConversationManager`. The active
+ * React-state wrapper around the core `AparteConversationManager`. The active
  * conversation is owned by the chat component's controller; switch by binding
  * `conversationId` on `<AparteChat>`. React equivalent of Angular's
  * `ConversationManagerService`.
  */
 export function useConversationManager(): UseConversationManager {
-    const managerRef = useRef<ConversationManager | null>(null);
+    const managerRef = useRef<AparteConversationManager | null>(null);
     const unsubRef = useRef<(() => void) | null>(null);
     const [conversations, setConversations] = useState<AparteConversation[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
 
     useEffect(() => () => unsubRef.current?.(), []);
 
-    const init = useCallback(async (adapter: AparteStorageAdapter) => {
-        const m = new ConversationManager(adapter);
+    /**
+     * Initialise with a storage adapter.
+     *
+     * `config` defaults to the global singleton. Pass the SAME config you gave
+     * `<AparteChat config={…}>`: the controller resolves the config governing its
+     * host element, so a manager registered on the global is invisible to a chat
+     * with its own — persistence silently does nothing while the optimistic UI
+     * keeps working.
+     */
+    const init = useCallback(async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig) => {
+        const m = new AparteConversationManager(adapter);
         managerRef.current = m;
         unsubRef.current = m.subscribe((convs) => {
             setConversations([...convs]);
@@ -48,10 +58,10 @@ export function useConversationManager(): UseConversationManager {
         });
         await m.init();
         setActiveId(m.activeId);
-        AparteConfig.setConversationManager(m);
+        config.setConversationManager(m);
     }, []);
 
-    const assert = (): ConversationManager => {
+    const assert = (): AparteConversationManager => {
         if (!managerRef.current) {
             throw new Error('[useConversationManager] Not initialised. Call init(adapter) first.');
         }

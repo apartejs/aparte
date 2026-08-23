@@ -1,9 +1,9 @@
 import { Injectable, OnDestroy, computed, signal } from '@angular/core';
-import { AparteConfig, ConversationManager, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { aparteGlobalConfig, AparteConversationManager, type AparteConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
 
 /**
- * Angular 19 Signal-based wrapper around ConversationManager.
+ * Angular 19 Signal-based wrapper around AparteConversationManager.
  *
  * Register a storage adapter before calling init():
  * ```ts
@@ -22,7 +22,7 @@ import type { AparteMessage } from '@aparte/core';
  */
 @Injectable({ providedIn: 'root' })
 export class ConversationManagerService implements OnDestroy {
-    private _manager: ConversationManager | null = null;
+    private _manager: AparteConversationManager | null = null;
     private _unsubscribe: (() => void) | null = null;
 
     // ─── Signals ─────────────────────────────────────────────────────────────
@@ -60,8 +60,8 @@ export class ConversationManagerService implements OnDestroy {
      * Initialise the service with a storage adapter.
      * Call once in your root component or app initialiser.
      */
-    async init(adapter: AparteStorageAdapter): Promise<void> {
-        this._manager = new ConversationManager(adapter);
+    async init(adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig): Promise<void> {
+        this._manager = new AparteConversationManager(adapter);
         this._unsubscribe = this._manager.subscribe(convs => {
             this.conversations.set([...convs]);
             this.activeId.set(this._manager!.activeId);
@@ -69,9 +69,15 @@ export class ConversationManagerService implements OnDestroy {
         await this._manager.init();
         // Sync activeId after load (manager may have no active conv yet)
         this.activeId.set(this._manager.activeId);
-        // Register globally so AparteConversationController (used by aparte-chat)
-        // can resolve it without explicit DI plumbing.
-        AparteConfig.setConversationManager(this._manager);
+        // Registered on the config the chat will resolve, so
+        // AparteConversationController finds it without explicit DI plumbing.
+        //
+        // `config` defaults to the global singleton. Pass the SAME config you gave
+        // `[config]` on `<aparte-chat>`: the controller resolves the config
+        // governing its host element, so a manager on the global is invisible to a
+        // chat with its own — persistence silently does nothing while the
+        // optimistic UI keeps working.
+        config.setConversationManager(this._manager);
     }
 
     ngOnDestroy(): void {

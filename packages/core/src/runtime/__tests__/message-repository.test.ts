@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MessageRepository } from '../message-repository.js';
+import { AparteMessageRepository } from '../message-repository.js';
 import type { AparteMessage } from '../../types/index.js';
 
 function makeMsg(overrides: Partial<AparteMessage> = {}): AparteMessage {
@@ -13,11 +13,11 @@ function makeMsg(overrides: Partial<AparteMessage> = {}): AparteMessage {
     };
 }
 
-describe('MessageRepository', () => {
-    let repo: MessageRepository;
+describe('AparteMessageRepository', () => {
+    let repo: AparteMessageRepository;
 
     beforeEach(() => {
-        repo = new MessageRepository();
+        repo = new AparteMessageRepository();
     });
 
     // ─── basic add + get ───────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import type { AparteComposer } from './aparte-composer.js';
 import { resolveConfig } from '../../config/config-context.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /** ✗ glyph for the hover remove button. */
 const REMOVE_ICON =
@@ -14,7 +15,7 @@ const REMOVE_ICON =
  * Image files show the actual picture; other files show an extension badge.
  * The filename and a remove (✗) button surface on hover. Clicking an image asks
  * the app to open it full-size (`aparte-attachment-preview`) — only when the app
- * declared `attachmentPreview` via `AparteConfig.setHostHandlers()`.
+ * declared `attachmentPreview` via `aparteGlobalConfig.setHostHandlers()`.
  * Automatically hidden when there are no attachments.
  * Must be a descendant of <aparte-composer>.
   *
@@ -86,11 +87,11 @@ export class AparteComposerAttachments extends HTMLElement {
             if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);
                 this._objectUrls.push(url);
-                return `<div class="aparte-thumb aparte-thumb--image" title="${name}">` +
-                    `<img class="aparte-thumb__img" src="${url}" alt="${name}" />` +
+                return `<div class="aparte-thumb aparte-thumb--image" title="${escapeAttr(name)}">` +
+                    `<img class="aparte-thumb__img" src="${escapeAttr(url)}" alt="${escapeAttr(name)}" />` +
                     `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
             }
-            return `<div class="aparte-thumb aparte-thumb--file" title="${name}">` +
+            return `<div class="aparte-thumb aparte-thumb--file" title="${escapeAttr(name)}">` +
                 `<span class="aparte-thumb__ext">${this._escape(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');

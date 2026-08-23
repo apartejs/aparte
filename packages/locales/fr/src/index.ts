@@ -1,8 +1,8 @@
 /**
  * @aparte/locale-fr
  *
- * French translations for aparté. Core ships English (`DEFAULT_LOCALE`) by
- * default — pass this to `AparteConfig.setLocale(fr)` to switch.
+ * French translations for aparté. Core ships English (`APARTE_DEFAULT_LOCALE`) by
+ * default — pass this to `aparteGlobalConfig.setLocale(fr)` to switch.
  */
 
 import type { AparteLocale } from '@aparte/core';
@@ -14,6 +14,15 @@ export const fr: AparteLocale = {
     copied: "Copié !",
     retry: "Réessayer",
     thinking: "Réflexion en cours...",
+    elicitationOther: "Autre…",
+    elicitationOtherPlaceholder: "Écrivez votre réponse…",
+    elicitationOtherLabel: "Réponse libre",
+    submitButton: "Valider",
+    elicitationNext: "Suivant",
+    elicitationSkip: "Passer",
+    elicitationYes: "Oui",
+    elicitationNo: "Non",
+    elicitationAnswerLabel: "Votre réponse",
     typing: "Écrit...",
     error: "Erreur",
     running: "Exécution...",

@@ -3,7 +3,7 @@
  *
  * Covered before: only "options appear and the gate opens". Not the dropdown, not
  * the provider groups (collapsed by default whenever more than one provider is
- * registered, which is the playground's case), not the keyboard (this is an APG
+ * registered, which is the example's case), not the keyboard (this is an APG
  * combobox), not the search filter, and not whether the picked model actually
  * reaches the request. Also guards a past crash: a model id containing `"` or `]`
  * used to break an interpolated attribute selector.
@@ -123,8 +123,8 @@ test('the search field filters the list', async ({ page }) => {
     await chat.modelTrigger.click();
     const search = chat.modelSelector.locator('.aparte-select-search');
     // `searchable` is opt-in per app; skip rather than assert a control this
-    // playground did not ask for.
-    test.skip((await search.count()) === 0, 'this playground mounts the selector without `searchable`');
+    // example did not ask for.
+    test.skip((await search.count()) === 0, 'this example mounts the selector without `searchable`');
 
     const total = await chat.modelOptions.count();
     await search.fill('qwen');

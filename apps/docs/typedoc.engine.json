@@ -6,6 +6,37 @@
   "out": "src/content/docs/reference/engine",
   "readme": "none",
   "githubPages": false,
+
+  // ── Source links that survive the deploy ──────────────────────────────────
+  // Left to itself, TypeDoc resolves `Defined in:` links by walking up from each
+  // source file looking for a `.git` DIRECTORY and pinning `git rev-parse HEAD`.
+  // Neither half of that works here.
+  //
+  // On the published site it produces NO links at all. `Dockerfile.docs` does
+  // `COPY . .` and `.dockerignore` excludes `.git`, so the image has no
+  // repository; TypeDoc's `getRepository()` returns the "assumed" repo ONLY when
+  // `disableGit` is set, and otherwise returns undefined, so `getURL()` yields
+  // nothing and all 153 links silently disappear. Locally it produces the
+  // opposite defect: links pinned to whatever HEAD was at generation time, which
+  // on a feature branch is a commit no reader can fetch — the audit that found
+  // this was reading exactly that, a SHA one commit old on an unpushed branch.
+  //
+  // So: skip discovery entirely and state the template. `displayBasePath` has to
+  // be the repo root, because `{path}` is `relative(displayBasePath, file)` and
+  // TypeDoc otherwise falls back to the common directory of the entry points —
+  // which emitted `agent/stream-run.ts` instead of
+  // `packages/engine/src/agent/stream-run.ts`, i.e. 153 links that resolve to
+  // nothing on a repo that has no top-level `agent/`. (The option is
+  // `displayBasePath`; a plain `basePath` is silently ignored.)
+  //
+  // Pinned to `main`, not to a tag or a SHA: the site is deployed continuously
+  // from main, tags do not exist yet pre-1.0, and no git-derived value can be
+  // computed inside an image that has no git. Line numbers can drift between a
+  // deploy and a later commit; a link that resolves and is a few lines off beats
+  // 153 that resolve nowhere.
+  "disableGit": true,
+  "displayBasePath": "../..",
+  "sourceLinkTemplate": "https://github.com/apartejs/aparte/blob/main/{path}#L{line}",
   "intentionallyNotExported": ["AssembleResult", "AssembleParams"],
   "hideGenerator": true,
   "excludeExternals": true,

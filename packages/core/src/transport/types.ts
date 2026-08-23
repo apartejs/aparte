@@ -5,9 +5,9 @@
  *     how to shape the HTTP request and how to parse the response stream into
  *     unified `AparteStreamEvent`s. No network, no auth, no key.
  *   • **Transport** (`AparteTransport`): WHERE the call goes and how auth is
- *     handled — straight to the vendor from the browser (`DirectTransport`,
+ *     handled — straight to the vendor from the browser (`AparteDirectTransport`,
  *     BYOK/local) or via your own backend that holds the key
- *     (`BackendTransport`, recommended for production).
+ *     (`AparteBackendTransport`, recommended for production).
  *
  * A "provider" is migrating from a monolithic `chat()` (fetch + key + parse) to
  * a pure format adapter. During the migration a provider may expose EITHER the
@@ -92,7 +92,7 @@ export async function vendorErrorMessage(response: Response, label = 'HTTP'): Pr
 /**
  * Resolve a non-streaming response to text via the adapter's `parseText`.
  * Both transports use this so `stream: false` behaves identically (previously
- * DirectTransport returned '' and BackendTransport returned raw JSON when
+ * AparteDirectTransport returned '' and AparteBackendTransport returned raw JSON when
  * `parseText` was missing — now both fail loud).
  */
 export async function parseNonStreamText(

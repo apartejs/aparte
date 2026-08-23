@@ -8,10 +8,23 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from 'react';
-import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 export interface AparteChatProps {
+    /**
+     * The host element's `id`, and therefore the `targetId` every event this chat
+     * dispatches carries.
+     *
+     * Generated when omitted, which is the right default — but it used to be
+     * generated and neither accepted nor exposed, so
+     * `AparteClientOptions.scopeToTargetId` (the documented way to run several
+     * independent clients on one page) was unreachable from this component: there
+     * was no way to learn the id the client had to match. Angular exposed it; React,
+     * Vue and Svelte did not.
+     */
+    id?: string;
+
     /**
      * Messages on the active path. **Optional** — omit for an uncontrolled chat
      * that starts empty (defaults to `[]`); pass it together with
@@ -47,7 +60,7 @@ export interface AparteChatProps {
     attachments?: boolean;
     /**
      * Active conversation id. When set, the wrapper loads/persists via the
-     * `ConversationManager` registered in `AparteConfig` (set `null` to deselect).
+     * `AparteConversationManager` registered in `aparteGlobalConfig` (set `null` to deselect).
      */
     conversationId?: string | null;
     /**
@@ -116,7 +129,7 @@ export interface AparteChatProps {
     onMessageSent?: (event: AparteSendEventDetail) => void;
     /**
      * Fired when a custom bubble action (registered via
-     * `AparteConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
+     * `aparteGlobalConfig.registerAction` with `zones: ['bubble']`) is clicked — a typed
      * wrapper over the bubbling `aparte-action` DOM event. Dispatch on `detail.actionId`.
      */
     onAction?: (detail: AparteActionEventDetail) => void;
@@ -133,22 +146,16 @@ export interface AparteChatProps {
     onConversationCreated?: (id: string) => void;
 
     /**
-     * Instance {@link AparteConfigClass} for this chat. When set, every aparté
+     * Instance {@link AparteConfig} for this chat. When set, every aparté
      * component rendered inside resolves THIS config instead of the global
-     * `AparteConfig` singleton — letting several independently-configured chats
+     * `aparteGlobalConfig` — letting several independently-configured chats
      * (different providers, tools, renderers) coexist on one page. Omit for the
      * global config. Read once when the host mounts.
      */
-    config?: AparteConfigClass;
+    config?: AparteConfig;
 }
 
-/**
- * The React ref handle for `<AparteChat>` — the canonical imperative surface
- * shared by all four wrappers (see `AparteChatImperativeApi` in `@aparte/core`).
- */
-export type AparteChatHandle = AparteChatImperativeApi;
-
-export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function AparteChat(
+export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
     {
         messages = [],
         placeholder = 'Type a message...',
@@ -172,12 +179,15 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         onMessageAppended,
         onTypingChange,
         onConversationCreated,
+        id: providedId,
     },
     ref,
 ) {
     // useId() is SSR-stable (server and client agree), so no hydration mismatch.
     // Strip ':' so the id is also safe in CSS/querySelector, not just getElementById.
-    const hostId = `aparte-chat-${useId().replace(/:/g, '')}`;
+    // A caller-supplied id wins, so `scopeToTargetId` has something to match.
+    const generatedId = `aparte-chat-${useId().replace(/:/g, '')}`;
+    const hostId = providedId ?? generatedId;
     const hostElRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLElement>(null);
     const composerRef = useRef<HTMLElement>(null);
@@ -290,7 +300,7 @@ export const AparteChat = forwardRef<AparteChatHandle, AparteChatProps>(function
         return () => host.removeEventListener('aparte-action', onAct);
     }, []);
 
-    useImperativeHandle(ref, (): AparteChatHandle => ({
+    useImperativeHandle(ref, (): AparteChatImperativeApi => ({
         appendMessage: (m) => hostRef.current?.appendMessage(m),
         updateMessage: (id, u) => hostRef.current?.updateMessage(id, u),
         updateLastMessage: (c, o) => hostRef.current?.updateLastMessage(c, o),

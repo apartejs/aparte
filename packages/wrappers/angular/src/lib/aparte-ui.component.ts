@@ -12,7 +12,7 @@ import {
     Renderer2,
     inject
 } from '@angular/core';
-import { applyElementProps, DEFAULT_UI_EVENTS } from '@aparte/core';
+import { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
 
 /**
  * The imperative surface of the `AparteUi` proxy — the same
@@ -28,6 +28,12 @@ export interface AparteUiHandle {
  *
  * A pass-through proxy component that dynamically injects any aparté
  * Web Component, so you don't need a dedicated Angular wrapper per element.
+ *
+ * `name` can be any custom element, including one of yours. `aparte-model-selector`
+ * below is defined by `@aparte/plugin-model-selector`, not by core — until that
+ * package is imported the tag mounts empty and inert with no error, and upgrades on
+ * its own once the definition arrives, which is what makes `provideAparte`'s lazy
+ * `plugins` loaders work.
  *
  * @example
  * ```html
@@ -45,7 +51,7 @@ export interface AparteUiHandle {
  * @description
  * - Keys starting with `--` are applied as CSS Variables
  * - Other keys are set as DOM properties on the element
- * - The events in `events` (default: {@link DEFAULT_UI_EVENTS}) bubble up via `elementEvent`
+ * - The events in `events` (default: {@link APARTE_DEFAULT_UI_EVENTS}) bubble up via `elementEvent`
  */
 @Component({
     selector: 'aparte-ui',
@@ -75,7 +81,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
 
     /**
      * Which custom events to forward through `elementEvent`. Defaults to the
-     * interactive aparté surface ({@link DEFAULT_UI_EVENTS}); pass your own list to
+     * interactive aparté surface ({@link APARTE_DEFAULT_UI_EVENTS}); pass your own list to
      * listen to other events (e.g. `['aparte-composer-change']` for attachments).
      */
     @Input() events?: string[];
@@ -137,7 +143,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
     // ─────────────────────────────────────────────────────────────
 
     private eventsKey(): string {
-        return (this.events ?? DEFAULT_UI_EVENTS).join('|');
+        return (this.events ?? APARTE_DEFAULT_UI_EVENTS).join('|');
     }
 
     private createElement(): void {
@@ -183,7 +189,7 @@ export class AparteUiComponent implements AfterViewInit, OnChanges, OnDestroy, A
         if (!this.element) return;
 
         this.lastEventsKey = this.eventsKey();
-        (this.events ?? DEFAULT_UI_EVENTS).forEach(eventName => {
+        (this.events ?? APARTE_DEFAULT_UI_EVENTS).forEach(eventName => {
             const listener = (event: Event) => {
                 this.elementEvent.emit(event as CustomEvent);
             };

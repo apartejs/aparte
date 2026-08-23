@@ -40,7 +40,7 @@ function recorder(): { events: StreamRunEvent[]; emitter: (e: StreamRunEvent) =>
 function baseOpts(over: Partial<StreamRunOptions>): StreamRunOptions {
     return {
         messageId: 'm1',
-        baseRequest: { messages: [{ role: 'user', content: 'hi' }] },
+        baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }] },
         transportCall: async () => streamOf([{ type: 'done' }]),
         toolLookup: () => undefined,
         emitter: () => { /* no-op */ },
@@ -77,12 +77,29 @@ describe('runStreamAgent — text & lifecycle', () => {
         expect(usage).toEqual({ inputTokens: 9, outputTokens: 9 });
     });
 
-    it('forwards a non-streaming string response as a single text-delta', async () => {
+    it('forwards a non-streaming string response and FLUSHES the parser', async () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({ transportCall: async () => 'plain answer', emitter: rec.emitter }));
+        // `text-flush` is the adapter's only caller of `parser.finalize()`. This
+        // assertion used to omit it, and so encoded the bug: a non-streaming reply
+        // ending on an ambiguous tail — a backtick, a `<`, the safe window inside
+        // an unterminated fence — lost it, and one made only of those rendered
+        // nothing at all.
         expect(rec.events).toEqual([
             { type: 'run-start' },
             { type: 'text-delta', delta: 'plain answer' },
+            { type: 'text-flush' },
+            { type: 'run-done', usage: undefined },
+        ]);
+    });
+
+    it('a non-streaming reply that is ONLY an ambiguous tail still renders', async () => {
+        const rec = recorder();
+        await runStreamAgent(baseOpts({ transportCall: async () => '```', emitter: rec.emitter }));
+        expect(rec.events, 'the parser withholds "```" until it is flushed').toEqual([
+            { type: 'run-start' },
+            { type: 'text-delta', delta: '```' },
+            { type: 'text-flush' },
             { type: 'run-done', usage: undefined },
         ]);
     });
@@ -266,7 +283,7 @@ describe('runStreamAgent — artifactRaw mode', () => {
         const rec = recorder();
         const usage = await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], _meta: { artifactRaw: { mimeType: 'text/javascript', kind: 'js' } } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactRaw: { mimeType: 'text/javascript', kind: 'js' } } },
             idGen: (p) => `${p}-0`,
         }));
         expect(rec.events).toEqual([
@@ -288,7 +305,7 @@ describe('runStreamAgent — artifactRaw mode', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], _meta: { artifactRaw: { mimeType: 'text/plain', kind: 'text' } } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactRaw: { mimeType: 'text/plain', kind: 'text' } } },
             idGen: (p) => `${p}-0`,
         }));
         const close = rec.events.find(e => e.type === 'artifact-close') as { inline: boolean };
@@ -306,7 +323,7 @@ describe('runStreamAgent — artifactXml mode', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], _meta: { artifactXml: { mimeType: 'text/html', kind: 'html' } } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactXml: { mimeType: 'text/html', kind: 'html' } } },
             idGen: (p) => `${p}-0`,
         }));
         expect(rec.events.find(e => e.type === 'artifact-open')).toMatchObject({ id: 'artifact-xml-0', mimeType: 'text/html', kind: 'html', title: 'Page' });
@@ -325,7 +342,7 @@ describe('runStreamAgent — artifactXml mode', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], _meta: { artifactXml: { mimeType: 'text/plain', kind: 'text' } } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactXml: { mimeType: 'text/plain', kind: 'text' } } },
             idGen: (p) => `${p}-0`,
         }));
         expect((rec.events.find(e => e.type === 'artifact-close') as { content: string })?.content).toBe('no close here');
@@ -336,7 +353,7 @@ describe('runStreamAgent — artifactXml mode', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: {
+            baseRequest: { modelId: 'm',
                 messages: [{ role: 'user', content: 'hi' }],
                 _meta: { artifactRaw: { mimeType: 'text/plain', kind: 'text' }, artifactXml: { mimeType: 'text/html', kind: 'html' } },
             },
@@ -388,7 +405,7 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
         const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'SAVED' }));
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'save', input: { x: 1 } } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'save', input: { x: 1 } } },
             toolLookup: (n) => (n === 'save' ? handler : undefined),
             idGen: (p) => `${p}-0`,
         }));
@@ -415,7 +432,7 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'ghost', input: {} } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'ghost', input: {} } },
             toolLookup: () => undefined,
             idGen: (p) => `${p}-0`,
         }));
@@ -428,7 +445,7 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'slow', input: {} } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'slow', input: {} } },
             toolLookup: () => async () => { const e = new Error('x'); e.name = 'AbortError'; throw e; },
             idGen: (p) => `${p}-0`,
         }));
@@ -444,7 +461,7 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
         // catch — not be silently turned into a tool result.
         await expect(runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'save', input: {} } },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], toolChoice: { name: 'save', input: {} } },
             toolLookup: () => async () => { throw new Error('handler boom'); },
             idGen: (p) => `${p}-0`,
         }))).rejects.toThrow('handler boom');
@@ -471,7 +488,7 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { messages: [{ role: 'user', content: 'hi' }], toolChoice: 'auto' },
+            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], toolChoice: 'auto' },
         }));
         // No synthetic bypass: a normal single text turn.
         expect(rec.types()).toEqual(['run-start', 'turn-start', 'text-delta', 'text-flush', 'run-done']);
@@ -488,7 +505,7 @@ describe('runStreamAgent — multi-phase pipeline', () => {
         const rec = recorder();
         const usage = await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: {
+            baseRequest: { modelId: 'm',
                 messages: [{ role: 'user', content: 'go' }],
                 _meta: { pipeline: [{ mode: 'text', system: 'PHASE1' }, { mode: 'text', system: 'PHASE2' }] },
             },
@@ -514,7 +531,7 @@ describe('runStreamAgent — multi-phase pipeline', () => {
         const rec = recorder();
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: {
+            baseRequest: { modelId: 'm',
                 messages: [{ role: 'user', content: 'make a page' }],
                 _meta: { pipeline: [{ mode: 'artifact', system: 'MAKE', mimeType: 'text/html', kind: 'html' }] },
             },
@@ -572,7 +589,7 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
     it('never notifies the caller of its own baseRequest messages', async () => {
         const appended: StreamAgentMessage[] = [];
         await runStreamAgent(baseOpts({
-            baseRequest: { messages: [{ role: 'system', content: 'sys' }, { role: 'user', content: 'hi' }] },
+            baseRequest: { modelId: 'm', messages: [{ role: 'system', content: 'sys' }, { role: 'user', content: 'hi' }] },
             transportCall: async () => streamOf([{ type: 'text', delta: 'yo' }, { type: 'done' }]),
             onHistoryAppend: (m) => appended.push(m),
         }));
@@ -611,7 +628,7 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
         const phases: StreamAgentMessage[] = [];
         await runStreamAgent(baseOpts({
             transportCall: async () => streamOf([{ type: 'text', delta: 'reply1' }, { type: 'done' }]),
-            baseRequest: {
+            baseRequest: { modelId: 'm',
                 messages: [{ role: 'user', content: 'go' }],
                 _meta: { pipeline: [{ mode: 'text', system: 'P1' }, { mode: 'text', system: 'P2' }] },
             },

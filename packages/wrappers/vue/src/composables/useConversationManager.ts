@@ -1,20 +1,21 @@
 import { ref, computed, onBeforeUnmount, type Ref } from 'vue';
 import {
-    AparteConfig,
-    ConversationManager,
+    aparteGlobalConfig,
+    type AparteConfig,
+    AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
 } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 
 /**
- * Vue-reactive wrapper around the core `ConversationManager`. The active
+ * Vue-reactive wrapper around the core `AparteConversationManager`. The active
  * conversation is owned by the chat component's controller; switch by binding
  * `conversationId` on `<AparteChat>`. Vue equivalent of Angular's
  * `ConversationManagerService`.
  */
 export function useConversationManager() {
-    let manager: ConversationManager | null = null;
+    let manager: AparteConversationManager | null = null;
     let unsub: (() => void) | null = null;
 
     const conversations = ref<AparteConversation[]>([]) as Ref<AparteConversation[]>;
@@ -32,13 +33,22 @@ export function useConversationManager() {
 
     onBeforeUnmount(() => unsub?.());
 
-    const assert = (): ConversationManager => {
+    const assert = (): AparteConversationManager => {
         if (!manager) throw new Error('[useConversationManager] Not initialised. Call init(adapter) first.');
         return manager;
     };
 
-    const init = async (adapter: AparteStorageAdapter): Promise<void> => {
-        const m = new ConversationManager(adapter);
+    /**
+     * Initialise with a storage adapter.
+     *
+     * `config` defaults to the global singleton. Pass the SAME config you gave
+     * `<AparteChat config={…}>`: the controller resolves the config governing its
+     * host element, so a manager registered on the global is invisible to a chat
+     * with its own — persistence silently does nothing while the optimistic UI
+     * keeps working.
+     */
+    const init = async (adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig): Promise<void> => {
+        const m = new AparteConversationManager(adapter);
         manager = m;
         unsub = m.subscribe((convs) => {
             conversations.value = [...convs];
@@ -46,7 +56,7 @@ export function useConversationManager() {
         });
         await m.init();
         activeId.value = m.activeId;
-        AparteConfig.setConversationManager(m);
+        config.setConversationManager(m);
     };
 
     return {

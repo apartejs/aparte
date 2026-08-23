@@ -19,7 +19,7 @@
  */
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
-import type { AparteConfigClass } from '../config/aparte-config.js';
+import type { AparteConfig } from '../config/aparte-config.js';
 import type { AparteSegment, AparteMessage, AparteStreamEvent } from '../types/index.js';
 import type {
     AparteThinkingSegment,
@@ -28,6 +28,8 @@ import type {
     AparteCodeSegment,
 } from '../types/segments.js';
 import type { AparteUsage, AparteChatRequest } from '../types/chat.js';
+import { uuid } from '../utils/uuid.js';
+import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
 
 /**
  * DOM-free run events emitted by `@aparte/engine`'s `runStreamAgent`, mirrored here
@@ -70,7 +72,7 @@ export interface AparteStreamRunOptions {
     baseRequest: AparteChatRequest;
     /** Calls the transport; returns the structured stream or a plain string. */
     transportCall: (request: AparteChatRequest) => Promise<AsyncIterable<AparteStreamEvent> | string>;
-    /** Resolves a tool's handler by name (mirrors `AparteConfig.getToolHandler`). */
+    /** Resolves a tool's handler by name (mirrors `aparteGlobalConfig.getToolHandler`). */
     toolLookup: (name: string) => ((call: { id: string; name: string; input: Record<string, unknown> }, signal: AbortSignal) => Promise<{ content: string }>) | undefined;
     /** Resolves a tool's loop config by name (maxTurns / needsApproval). */
     toolConfigLookup?: (name: string) => { maxTurns?: number; needsApproval?: boolean } | undefined;
@@ -89,8 +91,14 @@ export interface AparteStreamRunOptions {
  * A headless structured-stream loop injected via `AparteClientOptions.streamRunner`
  * — the seam by which a consumer swaps `_streamLoop`'s inline loop for
  * `@aparte/engine`'s `runStreamAgent` (core stays the zero-dep leaf; it never
- * imports engine). Structurally identical to `runStreamAgent`; wire it with a
- * cast at the injection site if the duck-typed shapes don't line up exactly.
+ * imports engine).
+ *
+ * `runStreamAgent` is directly assignable to this type — pass it, do not cast it.
+ * An earlier version of this comment advised a cast "if the duck-typed shapes
+ * don't line up", which is how the two packages' message types drifted apart
+ * unnoticed and shipped a `streamRunner: runStreamAgent` that did not compile on
+ * five docs pages and a README. A cast here hides exactly the drift that
+ * `stream-events.contract.ts` now exists to fail on.
  */
 export type AparteStreamRunner = (opts: AparteStreamRunOptions) => Promise<AparteUsage | undefined>;
 
@@ -112,7 +120,7 @@ export interface CreateStreamAdapterOptions {
     /** The chat target element the events are rendered onto. */
     target: StreamAdapterTarget;
     /** Config for tool-renderer lookup + per-tool style injection. */
-    config: AparteConfigClass;
+    config: AparteConfig;
     /** The streamed assistant message id (carried in run/artifact events). */
     messageId: string;
     /**
@@ -122,53 +130,6 @@ export interface CreateStreamAdapterOptions {
      * parser). Absent for the raw / XML / create_artifact modes.
      */
     artifactHint?: { mimeType: string; kind: string };
-}
-
-/** `_dispatchLifecycleEvent` (aparte-client.ts) — a bubbling/composed CustomEvent. */
-function dispatchLifecycleEvent(target: StreamAdapterTarget, name: string, detail: unknown): void {
-    target.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail }));
-}
-
-/**
- * `_dispatchArtifactLifecycle` (aparte-client.ts) — fires `aparte-artifact-start`
- * once per segment id, `aparte-artifact-delta` when the body grew, and
- * `aparte-artifact-ready` when `isFinal`. `progress` tracks per-id broadcast length.
- */
-function dispatchArtifactLifecycle(
-    target: StreamAdapterTarget,
-    messageId: string,
-    segment: { id: string; content?: string; mimeType?: string; artifactType?: string; title?: string },
-    progress: Map<string, number>,
-    isFinal: boolean,
-): void {
-    const id = segment.id;
-    const content = segment.content ?? '';
-    const seen = progress.get(id);
-
-    if (seen === undefined) {
-        target.dispatchEvent(new CustomEvent('aparte-artifact-start', {
-            bubbles: true, composed: true,
-            detail: { messageId, segmentId: id, mimeType: segment.mimeType, artifactType: segment.artifactType, title: segment.title },
-        }));
-        progress.set(id, 0);
-    }
-
-    const lastLen = progress.get(id) ?? 0;
-    if (content.length > lastLen) {
-        const chunk = content.slice(lastLen);
-        target.dispatchEvent(new CustomEvent('aparte-artifact-delta', {
-            bubbles: true, composed: true,
-            detail: { segmentId: id, chunk },
-        }));
-        progress.set(id, content.length);
-    }
-
-    if (isFinal) {
-        target.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
-            bubbles: true, composed: true,
-            detail: { messageId, segmentId: id, mimeType: segment.mimeType, artifactType: segment.artifactType, title: segment.title, content },
-        }));
-    }
 }
 
 /**
@@ -214,7 +175,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 thinkingContent += e.delta;
                 if (!thinkingId) {
                     const seg: AparteThinkingSegment = {
-                        id: `think-${crypto.randomUUID()}`,
+                        id: `think-${uuid()}`,
                         type: 'thinking',
                         content: thinkingContent,
                         collapsed: true,
@@ -237,7 +198,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 }
                 // Reduced pre-tag path (XML mode): render only completed segments;
                 // leave the trailing active segment for the next tag-free delta
-                // (mirrors _streamLoop :1300-1313). No artifact promotion here —
+                // (mirrors `emitChatText(…, syncActive = false)` in
+                // ./xml-artifact-feed.ts). No artifact promotion here —
                 // pre-tag text is plain chat.
                 if (e.reduced) {
                     const r = parser.parse(e.delta);
@@ -245,12 +207,29 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         if (!streaming.has(segment.id)) {
                             target.addSegment?.(segment);
                             streaming.add(segment.id);
+                        } else if ('content' in segment) {
+                            // Already rendered while ACTIVE and now COMPLETED, so
+                            // its final content has to land. Without this arm a
+                            // delta that both closes a code fence and precedes an
+                            // `<artifact>` tag froze that fence at whatever the
+                            // parser's 4-char safe window had released, and
+                            // `text-flush` cannot recover it: `finalize()` returns
+                            // the active segment and the residual buffer, never one
+                            // that already completed. Core's twin (`emitChatText`)
+                            // has always had both arms.
+                            target.updateSegment?.(segment.id, { content: (segment as { content?: string }).content });
                         }
                     }
-                    if (r.segments.length === 0 && !parser.getState().activeSegment) {
-                        if (target.typeName) target.typeName(e.delta);
-                        else target.updateLastMessage?.(e.delta, { append: true });
-                    }
+                    // The raw-delta fallback is gone from BOTH loops. It fired only
+                    // when the parser had withheld an ambiguous prefix, wrote those
+                    // characters into `message.content`, and history then preferred
+                    // that field over the rendered segments — so a reply opening with
+                    // a code fence was sent back to the model as three backticks.
+                    // The parser keeps the text and `finalize()` flushes it.
+                    //
+                    // This sibling is explicit because the condition here already
+                    // consulted `activeSegment`, so it read as more careful than
+                    // core's — and was exactly as wrong.
                     break;
                 }
                 const result = parser.parse(e.delta);
@@ -294,8 +273,9 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                         }
                     }
                 } else if (result.segments.length === 0) {
-                    if (target.typeName) target.typeName(e.delta);
-                    else target.updateLastMessage?.(e.delta, { append: true });
+                // Nothing: see the note on the other feeder. The parser is holding
+                // an ambiguous prefix, and writing it here duplicated it into
+                // `message.content`, which history preferred over the segments.
                 }
                 break;
             }
@@ -425,7 +405,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
             case 'turn-limit-exceeded':
                 if (e.scope === 'global') {
                     target.addSegment?.({
-                        id: `max-turns-${crypto.randomUUID()}`,
+                        id: `max-turns-${uuid()}`,
                         type: 'error',
                         content: `Stopped after ${e.limit} tool calls to prevent an infinite loop.`,
                         details: 'MAX_TURNS_EXCEEDED',
@@ -436,7 +416,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'phase-advance':
-                target.addSegment?.({ id: `pw-${crypto.randomUUID()}`, type: 'pipeline-waiting' } as AparteSegment);
+                target.addSegment?.({ id: `pw-${uuid()}`, type: 'pipeline-waiting' } as AparteSegment);
                 break;
 
             case 'run-aborted':
@@ -478,6 +458,13 @@ export function readableToAsyncIterable(
                 },
                 async return(): Promise<IteratorResult<AparteStreamEvent>> {
                     signal.removeEventListener('abort', onAbort);
+                    // CANCEL, then release. Releasing a reader does not stop the
+                    // source: the provider's `start()` keeps draining the vendor
+                    // body, so the model kept generating (and billing) whenever the
+                    // runner walked away from a turn — a rejected tool, a turn
+                    // limit, a missing handler. The inline loop got this fix; this
+                    // path, which the docs recommend, did not.
+                    try { await reader.cancel(); } catch { /* best effort */ }
                     try { reader.releaseLock(); } catch { /* best effort */ }
                     return { done: true, value: undefined };
                 },

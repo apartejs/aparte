@@ -80,7 +80,7 @@ only** — CI runners have 2-4 cores, where a percentage cap is harmful. Knobs w
 
 ```bash
 pnpm exec vitest run --maxWorkers 4 --minWorkers 1   # lower still (min must move too)
-E2E_ONLY=react pnpm e2e                              # one playground: one dev server
+E2E_ONLY=react pnpm e2e                              # one example: one dev server
 pnpm exec nx affected -t build --base=origin/main     # what the hook does
 ```
 
@@ -176,5 +176,5 @@ The flow:
 
 - No dependencies in `@aparte/core` (the zero-dep promise).
 - No framework code at the repo root — frameworks live only in their wrapper package (peer + dev)
-  and its playground.
+  and its example.
 - No product logic (routing, settings, persistence) in the library.

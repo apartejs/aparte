@@ -296,3 +296,36 @@ describe('AparteSelect — an options refresh while open', () => {
         expect(el.querySelectorAll('aparte-option[data-active]')).toHaveLength(0);
     });
 });
+
+describe('re-connecting does not accumulate listeners', () => {
+    /**
+     * `_setupEventListeners()` runs on every `connectedCallback`, and `_render()` has
+     * an idempotency guard, so the host element survives a re-connect. The option
+     * handler used to be an inline arrow on `this`, which `disconnectedCallback`
+     * could not remove — so every move of the element (a portal, a teleport, any
+     * framework re-parent) added another one.
+     *
+     * This backs the model selector, so each duplicate was an extra config write and
+     * an extra change event.
+     */
+    it('one click still fires one change after five re-connects', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const select = document.createElement('aparte-select');
+        select.innerHTML = '<aparte-option value="a">A</aparte-option>';
+        host.appendChild(select);
+
+        for (let i = 0; i < 5; i++) {
+            select.remove();
+            host.appendChild(select);
+        }
+
+        let changes = 0;
+        select.addEventListener('aparte-select-change', () => { changes++; });
+        select.querySelector<HTMLElement>('aparte-option')!.click();
+
+        expect(changes, 'the listener accumulated across re-connects').toBe(1);
+        select.remove();
+        host.remove();
+    });
+});

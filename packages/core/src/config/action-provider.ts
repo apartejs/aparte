@@ -2,7 +2,7 @@
 export type AparteActionZone = 'composer' | 'bubble';
 
 /**
- * A custom action button, registered once via `AparteConfig.registerAction(...)`
+ * A custom action button, registered once via `aparteGlobalConfig.registerAction(...)`
  * and placed in one or more zones — the composer toolbar and/or the message
  * (bubble) toolbar — via `zones`.
  *
@@ -13,7 +13,7 @@ export type AparteActionZone = 'composer' | 'bubble';
  * alongside the event for imperative convenience.
  *
  * @example
- * AparteConfig.registerAction({
+ * aparteGlobalConfig.registerAction({
  *   id: 'share', icon: '<svg>…</svg>', label: 'Share',
  *   zones: ['bubble'], bubble: { roles: ['assistant'] },
  * });
@@ -27,7 +27,7 @@ export interface AparteAction {
     /**
      * Icon for the button:
      * - If it starts with `<`, it is treated as raw HTML/SVG and used directly.
-     * - Otherwise it is treated as a key for `AparteConfig.getIcon()`. If the
+     * - Otherwise it is treated as a key for `aparteGlobalConfig.getIcon()`. If the
      *   provider doesn't have the key, falls back to `iconFallback` or `id`.
      */
     icon: string;
@@ -45,7 +45,7 @@ export interface AparteAction {
         position?: 'left' | 'right';
         /**
          * When `true`, the button is hidden from the composer toolbar.
-         * Toggle at runtime with `AparteConfig.setActionHidden(id, hidden)`.
+         * Toggle at runtime with `aparteGlobalConfig.setActionHidden(id, hidden)`.
          */
         hidden?: boolean;
     };

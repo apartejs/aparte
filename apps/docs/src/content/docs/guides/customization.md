@@ -10,11 +10,11 @@ sidebar:
 your own attachment chip, an avatar, extra buttons, a brand-new block type — you reach
 for **render hooks** and the **action registry**.
 
-Everything here goes through the global `AparteConfig` (or a scoped instance — see
+Everything here goes through `aparteGlobalConfig` (or a scoped instance — see
 [Per-instance config](#per-instance-config)). Nothing requires forking a component.
 
 ```ts
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 ```
 
 ## Render hooks
@@ -32,16 +32,16 @@ attach your own listeners/framework nodes with no `innerHTML` XSS surface.
 | `setBubbleShellRenderer` | the whole bubble shell | `(ctx)` |
 
 ```ts
-AparteConfig.setStatusRenderer((text) => `<div class="my-typing">${text}…</div>`);
+aparteGlobalConfig.setStatusRenderer((text) => `<div class="my-typing">${text}…</div>`);
 
-AparteConfig.setErrorRenderer(({ message }) => {
+aparteGlobalConfig.setErrorRenderer(({ message }) => {
   const el = document.createElement('div');
   el.className = 'my-error';
   el.textContent = message;      // textContent → no interpolation XSS
   return el;
 });
 
-AparteConfig.setAttachmentRenderer((att) => {
+aparteGlobalConfig.setAttachmentRenderer((att) => {
   const el = document.createElement('span');
   el.className = 'my-chip';
   el.textContent = att.name;     // textContent → the filename can't inject HTML
@@ -55,9 +55,38 @@ Pass `null` to any setter to restore the default.
 A render hook that returns a **string** is inserted as HTML. Never interpolate
 user- or model-supplied values into that string (`` `<span>${att.name}</span>` ``) — a
 crafted filename or message becomes an XSS vector. Return a **DOM element** and set
-`textContent` (as above), or escape every interpolated value yourself. Core's built-in
+`textContent` (as above), or escape every interpolated value. Core's built-in
 renderers already do this; the trust boundary is yours the moment you return a string.
 :::
+
+### If you do return a string: `escapeHtml` and `escapeAttr`
+
+Core exports the two escapers its own renderers use, so you don't have to write them.
+**The position decides which one** — and the difference is not cosmetic:
+
+```ts
+import { aparteGlobalConfig, escapeHtml, escapeAttr } from '@aparte/core';
+import type { AparteAttachment } from '@aparte/core';
+
+aparteGlobalConfig.setAttachmentRenderer((att: AparteAttachment) => `
+  <span class="my-chip" title="${escapeAttr(att.name)}">
+    ${escapeHtml(att.name)}
+  </span>
+`);
+```
+
+- **`escapeHtml`** — for text *between* tags.
+- **`escapeAttr`** — for anything *inside* an attribute value. It also encodes the
+  apostrophe, which `escapeHtml` alone is not required to: a single quote is enough to
+  break out of `title='…'` and add an `onerror` of its own.
+
+Building a **CSS selector** rather than markup is a third case: use `cssEscape`, also
+exported, because `querySelector` needs backslash escaping and will otherwise throw or
+match the wrong node.
+
+A gate script (`pnpm check:attr-escaping`) enforces this across the library's own
+source, which is how a raw `data-role="${role}"` was found sitting one line from an
+escaped sibling.
 
 ## Avatars
 
@@ -66,7 +95,7 @@ avatar provider is **imperative**: you get the already-sized `.aparte-avatar` ho
 fill it. Return an optional cleanup function for live components.
 
 ```ts
-AparteConfig.setAvatarProvider({
+aparteGlobalConfig.setAvatarProvider({
   render(role, host) {
     host.textContent = role === 'assistant' ? '✦' : '🙂';
     // return () => { /* dispose a mounted component */ };
@@ -80,7 +109,7 @@ Buttons on the message bubble **and** the composer come from **one registry**, k
 zone. Add your own with `registerAction`:
 
 ```ts
-AparteConfig.registerAction({
+aparteGlobalConfig.registerAction({
   id: 'share',
   icon: '<svg>…</svg>',          // raw HTML if it starts with '<', else an icon key
   label: 'Share',
@@ -101,9 +130,9 @@ document.addEventListener('aparte-action', (e) => {
 - `zones` decides where it shows; `composer: { position: 'left' | 'right' }` and
   `bubble: { roles: [...] }` refine placement; `order` sorts custom actions.
 - An `onClick(event)` callback is optional and fires alongside the event.
-- Hide/show at runtime with `AparteConfig.setActionHidden(id, hidden)`.
+- Hide/show at runtime with `aparteGlobalConfig.setActionHidden(id, hidden)`.
 - The **built-in** bubble actions (copy / retry / edit / feedback / info) are toggled per
-  role with `AparteConfig.setBubbleActions({ … })` — see
+  role with `aparteGlobalConfig.setBubbleActions({ … })` — see
   [What ships enabled](#what-ships-enabled) just below, because most of them are **off**
   until you ask.
 
@@ -132,10 +161,10 @@ Two levers, one for the action bar and one for everything else:
 
 ```ts
 // You run an AparteClient, so retry and edit do something:
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
 // You handle these events yourself:
-AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
 ```
 
 The **branch picker** `‹ 1/2 ›`, the waiting indicator, the stop button and the model
@@ -163,7 +192,7 @@ narrating a command doesn't mean anybody in the page can run it, which is why `R
 order, whatever the flags say. Naming a button in a per-role list *is* declaring it.
 :::
 
-Defaults are readable at runtime — `DEFAULT_BUBBLE_ACTIONS` and `DEFAULT_HOST_HANDLERS` are
+Defaults are readable at runtime — `APARTE_DEFAULT_BUBBLE_ACTIONS` and `APARTE_DEFAULT_HOST_HANDLERS` are
 exported from `@aparte/core`, so you never hard-code them.
 
 ## The composer toolbar
@@ -308,13 +337,41 @@ registerSegmentRenderer({
 });
 ```
 
+### Driving the whole registry
+
+`registerSegmentRenderer` adds a type. Three more functions drive the registry itself,
+and none of them needs an `AparteClient`:
+
+```ts
+import {
+  declineDefaultRenderers,
+  installDefaultRenderersOnce,
+  getAllRenderers,
+} from '@aparte/core';
+
+// Draw every segment yourself: refuse the built-ins BEFORE the first bubble renders.
+declineDefaultRenderers();
+
+// …or install them lazily — this is what <aparte-chat-bubble> does on first render.
+installDefaultRenderersOnce();
+
+// Introspect the wiring. Runs in Node, with no DOM, so a test can assert your setup.
+const types: readonly string[] = getAllRenderers().map((r) => r.type);
+```
+
+`declineDefaultRenderers()` is what `new AparteClient({ autoRegister: false })` calls
+internally — calling it directly is the only way to say the same thing without
+constructing a client, which [Bring your own loop](/guides/bring-your-own-loop/) tells you
+not to do. All three take an optional trailing config, so each can be scoped to one chat
+rather than the page.
+
 ## Icons
 
 Every icon ships as a zero-dependency inline SVG. Override any of them — with an SVG,
 an icon-font element, an emoji, or an `<img>` (the value is treated as trusted markup):
 
 ```ts
-AparteConfig.setIconProvider({
+aparteGlobalConfig.setIconProvider({
   copy: () => '<svg>…</svg>',
   send: () => '<i class="fa fa-paper-plane"></i>',
 });
@@ -331,29 +388,30 @@ Core is zero-dependency by default, so Markdown and syntax highlighting are **of
 until you inject a renderer — keeping the bundle honest:
 
 ```ts
+import { aparteGlobalConfig } from '@aparte/core';
 import { marked } from 'marked';
 import { codeToHtml } from 'shiki';
 
-AparteConfig.setMarkdownProvider((raw) => marked.parse(raw) as string);
-AparteConfig.setHighlightProvider((code, lang) => codeToHtml(code, { lang, theme: 'dracula' }));
+aparteGlobalConfig.setMarkdownProvider((raw) => marked.parse(raw) as string);
+aparteGlobalConfig.setHighlightProvider((code, lang) => codeToHtml(code, { lang, theme: 'dracula' }));
 ```
 
 ## Per-instance config
 
-`AparteConfig` is global — right for the common one-chat-per-app case. To run several
+`aparteGlobalConfig` is shared page-wide — right for the common one-chat-per-app case. To run several
 independently-customized chats on one page, attach an instance config to each chat's
 root; every `<aparte-*>` inside resolves the nearest boundary and falls back to global.
 
 ```ts
-import { AparteConfigClass, attachConfig } from '@aparte/core';
+import { AparteConfig, attachConfig } from '@aparte/core';
 
-const support = new AparteConfigClass();
+const support = new AparteConfig();
 support.setStatusRenderer((t) => `<em>${t}</em>`);
 attachConfig(document.querySelector('#support-chat')!, support);
 ```
 
 :::note
 An instance config starts from the built-in defaults — it does **not** inherit
-providers registered on the global `AparteConfig`. Register what each instance needs on
+providers registered on `aparteGlobalConfig`. Register what each instance needs on
 that instance.
 :::

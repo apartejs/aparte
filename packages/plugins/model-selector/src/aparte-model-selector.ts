@@ -15,9 +15,11 @@
  */
 
 import {
-    AparteConfig,
+    aparteGlobalConfig,
+    escapeAttr,
     resolveConfig,
-    type AparteConfigClass,
+    type AparteConfig,
+    type AparteConfigAware,
     AparteSelect,
     type AparteOptgroup,
     type AparteAIProvider,
@@ -38,14 +40,13 @@ interface ProviderModels {
  * and both flow through `innerHTML` when the option list is (re)built.
  */
 function esc(value: unknown): string {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    // Coerce, then delegate: core owns the escaping. This local copy used to
+    // inline it and, like two of its eight siblings across the scope, left the
+    // apostrophe through — enough to break out of a single-quoted attribute.
+    return escapeAttr(String(value ?? ''));
 }
 
-export class AparteModelSelector extends HTMLElement {
+export class AparteModelSelector extends HTMLElement implements AparteConfigAware {
     private _currentProviderId: string | null = null;
     private _currentModelId: string | null = null;
     private _providerModels: ProviderModels[] = [];
@@ -54,9 +55,18 @@ export class AparteModelSelector extends HTMLElement {
     private _isRendering = false;
     private _expandedGroups: Set<string> = new Set();
 
-    /** Config governing THIS element — nearest instance boundary, else the global.
-        Resolved on connect (multi-instance pages get their own config). */
-    private _cfg: AparteConfigClass = AparteConfig;
+    /**
+     * Config governing THIS element — nearest instance boundary, else the global.
+     *
+     * Cached rather than resolved per call, because this element does not only
+     * READ it: it holds a `subscribe()` registration keyed on the object. That
+     * cache is only correct if something tells us when the boundary changes, and
+     * under all four wrappers it does change after we connect —
+     * `AparteChatHost.bind()` runs `attachConfig` from a post-mount hook. Hence
+     * {@link AparteConfigAware}; without it this element served the global config's
+     * providers to a chat that was given its own.
+     */
+    private _cfg: AparteConfig = aparteGlobalConfig;
 
     private _configUnsubscribe: (() => void) | null = null;
 
@@ -89,7 +99,12 @@ export class AparteModelSelector extends HTMLElement {
         await this._loadAllProviderModels();
         this._render();
 
-        // Listen for configuration changes (e.g. from an onboarding flow)
+        this._subscribeToConfig();
+    }
+
+    /** Listen for configuration changes (e.g. from an onboarding flow). */
+    private _subscribeToConfig(): void {
+        this._configUnsubscribe?.();
         this._configUnsubscribe = this._cfg.subscribe(() => {
             void (async () => {
                 const cfg = this._cfg.getModelConfig();
@@ -112,6 +127,36 @@ export class AparteModelSelector extends HTMLElement {
         this._aparteSelect?.removeEventListener('aparte-select-change', this._boundHandleChange);
         this.removeEventListener('aparte-optgroup-toggle', this._handleOptgroupToggle);
         this._configUnsubscribe?.();
+    }
+
+    /**
+     * The boundary above us appeared or changed: move the subscription and reload,
+     * because a different config means different providers and a different
+     * selection.
+     *
+     * See {@link AparteConfigAware}. The element's own per-instance tests passed
+     * before this existed only because they mount the boundary FIRST — the one
+     * ordering no wrapper produces.
+     */
+    aparteConfigChanged(next: AparteConfig): void {
+        this._configUnsubscribe?.();
+        this._configUnsubscribe = null;
+        this._cfg = next;
+        if (!this.isConnected) return;
+        void (async () => {
+            this._isLoading = false;
+            this._providerModels = [];
+            const model = this._cfg.getModelConfig();
+            if (model.defaultProvider && model.defaultModel) {
+                this._currentProviderId = model.defaultProvider;
+                this._currentModelId = model.defaultModel;
+            } else {
+                this._loadPersistedSelection();
+            }
+            await this._loadAllProviderModels();
+            this._render();
+            this._subscribeToConfig();
+        })();
     }
 
     attributeChangedCallback(): void {
@@ -163,11 +208,20 @@ export class AparteModelSelector extends HTMLElement {
 
             const config = this._cfg.getModelConfig();
 
-            // Store in a temporary list to avoid mid-render state corruption
-            const tempList: ProviderModels[] = [];
+            // Store in a temporary list to avoid mid-render state corruption.
+            //
+            // Indexed by REGISTRATION order, not filled by completion order. The
+            // fetches run in parallel, so a `push` here ordered the dropdown — and
+            // therefore what `auto-select` picks — by whichever /models endpoint
+            // answered first. A cloud provider on a CDN beats a local server that
+            // has to wake up, so an app registering `[OLLAMA, LMSTUDIO, OPENROUTER]`
+            // could silently land on the paid one, and land on a different one on
+            // the next reload. `auto-select` documents itself as "the first model";
+            // first has to mean first, not fastest.
+            const tempList: (ProviderModels | undefined)[] = new Array(uniqueProviders.length);
 
             // Fetch all providers in parallel
-            await Promise.all(uniqueProviders.map(async (provider) => {
+            await Promise.all(uniqueProviders.map(async (provider, i) => {
                 try {
                     const models = await this._cfg.refreshProviderModels(provider.id);
 
@@ -178,14 +232,16 @@ export class AparteModelSelector extends HTMLElement {
                         : models;
 
                     if (filteredModels.length > 0) {
-                        tempList.push({ provider, models: filteredModels });
+                        tempList[i] = { provider, models: filteredModels };
                     }
                 } catch (error) {
                     console.warn(`[AparteModelSelector] Failed to load models for ${provider.id}:`, error);
                 }
             }));
 
-            this._providerModels = tempList;
+            // The holes are the providers that failed or returned nothing: dropped,
+            // which keeps the order of the survivors.
+            this._providerModels = tempList.filter((pm): pm is ProviderModels => pm !== undefined);
         } finally {
             this._isLoading = false;
         }
@@ -273,7 +329,7 @@ export class AparteModelSelector extends HTMLElement {
         // Build options HTML — single provider: flat list; multiple: grouped optgroups
         const only = this._providerModels[0];
         const singleProvider = this._providerModels.length === 1;
-        const optionsHtml = singleProvider && only
+        const optionsHtml = singleProvider && only  // safe-text: every value below goes through esc(); the tags are this file's own
             ? only.models.map(m => {
                 const key = `${only.provider.id}::${m.id}`;
                 return `<aparte-option value="${esc(key)}">${esc(m.name)}</aparte-option>`;

@@ -3,6 +3,20 @@
 The **headless agent loop** behind `@aparte/*` — framework-agnostic, zero runtime
 dependencies, runs in the browser or Node.
 
+```bash
+npm install @aparte/engine @aparte/core
+```
+
+`@aparte/core` is an **optional peer**: install it only for the recommended path below.
+
+```ts
+import { runStreamAgent } from '@aparte/engine';
+import { AparteClient } from '@aparte/core';
+
+// Inject the loop and core renders its events for you — a drop-in, not an approximation.
+new AparteClient({ streamRunner: runStreamAgent }).start();
+```
+
 Its core export is **`runStreamAgent`**: a DOM-free structured-stream loop that turns a
 transport's token stream into high-level run events (text, thinking, tool calls, artifacts),
 drives the tool-calling loop (with optional human-in-the-loop approval), and reports usage.
@@ -34,7 +48,7 @@ const log = new PromptLog();                       // your append-only transcrip
 
 await runStreamAgent({
   // …messageId, emitter, signal, toolLookup
-  baseRequest: { messages: [] },                   // unused by your transport
+  baseRequest: { messages: [], modelId: 'my-model' }, // your transport may ignore both
   onHistoryAppend: (turn) => log.append(turn),     // tool_call · tool_result · phase reply
   transportCall: () => myCompletion(log.render()), // your own bytes, extended not rebuilt
 });

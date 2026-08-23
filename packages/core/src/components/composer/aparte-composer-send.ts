@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
+import { escapeAttr } from '../../utils/escape.js';
 
 /**
  * @element aparte-composer-send
@@ -54,10 +55,10 @@ export class AparteComposerSend extends HTMLElement {
 
         this.innerHTML = `<button
             class="aparte-cs-button aparte-send-button"
-            aria-label="${label}"
-            title="${label}"
+            aria-label="${escapeAttr(label)}"
+            title="${escapeAttr(label)}"
             ${disabled ? 'disabled' : ''}
-        >${icon}</button>`;
+        >${icon}</button>`;  // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
 
         this._button = this.querySelector('.aparte-cs-button');
         this._button?.addEventListener('click', this._onClick);
@@ -85,13 +86,24 @@ export class AparteComposerSend extends HTMLElement {
             root._on('attachments-change', () => this._syncState())
         );
         this._unsubscribes.push(
-            root._on('panel-change', ({ active, submitEnabled }) => {
+            root._on('panel-change', ({ active, submitEnabled, mode }) => {
                 if (!this._button) return;
                 if (active) {
-                    // Panel is shown — override to "Submit answer" state regardless of streaming
+                    // Panel is shown — this one button now means "answer", and WHICH
+                    // answer depends on where you are in the form.
+                    //
+                    // The icon has to move with the meaning: it drew a paper plane while
+                    // the label already said "Submit", so it read as "send a message"
+                    // while it meant "answer this question". And a check on a form with
+                    // three questions left was just as wrong — hence a chevron while
+                    // there is more ahead. The visual is what a user reads.
                     this._button.disabled = !submitEnabled;
-                    this._button.innerHTML = this._getSendIcon();
-                    const label = resolveConfig(this).t('submitButton') || 'Submit';
+                    const cfg = resolveConfig(this);
+                    const advancing = mode === 'advance';
+                    this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();
+                    const label = advancing
+                        ? (cfg.t('elicitationNext') || 'Next')
+                        : (cfg.t('submitButton') || 'Submit');
                     this._button.setAttribute('aria-label', label);
                     this._button.setAttribute('title', label);
                     this._button.classList.remove('is-streaming');
@@ -138,6 +150,17 @@ export class AparteComposerSend extends HTMLElement {
         } else {
             this._syncState();
         }
+    }
+
+    /**
+     * The icon for submitting an ANSWER, which is not the same act as sending a
+     * message — one button, two meanings, and it has to say which one it is.
+     */
+    private _getSubmitIcon(): string {
+        // No fallback chain: `getIcon` already returns a built-in when the consumer's
+        // icon set has no entry, so `|| getIcon('send')` was dead code — written on the
+        // assumption that it could come back empty, and a test proved it cannot.
+        return resolveConfig(this).getIcon('check');
     }
 
     private _getSendIcon(): string {

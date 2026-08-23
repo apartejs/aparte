@@ -1,9 +1,12 @@
 import type { AparteMessage, AparteAttachment } from '../types/index.js';
-import type { ConversationManager } from './conversation-manager.js';
+import type { AparteConversationManager } from './conversation-manager.js';
 import type { AparteConversation } from './types.js';
 import type { ExportedMessageRepository } from '../runtime/message-repository.js';
 import { resolveConfig } from '../config/config-context.js';
+import { aparteGlobalConfig } from '../config/aparte-config.js';
+import type { AparteConfig } from '../config/aparte-config.js';
 import { filesToAttachments } from '../utils/files-to-attachments.js';
+import { uuid } from '../utils/uuid.js';
 
 /**
  * Abstract binding between a chat UI and the conversation lifecycle.
@@ -28,7 +31,7 @@ export interface AparteChatBinding {
     clearMessages(): void;
     /**
      * Export the full conversation tree for persistence.
-     * Optional: only available when the binding wraps a `MessageRepository`
+     * Optional: only available when the binding wraps a `AparteMessageRepository`
      * (e.g. the vanilla viewport). Returns `undefined` when not supported.
      */
     exportTree?(): ExportedMessageRepository | undefined;
@@ -44,9 +47,9 @@ export interface AparteChatBinding {
 export interface AparteConversationControllerOptions {
     /**
      * Conversation manager. If omitted, the controller resolves it from
-     * `AparteConfig.getConversationManager()` when first needed.
+     * `aparteGlobalConfig.getConversationManager()` when first needed.
      */
-    manager?: ConversationManager;
+    manager?: AparteConversationManager;
     /**
      * Called whenever a new conversation is created lazily (on first user
      * message in an empty thread). Useful for the parent app to sync the URL.
@@ -55,7 +58,7 @@ export interface AparteConversationControllerOptions {
 }
 
 /**
- * Connects an `AparteChatBinding` to a `ConversationManager`.
+ * Connects an `AparteChatBinding` to a `AparteConversationManager`.
  *
  * Responsibilities:
  *   - Load messages when `setConversationId(id)` is called.
@@ -106,10 +109,36 @@ export class AparteConversationController {
      * keeps backward compatibility with hosts that haven't opted into the
      * conversation lifecycle yet.
      */
-    private _manager(): ConversationManager | undefined {
+    private _manager(): AparteConversationManager | undefined {
         // Explicit option first, then the config governing the host element
         // (instance config under a [data-aparte-host] boundary, else the global).
-        return this._options.manager ?? resolveConfig(this._binding.host).getConversationManager();
+        if (this._options.manager) return this._options.manager;
+        const scoped = resolveConfig(this._binding.host);
+        const manager = scoped.getConversationManager();
+        if (!manager) this._warnManagerOnTheWrongConfig(scoped);
+        return manager;
+    }
+
+    /**
+     * Degraded mode is legitimate — a host that never opted into the conversation
+     * lifecycle has no manager and should not be nagged. Registering one on the
+     * WRONG config is not: the four wrapper hooks used to write it to the global
+     * singleton unconditionally, so `config` + persistence looked like it worked
+     * (the optimistic UI still appends) and saved nothing at all.
+     *
+     * Warned once per controller, and only in the case that is unambiguously a
+     * mistake: no manager here, but one on the global.
+     */
+    private _warnedNoManager = false;
+    private _warnManagerOnTheWrongConfig(scoped: AparteConfig): void {
+        if (this._warnedNoManager) return;
+        if (scoped === aparteGlobalConfig || !aparteGlobalConfig.getConversationManager()) return;
+        this._warnedNoManager = true;
+        console.warn(
+            '[aparte] This chat resolves its own config, but the conversation manager was '
+            + 'registered on aparteGlobalConfig — so nothing is being persisted. Pass the same '
+            + 'config to init(): `init(adapter, myConfig)`, using the config you gave the chat.',
+        );
     }
 
     /**
@@ -136,7 +165,7 @@ export class AparteConversationController {
                 ? filesToAttachments(files)
                 : undefined;
             const userMsg: AparteMessage = {
-                id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                id: uuid(),
                 role: 'user',
                 content,
                 timestamp: evt.detail?.timestamp ?? Date.now(),
@@ -242,6 +271,9 @@ export class AparteConversationController {
     }
 
     /** Detach event listeners. */
+    /** Release handle for the hydration-retry subscription (see setConversationId). */
+    private _stopHydrationRetry: (() => void) | null = null;
+
     unbind(): void {
         // Persist current state before tearing down. This covers the case where
         // the host component is destroyed mid-stream (e.g. "New Chat" navigates
@@ -250,6 +282,8 @@ export class AparteConversationController {
         // _persistActive() is a no-op when _activeId is null, so this is safe
         // for new instances that were never given a conversation id.
         this._persistActive();
+        this._stopHydrationRetry?.();
+        this._stopHydrationRetry = null;
         const host = this._binding.host;
         if (this._onSendCapture) {
             host.removeEventListener('aparte-send', this._onSendCapture, { capture: true } as EventListenerOptions);
@@ -360,8 +394,14 @@ export class AparteConversationController {
             // that conflates "still hydrating" with "hydrated but empty"
             // (first-time user, no convs yet), which would defer forever.
             if (manager && !manager.initialized) {
+                // Held so `unbind()` can release it: a host destroyed while the
+                // manager is still hydrating used to leave this subscription
+                // alive, and the later emit then called `setConversationId` on an
+                // unbound controller — writing messages into a torn-down binding.
+                this._stopHydrationRetry?.();
                 const stop = manager.subscribe(() => {
                     stop();
+                    this._stopHydrationRetry = null;
                     // Only retry if the id has become known. Otherwise let the
                     // next emit (or a later setConversationId call) handle it.
                     if (manager.conversations.some((c: AparteConversation) => c.id === id)) {
@@ -374,6 +414,7 @@ export class AparteConversationController {
                         this._binding.clearMessages();
                     }
                 });
+                this._stopHydrationRetry = stop;
                 return;
             }
             console.warn('[ConversationController] unknown id or no manager — clearing. manager:', !!manager, 'conv:', !!conv);

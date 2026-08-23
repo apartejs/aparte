@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import { tick } from 'svelte';
-import { AparteClient, AparteConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
+import { AparteClient, aparteGlobalConfig, type AparteConversation, type AparteStorageAdapter } from '@aparte/core';
 import { createAparteChat } from '../stores/aparteChat';
 import ClientHost from './ClientHost.svelte';
 import ConversationHost from './ConversationHost.svelte';
@@ -34,7 +34,7 @@ class MemoryAdapter implements AparteStorageAdapter {
 }
 
 beforeEach(() => { cleanup(); vi.clearAllMocks(); });
-afterEach(() => { AparteConfig.setConversationManager(null as never); });
+afterEach(() => { aparteGlobalConfig.setConversationManager(null as never); });
 
 /** Render the probe and capture the store bundle it hands back. */
 function renderConversationHost() {
@@ -129,7 +129,7 @@ describe('createConversationManager', () => {
 
         expect(get(api.conversations)).toHaveLength(1);
         expect(get(api.activeConversation)?.title).toBe('First');
-        expect(AparteConfig.getConversationManager()).not.toBeNull();
+        expect(aparteGlobalConfig.getConversationManager()).not.toBeNull();
     });
 
     it('splits active from archived, newest first', async () => {

@@ -1,0 +1,29 @@
+{
+    "name": "@aparte-workspace/example-svelte5",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "description": "The Svelte example again, on Svelte 5 — the proof that one shipped source serves both majors.",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "check": "svelte-check --tsconfig ./tsconfig.json",
+        "typecheck": "node scripts/typecheck.mjs"
+    },
+    "dependencies": {
+        "@aparte/core": "workspace:*",
+        "@aparte/plugin-marked": "workspace:*",
+        "@aparte/plugin-model-selector": "workspace:*",
+        "@aparte/provider-openai-compat": "workspace:*",
+        "@aparte/svelte": "workspace:*",
+        "svelte": "^5.0.0"
+    },
+    "devDependencies": {
+        "@sveltejs/vite-plugin-svelte": "^5.0.0",
+        "@tsconfig/svelte": "^5.0.0",
+        "svelte-check": "^4.0.0",
+        "typescript": "^5.4.0",
+        "vite": "^6.0.0"
+    }
+}

@@ -47,6 +47,7 @@ what nobody claimed. See [Custom segment types](/guides/customization/#custom-se
 2. When your loop starts answering, `appendMessage` an **empty assistant message** with a fresh id.
 3. `injectTokenStream(id, tokens)` with your token source.
 
+<!-- doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page -->
 ```tsx
 import { useCallback } from 'react';
 import { AparteChat, useAparteChat } from '@aparte/react';
@@ -153,9 +154,15 @@ function createTokenQueue() {
 Wire it to the pushing side, hand `queue.stream()` to `injectTokenStream`:
 
 ```ts
+// Your own bridge — an Electron preload, a WebSocket wrapper, whatever pushes tokens.
+declare const myBridge: {
+  onToken(cb: (token: string) => void): void;
+  onDone(cb: () => void): void;
+};
+
 const queue = createTokenQueue();
-window.myBridge.onToken((t) => queue.push(t));   // e.g. an Electron preload bridge
-window.myBridge.onDone(() => queue.end());
+myBridge.onToken((t) => queue.push(t));
+myBridge.onDone(() => queue.end());
 
 chat.ref.current?.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
 await chat.ref.current?.injectTokenStream(id, queue.stream());
@@ -172,6 +179,117 @@ If the external loop is yours to write, you don't have to reinvent it:
 inline — headless, zero dependencies, no DOM. It runs fine in Node, a worker, or an Electron
 main process; forward its emitted text over your bridge and inject it here.
 
+## The pieces core exports for this
+
+Driving your own loop means doing by hand what `AparteClient` does for you. These are
+exported so you do not have to reimplement them:
+
+| Export | What it does | When you want it |
+| --- | --- | --- |
+| `AparteStreamParser` | Incrementally splits a model's text into segments — text, code fences, thinking blocks, `<artifact>` tags | You are feeding raw deltas and want the same rendering the client produces |
+| `parseMarkdownToSegments` | The one-shot version of the above, for a complete reply | You already have the whole answer (a non-streaming call, or replaying history) |
+| `contentToText` | Flattens `string \| AparteContentPart[]` to its text | Your transport or logs need the text of a multimodal message |
+| `deriveArtifactKind` | Maps a MIME type to a short artifact kind (`html`, `svg`, `js`, …) | You are building artifact segments yourself |
+| `readableToAsyncIterable` | Wraps a `ReadableStream` so `for await` works, honouring an `AbortSignal` | You are consuming a provider's `parseStream` directly — Chromium does not async-iterate streams |
+| `registerAllComponents` | Touches every element class so a bundler cannot tree-shake the `customElements.define` side effects away | Your build is aggressive, or you load `@aparte/core` through a dynamic `import()` |
+| `AparteChatHost` | The streaming / branch / host-method orchestration the four wrappers all bind to — everything `AparteClient` does minus the transport | You are writing a fifth framework binding, or driving core from a framework we do not ship |
+| `populateBubbleFromMessage` | Fills an `<aparte-chat-bubble>` from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
+| `parseAparteEventStream` | Reads the SSE wire format `createAparteChatHandler` emits back into `AparteStreamEvent`s | You wrote your own client against an aparté backend endpoint |
+
+Wiring your own binding starts here — no `AparteClient`, so nothing is hostage to it:
+
+```ts
+import {
+  registerAllComponents,
+  AparteChatHost,
+  populateBubbleFromMessage,
+  parseAparteEventStream,
+  readableToAsyncIterable,
+  uuid,
+  type AparteMessage,
+} from '@aparte/core';
+
+registerAllComponents();                       // safe to call more than once
+
+// The host takes its binding up front: you own the message list, it drives the DOM.
+const chat = document.querySelector('aparte-chat')!;
+let messages: AparteMessage[] = [];
+
+const host = new AparteChatHost({
+  hostId: uuid(),
+  host: chat,
+  viewport: chat.viewport,
+  getMessages: () => messages,
+  setMessages: (next) => { messages = next; },
+  // Required: run `cb` once your framework has painted. With no framework, the
+  // next frame is the honest answer — the host uses it to measure, not to poll.
+  afterRender: (cb) => void requestAnimationFrame(() => cb()),
+  onMessagesChange: (next) => void next,       // your framework's re-render
+});
+const release = host.bind();                   // returns its own unbind
+
+// Rendering a bubble yourself instead of letting the viewport own it:
+const bubble = document.createElement('aparte-chat-bubble');
+populateBubbleFromMessage(bubble, { id: 'a1', role: 'assistant', content: 'hi', timestamp: Date.now() });
+
+// Reading an aparté backend's SSE stream without AparteClient. Note the wrapper:
+// parseAparteEventStream returns a ReadableStream, and Chromium does not
+// async-iterate those — the signal is how a user's "stop" cuts the read.
+async function consume(body: ReadableStream<Uint8Array>, signal: AbortSignal) {
+  for await (const event of readableToAsyncIterable(parseAparteEventStream(body), signal)) void event;
+}
+void consume;
+
+release();
+```
+
+```ts
+import { AparteStreamParser, contentToText } from '@aparte/core';
+
+const parser = new AparteStreamParser();
+for (const delta of ['Here: ', '```', 'ts\n', 'const x = 1;\n', '```']) {
+  const { segments } = parser.parse(delta);
+  for (const segment of segments) void segment; // render as they complete
+}
+const trailing = parser.finalize();            // flush whatever is still buffered
+void trailing;
+
+void contentToText([{ type: 'text', text: 'hello' }]);   // 'hello'
+```
+
+### Reasoning models: `thinkingDelimiters`
+
+By default the parser recognises `<think>…</think>` **and** `<thinking>…</thinking>`.
+Models that mark their reasoning differently need the delimiters spelled out — pass one
+pair, or several. Passing any **replaces** the defaults, so re-list the ones you still
+want:
+
+```ts
+import { AparteStreamParser } from '@aparte/core';
+import type { AparteThinkingDelimiterPair } from '@aparte/core';
+
+const pairs: AparteThinkingDelimiterPair[] = [
+  { start: '<think>', end: '</think>' },
+  { start: '<|begin_of_thought|>', end: '<|end_of_thought|>' },
+];
+
+const parser = new AparteStreamParser({ thinkingDelimiters: pairs });
+void parser;
+```
+
+Matched content becomes a `thinking` segment, which renders collapsed instead of as
+part of the reply.
+
+:::note[Only on this path]
+`AparteClient` does not forward parser options today, so `thinkingDelimiters` is
+reachable only when you construct the parser yourself — that is, on this page's path.
+There is no response-side interceptor to rewrite the deltas on the way in either
+(`requestInterceptor` only touches the outgoing request). So if you use the client and
+your model marks reasoning with something other than `<think>` or `<thinking>`, the
+options are to normalise the delimiters in your transport before core sees them, or to
+drive the loop yourself as above.
+:::
+
 ## What you give up
 
 Display-only means the pieces `AparteClient` orchestrates don't run in the page: no built-in
@@ -184,7 +302,7 @@ integration shows no button it can't honour. Either handle those two events in y
 switch them on:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 ```
 
 …or leave them off, which is the default and costs you nothing. Same story for the ⓘ details

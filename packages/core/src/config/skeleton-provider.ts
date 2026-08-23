@@ -6,7 +6,7 @@
  * 
  * @example
  * // Register a skeleton provider (e.g. an Angular ngx-skeleton-loader bridge)
- * AparteConfig.setSkeletonProvider({
+ * aparteGlobalConfig.setSkeletonProvider({
  *   message: () => '<ngx-skeleton-loader count="3"></ngx-skeleton-loader>',
  *   code: () => '<ngx-skeleton-loader appearance="line" count="5"></ngx-skeleton-loader>',
  *   // ...
@@ -31,7 +31,7 @@ export interface AparteSkeletonProvider {
  * Minimal fallback skeletons - zero CSS animations, just structure
  * Used when no skeleton plugin is installed
  */
-export const DEFAULT_SKELETON_FALLBACKS: Record<AparteSkeletonType, string> = {
+export const APARTE_DEFAULT_SKELETON_FALLBACKS: Record<AparteSkeletonType, string> = {
     message: '<div class="aparte-skeleton-fallback" style="padding:16px;color:#9ca3af;">Loading...</div>',
     code: '<div class="aparte-skeleton-fallback" style="padding:16px;background:#1e293b;color:#64748b;border-radius:8px;">Loading code...</div>',
     thinking: '<div class="aparte-skeleton-fallback" style="padding:8px;color:#9ca3af;">Thinking...</div>',

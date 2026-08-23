@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { setupShikiProvider } from './index.js';
-import { AparteConfig } from '@aparte/core';
+import { aparteGlobalConfig } from '@aparte/core';
 
 describe('@aparte/plugin-shiki', () => {
     it('registers shiki as the highlight provider', async () => {
-        const spy = vi.spyOn(AparteConfig, 'setHighlightProvider');
+        const spy = vi.spyOn(aparteGlobalConfig, 'setHighlightProvider');
         await setupShikiProvider();
         expect(spy).toHaveBeenCalled();
         spy.mockRestore();
@@ -12,7 +12,7 @@ describe('@aparte/plugin-shiki', () => {
 
     it('highlights code (loads the grammar on demand)', async () => {
         let captured: ((code: string, lang: string) => string | Promise<string>) | undefined;
-        vi.spyOn(AparteConfig, 'setHighlightProvider').mockImplementation((p) => {
+        vi.spyOn(aparteGlobalConfig, 'setHighlightProvider').mockImplementation((p) => {
             captured = p;
         });
 
@@ -26,7 +26,7 @@ describe('@aparte/plugin-shiki', () => {
 
     it('falls back to plain text for an unknown grammar', async () => {
         let captured: ((code: string, lang: string) => string | Promise<string>) | undefined;
-        vi.spyOn(AparteConfig, 'setHighlightProvider').mockImplementation((p) => {
+        vi.spyOn(aparteGlobalConfig, 'setHighlightProvider').mockImplementation((p) => {
             captured = p;
         });
 

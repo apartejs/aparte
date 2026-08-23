@@ -29,10 +29,6 @@ export type {
 
 export type {
     AparteSendEventDetail,
-    AparteTokenEventDetail,
-    AparteControlEvent,
-    AparteMessageEventDetail,
-    AparteStatusEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
     ApartePathChangedEventDetail,
@@ -76,20 +72,18 @@ export type {
     AparteArtifactSegment,
     AparteSegmentType,
     AparteSegmentRenderer,
-    AparteSegmentActionEvent,
-    AparteSegmentUpdateEvent
+    AparteSegmentUpdateEventDetail
 } from './segments.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Providers - Data source abstractions
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type {
-    AparteDataProvider,
-    AparteStreamProvider,
-    AparteMessageStore,
-    AparteControlHandler
-} from './providers.js';
+// `providers.ts` used to be re-exported here: `AparteDataProvider`,
+// `AparteStreamProvider`, `AparteMessageStore`, `AparteControlHandler`. Implemented
+// by nothing, consumed by nothing, and superseded by `AparteTransport` /
+// `AparteFormatAdapter` / `AparteMessageRepository` — so the type barrel carried two
+// competing "provider" abstractions and a reader could not tell which was live.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Theming - CSS Custom Properties
@@ -132,10 +126,10 @@ export type {
     AparteToolCall,
     AparteToolResult,
     AparteToolHandler,
+    AparteToolContext,
     AparteToolRenderer,
     AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
-    AparteToolActionDetail
 } from './tools.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,11 +141,22 @@ export { AparteErrorCode, AparteError } from './errors.js';
 export type {
     AparteModelChangeEventDetail,
     AparteMessageDoneEventDetail,
+    AparteMessageStartEventDetail,
+    AparteMessageErrorEventDetail,
+    AparteMessageAbortedEventDetail,
+    AparteAbortEventDetail,
+    AparteCompactEventDetail,
+    AparteCompactDoneEventDetail,
+    AparteCompactErrorEventDetail,
+    AparteAttachmentPreviewEventDetail,
+    AparteTerminalRunEventDetail,
+    AparteFileGenReadyEventDetail,
+    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
     AparteArtifactStartEventDetail,
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
-    AparteArtifactOpenEventDetail
+    AparteArtifactRedownloadEventDetail
 } from './events.js';
 
 // The canonical imperative surface every framework <AparteChat> exposes.

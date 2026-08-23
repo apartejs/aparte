@@ -23,7 +23,7 @@
       "plugin": "@nx/js/typescript",
       "exclude": [
         "apps/docs/**",
-        "apps/playgrounds/**",
+        "apps/examples/**",
         "packages/wrappers/angular/**",
         "e2e/**"
       ],
@@ -33,7 +33,6 @@
         },
         "build": {
           "targetName": "build",
-          "configName": "tsconfig.lib.json",
           "buildDepsName": "build-deps",
           "watchDepsName": "watch-deps"
         }

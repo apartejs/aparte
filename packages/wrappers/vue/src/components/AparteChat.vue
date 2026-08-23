@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick, useId, toRaw } from 'vue';
-import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfigClass, type AparteChatImperativeApi } from '@aparte/core';
+import { AparteChatHost, isAwaitingReply, type AparteChatHostBinding, type AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage, AparteSegment, AparteSendEventDetail, AparteActionEventDetail } from '../types.js';
 
 interface Props {
+  /**
+   * The host element's `id`, and therefore the `targetId` every event this chat
+   * dispatches carries. Generated when omitted — but it used to be generated and
+   * neither accepted nor exposed, which made `AparteClientOptions.scopeToTargetId`
+   * unreachable from this component.
+   */
+  id?: string;
   /** Optional: omit for an uncontrolled chat (defaults to []); use `v-model:messages` to control. */
   messages?: AparteMessage[];
   placeholder?: string;
@@ -32,15 +39,15 @@ interface Props {
    * `<aparte-composer-attachments>` in it yourself).
    */
   attachments?: boolean;
-  /** Active conversation id (loads/persists via the registered ConversationManager). */
+  /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   conversationId?: string | null;
   /**
-   * Instance {@link AparteConfigClass} for this chat. When set, aparté components
-   * inside resolve THIS config instead of the global `AparteConfig` singleton, so
+   * Instance {@link AparteConfig} for this chat. When set, aparté components
+   * inside resolve THIS config instead of `aparteGlobalConfig`, so
    * several independently-configured chats can coexist on one page. Omit for the
    * global config. Read once when the host mounts.
    */
-  config?: AparteConfigClass;
+  config?: AparteConfig;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -77,7 +84,9 @@ const emit = defineEmits<{
 }>();
 
 // useId() (Vue 3.5+) is SSR-stable — server and client agree, no hydration mismatch.
-const hostId = `aparte-chat-${useId()}`;
+// A caller-supplied `id` wins, so `scopeToTargetId` has something to match; the
+// generated one stays SSR-stable for the common case.
+const hostId = props.id ?? `aparte-chat-${useId()}`;
 const rootRef = ref<HTMLElement>();
 const viewportRef = ref<HTMLElement>();
 const composerRef = ref<HTMLElement>();

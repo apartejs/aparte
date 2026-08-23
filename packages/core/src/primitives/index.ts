@@ -5,7 +5,7 @@
  */
 
 // Select
-export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail } from './select/index.js';
+export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail } from './select/index.js';
 
 // Progress Spinner
 export { AparteProgressSpinner } from './progress-spinner/index.js';

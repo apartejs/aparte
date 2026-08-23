@@ -1,21 +1,22 @@
 import { writable, derived } from 'svelte/store';
 import { onDestroy } from 'svelte';
 import {
-    AparteConfig,
-    ConversationManager,
+    aparteGlobalConfig,
+    type AparteConfig,
+    AparteConversationManager,
     type AparteConversation,
     type AparteStorageAdapter,
 } from '@aparte/core';
 import type { AparteMessage } from '../types.js';
 
 /**
- * Svelte-store wrapper around the core `ConversationManager`. The active
+ * Svelte-store wrapper around the core `AparteConversationManager`. The active
  * conversation is owned by the chat component's controller; switch by binding
  * `conversationId` on `<AparteChat>`. Call from a component's script. Svelte
  * equivalent of Angular's `ConversationManagerService`.
  */
 export function createConversationManager() {
-    let manager: ConversationManager | null = null;
+    let manager: AparteConversationManager | null = null;
     let unsub: (() => void) | null = null;
 
     const conversations = writable<AparteConversation[]>([]);
@@ -32,13 +33,22 @@ export function createConversationManager() {
 
     onDestroy(() => unsub?.());
 
-    const assert = (): ConversationManager => {
+    const assert = (): AparteConversationManager => {
         if (!manager) throw new Error('[createConversationManager] Not initialised. Call init(adapter) first.');
         return manager;
     };
 
-    async function init(adapter: AparteStorageAdapter): Promise<void> {
-        const m = new ConversationManager(adapter);
+    /**
+     * Initialise with a storage adapter.
+     *
+     * `config` defaults to the global singleton. Pass the SAME config you gave
+     * `<AparteChat config={…}>`: the controller resolves the config governing its
+     * host element, so a manager registered on the global is invisible to a chat
+     * with its own — persistence silently does nothing while the optimistic UI
+     * keeps working.
+     */
+    async function init(adapter: AparteStorageAdapter, config: AparteConfig = aparteGlobalConfig): Promise<void> {
+        const m = new AparteConversationManager(adapter);
         manager = m;
         unsub = m.subscribe((convs) => {
             conversations.set([...convs]);
@@ -46,7 +56,7 @@ export function createConversationManager() {
         });
         await m.init();
         activeId.set(m.activeId);
-        AparteConfig.setConversationManager(m);
+        config.setConversationManager(m);
     }
 
     return {

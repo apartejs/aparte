@@ -54,12 +54,12 @@ The wrapper is **provider-agnostic**. Register a provider + transport once (see
 sends to the model:
 
 ```tsx
-import { AparteConfig, DirectTransport } from '@aparte/core';
+import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { useAparteClient } from '@aparte/react';
 
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OPENROUTER));
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 function Chat() {
   useAparteClient();           // streams replies from the configured provider
@@ -68,14 +68,14 @@ function Chat() {
 ```
 
 Pass a per-instance `config` prop to scope providers/transport to a single `<AparteChat>` instead of
-the global `AparteConfig`.
+`aparteGlobalConfig`.
 
 :::note
 `useAparteClient` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
 agent loop** instead of core's inline one, inject it:
 `useAparteClient({ streamRunner: runStreamAgent })` from [`@aparte/engine`](/guides/engine/) — an
 optional swap-in, not required. With the client mounted, switch the retry/edit buttons on —
-`AparteConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
+`aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
@@ -85,13 +85,23 @@ see [Attachments](/guides/attachments/).
 
 For an `<aparte-*>` element without a dedicated component, mount it generically:
 
+<!-- doc-check: skip excerpt — `onEvent` is the reader's handler -->
 ```tsx
 import { AparteUi } from '@aparte/react';
 
 <AparteUi name="aparte-model-selector" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
 ```
 
+:::note[Where that element comes from]
+`aparte-model-selector` is **not** in `@aparte/core` — it is defined by
+[`@aparte/plugin-model-selector`](/plugins/model-selector/), and importing that package is
+what registers it. Until then the tag renders as an empty, inert element with no error:
+a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
+own the moment the definition arrives — which is exactly why loading the plugin lazily
+works. `AparteUi` mounts any element name, including your own.
+:::
+
 ## Also exported
 
-- `useConversationManager` — React-state view over the core `ConversationManager` (list / create /
+- `useConversationManager` — React-state view over the core `AparteConversationManager` (list / create /
   archive), for a multi-conversation sidebar.

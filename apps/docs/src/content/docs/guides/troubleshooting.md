@@ -8,9 +8,30 @@ sidebar:
 The failures below are the ones that actually happen on a first run, in the order
 you're likely to hit them.
 
+## `Failed to resolve module specifier "@aparte/core"`
+
+You opened an `index.html` directly, with no bundler. A browser cannot resolve a
+bare specifier on its own — that is a build-tool convention, not a web one.
+
+Two ways out:
+
+- **Use a bundler.** Vite, Next, Astro, Parcel, esbuild — any of them resolve it.
+  This is what every snippet in these guides assumes, and what the examples do.
+- **Declare the mapping yourself** with an import map, and load the CSS by URL:
+
+```html
+<script type="importmap">
+  { "imports": { "@aparte/core": "https://esm.sh/@aparte/core@latest" } }
+</script>
+<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/styles.css" />
+```
+
+"Framework-agnostic" means no React/Vue/Svelte/Angular. It does not mean no build
+step — and this page exists to say the first thing you actually hit, so it says it.
+
 ## CORS on local BYOK (LM Studio / Ollama)
 
-**This is the #1 first-run failure.** With `DirectTransport` (the default), the
+**This is the #1 first-run failure.** With `AparteDirectTransport` (the default), the
 *browser itself* calls `http://localhost:1234` (LM Studio) or `http://localhost:11434`
 (Ollama) directly — there is no server in between to add CORS headers for you. If the
 local server doesn't send permissive CORS headers, the browser blocks the response and
@@ -46,26 +67,26 @@ and rejects everything else with a CORS error.
 
 Two different symptoms, one root cause: nothing is wired up yet.
 
-**"Provider is not registered"** — you called `AparteConfig.registerAIProvider(...)`
+**"Provider is not registered"** — you called `aparteGlobalConfig.registerAIProvider(...)`
 with a different id than the one selected (or never called it at all). Register the
 provider *and* select it before the client sends anything:
 
 ```ts
-import { AparteConfig, DirectTransport, AparteClient } from '@aparte/core';
+import { aparteGlobalConfig, AparteDirectTransport, AparteClient } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 
-AparteConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
-AparteConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
-AparteConfig.setTransport(new DirectTransport({ byok: true }));
+aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
+aparteGlobalConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
+aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
 new AparteClient().start();
 ```
 
 **"No provider selected"** — no `defaultProvider`/`defaultModel` is set on
-`AparteConfig.setModelConfig(...)` (and no `<aparte-model-selector>` has picked one yet).
-Check `AparteConfig.hasSelectedModel()` — it's `false` until both are set. If you want the
+`aparteGlobalConfig.setModelConfig(...)` (and no `<aparte-model-selector>` has picked one yet).
+Check `aparteGlobalConfig.hasSelectedModel()` — it's `false` until both are set. If you want the
 composer to block sending until a model is chosen (instead of erroring on send), opt into
-`AparteConfig.setRequireModelSelection(true)`.
+`aparteGlobalConfig.setRequireModelSelection(true)`.
 
 Either way, forgetting `new AparteClient().start()` looks identical to a broken
 provider from the outside: nothing streams, because nothing is listening for
@@ -76,11 +97,11 @@ provider from the outside: nothing streams, because nothing is listening for
 If you see:
 
 ```
-[Aparte] DirectTransport is sending the "<provider>" API key straight from the browser —
+[Aparte] AparteDirectTransport is sending the "<provider>" API key straight from the browser —
 it is visible to anyone who opens devtools. ...
 ```
 
-`DirectTransport` just sent a real API key from the browser to the vendor, and you
+`AparteDirectTransport` just sent a real API key from the browser to the vendor, and you
 didn't tell it that was intentional. It fires once per page load, the first time a key
 is attached to a request.
 
@@ -89,11 +110,11 @@ is attached to a request.
   fire at all:
 
   ```ts
-  AparteConfig.setTransport(new DirectTransport({ byok: true }));
+  aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
   ```
 
 - **Not fine when:** the key is *your* server-held vendor key. Anyone with devtools open
-  can read it and use it directly. Switch to `BackendTransport` (paired with
+  can read it and use it directly. Switch to `AparteBackendTransport` (paired with
   `createAparteChatHandler`) so the key never reaches the client — see the
   [Backend transport](/guides/backend-transport/) guide.
 
@@ -124,15 +145,15 @@ opening a stats popover all need someone outside core, so aparté waits for you 
 there rather than showing a button that answers to nobody:
 
 ```ts
-AparteConfig.setBubbleActions({ retry: true, edit: true });   // you run an AparteClient
-AparteConfig.setBubbleActions({ feedback: true, info: true }); // you handle these events
+aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });   // you run an AparteClient
+aparteGlobalConfig.setBubbleActions({ feedback: true, info: true }); // you handle these events
 ```
 
 Same for the three affordances outside the action bar — the clickable image tile, the `Run`
 button on a terminal segment, the download button on a **binary** artifact:
 
 ```ts
-AparteConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
 ```
 
 Two things that are *not* the cause, before you go looking:
@@ -176,7 +197,7 @@ unregistered provider — is normalized to an `AparteError`
 (`packages/core/src/types/errors.ts`):
 
 ```ts
-class AparteError extends Error {
+declare class AparteError extends Error {
   constructor(
     message: string,
     code: AparteErrorCode,
@@ -184,7 +205,8 @@ class AparteError extends Error {
     originalError?: unknown,
     httpStatus?: number,
   );
-  static from(error: unknown, defaultCode = AparteErrorCode.UNKNOWN_ERROR, defaultStatus?: number): AparteError;
+  // `defaultCode` defaults to AparteErrorCode.UNKNOWN_ERROR.
+  static from(error: unknown, defaultCode?: AparteErrorCode, defaultStatus?: number): AparteError;
 }
 ```
 
@@ -223,5 +245,5 @@ document.querySelector('aparte-chat')?.addEventListener('aparte-message-error', 
 ```
 
 Customize what the error segment looks like with
-[`AparteConfig.setErrorRenderer`](/reference/config/#renderers--render-hooks) rather than
+[`aparteGlobalConfig.setErrorRenderer`](/reference/config/#renderers--render-hooks) rather than
 registering a segment renderer for `error` yourself.
