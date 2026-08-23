@@ -112,6 +112,9 @@ jobs:
       - name: Check the lockfile matches every manifest
         run: pnpm check:lockfile
 
+      - name: Check internal peer ranges are literal and bounded
+        run: pnpm check:peer-ranges
+
       - name: Check text-position escaping
         run: pnpm check:text-escaping
 

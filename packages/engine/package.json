@@ -32,7 +32,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": "workspace:~"
+        "@aparte/core": ">=0.7.0 <1.0.0"
     },
     "peerDependenciesMeta": {
         "@aparte/core": {
