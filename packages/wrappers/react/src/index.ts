@@ -31,7 +31,6 @@ export type {
     AparteTextSegment,
     AparteCodeSegment,
     AparteThinkingSegment,
-    AparteTerminalSegment,
 } from './types.js';
 
 // Custom-element type declarations for TypeScript/JSX.

@@ -22,7 +22,6 @@ import type { AparteConfig } from '../config/index.js';
 import { textRenderer } from './segments/text.js';
 import { thinkingRenderer } from './segments/thinking.js';
 import { codeRenderer } from './segments/code.js';
-import { terminalRenderer } from './segments/terminal.js';
 import { errorRenderer } from './segments/error.js';
 import { progressRenderer } from './segments/progress.js';
 import { toolCallRenderer } from './segments/tool-call.js';
@@ -395,7 +394,6 @@ const DEFAULT_RENDERERS = [
     textRenderer,
     thinkingRenderer,
     codeRenderer,
-    terminalRenderer,
     errorRenderer,
     progressRenderer,
     toolCallRenderer,

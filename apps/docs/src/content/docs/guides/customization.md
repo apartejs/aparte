@@ -154,7 +154,6 @@ say you're there:
 | `feedback` (👍/👎) | your listener (`aparte-feedback`) | off |
 | `info` (ⓘ details) | your popover (`aparte-message-info`) | off |
 | image-tile preview | your lightbox (`aparte-attachment-preview`) | off |
-| terminal `Run` | your executor (`aparte-terminal-run`) | off |
 | download on a *binary* artifact | your generator (`aparte-artifact-redownload`) | off |
 
 Two levers, one for the action bar and one for everything else:
@@ -164,7 +163,7 @@ Two levers, one for the action bar and one for everything else:
 aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
 // You handle these events yourself:
-aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
 ```
 
 The **branch picker** `‹ 1/2 ›`, the waiting indicator, the stop button and the model
@@ -183,9 +182,9 @@ not the user, who sees it.
 The **tool-approval gate** (Approve / Reject on a `tool_call` segment) needs no declaration
 either, for a different reason: it renders only while the segment says
 `status: 'awaiting-approval'`, and only a loop that is actually waiting for the verdict sets
-that. The affordance declares itself. A `terminal` segment is the opposite — a model
-narrating a command doesn't mean anybody in the page can run it, which is why `Run` waits for
-`terminalRun`.
+that. The affordance declares itself. The **download on a binary artifact** is the
+opposite — a model producing a spreadsheet doesn't mean anything in the page can
+regenerate the bytes, which is why it waits for `artifactRedownload`.
 
 :::tip[An explicit list is its own opt-in]
 `setBubbleActions({ assistant: ['copy', 'retry', 'info'] })` renders exactly those, in that
@@ -320,7 +319,7 @@ does on the native bubble.
 
 ## Custom segment types
 
-Streamed replies are split into typed **segments** (text, code, thinking, terminal, …).
+Streamed replies are split into typed **segments** (text, code, thinking, tool_call, …).
 Register a renderer to add your own type — a chart, a map, a form:
 
 ```ts
@@ -561,7 +560,7 @@ custom renderer goes half-stale:
 `relabel` exists because the obvious alternative does not work: re-rendering a segment
 to pick up a new locale throws away state the DOM owns and the segment data does not —
 a preview iframe that is running, a reasoning block the reader expanded by clicking
-`<summary>`, scroll position inside a long terminal, the focus on an Approve/Reject
+`<summary>`, scroll position inside a long reasoning pane, the focus on an Approve/Reject
 button. Implement it only if your output contains text or icons that came from the
 config; a renderer whose chrome is all its own data correctly leaves it out.
 

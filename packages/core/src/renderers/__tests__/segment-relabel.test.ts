@@ -77,18 +77,6 @@ describe('relabel reaches a rendered segment', () => {
         expect(btn.innerHTML).toContain('data-mine');
     });
 
-    it('a terminal’s run and copy buttons, and its icon', () => {
-        // The run button only exists once a host declares it can run a command.
-        aparteGlobalConfig.setHostHandlers({ terminalRun: () => {} });
-        const el = mount([seg({ id: 's1', type: 'terminal', command: 'ls' })]);
-
-        aparteGlobalConfig.setLocale(FR());
-
-        expect(el.querySelector('.terminal-run-btn')!.textContent).toBe('Exécuter');
-        expect(el.querySelector('.terminal-run-btn')!.getAttribute('aria-label')).toBe('Exécuter');
-        expect(el.querySelector('.terminal-copy-btn')!.getAttribute('title')).toBe('Copier');
-    });
-
     it('the human approval gate — the highest-stakes strings in the library', () => {
         const el = mount([{
             id: 's1', type: 'tool_call', status: 'awaiting-approval',

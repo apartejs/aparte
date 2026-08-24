@@ -442,28 +442,6 @@ export interface AparteAttachmentPreviewEventDetail {
     name: string;
 }
 
-/**
- * Detail payload for `aparte-terminal-run`.
- * Dispatched by a terminal segment's Run button, once
- * `setHostHandlers({ terminalRun: true })` has declared that you will execute it.
- *
- * @event aparte-terminal-run
- */
-export interface AparteTerminalRunEventDetail {
-    /** Owning segment id. */
-    segmentId: string;
-    /**
-     * Id of the message the terminal belongs to.
-     *
-     * Without it this event was not resolvable: a consumer knew a command was
-     * asked for and could not say which turn asked. Absent only when the segment
-     * reached the renderer without passing through `addSegment` (an app rendering
-     * a segment it built by hand), because core stamps identity exactly there.
-     */
-    messageId?: string;
-    /** The command text the user asked to run. */
-    command: string;
-}
 
 /**
  * Detail payload for `aparte-file-gen-ready` — dispatched by YOU, not by core.

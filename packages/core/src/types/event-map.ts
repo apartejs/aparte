@@ -53,7 +53,6 @@ import type {
     AparteCompactDoneEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteTerminalRunEventDetail,
     AparteFileGenReadyEventDetail,
     AparteFileGenErrorEventDetail,
 } from './events.js';
@@ -153,7 +152,6 @@ interface AparteEventMap {
 
     // ── Host-handler events (decision #8 tier b: off until you declare them) ───
     'aparte-attachment-preview': CustomEvent<AparteAttachmentPreviewEventDetail>;
-    'aparte-terminal-run': CustomEvent<AparteTerminalRunEventDetail>;
 
     // ── Element events whose only possible consumer is the app ────────────────
     'aparte-action-click': CustomEvent<AparteActionClickEventDetail>;

@@ -113,15 +113,6 @@ export interface AparteDiffLine {
     content: string;
 }
 
-/** Terminal/console segment - command execution */
-export interface AparteTerminalSegment extends AparteSegmentBase {
-    type: 'terminal';
-    command?: string;
-    output?: string;
-    exitCode?: number;
-    isRunning?: boolean;
-}
-
 /** Image segment */
 export interface AparteImageSegment extends AparteSegmentBase {
     type: 'image';
@@ -227,7 +218,6 @@ export type AparteSegment =
     | AparteThinkingSegment
     | AparteCodeSegment
     | AparteDiffSegment
-    | AparteTerminalSegment
     | AparteImageSegment
     | ApartePreviewSegment
     | AparteErrorSegment

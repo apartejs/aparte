@@ -67,7 +67,6 @@ export const APARTE_DEFAULT_BUBBLE_ACTIONS = {
  */
 export const APARTE_DEFAULT_HOST_HANDLERS = {
     attachmentPreview: false,
-    terminalRun: false,
     artifactRedownload: false,
     artifactRehydrate: false,
 } as const;
@@ -271,7 +270,6 @@ export class AparteConfig {
     getHostHandlers(): Required<AparteHostHandlersConfig> {
         return {
             attachmentPreview: this._hostHandlers.attachmentPreview ?? APARTE_DEFAULT_HOST_HANDLERS.attachmentPreview,
-            terminalRun: this._hostHandlers.terminalRun ?? APARTE_DEFAULT_HOST_HANDLERS.terminalRun,
             artifactRedownload: this._hostHandlers.artifactRedownload ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRedownload,
             artifactRehydrate: this._hostHandlers.artifactRehydrate ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRehydrate,
         };
