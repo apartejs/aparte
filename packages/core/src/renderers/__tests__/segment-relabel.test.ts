@@ -22,6 +22,7 @@ import type { AparteSegment, AparteToolCallSegment } from '../../types/index.js'
 
 interface BubbleEl extends HTMLElement {
     setSegments(segments: AparteSegment[]): void;
+    updateSegment(segmentId: string, updates: Partial<AparteSegment>): void;
 }
 
 function mount(segments: AparteSegment[]): BubbleEl {
@@ -338,5 +339,47 @@ describe('the clock is part of the locale, not of the browser', () => {
         // around a 12-hour time that stayed put — a bilingual bubble again.
         expect(el.querySelector('.aparte-timestamp')!.textContent).not.toBe(us);
         expect(us).toMatch(/[AP]M/i);
+    });
+});
+
+describe('a reasoning block folds itself away when it settles', () => {
+    /**
+     * The lifecycle every product shows and this library never had a test for: the
+     * block arrives OPEN while it is being written, then settles and closes.
+     *
+     * `render` was covered — `<details open>` when not collapsed — and the UPDATE path
+     * was not, which is the half a consumer building "Thought for 8 s" depends on, and
+     * the half the landing's segments demo now leans on.
+     */
+    it('an explicit collapse on an update closes it', () => {
+        const el = mount([seg({ id: 's1', type: 'thinking', content: 'why', isStreaming: true, collapsed: false })]);
+        const details = el.querySelector('details') as HTMLDetailsElement;
+        expect(details.open).toBe(true);
+
+        el.updateSegment('s1', { isStreaming: false, collapsed: true });
+
+        expect(details.open).toBe(false);
+        // Closed, not rebuilt: the same node, so a listener or a scroll position on it
+        // survives — the rule every update in this file works under.
+        expect(el.querySelector('details')).toBe(details);
+    });
+
+    it('and an update that says nothing about it leaves the reader alone', () => {
+        // The reader CLOSED a block whose data says open. That direction is the one
+        // that discriminates: `'collapsed' in updates` false with the guard removed
+        // takes the else branch and FORCES the block open, so a reasoning block would
+        // spring back open under someone who had just folded it away, on every chunk.
+        // My first version of this test opened a block whose data said closed, which
+        // the broken code also leaves open — it passed against the sabotage, and a
+        // test that cannot fail is not a test.
+        const el = mount([seg({ id: 's1', type: 'thinking', content: 'why', collapsed: false })]);
+        const details = el.querySelector('details') as HTMLDetailsElement;
+        expect(details.open).toBe(true);
+        details.open = false;   // the reader clicked <summary>; nothing writes that back
+
+        el.updateSegment('s1', { content: 'why, at greater length' });
+
+        expect(details.open).toBe(false);
+        expect(el.querySelector('.thinking-content')!.textContent).toContain('at greater length');
     });
 });
