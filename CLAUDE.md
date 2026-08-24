@@ -59,6 +59,28 @@ apartejs/
 **Out of scope** (added only on real demand): the consuming product app, the
 markdown/highlight micro-packages, an eval harness, voice.
 
+**Deferred, with the trigger that would start them** — each was reasoned through and
+put down on purpose, so a future session does not re-derive the answer from scratch:
+
+- **Citations.** Not a segment, and not markdown either. When a model writes
+  `[source](url)` it is markdown and the plugin already renders it; when a provider
+  attaches them (Anthropic's `citations` on a content block, an `url_citation`
+  annotation with character offsets) they are **annotations on a range of a text
+  segment** — a shape neither a block nor a link can carry. So the field would go on
+  `AparteTextSegment` (or in its `meta`), never in the type union. *Trigger: a provider
+  in this repo that actually returns them.* Today none does — `openai-compat` is
+  chat-completions, `ai-sdk` passes through, `transformers` is local — so it would be a
+  contract maintained for nobody (decision #7).
+- **A code-interpreter / shell plugin.** The thing every product calls "a terminal" is
+  a **tool call**: the model emits a call whose arguments are code, and the client
+  renders the *result*. So it is a tool plus a tool renderer, the shape
+  `@aparte/plugin-ask-user` already proves — and the tool's NAME belongs to the app
+  (`bash`, `python`, `run_command`), never to core, because that is wire-format
+  knowledge. *Trigger: wanting the human-approval gate demonstrated end to end, which
+  is what such a tool would give it.* The `terminal` segment that used to stand in for
+  this was removed rather than kept: nothing emitted it, and its `exitCode` /
+  `isRunning` fields were the signature of an app that owned the execution.
+
 ---
 
 ## 🛠️ Stack
