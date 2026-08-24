@@ -146,7 +146,9 @@ describe('default renderer: artifact', () => {
         expect(el.querySelector('.aparte-art-card__pulse')).not.toBeNull();
         expect(el.getAttribute('data-streaming')).toBe('true');
 
-        renderer.update!(el, { ...streaming, content: '<p>whole</p>', isStreaming: false } as never, streaming as never);
+        // Two arguments, not three: the renderer reads the PREVIOUS segment from a
+        // WeakMap keyed by the element, which `mountCard`'s `setup` call populated.
+        renderer.update!(el, { ...streaming, content: '<p>whole</p>', isStreaming: false } as never);
 
         // `render()` painted the pulse and nothing ever removed it, so a finished
         // document went on claiming to be in flight — every 1.2s, forever. It went
