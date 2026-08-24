@@ -1,6 +1,7 @@
 ---
 import { readFileSync, readdirSync } from 'node:fs';
 import { LANDING_TITLE, LANDING_DESCRIPTION, LANDING_IMAGE_ALT } from '../data/landing-meta';
+import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import '../styles/palette.css';
 import '../styles/landing.css';
 
@@ -268,6 +269,15 @@ const FAMILIES = [
         document.documentElement.dataset.theme = theme;
       })();
     </script>
+
+    <!-- Self-hosted Umami: cookieless, no personal data, so no consent banner. Built
+         sites only, so `astro dev` never files a visit from localhost. The same tag
+         is in src/components/Head.astro because THIS page carries its own head and
+         inherits nothing from Starlight; src/data/analytics.ts holds the two values
+         once, and names the CSP that has to allow the host. -->
+    {import.meta.env.PROD && (
+      <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>
+    )}
   </head>
   <body>
     <div class="stage-glow" aria-hidden="true"></div>

@@ -14,6 +14,7 @@
 import Default from '@astrojs/starlight/components/Head.astro';
 import type { Props } from '@astrojs/starlight/props';
 import { ogSlug } from '../lib/og-slug';
+import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 
 const { entry } = Astro.locals.starlightRoute as Props;
 
@@ -33,3 +34,11 @@ const imageAlt = `aparté — ${entry.data.title}`;
 <meta property="og:image:alt" content={imageAlt} />
 <meta name="twitter:image" content={image} />
 <meta name="twitter:image:alt" content={imageAlt} />
+
+<!-- Self-hosted Umami, on every docs page. Here rather than in the config's `head`
+     array because that array is Starlight's alone and would still miss the landing,
+     so the site would need two mechanisms for one tag; this file is already the
+     per-page head and the landing already has its own. See src/data/analytics.ts. -->
+{import.meta.env.PROD && (
+  <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>
+)}
