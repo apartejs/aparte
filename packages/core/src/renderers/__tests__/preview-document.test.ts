@@ -13,6 +13,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildSafePreviewDocument, PREVIEW_CSP } from '../segments/artifact/preview-document.js';
+import { getSegmentRenderer, registerDefaultRenderers } from '../segment-renderers.js';
+
+registerDefaultRenderers();
 
 const VIEWBOX_ONLY = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512"/></svg>';
 const SIZED = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 150" width="320" height="150"><rect width="320" height="150"/></svg>';
@@ -59,5 +62,41 @@ describe('the SVG preview document', () => {
         // CSP plus the sandboxed frame, not a tag filter.
         const doc = buildSafePreviewDocument('svg', VIEWBOX_ONLY, 'a mark');
         expect(doc).toContain('<svg');
+    });
+});
+
+describe('the artifact card’s own layout', () => {
+    it('declares what its tab row depends on, so a host rule cannot move it', () => {
+        const styles = getSegmentRenderer('artifact')!.getStyles?.() ?? '';
+
+        // Core is light DOM on purpose — no shadow root, no `::part()`, any selector
+        // reaches in — and the corollary is that a component must STATE what its layout
+        // depends on. An undeclared property has nothing to override it: this library's
+        // own docs site had a bare `nav { justify-content: space-between; padding-top:
+        // 30px }`, and the card's `<nav class="aparte-art-card__tabs">` inherited it,
+        // putting Preview and Code at opposite ends of the card.
+        // `flex-end`: the header above puts the artifact's identity on the left and
+        // its copy/download buttons on the right, and this keeps every control in one
+        // column. The VALUE matters less than the fact that one is declared at all.
+        expect(styles).toContain('justify-content: flex-end');
+        expect(styles).toMatch(/\.aparte-art-card__tabs\s*\{[^}]*padding:/);
+    });
+});
+
+describe('the artifact card’s tab order', () => {
+    it('puts Code first, because Code is the tab it opens on', () => {
+        const renderer = getSegmentRenderer('artifact')!;
+        const html = renderer.render({
+            id: 'a1', type: 'artifact', artifactType: 'svg', mimeType: 'image/svg+xml',
+            content: '<svg viewBox="0 0 8 8"/>', isStreaming: false,
+        } as never) as string;
+
+        // The card defaults to `data-tab="code"` because mounting the preview would
+        // execute model-authored code with no gesture. A selected tab sitting SECOND
+        // read backwards — and DOM order is keyboard order, so the tab a reader reaches
+        // first was not the one already showing.
+        expect(html).toContain('data-tab="code"');
+        expect(html.indexOf('data-tab-target="code"'))
+            .toBeLessThan(html.indexOf('data-tab-target="preview"'));
     });
 });
