@@ -484,6 +484,48 @@ that stops only because the stream stopped; there, the end of the turn really is
 insertion and never overwrites, so a reloaded conversation still shows the durations it
 originally had.
 
+## Defaults for a segment type
+
+A reasoning block is **closed** unless the segment says `collapsed: false`. If your app
+wants them all open, you cannot set that field: when a reply streams, *you* do not build
+its segments — the parser does. There is nothing to set it on.
+
+So the default is registered by type:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+// Every reasoning block in this app arrives open.
+aparteGlobalConfig.setSegmentDefaults('thinking', { collapsed: false });
+
+// Your own segment type, same call.
+aparteGlobalConfig.setSegmentDefaults('my-chart', { theme: 'dark' });
+```
+
+One call keyed by type rather than one function per field — a `setThinkingOpen()` would
+need a sibling the next time any type wanted a default, and the type key is a string, so
+a type core has never heard of is covered by the same call.
+
+What to expect:
+
+- **A field the producer set always wins.** A segment carrying `collapsed: true` keeps it,
+  and so does one carrying `collapsed: undefined` — an explicit `undefined` is a
+  statement, not a gap.
+- **Identity is never defaulted.** `id`, `type`, `messageId`, `index`, `startedAt` and
+  `endedAt` are refused: a default `id` would hand every segment in a conversation the
+  same one, and `index` / `startedAt` are measurements of *this* insertion.
+- **Every arrival path is covered**, because the defaults are applied where a segment's
+  identity is stamped: `addSegment`, the segments seeded on an `appendMessage`, and the
+  framework host. Including the ones the parser produces, which is the case that needed
+  it.
+- **Read at insertion, then baked in.** Changing a default later does not reach segments
+  already on screen — deliberately: a block the reader opened has state the data does
+  not, and a retroactive default would take it away.
+- **Per instance.** Each chat resolves its own config, so two chats on one page can
+  default differently.
+
+`getSegmentDefaults(type)` reads them back and `clearSegmentDefaults(type)` drops them.
+
 ## Icons
 
 Every icon ships as a zero-dependency inline SVG. Override any of them — with an SVG,

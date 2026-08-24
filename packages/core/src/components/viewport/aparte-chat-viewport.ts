@@ -317,7 +317,12 @@ export class AparteChatViewport extends HTMLElement {
         // of the two holding an unstamped copy. This is one of exactly two places
         // that writes those fields (`aparte-chat-host` is the other) — see
         // `utils/segments.ts` for why it is not the parser.
-        const stamped = stampSegmentOnInsert(message.segments, segment, messageId);
+        const stamped = stampSegmentOnInsert(
+            message.segments, segment, messageId,
+            // THIS chat's defaults, not the page's: two chats on one page can be
+            // configured differently, and the config seam is per instance.
+            resolveConfig(this).getSegmentDefaults(segment.type),
+        );
         message.segments.push(stamped);
 
         // Notify bubble to render the new segment
@@ -518,7 +523,13 @@ export class AparteChatViewport extends HTMLElement {
          */
         const stored: AparteMessage = message.segments?.length
             ? { ...message, segments: message.segments.reduce<AparteSegment[]>(
-                (acc, segment) => { acc.push(stampSegmentOnInsert(acc, segment, message.id)); return acc; },
+                (acc, segment) => {
+                    acc.push(stampSegmentOnInsert(
+                        acc, segment, message.id,
+                        resolveConfig(this).getSegmentDefaults(segment.type),
+                    ));
+                    return acc;
+                },
                 [],
             ) }
             : { ...message };

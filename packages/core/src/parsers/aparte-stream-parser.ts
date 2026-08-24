@@ -591,7 +591,6 @@ export class AparteStreamParser {
             id: this._options.autoGenerateIds ? this._generateId() : '',
             type: 'thinking',
             content,
-            collapsed: false,
             label: 'Thinking'
         };
     }

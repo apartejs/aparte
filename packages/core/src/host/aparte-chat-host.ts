@@ -13,7 +13,7 @@ import {
     type AparteChatBinding,
 } from '../conversations/conversation-controller.js';
 import type { AparteConfig } from '../config/aparte-config.js';
-import { attachConfig, detachConfig } from '../config/config-context.js';
+import { resolveConfig, attachConfig, detachConfig } from '../config/config-context.js';
 import { cssEscape } from '../utils/css-escape.js';
 import {
     stampSegmentOnInsert,
@@ -376,7 +376,13 @@ export class AparteChatHost {
         // Stamping after it would render an unstamped segment and store a stamped
         // one. Second of exactly two owners; see `utils/segments.ts`.
         const stamped = last
-            ? stampSegmentOnInsert(last.segments || [], segment, last.id)
+            ? stampSegmentOnInsert(
+                last.segments || [], segment, last.id,
+                // The host attaches its config to `binding.host`, so resolving from
+                // that element is what gives a framework-managed chat its OWN
+                // defaults rather than the page's.
+                resolveConfig(this.binding.host).getSegmentDefaults(segment.type),
+            )
             : segment;
         this._lastBubble()?.addSegment?.(stamped);
         if (!last) return;
