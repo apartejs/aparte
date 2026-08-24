@@ -419,9 +419,9 @@ function showSandboxError(element: HTMLElement, phase: string, errorMsg: string)
         const short = (errorMsg.split('\n')[0] ?? '').slice(0, 240);
         body.innerHTML = `
             <div class="aparte-art-file__error">
-                <div class="aparte-art-file__error-title">The sandbox failed during generation.</div>
+                <div class="aparte-art-file__error-title">${escapeHtml(contextConfig().t('sandboxError'))}</div>
                 <div class="aparte-art-file__error-msg">${escapeHtml(short)}</div>
-                <div class="aparte-art-file__error-hint">Common cause: the model produced invalid code (undefined variable, wrong argument type). Retry the request — the model may produce different code.</div>
+                <div class="aparte-art-file__error-hint">${escapeHtml(contextConfig().t('sandboxErrorHint'))}</div>
             </div>
         `;
     }

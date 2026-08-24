@@ -153,6 +153,9 @@ export class AparteChatBubble extends HTMLElement {
     // calling it again is safe, and it no-ops when no provider is registered.
     this._renderAvatar();
     this._relabelSegments();
+    // The clock, too. A tag change is a formatting change, so the timestamp has to
+    // be re-rendered or the language switches around a 12-hour time that stays.
+    this._updateTimestamp(this.getAttribute('timestamp'));
   };
 
   /**
@@ -795,7 +798,12 @@ export class AparteChatBubble extends HTMLElement {
 
     try {
       const date = new Date(isNaN(Number(value)) ? value : Number(value));
-      timestampEl.textContent = date.toLocaleTimeString(undefined, {
+      // The locale's own tag, not `undefined`. `undefined` means "follow the
+      // BROWSER", which is why a French chat on an en-US browser still read
+      // `7:32 PM` — the app had chosen a language and the clock had not heard.
+      // Still `undefined` when no tag is declared: that is the documented default
+      // and the behaviour every consumer has today.
+      timestampEl.textContent = date.toLocaleTimeString(this._cfg.getLocale().tag || undefined, {
         hour: '2-digit',
         minute: '2-digit'
       });

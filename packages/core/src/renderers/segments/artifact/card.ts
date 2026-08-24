@@ -111,7 +111,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                     </div>
                     ${previewable ? `
                         <div class="aparte-art-card__pane" data-pane="preview">
-                            <div class="aparte-art-card__pending">Press Preview to run this artifact.</div>
+                            <div class="aparte-art-card__pending">${escapeHtml(cfg.t('previewPending'))}</div>
                         </div>
                     ` : ''}
                 </div>

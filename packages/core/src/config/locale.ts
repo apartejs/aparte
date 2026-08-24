@@ -125,6 +125,22 @@ export interface AparteLocale {
     /** Last-resort accessible name for a free-text answer (default: "Your answer") */
     elicitationAnswerLabel?: string;
 
+    /**
+     * The composer's attach-file button (default: "Attach file").
+     *
+     * `aparte-composer-add-attachment` has been READING `t('actionUpload')` since it
+     * existed, and the key was never declared — so `t()` returned '' and the
+     * `|| 'Attach file'` fallback rendered in every language, after every reload.
+     * The third instance of this exact defect in this file, after `submitButton` and
+     * `stopButton`, and the one a user reported from the live language switcher.
+     *
+     * A key that is read and not declared cannot be found by reading either side: the
+     * component looks correct, the locale looks complete. Cross-checking the two
+     * lists is what finds them — `t()` calls and `getLocale().x` reads on one side,
+     * these declarations on the other.
+     */
+    actionUpload?: string;
+
     // --- Artifacts ---
     /**
      * The artifact card's download button (default: "Download").
@@ -153,8 +169,48 @@ export interface AparteLocale {
      */
     generating?: string;
     rebuildingPreview?: string;
+    /**
+     * What the preview pane says before anybody presses Preview (default: "Press
+     * Preview to run this artifact.").
+     *
+     * The pane is empty on purpose — a previewable artifact is model-authored code
+     * and mounting it unasked would execute it (ratified decision #8) — so this
+     * sentence is the whole of what the reader sees there, and it was a literal.
+     */
+    previewPending?: string;
+    /**
+     * A binary artifact whose sandbox run failed: the heading, and the hint under it
+     * (defaults: "The sandbox failed during generation." / "Common cause: …").
+     *
+     * The message BETWEEN them is the sandbox's own error text and stays untranslated
+     * on purpose — it is the tool's output, not the library's copy.
+     */
+    sandboxError?: string;
+    sandboxErrorHint?: string;
 
     // --- Metadata ---
+    /**
+     * BCP-47 language tag for `Intl` formatting — `'fr-FR'`, `'ja-JP'`, `'en-US'`.
+     *
+     * A locale is otherwise a bag of STRINGS, and a clock is not a string: it is a
+     * format. So `setLocale(fr)` moved fifty strings and left the timestamp above
+     * every message reading `7:32 PM`, because the only `Intl` call in the library
+     * passed `undefined` — "use the BROWSER's locale" — which is not the locale the
+     * app just chose. French is 24-hour; the browser was not asked.
+     *
+     * A tag and NOT an `hour12` flag, deliberately. A flag answers one question for
+     * one call site; a tag answers every question `Intl` can be asked — hour cycle,
+     * date order, month names, decimal separator, relative time, list joining — for
+     * every locale, including the ones nobody here can enumerate. `direction` next
+     * door is the precedent: this section holds how a language BEHAVES, not what its
+     * words are.
+     *
+     * Undefined on purpose in the English default: `undefined` means "follow the
+     * browser", which is the right default for a library and the behaviour every
+     * consumer has today. A locale that declares a tag pins the formatting — if you
+     * have chosen French strings, French formatting is what you meant.
+     */
+    tag?: string;
     /** Direction of the text (ltr or rtl) - defaults to ltr */
     direction?: 'ltr' | 'rtl';
 
@@ -183,7 +239,11 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
+    actionUpload: "Attach file",
     download: "Download",
+    previewPending: "Press Preview to run this artifact.",
+    sandboxError: "The sandbox failed during generation.",
+    sandboxErrorHint: "Common cause: the model produced invalid code (undefined variable, wrong argument type). Retry the request — the model may produce different code.",
     preview: "Preview",
     code: "Code",
     generating: "Generating…",

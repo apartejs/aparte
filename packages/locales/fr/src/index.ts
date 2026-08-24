@@ -24,7 +24,11 @@ export const fr: AparteLocale = {
     elicitationYes: "Oui",
     elicitationNo: "Non",
     elicitationAnswerLabel: "Votre réponse",
+    actionUpload: "Joindre un fichier",
     download: "Télécharger",
+    previewPending: "Appuyez sur Aperçu pour exécuter cet artefact.",
+    sandboxError: "Le bac à sable a échoué pendant la génération.",
+    sandboxErrorHint: "Cause fréquente : le modèle a produit du code invalide (variable non définie, mauvais type d'argument). Relancez la demande — le modèle peut produire un autre code.",
     preview: "Aperçu",
     code: "Code",
     generating: "Génération…",
@@ -55,6 +59,7 @@ export const fr: AparteLocale = {
     deleteConversation: "Supprimer la conversation",
     archiveConversation: "Archiver la conversation",
     unarchiveConversation: "Désarchiver la conversation",
+    tag: "fr-FR",
     direction: 'ltr'
 };
 
