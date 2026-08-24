@@ -22,6 +22,7 @@
  */
 
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
+import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import type { AparteConfig } from '../../config/aparte-config.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
@@ -41,6 +42,17 @@ type ComposerEl = HTMLElement & Pick<AparteComposer, 'showPanel' | 'hidePanel' |
 interface Pending {
     settle(result: AparteElicitationResult): void;
     composer: ComposerEl;
+    /**
+     * The open panel, kept so a language switch can reach it.
+     *
+     * It was not kept before, and that was the whole reason an open question stayed
+     * in the previous language: nothing held a reference to relabel. Rebuilding is
+     * not the alternative — the reader may be halfway through typing an answer, or
+     * three questions into a form.
+     */
+    panel: BuiltElicitationPanel;
+    /** The presenter's own button, whose text this file owns rather than the panel. */
+    skip: HTMLButtonElement;
 }
 
 /**
@@ -82,8 +94,14 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         this._cancelPending();
     };
 
+    private _unsubscribeConfig: (() => void) | null = null;
+
     connectedCallback(): void {
         this.style.display = 'none';
+        // A language switch while a question is OPEN. Every other live-config
+        // consumer in core got this seam; the panel could not use it because it kept
+        // no reference to itself — see `Pending.panel`.
+        this._unsubscribeConfig = subscribeConfigChange(this, () => this._relabelPending());
         // Become the presenter for this instance's config (or the global one).
         resolveConfig(this).setElicitationPresenter(this._present);
         // Safety net: if the turn is stopped/errored while a request is open,
@@ -115,7 +133,24 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         if (cfg.getElicitationPresenter() === this._present) cfg.setElicitationPresenter(null);
         window.removeEventListener('aparte-message-aborted', this._onTurnEnd);
         window.removeEventListener('aparte-message-error', this._onTurnEnd);
+        this._unsubscribeConfig?.();
+        this._unsubscribeConfig = null;
         this._cancelPending();
+    }
+
+    /**
+     * Re-apply the open question's strings, in place.
+     *
+     * Two owners, and both have to move or the panel goes bilingual: the panel's own
+     * defaults (`relabel`), and the Skip button, which this file builds and this file
+     * therefore has to re-text. The composer's one button is a third, and it already
+     * follows — `aparte-composer-send` remembers the panel state it was given.
+     */
+    private _relabelPending(): void {
+        if (!this._pending) return;
+        const cfg = resolveConfig(this);
+        runWithConfig(cfg, () => this._pending!.panel.relabel());
+        this._pending.skip.textContent = cfg.t('elicitationSkip');
     }
 
     private _present: AparteElicitationPresenter = (request: AparteElicitationRequest) => {
@@ -162,7 +197,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
 
-            this._pending = { settle, composer };
+            this._pending = { settle, composer, panel, skip };
             composer.showPanel(panel.el, {
                 submitEnabled: panel.canProceed(),
                 mode: panel.mode(),
