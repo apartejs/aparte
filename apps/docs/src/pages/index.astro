@@ -811,6 +811,26 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         const mine = run;
         timers.push(window.setTimeout(() => { if (mine === run) fn(); }, ms));
       };
+      /**
+       * The turn lifecycle, which this page never emitted.
+       *
+       * A composer does not take `streaming` as a property: it listens for
+       * `aparte-message-start` / `aparte-message-done` on `window`, which is exactly
+       * what a real host dispatches. Because this page never did, the send button never
+       * became the Stop button — so the one affordance core gives a host for free was
+       * invisible on the page that sells it, and a visitor clicking send mid-reply had
+       * their click swallowed by the `busy` flag with no feedback at all.
+       */
+      let streamingId: string | null = null;
+      function beginTurn(id: string) {
+        streamingId = id;
+        window.dispatchEvent(new CustomEvent('aparte-message-start'));
+      }
+      function endTurn() {
+        streamingId = null;
+        window.dispatchEvent(new CustomEvent('aparte-message-done'));
+      }
+
       /** A tool call waiting for this page to answer, if any. */
       let pending: { mid: string; sid: string } | null = null;
       /** One scripted reply at a time, whichever panel asked for it. */
@@ -821,10 +841,26 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         timers = [];
         pending = null;
         busy = false;
+        // A tab switch mid-reply would otherwise leave the composer showing Stop for a
+        // turn that no longer exists.
+        if (streamingId) endTurn();
         viewport?.setMessages([]);
       }
 
       /** Stream into ONE segment of a message (the panels that build segments). */
+      /**
+       * A segment demo's turn boundary, so Stop appears for these panels too.
+       *
+       * Not inside `streamSegment`: a turn spans SEVERAL segments — a reasoning block,
+       * then a tool call, then the answer — and opening a turn per segment would flash
+       * the Stop button on and off between them. So the boundary is where it really is:
+       * the assistant message appearing, and its completion.
+       */
+      function completeTurn(mid: string) {
+        viewport.completeMessage(mid);
+        endTurn();
+      }
+
       function streamSegment(mid: string, sid: string, text: string, done?: () => void) {
         const toks = reduce ? [text] : text.split(/(\s+)/);
         let i = 0;
@@ -838,6 +874,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       // Stream text into an EXISTING assistant message (fresh replies and retry
       // branches share this).
       function streamInto(id: string, text: string, done?: () => void) {
+        beginTurn(id);
         // Reduced motion means "stop moving things", NOT "stop showing progress":
         // dumping the whole reply at once removed the two things this page exists to
         // demonstrate — the waiting state and the streaming — for every visitor with
@@ -853,7 +890,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
               viewport.appendToken(id, text.slice(from, cuts[c]));
               from = cuts[c++];
               after(step, 180);
-            } else { viewport.completeMessage(id); done?.(); }
+            } else { viewport.completeMessage(id); endTurn(); done?.(); }
           };
           after(step, 320);
           return;
@@ -861,7 +898,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         const toks = text.split(/(\s+)/); let i = 0;
         const tick = () => {
           if (i < toks.length) { viewport.appendToken(id, toks[i++]); after(tick, 30 + Math.random() * 48); }
-          else { viewport.completeMessage(id); done?.(); }
+          else { viewport.completeMessage(id); endTurn(); done?.(); }
         };
         after(tick, 220);
       }
@@ -917,6 +954,24 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
           : replyTo(text);
         after(() => streamAssistant(reply, () => { busy = false; }), 240);
       }
+      // Stop. `aparte-cancel` is what core's send button dispatches once it has become
+      // the stop button, and answering it is the host's half — nothing in the library
+      // can know what to abort. Reuses the run token the tab switcher already relies on:
+      // bumping it drops every queued callback of the chain in flight.
+      document.querySelector('aparte-composer')?.addEventListener('aparte-cancel', () => {
+        const id = streamingId;
+        run++;
+        timers.forEach((t) => clearTimeout(t));
+        timers = [];
+        busy = false;
+        pending = null;
+        // Settle what was mid-flight: a stopped turn keeps what it produced — that is
+        // the whole point of stopping rather than resetting — but it must stop LOOKING
+        // like it is still arriving, caret and all.
+        if (id) viewport.completeMessage(id);
+        endTurn();
+      });
+
       document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e) => {
         const detail = (e as any).detail || {};
         send(detail.content || '', Array.from(detail.files || []));
@@ -951,6 +1006,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         const mid = 'a' + ++msgId;
         after(() => {
           viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
+          beginTurn(mid);
           viewport.addSegment(mid, { id: 'tl-say', type: 'text', content: '', isStreaming: true });
           streamSegment(mid, 'tl-say', 'That deletes a file, so I’ll ask before I run it.', () => {
             after(() => {
@@ -969,18 +1025,35 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         const mid = 'a' + ++msgId;
         after(() => {
           viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
+          beginTurn(mid);
+          // Both segments STREAM, and they used to arrive whole — the code pane on this
+          // panel even said "no streaming needed". Which made two of five demos
+          // contradict the page's own headline: a reply lands token by token.
+          //
+          // The reasoning block streams CLOSED, `collapsed` absent, which is core's
+          // default: plenty of assistants never show reasoning open and you click to
+          // read it. It is not a rendering trick either way — no wire format timestamps
+          // or unfolds a content block, so a page that opened it, or that printed a
+          // duration next to it, would be inventing a behaviour the model never sent.
           viewport.addSegment(mid, {
-            id: 'sg-think', type: 'thinking', isStreaming: false,
-            content: 'Two kinds in one reply — this reasoning block and a code fence. Neither of them is a chat bubble.',
+            id: 'sg-think', type: 'thinking', isStreaming: true, content: '',
           });
-          after(() => viewport.addSegment(mid, {
-            id: 'sg-code', type: 'code', language: 'ts', filename: 'segments.ts', isStreaming: false,
-            content: 'export function isSegmentSettled(s: AparteSegment) {\n'
-              + '  return s.type === \'tool_call\'\n'
-              + '    ? s.status !== \'pending\'\n'
-              + '    : s.isStreaming === false;\n}',
-          }), 750);
-          after(() => viewport.completeMessage(mid), 2350);
+          streamSegment(mid, 'sg-think',
+            'Two kinds in one reply — this reasoning block and a code fence. Neither of them is a chat bubble.',
+            () => {
+              after(() => {
+                viewport.addSegment(mid, {
+                  id: 'sg-code', type: 'code', language: 'ts', filename: 'segments.ts',
+                  isStreaming: true, content: '',
+                });
+                streamSegment(mid, 'sg-code',
+                'export function isSegmentSettled(s: AparteSegment) {\n'
+                  + '  return s.type === \'tool_call\'\n'
+                  + '    ? s.status !== \'pending\'\n'
+                  + '    : s.isStreaming === false;\n}',
+                  () => completeTurn(mid));
+              }, 260);
+            });
         }, 420);
       }
 
@@ -989,29 +1062,35 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         const mid = 'a' + ++msgId;
         after(() => {
           viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
+          beginTurn(mid);
           viewport.addSegment(mid, { id: 'ar-say', type: 'text', content: '', isStreaming: true });
           streamSegment(mid, 'ar-say', 'Here it is. Press Preview to run it — nothing executes until you do.', () => {
             after(() => {
+              // The artifact STREAMS too. It arrived complete, which skipped the state
+              // the card is built for: `data-streaming` on the card, its tabs disabled
+              // so nothing can be previewed mid-write, and the code pane growing. The
+              // panel demonstrated the finished object and none of the behaviour.
               viewport.addSegment(mid, {
-                id: 'ar-doc', type: 'artifact', isStreaming: false,
+                id: 'ar-doc', type: 'artifact', isStreaming: true,
                 artifactType: 'svg', mimeType: 'image/svg+xml',
-                title: 'aparté mark',
-                // An SVG rather than React on purpose: core previews html/svg/js/css
-                // with its own CDN-free fallback, so this needs no host builder —
-                // what you see is the library, not this page's scaffolding.
-                //
-                // And it is THIS SITE'S OWN favicon, read from `public/favicon.svg` at
-                // build time rather than pasted here. Five elements against the thirty
-                // of the invented bar chart it replaces, so the Code tab is readable at
-                // a glance instead of being a wall — and it is a file the visitor can
-                // verify, sitting in their own browser tab while they look at it.
-                // Read at call time, not from a module-scope const: `demoArtifact` is
-                // declared long before the block that reads the data attributes, and
-                // a forward reference that happens to work because of WHEN the call
-                // lands is the temporal-dead-zone trap this page has already hit once.
-                content: document.getElementById('demo')?.dataset.logo ?? '',
+                title: 'aparté mark', content: '',
               });
-              viewport.completeMessage(mid);
+              // An SVG rather than React on purpose: core previews html/svg/js/css with
+              // its own CDN-free fallback, so this needs no host builder — what you see
+              // is the library, not this page's scaffolding.
+              //
+              // And it is THIS SITE'S OWN favicon, read from public/favicon.svg at build
+              // time rather than pasted here. Five elements against the thirty of the
+              // invented bar chart it replaces, so the Code tab reads at a glance — and
+              // it is a file the visitor can verify, sitting in their own browser tab.
+              //
+              // Read at call time, not from a module-scope const: this function is
+              // declared long before the block that reads the data attributes, and a
+              // forward reference that works because of WHEN the call lands is the
+              // temporal-dead-zone trap this page has already set for me once.
+              streamSegment(mid, 'ar-doc',
+                document.getElementById('demo')?.dataset.logo ?? '',
+                () => completeTurn(mid));
             }, 300);
           });
         }, 420);
@@ -1171,7 +1250,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
           streamSegment(mid, closing, approved
             ? 'Done — the file is gone and the turn carried on from there.'
             : 'Understood, I left it alone. On a rejection the loop injects a “rejected by user” result and stops.',
-            () => viewport.completeMessage(mid));
+            () => completeTurn(mid));
         }, 340);
       });
 
