@@ -195,6 +195,66 @@ actions:
 Switching the active conversation stays owned by the `conversationId` binding — the helpers
 deliberately don't expose a `select()`.
 
+## 5. What survives a round trip
+
+Your adapter stores `AparteMessage` objects verbatim, segments included, and hands them
+back. Core then **adopts** them rather than treating them as new — and the difference is
+worth knowing, because two of the fields on a segment are facts and two are measurements.
+
+| on a restored segment | what happens | why |
+|---|---|---|
+| `id`, `type`, `content`, … | yours, untouched | it is your data |
+| `messageId`, `index` | **recomputed** from the array being joined | derivable facts. A stored value can only contradict the list it lands in — and no protocol persists either; Anthropic's block `index` exists solely inside the streaming envelope, as a position |
+| `meta.aparte.startedAt` / `endedAt` | **not restored, and not invented** | a span is something the client measured while the turn ran. A measurement nobody took is absent |
+| `isStreaming` | forced to `false` | a persisted stream is dead. Restored as streaming it would render a caret for ever, and the next completed turn would stamp it a brand-new end |
+| `meta.*` (yours) | round-trips as stored | your half of the bag |
+
+**Nothing is lost that was ever there.** Most backends store messages and have never
+heard of a segment — content parts carry no timestamp in any wire format — so there is
+usually nothing to lose. What changed is that core no longer *fills the gap with now*: a
+conversation from three weeks ago used to come back claiming every segment had started
+that second, and only on some of the load paths, so the same stored thread produced
+different numbers depending on whether you were in native or framework-managed mode and
+on whether a `tree` had been saved.
+
+:::note[If you want the spans back]
+Persist them yourself and put them where core reads them:
+
+```ts
+import { segmentTiming, type AparteMessage, type AparteSegment } from '@aparte/core';
+
+type Span = { id: string; startedAt?: number; endedAt?: number };
+
+/** On save: pull out what core measured, alongside whatever else you store. */
+function spansOf(message: AparteMessage): Span[] {
+  return (message.segments ?? []).map((s) => ({ id: s.id, ...segmentTiming(s) }));
+}
+
+/** On load: put it back under `meta.aparte`, and core leaves it alone. */
+function restoreSpans(message: AparteMessage, spans: Span[]): AparteMessage {
+  return {
+    ...message,
+    segments: message.segments?.map((s: AparteSegment) => {
+      const span = spans.find((x) => x.id === s.id);
+      if (!span) return s;
+      return {
+        ...s,
+        meta: { ...s.meta, aparte: { startedAt: span.startedAt, endedAt: span.endedAt } },
+      } as AparteSegment;
+    }),
+  };
+}
+```
+
+Read them back with `segmentDuration(segment)` rather than subtracting, so an absent span
+gives you `undefined` instead of `NaN`.
+:::
+
+**One thing core cannot fix for you.** A `tool_call` persisted as `pending` or
+`awaiting-approval` comes back showing its Approve / Reject buttons, and the handler that
+was waiting on them is gone — so pressing one does nothing. If your adapter can be
+interrupted mid-turn, normalise those statuses on save.
+
 ---
 
 See the generated [Elements reference](/reference/api/) for `<aparte-conversation-list>`'s
