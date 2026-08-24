@@ -503,7 +503,26 @@ export class AparteChatViewport extends HTMLElement {
      * the framework owns the DOM and will create the bubble element itself.
      */
     appendMessage(message: AparteMessage): void {
-        this._repo.addOrUpdateMessage(this._repo.headId, { ...message });
+        /*
+         * A message may arrive with its segments already populated — a restored
+         * conversation, a prefix the app injected, `setMessages()` — and until now
+         * those went straight into the repository unstamped, because
+         * `stampSegmentOnInsert` was only ever reached through `addSegment`. So the
+         * same segment had `messageId` / `index` / `startedAt` on one path and
+         * nothing on the other, and every reader had to cope with both.
+         *
+         * They come through the seam now, accumulated into a NEW array so `index`
+         * follows the position and the caller's array is no longer retained. A value
+         * already present is never overwritten, which is what makes this safe for a
+         * conversation reloaded from storage: its stored numbers win.
+         */
+        const stored: AparteMessage = message.segments?.length
+            ? { ...message, segments: message.segments.reduce<AparteSegment[]>(
+                (acc, segment) => { acc.push(stampSegmentOnInsert(acc, segment, message.id)); return acc; },
+                [],
+            ) }
+            : { ...message };
+        this._repo.addOrUpdateMessage(this._repo.headId, stored);
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
             if (wrapper) {
@@ -527,7 +546,13 @@ export class AparteChatViewport extends HTMLElement {
                 // Attributes alone can't carry segments / attachments / usage —
                 // push them through the same helper the full render path uses,
                 // or an imperatively appended message renders text-only.
-                populateBubbleFromMessage(bubble as unknown as SyncableBubble, message);
+                //
+                // `stored`, not `message`: the bubble has to see the STAMPED segments
+                // the repository holds. Handed the caller's object it rendered ones
+                // with no `index` or `startedAt`, so the same segment was stamped in
+                // the model and bare on screen — and an app reading them back off the
+                // bubble got the bare ones.
+                populateBubbleFromMessage(bubble as unknown as SyncableBubble, stored);
             }
         }
         this._pruneRenderedBubbles();
