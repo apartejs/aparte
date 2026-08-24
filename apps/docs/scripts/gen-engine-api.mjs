@@ -6,7 +6,8 @@
  * Starlight frontmatter + an auto-generated banner. Never edit the output by hand.
  */
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync, rmSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, rmSync, existsSync, mkdirSync } from 'node:fs';
+import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -50,5 +51,4 @@ sidebar:
 <!-- AUTO-GENERATED from packages/engine/src (TypeDoc) by apps/docs/scripts/gen-engine-api.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:engine-api\` to refresh. -->\n
 
 `;
-writeFileSync(OUT, front + md);
-console.log(`[gen-engine-api] wrote ${OUT}`);
+console.log(`[gen-engine-api] ${wroteOrNot(writeIfChanged(OUT, front + md))} ${OUT}`);

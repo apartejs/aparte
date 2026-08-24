@@ -54,7 +54,8 @@
  * Output (git-ignored, always regenerated):
  *   src/content/docs/reference/css-variables.md
  */
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, relative, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -265,9 +266,8 @@ if (undocumented.length) {
   process.exit(1);
 }
 
-mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, md, 'utf8');
+const wrote = writeIfChanged(OUT, md);
 console.log(
-  `[gen-css-vars] wrote ${total + componentTokens.length} variables → ${OUT}`
+  `[gen-css-vars] ${wroteOrNot(wrote)} ${total + componentTokens.length} variables → ${OUT}`
   + ` (${total} declared, ${componentTokens.length} component-read, ${unread.size} declared-but-unread)`,
 );

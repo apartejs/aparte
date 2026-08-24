@@ -17,7 +17,8 @@
  * taxonomy said it belonged and where nobody looked; astro.config keeps that path
  * alive as a redirect.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,6 +54,6 @@ covers the whole suite. Per-package detail lives in each package's own
 ${body.trimEnd()}
 `;
 
-writeFileSync(OUT, page, 'utf8');
+const wrote = writeIfChanged(OUT, page);
 const versions = [...page.matchAll(/^## /gm)].length;
-console.log(`[gen-release-notes] ${versions} version(s) → src/content/docs/changelog.md`);
+console.log(`[gen-release-notes] ${wroteOrNot(wrote)} ${versions} version(s) → src/content/docs/changelog.md`);

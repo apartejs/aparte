@@ -14,7 +14,8 @@
  * Output (git-ignored, always regenerated):
  *   src/content/docs/reference/wrappers.md
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
+import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IMPLEMENTATIONS, readWrapperSlots } from '../../../scripts/wrapper-surface.mjs';
@@ -80,5 +81,5 @@ property, so it follows the reading direction. The worked example is in
 `;
 
 mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, md, 'utf8');
-console.log(`[gen-wrapper-ref] wrote ${slots.length} slots → ${OUT}`);
+const wrote = writeIfChanged(OUT, md);
+console.log(`[gen-wrapper-ref] ${wroteOrNot(wrote)} ${slots.length} slots → ${OUT}`);
