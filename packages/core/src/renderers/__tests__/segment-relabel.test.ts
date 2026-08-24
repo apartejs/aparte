@@ -234,3 +234,109 @@ describe('relabel does not rebuild', () => {
         expect(btn.getAttribute('title')).toBe('Copied!');
     });
 });
+
+describe('the strings a language switch used to leave in English', () => {
+    it('the attach-file button — a key read for as long as it was never declared', async () => {
+        await import('../../components/composer/aparte-composer.js');
+        await import('../../components/composer/aparte-composer-add-attachment.js');
+        const composer = document.createElement('aparte-composer');
+        const btn = document.createElement('aparte-composer-add-attachment');
+        composer.appendChild(btn);
+        document.body.appendChild(composer);
+
+        const el = btn.querySelector('button')!;
+        // `t('actionUpload')` returned '' for every locale, so the `|| 'Attach file'`
+        // fallback rendered — and nothing on screen was in the wrong language,
+        // because the label is only a title and an aria-label.
+        expect(el.getAttribute('aria-label')).toBe('Attach file');
+
+        aparteGlobalConfig.setLocale({ ...FR(), actionUpload: 'Joindre un fichier' });
+
+        expect(el.getAttribute('aria-label')).toBe('Joindre un fichier');
+        expect(el.getAttribute('title')).toBe('Joindre un fichier');
+    });
+
+    it('the composer placeholder falls back to the locale, and follows it live', async () => {
+        await import('../../components/composer/aparte-composer.js');
+        await import('../../components/composer/aparte-composer-input.js');
+        const composer = document.createElement('aparte-composer');
+        const input = document.createElement('aparte-composer-input');
+        composer.appendChild(input);
+        document.body.appendChild(composer);
+
+        const ed = input.querySelector('[contenteditable]')!;
+        expect(ed.getAttribute('data-placeholder') ?? ed.getAttribute('aria-label')).toBe('Type a message...');
+
+        aparteGlobalConfig.setLocale({ ...FR(), inputPlaceholder: 'Écrivez un message...' });
+
+        expect(ed.getAttribute('data-placeholder') ?? ed.getAttribute('aria-label')).toBe('Écrivez un message...');
+    });
+
+    it('the artifact preview pane’s one sentence', () => {
+        const el = mount([{
+            id: 's1', type: 'artifact', isStreaming: false,
+            artifactType: 'svg', mimeType: 'image/svg+xml', title: 'A chart', content: '<svg/>',
+        } as unknown as AparteSegment]);
+
+        expect(el.querySelector('.aparte-art-card__pending')!.textContent)
+            .toBe('Press Preview to run this artifact.');
+    });
+});
+
+describe('the clock is part of the locale, not of the browser', () => {
+    /** 19:32 UTC — a time whose 12- and 24-hour renderings differ. */
+    const AFTERNOON = Date.UTC(2026, 7, 24, 19, 32);
+
+    function mountAt(ms: number): HTMLElement {
+        const el = document.createElement('aparte-chat-bubble');
+        el.setAttribute('message-id', 'm1');
+        el.setAttribute('data-role', 'assistant');
+        el.setAttribute('timestamp', String(ms));
+        document.body.appendChild(el);
+        return el;
+    }
+
+    it('the rendered time is Intl’s own answer for the declared tag', () => {
+        const el = mountAt(AFTERNOON);
+        const intl = (tag: string): string =>
+            new Intl.DateTimeFormat(tag, { hour: '2-digit', minute: '2-digit' }).format(new Date(AFTERNOON));
+        const shown = (): string => el.querySelector('.aparte-timestamp')!.textContent ?? '';
+
+        // BOTH directions, each against Intl itself. One tag alone cannot prove
+        // anything: the first version of this test asserted "French is 24-hour" and
+        // stayed green with the fix reverted, because the runner's own default
+        // locale is 24-hour too. Whatever that default is, it cannot match both of
+        // these, so one of the two assertions can only pass if the tag reached Intl.
+        aparteGlobalConfig.setLocale({ ...FR(), tag: 'en-US' });
+        expect(shown()).toBe(intl('en-US'));
+
+        aparteGlobalConfig.setLocale({ ...FR(), tag: 'fr-FR' });
+        expect(shown()).toBe(intl('fr-FR'));
+
+        expect(intl('en-US')).not.toBe(intl('fr-FR'));   // the premise, stated
+    });
+
+    it('and a locale with no tag still follows the browser — the documented default', () => {
+        const el = mountAt(AFTERNOON);
+        const before = el.querySelector('.aparte-timestamp')!.textContent;
+
+        // `FR()` spreads the default locale, which declares no tag on purpose: a
+        // library must not pin a consumer's formatting just because it shipped.
+        aparteGlobalConfig.setLocale(FR());
+
+        expect(el.querySelector('.aparte-timestamp')!.textContent).toBe(before);
+    });
+
+    it('switching language re-renders the clock, not just the words', () => {
+        const el = mountAt(AFTERNOON);
+        aparteGlobalConfig.setLocale({ ...FR(), tag: 'en-US' });
+        const us = el.querySelector('.aparte-timestamp')!.textContent ?? '';
+
+        aparteGlobalConfig.setLocale({ ...FR(), tag: 'fr-FR' });
+
+        // Without the re-render in `_onConfigChange` the language would switch
+        // around a 12-hour time that stayed put — a bilingual bubble again.
+        expect(el.querySelector('.aparte-timestamp')!.textContent).not.toBe(us);
+        expect(us).toMatch(/[AP]M/i);
+    });
+});
