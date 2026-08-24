@@ -131,6 +131,9 @@ jobs:
       - name: Check a segment is stamped in one place
         run: pnpm check:segment-stamp
 
+      - name: Check derived CSS variables re-anchor where a palette changes
+        run: pnpm check:derived-vars
+
       - name: Check the typed event map is honest
         run: pnpm check:event-map
 
