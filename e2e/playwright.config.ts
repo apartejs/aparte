@@ -166,6 +166,13 @@ const ELICITATION = /elicitation\.spec\.ts/;
 // DATA half is covered on both segment-array owners by the unit suite; this is the
 // only place the whole chain — provider mock, parser, owner, bubble — runs.
 const SEGMENT_META = /segment-metadata\.spec\.ts/;
+// The derived CSS-variable layer. `vanilla` only, same reasoning as LAYOUT: it is
+// core's own stylesheet, identical under every wrapper. It is deliberately NOT
+// wrapper-parity work — but it IS in vanilla's list precisely so it also runs under
+// WebKit, the engine this config already calls out as the likeliest to diverge on
+// custom-property behaviour. jsdom cannot host it at all: it does not substitute
+// `var()`, so every assertion in that spec passes there on a broken stylesheet.
+const THEMING = /theming\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -182,7 +189,7 @@ const SEGMENT_META = /segment-metadata\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep
