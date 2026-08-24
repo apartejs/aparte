@@ -71,6 +71,25 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 }
 ```
 
+:::note[Set the base, not the value it feeds]
+"Derives" is literal: **79 of core's variables read another one.** `--aparte-input-bg` is
+`var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
+`--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those eight bases above are read
+directly in 27 places *and* feed the rest, which is why a rebrand is eight lines.
+
+The part worth knowing: it works **wherever you set the base**, not only on `:root` —
+a themed subtree, a `[data-aparte-host]` boundary, or one element:
+
+```html
+<aparte-chat style="--aparte-primary: #16a34a"></aparte-chat>
+```
+
+That single attribute moves this chat's send button, its user avatar, its focus ring, its
+input's focus border and its progress fill, and leaves every other chat on the page alone.
+A derived variable is still yours to set on its own when you want one to break ranks — a
+value you declare always wins over the one it would have derived.
+:::
+
 :::note[`--aparte-bg` is yours to paint]
 Core sets no background on the chat root — it inherits from your page on purpose, so a
 chat drops into any layout without punching an opaque rectangle through it. So
