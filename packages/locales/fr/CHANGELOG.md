@@ -1,5 +1,133 @@
 # @aparte/locale-fr
 
+## 0.10.0
+
+### Minor Changes
+
+- cd188f7: **The language lever, finished: four more strings, and the clock.** Additive — five new
+  optional keys, one of which is not a string at all.
+
+  Both halves were found by a person switching the language in a browser and reading the
+  screen, after a cross-check of every key core reads against every key it declares had
+  already been run. The list said nothing was missing; the screen disagreed twice.
+
+  **`actionUpload` was read and never declared.** `aparte-composer-add-attachment` has
+  called `t('actionUpload')` since it existed, and no locale ever declared that key — so
+  `t()` returned `''` and the `|| 'Attach file'` fallback rendered in every language, after
+  every reload. That is the **third** instance of this exact defect, after `submitButton`
+  and `stopButton`. A key read and not declared is invisible from either side: the
+  component looks correct and the locale looks complete. Only cross-checking the two lists
+  finds it, and that check is now the routine.
+
+  Three more that were plain literals: the artifact preview pane's one sentence
+  (`previewPending`), and the sandbox failure's heading and hint (`sandboxError`,
+  `sandboxErrorHint`). The sandbox's own error text between them stays untranslated on
+  purpose — that is the tool's output, not the library's copy.
+
+  **`tag` — a BCP-47 language tag, because a clock is not a string.**
+
+  The only `Intl` call in the library passed `undefined` as its locale:
+
+  ```ts
+  date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  ```
+
+  `undefined` means _follow the browser_. So `setLocale(fr)` moved fifty strings and left
+  the timestamp above every message reading `7:32 PM`, because the browser had never been
+  asked. French is 24-hour.
+
+  A tag and **not** an `hour12` flag: a flag answers one question at one call site, a tag
+  answers every question `Intl` can be asked — hour cycle, date order, month names,
+  decimal separator, relative time, list joining — for every locale, including the ones
+  nobody here can enumerate. `direction` next door is the precedent: the locale's metadata
+  section already holds how a language _behaves_, not what its words are.
+
+  The English default declares **no** tag, deliberately: `undefined` keeps following the
+  browser, which is the right default for a library and the behaviour every consumer has
+  today. `@aparte/locale-fr` declares `tag: "fr-FR"` — if you have chosen French strings,
+  French formatting is what you meant. A timestamp also re-renders on a config change, or
+  the language would switch around a 12-hour time that stayed put.
+
+  `@aparte/locale-fr` now covers every key core declares: 25 required, 25 optional, none
+  missing.
+
+- 3f182ef: **Eight strings that could not be translated in any language now can.** Additive: five
+  new optional locale keys, and one required key that already existed and was read by
+  nothing.
+
+  Switching the locale left these in English, in every language, forever — no reload
+  helped, because they were literals in the markup rather than lookups:
+
+  | where                                 | was                                   | key                               |
+  | ------------------------------------- | ------------------------------------- | --------------------------------- |
+  | error segment heading                 | `Error`                               | `error` — **already existed**     |
+  | artifact card download button         | `Download` (title + aria-label)       | `download`                        |
+  | binary artifact download buttons (x2) | `Download`                            | `download`                        |
+  | artifact card tabs                    | `Preview` / `Code`                    | `preview`, `code`                 |
+  | binary artifact status                | `Generating…` / `Rebuilding preview…` | `generating`, `rebuildingPreview` |
+  | `pipeline-waiting` accessible name    | `Generating…`                         | `generating`                      |
+
+  The error heading is the one worth pausing on. `locale.error` is a **required** key,
+  documented under Status Indicators, defaulting to `"Error"`, and `@aparte/locale-fr` has
+  shipped `"Erreur"` for it since it existed — while nothing in the library read it and the
+  card next to it hardcoded `Error`. A translated string with no consumer and a literal
+  with no translation, in the same component.
+
+  Four of the eight are an `aria-label` or a `title` with no visible text, which is why they
+  survived: nothing on screen was in the wrong language, so only a screen-reader user or
+  someone hovering would ever have met them. `pipeline-waiting` is the extreme case — three
+  CSS dots and an accessible name, so that name is the segment's entire content as far as a
+  screen reader is concerned, and it announced English in every locale.
+
+  All of them also update **live**, through the `relabel` hook: `setLocale()` on a rendered
+  transcript now moves them without rebuilding the segments, so a mounted preview keeps
+  running and an expanded reasoning block stays expanded. The artifact card's tabs are
+  relabelled by text only — `aria-selected` and `data-tab` are the reader's state, not the
+  locale's, and a relabel that touched them would close a preview somebody had opened.
+
+  Also fixed in passing, because it was the same defect one line up: the artifact card's
+  copy button put `t('copy')` in its `title` and the literal `"Copy"` in its `aria-label`,
+  so a French reader got a French tooltip and an English announcement.
+
+  Knowingly left: `aria-label="Streaming"` on the card's pulse indicator. It sits on a
+  `<span>` with no role, where an accessible name is not reliably announced at all, so a
+  key for it would translate something nothing reads. It needs a role before it needs a
+  translation.
+
+  Found by sweeping for the pattern rather than trusting the list: the count went from
+  four to six while writing the keys, and to eight when a regex over every `title=`,
+  `aria-label=` and `>Word<` in core found two more `Download` buttons on the binary
+  artifact path — a second renderer with its own buttons, which no reading of the first
+  one would have surfaced.
+
+### Patch Changes
+
+- fc8a83b: **Fix: the stop button's accessible name was never translatable, in any language.**
+
+  `aparte-composer-cancel` has read `t('stopButton')` since it existed, and
+  `stopButton` was declared nowhere — not in `AparteLocale`, not in
+  `APARTE_DEFAULT_LOCALE`, not in `@aparte/locale-fr`. So `t()` returned nothing and
+  the `|| 'Stop'` fallback rendered every time, in every locale, including after a
+  full reload. The key is declared now, with its English default, and translated in
+  `@aparte/locale-fr`.
+
+  This is the second instance of a defect `locale.ts` already records for
+  `submitButton` one entry up: _"A key read and never declared is worse than a
+  literal: it looks translated."_ It was found by auditing something else entirely.
+
+  Why it survived: the button carries **no visible text**. The string is its
+  `aria-label` and its `title`, so nothing on screen was ever in the wrong language —
+  only a screen-reader user, or someone hovering, would have met it. Most of the
+  composer's translatable surface is like this, which is worth knowing before trusting
+  that the rest of it works.
+
+  The key is optional, like the other fifteen, so no consumer locale becomes invalid:
+  a locale without it keeps the English default.
+
+  Nothing about the landing page changed except that it now _counts_ the keys in
+  `AparteLocale` at build time instead of saying "forty" — adding one key made five
+  hand-written "forty"s wrong in the same commit that added it.
+
 ## 0.9.0
 
 ## 0.8.0

@@ -4,6 +4,727 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.10.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [b4f2435](https://github.com/apartejs/aparte/commit/b4f2435): **Fixed: a derived CSS variable now follows a master you override.** Per-instance
+  theming works, and core's own dark theme stops painting from a palette it had left.
+  Visible change in dark mode — read the last section before upgrading.
+
+  A custom property is substituted where it is **declared**. 79 of core's declarations
+  read another variable, and all 79 lived in `:root, :host` alone — so each was computed
+  once against the root palette, and everything below merely inherited the result. Two
+  consequences, neither of which produced an error:
+
+  - **`--aparte-primary` on one `<aparte-chat>` moved the send button and nothing else.**
+    The accent, the avatar, the focus ring and the radii are derived, so they kept the
+    root's brass. Per-instance theming was documented and did not work.
+  - **`[data-aparte-theme="dark"]` overrides eight masters and re-declared none of the
+    derived layer**, so dark mode kept light-substituted values. Invisible in the obvious
+    place — both brasses are brass — and _not_ invisible in 24 others, which had been
+    papered over with hardcoded dark literals: `#1e293b`, `#334155`, `#475569`, `#94a3b8`,
+    the Tailwind slate ramp, against a dark theme whose own surfaces are `#17141c` /
+    `#211b28` / `#2a2333` (purple-ink). Code blocks, reasoning, the input and the
+    conversation list rendered in a different colour family from the rest of the chat.
+    Two owners for one value, and they had already drifted.
+
+  **What changed.** The derived layer is now its own block, declared at every anchor where
+  a palette can change:
+
+  ```css
+  :root, :host, [data-aparte-theme], [data-aparte-host], aparte-chat { … }
+  ```
+
+  Substitution re-runs there, against that element's own masters. The 24 stale dark
+  literals are deleted — the derivation owns those values now, so the dark block is back
+  to what a theme should be: **18 literal master overrides** (backgrounds, bubbles, text,
+  border, primary, one shadow, the error palette) and nothing else.
+
+  The literal palette deliberately stays on `:root, :host`. Widening _that_ list looks
+  like the same fix and is not: it would re-declare the light literals on an
+  `<aparte-chat>` nested in a dark wrapper, where a local declaration beats the inherited
+  dark value, and the chat would silently go light. Both halves are now enforced by
+  `pnpm check:derived-vars`, with the browser half in `e2e/tests/theming.spec.ts` — jsdom
+  does not resolve `var()`, so no unit test can see any of this.
+
+  **Upgrading.** If you set a master (`--aparte-primary`, `--aparte-surface-*`,
+  `--aparte-text*`, `--aparte-border`) anywhere, more of the UI now follows it — that is
+  the fix. If you were compensating for the old behaviour by also setting a derived
+  variable by hand, drop the compensation; setting the master is enough. In dark mode,
+  code blocks, reasoning blocks, the composer field and the conversation list change
+  colour: they now derive from your dark surfaces instead of the abandoned slate values.
+  To keep a specific one exactly as it was, set that variable yourself — a value you
+  declare still wins.
+  <sub>`@aparte/core`</sub>
+
+- [fd192e6](https://github.com/apartejs/aparte/commit/fd192e6): **A config change now reaches the composer, and `subscribeConfigChange` is the hook for your own elements.**
+
+  The docs promise that "a locale switch is live: mounted components re-render
+  immediately". It was half true. Twenty-one files read a config-derived value — an
+  icon, a locale string — at render time, and sixteen never re-read it. Among them all
+  four composer controls and the input, each of which renders once behind an
+  early-return guard, so an icon set or a language chosen after the first render never
+  reached them.
+
+  Most of that surface is **invisible**: accessible names and tooltips. Only the
+  input's placeholder is text a sighted user reads. That is why it went unnoticed —
+  nothing on screen was ever in the wrong language.
+
+  **New: `subscribeConfigChange(el, handler)`** (exported, and from the Node entry
+  too). It owns the event name — previously a string literal repeated in five
+  components — and the scope rule that decides whether a change belongs to _this_
+  element. The config is resolved per event, never captured when subscribing:
+  `AparteChatStatus` documents why, having been made "permanently deaf to its own
+  instance" by exactly that mistake.
+
+  **Fixed, with a targeted refresh in each — never a re-render:**
+
+  - `aparte-composer-input` — the placeholder and its accessible name.
+  - `aparte-composer-send` — the icon and label for whichever of its four meanings the
+    button currently carries. It remembers the last `panel-change` payload now, which
+    it previously read out of the event's arguments and discarded, so nothing could
+    recompute the chrome afterwards. Its streaming label was the bare literal `'Stop'`
+    and is localized.
+  - `aparte-composer-cancel` — icon and accessible name, without touching `hidden`.
+  - `aparte-composer-add-attachment` — icon, label, tooltip.
+  - `aparte-composer-action` — icon only: its label is the consumer's `label`
+    attribute, so a locale change is correctly a no-op there.
+  - the bubble's **avatar provider**, which was the one provider a live change never
+    reached — swap the set and every bubble already on screen kept the old one.
+
+  Why targeted and not a re-render: `_render()` returns early once its button exists,
+  and its own disabled/hidden/mode computation ignores state that lives on the composer
+  root. Rebuilding would put a send glyph back while a reply was still streaming,
+  un-hide a stop button, drop out of answer mode with a question panel open, and take
+  the focus off the control most likely to be holding it.
+
+  Ten tests, both halves seen to fail: disabling the seam reddens nine of ten, and
+  removing the send button's mode dispatch reddens exactly its two streaming cases.
+
+  **Still stale, and deliberately not in this change:** the segment renderers'
+  config-derived text (a code block's copy button, a tool call's Approve/Reject, a
+  terminal's labels). Refreshing them by re-rendering the segments container was
+  audited and rejected — it destroys a running artifact preview, reverts a reasoning
+  block a reader had expanded, resets scroll inside long panes, and does not even
+  localize the strings that were never routed through `t()` in the first place. It
+  needs a narrow `relabel` hook on the renderer contract, which is its own change.
+  `aparte-elicitation` and the model-selector plugin are also still to do, each for a
+  specific reason recorded in that audit.
+  <sub>`@aparte/core`</sub>
+
+- [0fc38d8](https://github.com/apartejs/aparte/commit/0fc38d8): **A live config change now reaches an open question and the model selector.** They were
+  the last two components a language switch could not touch, and each was stuck for a
+  different reason.
+
+  **The elicitation panel kept no reference to itself.** `Pending` held
+  `{ settle, composer }`, so when the locale changed there was nothing to relabel — the
+  question a user was looking at stayed in the previous language. Rebuilding was never the
+  alternative: the reader may be halfway through typing an answer, or three questions into
+  a form.
+
+  So `BuiltElicitationPanel` gains **`relabel()`**, bound by the same rule as a segment
+  renderer's: text and attributes only, no node added or removed. The panel collects one
+  closure per string it takes from the locale, _while it is being built and only when it
+  takes it_ — which is what keeps a `trueLabel` the tool supplied from being overwritten
+  by `elicitationYes`. Four sites: the "Other…" option (title, placeholder and accessible
+  name), the yes/no labels, and the last-resort answer label. The presenter keeps the panel
+  and its Skip button in `Pending`, subscribes with the public
+  `subscribeConfigChange`, and re-texts both.
+
+  Asserted in pairs — the strings moved, _and_ a half-typed answer is still there, in the
+  same node.
+
+  **Fixed in passing, found by one of those tests:** an elicitation with an empty
+  `message` gave its input `aria-label=""` — no accessible name at all. The chain was
+  `field.title ?? field.description ?? fallbackLabel ?? t('elicitationAnswerLabel')`, and
+  `??` treats `''` as a value, so an empty message won. It is `||` now: an empty title is
+  not a name.
+
+  **The model selector was subscribed, and guarded past it.** Its handler returns early
+  unless the _model_ config changed, so a language switch reached it and was dropped —
+  leaving `modelSelectorPlaceholder`, the one string it takes from the locale and the only
+  one visible before the list is opened, in the previous language.
+
+  The guard stays, because it earns its place: a full re-render re-loads every provider's
+  models asynchronously and would close an open dropdown and discard a typed search. What
+  it gained is a cheap path — one attribute, in place. Measured with a MutationObserver
+  rather than claimed: with the fix, a language switch produces exactly one mutation,
+  `attr:placeholder`; without it, **zero** — which is the defect, stated as a measurement.
+  An explicit `placeholder` attribute still wins, as it does at render time.
+  <sub>`@aparte/core`, `@aparte/plugin-model-selector`</sub>
+
+- [cd188f7](https://github.com/apartejs/aparte/commit/cd188f7): **The language lever, finished: four more strings, and the clock.** Additive — five new
+  optional keys, one of which is not a string at all.
+
+  Both halves were found by a person switching the language in a browser and reading the
+  screen, after a cross-check of every key core reads against every key it declares had
+  already been run. The list said nothing was missing; the screen disagreed twice.
+
+  **`actionUpload` was read and never declared.** `aparte-composer-add-attachment` has
+  called `t('actionUpload')` since it existed, and no locale ever declared that key — so
+  `t()` returned `''` and the `|| 'Attach file'` fallback rendered in every language, after
+  every reload. That is the **third** instance of this exact defect, after `submitButton`
+  and `stopButton`. A key read and not declared is invisible from either side: the
+  component looks correct and the locale looks complete. Only cross-checking the two lists
+  finds it, and that check is now the routine.
+
+  Three more that were plain literals: the artifact preview pane's one sentence
+  (`previewPending`), and the sandbox failure's heading and hint (`sandboxError`,
+  `sandboxErrorHint`). The sandbox's own error text between them stays untranslated on
+  purpose — that is the tool's output, not the library's copy.
+
+  **`tag` — a BCP-47 language tag, because a clock is not a string.**
+
+  The only `Intl` call in the library passed `undefined` as its locale:
+
+  ```ts
+  date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  ```
+
+  `undefined` means _follow the browser_. So `setLocale(fr)` moved fifty strings and left
+  the timestamp above every message reading `7:32 PM`, because the browser had never been
+  asked. French is 24-hour.
+
+  A tag and **not** an `hour12` flag: a flag answers one question at one call site, a tag
+  answers every question `Intl` can be asked — hour cycle, date order, month names,
+  decimal separator, relative time, list joining — for every locale, including the ones
+  nobody here can enumerate. `direction` next door is the precedent: the locale's metadata
+  section already holds how a language _behaves_, not what its words are.
+
+  The English default declares **no** tag, deliberately: `undefined` keeps following the
+  browser, which is the right default for a library and the behaviour every consumer has
+  today. `@aparte/locale-fr` declares `tag: "fr-FR"` — if you have chosen French strings,
+  French formatting is what you meant. A timestamp also re-renders on a config change, or
+  the language would switch around a 12-hour time that stayed put.
+
+  `@aparte/locale-fr` now covers every key core declares: 25 required, 25 optional, none
+  missing.
+  <sub>`@aparte/core`, `@aparte/locale-fr`</sub>
+
+- [3f182ef](https://github.com/apartejs/aparte/commit/3f182ef): **Eight strings that could not be translated in any language now can.** Additive: five
+  new optional locale keys, and one required key that already existed and was read by
+  nothing.
+
+  Switching the locale left these in English, in every language, forever — no reload
+  helped, because they were literals in the markup rather than lookups:
+
+  | where                                 | was                                   | key                               |
+  | ------------------------------------- | ------------------------------------- | --------------------------------- |
+  | error segment heading                 | `Error`                               | `error` — **already existed**     |
+  | artifact card download button         | `Download` (title + aria-label)       | `download`                        |
+  | binary artifact download buttons (x2) | `Download`                            | `download`                        |
+  | artifact card tabs                    | `Preview` / `Code`                    | `preview`, `code`                 |
+  | binary artifact status                | `Generating…` / `Rebuilding preview…` | `generating`, `rebuildingPreview` |
+  | `pipeline-waiting` accessible name    | `Generating…`                         | `generating`                      |
+
+  The error heading is the one worth pausing on. `locale.error` is a **required** key,
+  documented under Status Indicators, defaulting to `"Error"`, and `@aparte/locale-fr` has
+  shipped `"Erreur"` for it since it existed — while nothing in the library read it and the
+  card next to it hardcoded `Error`. A translated string with no consumer and a literal
+  with no translation, in the same component.
+
+  Four of the eight are an `aria-label` or a `title` with no visible text, which is why they
+  survived: nothing on screen was in the wrong language, so only a screen-reader user or
+  someone hovering would ever have met them. `pipeline-waiting` is the extreme case — three
+  CSS dots and an accessible name, so that name is the segment's entire content as far as a
+  screen reader is concerned, and it announced English in every locale.
+
+  All of them also update **live**, through the `relabel` hook: `setLocale()` on a rendered
+  transcript now moves them without rebuilding the segments, so a mounted preview keeps
+  running and an expanded reasoning block stays expanded. The artifact card's tabs are
+  relabelled by text only — `aria-selected` and `data-tab` are the reader's state, not the
+  locale's, and a relabel that touched them would close a preview somebody had opened.
+
+  Also fixed in passing, because it was the same defect one line up: the artifact card's
+  copy button put `t('copy')` in its `title` and the literal `"Copy"` in its `aria-label`,
+  so a French reader got a French tooltip and an English announcement.
+
+  Knowingly left: `aria-label="Streaming"` on the card's pulse indicator. It sits on a
+  `<span>` with no role, where an accessible name is not reliably announced at all, so a
+  key for it would translate something nothing reads. It needs a role before it needs a
+  translation.
+
+  Found by sweeping for the pattern rather than trusting the list: the count went from
+  four to six while writing the keys, and to eight when a regex over every `title=`,
+  `aria-label=` and `>Word<` in core found two more `Download` buttons on the binary
+  artifact path — a second renderer with its own buttons, which no reading of the first
+  one would have surfaced.
+  <sub>`@aparte/core`, `@aparte/locale-fr`</sub>
+
+- [494e3dd](https://github.com/apartejs/aparte/commit/494e3dd): **Removed: the `file-tree` segment type.** Breaking, deliberately and without a shim.
+
+  `{ type: 'file-tree' }`, `AparteFileTreeSegment` and `AparteFileNode` are gone, with
+  their renderer, their styles and their fourteen `--aparte-file-tree-*` /
+  `--aparte-file-status-*` variables. Core ships nine segment kinds now, not ten.
+
+  It was in the wrong place, and every symptom of that was visible before anyone
+  noticed the cause:
+
+  - **No model emits a file tree.** The segment kinds core owns are what a model
+    produces — prose, reasoning, a fenced block, a tool call, an artifact — plus what
+    its own loop reports. A directory listing is neither: it is an app rendering the
+    result of a tool it ran.
+  - **Nothing in the library produced one.** No parser, no client, no example, no
+    browser test. A consumer had to hand-build the whole tree.
+  - **And it had drifted accordingly**: no locale keys and no icon-provider calls
+    anywhere in it — its glyphs were literal emoji — so it was the one renderer a
+    language change or an icon pack could never touch. That is what an unattended
+    surface looks like.
+
+  **What to do instead.** A file list is the result of a tool, so it belongs to that
+  tool: register a renderer for it with `config.registerToolRenderer(name, renderer)`
+  and it draws inside the `tool_call` segment, which is where the model's request and
+  the result already live. `@aparte/plugin-ask-user` is that shape end to end if you
+  want a worked example. If you genuinely need a standalone block with no tool behind
+  it, `registerSegmentRenderer` still takes a type of your own — that path is
+  unchanged, and it is the one this type should have used from the start.
+
+  Nothing else in core referenced it, so there is no migration beyond deleting your own
+  `file-tree` segments or moving them behind one of those two seams.
+  <sub>`@aparte/core`</sub>
+
+- [0fed195](https://github.com/apartejs/aparte/commit/0fed195): **Removed: the `terminal` segment type, with its event and its host handler.** Breaking, pre-1.0, no shim.
+
+  Gone from core: `{ type: 'terminal' }`, `AparteTerminalSegment`, the renderer, 117
+  lines of CSS and 11 `--aparte-terminal-*` variables, the `aparte-terminal-run` event
+  and its `AparteTerminalRunEventDetail`, and the `terminalRun` host handler. The four
+  wrappers stop re-exporting the two types. Core ships eight segment kinds now.
+
+  **No protocol has a "terminal".** When ChatGPT shows one, that is a **tool call**: the
+  model emits a call whose arguments are code, and the client renders the _result_ in a
+  monospace pane. Same in a console agent — `bash` is a tool, the app runs it, the app
+  prints the output. The name in the wire format is the tool's (`code_interpreter`,
+  `bash`, `run_command`); "terminal" is a UI convention, not a kind of content.
+
+  The evidence was in the type all along. `exitCode` and `isRunning` are not things any
+  protocol provides — a tool result is a string. Those two fields are the signature of a
+  component written for an app that owned the execution, not for a library rendering a
+  protocol. Consistent with that: nothing in the library ever emitted one — no parser,
+  no client, no example, no browser test.
+
+  **What to do instead.** Register a renderer for your own tool and it draws inside the
+  `tool_call` segment, where the request and the result already live:
+
+  ```ts
+  config.registerToolRenderer("bash", myConsoleRenderer); // or 'run_command', 'python'
+  ```
+
+  That is the seam this belonged in, and it puts the naming where it belongs: core cannot
+  know what your tool is called, and baking one vendor's tool name into a
+  framework-agnostic library would be wire-format knowledge in the wrong layer.
+  `@aparte/plugin-ask-user` is the same shape end to end if you want a worked example.
+  If you need a standalone console block with no tool behind it,
+  `registerSegmentRenderer` still takes a type of your own — that path is unchanged.
+
+  The `terminal` **icon key** stays in the icon provider: a consumer writing their own
+  console renderer will want `getIcon('terminal')`, and an icon name costs nothing.
+
+  Migration: delete your `terminal` segments, or move them behind
+  `registerToolRenderer` / `registerSegmentRenderer`. If you declared
+  `setHostHandlers({ terminalRun: true })`, drop that key — the others are unchanged.
+  <sub>`@aparte/core`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [155a619](https://github.com/apartejs/aparte/commit/155a619): **Removed: the `diff`, `image` and `preview` segment types.** Breaking, pre-1.0, no shim.
+
+  `AparteDiffSegment` (with `AparteDiffHunk` and `AparteDiffLine`),
+  `AparteImageSegment` and `ApartePreviewSegment` are gone, and the three members leave
+  the `AparteSegment` union. Core ships eight segment kinds.
+
+  All three were **declared and unrenderable**. They had complete data shapes, they were
+  members of the public union, and no renderer existed for any of them — so
+  `{ type: 'diff', hunks: [...] }` typechecked and then rendered
+  `[Unknown segment type: diff]` with a console warning. TypeScript accepted what the
+  screen refused; now both refuse.
+
+  Two of them were duplicating paths that already work better:
+
+  - an **image** is `![alt](url)` in the reply's markdown, which the markdown plugin
+    renders — including the sanitising and the streaming-safe href checks;
+  - a **preview** is what the `artifact` segment does, inside a sandboxed iframe with a
+    double-delivered CSP, mounted only on an explicit human press.
+
+  The third, **diff**, is a different case and got the same verdict for the reason the
+  `terminal` removal established: a patch is the _result of a tool_ the model called, not
+  something the model emits. It belongs to that tool's renderer
+  (`config.registerToolRenderer`), where the request and the result already live —
+  or to a segment type of your own via `registerSegmentRenderer`, which is unchanged.
+
+  None of the five types was reachable from `@aparte/core`: they lived in the internal
+  types barrel and were never in the root export. So no import breaks. What changes is
+  that the union no longer promises three kinds nothing could display.
+  <sub>`@aparte/core`</sub>
+
+- [88cc99a](https://github.com/apartejs/aparte/commit/88cc99a): **New: `relabel` on `AparteSegmentRenderer` — a config change now reaches the text inside a rendered segment.**
+
+  A language switch or a new icon set left every segment already on screen in the old
+  language: a code block's copy tooltip, a terminal's Run label, a reasoning block's
+  "Reasoning", and — worst — the Approve and Reject buttons on a tool call waiting for a
+  human decision.
+
+  `relabel?(element, segment)` is called on a config change for every segment on screen,
+  bound by the same rule `update()` already carries: **attributes and text only, no
+  child node added or removed**. Implemented in the six built-ins that hold
+  config-derived text — `thinking`, `code`, `terminal`, `tool_call`, `error`,
+  `artifact/card`. `text`, `file-tree`, `progress` and `pipeline-waiting` do not
+  implement it, exactly as they do not implement `update()`: their chrome is their own
+  data.
+
+  **Why not simply re-render the segments.** That was the first plan, and an audit
+  rejected it. `_renderSegments()` wipes the container and rebuilds, which destroys
+  state the DOM owns and the segment data does not:
+
+  - a mounted sandboxed artifact preview, executing model-authored code, is torn down
+    with no warning and the card falls back to its Code tab;
+  - a reasoning block the reader expanded by clicking `<summary>` snaps shut, because
+    nothing writes that back to `segment.collapsed`;
+  - scroll position inside a long terminal or reasoning pane resets to the top;
+  - the focus on an Approve/Reject gate is dropped to `<body>` — for a keyboard or
+    screen-reader user, mid-decision;
+  - a segment still streaming loses the incremental Markdown parser's buffered
+    lookahead and restarts from the first byte;
+  - and the container-wide childList mutation is what the `update()` contract exists to
+    avoid, because the viewport's observer reads it as "scroll to the bottom".
+
+  It would also have been an incomplete fix. Several strings were never routed through
+  `t()` at all — the error card's "Error" heading, the artifact card's `aria-label` and
+  its "Preview" / "Code" tabs, the download button, `progress`'s fallback label and
+  `pipeline-waiting`'s `aria-label`. A full re-render leaves every one of them in
+  English. Giving them locale keys is an additive change of its own; a test in this
+  change pins the "Error" heading so that change has something to break.
+
+  Nine tests, both halves seen to fail: disabling the loop reddens six of nine (the
+  three survivors assert absences), and making one `relabel` rebuild its node instead of
+  patching it reddens exactly the identity and label cases. One test opens a reasoning
+  block by hand and asserts a config change leaves it open.
+
+  One small behaviour change came with it: a code block's copy button marks itself while
+  its "copied" confirmation is showing, so a config change arriving inside that 1.5s does
+  not cancel what the reader is looking at.
+
+  Still to do, each for a reason: `aparte-elicitation` needs its pending state to keep a
+  reference to the panel, and the model-selector plugin needs to be additive to its own
+  `aparteConfigChanged` hook without re-running its population path.
+  <sub>`@aparte/core`</sub>
+
+- [9ac83d4](https://github.com/apartejs/aparte/commit/9ac83d4): **A segment's measurements move from its own fields into `meta.aparte`.** Breaking,
+  pre-1.0, no shim. `startedAt` and `endedAt` are gone from `AparteSegmentBase`.
+
+  Why, and it was checked rather than assumed: **no protocol carries a timestamp on a
+  content block.** Anthropic's blocks have none and neither does the message; OpenAI's
+  `output_text` part is `{annotations, logprobs, text, type}` with `created_at` on the item
+  above it; the AI SDK's `UIMessage.parts` have none either. What the AI SDK _does_ have is
+  a metadata bag whose canonical example is literally `{ createdAt, model, totalTokens }` —
+  at the message level. A per-block **id** has industry precedent; per-block **time** has
+  none anywhere.
+
+  So a span is a local measurement, and the shape now says so:
+
+  ```ts
+  segment.meta?.aparte?.startedAt; // was segment.startedAt
+  segment.meta?.aparte?.endedAt; // was segment.endedAt
+  ```
+
+  Still **typed** — `AparteSegmentTiming`, exported. The bag is where it belongs; opacity
+  was never part of the deal. Namespaced under `aparte` because the rest of `meta` is
+  yours: a flat `startedAt` there would collide with a key of your own.
+
+  **Read it through the helpers and this change costs you nothing.** `segmentDuration()`
+  and `isSegmentSettled()` keep their signatures, and `segmentTiming(segment)` is new for
+  the two numbers themselves. All three are exported, and all three are the rules core uses
+  rather than a copy of them — the vanilla example needed no code change at all.
+
+  **The one thing to know if you write `meta` yourself:** `updateSegment(id, { meta })` now
+  **merges** instead of replacing. That is not a convenience, it is the whole risk of
+  putting two writers in one bag — a plain spread from either side would erase the other,
+  and your first `{ meta: { cost } }` would have silently deleted core's measurement. One
+  helper does the merge and all three update sites go through it.
+
+  Also: a `setSegmentDefaults()` default may fill `meta` but **not `meta.aparte`** — those
+  fields stopped being reserved as fields and became reserved as a sub-object, or a default
+  could hand an app a span it never measured.
+
+  **Migration.** Replace `segment.startedAt` / `segment.endedAt` with
+  `segmentTiming(segment)?.startedAt` / `?.endedAt`, or better, with `segmentDuration()`.
+  If you persist segments, your stored `startedAt`/`endedAt` are no longer read: move them
+  under `meta.aparte` when you load.
+  <sub>`@aparte/core`</sub>
+
+- [7602c8d](https://github.com/apartejs/aparte/commit/7602c8d): **A reasoning block is closed by default, and any segment type can be given defaults.**
+  Breaking for anyone relying on reasoning blocks rendering open, pre-1.0, no shim.
+
+  `collapsed` absent used to mean **open**, and core's own stream parser emitted
+  `collapsed: false` on every thinking segment it produced — so a reasoning block stayed
+  unfolded for the whole conversation, with the answer buried under it. No assistant on
+  the market does that: the content sits behind a click, streaming or settled.
+
+  Now `collapsed === false` opens a block and anything else closes it. The parser stops
+  saying it at all. `collapsed: false` is still how you open one on purpose; only _absent_
+  changed meaning. The old default was pinned by no test, which is how the parser came to
+  contradict it unnoticed — it is pinned now.
+
+  **`setSegmentDefaults(type, defaults)`** is the way to change it for a whole app:
+
+  ```ts
+  aparteGlobalConfig.setSegmentDefaults("thinking", { collapsed: false });
+  aparteGlobalConfig.setSegmentDefaults("my-chart", { theme: "dark" });
+  ```
+
+  It exists because a per-segment field is unreachable for the case that matters: when a
+  reply streams, the consumer does not construct its segments — the parser does — so there
+  was nothing to set `collapsed` on. And it is keyed by **type**, not one function per
+  field: a `setThinkingOpen()` would need a sibling the next time any type wanted a
+  default, and the type key is a string, so a consumer's own type is covered by the same
+  call.
+
+  Applied where a segment's identity is stamped, which is what makes it cover every
+  arrival path — `addSegment`, the segments seeded on an `appendMessage`, the framework
+  host, and the parser's output — with no renderer having to look anything up. Rules:
+
+  - a field the producer set always wins, **including an explicit `undefined`** (that is a
+    statement, not a gap — the merge asks `key in segment`, not `?? `);
+  - identity is refused: `id`, `type`, `messageId`, `index`, `startedAt`, `endedAt`. A
+    default `id` would hand every segment in a conversation the same one;
+  - read at insertion and baked in. Changing a default later does not reach segments
+    already on screen: a block the reader opened has state the data does not;
+  - per instance — each chat resolves its own config, so two chats on one page can default
+    differently;
+  - cleared by `reset()`, like every other piece of config.
+
+  Also new: `getSegmentDefaults(type)`, `clearSegmentDefaults(type)`, and the
+  `AparteSegmentDefaults` type.
+
+  **Migration.** If your app wants the old behaviour, one line:
+  `aparteGlobalConfig.setSegmentDefaults('thinking', { collapsed: false })`.
+  <sub>`@aparte/core`</sub>
+
+### Patch Changes
+
+- [f1fcbb4](https://github.com/apartejs/aparte/commit/f1fcbb4): **The artifact card's tab row and its heights.** Three things, all reported from the
+  landing.
+
+  **Code comes first, and the pair sits with the other controls.** The card opens on Code —
+  mounting the preview would execute model-authored code with no gesture — and a selected
+  tab sitting _second_ reads backwards. DOM order is also keyboard order, so the tab a
+  reader reaches first is now the one already showing. The pair is right-aligned, under the
+  header's copy/download buttons, so every control is in one column.
+
+  **The tab row declares its own layout.** Core is light DOM on purpose: no shadow root, no
+  `::part()`, any selector reaches in — and the corollary is that a component must state
+  what its layout depends on, because an undeclared property has nothing to override a
+  host's rule with. A page with a bare `nav { justify-content: space-between; padding-top:
+30px }` was pushing the card's `<nav>` tabs to opposite ends and padding the row out.
+  `justify-content` and the padding are declared now.
+
+  **Six hardcoded heights become variables**, each with its default in its read
+  (`var(--x, 480px)`), the way every other value in that file already works:
+
+  |                                      | default |
+  | ------------------------------------ | ------- |
+  | `--aparte-artifact-frame-height`     | `480px` |
+  | `--aparte-artifact-frame-max`        | `70vh`  |
+  | `--aparte-artifact-body-max`         | `600px` |
+  | `--aparte-artifact-pending-height`   | `120px` |
+  | `--aparte-artifact-file-code-max`    | `360px` |
+  | `--aparte-artifact-file-preview-max` | `460px` |
+
+  The preview frame stays a **fixed** height rather than an aspect ratio, which is what
+  embeds of arbitrary HTML actually do — CodeSandbox documents `500px`, StackBlitz takes a
+  height parameter — because a frame with an opaque origin cannot be measured, and a 16/10
+  ratio on a wide card is enormous. What was missing is the `70vh` cap: a fixed 480px should
+  not own a phone screen.
+
+  Two incoherences went with it: the code pane repeated the body's `600px` (two owners of
+  one number), and the "press Preview" placeholder was `120px` tall inside a body whose
+  `min-height` said `80px`, so that minimum applied to nothing.
+  <sub>`@aparte/core`</sub>
+
+- [388b594](https://github.com/apartejs/aparte/commit/388b594): **Fix: any config change made avatars appear across the transcript, and switching back did not remove them.**
+
+  The default bubble shell renders `<div class="aparte-avatar">` empty, and the
+  stylesheet hides it while it stays that way — `.aparte-avatar:empty { display: none }`,
+  with the comment "No message avatar by default — the slot only shows once an
+  AvatarProvider (or a consumer) fills it."
+
+  `_updateName()` wrote a one-letter initial into that slot unconditionally, and
+  `_onConfigChange` calls `_updateName()` so that already-rendered bubbles pick up a
+  live change. Every notifying setter therefore filled it: `setLocale` — a language
+  switcher is enough — `setBubbleActions`, `setIconProvider`. Avatars appeared on a
+  click that had nothing to do with them, on messages already on screen, and undoing
+  the click changed nothing because the text was by then written. `_updateRole()` did
+  the same on a role change.
+
+  Both now refresh an initial that is **already there** and never create one. The guard
+  is "already non-empty" rather than "no avatar provider" on purpose: `avatarInitial` is
+  part of the `AparteBubbleShellRenderer` contract, so a custom shell may render an
+  initial and must still see it kept in sync when the name changes. Empty stays empty;
+  filled stays in sync.
+
+  `_renderAvatar`'s documentation claimed it "falls back to the default initial / image
+  rendered by `_render()`" when no provider is set. There is no such initial — the
+  default shell renders the slot empty — and believing there was is what made the two
+  update paths write one. Corrected.
+
+  Five tests, both guards seen to fail: reverting the `_updateName` guard reddens the
+  config-change and name-change cases, reverting the `_updateRole` one reddens the
+  role-change case. One of them asserts the custom-shell contract still holds, which is
+  what rules out the narrower fix.
+  <sub>`@aparte/core`</sub>
+
+- [79956cb](https://github.com/apartejs/aparte/commit/79956cb): **A bubble with nothing to paint no longer paints a box.** Reported from the page: send
+  a file with no text, and the message showed an empty coloured rectangle under the chips.
+
+  `.aparte-message-content` carries the user bubble's background, padding and radius, and
+  the attachment chips render **above** it, outside it. So a message that is only
+  attachments left that box with no content, no segments and no waiting dots — and it drew
+  itself anyway.
+
+  It is hidden now when it is empty **and not waiting**, which is the whole rule: the
+  assistant's typing dots live inside that same box, and a fresh streaming bubble is empty
+  by definition. Hiding on emptiness alone would have taken the typing indicator with it —
+  asserted, not assumed.
+  <sub>`@aparte/core`</sub>
+
+- [9642713](https://github.com/apartejs/aparte/commit/9642713): **A syntax highlighter's dual-theme output is no longer thrown away.** The default
+  sanitizer's inline-style allowlist had entries for `color`, `background-color` and the
+  font properties, and none for a custom property — so shiki's documented light-and-dark
+  mode, `defaultColor: false`, which emits **only** `--shiki-light` / `--shiki-dark` and
+  leaves the choosing to CSS, lost every declaration and rendered every code block white.
+  The feature was unreachable, not merely unstyled.
+
+  A custom property is now kept, with two rules:
+
+  - **The value scrubbing is unchanged.** A custom property is inert until some CSS reads
+    it, so the value is what has to be safe: `url()`, `expression()`, `javascript:`, a CSS
+    identifier escape and `<>` are refused exactly as before.
+  - **Our own namespace is refused.** `--aparte-*` is dropped. Core's entire theme is
+    custom properties, so a model-authored block setting `--aparte-primary` would repaint
+    the chat around itself — not highlighting, defacement with our own paint.
+
+  If you were working around this by pinning a single shiki theme, you can stop.
+  <sub>`@aparte/core`</sub>
+
+- [fbffb48](https://github.com/apartejs/aparte/commit/fbffb48): **Fix: a message appended with its segments already populated wrote every streamed chunk twice, and its segments were never stamped.**
+
+  `appendMessage({ …, segments: [...] })` is a real path — a conversation restored from
+  storage, a prefix an app injects, `setMessages()` — and it went around two earlier
+  fixes.
+
+  **The doubling.** Streaming into such a segment produced
+  `"ThatThat  deletesdeletes  aa  filefile"`, in the message model and on screen.
+  `populateBubbleFromMessage` handed the repository's own `segments` array to
+  `bubble.setSegments()`, which stored it **by reference** while `getSegments()` had
+  always copied on the way out. One array, two writers: the viewport replaced the slot
+  with `{...segment, content: old + chunk}`, then the bubble looked the segment up in
+  what it believed was its own list, found that replacement — chunk already in it — and
+  appended the chunk again.
+
+  This is the same failure as the `appendToSegment` fix in 0.4.0, which resolved it for
+  `addSegment` (where it cannot happen: the bubble pushes into a list it created itself,
+  so the viewport's replacement decouples the two immediately). Its regression tests all
+  drive `addSegment`, so this path stayed broken for exactly the reason that changelog
+  entry gave for why nothing had caught it the first time — the tests went around it.
+  `setSegments` now copies the array in, which covers every path through
+  `populateBubbleFromMessage` from its single production caller.
+
+  **The missing stamps.** `messageId`, `index` and `startedAt` — shipped in 0.9.0 — were
+  written only by `addSegment`, so a segment arriving with its message had none of them.
+  The same field was present on one path and absent on the other, silently, and anything
+  reading them had to cope with both. Seeded segments now go through the same
+  `stampSegmentOnInsert` seam, accumulated into a new array so `index` follows position
+  and the caller's array is no longer retained. Values already present are never
+  overwritten, so a conversation reloaded from storage keeps the numbers it stored.
+
+  The bubble is also handed the stamped copy rather than the caller's object: it was
+  rendering segments with no `index` or `startedAt` while the model held stamped ones.
+
+  Six regression tests, each seen to fail: reverting the copy reddens the exact-text and
+  `setMessages` cases, and reverting the stamping reddens the identity, position and
+  object-sharing cases.
+
+  **Known and not changed here:** `AparteChatHost` (the framework-managed owner) stamps
+  on `addSegment` but not on segments that arrive with a message, because that array
+  belongs to the framework's own state — copying and stamping it is a decision about
+  ownership, not a bug fix, and it deserves its own change.
+  <sub>`@aparte/core`</sub>
+
+- [fc8a83b](https://github.com/apartejs/aparte/commit/fc8a83b): **Fix: the stop button's accessible name was never translatable, in any language.**
+
+  `aparte-composer-cancel` has read `t('stopButton')` since it existed, and
+  `stopButton` was declared nowhere — not in `AparteLocale`, not in
+  `APARTE_DEFAULT_LOCALE`, not in `@aparte/locale-fr`. So `t()` returned nothing and
+  the `|| 'Stop'` fallback rendered every time, in every locale, including after a
+  full reload. The key is declared now, with its English default, and translated in
+  `@aparte/locale-fr`.
+
+  This is the second instance of a defect `locale.ts` already records for
+  `submitButton` one entry up: _"A key read and never declared is worse than a
+  literal: it looks translated."_ It was found by auditing something else entirely.
+
+  Why it survived: the button carries **no visible text**. The string is its
+  `aria-label` and its `title`, so nothing on screen was ever in the wrong language —
+  only a screen-reader user, or someone hovering, would have met it. Most of the
+  composer's translatable surface is like this, which is worth knowing before trusting
+  that the rest of it works.
+
+  The key is optional, like the other fifteen, so no consumer locale becomes invalid:
+  a locale without it keeps the English default.
+
+  Nothing about the landing page changed except that it now _counts_ the keys in
+  `AparteLocale` at build time instead of saying "forty" — adding one key made five
+  hand-written "forty"s wrong in the same commit that added it.
+  <sub>`@aparte/core`, `@aparte/locale-fr`</sub>
+
+- [4ce2ae6](https://github.com/apartejs/aparte/commit/4ce2ae6): **A code block is coloured while it streams, not after it.** Reported from the screen: an
+  artifact's code pane flickered between plain white and syntax colours on a dark theme.
+
+  The debounce was innocent. Every token ran `codeEl.textContent = content`, which destroys
+  the highlighter's `<span>`s — so a token erased whatever the last debounce had painted.
+  Plain most of the time, one coloured frame every 400ms. The `code` **segment** had the
+  mirror-image bug: no colour at all until stream-end, behind a comment explaining that a
+  per-token highlight would be too expensive.
+
+  Both are the same missing idea. The pane is now split at the last newline: the prefix of
+  **complete lines** is highlighted, and the line still being written stays plain in a tail
+  span that a token can rewrite on its own. Not colouring that last line is deliberate
+  twice over — it is what makes a token cost one text assignment, and an unterminated string
+  or brace re-tokenises everything after it, which was the other half of what looked like
+  flicker.
+
+  `streamHighlight` replaces the artifact family's `debounceHighlight` and serves all three
+  panes (card, binary file, `code` segment). The boundary lives in the DOM rather than a
+  module map, which is what makes a slow earlier highlight unable to rewind the pane.
+
+  **And the artifact's pulse stops when the stream does.** `render()` painted the streaming
+  indicator and nothing ever removed it, so a finished document went on claiming to be in
+  flight — every 1.2s, forever. It survived this long because nothing in the repo streamed
+  an artifact: the card had only ever been handed settled content, so its streaming
+  affordances had never once been exercised.
+  <sub>`@aparte/core`</sub>
+
+- [17d31fb](https://github.com/apartejs/aparte/commit/17d31fb): **An SVG artifact with only a `viewBox` now previews.** It showed a blank frame.
+
+  The preview document centres its content with `display:flex; align-items:center`, and an
+  SVG that carries only a `viewBox` — the recommended, responsive form, and the one a model
+  writes most often — has no intrinsic dimensions. As a flex item its cross size then
+  collapses to zero and the frame is empty. So the preview worked for the less idiomatic
+  SVG, the one that states its own `width`/`height`, and silently showed nothing for the
+  normal one.
+
+  Fixed with `svg:not([width]):not([height]){width:90%;height:90%}` — narrowed by attribute
+  selector so an SVG that asks for a size keeps it. A blanket `width:90%` was the shorter
+  fix and would have stretched every sized SVG instead.
+
+  The preview document had no tests. It has four now, including one that pins something
+  deliberate: it does **not** run the message sanitizer, because that drops `<svg>`
+  wholesale (correctly, for content rendered in the page) and would make every SVG artifact
+  unpreviewable. The CSP and the sandboxed frame are what make it safe.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-transformers`, `@aparte/plugin-ask-user`, `@aparte/plugin-marked`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`.</sub>
+
 ## 0.9.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
