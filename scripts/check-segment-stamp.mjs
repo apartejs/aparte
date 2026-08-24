@@ -55,6 +55,43 @@ const ARRAY_WRITERS = new Set([
     'packages/core/src/parsers/aparte-stream-parser.ts',
 ]);
 
+/**
+ * Every entry point by which HISTORY reaches a transcript, and the call each must make.
+ *
+ * ## Why a named list, when the rest of this file is regexes
+ *
+ * The two rules above match *syntax*: `segments.push(`, `.segments =`, a spread of a
+ * segment array. Every load path moves a whole `AparteMessage` object instead — so the
+ * guard was structurally blind to exactly the place the bug lived. Four paths existed,
+ * they disagreed, and this script reported OK the whole time: `setMessages` invented a
+ * `startedAt` for a three-week-old conversation, `importTree` wrote to the repository
+ * raw, `addMessage` did nothing, and `AparteChatHost.appendMessage` — same name as the
+ * viewport's method, opposite behaviour — did nothing either.
+ *
+ * A list of names is cruder than a matcher and it is the only thing that can fail when
+ * a FIFTH path is added: a new method that quietly forwards a stored list matches no
+ * pattern, but it will not be in here, and its absence is the whole point. The cost is
+ * that renaming a method must be paired with an edit here — deliberately.
+ */
+const ADOPTERS = [
+    { file: 'packages/core/src/components/viewport/aparte-chat-viewport.ts', anchor: 'setMessages(messages: AparteMessage[]): void {' },
+    { file: 'packages/core/src/components/viewport/aparte-chat-viewport.ts', anchor: 'addMessage(message: AparteMessage): void {' },
+    { file: 'packages/core/src/components/viewport/aparte-chat-viewport.ts', anchor: 'importTree(tree: ExportedMessageRepository): void {' },
+    { file: 'packages/core/src/host/aparte-chat-host.ts', anchor: 'appendMessage(message: AparteMessage, options?: { historical?: boolean }): void {' },
+    { file: 'packages/core/src/host/aparte-chat-host.ts', anchor: 'setMessages: (msgs) => {' },
+];
+
+/** How far past the signature to look. A method that needs more is too long anyway. */
+const ADOPTER_WINDOW = 40;
+/**
+ * The verbs that count as adopting — the seam's own, and nothing else.
+ *
+ * No call parentheses required: `msgs.map(adoptMessageSegments)` passes the verb as a
+ * mapper, which is adopting. Demanding a `(` made this rule report a path that was
+ * already correct, which is the kind of false positive that gets a guard disabled.
+ */
+const ADOPTION = /\badopt(Segment|MessageSegments)\b|\{\s*historical:\s*true\s*\}/;
+
 /** Sites the two rules are expected to inspect. Raise when the surface grows. */
 const SEEN_FLOOR = 8;
 
@@ -108,6 +145,39 @@ for (const root of ROOTS) {
     }
 }
 
+// ── the third rule: every load path adopts ────────────────────────────────────
+const unadopted = [];
+for (const { file, anchor } of ADOPTERS) {
+    let lines;
+    try {
+        lines = readFileSync(file, 'utf8').split('\n');
+    } catch {
+        unadopted.push(`${file} — file not found; a rename needs an edit in ADOPTERS`);
+        continue;
+    }
+    const at = lines.findIndex((l) => l.includes(anchor));
+    if (at === -1) {
+        unadopted.push(`${file} — no line matches \`${anchor}\`; renamed or resignatured?`);
+        continue;
+    }
+    const body = lines.slice(at, at + ADOPTER_WINDOW).join('\n');
+    if (!ADOPTION.test(body)) {
+        unadopted.push(`${file}:${at + 1} — \`${anchor.slice(0, 48)}\` does not adopt`);
+    }
+}
+if (unadopted.length) {
+    console.error(`\n[segment-stamp] ${unadopted.length} load path(s) that do not adopt:\n`);
+    for (const u of unadopted) console.error('  ' + u);
+    console.error(
+        '\nHistory is not a segment starting now. A path that hands core a stored list must'
+        + '\nrun it through `adoptMessageSegments` (or pass `{ historical: true }`), which'
+        + '\nrecomputes `messageId`/`index`, writes no time, and settles what it adopts.'
+        + '\nOtherwise the same stored conversation comes back with different numbers'
+        + '\ndepending on the mode — which is what this rule exists to have caught once.\n',
+    );
+    process.exit(1);
+}
+
 if (offenders.length) {
     console.error(`\n[segment-stamp] ${offenders.length} site(s) outside the stamping seam:\n`);
     for (const o of offenders) console.error('  ' + o);
@@ -132,4 +202,7 @@ if (seen < SEEN_FLOOR) {
     process.exit(1);
 }
 
-console.log(`[segment-stamp] OK: ${seen} sites inspected, all inside the stamping seam.`);
+console.log(
+    `[segment-stamp] OK: ${seen} sites inspected, all inside the stamping seam; `
+    + `${ADOPTERS.length} load paths all adopt.`,
+);
