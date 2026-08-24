@@ -16,7 +16,7 @@ import '../../components/viewport/aparte-chat-viewport.js';
 import '../../components/bubble/aparte-chat-bubble.js';
 import { registerDefaultRenderers } from '../../renderers/segment-renderers.js';
 import { aparteGlobalConfig } from '../../config/aparte-config.js';
-import { stampSegmentOnInsert } from '../segments.js';
+import { stampSegmentOnInsert, segmentTiming } from '../segments.js';
 import type { AparteSegment } from '../../types/index.js';
 
 registerDefaultRenderers();
@@ -59,14 +59,26 @@ describe('the helper', () => {
 
     it('refuses identity, whatever a default says', () => {
         const out = stampSegmentOnInsert([seg], seg, 'm1', {
-            id: 'stolen', type: 'text', messageId: 'elsewhere', index: 99, startedAt: 1, endedAt: 2,
+            id: 'stolen', type: 'text', messageId: 'elsewhere', index: 99,
         });
         expect(out.id).toBe('s1');
         expect(out.type).toBe('thinking');
         expect(out.messageId).toBe('m1');
         expect(out.index).toBe(1);
-        expect(out.startedAt).not.toBe(1);
-        expect(out.endedAt).toBeUndefined();
+    });
+
+    it('and refuses a forged measurement, which is not identity but is core’s', () => {
+        // `startedAt`/`endedAt` used to be RESERVED as fields of their own. They live in
+        // `meta.aparte` now, so the reserved thing is that sub-object: a default that
+        // could inject one would let an app hand itself a span it never measured, which
+        // is the same lie the reload path was telling.
+        const out = stampSegmentOnInsert([], seg, 'm1', {
+            meta: { aparte: { startedAt: 1, endedAt: 2 }, cost: 7 },
+        });
+        expect(segmentTiming(out)?.startedAt).not.toBe(1);
+        expect(segmentTiming(out)?.endedAt).toBeUndefined();
+        // The rest of the bag is the app's and passes through untouched.
+        expect(out.meta?.cost).toBe(7);
     });
 });
 

@@ -374,14 +374,24 @@ pill with how long the call took — without replacing a renderer:
 |---|---|
 | `messageId` | the message the segment belongs to |
 | `index` | its position in that message's `segments[]` |
-| `startedAt` | epoch ms when it entered the transcript |
-| `endedAt` | epoch ms when content **last arrived** — advances while streaming, frozen once settled |
+| `meta.aparte.startedAt` | epoch ms when it entered a **live** transcript |
+| `meta.aparte.endedAt` | epoch ms when content **last arrived** — advances while streaming, frozen once settled |
+| `meta.*` | yours: token counts, cost, anything. `updateSegment(id, { meta })` merges, so writing your own key never erases core's |
 
-All five are optional, and that is not hedging: they describe a lifecycle. A segment you
-built by hand, or one straight out of the parser, has not been inserted yet — so it has no
-start; an open segment has no end. Read the span with `segmentDuration(segment)` rather than
-subtracting the two fields yourself, and ask `isSegmentSettled(segment)` whether the number
-is final.
+The two measurements live in `meta.aparte` rather than on the segment because **no protocol
+carries a timestamp on a content block** — not Anthropic's, not OpenAI's, not the AI SDK's
+parts. A span is something the client measured, so its shape says so. It is still typed
+(`AparteSegmentTiming`), and namespaced under `aparte` because the rest of `meta` is yours.
+
+Everything here is optional, and that is not hedging: it describes a lifecycle. A segment
+you built by hand, or one straight out of the parser, has not been inserted yet — so it has
+no start; an open segment has no end; and a segment restored from storage has neither,
+because a measurement nobody took is absent rather than invented.
+
+Read the span with **`segmentDuration(segment)`** rather than subtracting anything
+yourself, ask **`isSegmentSettled(segment)`** whether the number is final, and reach for
+**`segmentTiming(segment)`** when you want the two numbers themselves — all three are
+exported, and all three are the rules core uses internally rather than a copy of them.
 | `meta` | anything only *you* can know: token counts, cost, device |
 
 **Core renders none of it.** It measures a duration honestly (it owns the stream) and
@@ -511,9 +521,10 @@ What to expect:
 - **A field the producer set always wins.** A segment carrying `collapsed: true` keeps it,
   and so does one carrying `collapsed: undefined` — an explicit `undefined` is a
   statement, not a gap.
-- **Identity is never defaulted.** `id`, `type`, `messageId`, `index`, `startedAt` and
-  `endedAt` are refused: a default `id` would hand every segment in a conversation the
-  same one, and `index` / `startedAt` are measurements of *this* insertion.
+- **Identity is never defaulted.** `id`, `type`, `messageId` and `index` are refused: a
+  default `id` would hand every segment in a conversation the same one, and `index` is a
+  fact about *this* insertion. A default may fill `meta`, but **not `meta.aparte`** — that
+  would let an app hand itself a span it never measured.
 - **Every arrival path is covered**, because the defaults are applied where a segment's
   identity is stamped: `addSegment`, the segments seeded on an `appendMessage`, and the
   framework host. Including the ones the parser produces, which is the case that needed

@@ -18,6 +18,7 @@ import { cssEscape } from '../utils/css-escape.js';
 import {
     stampSegmentOnInsert,
     stampSegmentOnUpdate,
+    mergeSegmentUpdate,
     renumberSegments,
     openSegmentIds,
     stampSegmentActivity,
@@ -405,7 +406,7 @@ export class AparteChatHost {
         this._lastBubble()?.updateSegment?.(segmentId, stamped);
         if (!last || !last.segments) return;
         const segments = last.segments.map((s) =>
-            s.id === segmentId ? ({ ...s, ...stamped } as AparteSegment) : s,
+            s.id === segmentId ? mergeSegmentUpdate(s, stamped) : s,
         );
         const next = [...msgs.slice(0, -1), { ...last, segments }];
         this.binding.setMessages(next);

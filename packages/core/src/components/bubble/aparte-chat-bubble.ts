@@ -15,6 +15,7 @@ import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers
 import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { mergeSegmentUpdate } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 
@@ -330,7 +331,7 @@ export class AparteChatBubble extends HTMLElement {
   updateSegment(segmentId: string, updates: Partial<AparteSegment>): void {
     const index = this._segments.findIndex(s => s.id === segmentId);
     if (index !== -1) {
-      const updated = { ...this._segments[index], ...updates } as AparteSegment;
+      const updated = mergeSegmentUpdate(this._segments[index]!, updates);
       this._segments[index] = updated;
       this._applySegmentUpdate(segmentId, updated, updates);
     }

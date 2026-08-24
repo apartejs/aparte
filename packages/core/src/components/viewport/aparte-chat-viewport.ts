@@ -18,6 +18,7 @@ import { uuid } from '../../utils/uuid.js';
 import {
     stampSegmentOnInsert,
     stampSegmentOnUpdate,
+    mergeSegmentUpdate,
     renumberSegments,
     openSegmentIds,
     stampSegmentActivity,
@@ -355,10 +356,7 @@ export class AparteChatViewport extends HTMLElement {
             // here rather than at each call site, so `completeSegment`, a tool
             // resolution and an app's own `updateSegment` all measure alike.
             const stamped = stampSegmentOnUpdate(current, updates);
-            message.segments[segmentIndex] = {
-                ...current,
-                ...stamped
-            } as AparteSegment;
+            message.segments[segmentIndex] = mergeSegmentUpdate(current, stamped);
 
             this._notifyBubble(messageId, 'updateSegment', { segmentId, updates: stamped });
         }

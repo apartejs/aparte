@@ -1,3 +1,4 @@
+import { segmentTiming } from '../../../utils/segments.js';
 // @vitest-environment jsdom
 /**
  * A message that ARRIVES with its segments, rather than growing them.
@@ -109,7 +110,7 @@ describe('a message that arrives with its segments', () => {
         // Positions, not merely "defined": a list where two segments both claim 0
         // passes a per-segment `toBeDefined` and is the failure that matters.
         expect(segments.map((s) => s.index)).toEqual([0, 1, 2]);
-        expect(segments.every((s) => typeof s.startedAt === 'number')).toBe(true);
+        expect(segments.every((s) => typeof segmentTiming(s)?.startedAt === 'number')).toBe(true);
     });
 
     it('never overwrites numbers a stored conversation already carries', () => {
@@ -117,12 +118,12 @@ describe('a message that arrives with its segments', () => {
         // created, persisted with those values, and handed back later.
         vp.appendMessage({
             id: 'm1', role: 'assistant', content: '', timestamp: 1,
-            segments: [seg('s1', { index: 7, startedAt: 1_600_000_000_000, messageId: 'from-storage' })],
+            segments: [seg('s1', { index: 7, meta: { aparte: { startedAt: 1_600_000_000_000 } }, messageId: 'from-storage' })],
         });
 
         const [s] = modelSegments('m1');
         expect(s.index).toBe(7);
-        expect(s.startedAt).toBe(1_600_000_000_000);
+        expect(segmentTiming(s)?.startedAt).toBe(1_600_000_000_000);
         expect(s.messageId).toBe('from-storage');
     });
 

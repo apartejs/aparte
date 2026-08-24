@@ -43,7 +43,7 @@ setupAskUser();
 
 // 1b. "Thought for 1.4s" — the market's collapsed reasoning line, built HERE.
 //
-// Core measures the span (it owns the stream, so it stamps `startedAt`/`endedAt`
+// Core measures the span (it owns the stream, so it writes `meta.aparte`
 // on every segment) and deliberately renders nothing: the line reads "Thought for
 // 8s" in one product and "8.2s · 1.2k tokens" in another, and a library that
 // picks one is wrong in the other. So this is ~15 lines of app code, and it is
@@ -83,7 +83,7 @@ registerSegmentRenderer<AparteThinkingSegment>({
 function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void {
     // `isSegmentSettled` and `segmentDuration` are core's own rules, imported rather
     // than re-derived. The hand-written version of this was
-    //     if (!isSegmentSettled(s) || !s.startedAt || !s.endedAt) return;
+    //     if (!isSegmentSettled(s) || !s.meta?.aparte?.startedAt) return;
     // which is three conditions to get right and wrong at epoch 0.
     if (!isSegmentSettled(segment)) return;
     const ms = segmentDuration(segment);

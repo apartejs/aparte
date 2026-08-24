@@ -94,6 +94,7 @@ describe('@aparte/core public API', () => {
             "revokeAttachmentUrls",
             "runWithConfig",
             "segmentDuration",
+            "segmentTiming",
             "subscribeConfigChange",
             "unregisterSegmentRenderer",
             "uuid",
