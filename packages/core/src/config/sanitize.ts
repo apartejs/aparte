@@ -145,6 +145,27 @@ const SAFE_STYLE_PROPS = new Set([
 ]);
 
 /**
+ * A custom property a highlighter may set, as opposed to one of ours it may not.
+ *
+ * The allowlist above says what it is for — "properties a syntax highlighter / markdown
+ * renderer actually emits" — and it predates dual-theme highlighting. Shiki's documented
+ * way to render for light AND dark is `defaultColor: false`, which emits NOTHING but
+ * custom properties (`--shiki-light`, `--shiki-dark`) and leaves the choosing to CSS. So
+ * every declaration was dropped and every code block came out white: the feature was
+ * unreachable, not merely unstyled.
+ *
+ * Two rules, and the second is the one that matters. A custom property is inert on its
+ * own — it paints nothing until some CSS reads it — so the value scrubbing below is what
+ * keeps it safe, and it applies unchanged. But core's ENTIRE theme is custom properties,
+ * so a model-authored block setting `--aparte-primary` could repaint the chat around it.
+ * That is not highlighting, it is defacement with our own paint, so our namespace is
+ * refused.
+ */
+function isSafeCustomProperty(prop: string): boolean {
+    return prop.startsWith('--') && !prop.startsWith('--aparte-');
+}
+
+/**
  * Keep only allowlisted inline-style declarations, and reject any `url()` beacon,
  * legacy `expression()`, or scheme even on an allowlisted property.
  */
@@ -156,7 +177,8 @@ function scrubStyle(value: string): string | null {
         if (idx === -1) continue;
         const prop = trimmed.slice(0, idx).trim().toLowerCase();
         const val = trimmed.slice(idx + 1);
-        if (!val.trim() || !SAFE_STYLE_PROPS.has(prop)) continue;
+        if (!val.trim()) continue;
+        if (!SAFE_STYLE_PROPS.has(prop) && !isSafeCustomProperty(prop)) continue;
         // A CSS identifier escape is a legal spelling of any character, so
         // `u\72 l(//evil)` is `url(//evil)` written to walk straight past a
         // regex looking for the letters. DECODING it would be the general fix and
