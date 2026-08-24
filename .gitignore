@@ -64,7 +64,13 @@ packages/wrappers/*/.svelte-kit/
 # Content stamps for scripts/check-dist-freshness.mjs (mtime is not content).
 .dist-freshness/
 
-# Raw vitest JSON report (scripts/stamp-test-count.mjs distils it into
-# apps/docs/src/data/test-counts.json, which IS committed) and TypeDoc scratch.
+# Raw vitest JSON report, and the count scripts/stamp-test-count.mjs distils out of
+# it. Both are build artefacts, and the count was tracked until it earned a churn
+# commit per changed number. It does not need to be: CI runs `test:coverage` before
+# building the docs in the same job, so the published figure is measured either way,
+# and the landing's read sits in a try/catch whose fallback ("more than 1,000 tests",
+# plus a file count from its own walk) is the honest answer for a clone that has never
+# run the suite. Plus TypeDoc scratch.
 .vitest-report.json
+apps/docs/src/data/test-counts.json
 apps/docs/.typedoc/

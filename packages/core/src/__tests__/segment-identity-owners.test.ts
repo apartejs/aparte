@@ -1,5 +1,3 @@
-import { segmentTiming,
-    segmentDuration } from '../utils/segments.js';
 // @vitest-environment jsdom
 /**
  * A segment's identity and measurement, proven on BOTH owners.
@@ -19,6 +17,7 @@ import '../components/viewport/aparte-chat-viewport.js';
 import '../components/bubble/aparte-chat-bubble.js';
 import { AparteChatHost, type AparteChatHostBinding } from '../host/aparte-chat-host.js';
 import type { AparteMessage, AparteSegment, AparteToolCallSegment } from '../types/index.js';
+import { segmentTiming, segmentDuration } from '../utils/segments.js';
 
 const text = (id: string, extra: Partial<AparteSegment> = {}): AparteSegment =>
     ({ id, type: 'text', content: '', ...extra }) as AparteSegment;

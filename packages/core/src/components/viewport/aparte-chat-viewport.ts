@@ -17,6 +17,7 @@ import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
 import {
     stampSegmentOnInsert,
+    adoptMessageSegments,
     stampSegmentOnUpdate,
     mergeSegmentUpdate,
     renumberSegments,
@@ -493,7 +494,9 @@ export class AparteChatViewport extends HTMLElement {
      * which both records the message and creates its bubble element.
      */
     addMessage(message: AparteMessage): void {
-        this._repo.addOrUpdateMessage(this._repo.headId, { ...message });
+        // Adopted, not stamped: this writes straight to the repository, so it is the
+        // caller handing over a message they already hold rather than a turn starting.
+        this._repo.addOrUpdateMessage(this._repo.headId, adoptMessageSegments({ ...message }));
         this._pruneRenderedBubbles();
         this._autoScroll();
     }
@@ -505,32 +508,36 @@ export class AparteChatViewport extends HTMLElement {
      * When `_frameworkManagedDOM` is true, only the internal repo is updated —
      * the framework owns the DOM and will create the bubble element itself.
      */
-    appendMessage(message: AparteMessage): void {
+    appendMessage(message: AparteMessage, options?: { historical?: boolean }): void {
         /*
-         * A message may arrive with its segments already populated — a restored
-         * conversation, a prefix the app injected, `setMessages()` — and until now
-         * those went straight into the repository unstamped, because
-         * `stampSegmentOnInsert` was only ever reached through `addSegment`. So the
-         * same segment had `messageId` / `index` / `startedAt` on one path and
-         * nothing on the other, and every reader had to cope with both.
+         * A message may arrive with its segments already populated, and the two reasons
+         * are not the same act: an app injecting a prefix or the client's own error
+         * fallback is producing something NOW, while `setMessages` is handing back
+         * something that happened. Both used to take the live path, so reloading a
+         * three-week-old conversation stamped every one of its segments with `Date.now()`.
          *
-         * They come through the seam now, accumulated into a NEW array so `index`
-         * follows the position and the caller's array is no longer retained. A value
-         * already present is never overwritten, which is what makes this safe for a
-         * conversation reloaded from storage: its stored numbers win.
+         * Provenance is a parameter and not a guess. "Arrived with its segments" cannot
+         * mean "historical" — `AparteClient` appends a message with a ready-made error
+         * segment live, and a consumer streaming into a seeded segment is doing the same
+         * thing. Defaulting to live keeps every existing caller's behaviour.
+         *
+         * Either way the segments go through a seam and into a NEW array, so `index`
+         * follows the position and the caller's array is not retained.
          */
-        const stored: AparteMessage = message.segments?.length
-            ? { ...message, segments: message.segments.reduce<AparteSegment[]>(
-                (acc, segment) => {
-                    acc.push(stampSegmentOnInsert(
-                        acc, segment, message.id,
-                        resolveConfig(this).getSegmentDefaults(segment.type),
-                    ));
-                    return acc;
-                },
-                [],
-            ) }
-            : { ...message };
+        const stored: AparteMessage = options?.historical
+            ? adoptMessageSegments(message)
+            : message.segments?.length
+                ? { ...message, segments: message.segments.reduce<AparteSegment[]>(
+                    (acc, segment) => {
+                        acc.push(stampSegmentOnInsert(
+                            acc, segment, message.id,
+                            resolveConfig(this).getSegmentDefaults(segment.type),
+                        ));
+                        return acc;
+                    },
+                    [],
+                ) }
+                : { ...message };
         this._repo.addOrUpdateMessage(this._repo.headId, stored);
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
@@ -758,7 +765,18 @@ export class AparteChatViewport extends HTMLElement {
         // very attachment objects currently in the repo — which is exactly what a
         // conversation load does. See the note in `clearAll`.
         this.clearAll({ revokeAttachments: false });
-        this._repo.import(tree);
+        // A snapshot is history by definition, and this is the path that used to write
+        // it to the repository RAW — so `messageId`/`index` stayed whatever the storage
+        // held, and a tree saved before those fields existed came back without them.
+        // It also runs AFTER `setMessages` on a conversation load, so whatever that
+        // stamped was being replaced by this anyway: two paths, one of them silent.
+        this._repo.import({
+            ...tree,
+            messages: tree.messages.map((entry) => ({
+                ...entry,
+                message: adoptMessageSegments(entry.message),
+            })),
+        });
         this._reRenderActivePath();
     }
 
@@ -830,7 +848,9 @@ export class AparteChatViewport extends HTMLElement {
         // ones, and a conversation the user can switch back to still holds them.
         this.clearAll({ revokeAttachments: false });
         for (const m of messages) {
-            this.appendMessage(m);
+            // Historical by definition: this replaces the transcript with a list the
+            // caller already had. Nothing here is starting now.
+            this.appendMessage(m, { historical: true });
         }
     }
 
