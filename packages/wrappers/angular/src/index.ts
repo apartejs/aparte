@@ -26,7 +26,6 @@ export type {
     AparteTextSegment,
     AparteCodeSegment,
     AparteThinkingSegment,
-    AparteTerminalSegment,
     // The imperative surface every wrapper exposes. Angular alone used to omit it,
     // while React and the other two each aliased it under a name of their own.
     AparteChatImperativeApi,

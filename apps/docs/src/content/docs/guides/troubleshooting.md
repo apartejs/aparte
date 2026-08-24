@@ -124,7 +124,7 @@ Keyless local providers never trigger this warning — there's no key to expose.
 
 The bubble found no renderer for that segment type.
 
-- **A built-in type** (`text`, `thinking`, `code`, `terminal`, `tool_call`, `artifact`,
+- **A built-in type** (`text`, `thinking`, `code`, `tool_call`, `artifact`,
   …) should never show this: core installs its built-in renderers the first time a
   segment needs one. If you see it anyway, something declined them — a
   `new AparteClient({ autoRegister: false })` somewhere, which is remembered on
@@ -149,11 +149,11 @@ aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });   // you run a
 aparteGlobalConfig.setBubbleActions({ feedback: true, info: true }); // you handle these events
 ```
 
-Same for the three affordances outside the action bar — the clickable image tile, the `Run`
-button on a terminal segment, the download button on a **binary** artifact:
+Same for the two affordances outside the action bar — the clickable image tile and the
+download button on a **binary** artifact:
 
 ```ts
-aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true, artifactRedownload: true });
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
 ```
 
 Two things that are *not* the cause, before you go looking:

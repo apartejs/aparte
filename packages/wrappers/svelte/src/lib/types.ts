@@ -10,7 +10,6 @@ export type {
     AparteTextSegment,
     AparteCodeSegment,
     AparteThinkingSegment,
-    AparteTerminalSegment,
     AparteSendEventDetail,
     AparteActionEventDetail,
 } from '@aparte/core';

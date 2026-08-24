@@ -154,7 +154,7 @@ export interface AparteBubbleActionsConfig {
  * ```
  *
  * These are declarations, not callbacks: the events (`aparte-attachment-preview`,
- * `aparte-terminal-run`, `aparte-artifact-redownload`) are unchanged, and you keep
+ * `aparte-artifact-redownload`) are unchanged, and you keep
  * listening for them wherever you already do.
  */
 export interface AparteHostHandlersConfig {
@@ -164,11 +164,6 @@ export interface AparteHostHandlersConfig {
      * tile is inert and is not signalled as a button. Default: false
      */
     attachmentPreview?: boolean;
-    /**
-     * The Run button on a `terminal` segment (`aparte-terminal-run`) — core never
-     * executes anything. Copy is unaffected. Default: false
-     */
-    terminalRun?: boolean;
     /**
      * The download button on a **binary** artifact, which asks the app to
      * re-generate the file (`aparte-artifact-redownload`). Text artifacts keep

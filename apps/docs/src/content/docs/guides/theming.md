@@ -129,7 +129,7 @@ Variables are grouped by region. The most-reached-for ones:
 `--aparte-composer-control-size` (sizes the whole composer control row at once).
 
 **Segments** — each rich block has its own group: `--aparte-code-*`,
-`--aparte-thinking-*`, `--aparte-terminal-*`, `--aparte-error-*`,
+`--aparte-thinking-*`, `--aparte-error-*`,
 `--aparte-progress-*`.
 
 :::tip

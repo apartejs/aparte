@@ -30,6 +30,5 @@ export type {
     AparteSegment,
     AparteTextSegment,
     AparteCodeSegment,
-    AparteThinkingSegment,
-    AparteTerminalSegment
+    AparteThinkingSegment
 } from './types.js';

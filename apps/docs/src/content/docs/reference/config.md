@@ -141,7 +141,6 @@ your app does the work. Declare what you handle; the rest isn't offered.
 
 - `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **four**:
   - `attachmentPreview` — image tiles ask for a lightbox via `aparte-attachment-preview`.
-  - `terminalRun` — the Run button on a terminal segment → `aparte-terminal-run`.
   - `artifactRedownload` — the download button on a **binary** artifact → `aparte-artifact-redownload`.
   - `artifactRehydrate` — re-generating a **persisted** binary artifact when a saved conversation is re-opened → `aparte-artifact-ready`, dispatched on mount rather than at the end of a stream. Off by default for a stronger reason than the others: it is an automatic dispatch nobody asked for, carrying model-authored content the receiving app is expected to run. Reloading a conversation would otherwise re-execute whatever a prompt injection had persuaded the model to persist, on every reload.
 
