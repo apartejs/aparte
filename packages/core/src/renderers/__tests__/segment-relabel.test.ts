@@ -42,6 +42,7 @@ const FR = () => ({
     running: 'En cours…',
     approveTool: 'Approuver',
     rejectTool: 'Refuser',
+    error: 'Erreur',
 });
 
 const seg = (s: Partial<AparteSegment> & { id: string; type: string }) => s as AparteSegment;
@@ -114,20 +115,82 @@ describe('relabel reaches a rendered segment', () => {
         // exists to avoid.
         expect(card.getAttribute('data-tab')).toBe('code');
         expect(el.querySelector('iframe')).toBeNull();
-        // And the literals it cannot reach stay literal, on purpose.
-        expect(el.querySelector('.aparte-art-card__btn[data-action="download"]')!.getAttribute('title')).toBe('Download');
     });
 
-    it('an error card’s icon (its title is a literal, and stays one)', () => {
+    it('the artifact card’s download button and its two tabs', () => {
+        const el = mount([{
+            id: 's1', type: 'artifact', isStreaming: false,
+            artifactType: 'svg', mimeType: 'image/svg+xml', title: 'A chart',
+            content: '<svg/>',
+        } as unknown as AparteSegment]);
+        const dl = el.querySelector('.aparte-art-card__btn[data-action="download"]')!;
+
+        aparteGlobalConfig.setLocale({ ...FR(), download: 'Télécharger', preview: 'Aperçu', code: 'Code' });
+
+        // Title AND aria-label. They disagreed before: the copy button next door put
+        // `t('copy')` in its title and the literal "Copy" in its aria-label, so a
+        // screen reader read English while the tooltip read French.
+        expect(dl.getAttribute('title')).toBe('Télécharger');
+        expect(dl.getAttribute('aria-label')).toBe('Télécharger');
+        expect(el.querySelector('.aparte-art-card__btn[data-action="copy"]')!.getAttribute('aria-label')).toBe('Copier');
+        expect(el.querySelector('[data-tab-target="preview"]')!.textContent).toBe('Aperçu');
+        expect(el.querySelector('[data-tab-target="code"]')!.textContent).toBe('Code');
+        // Which pane is open is the reader's state, not the locale's.
+        expect(el.querySelector('.segment-artifact-card')!.getAttribute('data-tab')).toBe('code');
+        expect(el.querySelector('[data-tab-target="code"]')!.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('a binary artifact’s download button is localized at render', () => {
+        // This button is a SECOND renderer's, on the pdf/xlsx/docx path, and it only
+        // exists when the app declares it can regenerate the bytes — so nothing in
+        // the suite rendered it, and the first attempt at localizing it put an
+        // interpolation inside a single-quoted string. That would have shipped the
+        // literal text `${escapeHtml(...)}` onto the button, and every test would
+        // still have passed. Hence this one.
+        aparteGlobalConfig.setHostHandlers({ artifactRedownload: true });
+        aparteGlobalConfig.setLocale({ ...FR(), download: 'Télécharger', generating: 'Génération…' });
+        const el = mount([{
+            id: 's1', type: 'artifact', isStreaming: true,
+            artifactType: 'pdf', mimeType: 'application/pdf', title: 'report.pdf', content: '',
+        } as unknown as AparteSegment]);
+
+        const btn = el.querySelector('.aparte-art-file__btn[data-action="download"]');
+        expect(btn, 'no download button rendered — the host handler was declared').not.toBeNull();
+        expect(btn!.textContent).toBe('Télécharger');
+        expect(el.innerHTML).not.toContain('${');
+        expect(el.querySelector('[data-role="file-sub"]')!.textContent).toBe('Génération…');
+    });
+
+    it('the waiting indicator’s accessible name — its only content', () => {
+        const el = mount([seg({ id: 's1', type: 'pipeline-waiting' })]);
+        const dots = el.querySelector('.segment-pipeline-waiting')!;
+
+        expect(dots.getAttribute('aria-label')).toBe('Generating…');
+
+        aparteGlobalConfig.setLocale({ ...FR(), generating: 'Génération…' });
+
+        // Three CSS dots and a name. A sighted user sees nothing change in any
+        // language, which is exactly why this string stayed English through every
+        // locale the project shipped.
+        expect(dots.getAttribute('aria-label')).toBe('Génération…');
+    });
+
+    it('an error card’s icon and heading', () => {
         const el = mount([seg({ id: 's1', type: 'error', content: 'boom' })]);
 
         aparteGlobalConfig.setIconProvider({ error: () => '<svg data-mine="1"></svg>' });
+        aparteGlobalConfig.setLocale(FR());
 
         expect(el.querySelector('.error-icon-wrapper')!.innerHTML).toContain('data-mine');
-        // Pinned deliberately: this heading was never routed through `t()`, so the
-        // hook cannot reach it. Giving it a key is an additive change of its own, and
-        // this assertion is what will fail when someone does it — on purpose.
-        expect(el.querySelector('.error-title')!.textContent).toBe('Error');
+        // `locale.error` is a REQUIRED key, documented, and already translated — and
+        // was read by nothing at all while this heading hardcoded "Error". A
+        // translated string with no consumer and a literal with no translation, in
+        // the same card. "Erreur" is what `@aparte/locale-fr` ships for this key —
+        // `packages/locales/fr` has carried it since it existed.
+        expect(el.querySelector('.error-title')!.textContent).toBe('Erreur');
+        // Not the message: that is the model's or the transport's text, in whatever
+        // language it arrived in. Relabelling it would be inventing content.
+        expect(el.querySelector('.error-message')!.textContent).toBe('boom');
     });
 });
 

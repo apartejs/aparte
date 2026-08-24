@@ -125,6 +125,35 @@ export interface AparteLocale {
     /** Last-resort accessible name for a free-text answer (default: "Your answer") */
     elicitationAnswerLabel?: string;
 
+    // --- Artifacts ---
+    /**
+     * The artifact card's download button (default: "Download").
+     *
+     * Like `stopButton`, this string is a `title` and an `aria-label` on an
+     * icon-only button — which is why it stayed English through every locale this
+     * project shipped. Nothing on screen was in the wrong language.
+     */
+    download?: string;
+    /**
+     * The artifact card's two tabs (defaults: "Preview" / "Code").
+     *
+     * These two ARE visible text, on a card the landing page leads with, and they
+     * were still literals. The card was written before the locale had a home for
+     * anything but chrome.
+     */
+    preview?: string;
+    code?: string;
+    /**
+     * A binary artifact being produced, and the same artifact's preview being rebuilt
+     * after a reload (defaults: "Generating…" / "Rebuilding preview…").
+     *
+     * `generating` is also the `aria-label` of the `pipeline-waiting` segment, which
+     * is the ONLY thing a screen-reader user hears while a turn is in flight. It was
+     * hardcoded, so that announcement was English in every locale.
+     */
+    generating?: string;
+    rebuildingPreview?: string;
+
     // --- Metadata ---
     /** Direction of the text (ltr or rtl) - defaults to ltr */
     direction?: 'ltr' | 'rtl';
@@ -154,6 +183,11 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
+    download: "Download",
+    preview: "Preview",
+    code: "Code",
+    generating: "Generating…",
+    rebuildingPreview: "Rebuilding preview…",
     typing: "Typing...",
     error: "Error",
     running: "Running...",

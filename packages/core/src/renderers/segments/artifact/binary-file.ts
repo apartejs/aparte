@@ -124,6 +124,10 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
     // Download on a binary artifact means "app, re-generate this file" — core holds
     // no bytes for pdf/xlsx/docx. No declaration, no button.
     const canRedownload = contextConfig().getHostHandlers().artifactRedownload;
+    // Declared here rather than beside its first use: this function has TWO early
+    // returns before the last one, and each renders its own download button.
+    const loc = contextConfig().getLocale();
+    const downloadLabel = escapeHtml(loc.download ?? 'Download');
 
     const cached = _binaryArtifactCache.get(segment.id);
     if (cached && !isStreaming) {
@@ -142,7 +146,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
                         <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(formatBytes(cached.bytes))} · ${escapeHtml(kind.toUpperCase())}</div>
                     </div>
                     <div class="aparte-art-file__actions">
-                        ${canRedownload ? '<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">Download</button>' : ''}
+                        ${canRedownload ? `<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">${downloadLabel}</button>` : ''}
                     </div>
                 </div>
                 <div class="aparte-art-file__body">
@@ -156,7 +160,9 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
     }
 
     const cleanContent = stripCodeFences(segment.content || '');
-    const subText = isStreaming ? 'Generating…' : 'Rebuilding preview…';
+    const subText = isStreaming
+        ? (loc.generating ?? 'Generating…')
+        : (loc.rebuildingPreview ?? 'Rebuilding preview…');
     return `
         <div class="segment segment-artifact-file"
              data-segment-id="${escapeHtml(segment.id)}"
@@ -169,7 +175,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
                     <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(subText)}</div>
                 </div>
                 <div class="aparte-art-file__actions">
-                    ${canRedownload ? '<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>Download</button>' : ''}
+                    ${canRedownload ? `<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>${downloadLabel}</button>` : ''}
                 </div>
             </div>
             <div class="aparte-art-file__body">

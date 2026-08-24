@@ -50,6 +50,14 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         const displayLang = languageForKind(kind);
         const isStreaming = !!segment.isStreaming;
         const previewable = PREVIEWABLE_KINDS.has(kind);
+        // Optional keys, so each carries the English it used to hardcode as its own
+        // fallback. `download` is title AND aria-label: they disagreed here, the title
+        // going through `t('copy')` on the button next door while its aria-label said
+        // "Copy" in every language.
+        const loc = contextConfig().getLocale();
+        const downloadLabel = loc.download ?? 'Download';
+        const previewLabel = loc.preview ?? 'Preview';
+        const codeLabel = loc.code ?? 'Code';
         const isBinary = BINARY_FILE_KINDS.has(kind);
         const cleanContent = stripCodeFences(segment.content || '');
         // The card ALWAYS opens on the code tab, and the preview frame is not built
@@ -80,17 +88,17 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                         ${isStreaming ? '<span class="aparte-art-card__pulse" aria-label="Streaming"></span>' : ''}
                     </div>
                     <div class="aparte-art-card__actions">
-                        <button type="button" class="aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="Copy">
+                        <button type="button" class="aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">
                             ${contextConfig().getIcon('copy')}
                         </button>
-                        <button type="button" class="aparte-art-card__btn" data-action="download" title="Download" aria-label="Download" ${isStreaming ? 'disabled' : ''}>
+                        <button type="button" class="aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 13h12"/></svg>
                         </button>
                     </div>
                 </header>
                 <nav class="aparte-art-card__tabs" role="tablist">
-                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>Preview</button>` : ''}
-                    <button type="button" role="tab" data-tab-target="code" aria-selected="true">Code</button>
+                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
+                    <button type="button" role="tab" data-tab-target="code" aria-selected="true">${escapeHtml(codeLabel)}</button>
                 </nav>
                 <div class="aparte-art-card__body">
                     <div class="aparte-art-card__pane" data-pane="code">
@@ -108,21 +116,39 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         `;
     },
     /**
-     * The copy button's tooltip and glyph — which is ALL this card takes from the
-     * config today. Its `aria-label="Copy"`, the download button's title and label,
-     * and the "Preview" / "Code" tab names are hardcoded literals, so no language
-     * change can reach them and this hook cannot fix that. Routing them through
-     * `t()` needs new locale keys, and is its own additive change.
+     * Every string this card shows: the copy button's tooltip, glyph and accessible
+     * name, the download button's title and label, and the two tab names. They were
+     * all hardcoded literals until they got locale keys — including the copy button's
+     * `aria-label`, which said "Copy" while its own `title` one attribute away already
+     * went through `t('copy')`, so a French reader got a French tooltip and an English
+     * announcement.
      *
      * Nothing here touches the tab state or the preview pane: a mounted iframe is
      * running model-authored code, and re-rendering this card is exactly what the
      * hook exists to avoid.
      */
     relabel: (element: HTMLElement) => {
+        const cfg = contextConfig();
+        const loc = cfg.getLocale();
         const copyBtn = element.querySelector('.aparte-art-card__btn[data-action="copy"]');
-        if (!copyBtn) return;
-        copyBtn.setAttribute('title', contextConfig().t('copy'));
-        copyBtn.innerHTML = contextConfig().getIcon('copy');
+        if (copyBtn) {
+            copyBtn.setAttribute('title', cfg.t('copy'));
+            copyBtn.setAttribute('aria-label', cfg.t('copy'));
+            copyBtn.innerHTML = cfg.getIcon('copy');
+        }
+        const dl = element.querySelector('.aparte-art-card__btn[data-action="download"]');
+        if (dl) {
+            const label = loc.download ?? 'Download';
+            dl.setAttribute('title', label);
+            dl.setAttribute('aria-label', label);
+        }
+        // Text only, and never `aria-selected` or `data-tab`: which pane is open is
+        // the reader's state, not the locale's. A relabel that touched it would close
+        // a preview somebody had opened.
+        const previewTab = element.querySelector('[data-tab-target="preview"]');
+        if (previewTab) previewTab.textContent = loc.preview ?? 'Preview';
+        const codeTab = element.querySelector('[data-tab-target="code"]');
+        if (codeTab) codeTab.textContent = loc.code ?? 'Code';
     },
     setup: (element: HTMLElement, segment: AparteArtifactSegment) => {
         latestSegment.set(element, segment);
