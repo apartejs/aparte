@@ -168,19 +168,18 @@ h1.thesis em { font-style: italic; color: var(--accent); }
 .pane { display: none; }
 .pane.is-on { display: block; }
 
-/* Theme presets — only shown on the Themes tab.
-   The `[hidden]` rule is REQUIRED, not defensive: the UA sheet's `[hidden]
-   { display: none }` loses to any explicit `display` on the same element, so
-   `skinsEl.hidden = true` did nothing and the presets showed on every tab. */
-.skins { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 7px; margin: -6px 0 10px; }
-.skins + .skins { margin-bottom: 22px; }
-/* Names the lever, so two rows of pills do not read as one confused control. */
-.skins .lever { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); margin-inline-end: 4px; min-width: 5.2em; text-align: end; }
-.skins[hidden] { display: none; }
-.skins button { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: color .2s, border-color .2s; }
-.skins button:hover { color: var(--text); border-color: var(--accent); }
-.skins button[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
-.skins .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .18); }
+/* ONE row, under the demo: three labelled selects. It was three rows of pills, and
+   three stacked rows is a slab of chrome between the visitor and the chat whatever
+   it is styled like. A select reads as a setting, takes one line, and puts all
+   three seams in one glance. */
+.levers { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 20px; margin-block-start: 20px; }
+.levers label { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.levers select { font: inherit; font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--text); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer; transition: border-color .2s; }
+.levers select:hover, .levers select:focus-visible { border-color: var(--accent); }
+/* The native menu is painted by the OS in its own colours, so the OPTIONS have to
+   carry a readable pair of their own — a transparent background here renders white
+   on white in a dark-themed browser. */
+.levers option { background: var(--surface); color: var(--text); }
 
 /* The version chip in the nav: it says the project ships, says "alpha" without
    hiding it, and is the way to the changelog — all on the pixels one more nav

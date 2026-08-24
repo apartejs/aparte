@@ -127,7 +127,6 @@ const DEMOS = [
     { key: 'segments', label: 'Segments' },
     { key: 'artifact', label: 'Artifacts' },
     { key: 'branch', label: 'Branching' },
-    { key: 'themes', label: 'Themes & icons' },
 ];
 
 interface Kind { tag: string; body: string; states: string[] }
@@ -343,26 +342,6 @@ message.segments = [
           ))}
         </div>
         <p class="demo-cap" id="demoCap"></p>
-        <!-- A control for the DEMO, so it sits with the demo's header and not
-             inside the chat card, where it would read as a feature of the
-             component. Only the Themes panel shows it. -->
-        <!-- Two rows, not one, because they are two INDEPENDENT levers in the
-             library: the palette is CSS variables, the icons are a provider object.
-             Bundling them into three "skins" made the icon set look like a
-             by-product of the theme, when in fact you can take either without the
-             other — which is the whole point of listing them separately below. -->
-        <div class="skins" id="skins" hidden>
-          <span class="lever">Palette</span>
-          <button type="button" data-skin="stage" aria-pressed="true" title="Follows this page's light/dark"><span class="sw" style="background:#c9a227"></span> Stage</button>
-          <button type="button" data-skin="violet" aria-pressed="false" title="Pins a dark palette, whatever the page does"><span class="sw" style="background:#7c5cff"></span> Violet</button>
-          <button type="button" data-skin="paper" aria-pressed="false" title="Pins a light palette, whatever the page does"><span class="sw" style="background:#f4efe6"></span> Paper</button>
-        </div>
-        <div class="skins" id="iconsets" hidden>
-          <span class="lever">Icons</span>
-          <button type="button" data-icons="default" aria-pressed="true" title="The set core ships">Default</button>
-          <button type="button" data-icons="solid" aria-pressed="false" title="Filled, rounded">Solid</button>
-          <button type="button" data-icons="hard" aria-pressed="false" title="Square caps, miter joins, no rounding">Hard-edged</button>
-        </div>
 
         <div class="demo-split">
           <div class="aside-stage">
@@ -377,7 +356,12 @@ message.segments = [
                 <span class="hint" id="demoHint"></span>
               </div>
               <div class="aparte-demo">
-                <aparte-chat attachments center-empty placeholder="Say something to aparté&hellip;"></aparte-chat>
+                <!-- No `placeholder` attribute on purpose. An attribute WINS over the locale
+                     (attribute -> composer property -> `t('inputPlaceholder')`), which is right —
+                     the app owns its own copy — but it also meant the Language lever could not
+                     move the one string a visitor is looking straight at. Letting the locale
+                     drive it costs a branded sentence and buys an honest demo. -->
+                <aparte-chat attachments center-empty></aparte-chat>
               </div>
             </div>
           </div>
@@ -454,27 +438,44 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
   &#125;);
   <span class="cm">// …then stream the new version into `id`</span>
 &#125;);</pre>
-<pre class="pane" data-pane="themes"><span class="cm">/* :root IS the light palette; dark is the override, */</span>
-<span class="cm">/* so a preset picks a base then spends a few vars */</span>
-<span class="tg">&lt;aparte-chat data-aparte-theme="dark"&gt;</span>
-
-<span class="tg">aparte-chat</span> &#123;
-  <span class="kw">--aparte-accent</span>: <span class="st">#7c5cff</span>;
-  <span class="kw">--aparte-message-content-bg-user</span>: <span class="st">#241d3d</span>;
-  <span class="kw">--aparte-radius-bubble</span>: <span class="st">14px</span>;
-&#125;
-
-<span class="cm">/* {CSS_VARS} variables — and no ::part(), no piercing: */</span>
-<span class="cm">/* core is light DOM, so any selector reaches in */</span>
-<span class="tg">.segment-tool-call .tool-pill</span> &#123; <span class="kw">font-variant</span>: <span class="st">small-caps</span>; &#125;
-
-<span class="cm">// icons are a provider, swapped live</span>
-config.<span class="fn">setIconProvider</span>(&#123; <span class="fn">getIcon</span>: (n) =&gt; mySvg[n] &#125;);
-
-<span class="cm">// and a language is {LOCALE_KEYS} strings in a plain object</span>
-config.<span class="fn">setLocale</span>(&#123; sendButton: <span class="st">'Enviar'</span>, <span class="cm">/* … */</span> &#125;);</pre>
             </div>
           </div>
+        </div>
+        <!-- The levers, BELOW the demo and on ONE line. They were above it, and as
+             three stacked rows of pills, which is a slab of chrome between the
+             visitor and the thing they came for however it is styled. Selects say
+             "settings" in one row and one glance.
+
+             They apply to EVERY panel and they SURVIVE a tab switch — the point of a
+             live lever is watching your own palette land on the approval gate and
+             the artifact card. Three seams, deliberately separate: the palette is
+             CSS variables, the icons are a provider object, the language is a plain
+             object of strings. Any one without the others.
+
+             They replace a "Themes & icons" TAB, which existed to mix a palette and
+             an icon set — a thing the page now does at all times, on every panel.
+             A tab for it was a tab for the controls beside it. -->
+        <div class="levers">
+          <label>Palette
+            <select id="lvPalette">
+              <option value="stage" selected>Stage &mdash; follows this page</option>
+              <option value="violet">Violet &mdash; pinned dark</option>
+              <option value="paper">Paper &mdash; pinned light</option>
+            </select>
+          </label>
+          <label>Icons
+            <select id="lvIcons">
+              <option value="default" selected>Default &mdash; what core ships</option>
+              <option value="solid">Solid</option>
+              <option value="hard">Hard-edged</option>
+            </select>
+          </label>
+          <label>Language
+            <select id="lvLocale">
+              <option value="en" selected>English</option>
+              <option value="fr">Fran&ccedil;ais</option>
+            </select>
+          </label>
         </div>
       </section>
 
@@ -697,6 +698,9 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       import '@aparte/core';
       import '@aparte/core/styles.css';
       import { registerDefaultRenderers, aparteGlobalConfig } from '@aparte/core';
+      // The real package, not a French object typed into this page: a lever that
+      // demonstrates localisation has to be the thing a consumer would install.
+      import { fr } from '@aparte/locale-fr';
       registerDefaultRenderers();
       // `retry` IS turned on here, and copy stays on as it is by default. The rule is
       // that a bubble action must be honoured by someone: copy is honoured by core
@@ -957,11 +961,6 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         after(() => streamAssistant('Hover this reply and press retry. It forks a sibling instead of overwriting, and a ‹1/2› picker appears so you can move between the two versions — nothing is lost.'), 700);
       }
 
-      function demoThemes() {
-        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: 'Can it look like my product?', timestamp: Date.now() });
-        after(() => streamAssistant(`Pick a preset above. Same component, same markup — a base palette and a handful of variables. There are ${N_VARS} of them, and no shadow DOM in the way.`), 500);
-      }
-
       // ── theme presets ─────────────────────────────────────────────────────
       // The FIRST version of this hand-picked four variables and produced light
       // bubbles with light text on them, because the text is painted through
@@ -1018,33 +1017,29 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
 
       const SKINS: Record<string, { base: 'page' | 'dark' | 'light'; card?: string; vars: Record<string, string> }> = {
         stage: { base: 'page', vars: {} },
-        // Each preset restates the DERIVED variables it cares about, and that is not
-        // redundancy — it is the only thing that works. `--aparte-primary` is the
-        // master and ninety-five declarations derive from it, but they are declared
-        // on `:root`, so they were substituted there: setting the master on THIS
-        // element cannot reach them, it can only be inherited past them. Which is
-        // why the avatar stayed brass under a violet preset, and why core's own dark
-        // theme has the same gap (it overrides the master and re-declares none of
-        // the derived layer).
+        // These presets used to restate `--aparte-accent`, `--aparte-avatar-bg-user`
+        // and `--aparte-border-focus` alongside the master they derive from, and the
+        // comment here said that was "the only thing that works". It was: the derived
+        // layer was declared on `:root` alone, so it had been substituted there and
+        // setting `--aparte-primary` on THIS element could only be inherited past it.
+        // That is fixed in core — the layer now re-anchors on `aparte-chat`, among
+        // other places — so those three are gone from every preset, and what is left
+        // is a master and the handful of genuinely independent choices: a bubble
+        // radius, an assistant avatar that derives from a surface rather than the
+        // accent, a user bubble.
         violet: { base: 'dark', card: '#15111f', vars: {
           '--aparte-primary': '#7c5cff',
           '--aparte-primary-hover': '#9a80ff',
-          '--aparte-accent': '#7c5cff',
-          '--aparte-avatar-bg-user': '#7c5cff',
           '--aparte-avatar-bg-assistant': '#2a2140',
           '--aparte-message-content-bg-user': '#241d3d',
-          '--aparte-border-focus': '#7c5cff',
           '--aparte-radius-bubble': '14px',
         } },
         paper: { base: 'light', card: '#f7f3ea', vars: {
           '--aparte-primary': '#8a6d1f',
           '--aparte-primary-hover': '#6f5716',
-          '--aparte-accent': '#8a6d1f',
-          '--aparte-avatar-bg-user': '#8a6d1f',
           '--aparte-avatar-bg-assistant': '#ded2ba',
           '--aparte-bg': '#f7f3ea',
           '--aparte-message-content-bg-user': '#eee4d0',
-          '--aparte-border-focus': '#8a6d1f',
           '--aparte-radius-bubble': '5px',
         } },
       };
@@ -1071,28 +1066,34 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
           else cardEl.style.removeProperty('--demo-card-bg');
         }
       }
-      /** The other lever, on its own: a provider object, no CSS involved. Unlike a
-       *  palette it never has to be re-applied — nothing about the page theme
-       *  changes which glyphs are right — so there is no current-set to remember. */
+      /** The second lever: a provider object, no CSS involved. */
+      let iconSet = 'default';
       function applyIcons(key: string) {
+        iconSet = key;
         // An empty provider is the reset: every key is optional and falls back
         // to core's own glyph, so `{}` means "use yours".
         aparteGlobalConfig.setIconProvider(ICONS[key] ?? {});
       }
-      const iconsEl = document.getElementById('iconsets')!;
-      iconsEl.addEventListener('click', (e) => {
-        const b = (e.target as HTMLElement).closest('button') as HTMLElement | null;
-        if (!b) return;
-        iconsEl.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-        applyIcons(b.dataset.icons!);
-      });
-      const skinsEl = document.getElementById('skins')!;
-      skinsEl.addEventListener('click', (e) => {
-        const b = (e.target as HTMLElement).closest('button') as HTMLElement | null;
-        if (!b) return;
-        skinsEl.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-        applySkin(b.dataset.skin!);
-      });
+      /** The third: a plain object of strings. `resetLocale()` is the way back. */
+      let localeKey = 'en';
+      function applyLocale(key: string) {
+        localeKey = key;
+        if (key === 'fr') aparteGlobalConfig.setLocale(fr);
+        else aparteGlobalConfig.resetLocale();
+      }
+      /** One select per seam. `change`, not `click`: a select IS the control. */
+      const lvPalette = document.getElementById('lvPalette') as HTMLSelectElement;
+      const lvIcons = document.getElementById('lvIcons') as HTMLSelectElement;
+      const lvLocale = document.getElementById('lvLocale') as HTMLSelectElement;
+      lvPalette.addEventListener('change', () => applySkin(lvPalette.value));
+      lvIcons.addEventListener('change', () => applyIcons(lvIcons.value));
+      lvLocale.addEventListener('change', () => applyLocale(lvLocale.value));
+      /** Put the row back in step with what is actually applied. */
+      const syncLevers = (): void => {
+        lvPalette.value = skin;
+        lvIcons.value = iconSet;
+        lvLocale.value = localeKey;
+      };
 
       // The page is the host, so it answers the decision core dispatched. This is
       // the whole of what a host owes the built-in approval gate.
@@ -1116,7 +1117,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
 
       // ── panel switching ───────────────────────────────────────────────────
       const RUNNERS: Record<string, () => void> = {
-        chat: demoChat, tools: demoTools, segments: demoSegments, artifact: demoArtifact, branch: demoBranch, themes: demoThemes,
+        chat: demoChat, tools: demoTools, segments: demoSegments, artifact: demoArtifact, branch: demoBranch,
       };
       // Measured at build time, handed over on the element (see the comment there).
       const stageEl = document.getElementById('demo')!;
@@ -1129,7 +1130,6 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         segments: `One assistant reply holding <b>reasoning and code</b> in the same message. ${N_KINDS} kinds ship registered by default, mixable in any order.`,
         artifact: 'The model wrote a document, and core renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
         branch: 'Retry <b>forks a sibling</b> instead of overwriting, and the picker appears on its own. Bubble actions stay off until a host answers them.',
-        themes: `Two independent levers. <b>Palette</b> is CSS variables — a base, plus a handful of the ${N_VARS}. <b>Icons</b> is a provider object, unrelated to the CSS: take either without the other. Stage follows this page; Violet and Paper pin their own palette, so a light chat on a dark page is not a bug.`,
       };
       const HINTS: Record<string, string> = {
         chat: 'type below, or attach a file',
@@ -1137,7 +1137,6 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         segments: 'expand the reasoning block',
         artifact: 'press Preview — nothing runs before you do',
         branch: 'hover a reply, press retry',
-        themes: 'mix a palette and an icon set',
       };
       const capEl = document.getElementById('demoCap')!;
       const hintEl = document.getElementById('demoHint')!;
@@ -1149,15 +1148,17 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
           .forEach((p) => p.classList.toggle('is-on', p.dataset.pane === key));
         capEl.innerHTML = CAPTIONS[key];
         hintEl.textContent = HINTS[key];
-        skinsEl.hidden = key !== 'themes';
-        iconsEl.hidden = key !== 'themes';
-        // Every tab starts from Stage, including Themes — so the visitor sees the
-        // page's own look first and the presets are something they DID.
-        applySkin('stage');
-        applyIcons('default');
-        for (const row of [skinsEl, iconsEl]) {
-          row.querySelectorAll('button').forEach((x, i) => x.setAttribute('aria-pressed', String(i === 0)));
-        }
+        // The levers KEEP their setting across a tab switch. They used to reset to
+        // Stage / Default on every switch, on the reasoning that a visitor should
+        // meet the page's own look first — true for the first paint, and wrong for
+        // every one after it: picking Violet and then opening the approval panel to
+        // see it reset teaches that the palette belongs to one tab. It belongs to the
+        // page. `applySkin` still has to RE-run, because a preset writes inline
+        // variables on the chat element and this rebuilds the transcript under it.
+        applySkin(skin);
+        applyIcons(iconSet);
+        applyLocale(localeKey);
+        syncLevers();
         RUNNERS[key]();
       }
       document.getElementById('demoTabs')?.addEventListener('click', (e) => {
