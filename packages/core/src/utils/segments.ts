@@ -27,7 +27,7 @@
  * Everything here is pure and DOM-free, so a consumer can test their own wiring in
  * Node — the introspectability half of the reachability rule.
  */
-import type { AparteSegmentDefaults, AparteSegment } from '../types/index.js';
+import type { AparteSegmentDefaults, AparteSegmentTiming, AparteSegment } from '../types/index.js';
 
 /**
  * Tool-call statuses that mean "still open".
@@ -72,11 +72,53 @@ export function stampSegmentOnInsert(
     messageId: string,
     defaults?: AparteSegmentDefaults,
 ): AparteSegment {
+    const base = applyDefaults(segment, defaults);
     return {
-        ...applyDefaults(segment, defaults),
+        ...base,
         messageId: segment.messageId ?? messageId,
         index: segment.index ?? segments.length,
-        startedAt: segment.startedAt ?? Date.now(),
+        // A start already present is kept — a segment a consumer rebuilt from their own
+        // storage keeps the number it was persisted with. `adoptSegment` is the path
+        // that never writes one at all.
+        ...timingPatch(base, { startedAt: segmentTiming(segment)?.startedAt ?? Date.now() }),
+    } as AparteSegment;
+}
+
+/**
+ * A segment arriving from STORAGE or a server, rather than starting now.
+ *
+ * The counterpart of {@link stampSegmentOnInsert}, and the reason it exists: the two
+ * are not the same act, and treating them as one made the library invent history.
+ * `stampSegmentOnInsert` ran on every arrival path including a reload, so a
+ * conversation from three weeks ago came back claiming each of its segments had
+ * started this second — while THREE other load paths did not stamp at all, so the same
+ * stored conversation produced different numbers depending on the mode and on whether
+ * a branch tree had been saved. Not a lie so much as an incoherence.
+ *
+ * What it writes, and why each:
+ *
+ *  - `messageId` and `index` are **recomputed**, not preserved. They are derivable
+ *    facts about the array this segment is joining, so a stored value can only
+ *    contradict it — and no protocol persists either (Anthropic's block `index` exists
+ *    only in the streaming envelope, as a position).
+ *  - **no time, ever.** A measurement nobody took is absent, not zero and not now.
+ *    `segmentDuration` already answers `undefined` for that, so a consumer reading
+ *    through the helper degrades correctly.
+ *  - `isStreaming: false`, unconditionally. A persisted stream is dead: restoring one
+ *    with `isStreaming: true` would render a caret forever, and — through
+ *    `openSegmentIds`, which reads exactly this flag — would have the next turn-close
+ *    stamp it a brand-new `endedAt`.
+ */
+export function adoptSegment(
+    segments: readonly AparteSegment[],
+    segment: AparteSegment,
+    messageId: string,
+): AparteSegment {
+    return {
+        ...segment,
+        messageId,
+        index: segments.length,
+        isStreaming: false,
     } as AparteSegment;
 }
 
@@ -85,7 +127,32 @@ export function stampSegmentOnInsert(
  * conversation the same one, and `index` / `startedAt` are measurements of THIS
  * insertion — a default for either would be a lie about when and where.
  */
-const RESERVED = new Set(['id', 'type', 'messageId', 'index', 'startedAt', 'endedAt']);
+const RESERVED = new Set(['id', 'type', 'messageId', 'index']);
+
+/**
+ * Read core's own measurements off a segment.
+ *
+ * A function rather than a property access because it is read from six places, and
+ * `segment.meta?.aparte` spelled six times is six chances to spell it differently —
+ * which is exactly how this repo's recurring bug starts.
+ */
+export function segmentTiming(
+    segment: Pick<AparteSegment, 'meta'>,
+): AparteSegmentTiming | undefined {
+    return segment.meta?.aparte;
+}
+
+/**
+ * The patch that writes core's measurements WITHOUT losing the producer's own keys.
+ *
+ * This is the whole risk the move to `meta` creates. `meta` is one bag with two
+ * writers: a consumer's `updateSegment(id, { meta: { cost } })` and core's timing. A
+ * plain assignment from either side erases the other, so every write goes through
+ * here — a spread of the existing bag, and `aparte` merged rather than replaced.
+ */
+function timingPatch(segment: AparteSegment, timing: AparteSegmentTiming): Pick<AparteSegment, 'meta'> {
+    return { meta: { ...segment.meta, aparte: { ...segment.meta?.aparte, ...timing } } };
+}
 
 /**
  * Fill in what the producer did not say.
@@ -104,6 +171,15 @@ function applyDefaults(segment: AparteSegment, defaults?: AparteSegmentDefaults)
     const out = { ...segment } as AparteSegment & Record<string, unknown>;
     for (const [key, value] of Object.entries(defaults)) {
         if (RESERVED.has(key) || key in segment) continue;
+        if (key === 'meta') {
+            // A default may fill the producer's half of the bag and never core's. The
+            // fields it would forge stopped being RESERVED when they moved in here, so
+            // the reserved thing is the sub-object: without this, a default could hand
+            // an app a span it never measured — the same lie the reload path told.
+            const { aparte: _forged, ...rest } = (value ?? {}) as Record<string, unknown>;
+            out.meta = rest as AparteSegment['meta'];
+            continue;
+        }
         out[key] = value;
     }
     return out;
@@ -161,10 +237,47 @@ export function stampSegmentOnUpdate(
         // Settling: keep whatever the last delta left, and only stamp now for a
         // segment that never produced anything (a tool call, whose whole span is
         // start-to-status-change).
-        return { ...updates, endedAt: segment.endedAt ?? Date.now() };
+        const ended = segmentTiming(segment)?.endedAt;
+        return { ...updates, ...timingPatch(segment, { endedAt: ended ?? Date.now() }) };
     }
     // Still open: content arriving advances the end, presentation does not.
-    return isActivity(updates) ? { ...updates, endedAt: Date.now() } : updates;
+    return isActivity(updates)
+        ? { ...updates, ...timingPatch(segment, { endedAt: Date.now() }) }
+        : updates;
+}
+
+/**
+ * Merge an update into a segment without one writer erasing the other's `meta`.
+ *
+ * `{ ...segment, ...updates }` is wrong now that `meta` has two writers. A consumer's
+ * `updateSegment(id, { meta: { cost } })` is presentation, not activity, so it passes
+ * through {@link stampSegmentOnUpdate} untouched — and a plain spread would then
+ * replace the whole bag and take `meta.aparte` with it. The measurement would vanish
+ * the first time an app wrote a token count, which is precisely when it matters.
+ *
+ * So the bag is merged one level, and `aparte` inside it merged again. Every site that
+ * folds an update into a segment goes through here — the viewport, the host and the
+ * bubble each had their own spread, which is three chances to fix this twice and miss
+ * once.
+ */
+export function mergeSegmentUpdate(
+    segment: AparteSegment,
+    updates: Partial<AparteSegment>,
+): AparteSegment {
+    const merged = { ...segment, ...updates } as AparteSegment;
+    if (!('meta' in updates)) return merged;
+    return {
+        ...merged,
+        meta: {
+            ...segment.meta,
+            ...updates.meta,
+            // Neither side's timing wins by accident: whichever one carries it, wins,
+            // and a consumer writing `meta` without an `aparte` key keeps ours.
+            ...(segment.meta?.aparte || updates.meta?.aparte
+                ? { aparte: { ...segment.meta?.aparte, ...updates.meta?.aparte } }
+                : {}),
+        },
+    } as AparteSegment;
 }
 
 /**
@@ -191,7 +304,7 @@ export function stampSegmentOnUpdate(
  * {@link isSegmentSettled} when you need the final number.
  */
 export function segmentDuration(segment: AparteSegment): number | undefined {
-    const { startedAt, endedAt } = segment;
+    const { startedAt, endedAt } = segmentTiming(segment) ?? {};
     if (startedAt == null || endedAt == null) return undefined;
     return endedAt - startedAt;
 }
@@ -209,8 +322,8 @@ export function segmentDuration(segment: AparteSegment): number | undefined {
  *
  * Empty once the segment has settled, so a late write cannot move a final end.
  */
-export function stampSegmentActivity(segment: AparteSegment): { endedAt?: number } {
-    return isSegmentSettled(segment) ? {} : { endedAt: Date.now() };
+export function stampSegmentActivity(segment: AparteSegment): Partial<AparteSegment> {
+    return isSegmentSettled(segment) ? {} : timingPatch(segment, { endedAt: Date.now() });
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
+    segmentTiming,
     stampSegmentOnInsert,
     stampSegmentOnUpdate,
     isSegmentSettled,
@@ -36,8 +37,8 @@ describe('stampSegmentOnInsert', () => {
 
         expect(stamped.messageId).toBe('m-42');
         expect(stamped.index).toBe(0);
-        expect(stamped.startedAt).toBe(1_000);
-        expect(stamped.endedAt).toBeUndefined();
+        expect(segmentTiming(stamped)?.startedAt).toBe(1_000);
+        expect(segmentTiming(stamped)?.endedAt).toBeUndefined();
     });
 
     it('numbers from the length of the array it joins', () => {
@@ -49,13 +50,13 @@ describe('stampSegmentOnInsert', () => {
         vi.useFakeTimers();
         vi.setSystemTime(9_999);
 
-        const stored = seg({ messageId: 'm-old', index: 7, startedAt: 123, endedAt: 456 });
+        const stored = seg({ messageId: 'm-old', index: 7, meta: { aparte: { startedAt: 123, endedAt: 456  } }});
         const stamped = stampSegmentOnInsert([seg({ id: 'a' })], stored, 'm-new');
 
         expect(stamped.messageId).toBe('m-old');
         expect(stamped.index).toBe(7);
-        expect(stamped.startedAt).toBe(123);
-        expect(stamped.endedAt).toBe(456);
+        expect(segmentTiming(stamped)?.startedAt).toBe(123);
+        expect(segmentTiming(stamped)?.endedAt).toBe(456);
     });
 
     it('mutates nothing the caller handed it', () => {
@@ -96,14 +97,14 @@ describe('stampSegmentOnUpdate', () => {
         vi.setSystemTime(5_000);
 
         const out = stampSegmentOnUpdate(seg({ isStreaming: true }), { isStreaming: false });
-        expect(out.endedAt).toBe(5_000);
+        expect(segmentTiming(out)?.endedAt).toBe(5_000);
         expect(out.isStreaming).toBe(false);
     });
 
     it('is the one writer of an activity stamp, and it is empty once settled', () => {
         vi.useFakeTimers();
         vi.setSystemTime(4_000);
-        expect(stampSegmentActivity(seg({ isStreaming: true }))).toEqual({ endedAt: 4_000 });
+        expect(stampSegmentActivity(seg({ isStreaming: true }))).toEqual({ meta: { aparte: { endedAt: 4_000  } }});
         expect(stampSegmentActivity(seg({ isStreaming: false }))).toEqual({});
     });
 
@@ -112,7 +113,7 @@ describe('stampSegmentOnUpdate', () => {
         vi.setSystemTime(7_000);
 
         const out = stampSegmentOnUpdate(toolSeg(), { status: 'resolved' } as Partial<AparteSegment>);
-        expect(out.endedAt).toBe(7_000);
+        expect(segmentTiming(out)?.endedAt).toBe(7_000);
     });
 
     it('moves the end forward while content is still arriving', () => {
@@ -120,10 +121,10 @@ describe('stampSegmentOnUpdate', () => {
         vi.useFakeTimers();
         vi.setSystemTime(3_000);
         const out = stampSegmentOnUpdate(
-            seg({ isStreaming: true, endedAt: 1_000 }),
+            seg({ isStreaming: true, meta: { aparte: { endedAt: 1_000  } }}),
             { content: 'more' } as Partial<AparteSegment>,
         );
-        expect(out.endedAt).toBe(3_000);
+        expect(segmentTiming(out)?.endedAt).toBe(3_000);
     });
 
     it('keeps the last delta time when the settling update arrives later', () => {
@@ -133,17 +134,17 @@ describe('stampSegmentOnUpdate', () => {
         vi.useFakeTimers();
         vi.setSystemTime(20_000);
         const out = stampSegmentOnUpdate(
-            seg({ isStreaming: true, startedAt: 0, endedAt: 2_000 }),
+            seg({ isStreaming: true, meta: { aparte: { startedAt: 0, endedAt: 2_000  } }}),
             { isStreaming: false },
         );
-        expect(out.endedAt).toBe(2_000);
+        expect(segmentTiming(out)?.endedAt).toBe(2_000);
     });
 
     it('stamps an end for a segment that settles having never updated', () => {
         vi.useFakeTimers();
         vi.setSystemTime(6_000);
         const out = stampSegmentOnUpdate(seg({ isStreaming: true }), { isStreaming: false });
-        expect(out.endedAt).toBe(6_000);
+        expect(segmentTiming(out)?.endedAt).toBe(6_000);
     });
 
     it('does not move an end that is already final', () => {
@@ -152,10 +153,10 @@ describe('stampSegmentOnUpdate', () => {
         vi.useFakeTimers();
         vi.setSystemTime(99_000);
         const out = stampSegmentOnUpdate(
-            seg({ isStreaming: false, endedAt: 42 }),
+            seg({ isStreaming: false, meta: { aparte: { endedAt: 42  } }}),
             { content: 'late' } as Partial<AparteSegment>,
         );
-        expect(out.endedAt).toBeUndefined();
+        expect(segmentTiming(out)?.endedAt).toBeUndefined();
     });
 
     it('returns the updates it was given, untouched otherwise', () => {
@@ -164,7 +165,7 @@ describe('stampSegmentOnUpdate', () => {
         // `Partial<AparteSegment>` distributes over the union, so `content` is not
         // on every member — the cast is about reading the field, not about shape.
         expect((out as { content?: string }).content).toBe('x');
-        expect(updates.endedAt).toBeUndefined(); // the caller's object is not mutated
+        expect(segmentTiming(updates)?.endedAt).toBeUndefined(); // the caller's object is not mutated
     });
 });
 
@@ -227,7 +228,7 @@ describe('openSegmentIds', () => {
 
     it('skips one that already ended, so a second completion moves nothing', () => {
         const ids = openSegmentIds([
-            seg({ id: 'a', isStreaming: false, endedAt: 500 }),
+            seg({ id: 'a', isStreaming: false, meta: { aparte: { endedAt: 500  } }}),
             seg({ id: 'b', isStreaming: true }),
         ]);
         expect(ids).toEqual(['b']);
@@ -248,26 +249,26 @@ describe('openSegmentIds', () => {
 
 describe('segmentDuration', () => {
     it('is the span between the two bounds', () => {
-        expect(segmentDuration(seg({ startedAt: 1_000, endedAt: 3_500 }))).toBe(2_500);
+        expect(segmentDuration(seg({ meta: { aparte: { startedAt: 1_000, endedAt: 3_500  } }}))).toBe(2_500);
     });
 
     it('is undefined when either bound is missing, not 0 and not NaN', () => {
-        expect(segmentDuration(seg({ startedAt: 1_000 }))).toBeUndefined();
-        expect(segmentDuration(seg({ endedAt: 3_000 }))).toBeUndefined();
+        expect(segmentDuration(seg({ meta: { aparte: { startedAt: 1_000  } }}))).toBeUndefined();
+        expect(segmentDuration(seg({ meta: { aparte: { endedAt: 3_000  } }}))).toBeUndefined();
         expect(segmentDuration(seg())).toBeUndefined();
     });
 
     it('survives epoch 0, where a valid timestamp is falsy', () => {
-        // The trap in the guard this replaces: `!segment.startedAt` is TRUE at 0, so
+        // The trap in the guard this replaces: `!segmentTiming(segment)?.startedAt` is TRUE at 0, so
         // the caller bailed out on a perfectly measurable segment. Nobody streams in
         // 1970 — but `vi.setSystemTime(0)` is routine, so the bug was already sitting
         // in the repo's own test setup.
-        expect(segmentDuration(seg({ startedAt: 0, endedAt: 0 }))).toBe(0);
-        expect(segmentDuration(seg({ startedAt: 0, endedAt: 2_000 }))).toBe(2_000);
+        expect(segmentDuration(seg({ meta: { aparte: { startedAt: 0, endedAt: 0  } }}))).toBe(0);
+        expect(segmentDuration(seg({ meta: { aparte: { startedAt: 0, endedAt: 2_000  } }}))).toBe(2_000);
     });
 
     it('answers for an OPEN segment too — a live duration is a real question', () => {
-        const open = seg({ isStreaming: true, startedAt: 1_000, endedAt: 2_000 });
+        const open = seg({ isStreaming: true, meta: { aparte: { startedAt: 1_000, endedAt: 2_000  } }});
         expect(isSegmentSettled(open)).toBe(false);
         expect(segmentDuration(open)).toBe(1_000);
     });

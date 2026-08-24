@@ -54,6 +54,7 @@ export type {
 export type {
     AparteSegmentBase,
     AparteSegmentDefaults,
+    AparteSegmentTiming,
     AparteTextSegment,
     AparteThinkingSegment,
     AparteCodeSegment,

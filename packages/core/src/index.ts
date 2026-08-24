@@ -214,13 +214,18 @@ export { cssEscape } from './utils/css-escape.js';
 // generating message ids all reach for `crypto.randomUUID`, which does not exist
 // on `http://` — the LAN deployment this library's own audience runs.
 export { uuid } from './utils/uuid.js';
-// A segment's own completion rule. Exported because a consumer rendering "thought
-// for 8 s" from `startedAt`/`endedAt` needs to know when the span closed, and a
-// rule kept private is a rule re-derived slightly differently outside — the tool
-// call is the trap: it settles by `status`, never by `isStreaming`. The stamping
-// functions beside it stay internal: only the two owners of a message's segment
-// array may write those fields.
-export { isSegmentSettled, segmentDuration } from './utils/segments.js';
+// A segment's own completion rule, and the two readers of what core measured.
+// Exported because a consumer rendering "thought for 8 s" needs to know when the span
+// closed, and a rule kept private is a rule re-derived slightly differently outside —
+// the tool call is the trap: it settles by `status`, never by `isStreaming`.
+//
+// `segmentTiming` joins them because the measurements moved into `meta.aparte`, and
+// `segment.meta?.aparte` spelled at each call site is the same rule re-derived by hand
+// — exactly what the other two are exported to prevent.
+//
+// The WRITERS stay internal: only the two owners of a message's segment array may
+// stamp those fields, which `pnpm check:segment-stamp` enforces.
+export { isSegmentSettled, segmentDuration, segmentTiming } from './utils/segments.js';
 // The PARAMETER types of two documented setters. They existed and were the declared
 // argument types, but were not exported — so anyone typing a settings layer over
 // `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.

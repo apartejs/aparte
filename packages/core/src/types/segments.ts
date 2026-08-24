@@ -43,33 +43,55 @@ export interface AparteSegmentBase {
      */
     index?: number;
 
-    /** Epoch ms when the segment entered the transcript. */
-    startedAt?: number;
+    /**
+     * Extras the producer of the segment knows — token counts, cost, compute
+     * device — plus `aparte`, the one sub-object core writes.
+     *
+     * Everything except `meta.aparte` is yours: fill it with
+     * `updateSegment(segmentId, { meta })`, which MERGES rather than replaces.
+     * Mirrors `AparteMessage.metadata`.
+     */
+    meta?: Record<string, unknown> & { aparte?: AparteSegmentTiming };
+}
 
+/**
+ * What core measured about a segment. Lives in `meta.aparte`, not on the segment.
+ *
+ * These two were first-class fields, and moving them is not tidying. **No protocol
+ * carries a timestamp on a content block** — verified rather than assumed: Anthropic's
+ * blocks have none (and neither does the message), OpenAI's `output_text` part is
+ * `{annotations, logprobs, text, type}` with `created_at` on the item above it, and the
+ * AI SDK's `UIMessage.parts` have none either. What the AI SDK does have is a metadata
+ * bag whose canonical example is literally `{ createdAt, model, totalTokens }` — at the
+ * message level. A per-block `id` has industry precedent; per-block time has none.
+ *
+ * So this is a **local measurement**, and the shape says so. It stays typed — the bag is
+ * where it belongs, opacity is not part of the deal — and it is namespaced under
+ * `aparte` because `meta` is the consumer's: a flat `startedAt` there would collide
+ * with a key of their own.
+ *
+ * Core reads it through {@link segmentDuration} and {@link isSegmentSettled}; it never
+ * renders either number.
+ */
+export interface AparteSegmentTiming {
+    /** Epoch ms when the segment entered a LIVE transcript. Absent for history. */
+    startedAt?: number;
     /**
      * Epoch ms when content last arrived on this segment.
      *
-     * It ADVANCES while the segment streams and freezes when the segment settles,
-     * so `endedAt - startedAt` is a live duration during a turn and a final one
-     * after it — ask `isSegmentSettled(segment)` which you are looking at. Core
-     * never renders either.
+     * It ADVANCES while the segment streams and freezes when the segment settles, so
+     * `endedAt - startedAt` is a live duration during a turn and a final one after it
+     * — ask `isSegmentSettled(segment)` which you are looking at.
      *
      * Why not simply "when it finished": the two obvious rules are both wrong, and
      * measurably. Closing at the end of the turn makes a reasoning block span the
-     * whole answer that followed it (2s of thinking before a 20s reply reads
-     * "22s"). Closing when the next segment opens is the same error, smaller — a
-     * gap of ten seconds before the next segment is counted as thinking, while the
-     * person watching knows nothing happened. The last delta is the only moment
-     * the segment itself can vouch for.
+     * whole answer that followed it (2s of thinking before a 20s reply reads "22s").
+     * Closing when the next segment opens is the same error, smaller — a gap of ten
+     * seconds before the next segment is counted as thinking, while the person
+     * watching knows nothing happened. The last delta is the only moment the segment
+     * itself can vouch for.
      */
     endedAt?: number;
-
-    /**
-     * Extras only the producer of the segment can know — token counts, cost,
-     * compute device. Core writes nothing here: fill it from an app with
-     * `updateSegment(segmentId, { meta })`. Mirrors `AparteMessage.metadata`.
-     */
-    meta?: Record<string, unknown>;
 }
 
 /** Text segment - plain text content */

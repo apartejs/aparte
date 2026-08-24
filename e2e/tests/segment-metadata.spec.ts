@@ -1,7 +1,9 @@
 /**
  * What a segment knows about itself, in a real browser.
  *
- * Core stamps `messageId`, `index`, `startedAt`, `endedAt` on every segment and
+ * Core stamps `messageId` and `index` on every segment and puts its own measurements
+ * in `meta.aparte` — no protocol carries a timestamp on a content block, so a span is a
+ * LOCAL measurement and its shape says so. Core
  * renders none of it — the display belongs to the app, because the line reads
  * "Thought for 8s" in one product and "8.2s · 1.2k tokens" in another. That split
  * is only believable if both halves are exercised somewhere, so this spec asserts
@@ -29,8 +31,7 @@ interface StampedSegment {
     type: string;
     messageId?: string;
     index?: number;
-    startedAt?: number;
-    endedAt?: number;
+    meta?: { aparte?: { startedAt?: number; endedAt?: number } };
 }
 
 test('a streamed reply leaves every segment knowing its message, its place and its span', async ({ page }) => {
@@ -68,10 +69,10 @@ test('a streamed reply leaves every segment knowing its message, its place and i
     expect(segments.map((s) => s.index)).toEqual(segments.map((_, i) => i));
 
     // Every segment has a start; the settled reasoning block has a real span.
-    expect(segments.every((s) => typeof s.startedAt === 'number')).toBe(true);
+    expect(segments.every((s) => typeof s.meta?.aparte?.startedAt === 'number')).toBe(true);
     const thinking = segments.find((s) => s.type === 'thinking')!;
-    expect(thinking.endedAt, 'a closed reasoning block has an end').toBeDefined();
-    expect(thinking.endedAt! - thinking.startedAt!).toBeGreaterThanOrEqual(0);
+    expect(thinking.meta?.aparte?.endedAt, 'a closed reasoning block has an end').toBeDefined();
+    expect(thinking.meta!.aparte!.endedAt! - thinking.meta!.aparte!.startedAt!).toBeGreaterThanOrEqual(0);
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });

@@ -21,7 +21,9 @@ import '../../components/viewport/aparte-chat-viewport.js';
 import '../../components/bubble/aparte-chat-bubble.js';
 import { createStreamAdapter } from '../stream-adapter.js';
 import { aparteGlobalConfig } from '../../config/index.js';
-import { isSegmentSettled } from '../../utils/segments.js';
+import {
+    segmentDuration,
+    segmentTiming, isSegmentSettled } from '../../utils/segments.js';
 import type { AparteMessage, AparteSegment } from '../../types/index.js';
 
 type Viewport = HTMLElement & {
@@ -95,10 +97,10 @@ describe('segment stamping on the real stream path', () => {
 
         const toolSeg = segments.find((s) => s.type === 'tool_call');
         expect(toolSeg, 'the round-trip must leave a tool_call segment').toBeDefined();
-        expect(toolSeg!.startedAt).toBe(1_000);
+        expect(segmentTiming(toolSeg!)?.startedAt).toBe(1_000);
         // The duration the parser could never have measured: this segment never
         // passed through it.
-        expect(toolSeg!.endedAt! - toolSeg!.startedAt!).toBe(3_500);
+        expect(segmentDuration(toolSeg!)).toBe(3_500);
     });
 
     it('does not call a waiting tool call finished, whatever its last activity says', () => {
@@ -122,12 +124,12 @@ describe('segment stamping on the real stream path', () => {
 
         const toolSeg = vp.getMessages().find((m) => m.id === 'm2')?.segments?.[0];
         expect(toolSeg?.type).toBe('tool_call');
-        expect(toolSeg?.startedAt).toBe(1_000);
+        expect(segmentTiming(toolSeg!)?.startedAt).toBe(1_000);
         // Nothing has happened to this call yet: `awaiting-approval` is a status
         // change, not payload, so it does not advance an end — and it does not
         // settle the segment either. Waiting on a human is not a measurement of the
         // tool.
-        expect(toolSeg?.endedAt).toBeUndefined();
+        expect(segmentTiming(toolSeg!)?.endedAt).toBeUndefined();
         expect(isSegmentSettled(toolSeg!)).toBe(false);
     });
 
@@ -162,10 +164,10 @@ describe('segment stamping on the real stream path', () => {
         const segments = vp.getMessages().find((m) => m.id === 'm3')?.segments ?? [];
         const thinking = segments.find((s) => s.type === 'thinking')!;
 
-        expect(thinking.endedAt! - thinking.startedAt!).toBe(2_000);
+        expect(segmentDuration(thinking)).toBe(2_000);
         // And the reply, which really did run to the end of the turn, says so.
         const answer = segments.find((s) => s.type === 'text')!;
-        expect(answer.endedAt).toBe(20_000);
+        expect(segmentTiming(answer)?.endedAt).toBe(20_000);
     });
 
     it('a reasoning block is finished BEFORE the turn is, so its duration is readable while the answer streams', () => {
@@ -202,12 +204,12 @@ describe('segment stamping on the real stream path', () => {
         emit({ type: 'text-delta', delta: 'The answer' } as never);
 
         expect(isSegmentSettled(thinkingOf())).toBe(true);
-        expect(thinkingOf().endedAt! - thinkingOf().startedAt!).toBe(2_000);
+        expect(segmentDuration(thinkingOf())).toBe(2_000);
 
         // …and eighteen seconds of answer later, nothing about it has moved.
         vi.setSystemTime(23_000);
         emitAll(emit, [{ type: 'text-delta', delta: ' is 42.' }, { type: 'text-flush' }, { type: 'run-done' }]);
-        expect(thinkingOf().endedAt! - thinkingOf().startedAt!).toBe(2_000);
+        expect(segmentDuration(thinkingOf())).toBe(2_000);
     });
 
     it('a tool call appearing an hour later does not add an hour to the segment before it', () => {
@@ -242,8 +244,8 @@ describe('segment stamping on the real stream path', () => {
         const thinking = segments.find((seg) => seg.type === 'thinking')!;
         const answer = segments.find((seg) => seg.type === 'text')!;
 
-        expect(thinking.endedAt! - thinking.startedAt!).toBe(1_000);
-        expect(answer.endedAt! - answer.startedAt!).toBeLessThanOrEqual(3_000);
+        expect(segmentDuration(thinking)).toBe(1_000);
+        expect(segmentDuration(answer)).toBeLessThanOrEqual(3_000);
         // Both are finished before the tool pill ever appears, so a UI can show
         // their durations without waiting on it.
         expect(isSegmentSettled(thinking)).toBe(true);

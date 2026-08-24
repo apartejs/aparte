@@ -1,3 +1,5 @@
+import { segmentTiming,
+    segmentDuration } from '../utils/segments.js';
 // @vitest-environment jsdom
 /**
  * A segment's identity and measurement, proven on BOTH owners.
@@ -209,7 +211,7 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
         const painted = owner.bubbleSegments().at(-1)!;
         expect(painted.messageId).toBe(stored.messageId);
         expect(painted.index).toBe(stored.index);
-        expect(painted.startedAt).toBe(stored.startedAt);
+        expect(segmentTiming(painted)?.startedAt).toBe(segmentTiming(stored)?.startedAt);
     });
 
     it('records a start but no end while the segment is open', () => {
@@ -218,8 +220,8 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
         owner.newMessage();
         owner.addSegment(text('a', { isStreaming: true }));
 
-        expect(owner.segments()[0]!.startedAt).toBe(1_000);
-        expect(owner.segments()[0]!.endedAt).toBeUndefined();
+        expect(segmentTiming(owner.segments()[0]!)?.startedAt).toBe(1_000);
+        expect(segmentTiming(owner.segments()[0]!)?.endedAt).toBeUndefined();
     });
 
     it('records the end when streaming stops', () => {
@@ -232,8 +234,8 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
         owner.updateSegment('a', { isStreaming: false });
 
         const settled = owner.segments()[0]!;
-        expect(settled.endedAt).toBe(9_000);
-        expect(settled.endedAt! - settled.startedAt!).toBe(8_000);
+        expect(segmentTiming(settled)?.endedAt).toBe(9_000);
+        expect(segmentDuration(settled)).toBe(8_000);
     });
 
     it('records the end when a tool call leaves pending — the duration nobody could measure', () => {
@@ -246,7 +248,7 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
         owner.updateSegment('t1', { status: 'resolved' } as Partial<AparteSegment>);
 
         const settled = owner.segments()[0]!;
-        expect(settled.endedAt! - settled.startedAt!).toBe(3_500);
+        expect(segmentDuration(settled)).toBe(3_500);
     });
 
     it('does not move an end that is already recorded', () => {
@@ -260,8 +262,12 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
         vi.setSystemTime(60_000);
         owner.updateSegment('a', { meta: { tokens: 12 } } as Partial<AparteSegment>);
 
-        expect(owner.segments()[0]!.endedAt).toBe(4_000);
-        expect(owner.segments()[0]!.meta).toEqual({ tokens: 12 });
+        expect(segmentTiming(owner.segments()[0]!)?.endedAt).toBe(4_000);
+        // The two writers of `meta` share one bag, and neither erases the other. This
+        // used to read `toEqual({ tokens: 12 })` — correct while core's measurements
+        // were fields of their own, and a hole the moment they moved in here: a plain
+        // spread would have dropped `aparte` the first time an app wrote a token count.
+        expect(owner.segments()[0]!.meta).toEqual({ tokens: 12, aparte: { startedAt: 1_000, endedAt: 4_000 } });
     });
 
     it('closes the gap a removal leaves', () => {
@@ -278,12 +284,12 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
 
     it('keeps the numbers a rehydrated segment was persisted with', () => {
         owner.newMessage();
-        owner.addSegment(text('stored', { messageId: 'm-from-storage', index: 4, startedAt: 111 }));
+        owner.addSegment(text('stored', { messageId: 'm-from-storage', index: 4, meta: { aparte: { startedAt: 111  } }}));
 
         const s = owner.segments()[0]!;
         expect(s.messageId).toBe('m-from-storage');
         expect(s.index).toBe(4);
-        expect(s.startedAt).toBe(111);
+        expect(segmentTiming(s)?.startedAt).toBe(111);
     });
 
     // Nothing in a stream says "this thinking block is over": the parser closes its
@@ -298,12 +304,12 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
         owner.addSegment(text('a', { isStreaming: true }));
         owner.addSegment(text('b', { isStreaming: true }));
 
-        expect(owner.segments().every((s) => s.endedAt === undefined)).toBe(true);
+        expect(owner.segments().every((s) => segmentTiming(s)?.endedAt === undefined)).toBe(true);
 
         vi.setSystemTime(3_000);
         owner.completeTurn();
 
-        expect(owner.segments().map((s) => s.endedAt)).toEqual([3_000, 3_000]);
+        expect(owner.segments().map((s) => segmentTiming(s)?.endedAt)).toEqual([3_000, 3_000]);
         expect(owner.segments().every((s) => s.isStreaming === false)).toBe(true);
     });
 
@@ -318,6 +324,6 @@ describe.each(OWNERS)('segment identity — %s', (_name, makeOwner) => {
         vi.setSystemTime(30_000);
         owner.completeTurn();
 
-        expect(owner.segments()[0]!.endedAt).toBe(2_000);
+        expect(segmentTiming(owner.segments()[0]!)?.endedAt).toBe(2_000);
     });
 });
