@@ -252,7 +252,31 @@ export class AparteChatBubble extends HTMLElement {
 
   /** Set segments for rich content */
   setSegments(segments: AparteSegment[]): void {
-    this._segments = segments;
+    /*
+     * Copy the array IN, the way `getSegments()` already copies it OUT.
+     *
+     * That asymmetry was the bug: the bubble defended its list on the way out and
+     * adopted the caller's on the way in. `populateBubbleFromMessage` hands over
+     * `message.segments` — the repository's own array — so the bubble and the model
+     * ended up advancing ONE array. `appendToSegment` then wrote each chunk twice:
+     * the viewport replaced the slot with `{...segment, content: old + chunk}`, the
+     * bubble looked the segment up in what it thought was its own list, found that
+     * replacement (chunk already in it) and appended the chunk again. Measured:
+     * "ThatThat  deletesdeletes  aa  filefile".
+     *
+     * This is the same failure 3b026bb fixed for `addSegment` — where it does not
+     * happen, because the bubble pushes into a list it created itself, so the
+     * viewport's replacement decouples the two immediately. A message arriving with
+     * its segments already populated went around that fix, exactly as `AparteClient`
+     * went around the one before it. One copy here closes the last shared array:
+     * `setSegments` has a single production caller, so all three paths through
+     * `populateBubbleFromMessage` are covered by this line.
+     *
+     * The objects stay shared, deliberately — that is the arrangement `addSegment`
+     * produces and that `appendToSegment` is written for: the first write on either
+     * side replaces its own slot and the two are independent from then on.
+     */
+    this._segments = [...segments];
     this._renderSegments();
     this._updateWaiting();
   }
