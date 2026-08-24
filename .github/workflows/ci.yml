@@ -6,10 +6,20 @@ on:
   pull_request:
     branches: [ main ]
 
-# Superseded pushes to the same ref cancel their in-flight run instead of
-# queuing (main is never cancelled — its group is keyed by the unique SHA).
+# A superseded push cancels its in-flight run instead of queuing — on `main` too.
+#
+# `main` used to be keyed by the unique SHA so every commit got its own verified
+# run. That reads well and costs badly: merging three PRs inside two minutes (a
+# fix, then the version PR, then the release) started three full runs — ci +
+# node-floor + e2e, about fifteen minutes of runner each — for one state anyone
+# would actually look at. The tail run verifies the tree the earlier ones were
+# heading towards anyway.
+#
+# The trade is explicit: an intermediate `main` commit can now go unverified if a
+# newer one lands while it runs. Acceptable here because releases arrive in
+# bursts and `pnpm release` runs the whole gate locally before publishing.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
