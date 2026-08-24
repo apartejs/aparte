@@ -92,6 +92,32 @@ describe('relabel reaches a rendered segment', () => {
         expect(reject.textContent).toBe('Refuser');
     });
 
+    it('an artifact card’s copy button — and nothing else on the card', () => {
+        const el = mount([{
+            id: 's1', type: 'artifact', isStreaming: false,
+            artifactType: 'svg', mimeType: 'image/svg+xml', title: 'A chart',
+            content: '<svg/>',
+        } as unknown as AparteSegment]);
+        const copyBtn = el.querySelector('.aparte-art-card__btn[data-action="copy"]')!;
+        const card = el.querySelector('.segment-artifact-card')!;
+
+        aparteGlobalConfig.setLocale(FR());
+        aparteGlobalConfig.setIconProvider({ copy: () => '<svg data-mine="1"></svg>' });
+
+        expect(copyBtn.getAttribute('title')).toBe('Copier');
+        expect(copyBtn.innerHTML).toContain('data-mine');
+
+        // The half that matters more than the label: the card must not be disturbed.
+        // It opens on the Code tab by design — building the preview frame at render
+        // time would execute model-authored code with no gesture — and a relabel that
+        // touched the tab state, or rebuilt the pane, would be the re-render this hook
+        // exists to avoid.
+        expect(card.getAttribute('data-tab')).toBe('code');
+        expect(el.querySelector('iframe')).toBeNull();
+        // And the literals it cannot reach stay literal, on purpose.
+        expect(el.querySelector('.aparte-art-card__btn[data-action="download"]')!.getAttribute('title')).toBe('Download');
+    });
+
     it('an error card’s icon (its title is a literal, and stays one)', () => {
         const el = mount([seg({ id: 's1', type: 'error', content: 'boom' })]);
 
