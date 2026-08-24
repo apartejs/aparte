@@ -100,8 +100,8 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                     </div>
                 </header>
                 <nav class="aparte-art-card__tabs" role="tablist">
-                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
                     <button type="button" role="tab" data-tab-target="code" aria-selected="true">${escapeHtml(codeLabel)}</button>
+                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
                 </nav>
                 <div class="aparte-art-card__body">
                     <div class="aparte-art-card__pane" data-pane="code">
@@ -344,7 +344,24 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         }
         .aparte-art-card__btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .aparte-art-card__tabs {
-            display: flex; gap: 2px;
+            /* justify-content and the padding are DECLARED, not left to a default.
+               Core is light DOM on purpose - no shadow root, no ::part(), any selector
+               reaches in - and the corollary is that a component must state what its
+               layout depends on, because an undeclared property has nothing to override
+               a host rule with. A consuming page with a bare nav selector setting
+               justify-content: space-between and padding-top (this library's own docs
+               site had exactly that) otherwise pushes these two tabs to opposite ends of
+               the card and pads the row out. No backticks in here: this block is a JS
+               template literal, and one of them ended it.
+
+               flex-end, and Code first in the DOM. The card OPENS on Code - mounting the
+               preview would execute model-authored code with no gesture (ratified
+               decision #8) - and a selected tab sitting second reads backwards. Right,
+               because the header above puts the artifact's identity on the left and its
+               copy/download buttons on the right, so this keeps every control in one
+               column. DOM order is also keyboard order, so the tab a reader lands on
+               first is the one already showing. */
+            display: flex; justify-content: flex-end; align-items: stretch; gap: 2px;
             padding: 4px 8px 0;
             border-bottom: 1px solid var(--aparte-border, rgba(0,0,0,0.08));
             background: var(--aparte-surface-2, rgba(0,0,0,0.02));
@@ -367,17 +384,37 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             font-weight: 500;
         }
         .aparte-art-card__tabs button:disabled { opacity: 0.4; cursor: not-allowed; }
+        /* The card's heights, as variables with ONE owner each.
+           They were four hardcoded numbers in the only part of this card that did not
+           use a variable - everything else here already reads var(--aparte-code-bg) and
+           friends - and two of them had to agree while a third contradicted a fourth:
+           the code pane repeated the body's 600px, and the "press Preview" placeholder
+           was 120px tall inside a body whose min-height said 80, so that minimum applied
+           to nothing.
+           The frame stays a FIXED height rather than an aspect ratio, which is what
+           embeds of arbitrary HTML actually do - CodeSandbox documents 500px, StackBlitz
+           takes a height parameter - because a frame with an opaque origin cannot be
+           measured and a 16/10 ratio on a wide card is enormous. The vh cap is the part
+           that was missing: a fixed 480px should not own a phone screen.
+           Each default lives in its read, as var(--x, literal), the way every other
+           value in this file already does - not in a declaration block on top of the
+           fallbacks, which would be two owners of one number again. It also means the
+           docs' CSS-variable generator finds them: its sweep looks for reads that
+           carry a fallback, so a read without one is a public knob nobody documents. */
         .aparte-art-card__body {
             position: relative;
-            min-height: 80px;
-            max-height: 600px;
+            /* The placeholder is the tallest thing this box can hold while empty, so it
+               IS the minimum - one number instead of two that disagreed. */
+            min-height: var(--aparte-artifact-pending-height, 120px);
+            max-height: var(--aparte-artifact-body-max, 600px);
             overflow: hidden;
         }
         .aparte-art-card__pane { display: none; height: 100%; }
         .segment-artifact-card[data-tab="code"]    .aparte-art-card__pane[data-pane="code"]    { display: block; }
         .segment-artifact-card[data-tab="preview"] .aparte-art-card__pane[data-pane="preview"] { display: block; }
         .aparte-art-card__pane[data-pane="code"] {
-            max-height: 600px; overflow: auto;
+            /* The body already caps this; repeating the number was the second owner. */
+            max-height: var(--aparte-artifact-body-max, 600px); overflow: auto;
         }
         .aparte-art-card__pane[data-pane="code"] pre {
             margin: 0; padding: 12px;
@@ -386,13 +423,14 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         }
         .aparte-art-card__frame {
             display: block;
-            width: 100%; height: 480px;
+            width: 100%;
+            height: min(var(--aparte-artifact-frame-height, 480px), var(--aparte-artifact-frame-max, 70vh));
             border: 0;
             background: #fff;
         }
         .aparte-art-card__pending {
             display: flex; align-items: center; justify-content: center;
-            height: 120px;
+            height: var(--aparte-artifact-pending-height, 120px);
             color: var(--aparte-text-muted, rgba(0,0,0,0.5));
             font-size: 0.85rem;
             font-style: italic;
@@ -418,7 +456,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             position: relative;
         }
         .aparte-art-file__code-pane {
-            max-height: 360px; overflow: auto;
+            max-height: var(--aparte-artifact-file-code-max, 360px); overflow: auto;
             background: var(--aparte-code-bg, #fafafa);
         }
         .aparte-art-file__code-pane pre {
@@ -427,7 +465,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
         }
         .aparte-art-file__preview-pane {
-            max-height: 460px;
+            max-height: var(--aparte-artifact-file-preview-max, 460px);
             overflow: auto;
             background: #fff;
             /* Preview is a document view — force light scheme regardless of

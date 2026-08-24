@@ -73,7 +73,13 @@ a { color: inherit; }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .stage-glow { opacity: .5; } }
 main { position: relative; z-index: 1; }
 
-nav { display: flex; align-items: baseline; justify-content: space-between; padding-top: 30px; gap: 24px; }
+/* `.site-nav`, not `nav`. A bare element selector in a page that EMBEDS a
+   component library reaches into the library: this one hit the artifact card's
+   `<nav class="aparte-art-card__tabs">`, pushing Preview and Code to opposite ends of
+   the card with `space-between` and padding the row out by 30px. Which is the exact
+   trade-off this page advertises two sections down — light DOM, no ::part(), any
+   selector reaches in — collected on itself. */
+.site-nav { display: flex; align-items: baseline; justify-content: space-between; padding-top: 30px; gap: 24px; }
 .brand { font-size: 24px; letter-spacing: -.01em; font-style: italic; }
 .brand .paren { color: var(--accent); font-style: normal; }
 .nav-links { display: flex; gap: 26px; align-items: baseline; font-size: 14px; }
