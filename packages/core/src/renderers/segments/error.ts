@@ -33,7 +33,7 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
                 ${contextConfig().getIcon('error') || '⚠'}
             </div>
             <div class="error-content">
-                <div class="error-title">Error</div>
+                <div class="error-title">${escapeHtml(contextConfig().t('error'))}</div>
                 <div class="error-message">${escapeHtml(segment.content)}</div>
                 ${segment.details ? `<div class="error-details">${escapeHtml(segment.details)}</div>` : ''}
             </div>
@@ -41,13 +41,19 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
     `;
     },
     /**
-     * Only the icon: this card's "Error" heading is a hardcoded literal, never routed
-     * through `t()`, so no config change can reach it. Giving it a locale key is a
-     * separate, additive change.
+     * The icon and the heading. The heading used to be the hardcoded literal `Error`
+     * while `locale.error` — a REQUIRED key, documented, and already translated to
+     * "Erreur" — was read by nothing at all. A translated string with no consumer and
+     * a literal with no translation, in the same card.
+     *
+     * Not the message: that is the model's or the transport's text, in whatever
+     * language it arrived in. Relabelling it would be inventing content.
      */
     relabel: (element) => {
         const wrap = element.querySelector('.error-icon-wrapper');
         if (wrap) wrap.innerHTML = contextConfig().getIcon('error') || '⚠';
+        const title = element.querySelector('.error-title');
+        if (title) title.textContent = contextConfig().t('error');
     },
 
     getStyles: () => ``

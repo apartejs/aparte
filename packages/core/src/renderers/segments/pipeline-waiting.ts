@@ -5,22 +5,35 @@
  * nowhere else to put them; the registry that consumes them is in
  * `../segment-renderers.ts`.
  */
-import { escapeHtml } from '../../utils/escape.js';
+import { escapeHtml, escapeAttr } from '../../utils/escape.js';
+import { contextConfig } from '../../config/index.js';
 import type {
     AparteSegmentRenderer,
 } from '../../types/index.js';
+
+/** The one string this segment has, and the only thing a screen reader gets from it. */
+const waitingLabel = (): string => contextConfig().getLocale().generating ?? 'Generating…';
 
 export const pipelineWaitingRenderer: AparteSegmentRenderer = {
     type: 'pipeline-waiting',
     render: (segment) => {
         return `
-        <div class="segment segment-pipeline-waiting" data-segment-id="${escapeHtml(segment.id)}" aria-label="Generating…" role="status">
+        <div class="segment segment-pipeline-waiting" data-segment-id="${escapeHtml(segment.id)}" aria-label="${escapeAttr(waitingLabel())}" role="status">
             <span class="pw-dot"></span>
             <span class="pw-dot"></span>
             <span class="pw-dot"></span>
         </div>`;
     },
     update: () => { /* nothing to update */ },
+    /**
+     * Three dots and an accessible name. The dots are CSS; the name is the whole
+     * content as far as a screen reader is concerned, and it was hardcoded English in
+     * every locale — the one string in this library where being untranslated is
+     * invisible to everyone who can see the screen.
+     */
+    relabel: (element) => {
+        element.setAttribute('aria-label', waitingLabel());
+    },
     setup: (el) => {
         // Auto-remove when a sibling segment appears after this element.
         // This makes it a true "last-child only" segment — no manual removeSegment needed.
