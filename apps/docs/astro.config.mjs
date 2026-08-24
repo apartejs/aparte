@@ -5,8 +5,42 @@ import starlight from '@astrojs/starlight';
 // builds keep consuming the published `dist`, so deploys are unchanged.
 const isDev = process.env.npm_lifecycle_event === 'dev';
 
+/**
+ * External links leave the site, so they open in their own tab.
+ *
+ * There are 250 of them across the guides and the changelog (243 to github.com
+ * alone) and they are written as ordinary markdown, so none carried `target` or
+ * `rel`. Fixing them one by one is 250 edits and a rule nobody will remember on
+ * the 251st; this is one place.
+ *
+ * Hand-rolled rather than `rehype-external-links` + `unist-util-visit`: it is a
+ * dozen lines over a tree we already have in memory, and it keeps a dependency
+ * out of the docs app for something this small.
+ *
+ * `rel` is `noopener` and deliberately NOT `noreferrer` — the opener reference is
+ * the security concern, while the Referer header is how GitHub and npm attribute
+ * their traffic back to this site.
+ */
+const SITE_HOST = 'apartejs.dev';
+function rehypeExternalLinksInOwnTab() {
+    return (tree) => {
+        const walk = (node) => {
+            if (node.type === 'element' && node.tagName === 'a') {
+                const href = node.properties?.href;
+                if (typeof href === 'string' && /^https?:\/\//i.test(href) && !href.includes(SITE_HOST)) {
+                    node.properties.target = '_blank';
+                    node.properties.rel = ['noopener'];
+                }
+            }
+            for (const child of node.children ?? []) walk(child);
+        };
+        walk(tree);
+    };
+}
+
 // https://astro.build/config
 export default defineConfig({
+  markdown: { rehypePlugins: [rehypeExternalLinksInOwnTab] },
   // The canonical site URL — enables the sitemap + correct canonical/OG links.
   // Change this one string if the docs move to another domain.
   site: 'https://apartejs.dev',

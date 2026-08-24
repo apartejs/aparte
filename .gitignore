@@ -63,3 +63,8 @@ packages/wrappers/*/.svelte-kit/
 
 # Content stamps for scripts/check-dist-freshness.mjs (mtime is not content).
 .dist-freshness/
+
+# Raw vitest JSON report (scripts/stamp-test-count.mjs distils it into
+# apps/docs/src/data/test-counts.json, which IS committed) and TypeDoc scratch.
+.vitest-report.json
+apps/docs/.typedoc/

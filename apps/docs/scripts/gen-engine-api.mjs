@@ -12,7 +12,10 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docsRoot = resolve(here, '..');
-const OUT_DIR = resolve(docsRoot, 'src/content/docs/reference/engine');
+// Outside src/content/docs on purpose — see the `out` comment in
+// typedoc.engine.json: TypeDoc's bare README.md has no Starlight frontmatter,
+// and a running `astro dev` that sees it inside the collection dies.
+const OUT_DIR = resolve(docsRoot, '.typedoc/engine');
 const REF_DIR = resolve(docsRoot, 'src/content/docs/reference');
 const OUT = resolve(REF_DIR, 'engine.md');
 
