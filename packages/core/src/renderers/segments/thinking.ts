@@ -44,7 +44,7 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * new class of risk. With no Markdown provider registered it degrades to the
      * zero-dependency default (escape + `<br>`), which is what it used to be.
      */
-    render: (segment) => `<details class="segment segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed ? '' : 'open'}><summary class="thinking-header"><span class="thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    render: (segment) => `<details class="segment segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="thinking-header"><span class="thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
     /**
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.

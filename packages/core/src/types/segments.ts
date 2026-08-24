@@ -78,10 +78,33 @@ export interface AparteTextSegment extends AparteSegmentBase {
     content: string;
 }
 
+/**
+ * Field defaults for one segment TYPE, merged when a segment enters a message.
+ *
+ * A record and not a `Partial<AparteSegment>` on purpose: the type key is a string,
+ * a consumer's own segment type is as valid as a built-in one, and its fields cannot
+ * be known here. What CANNOT be defaulted is identity — `id`, `type`, `messageId`,
+ * `index`, `startedAt`, `endedAt` are refused, because a default `id` would give
+ * every segment in a conversation the same one.
+ */
+export type AparteSegmentDefaults = Readonly<Record<string, unknown>>;
+
 /** Thinking/reasoning segment - collapsible */
 export interface AparteThinkingSegment extends AparteSegmentBase {
     type: 'thinking';
     content: string;
+    /**
+     * Open the block. **Absent means CLOSED** — a reasoning block is a disclosure,
+     * and the reader opens it.
+     *
+     * It used to be the other way round: absent meant open, and core's own parser
+     * emitted `collapsed: false` on every block it produced, so a reasoning block
+     * stayed unfolded for the whole conversation and buried the answer under it. No
+     * assistant on the market does that — the content is behind a click, streaming
+     * or settled.
+     *
+     * `false` is still how you open one on purpose. Only ABSENT changed meaning.
+     */
     collapsed?: boolean;
     label?: string; // e.g., "Reasoning", "Analysis"
 }

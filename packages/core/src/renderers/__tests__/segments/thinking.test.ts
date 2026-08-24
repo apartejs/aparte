@@ -49,6 +49,16 @@ describe('default renderer: thinking (extra)', () => {
         expect(html).toContain('<span class="thinking-label">Reasoning</span>');
     });
 
+    it('is CLOSED when `collapsed` is absent — a disclosure the reader opens', () => {
+        const renderer = getSegmentRenderer('thinking')!;
+        const html = renderer.render({ id: 't0', type: 'thinking', content: 'x' } as any) as string;
+        // The old default was the reverse, and nothing pinned it — which is how core's
+        // own parser came to emit `collapsed: false` on every block it produced and
+        // leave reasoning unfolded for a whole conversation.
+        expect(html).not.toContain('<details class="segment segment-thinking" data-segment-id="t0" open');
+        expect(html).toContain('<details');
+    });
+
     it('renders <details open> when not collapsed', () => {
         const renderer = getSegmentRenderer('thinking')!;
         const html = renderer.render({ id: 't3', type: 'thinking', content: 'x', collapsed: false } as any);

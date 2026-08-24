@@ -23,6 +23,7 @@ import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../type
 import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
 import type { AparteTool, AparteToolHandler, AparteToolRenderer } from '../types/tools.js';
+import type { AparteSegmentDefaults } from '../types/segments.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
@@ -178,6 +179,7 @@ export class AparteConfig {
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
+    private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
 
     // Host handlers — what the app declares it can actually complete.
     private _hostHandlers: AparteHostHandlersConfig = { ...APARTE_DEFAULT_HOST_HANDLERS };
@@ -1015,6 +1017,49 @@ export class AparteConfig {
         this._toolRenderers.set(toolName, renderer);
     }
 
+    /**
+     * Field defaults for a segment TYPE, filled in when a segment enters a message.
+     *
+     * One function for every type rather than one per field: a `setThinkingOpen()`
+     * would need a sibling the next time any type wanted a default, and the type key
+     * is a string, so a consumer's own segment type is covered by the same call.
+     *
+     * The problem it solves: a consumer streaming a reply does not CONSTRUCT its
+     * segments — the parser does — so there was no hook at all for "reasoning blocks
+     * open in my app". Per-segment fields only reach segments you build yourself.
+     *
+     * Applied where identity is stamped (`utils/segments.ts`), so it covers every
+     * path a segment can arrive by — the parser, `addSegment`, and the segments
+     * seeded on an `appendMessage` — and no renderer has to look anything up.
+     *
+     * A field the producer set always wins, and identity is never defaulted. Read at
+     * insertion and baked in: changing a default later does not reach segments already
+     * on screen, because a block the reader opened has state the data does not.
+     *
+     * @example
+     * // Reasoning blocks arrive open in this app, streaming or settled.
+     * aparteGlobalConfig.setSegmentDefaults('thinking', { collapsed: false });
+     *
+     * @example
+     * // A consumer's own type, same call.
+     * aparteGlobalConfig.setSegmentDefaults('my-chart', { theme: 'dark' });
+     */
+    setSegmentDefaults(type: string, defaults: AparteSegmentDefaults): void {
+        this._segmentDefaults.set(type, { ...defaults });
+        // No `_notify()`, on purpose: nothing re-reads this. Defaults are baked in at
+        // insertion, so a notify would advertise a liveness that does not exist.
+    }
+
+    /** The defaults registered for a type, or undefined. */
+    getSegmentDefaults(type: string): AparteSegmentDefaults | undefined {
+        return this._segmentDefaults.get(type);
+    }
+
+    /** Drop the defaults for a type. */
+    clearSegmentDefaults(type: string): void {
+        this._segmentDefaults.delete(type);
+    }
+
     /** Unregister a per-tool renderer */
     unregisterToolRenderer(toolName: string): void {
         this._toolRenderers.delete(toolName);
@@ -1113,6 +1158,10 @@ export class AparteConfig {
         this._siblingNavRenderer = undefined;
         this._bubbleShellRenderer = undefined;
         this._iconProvider = undefined;
+        // Registered defaults are config like any other. Leaving them behind made
+        // a test leak its defaults into the next one, which is the same thing a
+        // consumer's `reset()` would do to a second chat.
+        this._segmentDefaults.clear();
         this._avatarProvider = undefined;
         this._artifactPreviewBuilder = undefined;
         this._keyProvider = undefined;

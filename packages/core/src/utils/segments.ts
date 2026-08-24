@@ -27,7 +27,7 @@
  * Everything here is pure and DOM-free, so a consumer can test their own wiring in
  * Node — the introspectability half of the reachability rule.
  */
-import type { AparteSegment } from '../types/index.js';
+import type { AparteSegmentDefaults, AparteSegment } from '../types/index.js';
 
 /**
  * Tool-call statuses that mean "still open".
@@ -70,13 +70,43 @@ export function stampSegmentOnInsert(
     segments: readonly AparteSegment[],
     segment: AparteSegment,
     messageId: string,
+    defaults?: AparteSegmentDefaults,
 ): AparteSegment {
     return {
-        ...segment,
+        ...applyDefaults(segment, defaults),
         messageId: segment.messageId ?? messageId,
         index: segment.index ?? segments.length,
         startedAt: segment.startedAt ?? Date.now(),
     } as AparteSegment;
+}
+
+/**
+ * Identity is stamped, never defaulted. A default `id` would hand every segment in a
+ * conversation the same one, and `index` / `startedAt` are measurements of THIS
+ * insertion — a default for either would be a lie about when and where.
+ */
+const RESERVED = new Set(['id', 'type', 'messageId', 'index', 'startedAt', 'endedAt']);
+
+/**
+ * Fill in what the producer did not say.
+ *
+ * `in`, not `??`: a segment that explicitly carries `collapsed: undefined` has said
+ * something, and a default must not talk over it. The same reason the three stamped
+ * fields above use `??` on a value the caller may legitimately have computed, while
+ * this one asks whether the key exists at all.
+ *
+ * Defaults are read at INSERTION and baked in. Changing them later does not reach
+ * segments already in the transcript — deliberately: a reasoning block the reader
+ * opened has state the data does not, and a retroactive default would take it away.
+ */
+function applyDefaults(segment: AparteSegment, defaults?: AparteSegmentDefaults): AparteSegment {
+    if (!defaults) return segment;
+    const out = { ...segment } as AparteSegment & Record<string, unknown>;
+    for (const [key, value] of Object.entries(defaults)) {
+        if (RESERVED.has(key) || key in segment) continue;
+        out[key] = value;
+    }
+    return out;
 }
 
 /**
