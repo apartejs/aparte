@@ -60,7 +60,6 @@
   --aparte-radius-thinking: var(--aparte-radius-lg);
   --aparte-radius-terminal: var(--aparte-radius-lg);
   --aparte-radius-error: var(--aparte-radius-md);
-  --aparte-radius-file-tree: var(--aparte-radius-lg);
 
   /* Spacing scale — every gap / padding / margin / offset routes through these,
      so there are no raw px spacings in the rules. Incidental, pixel-tuned values
@@ -299,15 +298,7 @@
   --aparte-scroll-btn-hover-bg: var(--aparte-surface-2);
 
   /* File Tree */
-  --aparte-file-tree-bg: var(--aparte-surface-1);
-  --aparte-file-tree-border: var(--aparte-border);
-  --aparte-file-tree-header-bg: var(--aparte-surface-2);
-  --aparte-file-tree-hover: var(--aparte-surface-2);
-  --aparte-file-tree-title: var(--aparte-text-muted);
   /* Git-status file colours reuse the semantic status tokens by default. */
-  --aparte-file-status-added: var(--aparte-success);
-  --aparte-file-status-modified: var(--aparte-info);
-  --aparte-file-status-deleted: var(--aparte-error);
 
   /* Error segment */
   --aparte-error-bg: #fef2f2;
@@ -428,11 +419,6 @@
   --aparte-progress-label: #e5e7eb;
 
   /* File Tree */
-  --aparte-file-tree-bg: #1e293b;
-  --aparte-file-tree-border: #334155;
-  --aparte-file-tree-header-bg: #0f172a;
-  --aparte-file-tree-hover: #334155;
-  --aparte-file-tree-title: #94a3b8;
 
   /* Error segment */
   --aparte-error-bg: #2d1b1b;
@@ -2141,50 +2127,6 @@ details[open] .thinking-toggle {
   transition: width 0.3s ease;
 }
 
-/* File Tree */
-.segment-file-tree {
-  background: var(--aparte-file-tree-bg, #f8fafc);
-  border: var(--aparte-border-width, 1px) solid var(--aparte-file-tree-border, #e2e8f0);
-  border-radius: var(--aparte-radius-file-tree);
-  margin: var(--aparte-space-6, 12px) 0;
-  overflow: hidden;
-  font-family: var(--aparte-font-family, system-ui, -apple-system, sans-serif);
-  font-size: var(--aparte-font-size-md, 13px);
-}
-
-.file-tree-title {
-  padding: var(--aparte-space-5, 10px) var(--aparte-space-7, 14px);
-  background: var(--aparte-file-tree-header-bg, #f1f5f9);
-  border-bottom: var(--aparte-border-width, 1px) solid var(--aparte-file-tree-border, #e2e8f0);
-  font-weight: var(--aparte-font-weight-medium, 500);
-  color: var(--aparte-file-tree-title, #475569);
-}
-
-.file-tree-content {
-  padding: var(--aparte-space-4, 8px) 0;
-}
-
-.file-node {
-  display: flex;
-  align-items: center;
-  gap: var(--aparte-space-4, 8px);
-  padding: var(--aparte-space-2, 4px) var(--aparte-space-7, 14px);
-  cursor: default;
-}
-
-.file-node:hover {
-  background: var(--aparte-file-tree-hover, #f1f5f9);
-}
-
-.file-node.file-status-added .file-name { color: var(--aparte-file-status-added, #16a34a); }
-.file-node.file-status-modified .file-name { color: var(--aparte-file-status-modified, #0284c7); }
-.file-node.file-status-deleted .file-name { color: var(--aparte-file-status-deleted, #dc2626); text-decoration: line-through; opacity: 0.7; }
-
-.file-icon {
-  font-size: var(--aparte-font-size-lg, 14px);
-  flex-shrink: 0;
-  opacity: 0.7;
-}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Composer Primitives

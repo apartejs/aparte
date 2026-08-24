@@ -122,21 +122,6 @@ export interface AparteTerminalSegment extends AparteSegmentBase {
     isRunning?: boolean;
 }
 
-/** File tree segment - directory structure */
-export interface AparteFileTreeSegment extends AparteSegmentBase {
-    type: 'file-tree';
-    files: AparteFileNode[];
-    title?: string;
-}
-
-export interface AparteFileNode {
-    name: string;
-    path: string;
-    type: 'file' | 'directory';
-    children?: AparteFileNode[];
-    status?: 'added' | 'modified' | 'deleted';
-}
-
 /** Image segment */
 export interface AparteImageSegment extends AparteSegmentBase {
     type: 'image';
@@ -243,7 +228,6 @@ export type AparteSegment =
     | AparteCodeSegment
     | AparteDiffSegment
     | AparteTerminalSegment
-    | AparteFileTreeSegment
     | AparteImageSegment
     | ApartePreviewSegment
     | AparteErrorSegment
@@ -324,8 +308,8 @@ export interface AparteSegmentRenderer<T extends AparteSegmentBase = AparteSegme
      * exactly what the rule above forbids.
      *
      * Implement it only if the rendered output contains text or icons that came from
-     * the config. A renderer whose chrome is entirely its own data — `file-tree`,
-     * `progress` — correctly does not, exactly as it does not implement `update()`.
+     * the config. A renderer whose chrome is entirely its own data — `progress`,
+     * `text` — correctly does not, exactly as it does not implement `update()`.
      */
     relabel?(element: HTMLElement, segment: T): void;
 

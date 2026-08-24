@@ -60,8 +60,6 @@ export type {
     AparteDiffHunk,
     AparteDiffLine,
     AparteTerminalSegment,
-    AparteFileTreeSegment,
-    AparteFileNode,
     AparteImageSegment,
     ApartePreviewSegment,
     AparteErrorSegment,

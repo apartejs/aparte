@@ -138,7 +138,6 @@ const KINDS: Kind[] = [
   { tag: 'code', body: 'A fenced block with a copy button that copies the source, not the markup.', states: [] },
   { tag: 'tool_call', body: 'Five states, including a built-in Approve / Reject gate that pauses the turn.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
   { tag: 'terminal', body: 'A command and its output, with an event your app answers if you want it runnable.', states: [] },
-  { tag: 'file-tree', body: 'A directory listing, each entry badged added, modified or deleted.', states: ['added', 'modified', 'deleted'] },
   { tag: 'progress', body: 'A live bar for long work, so a slow step is visible instead of silent.', states: ['pending', 'running', 'complete', 'error'] },
   { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
   { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
@@ -420,7 +419,7 @@ aparteGlobalConfig.<span class="fn">registerTool</span>(&#123;
 chat.<span class="fn">addEventListener</span>(<span class="st">'aparte-tool-decision'</span>, (e) =&gt; &#123;
   <span class="kw">const</span> &#123; toolCallId, approved &#125; = e.detail;
 &#125;);</pre>
-<pre class="pane" data-pane="segments"><span class="cm">// four kinds in one reply — and no streaming needed:</span>
+<pre class="pane" data-pane="segments"><span class="cm">// three kinds in one reply — and no streaming needed:</span>
 <span class="cm">// a settled segment renders as it is</span>
 viewport.<span class="fn">appendMessage</span>(&#123; id, role: <span class="st">'assistant'</span> &#125;);
 
@@ -430,11 +429,6 @@ viewport.<span class="fn">addSegment</span>(id, &#123; id: <span class="st">'s2'
   language: <span class="st">'ts'</span>, content: <span class="st">'…'</span>, isStreaming: <span class="tg">false</span> &#125;);
 viewport.<span class="fn">addSegment</span>(id, &#123; id: <span class="st">'s3'</span>, type: <span class="st">'terminal'</span>,
   command: <span class="st">'pnpm test'</span>, output: <span class="st">'…'</span>, exitCode: 0 &#125;);
-viewport.<span class="fn">addSegment</span>(id, &#123; id: <span class="st">'s4'</span>, type: <span class="st">'file-tree'</span>, files: [
-  &#123; name: <span class="st">'segments.ts'</span>, path: <span class="st">'src/utils'</span>,
-    type: <span class="st">'file'</span>, status: <span class="st">'modified'</span> &#125;,
-] &#125;);
-
 <span class="cm">// You never write messageId, index, startedAt or endedAt:</span>
 <span class="cm">// the owner stamps them on the way in. Read the span back</span>
 <span class="cm">// with segmentDuration(s) — it is live while it streams.</span></pre>
@@ -910,7 +904,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
           viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
           viewport.addSegment(mid, {
             id: 'sg-think', type: 'thinking', isStreaming: false, collapsed: false,
-            content: 'Four kinds in one reply — this reasoning block, a code fence, a terminal run and a file tree. Not one of them is a chat bubble.',
+            content: 'Three kinds in one reply — this reasoning block, a code fence and a terminal run. Not one of them is a chat bubble.',
           });
           after(() => viewport.addSegment(mid, {
             id: 'sg-code', type: 'code', language: 'ts', filename: 'segments.ts', isStreaming: false,
@@ -923,20 +917,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
             id: 'sg-term', type: 'terminal', isStreaming: false, exitCode: 0,
             command: 'pnpm test', output: `Test Files  ${N_TESTS} passed (${N_TESTS})`,
           }), 1550);
-          after(() => {
-            viewport.addSegment(mid, {
-              id: 'sg-tree', type: 'file-tree', isStreaming: false, title: 'Touched',
-              files: [{
-                name: 'src', path: 'src', type: 'directory', children: [
-                  { name: 'utils', path: 'src/utils', type: 'directory', children: [
-                    { name: 'segments.ts', path: 'src/utils/segments.ts', type: 'file', status: 'modified' },
-                  ] },
-                  { name: 'legacy.ts', path: 'src/legacy.ts', type: 'file', status: 'deleted' },
-                ],
-              }],
-            });
-            viewport.completeMessage(mid);
-          }, 2350);
+          after(() => viewport.completeMessage(mid), 2350);
         }, 420);
       }
 
@@ -1153,7 +1134,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       const CAPTIONS: Record<string, string> = {
         chat: 'The component itself, streaming token by token — and the composer collecting files, because <b>attachments are one attribute</b> once a host consumes them.',
         tools: 'A tool marked <b>needsApproval</b> pauses the turn. Core draws Approve and Reject and dispatches the decision; press either and watch the turn resume or stop.',
-        segments: `One assistant reply holding <b>four kinds of content</b> — reasoning, code, a terminal run, a file tree. ${N_KINDS} kinds ship registered by default.`,
+        segments: `One assistant reply holding <b>three kinds of content</b> — reasoning, code, a terminal run. ${N_KINDS} kinds ship registered by default.`,
         artifact: 'The model wrote a document, and core renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
         branch: 'Retry <b>forks a sibling</b> instead of overwriting, and the picker appears on its own. Bubble actions stay off until a host answers them.',
         themes: `Two independent levers. <b>Palette</b> is CSS variables — a base, plus a handful of the ${N_VARS}. <b>Icons</b> is a provider object, unrelated to the CSS: take either without the other. Stage follows this page; Violet and Paper pin their own palette, so a light chat on a dark page is not a bug.`,
