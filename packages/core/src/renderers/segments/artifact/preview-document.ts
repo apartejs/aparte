@@ -113,9 +113,18 @@ function buildPreviewBody(
             if (startsWithDoctype(body)) return body;
             return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${escapeAttr(title)}</title></head><body>${body}</body></html>`;
         }
+        // An SVG with only a `viewBox` — the recommended, responsive form, and the one
+        // a model writes most often — has NO intrinsic size. As a flex item its cross
+        // size then collapses to zero and the frame is blank: the preview worked for an
+        // SVG that declared `width`/`height` and silently showed nothing for the
+        // idiomatic one. Reported from the landing the moment its demo payload became a
+        // real file instead of a hand-written chart with dimensions on it.
+        //
+        // The rule is narrowed by attribute selector rather than applied to every SVG,
+        // so an SVG that DOES state its size keeps the size it asked for.
         case 'svg':
             return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeAttr(title)}</title>
-<style>html,body{margin:0;height:100%;display:flex;align-items:center;justify-content:center;background:#fff}svg{max-width:90%;max-height:90%}</style>
+<style>html,body{margin:0;height:100%;display:flex;align-items:center;justify-content:center;background:#fff}svg{max-width:90%;max-height:90%}svg:not([width]):not([height]){width:90%;height:90%}</style>
 </head><body>${body}</body></html>`;
         case 'js': {
             const safeBody = escapeClosingScriptTag(body);
