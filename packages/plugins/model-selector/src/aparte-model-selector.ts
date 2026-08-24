@@ -113,6 +113,18 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                 if (cfg.defaultProvider === this._currentProviderId &&
                     cfg.defaultModel === this._currentModelId &&
                     this._providerModels.length > 0) {
+                    // …but a config change is not only a MODEL change. A language
+                    // switch fires this subscription too, hit this guard, and left
+                    // the placeholder in the previous language — the one string this
+                    // element takes from the locale, and the only one a user sees
+                    // before opening the list.
+                    //
+                    // The guard stays: a full `_render()` re-loads every provider's
+                    // models asynchronously and would close an open dropdown and
+                    // discard a typed search. So the cheap path is a relabel — one
+                    // attribute, no rebuild — which is the same contract a segment
+                    // renderer's `relabel` works under.
+                    this._relabel();
                     return;
                 }
 
@@ -121,6 +133,18 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                 this._render();
             })();
         });
+    }
+
+    /**
+     * Re-apply the one string this element takes from the locale, in place.
+     *
+     * An explicit `placeholder` attribute still wins, exactly as it does at render
+     * time: the app's own copy is not the locale's to overwrite.
+     */
+    private _relabel(): void {
+        if (!this._aparteSelect) return;
+        const fromLocale = this._cfg.getLocale()['modelSelectorPlaceholder'] || 'Select a model...';
+        this._aparteSelect.setAttribute('placeholder', this.getAttribute('placeholder') || fromLocale);
     }
 
     disconnectedCallback(): void {

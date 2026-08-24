@@ -50,6 +50,63 @@ describe('aparte-model-selector', () => {
         expect(customElements.get('aparte-model-selector')).toBeDefined();
     });
 
+    it('a language switch moves the placeholder, and moves nothing else', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('delta', 'Delta One'));
+        // The model config must MATCH the element's selection, because that is the
+        // only state in which its subscription guard returns early — and returning
+        // early is what used to swallow a language change. With the two out of step
+        // the element re-renders wholesale anyway and this would prove nothing.
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'delta', defaultModel: 'delta-model' });
+        const sel = await mountSelector(document.createElement('div'));
+        await new Promise((r) => setTimeout(r, 20));
+        const select = sel.querySelector('aparte-select')!;
+        expect(select.getAttribute('placeholder')).toBe('Select a model...');
+
+        // Count what the switch touches, rather than asserting node identity: the
+        // claim is "one attribute, nothing rebuilt", and a mutation record is the only
+        // thing that can say so. Measured with the fix removed, this list is EMPTY —
+        // the placeholder simply stayed English.
+        const touched: string[] = [];
+        const obs = new MutationObserver((records) => {
+            for (const r of records) {
+                touched.push(r.type === 'attributes'
+                    ? `attr:${r.attributeName}`
+                    : `child:+${r.addedNodes.length}/-${r.removedNodes.length}`);
+            }
+        });
+        obs.observe(sel, { childList: true, subtree: true, attributes: true });
+
+        aparteGlobalConfig.setLocale({
+            ...aparteGlobalConfig.getLocale(),
+            modelSelectorPlaceholder: 'Choisir un modèle…',
+        });
+        await new Promise((r) => setTimeout(r, 20));
+        obs.disconnect();
+
+        expect(select.getAttribute('placeholder')).toBe('Choisir un modèle…');
+        expect(touched).toEqual(['attr:placeholder']);
+    });
+
+    it('but an explicit placeholder attribute still wins over the locale', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('epsilon', 'Epsilon One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'epsilon', defaultModel: 'epsilon-model' });
+        const host = document.createElement('div');
+        const sel = document.createElement('aparte-model-selector');
+        sel.setAttribute('placeholder', 'Pick your engine');
+        host.appendChild(sel);
+        document.body.appendChild(host);
+        await vi.waitFor(() => { expect(sel.querySelector('aparte-option')).toBeTruthy(); });
+
+        aparteGlobalConfig.setLocale({
+            ...aparteGlobalConfig.getLocale(),
+            modelSelectorPlaceholder: 'Choisir un modèle…',
+        });
+        await new Promise((r) => setTimeout(r, 20));
+
+        // The app's own copy, in whatever language it chose.
+        expect(sel.querySelector('aparte-select')!.getAttribute('placeholder')).toBe('Pick your engine');
+    });
+
     it('renders each provider → model into the dropdown', async () => {
         aparteGlobalConfig.registerAIProvider(fakeProvider('gamma', 'Gamma One'));
         const sel = await mountSelector(document.createElement('div'));
