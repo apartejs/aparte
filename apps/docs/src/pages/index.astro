@@ -701,6 +701,19 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       // The real package, not a French object typed into this page: a lever that
       // demonstrates localisation has to be the thing a consumer would install.
       import { fr } from '@aparte/locale-fr';
+      // Syntax colour for the two languages this page actually renders: `ts` in the
+      // Segments panel's code block, `svg` in the Artifact card. Through the SECOND
+      // entry point, which this page's own package list advertises and did not use:
+      // measured on a build whose only import was the plugin, the convenience entry
+      // emits 302 files / 11 MB and this one emits 1 file / 560 kB, because the
+      // grammars are the ones you hand it rather than everything shiki ships.
+      import { createHighlighterCore } from 'shiki/core';
+      import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
+      import tsGrammar from '@shikijs/langs/typescript';
+      import xmlGrammar from '@shikijs/langs/xml';
+      import githubDark from '@shikijs/themes/github-dark';
+      import githubLight from '@shikijs/themes/github-light';
+      import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
       registerDefaultRenderers();
       // `retry` IS turned on here, and copy stays on as it is by default. The rule is
       // that a bubble action must be honoured by someone: copy is honoured by core
@@ -743,6 +756,36 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
 
       // ── the real chat: <aparte-chat center-empty> owns the empty→active slide ──
       const viewport = document.querySelector('aparte-chat-viewport') as any;
+      // Awaited BEFORE any demo runs: core highlights a code block when it settles
+      // and an artifact pane asynchronously, so a provider registered a moment later
+      // would miss the first render and leave one panel grey.
+      const shiki = await createHighlighterCore({
+        themes: [githubDark, githubLight],
+        langs: [tsGrammar, xmlGrammar],
+        engine: createJavaScriptRegexEngine(),
+      });
+      // A wrapper, which is what `ShikiHighlighterLike` exists for — its own docs say
+      // "a wrapper of your own" satisfies it. It does two things shiki will not:
+      //
+      //  1. `svg` is not a shiki grammar. There is no `@shikijs/langs/svg` — measured,
+      //     not assumed — and core's artifact card asks for `svg` because that is what
+      //     it SHOWS as the language chip. Mapping it to `xml` here keeps the chip
+      //     honest and the colours real; the alternative was making core call an SVG
+      //     artifact "xml" to everyone.
+      //  2. Dual-theme output. The provider passes one theme name; this page has three
+      //     palettes and one of them is light, so a single dark theme would render
+      //     light text on a light bubble — the same class of bug as a hardcoded colour.
+      //     `defaultColor: false` emits `--shiki-light` / `--shiki-dark` and the CSS
+      //     picks, which means it also follows a palette switched at runtime.
+      setupShikiProviderFromHighlighter({
+        getLoadedLanguages: () => [...shiki.getLoadedLanguages(), 'svg'],
+        codeToHtml: (code, { lang }) => shiki.codeToHtml(code, {
+          lang: lang === 'svg' ? 'xml' : lang,
+          themes: { light: 'github-light', dark: 'github-dark' },
+          defaultColor: false,
+        }),
+      });
+
       const chatHost = document.querySelector('aparte-chat') as HTMLElement | null;
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
       let msgId = 0;

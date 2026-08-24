@@ -321,3 +321,19 @@ footer a:hover { color: var(--text); }
   .aside-stage { padding-left: 26px; }
   .chat { padding: 16px 16px 14px; border-radius: 14px; }
 }
+
+/* Shiki, dual-theme. `defaultColor: false` emits no `color` at all — only
+   `--shiki-light` / `--shiki-dark` — so these rules are REQUIRED, not decorative, and
+   their absence is a code block with no colour rather than a subtly wrong one. Which is
+   the right failure: visible.
+
+   Keyed on the CHAT's palette, not the page's: a preset can pin the demo dark on a light
+   page, and the code inside it has to follow the bubble it sits in. `[data-aparte-theme]`
+   with no value is how a preset marks a light-pinned chat, so the light rule stays the
+   default and only the dark attribute overrides. */
+.aparte-demo .shiki,
+.aparte-demo .shiki span { color: var(--shiki-light); background: transparent; }
+.aparte-demo [data-aparte-theme="dark"] .shiki,
+.aparte-demo [data-aparte-theme="dark"] .shiki span,
+[data-aparte-theme="dark"] .aparte-demo .shiki,
+[data-aparte-theme="dark"] .aparte-demo .shiki span { color: var(--shiki-dark); }
