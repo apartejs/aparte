@@ -19,10 +19,17 @@ const { entry } = Astro.locals.starlightRoute as Props;
 
 // The same rule the generating route uses — see src/lib/og-slug.ts for why it is shared.
 const image = new URL(`/og/${ogSlug(entry.id)}.png`, Astro.site).href;
+
+// The card is generated FROM this page's title and description, so describing it is
+// not a second piece of copy to maintain — it is the same sentence, said to a screen
+// reader on the platforms that surface it.
+const imageAlt = `aparté — ${entry.data.title}`;
 ---
 
 <Default><slot /></Default>
 <meta property="og:image" content={image} />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={imageAlt} />
 <meta name="twitter:image" content={image} />
+<meta name="twitter:image:alt" content={imageAlt} />

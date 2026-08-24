@@ -15,17 +15,23 @@ import { getCollection } from 'astro:content';
 import { OGImageRoute } from 'astro-og-canvas';
 import { ogSlug } from '../../lib/og-slug';
 
+import { LANDING_CARD_TITLE, LANDING_CARD_BODY } from '../../data/landing-meta';
+
 const docs = await getCollection('docs');
 
 /** `{ 'guides/getting-started': { title, description } }`, keyed as the card filename. */
 const pages = Object.fromEntries([
     // The landing is an Astro page, not a docs entry, so it is not in the collection —
     // and it is the URL people actually share. Named here rather than left out.
-    ['index', {
-        title: 'aparté',
-        description: 'A framework-agnostic AI-chat library — vanilla web components, zero '
-            + 'runtime dependencies.',
-    }],
+    // The landing's title and description live in ONE place now
+    // (src/data/landing-meta.ts) and are imported by both this file and
+    // index.astro. They were two hand-kept copies before, and they drifted twice
+    // in one afternoon — the second time silently, because this string is baked
+    // into the PNG as pixels, so the shared card said less than the meta tags
+    // next to it. The title is the CLAIM rather than the wordmark: the logo in the
+    // corner already carries the name, so spending 62px of type on it again left
+    // the card's largest slot saying nothing.
+    ['index', { title: LANDING_CARD_TITLE, description: LANDING_CARD_BODY }],
     ...docs.map(({ id, data }) => [ogSlug(id), { title: data.title, description: data.description }]),
 ]);
 

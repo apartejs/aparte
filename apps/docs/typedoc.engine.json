@@ -3,7 +3,12 @@
   "plugin": ["typedoc-plugin-markdown"],
   "entryPoints": ["../../packages/engine/src/index.ts"],
   "tsconfig": "../../packages/engine/tsconfig.json",
-  "out": "src/content/docs/reference/engine",
+  "out": ".typedoc/engine",
+  // NOT inside src/content/docs: TypeDoc writes a bare README.md with no
+  // Starlight frontmatter, and while a cold build deletes it before Astro
+  // scans, a RUNNING `astro dev` sees it and dies with
+  // "reference/engine/readme data does not match collection schema".
+  // Generated output has no business inside a content collection.
   "readme": "none",
   "githubPages": false,
 

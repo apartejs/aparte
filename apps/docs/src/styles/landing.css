@@ -1,8 +1,13 @@
 /*
  * aparté landing — "the aside, spoken under a brass spotlight".
  * Dark theatrical stage by default; a warm-paper light theme too.
- * NOTE: the hero chat here is a temporary mock demo — it will be replaced by
- * the real <aparte-chat> web component once core's theme + inline-SVG icons land.
+ *
+ * The hero used to hold a hand-written MOCK chat in a narrow box beside the copy.
+ * It is now the real <aparte-chat>, and it has its own full-width section (.stage):
+ * a 380px column could not show a reasoning block and a tool call at the same time,
+ * which are the two things that separate this library from a bubble kit. The mock's
+ * vocabulary (.msg/.bubble/.caret/.chips/.composer/.send) was deleted with it — it
+ * had outlived the markup by several releases.
  */
 /* Colours alias the shared brand palette (src/styles/palette.css) — they follow
    the theme automatically via --brand-*, so there is nothing to redeclare per
@@ -17,7 +22,8 @@
   --accent: var(--brand-brass);          /* brass — the spotlight, used sparingly */
   --accent-soft: var(--brand-brass-soft);
   --plum: var(--brand-plum);             /* stage plum — secondary voice */
-  --user-bubble: var(--brand-user-bubble);
+  /* --user-bubble went with the mock: the real <aparte-chat> paints its own
+     bubbles from --aparte-* variables, so this alias fed nothing. */
   --shadow: 0 24px 60px -28px rgba(0, 0, 0, .7);
 }
 :root[data-theme="light"] { --shadow: 0 20px 44px -26px rgba(60, 44, 80, .35); }
@@ -80,11 +86,23 @@ nav { display: flex; align-items: baseline; justify-content: space-between; padd
 }
 .toggle:hover { color: var(--text); border-color: var(--accent); }
 
-.hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: clamp(56px, 9vw, 120px) 0 64px; }
+/* ── hero ────────────────────────────────────────────────────────────────────
+   The chat moved out to its own section, which left the right half empty — a
+   hole reads as a missing element, not as space. What sits there instead is the
+   page's whole thesis in the form it actually takes: a reply is not a string,
+   it is a list of segments. It costs nothing, it repeats no other section, and
+   it gives the column the height the headline needs to balance against. */
+.hero { padding: clamp(52px, 8vw, 104px) 0 0; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1.06fr) minmax(0, .94fr); gap: clamp(32px, 5vw, 64px); align-items: center; }
+.hero-copy { max-width: 56ch; }
+.hero-aside { min-width: 0; }
+.hero-aside .code { border-radius: 14px; }
+.hero-aside .code pre { padding: 20px 22px; font-size: 13.5px; line-height: 1.75; }
 .eyebrow { font-size: 12.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); margin: 0 0 22px; }
+.eyebrow b { color: var(--accent); font-weight: inherit; }
 h1.thesis { font-size: clamp(42px, 6.4vw, 76px); line-height: 1.02; margin: 0; font-weight: 400; letter-spacing: -.02em; text-wrap: balance; }
 h1.thesis em { font-style: italic; color: var(--accent); }
-.lede { color: var(--dim); font-size: clamp(17px, 1.4vw, 19px); max-width: 46ch; margin: 26px 0 34px; line-height: 1.62; }
+.lede { color: var(--dim); font-size: clamp(17px, 1.4vw, 19px); max-width: 58ch; margin: 26px 0 34px; line-height: 1.62; }
 .lede b { color: var(--text); font-weight: 600; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 .btn { display: inline-flex; align-items: center; gap: 9px; padding: 12px 20px; border-radius: 10px; font-size: 15px; font-weight: 550; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform .15s, background .2s, border-color .2s; }
@@ -111,59 +129,178 @@ h1.thesis em { font-style: italic; color: var(--accent); }
 }
 .install-copy:hover { color: var(--text); background: var(--surface-2); }
 .install-copy svg { display: block; }
+/* The small path, said out loud. Everything else on this page argues that the
+   library is capable, which can read as "bigger than I need" to someone who
+   wants a chat in an afternoon. One line answers them without weakening the
+   rest — and it says "point it at a model", because a bare element with no
+   transport streams nothing and promising otherwise would be the lie this
+   whole page was rewritten to remove. */
+.reassure { margin: 18px 0 0; max-width: 52ch; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
+.reassure code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--accent); }
 
+/* ── the stage: the real component, given room, with its source beside it ────
+   Tabs and not an auto-advancing carousel, deliberately: these panels are LIVE
+   components, so rotating away from a composer someone is typing in, or from a
+   tool call waiting for their decision, takes the page out of their hands. The
+   tab labels do the "at a glance" work on their own — it is the enumeration
+   that reads instantly, not the movement. */
+.stage { padding: clamp(38px, 5vw, 60px) 0 clamp(40px, 6vw, 72px); }
+
+/* The tab rail is core's own `.aparte-elic-steps` pattern, borrowed on purpose so
+   the landing and the component teach the same shape: a hairline rail under the
+   row, and a 2px underline RESERVED on every tab (transparent when idle) so
+   switching never shifts the label by two pixels. Centred, because the row is a
+   header for what follows rather than a control in the corner of something. */
+.demo-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(16px, 2.4vw, 30px); margin: 0 0 20px; border-bottom: 1px solid var(--line); }
+.demo-tabs .tab { background: none; border: none; border-radius: 0; color: var(--dim); font: inherit; font-size: 14.5px; padding: 9px 2px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .2s, border-color .2s; }
+.demo-tabs .tab:hover:not([aria-selected="true"]) { color: var(--text); border-bottom-color: var(--line); }
+.demo-tabs .tab[aria-selected="true"] { color: var(--text); font-weight: 600; background: none; border-bottom-color: var(--accent); }
+.demo-cap { color: var(--dim); font-size: 14.5px; margin: 0 auto 24px; max-width: 76ch; min-height: 2.9em; text-align: center; }
+.demo-cap b { color: var(--text); font-weight: 600; }
+.demo-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: stretch; }
+.demo-code { display: flex; flex-direction: column; min-width: 0; }
+.demo-code .code { flex: 1; display: flex; flex-direction: column; }
+.demo-code .code pre { font-size: 13px; line-height: 1.62; }
+.code-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; color: var(--dim); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
+.code-head .frameworks { text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+.code-head .frameworks a { color: var(--accent); text-decoration: none; }
+.code-head .frameworks a:hover { text-decoration: underline; }
+.pane { display: none; }
+.pane.is-on { display: block; }
+
+/* Theme presets — only shown on the Themes tab.
+   The `[hidden]` rule is REQUIRED, not defensive: the UA sheet's `[hidden]
+   { display: none }` loses to any explicit `display` on the same element, so
+   `skinsEl.hidden = true` did nothing and the presets showed on every tab. */
+.skins { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 7px; margin: -6px 0 10px; }
+.skins + .skins { margin-bottom: 22px; }
+/* Names the lever, so two rows of pills do not read as one confused control. */
+.skins .lever { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); margin-inline-end: 4px; min-width: 5.2em; text-align: end; }
+.skins[hidden] { display: none; }
+.skins button { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: color .2s, border-color .2s; }
+.skins button:hover { color: var(--text); border-color: var(--accent); }
+.skins button[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
+.skins .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .18); }
+
+/* The version chip in the nav: it says the project ships, says "alpha" without
+   hiding it, and is the way to the changelog — all on the pixels one more nav
+   word would have taken. The number is read from package.json at build time so
+   it cannot go stale. */
+.ver { display: inline-flex; align-items: baseline; gap: 6px; text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font-size: 12px; color: var(--dim); transition: border-color .2s, color .2s; }
+.ver:hover { color: var(--text); border-color: var(--accent); }
+.ver b { color: var(--text); font-weight: 600; }
+.ver .alpha { color: var(--accent); font-family: Georgia, serif; font-style: italic; }
 .aside-stage { position: relative; padding-left: 34px; }
 .gutter { position: absolute; left: 0; top: 6px; bottom: 6px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .gutter .rule { width: 1px; flex: 1; background: linear-gradient(var(--accent), transparent); }
 .gutter .tag { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); font-style: italic; font-family: Georgia, serif; }
-.chat { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 20px; box-shadow: var(--shadow); }
-
-/* The real chat demo: a single <aparte-chat center-empty> shell. It fills this box
-   (the shell is height:100%) and owns the empty→active slide itself — we just give
-   it a DEFINITE height so the viewport's inner scroll chain can resolve. */
-.aparte-demo { height: 380px; }
-.aparte-demo aparte-composer { margin-top: 8px; }
-.chat-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; color: var(--dim); font-size: 12.5px; letter-spacing: .04em; }
+/* The card is the PAGE's chrome. Core paints no background of its own — that is
+   how it adopts any host surface — so a theme preset that switches the chat to a
+   light palette has to move this too, or it renders dark text on a dark card. */
+.chat { background: var(--demo-card-bg, var(--surface)); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 20px; box-shadow: var(--shadow); transition: background .25s; }
+.chat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; color: var(--dim); font-size: 12.5px; letter-spacing: .04em; }
+/* Its own line, not the end of the same one: the hint changes per panel and the
+   longest of them crowded the label right up against it. */
+.chat-head .hint { flex-basis: 100%; margin: 2px 0 0; letter-spacing: 0; color: color-mix(in oklab, var(--accent) 62%, var(--dim)); }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 22%, transparent); }
-.msg { display: flex; flex-direction: column; gap: 12px; min-height: 190px; max-height: 300px; overflow-y: auto; padding-right: 4px; scroll-behavior: smooth; }
-.msg::-webkit-scrollbar { width: 6px; }
-.msg::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-.bubble { padding: 12px 15px; border-radius: 14px; font-size: 15px; line-height: 1.55; max-width: 88%; white-space: pre-wrap; }
-.bubble.user { align-self: flex-end; background: var(--user-bubble); color: var(--text); border-bottom-right-radius: 5px; }
-.bubble.bot { align-self: flex-start; background: var(--surface-2); color: var(--text); border-bottom-left-radius: 5px; }
-.caret { display: inline-block; width: 2px; height: 1.05em; vertical-align: -2px; background: var(--accent); margin-left: 1px; animation: blink 1.05s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
-.chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 12px; }
-.chip { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 12.5px; cursor: pointer; transition: color .2s, border-color .2s; }
-.chip:hover { color: var(--text); border-color: var(--accent); }
-.composer { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 6px 6px 6px 15px; }
-.composer:focus-within { border-color: var(--accent); }
-.composer input { flex: 1; background: none; border: none; color: var(--text); font: inherit; font-size: 15px; outline: none; }
-.composer input::placeholder { color: var(--dim); }
-.send { flex: none; width: 34px; height: 34px; border-radius: 9px; border: none; background: var(--accent); color: #1a1206; font-size: 17px; line-height: 1; cursor: pointer; transition: background .2s, transform .15s; }
-.send:hover { background: var(--accent-soft); transform: translateY(-1px); }
+/* A DEFINITE height so the viewport's inner scroll chain can resolve; the shell
+   is height:100% and owns the empty→active slide itself. Taller than the old
+   hero box on purpose — a reasoning block and a tool call have to fit at once. */
+.aparte-demo { height: clamp(400px, 52vh, 560px); }
+.aparte-demo aparte-composer { margin-top: 8px; }
 
-.facts { display: flex; flex-wrap: wrap; gap: 10px 40px; align-items: baseline; padding: 26px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--dim); font-size: 14.5px; }
+/* Closes the hero rather than trailing after the demo: these four lines are the
+   claim, and a claim belongs beside the headline that makes it. */
+.facts { display: flex; flex-wrap: wrap; gap: 10px 40px; align-items: baseline; margin-top: clamp(34px, 5vw, 54px); padding: 26px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--dim); font-size: 14.5px; }
 .facts b { color: var(--text); font-weight: 600; }
 .facts .k { color: var(--accent); font-family: Georgia, serif; font-style: italic; margin-right: 8px; }
 
-.showcase { padding: clamp(64px, 9vw, 108px) 0 40px; }
+/* ── generic section furniture ───────────────────────────────────────────── */
+section.band { padding: clamp(58px, 8vw, 100px) 0 0; }
 .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
 .sec-head h2 { font-size: clamp(28px, 3.4vw, 40px); font-weight: 400; letter-spacing: -.02em; margin: 0; }
 .sec-head .paren { color: var(--accent); }
-.sec-sub { color: var(--dim); max-width: 54ch; margin: 0 0 30px; }
+.sec-sub { color: var(--dim); max-width: 62ch; margin: 0 0 30px; }
+.sec-sub b { color: var(--text); font-weight: 600; }
+.sec-note { color: var(--dim); font-size: 13.5px; max-width: 68ch; margin: 18px 0 0; }
+.sec-note a { color: var(--accent); text-decoration: none; }
+.sec-note a:hover { text-decoration: underline; }
+
+/* ── what a turn contains: the ten shipped segment kinds ──────────────────────
+   Two mistakes were made here before this line, and both showed up as an empty
+   box at the end of a row:
+     1. the CONTAINER drew the borders (1px grid gaps over a tinted background),
+        which is tidy at exactly one column count and leaves visibly TINTED
+        empty cells at every other. Each card owns its border now, so an absent
+        card draws nothing at all.
+     2. `auto-fit` was assumed to fix it. It does not: it only collapses columns
+        that are empty across the WHOLE grid, so ten cards over four columns
+        still leave two dead slots on the last row.
+   Flex-wrap with flex-grow has no such row — the last line stretches to fill,
+   at any item count and any width. Same reasoning in .families and .proof. */
+.kinds { display: flex; flex-wrap: wrap; gap: 14px; }
+.kind { flex: 1 1 248px; }
+.kind { background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 20px 22px 22px; position: relative; transition: border-color .2s; }
+.kind:hover { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
+.kind .idx { position: absolute; top: 18px; right: 20px; font-family: Georgia, serif; font-style: italic; font-size: 13px; color: color-mix(in oklab, var(--accent) 62%, transparent); }
+/* The heading IS the segment's `type` value — the thing a developer writes. It
+   used to be a prose title with the tag whispered under it, which said one
+   thing twice ('Code' / `code`) on ten cards. */
+.kind h3 { margin: 0 0 10px; padding-right: 24px; font-weight: 400; }
+.kind h3 code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14.5px; color: var(--accent); letter-spacing: 0; }
+.kind p { margin: 0; color: var(--dim); font-size: 14px; line-height: 1.55; }
+.kind .states { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }
+.kind .states span { font-size: 11px; font-family: ui-monospace, Menlo, monospace; color: var(--dim); background: var(--surface-2); border-radius: 5px; padding: 3px 7px; }
+
+/* ── split: prose + code, for the feature bands ──────────────────────────── */
+.split { display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); gap: 40px; align-items: start; }
+.split .prose { padding-top: 2px; }
+.split .prose p { color: var(--dim); margin: 0 0 16px; }
+.split .prose p b { color: var(--text); font-weight: 600; }
+.split .prose ul { margin: 0; padding-left: 1.1em; color: var(--dim); }
+.split .prose li { margin-bottom: 8px; }
+.split .prose li b { color: var(--text); font-weight: 600; }
+
+/* ── the five families of packages ───────────────────────────────────────── */
+/* Same reasoning as .kinds — and it matters more here: the five families have
+   1 to 5 items each, so no column count divides them cleanly. */
+.families { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.family { flex: 1 1 262px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px 22px; }
+.family h3 { margin: 0 0 4px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.family .count { color: var(--dim); font-size: 12.5px; font-style: italic; font-family: Georgia, serif; }
+.family ul { list-style: none; margin: 14px 0 0; padding: 0; }
+.family li { padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.family li:first-child { border-top: none; }
+.family code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--text); }
+.family em { display: block; color: var(--dim); font-style: normal; font-size: 13px; line-height: 1.45; margin-top: 2px; }
+
+/* ── proof row — four cards, same reasoning as .kinds ─────────────────────── */
+.proof { display: flex; flex-wrap: wrap; gap: 14px; }
+.proof div { flex: 1 1 212px; background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 22px 22px 24px; position: relative; overflow: hidden; }
+/* A brass hairline instead of a brass numeral: four accent-coloured figures
+   would spend the spotlight the whole page uses sparingly. */
+.proof div::before { content: ""; position: absolute; inset-inline: 0; top: 0; height: 2px; background: linear-gradient(to right, var(--accent), transparent 78%); opacity: .75; }
+.proof strong { display: block; font-size: clamp(26px, 2.8vw, 34px); font-weight: 400; letter-spacing: -.02em; font-family: Georgia, serif; line-height: 1.1; }
+.proof span { color: var(--dim); font-size: 13.5px; line-height: 1.5; display: block; margin-top: 8px; }
+/* The count that needed a real run to be known, kept small on purpose: it is the
+   more impressive figure and the more fragile one, so it supports the headline
+   number rather than replacing it. */
+.proof em { display: block; margin-top: 7px; font-style: normal; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in oklab, var(--accent) 78%, var(--dim)); }
+
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .tab { background: none; border: 1px solid transparent; color: var(--dim); padding: 9px 15px; font: inherit; font-size: 14px; cursor: pointer; border-radius: 9px 9px 0 0; transition: color .2s, background .2s; }
 .tab:hover { color: var(--text); }
 .tab[aria-selected="true"] { color: var(--text); background: var(--surface); border-color: var(--line); border-bottom-color: var(--surface); }
-.code { background: var(--surface); border: 1px solid var(--line); border-radius: 0 12px 12px 12px; overflow-x: auto; box-shadow: var(--shadow); }
+.code { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; box-shadow: var(--shadow); }
+.code.tabbed { border-radius: 0 12px 12px 12px; }
 .code pre { margin: 0; padding: 24px 26px; font-size: 14px; line-height: 1.7; }
 .code .cm { color: var(--dim); }
 .code .kw { color: var(--plum); }
 .code .tg { color: var(--accent); }
 .code .st { color: var(--accent-soft); }
+.code .fn { color: var(--text); }
 
-footer { margin-top: 40px; padding: 40px 0 56px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; color: var(--dim); font-size: 14px; }
+footer { margin-top: clamp(64px, 9vw, 104px); padding: 40px 0 56px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; color: var(--dim); font-size: 14px; }
 footer .brand { font-size: 19px; }
 footer a { color: var(--dim); text-decoration: none; }
 footer a:hover { color: var(--text); }
@@ -171,9 +308,17 @@ footer a:hover { color: var(--text); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 
+@media (max-width: 980px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 34px; }
+  .hero-copy { max-width: 62ch; }
+  .demo-split { grid-template-columns: 1fr; }
+  .demo-cap { min-height: 0; }
+}
+@media (max-width: 900px) {
+  .split { grid-template-columns: 1fr; gap: 26px; }
+}
 @media (max-width: 860px) {
-  .hero { grid-template-columns: 1fr; gap: 40px; }
   .nav-links a.hide-sm { display: none; }
   .aside-stage { padding-left: 26px; }
+  .chat { padding: 16px 16px 14px; border-radius: 14px; }
 }
-@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
