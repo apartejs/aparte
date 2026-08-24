@@ -604,12 +604,23 @@ export class AparteChatBubble extends HTMLElement {
    * (same null-guarded degradation as the other region hooks).
    */
   private _updateWaiting(): void {
+    const empty = this._segments.length === 0 && !this._content.trim();
+    const waiting = this._streaming && this._role !== 'user' && empty;
+
+    // The painted box is hidden when it has nothing to paint. It carries the user
+    // bubble's background, padding and radius, so an empty one is a coloured
+    // rectangle with nothing in it — which is exactly what a message that is ONLY
+    // attachments produced: the chips render ABOVE this box, so the box had no
+    // content, no segments and no dots, and still drew itself.
+    //
+    // `hidden` and not `style.display`, deliberately: nothing sets an explicit
+    // `display` on this class, so the UA sheet's rule applies. Where a component
+    // DOES set one, `[hidden]` loses — a trap this repo has already paid for.
+    const box = this.querySelector('.aparte-message-content') as HTMLElement | null;
+    if (box) box.hidden = empty && !waiting;
+
     const el = this.querySelector('.aparte-waiting') as HTMLElement | null;
     if (!el) return;
-    const waiting = this._streaming
-      && this._role !== 'user'
-      && this._segments.length === 0
-      && !this._content.trim();
     el.hidden = !waiting;
     if (!waiting) return;
     const label = this._cfg.getLocale().typing;
