@@ -83,6 +83,22 @@ export interface AparteLocale {
      */
     submitButton?: string;
     /**
+     * The cancel/stop button that replaces send while a turn is streaming
+     * (default: "Stop").
+     *
+     * `aparte-composer-cancel` has been reading this key since it existed and it was
+     * never declared — the same defect this file already records for `submitButton`
+     * one entry up, found again while auditing a different question. So it has never
+     * been translatable in ANY language, not even after a full reload: `t()` returned
+     * nothing and the `|| 'Stop'` fallback rendered every time.
+     *
+     * The button carries no visible text — this string is its `aria-label` and its
+     * `title`. Which is exactly why the gap survived: nothing on screen was in the
+     * wrong language, so only a screen-reader user or someone hovering would ever
+     * have met it. Most of the composer's translatable surface is like this.
+     */
+    stopButton?: string;
+    /**
      * The send button while a form of several questions has more ahead — it advances
      * instead of submitting (default: "Next").
      *
@@ -132,6 +148,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationOtherPlaceholder: "Type your answer…",
     elicitationOtherLabel: "Custom answer",
     submitButton: "Submit",
+    stopButton: "Stop",
     elicitationNext: "Next",
     elicitationSkip: "Skip",
     elicitationYes: "Yes",

@@ -27,75 +27,6 @@ const CORE_VERSION: string = JSON.parse(
     readFileSync(new URL('../../../../packages/core/package.json', import.meta.url), 'utf8'),
 ).version;
 
-/** The page already numbers its facts row in serif italic roman; the segment
- *  cards echo it, which is what makes ten boxes read as one enumeration. */
-const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
-
-/** The five demo tabs. `caption` is what the panel is showing; the source for
- *  each lives as a real <pre> in the markup, not a string built in JS. */
-const DEMOS = [
-    { key: 'chat', label: 'Chat' },
-    { key: 'tools', label: 'Tools & approval' },
-    { key: 'segments', label: 'Segments' },
-    { key: 'artifact', label: 'Artifacts' },
-    { key: 'branch', label: 'Branching' },
-    { key: 'themes', label: 'Themes & icons' },
-];
-
-interface Kind { tag: string; body: string; states: string[] }
-
-const KINDS: Kind[] = [
-  { tag: 'text', body: 'Streamed token by token. Markdown and highlighting are plugins you opt into, so the core stays dependency-free.', states: [] },
-  { tag: 'thinking', body: 'A collapsible block that closes itself the moment the model stops thinking — not when the answer ends.', states: [] },
-  { tag: 'code', body: 'A fenced block with a copy button that copies the source, not the markup.', states: [] },
-  { tag: 'tool_call', body: 'Five states, including a built-in Approve / Reject gate that pauses the turn.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
-  { tag: 'terminal', body: 'A command and its output, with an event your app answers if you want it runnable.', states: [] },
-  { tag: 'file-tree', body: 'A directory listing, each entry badged added, modified or deleted.', states: ['added', 'modified', 'deleted'] },
-  { tag: 'progress', body: 'A live bar for long work, so a slow step is visible instead of silent.', states: ['pending', 'running', 'complete', 'error'] },
-  { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
-  { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
-  { tag: 'pipeline-waiting', body: 'The indicator for a multi-step turn, so the gap between two phases never reads as a hang.', states: [] },
-];
-
-const FAMILIES = [
-  {
-    name: 'Core', count: 'two packages', items: [
-      { pkg: '@aparte/core', line: 'The web components, the renderers, the transports. Zero runtime dependencies.' },
-      { pkg: '@aparte/engine', line: 'The agent loop on its own, drivable from your code. A test proves both loops behave identically.' },
-    ],
-  },
-  {
-    name: 'Frameworks', count: 'four wrappers, published', items: [
-      { pkg: '@aparte/react', line: 'Component, hooks, a conversation-manager hook.' },
-      { pkg: '@aparte/vue', line: 'Component, composables.' },
-      { pkg: '@aparte/svelte', line: 'Component, stores.' },
-      { pkg: '@aparte/angular', line: 'Standalone component, services, one-call provideAparte().' },
-    ],
-  },
-  {
-    name: 'Providers', count: 'three', items: [
-      { pkg: '@aparte/provider-openai-compat', line: 'One zero-dependency adapter for the whole OpenAI-compatible family, with presets for OpenAI, Mistral, Z.AI, OpenRouter, LM Studio and Ollama.' },
-      { pkg: '@aparte/provider-ai-sdk', line: 'A bridge to any Vercel AI SDK model — install that vendor’s own adapter and it runs under aparté’s loop.' },
-      { pkg: '@aparte/provider-transformers', line: 'The model runs in the browser. WebGPU with a WASM fallback, in a worker, weights cached and evicted through the Cache API. No server, no key.' },
-    ],
-  },
-  {
-    name: 'Plugins', count: 'five', items: [
-      { pkg: '@aparte/plugin-marked', line: 'Markdown, rendered once at the end of a message.' },
-      { pkg: '@aparte/plugin-streaming-markdown', line: 'Markdown while it streams — and it strips a javascript: href mid-stream, not only at the final render.' },
-      { pkg: '@aparte/plugin-shiki', line: 'Syntax highlighting, with a second entry point for consumers who want to control what their bundler emits.' },
-      { pkg: '@aparte/plugin-model-selector', line: 'A real ARIA combobox, grouped by provider, keyboard-operable.' },
-      { pkg: '@aparte/plugin-ask-user', line: 'The ask_user tool: the model asks a structured question, the answer stays in the transcript.' },
-    ],
-  },
-  {
-    name: 'Locales', count: 'one shipped — and any language is forty strings', items: [
-      { pkg: '@aparte/locale-fr', line: 'French, complete. Hand it to setLocale() at runtime; resetLocale() goes back to English.' },
-      { pkg: 'setLocale({ … })', line: 'Your own language needs no package, no build step and no PR here: a locale is a plain object of forty strings, and English ships inside core as the default.' },
-    ],
-  },
-];
-
 /**
  * The numbers this page quotes, MEASURED at build time.
  *
@@ -172,11 +103,87 @@ function countPackages(dir: URL): number {
 }
 const PACKAGES = countPackages(at('packages/'));
 
+/** Keys in `AparteLocale` — i.e. how many strings a language is. Counted because
+ *  adding ONE key made five hand-written "forty"s on this page wrong in the same
+ *  commit that added it. */
+const LOCALE_KEYS = (readFileSync(at('packages/core/src/config/locale.ts'), 'utf8')
+    .match(/^\s+[a-zA-Z]+\??:\s*string/gm) ?? []).length;
+
 /** Distinct `--aparte-*` custom properties declared in core's stylesheet. */
 const CSS_VARS = new Set(
     (readFileSync(at('packages/core/src/styles/aparte.css'), 'utf8')
         .match(/^\s*--aparte-[a-z0-9-]+(?=\s*:)/gm) ?? []).map((s) => s.trim()),
 ).size;
+
+/** The page already numbers its facts row in serif italic roman; the segment
+ *  cards echo it, which is what makes ten boxes read as one enumeration. */
+const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
+
+/** The five demo tabs. `caption` is what the panel is showing; the source for
+ *  each lives as a real <pre> in the markup, not a string built in JS. */
+const DEMOS = [
+    { key: 'chat', label: 'Chat' },
+    { key: 'tools', label: 'Tools & approval' },
+    { key: 'segments', label: 'Segments' },
+    { key: 'artifact', label: 'Artifacts' },
+    { key: 'branch', label: 'Branching' },
+    { key: 'themes', label: 'Themes & icons' },
+];
+
+interface Kind { tag: string; body: string; states: string[] }
+
+const KINDS: Kind[] = [
+  { tag: 'text', body: 'Streamed token by token. Markdown and highlighting are plugins you opt into, so the core stays dependency-free.', states: [] },
+  { tag: 'thinking', body: 'A collapsible block that closes itself the moment the model stops thinking — not when the answer ends.', states: [] },
+  { tag: 'code', body: 'A fenced block with a copy button that copies the source, not the markup.', states: [] },
+  { tag: 'tool_call', body: 'Five states, including a built-in Approve / Reject gate that pauses the turn.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
+  { tag: 'terminal', body: 'A command and its output, with an event your app answers if you want it runnable.', states: [] },
+  { tag: 'file-tree', body: 'A directory listing, each entry badged added, modified or deleted.', states: ['added', 'modified', 'deleted'] },
+  { tag: 'progress', body: 'A live bar for long work, so a slow step is visible instead of silent.', states: ['pending', 'running', 'complete', 'error'] },
+  { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
+  { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
+  { tag: 'pipeline-waiting', body: 'The indicator for a multi-step turn, so the gap between two phases never reads as a hang.', states: [] },
+];
+
+const FAMILIES = [
+  {
+    name: 'Core', count: 'two packages', items: [
+      { pkg: '@aparte/core', line: 'The web components, the renderers, the transports. Zero runtime dependencies.' },
+      { pkg: '@aparte/engine', line: 'The agent loop on its own, drivable from your code. A test proves both loops behave identically.' },
+    ],
+  },
+  {
+    name: 'Frameworks', count: 'four wrappers, published', items: [
+      { pkg: '@aparte/react', line: 'Component, hooks, a conversation-manager hook.' },
+      { pkg: '@aparte/vue', line: 'Component, composables.' },
+      { pkg: '@aparte/svelte', line: 'Component, stores.' },
+      { pkg: '@aparte/angular', line: 'Standalone component, services, one-call provideAparte().' },
+    ],
+  },
+  {
+    name: 'Providers', count: 'three', items: [
+      { pkg: '@aparte/provider-openai-compat', line: 'One zero-dependency adapter for the whole OpenAI-compatible family, with presets for OpenAI, Mistral, Z.AI, OpenRouter, LM Studio and Ollama.' },
+      { pkg: '@aparte/provider-ai-sdk', line: 'A bridge to any Vercel AI SDK model — install that vendor’s own adapter and it runs under aparté’s loop.' },
+      { pkg: '@aparte/provider-transformers', line: 'The model runs in the browser. WebGPU with a WASM fallback, in a worker, weights cached and evicted through the Cache API. No server, no key.' },
+    ],
+  },
+  {
+    name: 'Plugins', count: 'five', items: [
+      { pkg: '@aparte/plugin-marked', line: 'Markdown, rendered once at the end of a message.' },
+      { pkg: '@aparte/plugin-streaming-markdown', line: 'Markdown while it streams — and it strips a javascript: href mid-stream, not only at the final render.' },
+      { pkg: '@aparte/plugin-shiki', line: 'Syntax highlighting, with a second entry point for consumers who want to control what their bundler emits.' },
+      { pkg: '@aparte/plugin-model-selector', line: 'A real ARIA combobox, grouped by provider, keyboard-operable.' },
+      { pkg: '@aparte/plugin-ask-user', line: 'The ask_user tool: the model asks a structured question, the answer stays in the transcript.' },
+    ],
+  },
+  {
+    name: 'Locales', count: `one shipped — and any language is ${LOCALE_KEYS} strings`, items: [
+      { pkg: '@aparte/locale-fr', line: 'French, complete. Hand it to setLocale() at runtime; resetLocale() goes back to English.' },
+      { pkg: 'setLocale({ … })', line: `Your own language needs no package, no build step and no PR here: a locale is a plain object of ${LOCALE_KEYS} strings, and English ships inside core as the default.` },
+    ],
+  },
+];
+
 ---
 
 <!doctype html>
@@ -331,7 +338,7 @@ message.segments = [
       <!-- The measured counts ride on the element: this page's client script is a
            bundled module, so it cannot read the frontmatter, and hardcoding the
            numbers a second time is how two copies of one fact start disagreeing. -->
-      <section class="stage" id="demo" data-kinds={KINDS.length} data-vars={CSS_VARS} data-tests={TEST_FILES}>
+      <section class="stage" id="demo" data-kinds={KINDS.length} data-vars={CSS_VARS} data-tests={TEST_FILES} data-locale={LOCALE_KEYS}>
         <div class="demo-tabs" role="tablist" aria-label="What the chat can do" id="demoTabs">
           {DEMOS.map((d, i) => (
             <button class="tab" role="tab" type="button" data-demo={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>
@@ -473,7 +480,7 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
 <span class="cm">// icons are a provider, swapped live</span>
 config.<span class="fn">setIconProvider</span>(&#123; <span class="fn">getIcon</span>: (n) =&gt; mySvg[n] &#125;);
 
-<span class="cm">// and a language is 40 strings in a plain object</span>
+<span class="cm">// and a language is {LOCALE_KEYS} strings in a plain object</span>
 config.<span class="fn">setLocale</span>(&#123; sendButton: <span class="st">'Enviar'</span>, <span class="cm">/* … */</span> &#125;);</pre>
             </div>
           </div>
@@ -587,7 +594,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
             <ul>
               <li><b>Variables.</b> Colours, spacing, radii, font sizes, border widths &#8212; and one master, <code>--aparte-primary</code>, that ninety-five of them derive from. Set it on <code>:root</code> and the whole palette follows.</li>
               <li><b>Icons.</b> An icon provider, not a hardcoded set: <code>setIconProvider()</code> takes yours and re-renders what is already on screen, so a set can be swapped live.</li>
-              <li><b>Language.</b> A locale is a plain object of forty strings handed to <code>setLocale()</code>. Your own language needs no package and no pull request here.</li>
+              <li><b>Language.</b> A locale is a plain object of {LOCALE_KEYS} strings handed to <code>setLocale()</code>. Your own language needs no package and no pull request here.</li>
               <li><b>Renderers.</b> When a variable is not enough &#8212; a reasoning block you want as one line rather than an accordion &#8212; replace the renderer. Structure is not hostage to a stylesheet.</li>
             </ul>
           </div>
@@ -822,7 +829,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         if (/frame|react|vue|svelte|angular|vanilla/.test(q))
           return 'React, Vue, Svelte, Angular — or none at all. It’s one web component underneath, so the chat renders identically everywhere; only the two lines that mount it change.';
         if (/style|css|theme|token|variable/.test(q))
-          return `There are ${N_VARS} CSS variables, and no shadow DOM anywhere in core — so no ::part(), no piercing. Icons are a provider you can swap live, a language is forty strings in an object, and when none of that is enough the renderer itself is replaceable.`;
+          return `There are ${N_VARS} CSS variables, and no shadow DOM anywhere in core — so no ::part(), no piercing. Icons are a provider you can swap live, a language is ${N_LOCALE} strings in an object, and when none of that is enough the renderer itself is replaceable.`;
         if (/stream|token|type|render|reply/.test(q))
           return 'Exactly like this — token by token. aparte streams your model’s replies through a transport, and your API key can stay on your server.';
         if (/depend|size|zero|bundle|weight/.test(q))
@@ -1142,6 +1149,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       const N_KINDS = stageEl.dataset.kinds ?? '';
       const N_VARS = stageEl.dataset.vars ?? '';
       const N_TESTS = stageEl.dataset.tests ?? '';
+      const N_LOCALE = stageEl.dataset.locale ?? '';
       const CAPTIONS: Record<string, string> = {
         chat: 'The component itself, streaming token by token — and the composer collecting files, because <b>attachments are one attribute</b> once a host consumes them.',
         tools: 'A tool marked <b>needsApproval</b> pauses the turn. Core draws Approve and Reject and dispatches the decision; press either and watch the turn resume or stop.',
