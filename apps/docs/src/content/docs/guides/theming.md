@@ -130,7 +130,7 @@ Variables are grouped by region. The most-reached-for ones:
 
 **Segments** — each rich block has its own group: `--aparte-code-*`,
 `--aparte-thinking-*`, `--aparte-terminal-*`, `--aparte-error-*`,
-`--aparte-file-tree-*`, `--aparte-progress-*`.
+`--aparte-progress-*`.
 
 :::tip
 The complete, always-current token list is generated from the stylesheet and surfaced in

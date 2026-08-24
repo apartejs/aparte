@@ -25,7 +25,6 @@ import { codeRenderer } from './segments/code.js';
 import { terminalRenderer } from './segments/terminal.js';
 import { errorRenderer } from './segments/error.js';
 import { progressRenderer } from './segments/progress.js';
-import { fileTreeRenderer } from './segments/file-tree.js';
 import { toolCallRenderer } from './segments/tool-call.js';
 import { pipelineWaitingRenderer } from './segments/pipeline-waiting.js';
 import { artifactRenderer } from './segments/artifact/card.js';
@@ -399,7 +398,6 @@ const DEFAULT_RENDERERS = [
     terminalRenderer,
     errorRenderer,
     progressRenderer,
-    fileTreeRenderer,
     toolCallRenderer,
     artifactRenderer,
     pipelineWaitingRenderer,
