@@ -20,8 +20,13 @@
  *
  * So there are two passes now:
  *
- *   1. The `:root` block, as before — it carries the group comments and the
- *      per-token notes, which is structure no sweep could reconstruct.
+ *   1. The `:root` blocks — they carry the group comments and the per-token notes,
+ *      which is structure no sweep could reconstruct. Note the plural: the palette
+ *      used to be one block, and the derived layer was split out of it so it could
+ *      be re-declared at every themed anchor. A generator that stopped at the FIRST
+ *      block silently dropped the ten tokens declared in the second one and read
+ *      with no fallback default — `--aparte-radius-bubble` among them — so they fell
+ *      through both passes and vanished from this page entirely.
  *   2. A sweep of every stylesheet and every template-literal style under
  *      `packages/core/src` for `var(--aparte-*, default)` reads, listing the
  *      tokens that have no `:root` declaration under their own heading.
@@ -34,7 +39,9 @@
  * what was missing was only ever the documentation.
  *
  * The pass also flags the reverse defect, which nothing could see before: tokens
- * DECLARED in `:root` that nothing in core reads. There are eighteen. Some are
+ * DECLARED in `:root` that nothing in core reads. There are twenty — it was eighteen
+ * until the derived layer was split into its own block, whose tokens this pass could
+ * not see at all while it read only the first block. Some are
  * palette bases a consuming app applies itself (`--aparte-bg`, and core paints no
  * page background on purpose), some are unused steps of a documented scale, and
  * some are knobs that quietly do nothing. Marking them keeps the page from
@@ -59,16 +66,18 @@ const OUT = resolve(here, '../src/content/docs/reference/css-variables.md');
 const css = readFileSync(CSS, 'utf8');
 const lines = css.split(/\r?\n/);
 
-// Isolate the first `:root, :host { … }` block — the light default carries every
-// token (the dark block only holds overrides) together with its group comments.
-let i = 0;
-while (i < lines.length && !/^\s*:root\b/.test(lines[i])) i++;
-while (i < lines.length && !lines[i].includes('{')) i++;
-i++; // step past the opening `{`
+// Every top-level block whose selector list opens with `:root` — the literal palette
+// AND the derived layer split out of it. The dark block is correctly skipped: it holds
+// overrides, not the token list. Reading only the first block is what dropped ten
+// tokens off this page; see the header.
 const body = [];
-for (; i < lines.length; i++) {
-  if (/^\}/.test(lines[i])) break;
-  body.push(lines[i]);
+for (let i = 0; i < lines.length; i++) {
+  if (!/^\s*:root\b/.test(lines[i])) continue;
+  let j = i;
+  while (j < lines.length && !lines[j].includes('{')) j++;
+  j++; // step past the opening `{`
+  for (; j < lines.length && !/^\}/.test(lines[j]); j++) body.push(lines[j]);
+  i = j;
 }
 
 const TOKEN = /^\s*(--aparte-[\w-]+)\s*:\s*(.+?);\s*(?:\/\*\s*(.*?)\s*\*\/)?\s*$/;
@@ -78,6 +87,8 @@ const COMMENT = /^\s*\/\*\s*(.*?)\s*\*\/\s*$/;
 const groups = [];
 let current = { title: 'General', tokens: [] };
 groups.push(current);
+/** Sections by heading, so a heading repeated across the two blocks reopens one. */
+const byTitle = new Map([[current.title, current]]);
 let lastWasToken = false;
 let total = 0;
 
@@ -99,9 +110,15 @@ for (const line of body) {
     if (lastWasToken && current.tokens.length) {
       // A comment right after a token annotates that token.
       current.tokens[current.tokens.length - 1].note ||= text;
+    } else if (byTitle.has(text)) {
+      // A heading seen before: the two `:root` blocks repeat the same group comments,
+      // because the derived half was split out of the literal one group by group. So
+      // "Messages" must REJOIN the Messages section rather than open a second one —
+      // the page then reads exactly as it did when the palette was a single block.
+      current = byTitle.get(text);
     } else {
-      // Otherwise it opens a new section.
       current = { title: text, tokens: [] };
+      byTitle.set(text, current);
       groups.push(current);
     }
     lastWasToken = false;
@@ -223,6 +240,29 @@ applies when you do not.
     const def = [...t.fallbacks][0] ?? '';
     md += `| \`${esc(t.name)}\` | ${def ? `\`${esc(def)}\`` : '—'} | ${esc([...t.files].sort().join(', '))} |\n`;
   }
+}
+
+// A generator that silently drops its input is worse than no generator: the page
+// still looks complete. Splitting the palette into two `:root` blocks cost this page
+// ten tokens and NOTHING went red — `check:doc-links` only asks whether links
+// resolve, and the one trace was a link count falling from 2818 to 2812, a number
+// nobody reads. So the parse now has to account for every token in the stylesheet,
+// and it fails here rather than shipping a reference with holes in it. Written as a
+// set difference on purpose: it catches the next cause too — a third block, a renamed
+// selector, a regex that stops matching — not just the one that happened.
+const declaredInCss = new Set(
+  [...css.matchAll(/^\s+(--aparte-[\w-]+)\s*:/gm)].map((m) => m[1]),
+);
+const undocumented = [...declaredInCss].filter((name) => !md.includes(`\`${name}\``));
+if (undocumented.length) {
+  console.error(
+    `\n[gen-css-vars] ${undocumented.length} token(s) declared in aparte.css but absent`
+    + ' from the page this script generates:\n'
+    + undocumented.map((n) => `  ${n}`).join('\n')
+    + '\n\nThe parse missed them — check that every `:root`-anchored block is being read'
+    + '\n(the palette is split: literals in one block, the derived layer in another).\n',
+  );
+  process.exit(1);
 }
 
 mkdirSync(dirname(OUT), { recursive: true });
