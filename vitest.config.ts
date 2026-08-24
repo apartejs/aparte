@@ -123,7 +123,12 @@ export default defineConfig({
         // segment-identity lot: the additivity suite and the code-copy test reach
         // paths nothing exercised (both registration entry points, a copy handler
         // after an update), measured 65.53% / 80.60%.
-        'packages/core/src/renderers/**': { lines: 64, statements: 64, functions: 79, branches: 72 },
+        // Raised 64 -> 70 lines/statements by the localisation lot, and the RATCHET
+        // asked for it: 7.8 points of slack after the download-button tests and the
+        // clock tests reached the artifact card's save path and the bubble's
+        // timestamp. Measured 71.75%. Functions and branches stay where they are —
+        // 81.69% and 72.61%, both inside the three-point band already.
+        'packages/core/src/renderers/**': { lines: 70, statements: 70, functions: 79, branches: 72 },
       },
     },
   },
