@@ -110,6 +110,16 @@ const LOCALE_KEYS = (readFileSync(at('packages/core/src/config/locale.ts'), 'utf
     .match(/^\s+[a-zA-Z]+\??:\s*string/gm) ?? []).length;
 
 /** Distinct `--aparte-*` custom properties declared in core's stylesheet. */
+/**
+ * The mark in the browser tab, as the artifact demo's payload.
+ *
+ * READ rather than copied: a second copy of an SVG in a demo is a second thing to
+ * update, and the claim the panel makes — "this is the file in your tab" — stops being
+ * true the moment the favicon changes. 353 bytes, so the data attribute that carries it
+ * to the script costs nothing.
+ */
+const LOGO_SVG = readFileSync(at('apps/docs/public/favicon.svg'), 'utf8').trim();
+
 const CSS_VARS = new Set(
     (readFileSync(at('packages/core/src/styles/aparte.css'), 'utf8')
         .match(/^\s*--aparte-[a-z0-9-]+(?=\s*:)/gm) ?? []).map((s) => s.trim()),
@@ -335,7 +345,7 @@ message.segments = [
       <!-- The measured counts ride on the element: this page's client script is a
            bundled module, so it cannot read the frontmatter, and hardcoding the
            numbers a second time is how two copies of one fact start disagreeing. -->
-      <section class="stage" id="demo" data-kinds={KINDS.length} data-vars={CSS_VARS} data-locale={LOCALE_KEYS}>
+      <section class="stage" id="demo" data-kinds={KINDS.length} data-vars={CSS_VARS} data-locale={LOCALE_KEYS} data-logo={LOGO_SVG}>
         <div class="demo-tabs" role="tablist" aria-label="What the chat can do" id="demoTabs">
           {DEMOS.map((d, i) => (
             <button class="tab" role="tab" type="button" data-demo={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>
@@ -975,7 +985,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       }
 
       function demoArtifact() {
-        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: 'Chart the latency of each segment in that turn.', timestamp: Date.now() });
+        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: 'Draw the aparté mark as an SVG.', timestamp: Date.now() });
         const mid = 'a' + ++msgId;
         after(() => {
           viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
@@ -985,27 +995,21 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
               viewport.addSegment(mid, {
                 id: 'ar-doc', type: 'artifact', isStreaming: false,
                 artifactType: 'svg', mimeType: 'image/svg+xml',
-                title: 'Turn latency by segment',
+                title: 'aparté mark',
                 // An SVG rather than React on purpose: core previews html/svg/js/css
                 // with its own CDN-free fallback, so this needs no host builder —
                 // what you see is the library, not this page's scaffolding.
-                content: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 150" width="320" height="150">
-  <rect width="320" height="150" fill="#14101c"/>
-  <g font-family="Georgia, serif" font-size="9" fill="#a89bb6">
-    <text x="12" y="26">thinking</text><text x="12" y="56">tool_call</text>
-    <text x="12" y="86">code</text><text x="12" y="116">text</text>
-  </g>
-  <g fill="#c9a227">
-    <rect x="70" y="16" width="58" height="12" rx="2"/>
-    <rect x="70" y="46" width="164" height="12" rx="2"/>
-    <rect x="70" y="76" width="41" height="12" rx="2"/>
-    <rect x="70" y="106" width="96" height="12" rx="2"/>
-  </g>
-  <g font-family="ui-monospace, monospace" font-size="8" fill="#6f6480">
-    <text x="134" y="26">1.4s</text><text x="240" y="56">4.1s</text>
-    <text x="117" y="86">0.9s</text><text x="172" y="116">2.3s</text>
-  </g>
-</svg>`,
+                //
+                // And it is THIS SITE'S OWN favicon, read from `public/favicon.svg` at
+                // build time rather than pasted here. Five elements against the thirty
+                // of the invented bar chart it replaces, so the Code tab is readable at
+                // a glance instead of being a wall — and it is a file the visitor can
+                // verify, sitting in their own browser tab while they look at it.
+                // Read at call time, not from a module-scope const: `demoArtifact` is
+                // declared long before the block that reads the data attributes, and
+                // a forward reference that happens to work because of WHEN the call
+                // lands is the temporal-dead-zone trap this page has already hit once.
+                content: document.getElementById('demo')?.dataset.logo ?? '',
               });
               viewport.completeMessage(mid);
             }, 300);
