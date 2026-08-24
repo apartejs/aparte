@@ -726,13 +726,11 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       import githubLight from '@shikijs/themes/github-light';
       import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
       registerDefaultRenderers();
-      // `retry` IS turned on here, and copy stays on as it is by default. The rule is
-      // that a bubble action must be honoured by someone: copy is honoured by core
-      // alone, and retry is honoured by the `aparte-retry` listener at the bottom of
-      // this file, which forks a real branch. (It was left off while that listener
-      // already existed, so the branching this page talks about could not be tried.)
+      // Bubble actions are decided PER PANEL, in `showDemo` — not here. The rule is
+      // that an action must be honoured by someone: copy is honoured by core alone,
+      // so it stays on everywhere; retry is honoured by the `aparte-retry` listener
+      // at the bottom of this file, which only knows how to fork a chat reply.
       // edit/feedback/info stay off: nothing here would answer them.
-      aparteGlobalConfig.setBubbleActions({ retry: true });
 
       // ── theme toggle — shared with the docs via the `starlight-theme` key ──
       // The inline <head> script already applied the persisted theme; here we
@@ -1298,6 +1296,13 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         applySkin(skin);
         applyIcons(iconSet);
         applyLocale(localeKey);
+        // Retry belongs to the two panels that can honour it.
+        //
+        // It was on everywhere, so retrying the segment, tool or artifact panel
+        // replaced their content with a chat-shaped line about forking a branch —
+        // an affordance promising something the panel does not do. Copy stays on
+        // throughout: core honours it by itself, on any content.
+        aparteGlobalConfig.setBubbleActions({ retry: key === 'chat' || key === 'branch' });
         syncLevers();
         RUNNERS[key]();
       }
