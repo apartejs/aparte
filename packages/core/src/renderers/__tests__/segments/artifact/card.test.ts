@@ -4,7 +4,7 @@
  *
  * One of the eleven files the old 844-line `segment-renderers.test.ts` became.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
     getSegmentRenderer,
     registerDefaultRenderers
@@ -14,11 +14,73 @@ import { aparteGlobalConfig } from '../../../../config/aparte-config.js';
 // Register the default renderers once, so the built-in under test is resolvable.
 registerDefaultRenderers();
 
+/** Render + setup a card into a live parent, the way the bubble does. */
+function mountCard(segment: Record<string, unknown>): HTMLElement {
+    const renderer = getSegmentRenderer('artifact')!;
+    const host = document.createElement('div');
+    host.innerHTML = renderer.render(segment as never) as string;
+    const el = host.firstElementChild as HTMLElement;
+    document.body.appendChild(host);
+    renderer.setup?.(el, segment as never);
+    return el;
+}
+
 describe('default renderer: artifact', () => {
-    afterEach(() => aparteGlobalConfig.reset());
+    afterEach(() => { aparteGlobalConfig.reset(); document.body.innerHTML = ''; });
 
     it('is registered', () => {
         expect(getSegmentRenderer('artifact')).toBeDefined();
+    });
+
+    it('pressing Download saves the artifact under a slug of its title', () => {
+        // The button had just been given a locale key while nothing tested what
+        // pressing it DOES — so the download path, the extension table and the
+        // filename slug were all unexercised. jsdom has no object URLs, and an
+        // anchor's click cannot be observed after the handler removes it, so both
+        // are intercepted rather than mocked away.
+        const urls: string[] = [];
+        (URL as unknown as { createObjectURL: unknown }).createObjectURL = () => 'blob:probe';
+        (URL as unknown as { revokeObjectURL: unknown }).revokeObjectURL = (u: string) => { urls.push(u); };
+        const saved: { name: string; href: string }[] = [];
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(
+            function (this: HTMLAnchorElement) { saved.push({ name: this.download, href: this.href }); },
+        );
+
+        const el = mountCard({
+            id: 'dl1', type: 'artifact', mimeType: 'image/svg+xml', artifactType: 'svg',
+            title: '  My Chart: v2!  ', content: '```svg\n<svg/>\n```', isStreaming: false,
+        });
+        (el.querySelector('[data-action="download"]') as HTMLElement).click();
+
+        expect(saved).toHaveLength(1);
+        // Slug: lowercased, runs of punctuation collapsed to one dash, no trailing
+        // dash — and the extension comes from the KIND, not from the title.
+        expect(saved[0]!.name).toBe('my-chart-v2.svg');
+        expect(saved[0]!.href).toBe('blob:probe');
+        click.mockRestore();
+    });
+
+    it('an artifact with nothing usable to name it still downloads sanely', () => {
+        // The other side of every fallback on that path, and none of them is
+        // hypothetical: a model can title an artifact `***`, and an unknown kind is
+        // whatever a provider invents next. A slug of "***" is empty, so the name
+        // has to come from somewhere; an unlisted kind has no extension; and a
+        // segment with no mimeType still needs a Blob type.
+        (URL as unknown as { createObjectURL: unknown }).createObjectURL = () => 'blob:probe2';
+        (URL as unknown as { revokeObjectURL: unknown }).revokeObjectURL = () => { /* noop */ };
+        const saved: string[] = [];
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(
+            function (this: HTMLAnchorElement) { saved.push(this.download); },
+        );
+
+        const el = mountCard({
+            id: 'dl2', type: 'artifact', artifactType: 'weird', title: '***',
+            content: 'x', isStreaming: false,
+        });
+        (el.querySelector('[data-action="download"]') as HTMLElement).click();
+
+        expect(saved).toEqual(['artifact.txt']);
+        click.mockRestore();
     });
 
     it('renders the code pane with escaped content and a title derived from kind when none given', () => {

@@ -50,14 +50,17 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         const displayLang = languageForKind(kind);
         const isStreaming = !!segment.isStreaming;
         const previewable = PREVIEWABLE_KINDS.has(kind);
-        // Optional keys, so each carries the English it used to hardcode as its own
-        // fallback. `download` is title AND aria-label: they disagreed here, the title
-        // going through `t('copy')` on the button next door while its aria-label said
-        // "Copy" in every language.
-        const loc = contextConfig().getLocale();
-        const downloadLabel = loc.download ?? 'Download';
-        const previewLabel = loc.preview ?? 'Preview';
-        const codeLabel = loc.code ?? 'Code';
+        // `t()`, not `getLocale().x ?? 'X'`: `t()` already falls back to
+        // APARTE_DEFAULT_LOCALE, so the English lives in ONE place instead of being
+        // re-typed at each call site — and `setLocale()` REPLACES rather than merges,
+        // which makes a partial locale the normal case rather than an edge one.
+        // `download` is title AND aria-label: they disagreed on the button next door,
+        // whose title went through `t('copy')` while its aria-label said "Copy" in
+        // every language.
+        const cfg = contextConfig();
+        const downloadLabel = cfg.t('download');
+        const previewLabel = cfg.t('preview');
+        const codeLabel = cfg.t('code');
         const isBinary = BINARY_FILE_KINDS.has(kind);
         const cleanContent = stripCodeFences(segment.content || '');
         // The card ALWAYS opens on the code tab, and the preview frame is not built
@@ -129,7 +132,6 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
      */
     relabel: (element: HTMLElement) => {
         const cfg = contextConfig();
-        const loc = cfg.getLocale();
         const copyBtn = element.querySelector('.aparte-art-card__btn[data-action="copy"]');
         if (copyBtn) {
             copyBtn.setAttribute('title', cfg.t('copy'));
@@ -138,7 +140,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         }
         const dl = element.querySelector('.aparte-art-card__btn[data-action="download"]');
         if (dl) {
-            const label = loc.download ?? 'Download';
+            const label = cfg.t('download');
             dl.setAttribute('title', label);
             dl.setAttribute('aria-label', label);
         }
@@ -146,9 +148,9 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         // the reader's state, not the locale's. A relabel that touched it would close
         // a preview somebody had opened.
         const previewTab = element.querySelector('[data-tab-target="preview"]');
-        if (previewTab) previewTab.textContent = loc.preview ?? 'Preview';
+        if (previewTab) previewTab.textContent = cfg.t('preview');
         const codeTab = element.querySelector('[data-tab-target="code"]');
-        if (codeTab) codeTab.textContent = loc.code ?? 'Code';
+        if (codeTab) codeTab.textContent = cfg.t('code');
     },
     setup: (element: HTMLElement, segment: AparteArtifactSegment) => {
         latestSegment.set(element, segment);

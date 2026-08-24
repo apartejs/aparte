@@ -126,8 +126,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
     const canRedownload = contextConfig().getHostHandlers().artifactRedownload;
     // Declared here rather than beside its first use: this function has TWO early
     // returns before the last one, and each renders its own download button.
-    const loc = contextConfig().getLocale();
-    const downloadLabel = escapeHtml(loc.download ?? 'Download');
+    const downloadLabel = escapeHtml(contextConfig().t('download'));
 
     const cached = _binaryArtifactCache.get(segment.id);
     if (cached && !isStreaming) {
@@ -161,8 +160,8 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
 
     const cleanContent = stripCodeFences(segment.content || '');
     const subText = isStreaming
-        ? (loc.generating ?? 'Generating…')
-        : (loc.rebuildingPreview ?? 'Rebuilding preview…');
+        ? contextConfig().t('generating')
+        : contextConfig().t('rebuildingPreview');
     return `
         <div class="segment segment-artifact-file"
              data-segment-id="${escapeHtml(segment.id)}"
