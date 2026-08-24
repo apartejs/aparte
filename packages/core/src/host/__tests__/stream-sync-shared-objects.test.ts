@@ -66,22 +66,51 @@ function setup() {
     return { h, host, viewport, read: () => messages };
 }
 
-/**
- * Yield to the macrotask queue TWICE, rather than sleeping for a guessed duration.
- *
- * The coalescer schedules its flush as a macrotask (rAF in a browser, a timer in
- * jsdom). Two zero-delay yields put us strictly after it whatever the machine is
- * doing; the 30ms this used to wait was a bet that happened to pay off on a fast
- * laptop and is exactly the shape that goes red on a 2-core CI runner for no
- * reason. A duration is not a synchronisation primitive.
- */
-const frame = async (): Promise<void> => {
-    await new Promise((r) => setTimeout(r, 0));
-    await new Promise((r) => setTimeout(r, 0));
-};
-
 const textOf = (m: AparteMessage | undefined): string =>
     ((m?.segments?.[0] as { content?: string } | undefined)?.content ?? '');
+
+/** One macrotask yield. Used only to prove a value has SETTLED, never to reach it. */
+const tick = (): Promise<void> => new Promise((r) => { setTimeout(r, 0); });
+
+/**
+ * Wait until `get()` reads `expected`, then prove it stays there.
+ *
+ * ## Why this file used to be intermittent
+ *
+ * The coalescer schedules its flush with `requestAnimationFrame`
+ * (`aparte-chat-host.ts`, `_scheduleFlush`), and jsdom drives rAF from a ~16ms
+ * animation clock. This file previously yielded two zero-delay macrotasks and called
+ * that "strictly after the flush, whatever the machine is doing". It is not: it is a
+ * bet on WHERE in that 16ms window the append landed. Late in a window the rAF fires
+ * inside the two yields and the test passes; early in one it does not, and the last
+ * chunk is still in the buffer when the assertion reads. Machine load shifts the
+ * phase, which is why it failed under a loaded box and passed on a rerun — twice in
+ * six runs at first, then twice in two consecutive runs while the box was busy.
+ *
+ * The version before THAT slept 30ms and its comment already had the right idea —
+ * "a duration is not a synchronisation primitive" — but replacing a duration with a
+ * fixed number of ticks kept the same defect: both are guesses about scheduling.
+ * Waiting for the CONDITION is neither.
+ *
+ * The settle check is not decoration. This file exists to catch a chunk counted
+ * TWICE, and a poll that stopped at first match could stop on a value that is about
+ * to be doubled. So it reads the expected value, yields two more macrotasks, and
+ * requires it to still be there. A doubled write never matches in the first place —
+ * `'BonjourBonjour'` is not `'Bonjour'` — so it times out and the assertion prints
+ * the doubled text, which is exactly the failure this suite is for.
+ */
+async function settles(get: () => string, expected: string, budgetMs = 3000): Promise<string> {
+    const deadline = Date.now() + budgetMs;
+    for (;;) {
+        if (get() === expected) {
+            await tick();
+            await tick();
+            return get();
+        }
+        if (Date.now() > deadline) return get();
+        await tick();
+    }
+}
 
 describe('coalesced stream sync vs the immediate paint', () => {
     it('a segment streamed one chunk per frame keeps its exact text', async () => {
@@ -91,10 +120,10 @@ describe('coalesced stream sync vs the immediate paint', () => {
 
         for (const chunk of ['Bonjour', ' le', ' monde']) {
             h.appendToSegment('s1', chunk);
-            await frame();
+            await tick();
         }
 
-        expect(textOf(read()[0])).toBe('Bonjour le monde');
+        expect(await settles(() => textOf(read()[0]), 'Bonjour le monde')).toBe('Bonjour le monde');
     });
 
     it('a segment streamed three chunks inside ONE frame keeps its exact text', async () => {
@@ -105,9 +134,8 @@ describe('coalesced stream sync vs the immediate paint', () => {
         h.appendToSegment('s1', 'Bonjour');
         h.appendToSegment('s1', ' le');
         h.appendToSegment('s1', ' monde');
-        await frame();
 
-        expect(textOf(read()[0])).toBe('Bonjour le monde');
+        expect(await settles(() => textOf(read()[0]), 'Bonjour le monde')).toBe('Bonjour le monde');
     });
 
     it('a segment that already carries text keeps it, and appends after it', async () => {
@@ -116,9 +144,8 @@ describe('coalesced stream sync vs the immediate paint', () => {
         h.addSegment({ id: 's1', type: 'text', content: 'Bonjour' } as AparteSegment);
 
         h.appendToSegment('s1', ' le monde');
-        await frame();
 
-        expect(textOf(read()[0])).toBe('Bonjour le monde');
+        expect(await settles(() => textOf(read()[0]), 'Bonjour le monde')).toBe('Bonjour le monde');
     });
 
     it('what the framework list holds is what the bubble shows', async () => {
@@ -128,12 +155,12 @@ describe('coalesced stream sync vs the immediate paint', () => {
 
         for (const chunk of ['Bon', 'jour ', 'le monde']) {
             h.appendToSegment('s1', chunk);
-            await frame();
+            await tick();
         }
 
+        expect(await settles(() => textOf(read()[0]), 'Bonjour le monde')).toBe('Bonjour le monde');
         const bubble = viewport.querySelector('aparte-chat-bubble');
         const rendered = (bubble?.textContent ?? '').replace(/\s+/g, ' ').trim();
-        expect(textOf(read()[0])).toBe('Bonjour le monde');
         // The rendered text may carry the name/timestamp around it; what matters is
         // that the streamed text appears once, not twice.
         expect(rendered).toContain('Bonjour le monde');
@@ -146,8 +173,7 @@ describe('coalesced stream sync vs the immediate paint', () => {
         async function* src(): AsyncGenerator<string> { yield 'Bonjour'; yield ' le'; yield ' monde'; }
 
         await h.streamTokens('a5', src());
-        await frame();
 
-        expect(read()[0]?.content).toBe('Bonjour le monde');
+        expect(await settles(() => read()[0]?.content ?? '', 'Bonjour le monde')).toBe('Bonjour le monde');
     });
 });
