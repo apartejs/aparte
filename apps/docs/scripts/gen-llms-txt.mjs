@@ -18,7 +18,8 @@
  *   public/llms.txt       — the map: every page, one line each
  *   public/llms-full.txt  — every page's full markdown, concatenated
  */
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { writeIfChanged } from './write-if-changed.mjs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -110,9 +111,9 @@ for (const p of ordered) {
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
-writeFileSync(join(OUT_DIR, 'llms.txt'), map, 'utf8');
-writeFileSync(join(OUT_DIR, 'llms-full.txt'), full, 'utf8');
+const changed = [writeIfChanged(join(OUT_DIR, 'llms.txt'), map),
+                writeIfChanged(join(OUT_DIR, 'llms-full.txt'), full)].filter(Boolean).length;
 console.log(
-    `[gen-llms-txt] ${pages.length} pages → llms.txt (${(map.length / 1024).toFixed(1)} kB), `
+    `[gen-llms-txt] ${changed} of 2 rewritten, ${pages.length} pages → llms.txt (${(map.length / 1024).toFixed(1)} kB), `
     + `llms-full.txt (${(full.length / 1024).toFixed(0)} kB)`,
 );

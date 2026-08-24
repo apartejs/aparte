@@ -16,7 +16,8 @@
  *
  *   node apps/docs/scripts/gen-favicon.mjs      (from the repo root)
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,11 +81,11 @@ try {
 
     const images = [];
     for (const size of ICO_SIZES) images.push({ size, png: await render(page, size) });
-    writeFileSync(resolve(PUBLIC, 'favicon.ico'), buildIco(images));
-    console.log(`[gen-favicon] favicon.ico — ${ICO_SIZES.join(' + ')}px`);
+    const ico = writeIfChanged(resolve(PUBLIC, 'favicon.ico'), buildIco(images));
+    console.log(`[gen-favicon] favicon.ico ${wroteOrNot(ico)} — ${ICO_SIZES.join(' + ')}px`);
 
-    writeFileSync(resolve(PUBLIC, 'apple-touch-icon.png'), await render(page, TOUCH_SIZE));
-    console.log(`[gen-favicon] apple-touch-icon.png — ${TOUCH_SIZE}px`);
+    const touch = writeIfChanged(resolve(PUBLIC, 'apple-touch-icon.png'), await render(page, TOUCH_SIZE));
+    console.log(`[gen-favicon] apple-touch-icon.png ${wroteOrNot(touch)} — ${TOUCH_SIZE}px`);
 } finally {
     await browser.close();
 }

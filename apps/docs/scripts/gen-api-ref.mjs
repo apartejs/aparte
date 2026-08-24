@@ -11,7 +11,8 @@
  * If the manifest is missing (core not built yet), a placeholder is written and a
  * warning logged, so `astro dev` never crashes on a fresh checkout.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,7 +32,7 @@ sidebar:
 
 function write(body) {
   mkdirSync(dirname(OUT), { recursive: true });
-  writeFileSync(OUT, FRONTMATTER + body, 'utf8');
+  return writeIfChanged(OUT, FRONTMATTER + body);
 }
 
 if (!existsSync(CEM)) {
@@ -139,5 +140,4 @@ for (const el of elements) {
   }
 }
 
-write(md);
-console.log(`[gen-api-ref] wrote ${elements.length} elements → ${OUT}`);
+console.log(`[gen-api-ref] ${wroteOrNot(write(md))} ${elements.length} elements → ${OUT}`);
