@@ -12,7 +12,6 @@
  * needs too), the kind→label map, and the throttle pair behind the debounced
  * re-highlight.
  */
-import { contextConfig } from '../../../config/index.js';
 
 
 /**
@@ -82,41 +81,6 @@ function findClosingFence(s: string): number {
     return -1;
 }
 
-/**
- * Debounced syntax-highlight during streaming. Re-running Shiki on every
- * token chunk would saturate the main thread (50-100ms/highlight × 10
- * chunks/sec). We coalesce to one highlight every ~400ms, plus a final
- * highlight at stream-end (handled by the caller).
- */
-const _lastHighlightAt = new Map<string, number>();
-
-export function markThrottle(map: Map<string, number>, id: string, at: number): void {
-    map.delete(id);
-    if (map.size >= MAX_THROTTLE_ENTRIES) {
-        const oldest = map.keys().next().value;
-        if (oldest !== undefined) map.delete(oldest);
-    }
-    map.set(id, at);
-}
-
-export function debounceHighlight(
-    element: HTMLElement,
-    paneSelector: string,
-    content: string,
-    lang: string,
-    segId: string,
-): void {
-    const now = Date.now();
-    const last = _lastHighlightAt.get(segId) ?? 0;
-    if (now - last < HIGHLIGHT_DEBOUNCE_MS) return;
-    markThrottle(_lastHighlightAt, segId, now);
-    // May run from a window-event callback (late) — resolve from the element.
-    void contextConfig(element).highlightCode(content, lang).then(html => {
-        const wrapper = element.querySelector<HTMLElement>(paneSelector);
-        if (wrapper) wrapper.innerHTML = html;
-    }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
-}
-
 export function labelForKind(kind: string): string {
     switch (kind) {
         case 'react': return 'React component';
@@ -144,6 +108,4 @@ export function labelForKind(kind: string): string {
  *  is generous; delete-then-set refreshes recency, evict the oldest key when full.
  *  Evicting a stale entry costs at most one extra highlight/dispatch — never
  *  incorrect, since both debounce windows are far shorter than the cap horizon. */
-const MAX_THROTTLE_ENTRIES = 256;
 
-const HIGHLIGHT_DEBOUNCE_MS = 400;
