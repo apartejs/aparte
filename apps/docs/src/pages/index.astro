@@ -697,7 +697,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       // The real library — registers <aparte-*> elements + pulls in the theme.
       import '@aparte/core';
       import '@aparte/core/styles.css';
-      import { registerDefaultRenderers, aparteGlobalConfig } from '@aparte/core';
+      import { registerDefaultRenderers, aparteGlobalConfig, filesToAttachments } from '@aparte/core';
       // The real package, not a French object typed into this page: a lever that
       // demonstrates localisation has to be the thing a consumer would install.
       import { fr } from '@aparte/locale-fr';
@@ -841,13 +841,26 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         text = (text || '').trim();
         if ((!text && !files.length) || busy) return;
         busy = true;
-        viewport.appendMessage({ id: 'u' + ++msgId, role: 'user', content: text, timestamp: Date.now() });
-        // `attachments` is opt-in precisely because the HOST has to consume the
-        // files (the attribute's own JSDoc says so). This page is the host, so it
-        // says what it received instead of dropping them silently.
+        // The files go ON the message, which is what makes the chips appear above it.
+        // `aparte-send` hands over `File[]` and a message wants `AparteAttachment[]`;
+        // `filesToAttachments` is the exported converter for exactly that step, and the
+        // vanilla example has always used this same line.
+        //
+        // This page used to append the message WITHOUT them and then describe them in
+        // the assistant's reply — "I received 2 files — a.pdf, b.png". It proved it had
+        // received them while showing nothing, which reads as "the library cannot
+        // display an attachment". The right answer to "do not drop them silently" is to
+        // render them, not to narrate them.
+        viewport.appendMessage({
+          id: 'u' + ++msgId,
+          role: 'user',
+          content: text,
+          timestamp: Date.now(),
+          ...(files.length ? { attachments: filesToAttachments(files) } : {}),
+        });
         const reply = files.length
-          ? `I received ${files.length} file${files.length > 1 ? 's' : ''} — ${files.map((f) => f.name).join(', ')}. `
-            + 'A real host would forward them to the model; the composer collected them for you either way.'
+          ? `Those are on your message above — core renders the chips from \`message.attachments\`. `
+            + 'A real host would forward the files to the model from the same array.'
           : replyTo(text);
         after(() => streamAssistant(reply, () => { busy = false; }), 240);
       }
@@ -904,7 +917,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         after(() => {
           viewport.appendMessage({ id: mid, role: 'assistant', content: '', timestamp: Date.now() });
           viewport.addSegment(mid, {
-            id: 'sg-think', type: 'thinking', isStreaming: false, collapsed: false,
+            id: 'sg-think', type: 'thinking', isStreaming: false,
             content: 'Two kinds in one reply — this reasoning block and a code fence. Neither of them is a chat bubble.',
           });
           after(() => viewport.addSegment(mid, {
