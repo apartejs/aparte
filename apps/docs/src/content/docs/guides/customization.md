@@ -495,6 +495,50 @@ editor**'s save/cancel buttons use the `check` and `close` keys, so they follow 
 provider too; their colours are the `--aparte-success` (save) and `--aparte-error` (cancel)
 CSS variables.
 
+### Keeping your own element in step
+
+A config change is meant to reach components that are already on screen — a language
+switch, a new icon set, different bubble actions. Core's own elements listen for it;
+if you replace one of them, or write an element of your own that reads an icon or a
+locale string, subscribe with the same hook they use:
+
+```ts
+import { subscribeConfigChange, aparteGlobalConfig } from '@aparte/core';
+
+class MyComposerButton extends HTMLElement {
+  private off: (() => void) | null = null;
+  private button: HTMLButtonElement | null = null;
+
+  connectedCallback(): void {
+    this.innerHTML = '<button type="button"></button>';
+    this.button = this.querySelector('button');
+    this.refreshChrome();
+    // A TARGETED refresh — reset the icon and the label on the button you already
+    // have. A full re-render would throw away focus, listeners, a caret, or a
+    // mounted preview.
+    this.off = subscribeConfigChange(this, () => this.refreshChrome());
+  }
+
+  disconnectedCallback(): void {
+    this.off?.();
+    this.off = null;
+  }
+
+  private refreshChrome(): void {
+    if (!this.button) return;
+    const label = aparteGlobalConfig.t('sendButton');
+    this.button.innerHTML = aparteGlobalConfig.getIcon('send');
+    this.button.setAttribute('aria-label', label);
+    this.button.title = label;
+  }
+}
+```
+
+It resolves *your* element's config on every event, so a change scoped to one chat on
+a page with two of them reaches only that one — and never latches a config captured
+before your element was mounted. `APARTE_CONFIG_CHANGE` is exported too, if you would
+rather listen on `window` yourself.
+
 ## Content providers (opt-in)
 
 Core is zero-dependency by default, so Markdown and syntax highlighting are **off**

@@ -20,6 +20,7 @@ describe('@aparte/core public API', () => {
         const names = Object.keys(core).sort();
         expect(names).toMatchInlineSnapshot(`
           [
+            "APARTE_CONFIG_CHANGE",
             "APARTE_CONVERSATION_SCHEMA_VERSION",
             "APARTE_DEFAULT_BUBBLE_ACTIONS",
             "APARTE_DEFAULT_HOST_HANDLERS",
@@ -93,6 +94,7 @@ describe('@aparte/core public API', () => {
             "revokeAttachmentUrls",
             "runWithConfig",
             "segmentDuration",
+            "subscribeConfigChange",
             "unregisterSegmentRenderer",
             "uuid",
           ]

@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
+import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
  * @element aparte-composer-add-attachment
@@ -39,6 +40,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
         this._render();
         this._connectToRoot();
         this._setupDragDrop();
+        this._unsubscribes.push(subscribeConfigChange(this, () => this._refreshChrome()));
     }
 
     disconnectedCallback(): void {
@@ -58,6 +60,25 @@ export class AparteComposerAddAttachment extends HTMLElement {
 
     private _getRoot(): AparteComposer | null {
         return this.closest('aparte-composer') as AparteComposer | null;
+    }
+
+    /**
+     * Re-read the label and the icon on the button that already exists.
+     *
+     * Deliberately not a re-render: `_render()` returns early once the button is
+     * there, and its `disabled` computation ignores `root.streaming` while the
+     * streaming listener sets `disabled` directly — so rebuilding would silently
+     * re-enable the attach button mid-turn, and drop focus if the user were on it.
+     * The native file input and the drag listeners live outside this element
+     * (on `document.body` and on the composer root), so they are untouched either way.
+     */
+    private _refreshChrome(): void {
+        if (!this._button) return;
+        const cfg = resolveConfig(this);
+        const label = cfg.t('actionUpload') || 'Attach file';
+        this._button.setAttribute('aria-label', label);
+        this._button.setAttribute('title', label);
+        this._button.innerHTML = cfg.getIcon('paperclip') || this._defaultIcon();
     }
 
     private _render(): void {

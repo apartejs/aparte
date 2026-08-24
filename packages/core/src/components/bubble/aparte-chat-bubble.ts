@@ -147,6 +147,11 @@ export class AparteChatBubble extends HTMLElement {
     this._updateName();
     this._updateLocalizedLabels();
     this._updateWaiting();
+    // An avatar provider is config too, and it was the one provider a live change
+    // never reached: swap the set and every bubble already on screen kept the old
+    // one. `_renderAvatar` tears down the previous mount before re-mounting, so
+    // calling it again is safe, and it no-ops when no provider is registered.
+    this._renderAvatar();
   };
 
   /**

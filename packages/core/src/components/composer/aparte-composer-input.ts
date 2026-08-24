@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
+import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
  * @element aparte-composer-input
@@ -49,6 +50,11 @@ export class AparteComposerInput extends HTMLElement {
         this._render();
         this._connectToRoot();
         this._scheduleInitialReflow();
+        // The placeholder is the one string in this composer a sighted user can
+        // actually read, and it was frozen at the language of the first render.
+        // `_updatePlaceholder` already exists for the attribute path — a locale
+        // change is the same refresh, from a different trigger.
+        this._unsubscribes.push(subscribeConfigChange(this, () => this._updatePlaceholder()));
     }
 
     disconnectedCallback(): void {

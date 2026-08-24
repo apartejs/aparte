@@ -1,6 +1,7 @@
 import { resolveConfig, type AparteIconName } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
+import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
  * @element aparte-composer-action
@@ -36,6 +37,14 @@ export class AparteComposerAction extends HTMLElement {
     connectedCallback(): void {
         this._render();
         this._connectToRoot();
+        // Icon only, and no locale: this element's label is the consumer's `label`
+        // ATTRIBUTE, so the app owns that string and a locale change is correctly a
+        // no-op here. The write is the same one `attributeChangedCallback` does for
+        // the `icon` attribute — `_resolveIcon` already decides between a provider
+        // key and raw markup, so calling it again is idempotent.
+        this._unsubscribes.push(subscribeConfigChange(this, () => {
+            if (this._button) this._button.innerHTML = this._resolveIcon(this.getAttribute('icon') ?? '');
+        }));
     }
 
     disconnectedCallback(): void {

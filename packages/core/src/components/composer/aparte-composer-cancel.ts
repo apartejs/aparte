@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
+import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
  * @element aparte-composer-cancel
@@ -31,6 +32,7 @@ export class AparteComposerCancel extends HTMLElement {
     connectedCallback(): void {
         this._render();
         this._connectToRoot();
+        this._unsubscribes.push(subscribeConfigChange(this, () => this._refreshChrome()));
     }
 
     disconnectedCallback(): void {
@@ -79,6 +81,21 @@ export class AparteComposerCancel extends HTMLElement {
     private _handleClick(e: MouseEvent): void {
         e.preventDefault();
         this._getRoot()?.cancel();
+    }
+
+    /**
+     * Re-read the accessible name and the icon in place.
+     *
+     * `hidden` is NOT touched: `_render()` always renders this button hidden and only
+     * the root's `streaming-change` listener ever un-hides it, so a rebuild would make
+     * the stop button vanish in the middle of a turn.
+     */
+    private _refreshChrome(): void {
+        if (!this._button) return;
+        const label = resolveConfig(this).t('stopButton') || 'Stop';
+        this._button.setAttribute('aria-label', label);
+        this._button.setAttribute('title', label);
+        this._button.innerHTML = this._getStopIcon();
     }
 
     private _getStopIcon(): string {

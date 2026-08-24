@@ -1,6 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
+import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
  * @element aparte-composer-send
@@ -24,6 +25,16 @@ import { escapeAttr } from '../../utils/escape.js';
 export class AparteComposerSend extends HTMLElement {
     private _button: HTMLButtonElement | null = null;
     private _unsubscribes: (() => void)[] = [];
+    /**
+     * The last `panel-change` payload.
+     *
+     * This button has four meanings — send, stop, submit an answer, advance to the
+     * next question — and three of them are decided by state it does not own: the
+     * root's `streaming`, and this payload. It was read straight out of the event's
+     * arguments and thrown away, so nothing could recompute the button's chrome
+     * afterwards; a config change had no way to know which of the four to write.
+     */
+    private _panel: { active: boolean; submitEnabled: boolean; mode: 'advance' | 'submit' } | null = null;
 
     // Bound handler
     private _onClick = this._handleClick.bind(this);
@@ -86,38 +97,56 @@ export class AparteComposerSend extends HTMLElement {
             root._on('attachments-change', () => this._syncState())
         );
         this._unsubscribes.push(
-            root._on('panel-change', ({ active, submitEnabled, mode }) => {
-                if (!this._button) return;
-                if (active) {
-                    // Panel is shown — this one button now means "answer", and WHICH
-                    // answer depends on where you are in the form.
-                    //
-                    // The icon has to move with the meaning: it drew a paper plane while
-                    // the label already said "Submit", so it read as "send a message"
-                    // while it meant "answer this question". And a check on a form with
-                    // three questions left was just as wrong — hence a chevron while
-                    // there is more ahead. The visual is what a user reads.
-                    this._button.disabled = !submitEnabled;
-                    const cfg = resolveConfig(this);
-                    const advancing = mode === 'advance';
-                    this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();
-                    const label = advancing
-                        ? (cfg.t('elicitationNext') || 'Next')
-                        : (cfg.t('submitButton') || 'Submit');
-                    this._button.setAttribute('aria-label', label);
-                    this._button.setAttribute('title', label);
-                    this._button.classList.remove('is-streaming');
-                } else {
-                    // Panel closed — restore state based on current streaming
-                    const root = this._getRoot();
-                    if (root?.streaming) {
-                        this._syncStreamingState(true);
-                    } else {
-                        this._syncState();
-                    }
-                }
+            root._on('panel-change', (payload) => {
+                this._panel = payload;
+                this._refreshChrome();
             })
         );
+        // A config change — a new icon set, another language — has to write the
+        // chrome for whichever of the four meanings the button currently carries.
+        this._unsubscribes.push(subscribeConfigChange(this, () => this._refreshChrome()));
+    }
+
+    /**
+     * Write the chrome for the mode the button is IN, deciding before writing.
+     *
+     * Never `_render()`: it returns early once the button exists, and its own
+     * disabled/icon computation consults neither `root.streaming` nor the panel — so
+     * rebuilding mid-turn would put a paper plane back while a reply was still
+     * streaming, and rebuilding with the question panel open would silently drop out
+     * of answer mode. It would also take the focus off the one control in this
+     * composer most likely to be holding it.
+     */
+    private _refreshChrome(): void {
+        if (!this._button) return;
+        if (this._panel?.active) { this._syncPanelState(); return; }
+        if (this._getRoot()?.streaming) { this._syncStreamingState(true); return; }
+        this._syncState();
+    }
+
+    /**
+     * Panel open: this one button now means "answer", and WHICH answer depends on
+     * where you are in the form.
+     *
+     * The icon has to move with the meaning: it drew a paper plane while the label
+     * already said "Submit", so it read as "send a message" while it meant "answer
+     * this question". And a check on a form with three questions left was just as
+     * wrong — hence a chevron while there is more ahead. The visual is what a user
+     * reads.
+     */
+    private _syncPanelState(): void {
+        const panel = this._panel;
+        if (!this._button || !panel?.active) return;
+        const cfg = resolveConfig(this);
+        const advancing = panel.mode === 'advance';
+        this._button.disabled = !panel.submitEnabled;
+        this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();
+        const label = advancing
+            ? (cfg.t('elicitationNext') || 'Next')
+            : (cfg.t('submitButton') || 'Submit');
+        this._button.setAttribute('aria-label', label);
+        this._button.setAttribute('title', label);
+        this._button.classList.remove('is-streaming');
     }
 
     private _handleClick(e: MouseEvent): void {
@@ -144,8 +173,12 @@ export class AparteComposerSend extends HTMLElement {
         if (streaming) {
             this._button.disabled = false;
             this._button.innerHTML = this._getStopIcon();
-            this._button.setAttribute('aria-label', 'Stop');
-            this._button.setAttribute('title', 'Stop');
+            // Was the bare literal 'Stop', so no locale could reach it — the same
+            // gap `aparte-composer-cancel` had, on a second element. The key is
+            // declared now.
+            const label = resolveConfig(this).t('stopButton') || 'Stop';
+            this._button.setAttribute('aria-label', label);
+            this._button.setAttribute('title', label);
             this._button.classList.add('is-streaming');
         } else {
             this._syncState();
