@@ -106,6 +106,38 @@ describe('defaultSanitizer', () => {
             expect(out).toContain('type="checkbox"');
         });
 
+        it('keeps a highlighter’s CUSTOM properties — dual-theme output is only those', () => {
+            // Shiki's documented way to render for light and dark at once is
+            // `defaultColor: false`, which emits no `color` at all: only
+            // `--shiki-light` / `--shiki-dark`, and CSS picks. The allowlist had no
+            // entry for a custom property, so every declaration was dropped and every
+            // code block came out WHITE — the feature was unreachable, not unstyled.
+            const out = s('<span style="--shiki-light:#D73A49;--shiki-dark:#F97583">const</span>');
+            expect(out).toContain('--shiki-light:#D73A49');
+            expect(out).toContain('--shiki-dark:#F97583');
+        });
+
+        it('but never one of OURS — core’s whole theme is custom properties', () => {
+            // A custom property is inert until some CSS reads it, and core's entire
+            // palette is read that way. So a model-authored block setting this would
+            // repaint the chat around itself: not highlighting, defacement with our
+            // own paint.
+            const out = s('<span style="--aparte-primary:#f0f;--shiki-light:#111">x</span>');
+            expect(out).not.toContain('--aparte-primary');
+            expect(out).toContain('--shiki-light:#111');
+        });
+
+        it('and the value rules still apply to a custom property', () => {
+            // Allowing the NAME does not relax the VALUE: the same scrubbing that
+            // guards `color` guards this, unchanged.
+            expect(s('<span style="--x:url(//evil)">a</span>')).not.toContain('--x');
+            // A literal backslash in the SOURCE — the CSS escape the scrub refuses.
+            // With one backslash it is a JS octal escape, which esbuild rejects
+            // outright: the very escape this guards against is hard to spell.
+            expect(s('<span style="--x:u\\72 l(//evil)">b</span>')).not.toContain('--x');
+            expect(s('<span style="--x:expression(alert(1))">c</span>')).not.toContain('--x');
+        });
+
         it('keeps allowlisted style props and drops the rest (expression, layout, url)', () => {
             // color survives (presentational); width:expression(...) is dropped
             // (not allowlisted + a legacy vector).
