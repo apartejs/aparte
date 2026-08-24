@@ -95,40 +95,6 @@ export interface AparteCodeSegment extends AparteSegmentBase {
     showLineNumbers?: boolean;
 }
 
-/** Diff segment - before/after code comparison */
-export interface AparteDiffSegment extends AparteSegmentBase {
-    type: 'diff';
-    filename?: string;
-    hunks: AparteDiffHunk[];
-}
-
-export interface AparteDiffHunk {
-    oldStart: number;
-    newStart: number;
-    lines: AparteDiffLine[];
-}
-
-export interface AparteDiffLine {
-    type: 'add' | 'remove' | 'context';
-    content: string;
-}
-
-/** Image segment */
-export interface AparteImageSegment extends AparteSegmentBase {
-    type: 'image';
-    url: string;
-    alt?: string;
-    caption?: string;
-}
-
-/** Preview/iframe segment */
-export interface ApartePreviewSegment extends AparteSegmentBase {
-    type: 'preview';
-    url: string;
-    title?: string;
-    height?: number;
-}
-
 /** Error segment */
 export interface AparteErrorSegment extends AparteSegmentBase {
     type: 'error';
@@ -217,9 +183,6 @@ export type AparteSegment =
     | AparteTextSegment
     | AparteThinkingSegment
     | AparteCodeSegment
-    | AparteDiffSegment
-    | AparteImageSegment
-    | ApartePreviewSegment
     | AparteErrorSegment
     | AparteProgressSegment
     | AparteCustomSegment
