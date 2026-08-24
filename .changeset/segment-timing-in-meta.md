@@ -1,5 +1,5 @@
 ---
-'@aparte/core': major
+'@aparte/core': minor
 ---
 
 **A segment's measurements move from its own fields into `meta.aparte`.** Breaking,
