@@ -55,7 +55,33 @@ export interface BuiltElicitationPanel {
     canProceed(): boolean;
     /** Act on it. Advancing shows the next question; submitting is the presenter's. */
     proceed(): void;
+    /**
+     * Re-apply every string this panel took from the locale, in place.
+     *
+     * Bound by the same rule as a segment renderer's `relabel`: text and attributes
+     * only, no node added or removed. A panel cannot be rebuilt on a language switch
+     * — the reader may be halfway through typing an answer, or three questions into
+     * a form — so the strings move and the DOM does not.
+     *
+     * Only the DEFAULTS move. A label the app supplied (`trueLabel`, a field's
+     * `title`) is the app's copy and is left alone, which is why the closures are
+     * registered where the default is used rather than at the end.
+     */
+    relabel(): void;
 }
+
+/**
+ * Relabel closures for the panel currently being built.
+ *
+ * Ambient rather than threaded through six signatures, and safe because panel
+ * construction is strictly synchronous: `buildElicitationPanel` sets this, calls the
+ * builder, and restores it in a `finally`, so two panels can never share a list.
+ * `contextConfig()` in this same file is read the same way for the same reason.
+ */
+let _relabels: Array<() => void> | null = null;
+
+/** Register one way to re-apply one default. A no-op outside a build. */
+function onRelabel(fn: () => void): void { _relabels?.push(fn); }
 
 interface BuiltField {
     readonly el: HTMLElement;
@@ -157,12 +183,20 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
         // model asked something. The locale keys are OPTIONAL, so an existing
         // locale package keeps compiling and falls back to English per key.
         const t = contextConfig();
-        body.appendChild(el('span', 'aparte-elic-option-title', t.t('elicitationOther')));
+        const otherTitle = el('span', 'aparte-elic-option-title', t.t('elicitationOther'));
+        body.appendChild(otherTitle);
         otherText = el('input', 'aparte-elic-other-input');
         otherText.type = 'text';
         otherText.placeholder = t.t('elicitationOtherPlaceholder');
         otherText.style.display = 'none';
         otherText.setAttribute('aria-label', t.t('elicitationOtherLabel'));
+        const otherInput = otherText;
+        onRelabel(() => {
+            const now = contextConfig();
+            otherTitle.textContent = now.t('elicitationOther');
+            otherInput.placeholder = now.t('elicitationOtherPlaceholder');
+            otherInput.setAttribute('aria-label', now.t('elicitationOtherLabel'));
+        });
         body.appendChild(otherText);
         row.append(control, body);
         list.appendChild(row);
@@ -212,7 +246,7 @@ function buildBooleanField(field: AparteElicitationBooleanField, onChange: () =>
     const list = el('div', 'aparte-elic-options');
     labelGroup(list, { titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
-    const mk = (val: 'true' | 'false', label: string): void => {
+    const mk = (val: 'true' | 'false', label: string, defaulted?: 'elicitationYes' | 'elicitationNo'): void => {
         const row = el('label', 'aparte-elic-option');
         const control = el('input', 'aparte-elic-control');
         control.type = 'radio';
@@ -220,13 +254,18 @@ function buildBooleanField(field: AparteElicitationBooleanField, onChange: () =>
         control.value = val;
         if (field.default != null && String(field.default) === val) control.checked = true;
         const body = el('span', 'aparte-elic-option-body');
-        body.appendChild(el('span', 'aparte-elic-option-title', label));
+        const title = el('span', 'aparte-elic-option-title', label);
+        // Registered only when the LOCALE supplied the label. A `trueLabel` the app
+        // passed is its copy, in whatever language it chose, and a language switch
+        // has no business rewriting it.
+        if (defaulted) onRelabel(() => { title.textContent = contextConfig().t(defaulted); });
+        body.appendChild(title);
         row.append(control, body);
         list.appendChild(row);
     };
     const t = contextConfig();
-    mk('true', field.trueLabel ?? t.t('elicitationYes'));
-    mk('false', field.falseLabel ?? t.t('elicitationNo'));
+    mk('true', field.trueLabel ?? t.t('elicitationYes'), field.trueLabel ? undefined : 'elicitationYes');
+    mk('false', field.falseLabel ?? t.t('elicitationNo'), field.falseLabel ? undefined : 'elicitationNo');
     wrap.appendChild(list);
     list.addEventListener('change', onChange);
 
@@ -254,7 +293,16 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
     // The visible title is a `<p>`, not a `<label for>`, so the input needs its own
     // accessible name — and the panel's message is the question in the
     // single-question form. 'Your answer' is the last resort, localised like the rest.
-    input.setAttribute('aria-label', field.title ?? field.description ?? fallbackLabel ?? contextConfig().t('elicitationAnswerLabel'));
+    // `||`, not `??`. An EMPTY title or message is not a name — and `??` took it,
+    // so a request with `message: ''` gave its input `aria-label=""`: no accessible
+    // name at all, where the whole point of this line is that there always is one.
+    // Found by a test written for the language switch, not for this.
+    const ownName = field.title || field.description || fallbackLabel || undefined;
+    input.setAttribute('aria-label', ownName ?? contextConfig().t('elicitationAnswerLabel'));
+    if (ownName == null) {
+        const named = input;
+        onRelabel(() => { named.setAttribute('aria-label', contextConfig().t('elicitationAnswerLabel')); });
+    }
     wrap.appendChild(input);
     input.addEventListener('input', onChange);
 
@@ -305,6 +353,27 @@ export function buildElicitationPanel(
     schema: AparteElicitationSchema,
     onChange: () => void,
 ): BuiltElicitationPanel {
+    // A wrapper, so the builder below keeps its two return statements and needs no
+    // restructuring: this owns the collector's lifetime and hands the result its
+    // `relabel`. Restored in a `finally` because the builder can throw on a schema it
+    // refuses, and a leaked collector would then attach one panel's closures to the
+    // next one.
+    const relabels: Array<() => void> = [];
+    const outer = _relabels;
+    _relabels = relabels;
+    try {
+        const built = buildPanel(message, schema, onChange);
+        return { ...built, relabel: () => { for (const fn of relabels) fn(); } };
+    } finally {
+        _relabels = outer;
+    }
+}
+
+function buildPanel(
+    message: string,
+    schema: AparteElicitationSchema,
+    onChange: () => void,
+): Omit<BuiltElicitationPanel, 'relabel'> {
     const panel = el('div', 'aparte-elic-panel');
     if (message) panel.appendChild(el('p', 'aparte-elic-message', message));
 
@@ -350,7 +419,7 @@ export function buildElicitationPanel(
         });
 
         const isComplete = (): boolean => fields.every(f => !f.required || f.field.isComplete());
-        const api: BuiltElicitationPanel = {
+        const api: Omit<BuiltElicitationPanel, 'relabel'> = {
             el: panel,
             dismiss,
             getContent: () => Object.fromEntries(fields.map(f => [f.key, f.field.getValue()])),
