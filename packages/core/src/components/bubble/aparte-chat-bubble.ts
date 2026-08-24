@@ -579,9 +579,13 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /**
-   * Hand the avatar host element off to the registered AvatarProvider, if
-   * any. Falls back to the default initial / image rendered by `_render()`
-   * when no provider is set.
+   * Hand the avatar host element off to the registered AvatarProvider, if any.
+   *
+   * With no provider the slot is left exactly as the shell rendered it — which for
+   * the default shell means EMPTY, and hidden by `.aparte-avatar:empty`. This used
+   * to claim it "falls back to the default initial rendered by `_render()`"; there
+   * is no such initial, and believing there was is what made `_updateRole` write
+   * one.
    */
   private _renderAvatar(): void {
     const avatar = this.querySelector('.aparte-avatar') as HTMLElement | null;
@@ -594,7 +598,7 @@ export class AparteChatBubble extends HTMLElement {
     }
 
     const provider = this._cfg.getAvatarProvider();
-    if (!provider) return; // keep the default text initial from _render()
+    if (!provider) return; // leave the slot as the shell rendered it
 
     avatar.textContent = '';
     const cleanup = provider.render(this._role, avatar);
@@ -612,8 +616,11 @@ export class AparteChatBubble extends HTMLElement {
     }
     if (avatar) {
       avatar.setAttribute('data-role', this._role);
-      // Default initial — overridden below by the avatar provider if any.
-      avatar.textContent = this._getAvatarInitial();
+      // Refresh an initial that is ALREADY there; never create one — the default
+      // shell renders this slot empty and the stylesheet hides it while it stays
+      // empty. Same rule as `_updateName`, which is where it was actually costing
+      // something; the reasoning is written out there.
+      if (avatar.textContent) avatar.textContent = this._getAvatarInitial();
     }
     if (nameEl) {
       nameEl.textContent = this._getDisplayName();
@@ -627,9 +634,29 @@ export class AparteChatBubble extends HTMLElement {
   private _updateName(): void {
     const avatar = this.querySelector('.aparte-avatar') as HTMLElement | null;
     const nameEl = this.querySelector('.aparte-name');
-    // Only refresh the initial when no provider owns the avatar — otherwise
-    // we'd wipe the live component on every name change.
-    if (avatar && !this._cfg.getAvatarProvider()) avatar.textContent = this._getAvatarInitial();
+    /*
+     * Two conditions, and the second one is the fix.
+     *
+     * No provider: otherwise a name change would wipe a live avatar component.
+     *
+     * Already non-empty: the default shell renders this slot EMPTY and the
+     * stylesheet hides it while it stays empty — `.aparte-avatar:empty { display:
+     * none }`, with the comment "No message avatar by default — the slot only shows
+     * once an AvatarProvider (or a consumer) fills it". Writing the initial
+     * unconditionally contradicted that, and `_onConfigChange` calls this method, so
+     * ANY notifying config change filled the slot: `setLocale` (a language switcher
+     * is enough), `setBubbleActions`, `setIconProvider`. Avatars appeared across the
+     * transcript on a click that had nothing to do with them, and undoing the click
+     * did not remove them, because the text was already written.
+     *
+     * The guard is "already non-empty" rather than "no provider" on purpose:
+     * `avatarInitial` is part of the shell contract, so a CUSTOM shell may render an
+     * initial and must still see it refreshed. Empty stays empty; filled stays in
+     * sync.
+     */
+    if (avatar && avatar.textContent && !this._cfg.getAvatarProvider()) {
+      avatar.textContent = this._getAvatarInitial();
+    }
     if (nameEl) nameEl.textContent = this._getDisplayName();
   }
 
