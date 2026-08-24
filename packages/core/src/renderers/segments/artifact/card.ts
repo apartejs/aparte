@@ -271,6 +271,12 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         if (wasStreaming && !isStreaming) {
             element.setAttribute('data-streaming', 'false');
 
+            // The pulse says "the model is still writing this". `render()` painted it
+            // and nothing ever took it away, so a finished document kept claiming to be
+            // in flight — forever, at 1.2s a cycle. Unnoticed until the artifact demo
+            // actually streamed: the indicator had never been exercised.
+            element.querySelector('.aparte-art-card__pulse')?.remove();
+
             // Re-run syntax highlight now that content is final
             const wrapper = element.querySelector('.code-content-wrapper');
             if (wrapper) {

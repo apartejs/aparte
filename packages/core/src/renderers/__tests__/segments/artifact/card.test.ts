@@ -133,6 +133,28 @@ describe('default renderer: artifact', () => {
         expect(html).not.toContain('<iframe');
     });
 
+    it('stops pulsing when the stream stops', () => {
+        const renderer = getSegmentRenderer('artifact')!;
+        const streaming = {
+            id: 'a9', type: 'artifact', mimeType: 'text/html', artifactType: 'html',
+            content: '<p>half', isStreaming: true,
+        };
+        const el = mountCard(streaming);
+
+        // The discriminating direction first: an indicator that never rendered would
+        // make the assertion below pass for the wrong reason.
+        expect(el.querySelector('.aparte-art-card__pulse')).not.toBeNull();
+        expect(el.getAttribute('data-streaming')).toBe('true');
+
+        renderer.update!(el, { ...streaming, content: '<p>whole</p>', isStreaming: false } as never, streaming as never);
+
+        // `render()` painted the pulse and nothing ever removed it, so a finished
+        // document went on claiming to be in flight — every 1.2s, forever. It went
+        // unnoticed because no demo in this repo streamed an artifact.
+        expect(el.getAttribute('data-streaming')).toBe('false');
+        expect(el.querySelector('.aparte-art-card__pulse')).toBeNull();
+    });
+
     it('stays on the code tab for a non-previewable kind (e.g. python) even when settled', () => {
         const renderer = getSegmentRenderer('artifact')!;
         const html = renderer.render({
