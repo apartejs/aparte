@@ -386,6 +386,36 @@ export function openSegmentIds(segments: readonly AparteSegment[]): string[] {
 }
 
 /**
+ * Adopt every segment of a message arriving from storage or a server.
+ *
+ * The message-level counterpart of {@link adoptSegment}, and the reason it exists as a
+ * function rather than a loop written four times: there are FOUR entry paths for
+ * historical data (`setMessages`, `importTree`, `addMessage`, and the framework host's
+ * own list setter) and they disagreed. One stamped and invented a start, one wrote
+ * straight to the repository, one did nothing, and the host's `appendMessage` — same
+ * name as the viewport's, opposite behaviour — did nothing either. The same stored
+ * conversation therefore produced different numbers depending on the mode and on
+ * whether a branch tree had been saved.
+ *
+ * Always returns a NEW object, even for a message with no segments. That looks like a
+ * missed optimisation and is the invariant of this whole file: the viewport hands the
+ * same object to the repository AND to the framework's list, so sharing one makes the
+ * immediate paint and the coalesced write land on the same string twice. Returning the
+ * caller's message here doubled every streamed reply — caught by the suite that exists
+ * for exactly that bug, within minutes of my writing the shortcut.
+ */
+export function adoptMessageSegments<T extends { id: string; segments?: AparteSegment[] }>(message: T): T {
+    if (!message.segments?.length) return { ...message };
+    return {
+        ...message,
+        segments: message.segments.reduce<AparteSegment[]>((acc, segment) => {
+            acc.push(adoptSegment(acc, segment, message.id));
+            return acc;
+        }, []),
+    };
+}
+
+/**
  * Close the gap a removal left, in place.
  *
  * The single place `index` is maintained after the array changes shape. Entries are

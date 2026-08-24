@@ -18,6 +18,7 @@ import { cssEscape } from '../utils/css-escape.js';
 import {
     stampSegmentOnInsert,
     stampSegmentOnUpdate,
+    adoptMessageSegments,
     mergeSegmentUpdate,
     renumberSegments,
     openSegmentIds,
@@ -258,10 +259,14 @@ export class AparteChatHost {
             // Controller-driven flushes mirror AparteConversationManager state, not
             // user intent — deliberately NOT emitted as `messagesChange` to
             // avoid a feedback loop with hosts using a two-way `messages` input.
+            // Adopted here rather than passed through: this is the conversation
+            // controller handing back a stored list, and it goes STRAIGHT to the
+            // framework's own reactive setter — so in every wrapper it never met the
+            // stamping seam at all, tree or no tree.
             setMessages: (msgs) => {
                 this._beginConversationSwap();
                 this._vp()?.resetSpacer?.();
-                this.binding.setMessages([...msgs]);
+                this.binding.setMessages(msgs.map(adoptMessageSegments));
             },
             appendMessage: (msg) => this.appendMessage(msg),
             getMessages: () => this.binding.getMessages(),
@@ -316,11 +321,30 @@ export class AparteChatHost {
      * spec guards ("optimistic-append + parent-push race"). `onMessageAppended`
      * is the append-specific signal instead.
      */
-    appendMessage(message: AparteMessage): void {
+    appendMessage(message: AparteMessage, options?: { historical?: boolean }): void {
         this._flushStreamState(); // the previous message's chunks land first
         if (message.role === 'user') this._vp()?.setAutoScroll?.(true);
-        this.binding.setMessages([...this.binding.getMessages(), message]);
-        this.binding.onMessageAppended?.(message);
+        // This did NOT stamp its segments — at all — while the viewport method of the
+        // same name did. Two owners of one invariant, diverging in silence, which is
+        // why a framework-managed chat and a native one disagreed about the very same
+        // stored conversation. Same provenance parameter as the viewport's, same
+        // default (live), so no existing caller changes behaviour.
+        const stored = options?.historical
+            ? adoptMessageSegments(message)
+            : message.segments?.length
+                ? {
+                    ...message,
+                    segments: message.segments.reduce<AparteSegment[]>((acc, segment) => {
+                        acc.push(stampSegmentOnInsert(
+                            acc, segment, message.id,
+                            resolveConfig(this.binding.host).getSegmentDefaults(segment.type),
+                        ));
+                        return acc;
+                    }, []),
+                }
+                : message;
+        this.binding.setMessages([...this.binding.getMessages(), stored]);
+        this.binding.onMessageAppended?.(stored);
     }
 
     /** Atomic partial update of a message by id. */
