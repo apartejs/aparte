@@ -172,6 +172,9 @@ importers:
       '@aparte/core':
         specifier: workspace:*
         version: link:../../../packages/core
+      '@aparte/locale-fr':
+        specifier: workspace:*
+        version: link:../../../packages/locales/fr
       '@aparte/plugin-ask-user':
         specifier: workspace:*
         version: link:../../../packages/plugins/ask-user

@@ -1,6 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { aparteGlobalConfig } from '@aparte/core';
 import {
+    applyPalette,
+    applyIconSet,
+    applyLanguage,
+    type PaletteName,
+    type IconSetName,
+    type LanguageName,
+} from './live-config';
+import {
     DEFAULT_SETTINGS,
     applySystemPrompt,
     loadSettings,
@@ -37,6 +45,26 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint:
  */
 export default function Settings() {
     const [settings, setSettings] = useState<ExampleSettings>(loadSettings);
+
+    /*
+     * The three live levers, kept OUT of ExampleSettings on purpose: they are not
+     * the app's settings, they are aparté's config, and the point of this panel is
+     * to show that changing them takes effect on a chat that is already mounted —
+     * so React holds only what the <select> needs to look right, and the config
+     * itself is the source of truth.
+     */
+    const [live, setLiveState] = useState<{
+        palette: PaletteName;
+        icons: IconSetName;
+        language: LanguageName;
+    }>({ palette: 'default', icons: 'default', language: 'en' });
+
+    const setLive = <K extends keyof typeof live>(key: K, value: (typeof live)[K]) => {
+        setLiveState((prev) => ({ ...prev, [key]: value }));
+        if (key === 'palette') applyPalette(value as PaletteName);
+        if (key === 'icons') applyIconSet(value as IconSetName);
+        if (key === 'language') applyLanguage(value as LanguageName);
+    };
 
     const update = <K extends keyof ExampleSettings>(key: K, value: ExampleSettings[K]) => {
         const next = { ...settings, [key]: value };
@@ -114,6 +142,58 @@ export default function Settings() {
                         value={settings.token}
                         onChange={(e) => update('token', e.target.value)}
                     />
+                </Field>
+
+                <Field
+                    id="palette"
+                    label="Palette"
+                    hint={<>CSS variables, set on <code>:root</code>. Not on the element: dozens of core's variables derive from <code>--aparte-primary</code> and those declarations live on <code>:root</code>, so overriding the master lower down moves the send button and leaves the avatar behind.</>}
+                >
+                    <select
+                        id="palette"
+                        aria-describedby="palette-hint"
+                        className="field-input"
+                        value={live.palette}
+                        onChange={(e) => setLive('palette', e.target.value as PaletteName)}
+                    >
+                        <option value="default">Default</option>
+                        <option value="violet">Violet</option>
+                        <option value="paper">Paper</option>
+                    </select>
+                </Field>
+
+                <Field
+                    id="iconset"
+                    label="Icons"
+                    hint={<>An icon provider — <code>{'() => string'}</code> per name, every key optional. An empty provider is the reset, because each missing name falls back to core's own glyph.</>}
+                >
+                    <select
+                        id="iconset"
+                        aria-describedby="iconset-hint"
+                        className="field-input"
+                        value={live.icons}
+                        onChange={(e) => setLive('icons', e.target.value as IconSetName)}
+                    >
+                        <option value="default">Default</option>
+                        <option value="hard">Hard-edged</option>
+                    </select>
+                </Field>
+
+                <Field
+                    id="language"
+                    label="Language"
+                    hint={<>Forty strings in a plain object, handed to <code>setLocale()</code>. This one comes from <code>@aparte/locale-fr</code>; your own language needs no package.</>}
+                >
+                    <select
+                        id="language"
+                        aria-describedby="language-hint"
+                        className="field-input"
+                        value={live.language}
+                        onChange={(e) => setLive('language', e.target.value as LanguageName)}
+                    >
+                        <option value="en">English</option>
+                        <option value="fr">Français</option>
+                    </select>
                 </Field>
 
                 <button className="chip" type="button" onClick={reset}>
