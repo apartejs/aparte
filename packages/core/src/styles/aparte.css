@@ -22,7 +22,6 @@
   --aparte-surface-2: #f1ebdf;
   /* Code blocks, headers */
   --aparte-surface-3: #e7dfce;
-  /* Skeletons, disabled */
 
   /* Text */
   --aparte-text: #241f2b;
@@ -31,7 +30,6 @@
 
   /* Borders */
   --aparte-border: #e5ddce;
-  --aparte-border-focus: var(--aparte-primary);
   --aparte-border-width: 1px;
 
   /* Status Colors */
@@ -49,16 +47,6 @@
   --aparte-radius-full: 9999px;
 
   /* Component-specific radius (overridable per app) */
-  --aparte-radius-input: var(--aparte-radius-lg);
-  --aparte-radius-input-footer: var(--aparte-radius-lg);
-  --aparte-radius-send-btn: var(--aparte-radius-md);
-  --aparte-radius-action-btn: var(--aparte-radius-sm);
-  --aparte-radius-select: var(--aparte-radius-md);
-  --aparte-radius-avatar: var(--aparte-radius-md);
-  --aparte-radius-bubble: var(--aparte-radius-lg);
-  --aparte-radius-code: var(--aparte-radius-lg);
-  --aparte-radius-thinking: var(--aparte-radius-lg);
-  --aparte-radius-error: var(--aparte-radius-md);
 
   /* Spacing scale — every gap / padding / margin / offset routes through these,
      so there are no raw px spacings in the rules. Incidental, pixel-tuned values
@@ -98,8 +86,6 @@
 
   /* Text/icon over a --aparte-primary (brass) fill — send button, run button. */
   --aparte-on-primary: #ffffff;
-  /* Focus ring — derived from the accent so it themes automatically. */
-  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 15%, transparent);
   /* Outline width for keyboard focus + drag-over indicators. */
   --aparte-focus-outline-width: 2px;
   /* Scrollbars rendered by the library. */
@@ -116,36 +102,21 @@
      no bubble background; consumers can flip these to get a chat-app look. */
   --aparte-message-content-bg-user: #efe7f6;
   --aparte-message-content-bg-assistant: transparent;
-  --aparte-message-content-text-user: var(--aparte-text);
-  --aparte-message-content-text-assistant: var(--aparte-text);
   --aparte-message-content-padding: 10px 14px;
   --aparte-message-content-radius: 14px;
 
   /* Aliases used by some segment renderers (artifact card, tool pill).
      Mapped to existing tokens so consumers that override --aparte-surface-1/2
      get cohesive results without touching every rule. */
-  --aparte-surface:         var(--aparte-surface-1);
-  --aparte-surface-hover:   var(--aparte-surface-2);
-  --aparte-text-secondary:  var(--aparte-text-muted);
-  --aparte-accent:          var(--aparte-primary);
-  --aparte-success-border:  var(--aparte-success);
-  --aparte-success-surface: color-mix(in oklch, var(--aparte-success) 12%, transparent);
-  --aparte-error-border-soft: var(--aparte-error);
-  --aparte-error-surface:   color-mix(in oklch, var(--aparte-error) 12%, transparent);
 
   /* Code typography — exposed so apps can swap in Geist Mono / Cascadia / … */
   --aparte-code-font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', 'Geist Mono', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
 
   /* Attachments */
-  --aparte-attachment-chip-bg: var(--aparte-surface-2);
-  --aparte-attachment-chip-border: var(--aparte-border);
-  --aparte-attachment-chip-radius: var(--aparte-radius-sm);
-  --aparte-attachment-chip-color: var(--aparte-text);
   --aparte-attachment-image-size: 72px;
   --aparte-attachments-max-height: 140px;
 
   /* Attachment thumbnail tile (composer preview + sent-message strip) */
-  --aparte-thumb-radius: var(--aparte-radius-lg);
   --aparte-thumb-name-color: #ffffff;
   --aparte-thumb-name-scrim: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0));
   --aparte-thumb-name-padding: 14px 5px 4px;
@@ -158,46 +129,27 @@
   /* Action Bar */
   --aparte-action-bar-gap: 4px;
   --aparte-action-bar-btn-size: 28px;
-  --aparte-action-bar-btn-color: var(--aparte-text-muted);
-  --aparte-action-bar-btn-hover-bg: var(--aparte-surface-2);
-  --aparte-action-bar-btn-hover-color: var(--aparte-text);
 
   /* Branch Picker */
   --aparte-branch-picker-gap: 4px;
   --aparte-branch-picker-btn-size: 20px;
   --aparte-branch-picker-btn-icon-size: 16px;
-  --aparte-branch-picker-btn-color: var(--aparte-text-muted);
-  --aparte-branch-picker-btn-hover-color: var(--aparte-text);
   --aparte-branch-picker-label-size: 12px;
-  --aparte-branch-picker-label-color: var(--aparte-text-muted);
   --aparte-branch-picker-label-min-width: 32px;
 
   /* Avatars */
   --aparte-avatar-size: 32px;
   --aparte-avatar-font-size: 14px;
-  --aparte-avatar-radius: var(--aparte-radius-avatar);
-  --aparte-avatar-bg-user: var(--aparte-primary);
-  --aparte-avatar-text-user: var(--aparte-text-inverse);
-  --aparte-avatar-bg-assistant: var(--aparte-surface-3);
-  --aparte-avatar-text-assistant: var(--aparte-text-inverse);
   --aparte-avatar-image-user: none;
   --aparte-avatar-image-assistant: none;
   --aparte-avatar-image-size: 90%;
 
   /* Text Sizes */
   --aparte-name-font-size: 14px;
-  --aparte-name-color: var(--aparte-text);
   --aparte-timestamp-font-size: 12px;
-  --aparte-timestamp-color: var(--aparte-text-muted);
   --aparte-content-font-size: 15px;
-  --aparte-content-color: var(--aparte-text);
 
   /* Input */
-  --aparte-input-bg: var(--aparte-surface-1);
-  --aparte-input-border: var(--aparte-border);
-  --aparte-input-text: var(--aparte-text);
-  --aparte-input-placeholder: var(--aparte-text-muted);
-  --aparte-input-focus-border: var(--aparte-primary);
   --aparte-input-gap: 8px;
   --aparte-input-editor-font-size: 15px;
   --aparte-input-editor-max-height: 200px;
@@ -210,7 +162,6 @@
   --aparte-select-min-width: 120px;
 
   /* Status Indicator */
-  --aparte-status-color: var(--aparte-text-muted);
   --aparte-status-bg: transparent;
   --aparte-status-dot-size: 6px;
 
@@ -219,11 +170,6 @@
   --aparte-waiting-dot-gap: 4px;
 
   /* Thinking Segment */
-  --aparte-thinking-border: var(--aparte-border);
-  --aparte-thinking-bg: var(--aparte-surface-2);
-  --aparte-thinking-text: var(--aparte-text-muted);
-  --aparte-thinking-content: var(--aparte-text);
-  --aparte-thinking-content-bg: var(--aparte-surface-1);
   --aparte-thinking-content-max-height: 300px;
   --aparte-thinking-content-line-height: 1.55;
   --aparte-thinking-toggle-size: 9px;
@@ -263,30 +209,16 @@
   --aparte-elic-dismiss-room: 72px;
 
   /* Code Blocks */
-  --aparte-code-bg: var(--aparte-surface-1);
-  --aparte-code-header-bg: var(--aparte-surface-2);
-  --aparte-code-border: var(--aparte-border);
-  --aparte-code-header-text: var(--aparte-text-muted);
   --aparte-code-copy-hover-bg: rgba(0, 0, 0, 0.05);
   --aparte-code-copy-icon-size: 14px;
   --aparte-code-inline-font-size: 0.875em;
 
 
-  /* Progress */
-  --aparte-progress-bar-bg: var(--aparte-surface-3);
-  --aparte-progress-bar-fill: var(--aparte-primary);
-  --aparte-progress-label: var(--aparte-text);
 
   /* Scroll-to-bottom button */
   --aparte-scroll-btn-size: 36px;
-  --aparte-scroll-btn-bg: var(--aparte-surface-1);
-  --aparte-scroll-btn-color: var(--aparte-text);
-  --aparte-scroll-btn-border: var(--aparte-border);
   --aparte-scroll-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  --aparte-scroll-btn-hover-bg: var(--aparte-surface-2);
 
-  /* File Tree */
-  /* Git-status file colours reuse the semantic status tokens by default. */
 
   /* Error segment */
   --aparte-error-bg: #fef2f2;
@@ -305,9 +237,7 @@
   --aparte-prose-list-indent: 1.5em;
   --aparte-prose-list-margin: 0.4em 0;
   --aparte-prose-li-margin: 0.15em 0;
-  --aparte-prose-blockquote-border: var(--aparte-border);
   --aparte-prose-blockquote-border-width: 3px;
-  --aparte-prose-code-bg: var(--aparte-surface-2);
 
   /* Viewport */
   --aparte-viewport-padding: 16px;
@@ -316,35 +246,20 @@
      bubble and the composer — this restores the symmetry rather than inventing a
      value. Set it to 0 for a flush composer (a full-bleed mobile shell with a docked
      keyboard is the legitimate case). */
-  --aparte-chat-bottom-gap: var(--aparte-space-8, 16px);
 
-  /* Content */
-  --aparte-content-line-height: var(--aparte-line-height-loose, 1.7);
-  --aparte-cursor-color: var(--aparte-primary);
 
   /* Status */
   --aparte-status-font-size: 13px;
 
   /* Input (composer) */
   --aparte-input-font-size: 14px;
-  --aparte-input-line-height: var(--aparte-line-height-normal, 1.5);
   --aparte-input-padding-x: 12px;
   --aparte-input-padding-y: 10px;
 
   /* Conversation List */
   --aparte-conv-list-gap: 2px;
   --aparte-conv-item-padding: 7px 10px;
-  --aparte-conv-item-radius: var(--aparte-radius-md);
-  --aparte-conv-item-color: var(--aparte-text-muted);
-  --aparte-conv-item-color-active: var(--aparte-text);
-  --aparte-conv-item-bg-hover: var(--aparte-surface-3);
-  --aparte-conv-item-bg-active: var(--aparte-surface-3);
   --aparte-conv-item-font-size: 0.8125rem;
-  --aparte-conv-item-font-weight-active: var(--aparte-font-weight-medium, 500);
-  --aparte-conv-delete-color: var(--aparte-text-muted);
-  --aparte-conv-delete-bg-hover: var(--aparte-error);
-  --aparte-conv-delete-color-hover: var(--aparte-text-inverse);
-  --aparte-conv-delete-radius: var(--aparte-radius-sm);
   --aparte-conv-item-gap: 6px;
   --aparte-conv-action-btn-size: 20px;
 }
@@ -368,9 +283,6 @@
   --aparte-text: #f2eee7;
   --aparte-text-muted: #a89bb6;
   --aparte-text-inverse: #17141c;
-  --aparte-name-color: #f2eee7;
-  --aparte-content-color: #ece8e2;
-  --aparte-timestamp-color: #7a7088;
 
   /* Borders */
   --aparte-border: #342a40;
@@ -379,34 +291,8 @@
   --aparte-primary: #d9a24b;
   --aparte-primary-hover: #e7c588;
 
-  /* Input */
-  --aparte-input-bg: #211b28;
-  --aparte-input-border: #342a40;
-  --aparte-input-text: #f2eee7;
-  --aparte-input-placeholder: #7a7088;
-
-  /* Status */
-  --aparte-status-color: #94a3b8;
-
-  /* Thinking */
-  --aparte-thinking-border: #334155;
-  --aparte-thinking-bg: #1e293b;
-  --aparte-thinking-text: #94a3b8;
-  --aparte-thinking-content: #e5e7eb;
-  --aparte-thinking-content-bg: #0f172a;
-
-  /* Code */
-  --aparte-code-bg: #1e293b;
-  --aparte-code-header-bg: #334155;
-  --aparte-code-border: #475569;
-  --aparte-code-header-text: #94a3b8;
-
-  /* Progress */
-  --aparte-progress-bar-bg: #334155;
+  /* Scroll-to-bottom button */
   --aparte-scroll-btn-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-  --aparte-progress-label: #e5e7eb;
-
-  /* File Tree */
 
   /* Error segment */
   --aparte-error-bg: #2d1b1b;
@@ -414,15 +300,154 @@
   --aparte-error-solid: #f87171;
   --aparte-error-text: #fca5a5;
   --aparte-error-title: #fecaca;
+}
 
-  /* Prose */
-  --aparte-prose-blockquote-border: #475569;
-  --aparte-prose-code-bg: #334155;
+/* =========================================
+   Derived layer — re-anchored, on purpose
 
-  /* Conversation List (dark overrides) */
-  --aparte-conv-item-bg-hover: #334155;
-  --aparte-conv-item-bg-active: #334155;
-  --aparte-conv-delete-color: #64748b;
+   Every value below READS another variable. A custom property is substituted
+   where it is DECLARED, so a derived value declared only on `:root` is computed
+   once against the root palette and merely inherits after that: overriding
+   `--aparte-primary` on a subtree moved the send button and nothing else, and
+   `[data-aparte-theme="dark"]` — which overrides eight masters — left every
+   derived value on its light substitution.
+
+   So the layer is declared again at each anchor where a palette can change:
+   the document root, a shadow host, any themed subtree, any aparté host, and
+   the `aparte-chat` element itself (per-instance theming). Substitution then
+   re-runs there against that element's own masters.
+
+   Only DERIVED values may live here. The literal palette stays in the block
+   above with `:root, :host` alone — widening THAT list would re-declare the
+   light literals on an `<aparte-chat>` nested in a dark wrapper, where a local
+   declaration beats the inherited dark value, and the chat would go light.
+   `scripts/check-derived-vars.mjs` holds both halves of that rule.
+   ========================================= */
+:root,
+:host,
+[data-aparte-theme],
+[data-aparte-host],
+aparte-chat {
+  /* Borders */
+  --aparte-border-focus: var(--aparte-primary);
+
+  /* Component-specific radius (overridable per app) */
+  --aparte-radius-input: var(--aparte-radius-lg);
+  --aparte-radius-input-footer: var(--aparte-radius-lg);
+  --aparte-radius-send-btn: var(--aparte-radius-md);
+  --aparte-radius-action-btn: var(--aparte-radius-sm);
+  --aparte-radius-select: var(--aparte-radius-md);
+  --aparte-radius-avatar: var(--aparte-radius-md);
+  --aparte-radius-bubble: var(--aparte-radius-lg);
+  --aparte-radius-code: var(--aparte-radius-lg);
+  --aparte-radius-thinking: var(--aparte-radius-lg);
+  --aparte-radius-error: var(--aparte-radius-md);
+
+  /* Focus ring — derived from the accent so it themes automatically. */
+  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 15%, transparent);
+
+  /* Messages */
+  --aparte-message-content-text-user: var(--aparte-text);
+  --aparte-message-content-text-assistant: var(--aparte-text);
+  --aparte-surface:         var(--aparte-surface-1);
+  --aparte-surface-hover:   var(--aparte-surface-2);
+  --aparte-text-secondary:  var(--aparte-text-muted);
+  --aparte-accent:          var(--aparte-primary);
+  --aparte-success-border:  var(--aparte-success);
+  --aparte-success-surface: color-mix(in oklch, var(--aparte-success) 12%, transparent);
+  --aparte-error-border-soft: var(--aparte-error);
+  --aparte-error-surface:   color-mix(in oklch, var(--aparte-error) 12%, transparent);
+
+  /* Attachments */
+  --aparte-attachment-chip-bg: var(--aparte-surface-2);
+  --aparte-attachment-chip-border: var(--aparte-border);
+  --aparte-attachment-chip-radius: var(--aparte-radius-sm);
+  --aparte-attachment-chip-color: var(--aparte-text);
+
+  /* Attachment thumbnail tile (composer preview + sent-message strip) */
+  --aparte-thumb-radius: var(--aparte-radius-lg);
+
+  /* Action Bar */
+  --aparte-action-bar-btn-color: var(--aparte-text-muted);
+  --aparte-action-bar-btn-hover-bg: var(--aparte-surface-2);
+  --aparte-action-bar-btn-hover-color: var(--aparte-text);
+
+  /* Branch Picker */
+  --aparte-branch-picker-btn-color: var(--aparte-text-muted);
+  --aparte-branch-picker-btn-hover-color: var(--aparte-text);
+  --aparte-branch-picker-label-color: var(--aparte-text-muted);
+
+  /* Avatars */
+  --aparte-avatar-radius: var(--aparte-radius-avatar);
+  --aparte-avatar-bg-user: var(--aparte-primary);
+  --aparte-avatar-text-user: var(--aparte-text-inverse);
+  --aparte-avatar-bg-assistant: var(--aparte-surface-3);
+  --aparte-avatar-text-assistant: var(--aparte-text-inverse);
+
+  /* Text Sizes */
+  --aparte-name-color: var(--aparte-text);
+  --aparte-timestamp-color: var(--aparte-text-muted);
+  --aparte-content-color: var(--aparte-text);
+
+  /* Input */
+  --aparte-input-bg: var(--aparte-surface-1);
+  --aparte-input-border: var(--aparte-border);
+  --aparte-input-text: var(--aparte-text);
+  --aparte-input-placeholder: var(--aparte-text-muted);
+  --aparte-input-focus-border: var(--aparte-primary);
+
+  /* Status Indicator */
+  --aparte-status-color: var(--aparte-text-muted);
+
+  /* Thinking Segment */
+  --aparte-thinking-border: var(--aparte-border);
+  --aparte-thinking-bg: var(--aparte-surface-2);
+  --aparte-thinking-text: var(--aparte-text-muted);
+  --aparte-thinking-content: var(--aparte-text);
+  --aparte-thinking-content-bg: var(--aparte-surface-1);
+
+  /* Code Blocks */
+  --aparte-code-bg: var(--aparte-surface-1);
+  --aparte-code-header-bg: var(--aparte-surface-2);
+  --aparte-code-border: var(--aparte-border);
+  --aparte-code-header-text: var(--aparte-text-muted);
+
+  /* Progress */
+  --aparte-progress-bar-bg: var(--aparte-surface-3);
+  --aparte-progress-bar-fill: var(--aparte-primary);
+  --aparte-progress-label: var(--aparte-text);
+
+  /* Scroll-to-bottom button */
+  --aparte-scroll-btn-bg: var(--aparte-surface-1);
+  --aparte-scroll-btn-color: var(--aparte-text);
+  --aparte-scroll-btn-border: var(--aparte-border);
+  --aparte-scroll-btn-hover-bg: var(--aparte-surface-2);
+
+  /* Prose (segment-content) */
+  --aparte-prose-blockquote-border: var(--aparte-border);
+  --aparte-prose-code-bg: var(--aparte-surface-2);
+
+  /* Viewport */
+  --aparte-chat-bottom-gap: var(--aparte-space-8, 16px);
+
+  /* Content */
+  --aparte-content-line-height: var(--aparte-line-height-loose, 1.7);
+  --aparte-cursor-color: var(--aparte-primary);
+
+  /* Input (composer) */
+  --aparte-input-line-height: var(--aparte-line-height-normal, 1.5);
+
+  /* Conversation List */
+  --aparte-conv-item-radius: var(--aparte-radius-md);
+  --aparte-conv-item-color: var(--aparte-text-muted);
+  --aparte-conv-item-color-active: var(--aparte-text);
+  --aparte-conv-item-bg-hover: var(--aparte-surface-3);
+  --aparte-conv-item-bg-active: var(--aparte-surface-3);
+  --aparte-conv-item-font-weight-active: var(--aparte-font-weight-medium, 500);
+  --aparte-conv-delete-color: var(--aparte-text-muted);
+  --aparte-conv-delete-bg-hover: var(--aparte-error);
+  --aparte-conv-delete-color-hover: var(--aparte-text-inverse);
+  --aparte-conv-delete-radius: var(--aparte-radius-sm);
 }
 
 /* =========================================
