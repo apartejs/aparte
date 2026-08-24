@@ -412,17 +412,18 @@ aparteGlobalConfig.<span class="fn">registerTool</span>(&#123;
 chat.<span class="fn">addEventListener</span>(<span class="st">'aparte-tool-decision'</span>, (e) =&gt; &#123;
   <span class="kw">const</span> &#123; toolCallId, approved &#125; = e.detail;
 &#125;);</pre>
-<pre class="pane" data-pane="segments"><span class="cm">// two kinds in one reply — and no streaming needed:</span>
-<span class="cm">// a settled segment renders as it is</span>
+<pre class="pane" data-pane="segments"><span class="cm">// two kinds in one reply, both streamed:</span>
+<span class="cm">// open empty, append, then settle</span>
 viewport.<span class="fn">appendMessage</span>(&#123; id, role: <span class="st">'assistant'</span> &#125;);
 
 viewport.<span class="fn">addSegment</span>(id, &#123; id: <span class="st">'s1'</span>, type: <span class="st">'thinking'</span>,
-  content: <span class="st">'…'</span>, isStreaming: <span class="tg">false</span> &#125;);
-viewport.<span class="fn">addSegment</span>(id, &#123; id: <span class="st">'s2'</span>, type: <span class="st">'code'</span>,
-  language: <span class="st">'ts'</span>, content: <span class="st">'…'</span>, isStreaming: <span class="tg">false</span> &#125;);
-<span class="cm">// You never write messageId, index, startedAt or endedAt:</span>
-<span class="cm">// the owner stamps them on the way in. Read the span back</span>
-<span class="cm">// with segmentDuration(s) — it is live while it streams.</span></pre>
+  content: <span class="st">''</span>, isStreaming: <span class="tg">true</span> &#125;);
+viewport.<span class="fn">appendToSegment</span>(id, <span class="st">'s1'</span>, chunk);
+viewport.<span class="fn">updateSegment</span>(id, <span class="st">'s1'</span>, &#123; isStreaming: <span class="tg">false</span> &#125;);
+<span class="cm">// closed by default: `collapsed` is the reader's</span>
+<span class="cm">// business, never the model's. You never write</span>
+<span class="cm">// messageId or index either — the owner stamps</span>
+<span class="cm">// them, and its measurements land in meta.aparte.</span></pre>
 <pre class="pane" data-pane="artifact"><span class="cm">// the model wrote a document; core renders the card</span>
 viewport.<span class="fn">addSegment</span>(mid, &#123;
   id: <span class="st">'a1'</span>, type: <span class="st">'artifact'</span>,
