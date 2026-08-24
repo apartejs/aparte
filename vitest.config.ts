@@ -128,7 +128,7 @@ export default defineConfig({
         // clock tests reached the artifact card's save path and the bubble's
         // timestamp. Measured 71.75%. Functions and branches stay where they are —
         // 81.69% and 72.61%, both inside the three-point band already.
-        'packages/core/src/renderers/**': { lines: 70, statements: 70, functions: 79, branches: 72 },
+        'packages/core/src/renderers/**': { lines: 73, statements: 73, functions: 83, branches: 72 },
       },
     },
   },
