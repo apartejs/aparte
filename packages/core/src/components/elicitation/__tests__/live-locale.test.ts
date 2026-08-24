@@ -17,7 +17,7 @@ import '../../composer/aparte-composer.js';
 import '../../composer/aparte-composer-input.js';
 import '../../composer/aparte-composer-send.js';
 import { aparteGlobalConfig } from '../../../config/aparte-config.js';
-import type { AparteElicitationResult } from '../../../types/index.js';
+import type { AparteElicitationResult } from '../../../elicitation/types.js';
 
 const FR = () => ({
     ...aparteGlobalConfig.getLocale(),
