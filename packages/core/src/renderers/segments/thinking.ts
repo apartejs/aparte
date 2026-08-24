@@ -45,6 +45,14 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * zero-dependency default (escape + `<br>`), which is what it used to be.
      */
     render: (segment) => `<details class="segment segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed ? '' : 'open'}><summary class="thinking-header"><span class="thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    /**
+     * The default label is the only config-derived text here — and `segment.label`
+     * still wins, exactly as in `render`, because that string is the app's.
+     */
+    relabel: (el, segment) => {
+        const label = el.querySelector('.thinking-label');
+        if (label) label.textContent = segment.label || contextConfig().t('thinking');
+    },
     update: (el, segment) => {
         // collapsed state is managed by _applySegmentUpdate based on explicit updates only —
         // never override what the user set by clicking <summary>

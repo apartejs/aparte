@@ -40,5 +40,15 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
         </div>
     `;
     },
+    /**
+     * Only the icon: this card's "Error" heading is a hardcoded literal, never routed
+     * through `t()`, so no config change can reach it. Giving it a locale key is a
+     * separate, additive change.
+     */
+    relabel: (element) => {
+        const wrap = element.querySelector('.error-icon-wrapper');
+        if (wrap) wrap.innerHTML = contextConfig().getIcon('error') || '⚠';
+    },
+
     getStyles: () => ``
 };

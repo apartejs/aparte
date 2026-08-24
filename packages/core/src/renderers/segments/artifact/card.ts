@@ -107,6 +107,23 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             </div>
         `;
     },
+    /**
+     * The copy button's tooltip and glyph — which is ALL this card takes from the
+     * config today. Its `aria-label="Copy"`, the download button's title and label,
+     * and the "Preview" / "Code" tab names are hardcoded literals, so no language
+     * change can reach them and this hook cannot fix that. Routing them through
+     * `t()` needs new locale keys, and is its own additive change.
+     *
+     * Nothing here touches the tab state or the preview pane: a mounted iframe is
+     * running model-authored code, and re-rendering this card is exactly what the
+     * hook exists to avoid.
+     */
+    relabel: (element: HTMLElement) => {
+        const copyBtn = element.querySelector('.aparte-art-card__btn[data-action="copy"]');
+        if (!copyBtn) return;
+        copyBtn.setAttribute('title', contextConfig().t('copy'));
+        copyBtn.innerHTML = contextConfig().getIcon('copy');
+    },
     setup: (element: HTMLElement, segment: AparteArtifactSegment) => {
         latestSegment.set(element, segment);
         const kind = (segment.artifactType || '').toLowerCase();

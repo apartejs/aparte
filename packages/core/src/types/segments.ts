@@ -306,6 +306,30 @@ export interface AparteSegmentRenderer<T extends AparteSegmentBase = AparteSegme
     update?(element: HTMLElement, segment: T): void;
 
     /**
+     * Optional: re-read the CONFIG-DERIVED text of an already-rendered segment —
+     * an icon from the icon provider, a label from the locale.
+     *
+     * Called when the config changes (a language switch, a new icon set), on every
+     * segment already on screen. Bound by the same rule as `update()`: **must not
+     * add or remove child nodes** — only attributes and textContent — so the
+     * viewport's childList observer stays quiet and scroll does not move.
+     *
+     * This exists because the obvious alternative does not work. Re-rendering the
+     * segments container to pick up a new locale destroys state the DOM owns and the
+     * segment data does not: a mounted sandboxed artifact preview, a reasoning block
+     * the reader expanded by clicking `<summary>` (which never writes back to
+     * `collapsed`), scroll position inside a long terminal, the focus on an
+     * Approve/Reject gate, and the buffered lookahead of the incremental Markdown
+     * parser mid-stream. It also fires container-wide childList mutations, which is
+     * exactly what the rule above forbids.
+     *
+     * Implement it only if the rendered output contains text or icons that came from
+     * the config. A renderer whose chrome is entirely its own data — `file-tree`,
+     * `progress` — correctly does not, exactly as it does not implement `update()`.
+     */
+    relabel?(element: HTMLElement, segment: T): void;
+
+    /**
      * Optional: Cleanup when segment is removed
      * @param element - The DOM element being removed
      */
