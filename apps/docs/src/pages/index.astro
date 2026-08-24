@@ -371,7 +371,7 @@ message.segments = [
                      the app owns its own copy — but it also meant the Language lever could not
                      move the one string a visitor is looking straight at. Letting the locale
                      drive it costs a branded sentence and buys an honest demo. -->
-                <aparte-chat attachments center-empty></aparte-chat>
+                <aparte-chat attachments></aparte-chat>
               </div>
             </div>
           </div>
@@ -389,7 +389,7 @@ message.segments = [
 <span class="kw">import</span> <span class="st">'@aparte/core'</span>;
 <span class="kw">import</span> <span class="st">'@aparte/core/styles.css'</span>;
 
-<span class="tg">&lt;aparte-chat attachments center-empty&gt;&lt;/aparte-chat&gt;</span>
+<span class="tg">&lt;aparte-chat attachments&gt;&lt;/aparte-chat&gt;</span>
 
 composer.<span class="fn">addEventListener</span>(<span class="st">'aparte-send'</span>, (e) =&gt; &#123;
   <span class="kw">const</span> &#123; content, files &#125; = e.detail;
@@ -763,7 +763,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         setTimeout(() => { copyBtn.innerHTML = original; }, 1400);
       });
 
-      // ── the real chat: <aparte-chat center-empty> owns the empty→active slide ──
+      // ── the real chat ──
       const viewport = document.querySelector('aparte-chat-viewport') as any;
       // Awaited BEFORE any demo runs: core highlights a code block when it settles
       // and an artifact pane asynchronously, so a provider registered a moment later
@@ -995,8 +995,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       // `addSegment` gives each view a value it owns.
 
       function demoChat() {
-        // Opens on the empty state; the greeting after a beat trips the shell's
-        // empty→active slide on its own (the first bubble clears center-empty).
+        // Opens on the empty state, composer at the bottom where it stays.
         after(() => streamAssistant('Hi — I’m aparté, streaming this to you token by token. Attach a file, or ask about tool approval, branching or styling.'), 800);
       }
 
