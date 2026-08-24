@@ -24,7 +24,7 @@ export const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
                 <code class="terminal-command">${escapeHtml(segment.command || '')}</code>
                 <div class="terminal-actions">
                     ${segment.isRunning
-            ? `<span class="terminal-running"><span class="spinner"></span>${contextConfig().t('running')}</span>`
+            ? `<span class="terminal-running"><span class="spinner"></span><span class="terminal-running-label">${contextConfig().t('running')}</span></span>`
             : contextConfig().getHostHandlers().terminalRun
                 ? `<button class="terminal-run-btn" data-action="run" aria-label="${escapeAttr(contextConfig().t('run'))}" title="${escapeAttr(contextConfig().t('run'))}">${contextConfig().t('run')}</button>`
                 : ''}
@@ -39,6 +39,39 @@ export const terminalRenderer: AparteSegmentRenderer<AparteTerminalSegment> = {
             : ''}
         </div>
     `,
+    /**
+     * The icon, the two action buttons, and the running pill's label.
+     *
+     * The run button exists only when a host registered a `terminalRun` handler, and
+     * the running pill only while the command is in flight — so both are guarded
+     * rather than assumed. The label sits in its own span precisely so this can
+     * rewrite it without touching the spinner beside it, which the no-child-node rule
+     * forbids.
+     */
+    relabel: (element) => {
+        const cfg = contextConfig();
+        const icon = element.querySelector('.terminal-icon');
+        if (icon) icon.innerHTML = cfg.getIcon('terminal');
+
+        const running = element.querySelector('.terminal-running-label');
+        if (running) running.textContent = cfg.t('running');
+
+        const run = element.querySelector('.terminal-run-btn');
+        if (run) {
+            const label = cfg.t('run');
+            run.textContent = label;
+            run.setAttribute('aria-label', label);
+            run.setAttribute('title', label);
+        }
+
+        const copy = element.querySelector('.terminal-copy-btn');
+        if (copy) {
+            const label = cfg.t('copy');
+            copy.setAttribute('aria-label', label);
+            copy.setAttribute('title', label);
+            copy.innerHTML = cfg.getIcon('copy');
+        }
+    },
     setup: (element, segment) => {
         const copyBtn = element.querySelector('.terminal-copy-btn');
         const command = element.querySelector('.terminal-command');

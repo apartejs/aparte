@@ -423,6 +423,13 @@ registerSegmentRenderer<AparteThinkingSegment>({
     // it reading "Thinking" forever.
     writeDuration(el, segment);
   },
+  // And here, for the same reason one step further out: a language switch or a new
+  // icon set reaches a rendered segment through `relabel`, never through a second
+  // `render`. Forward to the built-in so its own label follows, then re-apply yours.
+  relabel: (el, segment) => {
+    builtIn.relabel?.(el, segment);
+    writeDuration(el, segment);
+  },
 });
 
 function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void {
@@ -538,6 +545,25 @@ It resolves *your* element's config on every event, so a change scoped to one ch
 a page with two of them reaches only that one — and never latches a config captured
 before your element was mounted. `APARTE_CONFIG_CHANGE` is exported too, if you would
 rather listen on `window` yourself.
+
+### Three moments, not one
+
+A renderer can be called at four moments, and forgetting one is the most common way a
+custom renderer goes half-stale:
+
+| Hook | When | Rule |
+|---|---|---|
+| `render` | the first time the segment appears | returns markup or an element |
+| `setup` | once, straight after `render` | wire listeners here |
+| `update` | a content delta, and when the segment settles | **no child node added or removed** |
+| `relabel` | the config changed — a language, an icon set | same rule as `update` |
+
+`relabel` exists because the obvious alternative does not work: re-rendering a segment
+to pick up a new locale throws away state the DOM owns and the segment data does not —
+a preview iframe that is running, a reasoning block the reader expanded by clicking
+`<summary>`, scroll position inside a long terminal, the focus on an Approve/Reject
+button. Implement it only if your output contains text or icons that came from the
+config; a renderer whose chrome is all its own data correctly leaves it out.
 
 ## Content providers (opt-in)
 

@@ -30,6 +30,15 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             </div>
         </div>
     `,
+    /** The copy button's icon and tooltip — nothing else here comes from config. */
+    relabel: (element) => {
+        const copyBtn = element.querySelector('.code-copy') as HTMLElement | null;
+        // Leave a button mid-"copied" alone; its own timeout restores the resting
+        // state from the new config a moment later anyway.
+        if (!copyBtn || copyBtn.dataset.copied) return;
+        copyBtn.setAttribute('title', contextConfig().t('copy'));
+        copyBtn.innerHTML = contextConfig().getIcon('copy');
+    },
     setup: (element, segment) => {
         // Async highlight: replace plain <pre><code> with highlighted HTML once ready
         const wrapper = element.querySelector('.code-content-wrapper');
@@ -39,7 +48,9 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
         }
 
-        const copyBtn = element.querySelector('.code-copy');
+        // Typed as HTMLElement: the confirmation is marked with a data attribute so
+        // `relabel` can leave it alone, and `dataset` is not on `Element`.
+        const copyBtn = element.querySelector('.code-copy') as HTMLElement | null;
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
                 // Read the DOM, not the segment this closure captured.
@@ -63,9 +74,15 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                 void navigator.clipboard.writeText(source).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
+                // Marked, so `relabel` does not cancel a confirmation the reader is
+                // still looking at. The flag is also the only way to tell the two
+                // states apart: they differ by title and icon alone, and after a
+                // locale switch the old title matches nothing.
+                copyBtn.dataset.copied = '1';
                 setTimeout(() => {
                     copyBtn.innerHTML = contextConfig(copyBtn).getIcon('copy');
                     copyBtn.setAttribute('title', contextConfig(copyBtn).t('copy'));
+                    delete copyBtn.dataset.copied;
                 }, 1500);
             });
         }

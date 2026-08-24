@@ -152,7 +152,37 @@ export class AparteChatBubble extends HTMLElement {
     // one. `_renderAvatar` tears down the previous mount before re-mounting, so
     // calling it again is safe, and it no-ops when no provider is registered.
     this._renderAvatar();
+    this._relabelSegments();
   };
+
+  /**
+   * Ask every rendered segment to re-read its config-derived text.
+   *
+   * Not `_renderSegments()`, which wipes the container and rebuilds: that destroys a
+   * mounted artifact preview, reverts a reasoning block the reader expanded by
+   * clicking `<summary>` (the DOM's real state is never written back to `collapsed`),
+   * resets scroll inside long terminal panes, drops focus from an Approve/Reject
+   * gate, and throws away the incremental Markdown parser's buffered lookahead
+   * mid-stream — for a change that added no content. It also fires container-wide
+   * childList mutations, which is what the viewport's observer reads as "scroll to
+   * the bottom".
+   *
+   * `relabel` is the narrow alternative, bound by the same no-child-node rule as
+   * `update()`. A renderer that has no config-derived text does not implement it,
+   * and this loop simply skips it.
+   */
+  private _relabelSegments(): void {
+    if (!this._segmentsEl) return;
+    for (const segment of this._segments) {
+      const renderer = resolveSegmentRenderer(segment.type, this._cfg);
+      if (!renderer?.relabel) continue;
+      const el = this._segmentsEl.querySelector(
+        `:scope > [data-segment-id="${cssEscape(segment.id)}"]`,
+      ) as HTMLElement | null;
+      if (!el) continue;
+      runWithConfig(this._cfg, () => renderer.relabel!(el, segment));
+    }
+  }
 
   /**
    * Re-apply the locale strings written straight into the markup by `_render()` —

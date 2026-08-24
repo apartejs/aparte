@@ -65,6 +65,41 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
             </div>
         `;
     },
+    /**
+     * The pill's glyphs and — when the turn is paused for a person — the two labels
+     * on the approval gate. Those are the highest-stakes strings in the library: a
+     * reader deciding whether to let a tool run should not be reading them in a
+     * language they did not choose.
+     *
+     * No child node is added or removed, so the buttons keep their listeners and,
+     * critically, their FOCUS — this is the one control a keyboard user may be
+     * sitting on when a config change fires.
+     */
+    relabel: (element, segment) => {
+        const cfg = contextConfig();
+        const icon = element.querySelector('.tool-pill-icon');
+        if (icon) icon.innerHTML = cfg.getIcon('tool');
+        const statusEl = element.querySelector('.tool-pill-status');
+        if (statusEl) {
+            const s = segment.status;
+            statusEl.innerHTML = s === 'resolved'
+                ? cfg.getIcon('check')
+                : (s === 'aborted' || s === 'rejected') ? cfg.getIcon('close') : '';
+        }
+        const loc = cfg.getLocale();
+        const approve = element.querySelector('.tool-approve-btn');
+        if (approve) {
+            const label = loc.approveTool ?? 'Approve';
+            approve.textContent = label;
+            approve.setAttribute('aria-label', label);
+        }
+        const reject = element.querySelector('.tool-reject-btn');
+        if (reject) {
+            const label = loc.rejectTool ?? 'Reject';
+            reject.textContent = label;
+            reject.setAttribute('aria-label', label);
+        }
+    },
     setup: (element, segment) => {
         // Built-in approval gate: wire Approve/Reject → aparte-tool-decision.
         if (segment.status === 'awaiting-approval') {
