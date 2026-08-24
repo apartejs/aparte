@@ -7,6 +7,7 @@
  */
 import { escapeHtml, escapeAttr } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
+import { streamHighlight } from '../highlight-stream.js';
 import type {
     AparteSegmentRenderer,
     AparteCodeSegment,
@@ -89,17 +90,11 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     },
     update: (element, segment) => {
         if (segment.isStreaming) {
-            // During streaming: update raw text only to avoid firing highlight on every token.
-            // The code-content-wrapper may contain either the plain <pre><code> (initial render)
-            // or highlighted HTML (from a previous async highlight). Update the innermost
-            // <code> element if present; otherwise fall back to the wrapper itself.
-            const codeEl = element.querySelector('.code-content-wrapper code');
-            if (codeEl) {
-                codeEl.textContent = segment.content;
-            } else {
-                const wrapper = element.querySelector('.code-content-wrapper');
-                if (wrapper) wrapper.innerHTML = `<pre><code class="language-${escapeHtml(segment.language || 'text')}">${escapeHtml(segment.content)}</code></pre>`;
-            }
+            // Coloured WHILE it streams, which it was not: this branch used to write
+            // plain text and leave every highlight to stream-end, so a fence appeared
+            // grey and turned colour once, at the end. The artifact card had solved the
+            // same problem, which made this renderer the outlier rather than the design.
+            streamHighlight(element, '.code-content-wrapper', segment.content, segment.language || '', segment.id);
         } else {
             // Streaming complete — run the highlight provider for polished output.
             const wrapper = element.querySelector('.code-content-wrapper');

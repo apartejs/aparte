@@ -20,7 +20,8 @@ import { escapeHtml, escapeAttr } from '../../../utils/escape.js';
 import { contextConfig } from '../../../config/index.js';
 import type { AparteArtifactSegment, AparteSegmentRenderer } from '../../../types/index.js';
 import { deriveArtifactKind } from '../../../parsers/aparte-stream-parser.js';
-import { stripCodeFences, labelForKind, debounceHighlight } from './shared.js';
+import { stripCodeFences, labelForKind } from './shared.js';
+import { streamHighlight } from '../../highlight-stream.js';
 import { PREVIEW_CSP, buildSafePreviewDocument } from './preview-document.js';
 import {
     renderBinaryFileArtifact,
@@ -245,22 +246,25 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         const wasStreaming = element.getAttribute('data-streaming') === 'true';
         const cleanContent = stripCodeFences(segment.content || '');
 
-        // 1. Live-update the code pane during streaming
-        const codeEl = element.querySelector('.code-content-wrapper code');
-        if (codeEl) {
-            codeEl.textContent = cleanContent;
-        } else {
-            const wrapper = element.querySelector('.code-content-wrapper');
-            if (wrapper) {
-                const displayLang = languageForKind(kind);
-                wrapper.innerHTML = `<pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>`;
-            }
-        }
-        // Debounced syntax-highlight during streaming so the user sees
-        // colors progressively rather than only at stream-end.
+        // 1. Live-update the code pane during streaming.
+        //
+        // One call owns both halves — the plain tail every token and the coloured
+        // prefix on a throttle. Setting `textContent` here as well is what made the
+        // pane flicker: it erased the highlighter's spans on every token.
         if (isStreaming) {
             const segId = element.getAttribute('data-segment-id') ?? segment.id;
-            debounceHighlight(element, '.code-content-wrapper', cleanContent, languageForKind(kind), segId);
+            streamHighlight(element, '.code-content-wrapper', cleanContent, languageForKind(kind), segId);
+        } else {
+            const codeEl = element.querySelector('.code-content-wrapper code');
+            if (codeEl) {
+                codeEl.textContent = cleanContent;
+            } else {
+                const wrapper = element.querySelector('.code-content-wrapper');
+                if (wrapper) {
+                    const displayLang = languageForKind(kind);
+                    wrapper.innerHTML = `<pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>`;
+                }
+            }
         }
 
         // 2. On stream-completion: highlight + build preview iframe + auto-switch

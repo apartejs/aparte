@@ -19,7 +19,8 @@
 import { escapeHtml } from '../../../utils/escape.js';
 import { contextConfig } from '../../../config/index.js';
 import type { AparteArtifactSegment } from '../../../types/index.js';
-import { stripCodeFences, labelForKind, markThrottle, debounceHighlight } from './shared.js';
+import { stripCodeFences, labelForKind } from './shared.js';
+import { markThrottle, streamHighlight } from '../../highlight-stream.js';
 
 
 const FILE_ICON_LABEL: Record<string, string> = {
@@ -344,12 +345,11 @@ export function updateBinaryFileArtifact(element: HTMLElement, segment: AparteAr
     // Live-update the streaming code via textContent (cheap), then schedule
     // a debounced syntax-highlight so colors appear progressively without
     // saturating the main thread.
-    const codeEl = element.querySelector<HTMLElement>('[data-role="code-pane"] code');
-    if (codeEl) {
-        codeEl.textContent = cleanContent;
-    }
     if (isStreaming) {
-        debounceHighlight(element, '[data-role="code-pane"]', cleanContent, 'js', segment.id);
+        streamHighlight(element, '[data-role="code-pane"]', cleanContent, 'js', segment.id);
+    } else {
+        const codeEl = element.querySelector<HTMLElement>('[data-role="code-pane"] code');
+        if (codeEl) codeEl.textContent = cleanContent;
     }
 
     if (!isStreaming && state === 'streaming') {
