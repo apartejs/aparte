@@ -12,7 +12,7 @@ import type {
 } from '../../types/index.js';
 
 /** The one string this segment has, and the only thing a screen reader gets from it. */
-const waitingLabel = (): string => contextConfig().getLocale().generating ?? 'Generating…';
+const waitingLabel = (): string => contextConfig().t('generating');
 
 export const pipelineWaitingRenderer: AparteSegmentRenderer = {
     type: 'pipeline-waiting',
