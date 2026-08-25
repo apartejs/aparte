@@ -127,6 +127,27 @@ describe('defaultSanitizer', () => {
             expect(out).toContain('--shiki-light:#111');
         });
 
+        it('and an ESCAPED spelling of our namespace does not get through', () => {
+            /*
+             * The audit's one security finding, and the asymmetry behind it.
+             *
+             * `SAFE_STYLE_PROPS.has(prop)` is an allowlist, so an escape defeats itself —
+             * `col\6fr` is not in the set and the declaration dies. The custom-property
+             * test is a DENYLIST ("anything but ours"), and an escape defeats a denylist
+             * the other way: `--\61 parte-text` does not start with `--aparte-`, so it
+             * passed, and the browser decodes the ident back to `--aparte-text`.
+             *
+             * The assertion is about OUR layer, not about how an engine decodes: no
+             * backslash survives in a property name, so the namespace is unreachable
+             * whatever the decoding turns out to be.
+             */
+            const out = s('<span style="--\\61 parte-text:#fff;--shiki-light:#111">x</span>');
+            expect(out, 'an escaped --aparte-* must not survive').not.toContain('61 parte-text');
+            expect(out).not.toContain('\\');
+            // …and a legitimate neighbour in the same declaration list still does.
+            expect(out).toContain('--shiki-light:#111');
+        });
+
         it('and the value rules still apply to a custom property', () => {
             // Allowing the NAME does not relax the VALUE: the same scrubbing that
             // guards `color` guards this, unchanged.

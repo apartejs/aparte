@@ -39,7 +39,13 @@
  * live in `element-bindings.config.mjs` beside the package, so the exception is visible
  * rather than hidden in a generator branch.
  *
- * Usage: node scripts/gen-element-bindings.mjs <packageDir> [--check]
+ * Usage: node scripts/gen-element-bindings.mjs <packageDir> --registry <dir> [--angular <dir>]
+ *
+ * This line used to promise a `[--check]` flag that was never implemented — passing it
+ * regenerated silently instead of verifying. It is not added, because the need it would
+ * serve was measured and does not exist: a hand-edited generated file is wiped both by a
+ * fresh `pnpm build` AND by a fully cached one, since nx restores its own output over the
+ * edit. These files cannot drift, so there is nothing for a check mode to catch.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
