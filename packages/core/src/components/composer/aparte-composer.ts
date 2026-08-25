@@ -63,6 +63,10 @@ export interface AparteComposerChangeEventDetail {
  * @attr {string} placeholder - Forwarded to `<aparte-composer-input>` through the internal bus.
  * @attr {boolean} disabled - Disables the whole composer, every part included.
  * @attr {string} target - The id of the `<aparte-chat>` this composer drives.
+ * @attr {boolean} submit-on-enter - Enter sends and Shift+Enter breaks the line (the
+ *   default); set it to the string `"false"` to swap them. Read lazily by the
+ *   `submitOnEnter` getter rather than observed, which is why it was missing from the
+ *   manifest — and so from every typed surface — while all four wrappers wrote it.
  *
  * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was submitted: the text, its attachments and the target.
  * @fires aparte-cancel - The stop button was pressed. No detail; the two window events below carry the target.
@@ -304,16 +308,43 @@ export class AparteComposer extends HTMLElement {
     }
 
     /**
-     * Remove the panel and restore the composer's own controls.
+     * Remove the panel, tell its owner, and restore the composer's own controls.
      *
      * With a `token`, this closes the panel only if that token still owns the slot —
      * so a presenter settling late cannot tear down the panel that replaced it. With
      * no token it closes whatever is there, which is what a consumer driving the
-     * composer directly means, and what `reset()` needs.
+     * composer directly means.
+     *
+     * BOTH forms notify. The no-token form used to call `_teardownPanel` directly,
+     * which nulls `_panelOnEvict` without ever calling it — so the documented public
+     * `hidePanel()` closed an open approval panel and left its request pending
+     * forever. The turn hung on "waiting for you", and because
+     * `AparteConfig.requestUserInput` chains each request on the previous one, NO
+     * further question or approval on that config was ever presented again, for the
+     * life of the page.
+     *
+     * The old JSDoc justified the silent branch as "what `reset()` needs". It was not:
+     * `reset()` calls `_evictPanel()`, which notifies. The branch had no consumer and
+     * one failure mode.
+     *
+     * The two forms differ on purpose, and the difference is who already knows:
+     *
+     * - **With a matching token** the OWNER is closing its own panel, which is what
+     *   `<aparte-elicitation>`'s `close()` does right after it resolves. It must NOT be
+     *   notified — telling it "you were evicted" for a request it just settled would
+     *   fire `onEvict` against a finished promise.
+     * - **With no token** somebody else is closing a panel they do not own, so the owner
+     *   cannot know and has to be told. That includes the presenter's own defensive
+     *   `hidePanel(undefined)` when it settles before `showPanel` ran: whatever is open
+     *   then belongs to another request, and that request must not orphan.
      */
     hidePanel(token?: symbol): void {
-        if (token !== undefined && token !== this._panelToken) return;
-        this._teardownPanel();
+        if (token !== undefined) {
+            if (token !== this._panelToken) return;
+            this._teardownPanel();
+            return;
+        }
+        this._evictPanel();
     }
 
     /** Close the panel AND tell its owner, so a pending request never orphans. */
@@ -414,7 +445,20 @@ export class AparteComposer extends HTMLElement {
         // aparte-message-aborted → resets the composer's own streaming state
         // Scope the abort to this composer's host so cancelling one chat doesn't
         // abort every scoped client / reset every composer on the page.
-        const abortDetail = { targetId: this.targetId ?? undefined };
+        /*
+         * `_ownTargetId()`, not the bare attribute.
+         *
+         * The receive side got this fix and the SEND side did not, which left the whole
+         * scoping inert in raw core: nothing writes the `target` attribute in the
+         * hand-written markup the quick start shows, so this detail carried
+         * `targetId: undefined` — and `_isForThisComposer` treats a missing id as "for
+         * everyone". So Stop in chat A still tore down chat B's open panel, which is
+         * exactly the failure `_ownTargetId`'s own docblock describes as fixed.
+         *
+         * Both sides now resolve the same way: the attribute if the wrapper set one,
+         * otherwise the id of the chat host above us.
+         */
+        const abortDetail = { targetId: this._ownTargetId() };
         window.dispatchEvent(new CustomEvent('aparte-abort', { bubbles: false, detail: abortDetail }));
         window.dispatchEvent(new CustomEvent('aparte-message-aborted', { bubbles: false, detail: abortDetail }));
     }

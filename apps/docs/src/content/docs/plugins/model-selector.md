@@ -62,7 +62,7 @@ import '@aparte/plugin-model-selector/react';   // or /vue, or /svelte
 ```
 
 After that the tag is checked like any other: a typo, a wrong value type, or an
-attribute the element does not observe is a compile error.
+wrong value type is a compile error.
 
 ```tsx
 <aparte-model-selector persist="" searchable="" placeholder="Pick a model" />

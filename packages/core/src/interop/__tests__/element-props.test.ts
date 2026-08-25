@@ -62,4 +62,62 @@ describe('applyElementProps — the rest of the chain still behaves', () => {
         applyElementProps(el, { segments });
         expect((el as unknown as { segments: unknown }).segments).toBe(segments);
     });
+
+    /*
+     * A custom property with no value must be REMOVED, not stringified.
+     *
+     * Setting it to the token `undefined` is strictly worse than leaving it alone:
+     * because the property is then SET, every `var(--x, <default>)` in core's stylesheet
+     * skips its fallback and becomes invalid at computed-value time, so the whole
+     * declaration is dropped and the control renders unstyled rather than with the theme
+     * default. `props={{ '--aparte-select-bg': theme.selectBg }}` on an optional field is
+     * exactly how a consumer reaches it.
+     */
+    it('a custom property with no value is removed, not set to "undefined"', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { '--aparte-primary': 'red' });
+        expect(el.style.getPropertyValue('--aparte-primary')).toBe('red');
+
+        applyElementProps(el, { '--aparte-primary': undefined });
+        expect(el.style.getPropertyValue('--aparte-primary')).toBe('');
+
+        applyElementProps(el, { '--aparte-primary': 'red' });
+        applyElementProps(el, { '--aparte-primary': null });
+        expect(el.style.getPropertyValue('--aparte-primary')).toBe('');
+    });
+
+    it('a custom property never receives "[object Object]"', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { '--aparte-primary': { r: 1 } });
+        expect(el.style.getPropertyValue('--aparte-primary')).toBe('');
+    });
+
+    /*
+     * `NaN` removes the attribute rather than writing the string "NaN".
+     *
+     * Angular's `numberAttribute` returns `NaN` for undefined, null, '' and any
+     * non-numeric expression, so `[scrollThreshold]="cfg.threshold"` on an unset field
+     * wrote `scroll-threshold="NaN"`. Core's fallbacks could not recover — `'NaN'` is
+     * truthy, so `parseInt('NaN' || '50', 10)` is NaN — and the transcript stopped
+     * following a streaming reply for the rest of the session.
+     */
+    it('NaN removes the attribute instead of writing the string', () => {
+        const el = document.createElement('div');
+        applyElementProps(el, { 'scroll-threshold': 64 });
+        expect(el.getAttribute('scroll-threshold')).toBe('64');
+
+        applyElementProps(el, { 'scroll-threshold': Number.NaN });
+        expect(
+            el.hasAttribute('scroll-threshold'),
+            'a "NaN" string defeats every parseInt fallback downstream',
+        ).toBe(false);
+    });
+
+    it('still writes 0, which is a real value and not a missing one', () => {
+        // The guard above must not swallow falsy numbers: `[value]="0"` on the progress
+        // spinner means 0%, and removing it would mean "indeterminate".
+        const el = document.createElement('div');
+        applyElementProps(el, { value: 0 });
+        expect(el.getAttribute('value')).toBe('0');
+    });
 });

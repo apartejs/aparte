@@ -240,20 +240,22 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const cfg = contextConfig();
         const icon = element.querySelector('.aparte-tool-icon');
         if (icon) icon.innerHTML = cfg.getIcon('tool');
+        // Through `stateBadge`, which is the whole point of it existing.
+        //
+        // This used to rebuild the badge by hand as the ICON ALONE, so any config change
+        // — `setLocale`, `setIconProvider`, `registerTool`, `reset()`, anything that
+        // calls `_notify()` — permanently deleted the localized state word that
+        // `stateBadge` renders beside it. "✓ Done" became "✓", and `pending`'s "Running"
+        // became empty. Four of five statuses regressed; only `awaiting-approval`
+        // survived, because a second line below re-wrote it.
+        //
+        // Which is exactly what `stateBadge`'s own docblock says it prevents: "One
+        // function so `render` and `update` cannot disagree". `relabel` was never folded
+        // in. It is now, so there is no third spelling of the badge to keep in step —
+        // and the approval-waiting special case goes with it, since `stateBadge` already
+        // returns the localized `approvalWaiting` for that status.
         const statusEl = element.querySelector('.aparte-tool-state');
-        if (statusEl) {
-            const s = segment.status;
-            statusEl.innerHTML = s === 'resolved'
-                ? cfg.getIcon('check')
-                : (s === 'aborted' || s === 'rejected') ? cfg.getIcon('close') : '';
-        }
-        // The two approval labels used to be relabelled here. They live on the panel
-        // now, which relabels itself. What is left on this side is the waiting label —
-        // and it still matters that a language switch reaches it, because the request it
-        // describes may be open for as long as a person takes to decide.
-        if (statusEl && segment.status === 'awaiting-approval') {
-            statusEl.textContent = cfg.t('approvalWaiting');
-        }
+        if (statusEl) statusEl.innerHTML = stateBadge(segment);
     },
     /**
      * Patch in place. NEVER re-render, and never touch `open`.

@@ -30,6 +30,7 @@ import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
 import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
+import { chatBoundaryOf } from '../utils/chat-boundary.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
 export type AparteHighlightProvider =
@@ -174,9 +175,27 @@ export class AparteConfig {
     // Conversation persistence (optional, agnostic)
     private _conversationManager?: AparteConversationManager;
 
-    // Human-in-the-loop: presents typed input requests (ask_user,
-    // tool approval, forms). Set by the <aparte-elicitation> Web Component.
-    private _elicitationPresenter?: AparteElicitationPresenter;
+    /*
+     * Human-in-the-loop: presents typed input requests (ask_user, tool approval,
+     * forms). Registered by the `<aparte-elicitation>` Web Component.
+     *
+     * A STACK, not one slot, and that is the fix for two real failures. Since
+     * `<aparte-elicitation>` entered `<aparte-chat>`'s default composition, two plain
+     * `<aparte-chat>` elements on a page each register one on the same global config:
+     *
+     *   - the second clobbered the first, so chat A's approval opened under chat B, and
+     *     answering it under B decided A's tool call;
+     *   - and when B unmounted it cleared the slot, leaving chat A mounted with a
+     *     perfectly good presenter that never re-registered — every later approval and
+     *     every `ask_user` in A rejected `no-presenter` for the life of the page,
+     *     silently, because the warning fires at most once per config.
+     *
+     * Each entry carries the element that registered it, so a request naming a `target`
+     * is routed to the presenter in the SAME chat. `AparteElicitationRequest.target` was
+     * already documented as "used to resolve WHICH instance presents"; the single slot
+     * is what made that impossible.
+     */
+    private _elicitationPresenters: Array<{ fn: AparteElicitationPresenter; owner?: HTMLElement }> = [];
     /** Warn once per config, not once per request — a tool loop can ask repeatedly. */
     private _warnedNoPresenter = false;
     /**
@@ -277,7 +296,7 @@ export class AparteConfig {
      * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
      *
      * @example
-     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
      */
     setHostHandlers(config: AparteHostHandlersConfig): void {
         this._hostHandlers = { ...this._hostHandlers, ...config };
@@ -1118,29 +1137,93 @@ export class AparteConfig {
      * The `<aparte-elicitation>` Web Component registers itself here; an app can
      * override with its own framework-native presenter. Pass `null` to clear.
      */
-    setElicitationPresenter(presenter: AparteElicitationPresenter | null): void {
-        this._elicitationPresenter = presenter ?? undefined;
+    setElicitationPresenter(presenter: AparteElicitationPresenter | null, owner?: HTMLElement): void {
+        if (presenter === null) {
+            // "Turn it off" — an app deliberately clearing, and what `reset()` means.
+            this._elicitationPresenters = [];
+            return;
+        }
+        // Re-registering moves an existing entry to the top rather than duplicating it,
+        // so `aparteConfigChanged` firing twice cannot leave two copies behind.
+        this._elicitationPresenters = this._elicitationPresenters.filter(e => e.fn !== presenter);
+        this._elicitationPresenters.push(owner === undefined ? { fn: presenter } : { fn: presenter, owner });
     }
 
-    /** The registered elicitation presenter, or undefined if none. */
+    /**
+     * Withdraw ONE presenter, named, leaving any others registered.
+     *
+     * This is what an unmounting `<aparte-elicitation>` needs and what
+     * `setElicitationPresenter(null)` could not express: clearing the slot took every
+     * other mounted chat's presenter down with it. Removing a presenter that is not
+     * registered is a no-op.
+     */
+    removeElicitationPresenter(presenter: AparteElicitationPresenter): void {
+        this._elicitationPresenters = this._elicitationPresenters.filter(e => e.fn !== presenter);
+    }
+
+    /**
+     * The presenter a request with no `target` would reach — the most recently
+     * registered one. Kept for the callers that ask "is anybody able to present?".
+     */
     getElicitationPresenter(): AparteElicitationPresenter | undefined {
-        return this._elicitationPresenter;
+        return this._elicitationPresenters[this._elicitationPresenters.length - 1]?.fn;
+    }
+
+    /**
+     * The presenter that should handle THIS request.
+     *
+     * A `target` is an element inside the asking chat, so the presenter registered from
+     * the same chat is the right one — found by comparing chat boundaries rather than by
+     * `contains`, because the presenter is a sibling of the transcript, not an ancestor
+     * of it. With no target, no match, or no boundary to compare, the top of the stack
+     * is the answer, which is exactly the old single-slot behaviour.
+     */
+    private _presenterFor(target?: HTMLElement | null): AparteElicitationPresenter | undefined {
+        const stack = this._elicitationPresenters;
+        if (stack.length === 0) return undefined;
+        if (target) {
+            const wanted = chatBoundaryOf(target);
+            if (wanted) {
+                // Last registered wins among equals, matching the stack's own order.
+                for (let i = stack.length - 1; i >= 0; i -= 1) {
+                    const entry = stack[i] as { fn: AparteElicitationPresenter; owner?: HTMLElement };
+                    if (entry.owner && chatBoundaryOf(entry.owner) === wanted) return entry.fn;
+                }
+            }
+        }
+        return stack[stack.length - 1]?.fn;
     }
 
     /**
      * Ask the user for typed input mid-run and await their response. This is the
      * generic primitive behind `ask_user` and tool approval — the KIND of
-     * question is the schema, not a bespoke tool. Resolves `accept` with the
-     * value, `decline` when the user declines, or `cancel` when the turn is
-     * cancelled.
+     * question is the schema, not a bespoke tool.
      *
-     * With NO presenter registered it resolves `cancel` rather than hanging — and
-     * warns, once, because that `cancel` is otherwise a lie told quietly. The
-     * model reads it as "the user refused"; the user was never asked, and the
-     * developer sees nothing at all. The default presenter is
-     * `<aparte-elicitation>`, which registers itself from its `connectedCallback`
-     * — so it has to be IN THE DOM. A docs page of ours claimed it "installs
-     * itself — nothing to register", which is how this failure mode was found.
+     * **Resolves** `accept` with the value, or `decline` when the user declines.
+     *
+     * **Rejects** — it does not resolve — when the request ends without an answer, with
+     * an {@link AparteElicitationAbortError} whose `name` is `'AbortError'` and whose
+     * `reason` is `'aborted'` (the turn was stopped, the signal fired, or another request
+     * took the question away) or `'no-presenter'` (nothing was mounted to ask it). So
+     * `await` it inside a `try`, or attach a `.catch()`.
+     *
+     * That is a change, and this block described the old behaviour for a whole release:
+     * "resolves `cancel` when the turn is cancelled", and "with NO presenter registered it
+     * resolves `cancel` rather than hanging". Both were false the moment `cancel` was
+     * removed — and the second is the one that bites, because a developer who reads
+     * "rather than hanging" writes no `.catch()` and gets an unhandled rejection. It ships
+     * in the `.d.ts` and in the custom-elements manifest, which is the API surface the
+     * docs site renders, so it was the most-read wrong sentence in the library.
+     *
+     * A value was removed rather than renamed on purpose: `cancel` was easy to handle as
+     * though it were an answer, and the approval gate did exactly that — it read a stopped
+     * turn as the user refusing a tool they were never shown.
+     *
+     * With no presenter it rejects `'no-presenter'` and warns once, because a request
+     * nobody could see is a setup mistake only the developer can fix. The default
+     * presenter is `<aparte-elicitation>`, which registers itself from its
+     * `connectedCallback` — so it has to be IN THE DOM. A docs page of ours claimed it
+     * "installs itself — nothing to register", which is how that was found.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
         const previous = this._elicitationQueue;
@@ -1168,7 +1251,10 @@ export class AparteConfig {
 
     /** Hand ONE request to the presenter. Called only from the queue. */
     private _present(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
-        if (!this._elicitationPresenter) {
+        // Routed by the request's own `target`, so two chats on one page each answer
+        // their own questions instead of the last-mounted one answering both.
+        const presenter = this._presenterFor(request.target);
+        if (!presenter) {
             if (!this._warnedNoPresenter) {
                 this._warnedNoPresenter = true;
                 console.warn(
@@ -1188,7 +1274,7 @@ export class AparteConfig {
          * that is already over would ask the user about nothing.
          */
         if (request.signal?.aborted) return Promise.reject(new AparteElicitationAbortError('aborted'));
-        return this._elicitationPresenter(request);
+        return presenter(request);
     }
 
     /**
@@ -1218,7 +1304,7 @@ export class AparteConfig {
         this._artifactPreviewBuilder = undefined;
         this._keyProvider = undefined;
         this._conversationManager = undefined;
-        this._elicitationPresenter = undefined;
+        this._elicitationPresenters = [];
         // The queue too: a request left waiting across a reset belongs to a chat that
         // no longer exists, and holding the tail would make the next request wait on it.
         this._elicitationQueue = null;

@@ -31,8 +31,18 @@ export interface AparteUiHandle {
  * package is imported the tag mounts empty and inert with no error, and upgrades on
  * its own once the definition arrives (which is what makes lazy-loading it work).
  *
+ * A PLUGIN's event is not in the default forward list — that default is core's, and a
+ * third-party plugin's author cannot add to it, so listing ours would privilege our
+ * packages over theirs. Name it in `events` and it arrives; leave it out and the handler
+ * silently never fires, which is what this example used to do.
+ *
  * @example
- * <AparteUi name="aparte-model-selector" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
+ * <AparteUi
+ *   name="aparte-model-selector"
+ *   props={{ placeholder: 'Ask…', '--glow-speed': '4s' }}
+ *   events={['aparte-model-change']}
+ *   onElementEvent={onEvent}
+ * />
  */
 export const AparteUi = forwardRef<AparteUiHandle, AparteUiProps>(function AparteUi(
     { name, props = {}, onElementEvent, events },

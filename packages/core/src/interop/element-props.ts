@@ -30,7 +30,7 @@
  * consumer gets without passing their own, so an event missing here is an event they
  * cannot hear through the proxy.
  */
-export const APARTE_DEFAULT_UI_EVENTS: readonly string[] = [
+export const APARTE_DEFAULT_UI_EVENTS = [
     // <aparte-composer> and its parts
     'aparte-send',
     'aparte-cancel',
@@ -59,7 +59,21 @@ export const APARTE_DEFAULT_UI_EVENTS: readonly string[] = [
     'aparte-select-open',
     'aparte-select-close',
     'aparte-optgroup-toggle',
-];
+] as const satisfies readonly string[];
+
+/**
+ * Every event name aparté dispatches ON an element, as a type.
+ *
+ * `as const` rather than `readonly string[]` because a TYPE needs the literals: the
+ * Svelte wrapper derives its `on:` surface from `HTMLElementEventMap`, which
+ * deliberately omits the five detail-less events (a map entry would type `e.detail` as
+ * `null` and gain nothing). That omission was harmless while it only governed
+ * `addEventListener`; once the wrapper DECLARED the tags it removed
+ * `SvelteHTMLElements`' catch-all index signature, and `on:aparte-cancel` — the stop
+ * button — stopped type-checking. This list already knows those five, so it is the
+ * honest source for "every event you can listen for".
+ */
+export type AparteUiEventName = typeof APARTE_DEFAULT_UI_EVENTS[number];
 
 /**
  * Apply props to an aparté custom element. aparté elements are
@@ -82,7 +96,23 @@ export function applyElementProps(
 ): void {
     for (const [key, value] of Object.entries(props)) {
         if (key.startsWith('--')) {
-            el.style.setProperty(key, String(value));
+            /*
+             * `null` / `undefined` REMOVE the property; they used to be stringified.
+             *
+             * `props={{ '--aparte-select-bg': theme.selectBg }}` with the field undefined
+             * set the custom property to the token `undefined`. That is strictly worse
+             * than not setting it: because the property is now SET, every
+             * `var(--aparte-select-bg, <default>)` in core's stylesheet skips its
+             * fallback and becomes invalid at computed-value time, so the declaration is
+             * dropped entirely and the control renders unstyled rather than with the
+             * theme default. An object came out as `[object Object]` the same way.
+             *
+             * Every other branch of this function already removed on null/undefined/false.
+             * This one was the exception, and consumers spread arbitrary prop bags in here.
+             */
+            if (value === null || value === undefined) el.style.removeProperty(key);
+            else if (typeof value === 'object' || typeof value === 'function') el.style.removeProperty(key);
+            else el.style.setProperty(key, String(value));
         } else if (key.startsWith('on')) {
             // Event handlers belong on the wrapper's event forwarding, not here —
             // and this drops them WHATEVER their type.
@@ -99,6 +129,24 @@ export function applyElementProps(
             // attach a listener here in the first place.
             el.removeAttribute(key);
         } else if (value === null || value === undefined || value === false) {
+            el.removeAttribute(key);
+        } else if (typeof value === 'number' && Number.isNaN(value)) {
+            /*
+             * `NaN` removes the attribute rather than writing the string "NaN".
+             *
+             * Angular's `numberAttribute` returns `NaN` for undefined, null, '' and any
+             * non-numeric expression, so `[scrollThreshold]="cfg.threshold"` with the
+             * field unset wrote `scroll-threshold="NaN"`. Core's own fallbacks could not
+             * recover: `parseInt('NaN' || '50', 10)` is NaN because `'NaN'` is truthy, so
+             * `_isAtBottom()` (`… <= NaN`) stayed false forever — the transcript stopped
+             * following a streaming reply and the scroll-to-bottom button never hid.
+             * `<aparte-progress-spinner [value]="pct">` with `pct` unset became a
+             * determinate ring frozen at 0% where the docblock promises the spinner.
+             *
+             * Removing it puts the element back on the default it documents, which is
+             * what the binding meant. Nothing in the type system can catch this: the
+             * generated directive emits `ngAcceptInputType_*: unknown`.
+             */
             el.removeAttribute(key);
         } else if (value === true) {
             el.setAttribute(key, '');

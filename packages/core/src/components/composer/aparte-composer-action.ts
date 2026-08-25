@@ -12,8 +12,17 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * @attr {string} icon - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`
  * @attr {string} label - Accessible label (also used as tooltip)
  * @attr {boolean} disabled - Disables the button
+ * @attr {string} action-id - Identifies WHICH button fired; carried as
+ *   `AparteActionClickEventDetail.actionId`. Read lazily at dispatch time rather than
+ *   observed, so the manifest never recorded it — leaving the only way to tell two
+ *   custom composer buttons apart absent from the typed surface.
  *
- * @fires aparte-action-click - Bubbles up when the button is clicked
+ * @fires {CustomEvent<AparteActionClickEventDetail>} aparte-action-click - Bubbles up when
+ *   the button is clicked, carrying which button it was and the composer it belongs to.
+ *   The type argument is not decoration: a BARE `@fires` records `CustomEvent` with no
+ *   argument, and the bindings generator then emits `EventEmitter<void>` with a
+ *   listener that drops `$event` — so an Angular consumer with two custom buttons
+ *   could not tell which one fired.
  *                            detail: { actionId: string, composer: AparteComposer | null }
  *
  * @slot default - Optional: override button content entirely

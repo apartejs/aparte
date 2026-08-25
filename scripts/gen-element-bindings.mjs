@@ -105,7 +105,7 @@ async function readConfig(pkgDir) {
 // ─────────────────────────────────────────────────────────────────────────────
 // The attribute registry: one interface per element, plus the tag → interface map.
 // ─────────────────────────────────────────────────────────────────────────────
-function renderAttributes(elements) {
+function renderAttributes(elements, config) {
     let out = BANNER + '\n';
     const empties = [];
 
@@ -118,7 +118,13 @@ function renderAttributes(elements) {
         out += `export interface ${name} {\n`;
         for (const a of attrs) {
             out += doc(a.description, '    ');
-            out += `    ${/^[a-z][a-zA-Z0-9]*$/.test(a.name) ? a.name : `'${a.name}'`}?: ${a.type?.text ?? 'string'};\n`;
+            // A three-state boolean is `boolean | 'false'` so the template types can
+            // express OFF. `AparteAttrValue` distributes over the union, so it lands on
+            // `'' | 'false' | null | undefined` — presence-on, string-off — with no
+            // change to the mapping type itself.
+            const declared = a.type?.text ?? 'string';
+            const widened = isThreeState(config, el.tagName, a.name) ? `${declared} | 'false'` : declared;
+            out += `    ${/^[a-z][a-zA-Z0-9]*$/.test(a.name) ? a.name : `'${a.name}'`}?: ${widened};\n`;
         }
         out += '}\n\n';
     }
@@ -166,6 +172,17 @@ function renderAttributes(elements) {
 
 /** `aparte-select-change` → `selectChange`. Every one of the 23 events follows this. */
 const outputName = (event) => camel(event.replace(/^aparte-/, ''));
+
+/**
+ * Is this attribute a THREE-STATE boolean — default on, off only via the literal
+ * `"false"` — rather than a presence attribute?
+ *
+ * The manifest cannot say: it records `{boolean}` for both shapes. The list lives in
+ * `element-bindings.config.mjs`, because getting it wrong inverts a control silently,
+ * which is exactly what `[multiple]="false"` did.
+ */
+const isThreeState = (config, tag, attr) =>
+    (config.threeStateBooleans?.[tag] ?? []).includes(attr);
 
 function renderAngular(elements, config) {
     const skip = new Set(config.angularSkip ?? []);
@@ -266,7 +283,16 @@ abstract class AparteElementBase {
             const prop = rename[a.name] ?? camel(a.name);
             const t = a.type?.text ?? 'string';
             out += doc(a.description, '    ');
-            if (t === 'boolean') {
+            if (t === 'boolean' && isThreeState(config, el.tagName, a.name)) {
+                // `true` writes the empty presence value, which the element reads as ON
+                // because `'' !== 'false'`; `false` writes the one string it accepts as OFF.
+                //
+                // Passing the boolean straight through — what the branch below does, and
+                // what every boolean used to do — REMOVES the attribute on `false`, and
+                // these elements read an absent attribute as ON. So `[multiple]="false"`
+                // turned multi-file selection on. That is the inversion this branch stops.
+                out += `    @Input({ transform: booleanAttribute }) set ${prop}(v: boolean) { this.write('${a.name}', v ? '' : 'false'); }\n`;
+            } else if (t === 'boolean') {
                 out += `    @Input({ transform: booleanAttribute }) set ${prop}(v: boolean) { this.write('${a.name}', v); }\n`;
             } else if (t === 'number') {
                 out += `    @Input({ transform: numberAttribute }) set ${prop}(v: number) { this.write('${a.name}', v); }\n`;
@@ -330,7 +356,7 @@ async function main() {
     if (registryOut) {
         const dir = resolve(root, registryOut);
         mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, 'element-attributes.ts'), renderAttributes(elements), 'utf8');
+        writeFileSync(join(dir, 'element-attributes.ts'), renderAttributes(elements, config), 'utf8');
         wrote++;
     }
 

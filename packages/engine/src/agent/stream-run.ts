@@ -460,7 +460,26 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     }
 
                     if (!decision.approved) {
-                        const rejection = 'Tool execution was rejected by the user.';
+                        /*
+                         * The user's own words when they gave them, and the fixed sentence
+                         * otherwise — byte-identical to core's twin, because this is the
+                         * only thing the model gets to read about the refusal.
+                         *
+                         * This branch used to hardcode the generic sentence. The resolver
+                         * type declared `instruction` and the whole loop never referenced
+                         * it, so on the engine path — the recommended one — a user who
+                         * refused and typed "use the staging bucket instead" had those
+                         * words dropped before the model saw them. Handing the model a
+                         * turn after a refusal exists SO THAT it reads the refusal; here
+                         * there was nothing to read.
+                         *
+                         * The parity suite could not see it: its resolver returned
+                         * `{ approved }` and never an instruction, so both loops agreed on
+                         * a case neither exercised. It supplies one now.
+                         */
+                        const rejection = decision.instruction
+                            ? `The user rejected this tool call and said: ${decision.instruction}`
+                            : 'Tool execution was rejected by the user.';
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
                         pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
                         append({ role: 'tool_result', content: rejection, toolCallId: event.id });

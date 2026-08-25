@@ -83,10 +83,44 @@ describe('the composer panel slot has an owner', () => {
     });
 
     it('still closes whatever is open when called with no token', () => {
-        // A consumer driving the composer directly, and `reset()`, both mean "close it".
+        // A consumer driving the composer directly means "close it".
         const composer = mount();
         composer.showPanel(panel('only'));
         composer.hidePanel();
         expect(composer.panelActive).toBe(false);
+    });
+
+    /*
+     * The half this suite used to miss, and it cost a wedged chat.
+     *
+     * Closing the panel was asserted; TELLING ITS OWNER was not. `hidePanel()` with no
+     * token called the silent teardown, which nulls `onEvict` without calling it — so a
+     * consumer's `composer.hidePanel()` left the presenter's request pending forever, and
+     * because `AparteConfig.requestUserInput` chains each request on the previous one, no
+     * further question or approval on that config was ever presented again.
+     */
+    it('TELLS the owner when a no-token call closes their panel', () => {
+        const composer = mount();
+        let evicted = 0;
+        composer.showPanel(panel('only'), { onEvict: () => { evicted += 1; } });
+
+        composer.hidePanel();
+
+        expect(composer.panelActive).toBe(false);
+        expect(evicted, 'the owner must be told, or its request orphans').toBe(1);
+    });
+
+    it('does NOT tell the owner when they close their own panel', () => {
+        // The other half of the same rule. `<aparte-elicitation>` calls
+        // `hidePanel(itsOwnToken)` immediately after it resolves; firing `onEvict` there
+        // would report an eviction for a request that just settled normally.
+        const composer = mount();
+        let evicted = 0;
+        const token = composer.showPanel(panel('only'), { onEvict: () => { evicted += 1; } });
+
+        composer.hidePanel(token);
+
+        expect(composer.panelActive).toBe(false);
+        expect(evicted, 'the owner already knows — it closed it').toBe(0);
     });
 });

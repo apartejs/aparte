@@ -41,8 +41,17 @@ export interface AparteTool {
 
 /**
  * Detail for `aparte-tool-approval-request` — emitted by the loop when a tool
- * marked `needsApproval` is about to run. Apps may listen to show a richer
- * approval surface; the built-in renderer already shows Approve/Reject inline.
+ * marked `needsApproval` is about to run.
+ *
+ * Listen for it to present the decision yourself. Core's own gate asks at the COMPOSER
+ * (`<aparte-elicitation>` renders the panel there), and the transcript row shows only a
+ * state — there is no Approve/Reject control in a bubble.
+ *
+ * This block used to say "the built-in renderer already shows Approve/Reject inline",
+ * which stopped being true when the decision moved to the composer. A consumer trusting
+ * it shipped with no presenter and no `approvalResolver`, and every `needsApproval` call
+ * aborted with nothing clickable on screen. The sibling docblock on `needsApproval`
+ * records the same correction; this one was missed in the same file.
  */
 export interface AparteToolApprovalRequestDetail {
     toolCallId: string;

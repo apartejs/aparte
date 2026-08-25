@@ -44,24 +44,42 @@ export type {
 // hand-written list is a list that goes stale, which is the defect this whole lot
 // existed to remove.
 //
-// Events stay with the DOM: `@aparte/core` augments `HTMLElementEventMap`, so
-// `on:aparte-select-change={e => e.detail.value}` is typed already.
+// Events come from the DOM map PLUS core's proxy list, because the map omits the five
+// detail-less events on purpose and narrowing the tags removed the catch-all that used
+// to accept them. See `AparteSvelteHandlers` below.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { HTMLAttributes } from 'svelte/elements';
-import type { AparteElementAttributes, AparteElementTagName, AparteTemplateAttrs } from '@aparte/core';
+import type { AparteElementAttributes, AparteElementTagName, AparteTemplateAttrs, AparteUiEventName } from '@aparte/core';
 
 /**
  * Svelte's `on:` handlers, for every event aparté dispatches.
  *
- * Derived from `HTMLElementEventMap`, which `@aparte/core` augments — so this needs no
- * list of its own and cannot fall behind. Declaring the elements without it made the
- * wrapper's OWN component stop type-checking (`on:aparte-send` on `<aparte-composer>`),
- * which is how the gap surfaced.
+ * Derived from TWO sources, and it needs both. `HTMLElementEventMap` — which
+ * `@aparte/core` augments — carries the events with a detail. It deliberately omits the
+ * five that have none (`aparte-cancel`, `aparte-composer-submit`, `aparte-reset-done`,
+ * `aparte-select-open`, `aparte-select-close`), because a map entry would type
+ * `e.detail` as `null` and gain nothing.
+ *
+ * That omission was harmless while it only governed `addEventListener`. Declaring the
+ * tags here made it a regression: `SvelteHTMLElements` used to end in a catch-all index
+ * signature that accepted any `on:` name, and narrowing the tags removed it — so
+ * `on:aparte-cancel`, the STOP BUTTON, stopped type-checking. A typed surface that takes
+ * a capability away is worse than no typed surface.
+ *
+ * `AparteUiEventName` closes it: core's proxy list already enumerates every event an
+ * element dispatches on itself, those five included, and it is the list `AparteUi`
+ * forwards — so the two are the same set by construction. Still no hand-written list
+ * here, which is the property that mattered.
  */
 type AparteEventName = Extract<keyof HTMLElementEventMap, `aparte-${string}`>;
+type AparteAnyEventName = AparteEventName | AparteUiEventName;
+
+/** The typed event for a name, or a detail-free `CustomEvent` when the map has none. */
+type AparteEventFor<K extends string> =
+    K extends keyof HTMLElementEventMap ? HTMLElementEventMap[K] : CustomEvent<null>;
 
 type AparteSvelteHandlers = {
-    [K in AparteEventName as `on:${K}`]?: (event: HTMLElementEventMap[K]) => void;
+    [K in AparteAnyEventName as `on:${K}`]?: (event: AparteEventFor<K>) => void;
 };
 
 type AparteSvelteElements = {

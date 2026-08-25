@@ -73,7 +73,8 @@ register:
 </div>
 ```
 
-Attribute names are the HTML ones (`max-height`, `message-id`, `data-role`). A typo is a type error;
+Attribute names are the HTML ones (`max-height`, `message-id`, `data-role`). A wrong VALUE type is a
+type error;
 so is an attribute the element does not observe.
 
 Events reach you by ref, and they are typed through the DOM because `@aparte/core` augments

@@ -174,5 +174,5 @@ Whether files are actually sent to the model is the **provider's** job (multimod
 the OpenAI-compatible adapter maps image parts to the vendor's `image_url` format, for example. A
 provider that doesn't support a given file type simply ignores it. See [Providers](/providers/).
 
-Attachment status colors are themeable via the `--aparte-file-status-*` CSS variables (see
-[Theming](/guides/theming/)).
+Attachment chips inherit the surface and border tokens like everything else — see
+[Theming](/guides/theming/).
