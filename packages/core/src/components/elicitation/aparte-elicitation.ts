@@ -162,11 +162,25 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
 
         return new Promise<AparteElicitationResult>((resolve) => {
             let done = false;
+            /**
+             * The slot this request owns, once `showPanel` has handed it over.
+             *
+             * `settle` can run BEFORE that — an already-aborted signal settles on the
+             * spot — so it starts absent, and `hidePanel(undefined)` then closes whatever
+             * is there, which is correct because nothing of ours is open yet.
+             *
+             * A holder rather than a `let`: `settle` reads it before `showPanel` assigns
+             * it, which is exactly the shape `prefer-const` rejects, and the object says
+             * "not handed over yet" more plainly than an unassigned binding.
+             */
+            const slot: { token?: symbol } = {};
             const settle = (result: AparteElicitationResult): void => {
                 if (done) return;
                 done = true;
                 this._pending = null;
-                composer.hidePanel();
+                // Scoped to our own panel: settling late must not tear down the panel
+                // that replaced ours.
+                composer.hidePanel(slot.token);
                 resolve(result);
             };
 
@@ -198,9 +212,18 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             panel.dismiss.appendChild(skip);
 
             this._pending = { settle, composer, panel, skip };
-            composer.showPanel(panel.el, {
+            slot.token = composer.showPanel(panel.el, {
                 submitEnabled: panel.canProceed(),
                 mode: panel.mode(),
+                /*
+                 * Something else took the slot — another request, a conversation switch,
+                 * or a turn ending. The composer tears the panel down either way; only
+                 * this callback can settle the promise, and without it the request hung
+                 * AND `_pending` stayed set, so every later question was short-circuited
+                 * for the life of the page. `cancel`, not `decline`: nobody declined
+                 * anything, the question was taken away.
+                 */
+                onEvict: () => settle({ action: 'cancel' }),
                 onSubmit: () => {
                     // The same button advances through the form and submits at the end;
                     // the panel is what knows which of the two this click is.

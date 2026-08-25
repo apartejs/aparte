@@ -67,6 +67,20 @@ export class AparteComposer extends HTMLElement {
     private _panelMode: 'advance' | 'submit' = 'submit';
     private _panelSubmitEnabled = false;
     private _panelOnSubmit: (() => void) | null = null;
+    /**
+     * Who owns the one panel slot, and how to tell them they lost it.
+     *
+     * There is exactly one slot, `showPanel` empties it unconditionally, and nothing
+     * used to say whose it was. Three paths therefore closed a panel whose owner was
+     * still awaiting an answer, and none of them told the owner: a second `showPanel`,
+     * the owner-of-record's own `hidePanel`, and — the one that actually bit —
+     * `_handleMessageDone`, which fires on EVERY turn end. A question still open when a
+     * turn finished lost its panel while `<aparte-elicitation>` kept `_pending` set,
+     * so the request never settled AND every later request was short-circuited for the
+     * life of the page.
+     */
+    private _panelToken: symbol | null = null;
+    private _panelOnEvict: (() => void) | null = null;
 
     // Internal bus events that represent an observable STATE change — these are
     // mirrored to the public `aparte-composer-change` DOM event. `submit`/`cancel`
@@ -238,9 +252,25 @@ export class AparteComposer extends HTMLElement {
      * used to set on a child: an attribute is themeable, is visible to a consumer's
      * own rules, and does not clobber a `display` the consumer had set (the restore
      * wrote `''`, not the previous value).
+     *
+     * Returns the TOKEN for this panel. Pass it back to `hidePanel` so a presenter
+     * that has already lost the slot cannot close the panel that replaced it, and
+     * supply `onEvict` to be told when that happens — an owner that is not told is an
+     * owner whose promise nobody can settle.
      */
-    showPanel(panel: HTMLElement, options?: { submitEnabled?: boolean; onSubmit?: () => void; mode?: 'advance' | 'submit' }): void {
-        this.hidePanel();
+    showPanel(
+        panel: HTMLElement,
+        options?: {
+            submitEnabled?: boolean;
+            onSubmit?: () => void;
+            mode?: 'advance' | 'submit';
+            /** Called when something other than this owner closes the panel. */
+            onEvict?: () => void;
+        },
+    ): symbol {
+        // Evict rather than hide: the previous owner is awaiting an answer it will
+        // never get, and it is the only thing that can settle its own promise.
+        this._evictPanel();
         const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
         this.setAttribute('data-panel-active', '');
         panel.dataset['apartePanel'] = 'true';
@@ -253,11 +283,36 @@ export class AparteComposer extends HTMLElement {
         this._panelSubmitEnabled = options?.submitEnabled ?? false;
         this._panelMode = options?.mode ?? 'submit';
         this._panelOnSubmit = options?.onSubmit ?? null;
+        this._panelOnEvict = options?.onEvict ?? null;
+        const token = Symbol('aparte-composer-panel');
+        this._panelToken = token;
         this._emit('panel-change', { active: true, submitEnabled: this._panelSubmitEnabled, mode: this._panelMode });
+        return token;
     }
 
-    /** Remove the panel and restore the composer's own controls. */
-    hidePanel(): void {
+    /**
+     * Remove the panel and restore the composer's own controls.
+     *
+     * With a `token`, this closes the panel only if that token still owns the slot —
+     * so a presenter settling late cannot tear down the panel that replaced it. With
+     * no token it closes whatever is there, which is what a consumer driving the
+     * composer directly means, and what `reset()` needs.
+     */
+    hidePanel(token?: symbol): void {
+        if (token !== undefined && token !== this._panelToken) return;
+        this._teardownPanel();
+    }
+
+    /** Close the panel AND tell its owner, so a pending request never orphans. */
+    private _evictPanel(): void {
+        const onEvict = this._panelOnEvict;
+        // State first, callback second: the owner's settle path calls `hidePanel` with
+        // its own token, which must find the slot already empty rather than recurse.
+        this._teardownPanel();
+        onEvict?.();
+    }
+
+    private _teardownPanel(): void {
         const existing = this.querySelector('[data-aparte-panel]') as HTMLElement | null;
         if (existing) existing.remove();
         this.removeAttribute('data-panel-active');
@@ -265,6 +320,8 @@ export class AparteComposer extends HTMLElement {
         this._panelSubmitEnabled = false;
         this._panelMode = 'submit';
         this._panelOnSubmit = null;
+        this._panelOnEvict = null;
+        this._panelToken = null;
         this._emit('panel-change', { active: false, submitEnabled: false, mode: 'submit' });
         this.focus();
     }
@@ -357,7 +414,7 @@ export class AparteComposer extends HTMLElement {
     reset(): void {
         this.setValue('');
         this.clearAttachments();
-        if (this._panelActive) this.hidePanel();
+        if (this._panelActive) this._evictPanel();
     }
 
     /** Focus the input primitive inside this composer. */
@@ -438,7 +495,7 @@ export class AparteComposer extends HTMLElement {
         this._streaming = false;
         this._emit('streaming-change', { streaming: false });
         // Always hide any active panel when a message lifecycle ends
-        if (this._panelActive) this.hidePanel();
+        if (this._panelActive) this._evictPanel();
     }
 }
 

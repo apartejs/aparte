@@ -216,6 +216,34 @@ describe('<aparte-elicitation> presenter', () => {
         })).toEqual({ action: 'cancel' });
     });
 
+    it('a turn ending does not wedge the presenter', async () => {
+        mountChat();
+        const first = requestUserInput({ message: 'Framework?', schema: { type: 'string' } });
+        expect(document.querySelector('.aparte-elic-panel')).not.toBeNull();
+
+        // The turn finishes while the question is still open. The COMPOSER tears the
+        // panel down on this event; the presenter only ever listened for `-error` and
+        // `-aborted`, so nothing settled the request.
+        window.dispatchEvent(new CustomEvent('aparte-message-done'));
+
+        // Raced rather than awaited: with the defect present this promise never
+        // resolves, and a hung test reports a timeout instead of the reason.
+        const settled = await Promise.race([
+            first,
+            new Promise((r) => setTimeout(() => r('never'), 50)),
+        ]);
+        expect(settled, 'a request whose panel was torn down has to settle').not.toBe('never');
+
+        // And the slot is free again. This is the half that made the defect permanent:
+        // `_pending` stayed set, so every later request was short-circuited for the
+        // life of the page — one finished turn and the chat could never ask again.
+        requestUserInput({ message: 'Again?', schema: { type: 'string' } });
+        expect(
+            document.querySelector('.aparte-elic-panel'),
+            'a later question must still be presentable',
+        ).not.toBeNull();
+    });
+
     it('declines a second concurrent request while one is open', async () => {
         const { composer } = mountChat();
         const first = requestUserInput({ message: 'first', schema: { type: 'string' } });
