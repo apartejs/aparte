@@ -24,6 +24,28 @@ and vanilla-dist apps consume the built `dist`, and Angular additionally caches 
 prebundle — delete `apps/examples/angular/.angular/` if a change seems ignored. A red
 run right after a core edit is usually a **stale dev server**, not a real failure.
 
+## After you change `@aparte/core`, clear the Angular cache
+
+```bash
+rm -rf apps/examples/angular/.angular/cache
+```
+
+`[angular]` is the one project whose dev server prebundles `@aparte/core` with Vite
+and caches the result under `.angular/cache`. That cache is keyed on the dependency,
+not on its contents, and the Angular CLI does not watch `node_modules` — so after a
+change to core it keeps serving the OLD build, and only that project fails.
+
+This is a **local-only** trap, which is what makes it worth writing down: CI starts
+from a fresh checkout with no cache, so the pipeline stays green while your machine
+fails, and the failure looks exactly like a flake. It cost a rename of 42 CSS classes
+two wrong hypotheses (a stale `dist` — no, the renderers live in a lazy chunk; a
+reused dev server — no, `reuseExistingServer` needs `E2E_REUSE_SERVERS=1`) before the
+cache file was found with the old class name literally inside it.
+
+Not fixed at the cause on purpose: `prebundle: { exclude: ["@aparte/core"] }` on the
+dev-server builder is the obvious lever and it stops the app loading at all — every
+angular spec fails, including the idle chat. Measured, reverted.
+
 ## How to write a spec here
 
 - **Locators live in the page object.** Use `ChatPage` (`helpers/chat.ts`) — composer,
