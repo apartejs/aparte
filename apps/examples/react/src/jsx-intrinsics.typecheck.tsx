@@ -16,6 +16,11 @@
  */
 
 import { AparteChat } from '@aparte/react';
+// The plugin types its OWN tag, from its own package. `@aparte/react` deliberately does
+// not: a wrapper types what it depends on, and it depends on no plugin. Installing the
+// plugin is what makes this tag typed — the module graph enforces it, so an app without
+// the plugin gets no phantom autocomplete for an element it does not have.
+import '@aparte/plugin-model-selector/react';
 
 export function CustomComposerChat() {
     return (
@@ -75,6 +80,25 @@ export function UnknownAttributesAreRejected() {
             <aparte-composer-input placehodler="Ask anything…" />
             {/* @ts-expect-error `<aparte-select>` has no `multiple`; that is the file picker's */}
             <aparte-select multiple="" />
+        </>
+    );
+}
+
+/**
+ * A PLUGIN's element, typed by the plugin — the same checks as a core element.
+ *
+ * This is the property that matters: it is typed because
+ * `@aparte/plugin-model-selector/react` is imported above, and a third-party plugin
+ * types its own tag the same way. Nothing about it is privileged.
+ */
+export function PluginElementIsTyped() {
+    return (
+        <>
+            <aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+            {/* @ts-expect-error a presence attribute is `''`, never a boolean */}
+            <aparte-model-selector persist={true} />
+            {/* @ts-expect-error `multiple` belongs to the file picker, not to this element */}
+            <aparte-model-selector multiple="" />
         </>
     );
 }

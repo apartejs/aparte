@@ -77,7 +77,8 @@
     },
     "gen": {
       "dependsOn": [
-        "^gen"
+        "^gen",
+        "^build"
       ],
       "cache": true,
       "outputs": [
@@ -86,12 +87,14 @@
     },
     "typecheck": {
       "dependsOn": [
+        "^build",
         "^gen",
         "gen"
       ]
     },
     "typecheck:tests": {
       "dependsOn": [
+        "^build",
         "^gen",
         "gen"
       ]

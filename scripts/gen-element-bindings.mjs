@@ -59,6 +59,15 @@ const pascal = (tag) => tag.split('-').map((p) => p[0].toUpperCase() + p.slice(1
 /** `max-height` → `maxHeight`, for an Angular Input name. */
 const camel = (attr) => attr.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 
+/**
+ * An element's one-line summary: its first PARAGRAPH, rewrapped onto one line.
+ *
+ * Taking the first LINE truncated mid-sentence — the model selector came out as
+ * "Renders an `<aparte-select>` with providers" — because a docblock wraps its prose at
+ * 80 columns, so a sentence is usually two lines.
+ */
+const summary = (text) => (text ?? '').split(/\n\s*\n/)[0].split('\n').map((l) => l.trim()).join(' ').trim();
+
 /** One `/** … *\/` block, indented, from a description that may be absent or multi-line. */
 function doc(text, indent = '    ') {
     const body = (text ?? '').trim();
@@ -105,7 +114,7 @@ function renderAttributes(elements) {
         const attrs = el.attributes ?? [];
         if (!attrs.length) { empties.push(el.tagName); continue; }
 
-        out += doc(`\`<${el.tagName}>\`${el.description ? ` — ${el.description.split('\n')[0]}` : ''}`, '');
+        out += doc(`\`<${el.tagName}>\`${el.description ? ` — ${summary(el.description)}` : ''}`, '');
         out += `export interface ${name} {\n`;
         for (const a of attrs) {
             out += doc(a.description, '    ');
@@ -114,12 +123,16 @@ function renderAttributes(elements) {
         out += '}\n\n';
     }
 
-    out += '/**\n';
-    out += ' * The elements that observe no attribute at all. An empty surface is the honest\n';
-    out += ' * declaration — it says "checked, there are none", where an absent entry would only\n';
-    out += ` * say "not looked at": ${empties.map((t) => `\`<${t}>\``).join(', ')}.\n`;
-    out += ' */\n';
-    out += 'export type AparteNoAttributes = Record<never, never>;\n\n';
+    // Only when there ARE any: with none, the sentence rendered as `"not looked at": .`
+    // and the type was exported for nobody.
+    if (empties.length) {
+        out += '/**\n';
+        out += ' * The elements that observe no attribute at all. An empty surface is the honest\n';
+        out += ' * declaration — it says "checked, there are none", where an absent entry would only\n';
+        out += ` * say "not looked at": ${empties.map((t) => `\`<${t}>\``).join(', ')}.\n`;
+        out += ' */\n';
+        out += 'export type AparteNoAttributes = Record<never, never>;\n\n';
+    }
 
     out += '/**\n';
     out += ' * Tag name to its attribute surface — the registry every wrapper maps over.\n';
@@ -229,7 +242,7 @@ abstract class AparteElementBase {
         const events = (el.events ?? []).filter((e) => !outputOmit.has(e.name));
 
         out += '\n';
-        out += doc(`\`<${el.tagName}>\`${el.description ? ` — ${el.description.split('\n')[0]}` : ''}`, '');
+        out += doc(`\`<${el.tagName}>\`${el.description ? ` — ${summary(el.description)}` : ''}`, '');
         if (!attrs.length && !events.length) {
             out += `/**\n * No member at all: this element observes nothing and dispatches nothing, so the\n`
                 + ` * directive exists only to CLAIM THE TAG — which is what spares a consuming component\n`
