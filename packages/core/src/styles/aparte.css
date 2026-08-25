@@ -417,10 +417,6 @@ aparte-chat {
   --aparte-code-border: var(--aparte-border);
   --aparte-code-header-text: var(--aparte-text-muted);
 
-  /* Progress */
-  --aparte-progress-bar-bg: var(--aparte-surface-3);
-  --aparte-progress-bar-fill: var(--aparte-primary);
-  --aparte-progress-label: var(--aparte-text);
 
   /* Scroll-to-bottom button */
   --aparte-scroll-btn-bg: var(--aparte-surface-1);
@@ -2081,35 +2077,6 @@ details[open] .thinking-toggle {
   font-size: var(--aparte-font-size-sm, 12px);
   opacity: 0.9;
   white-space: pre-wrap;
-}
-
-/* Progress */
-.segment-progress {
-  margin: var(--aparte-space-6, 12px) 0;
-}
-
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--aparte-space-2, 4px);
-  color: var(--aparte-progress-label, #374151);
-  font-size: var(--aparte-font-size-lg, 14px);
-}
-
-.progress-bar {
-  height: var(--aparte-space-2, 4px);
-  background: var(--aparte-progress-bar-bg, #e5e7eb);
-  border-radius: var(--aparte-radius-xs);
-  margin-top: var(--aparte-space-4, 8px);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--aparte-progress-bar-fill, #6366f1);
-  border-radius: var(--aparte-radius-xs);
-  transition: width 0.3s ease;
 }
 
 

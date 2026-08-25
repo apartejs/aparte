@@ -2,6 +2,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { LANDING_TITLE, LANDING_DESCRIPTION, LANDING_IMAGE_ALT } from '../data/landing-meta';
 import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+import { SEGMENT_KINDS } from '../data/segment-kinds';
 import '../styles/palette.css';
 import '../styles/landing.css';
 
@@ -13,7 +14,7 @@ import '../styles/landing.css';
  * a property, not a benefit — and it is also, word for word, the closest
  * competitor's own positioning, so leading with it put aparté second on someone
  * else's argument. Meanwhile the things no presentational component kit can have
- * (a tool loop that pauses for a human, ten kinds of content in one turn, a
+ * (a tool loop that pauses for a human, every kind of content in one turn, a
  * sandboxed artifact preview, branch-and-retry) were nowhere on the page.
  *
  * Every number and capability below was verified against the source before it was
@@ -140,18 +141,6 @@ const DEMOS = [
     { key: 'branch', label: 'Branching' },
 ];
 
-interface Kind { tag: string; body: string; states: string[] }
-
-const KINDS: Kind[] = [
-  { tag: 'text', body: 'Streamed token by token. Markdown and highlighting are plugins you opt into, so the core stays dependency-free.', states: [] },
-  { tag: 'thinking', body: 'A collapsible block that closes itself the moment the model stops thinking — not when the answer ends.', states: [] },
-  { tag: 'code', body: 'A fenced block with a copy button that copies the source, not the markup.', states: [] },
-  { tag: 'tool_call', body: 'Five states, including a turn paused for a person — the row is the anchor, the decision is asked at the composer. It opens onto the arguments the model sent and the result your handler returned.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
-  { tag: 'progress', body: 'A live bar for long work, so a slow step is visible instead of silent.', states: ['pending', 'running', 'complete', 'error'] },
-  { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
-  { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
-  { tag: 'pipeline-waiting', body: 'The indicator for a multi-step turn, so the gap between two phases never reads as a hang.', states: [] },
-];
 
 const FAMILIES = [
   {
@@ -302,7 +291,7 @@ const FAMILIES = [
           <p class="eyebrow">AI chat in Web Components &mdash; <b>with the agent loop inside</b></p>
           <h1 class="thesis serif">Chat, spoken <em>aside.</em></h1>
           <p class="lede">
-            Not a bubble kit. One element gives you the whole turn: <b>ten kinds of content</b>,
+            Not a bubble kit. One element gives you the whole turn: <b>{SEGMENT_KINDS.length} kinds of content</b>,
             a tool loop that <b>pauses for a human&#8217;s approval</b>, branch-and-retry on any
             reply &#8212; with <b>zero runtime dependencies</b>. React, Vue, Svelte, Angular, or
             nothing at all.
@@ -340,7 +329,7 @@ message.segments = [
 
         <div class="facts">
           <span><span class="k">i.</span><b>Zero</b> runtime dependencies</span>
-          <span><span class="k">ii.</span><b>{KINDS.length}</b> kinds of content in one turn</span>
+          <span><span class="k">ii.</span><b>{SEGMENT_KINDS.length}</b> kinds of content in one turn</span>
           <span><span class="k">iii.</span><b>{CSS_VARS}</b> CSS variables, no shadow DOM</span>
           <span><span class="k">iv.</span>Your key, your server &#8212; <b>or no server at all</b></span>
         </div>
@@ -355,7 +344,7 @@ message.segments = [
       <!-- The measured counts ride on the element: this page's client script is a
            bundled module, so it cannot read the frontmatter, and hardcoding the
            numbers a second time is how two copies of one fact start disagreeing. -->
-      <section class="stage" id="demo" data-kinds={KINDS.length} data-vars={CSS_VARS} data-locale={LOCALE_KEYS} data-logo={LOGO_SVG}>
+      <section class="stage" id="demo" data-kinds={SEGMENT_KINDS.length} data-vars={CSS_VARS} data-locale={LOCALE_KEYS} data-logo={LOGO_SVG}>
         <div class="demo-tabs" role="tablist" aria-label="What the chat can do" id="demoTabs">
           {DEMOS.map((d, i) => (
             <button class="tab" role="tab" type="button" data-demo={d.key} aria-selected={i === 0 ? 'true' : 'false'}>{d.label}</button>
@@ -509,12 +498,12 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
           <h2 class="serif">What a turn <span class="paren">(</span>contains<span class="paren">)</span></h2>
         </div>
         <p class="sec-sub">
-          A reply is not a string &#8212; it is a structured turn. A list of <b>segments</b>, and {KINDS.length} kinds ship
+          A reply is not a string &#8212; it is a structured turn. A list of <b>segments</b>, and {SEGMENT_KINDS.length} kinds ship
           registered by default &#8212; mixable in a single message, each with its own renderer you
           can replace. This is the unit a presentational component kit has no way to express.
         </p>
         <div class="kinds">
-          {KINDS.map((k, i) => (
+          {SEGMENT_KINDS.map((k, i) => (
             <div class="kind">
               <span class="idx" aria-hidden="true">{ROMAN[i]}</span>
               <h3><code>{k.tag}</code></h3>

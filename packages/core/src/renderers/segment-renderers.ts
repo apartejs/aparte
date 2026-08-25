@@ -23,7 +23,6 @@ import { textRenderer } from './segments/text.js';
 import { thinkingRenderer } from './segments/thinking.js';
 import { codeRenderer } from './segments/code.js';
 import { errorRenderer } from './segments/error.js';
-import { progressRenderer } from './segments/progress.js';
 import { toolCallRenderer } from './segments/tool-call.js';
 import { pipelineWaitingRenderer } from './segments/pipeline-waiting.js';
 import { artifactRenderer } from './segments/artifact/card.js';
@@ -395,7 +394,6 @@ const DEFAULT_RENDERERS = [
     thinkingRenderer,
     codeRenderer,
     errorRenderer,
-    progressRenderer,
     toolCallRenderer,
     artifactRenderer,
     pipelineWaitingRenderer,

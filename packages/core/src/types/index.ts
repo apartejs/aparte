@@ -59,7 +59,6 @@ export type {
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteErrorSegment,
-    AparteProgressSegment,
     AparteSegment,
     AparteCustomSegment,
     AparteToolCallSegment,

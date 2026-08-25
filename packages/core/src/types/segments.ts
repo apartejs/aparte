@@ -148,14 +148,6 @@ export interface AparteErrorSegment extends AparteSegmentBase {
     stack?: string;
 }
 
-/** Progress segment - for long operations */
-export interface AparteProgressSegment extends AparteSegmentBase {
-    type: 'progress';
-    label: string;
-    percent?: number;
-    status?: 'pending' | 'running' | 'complete' | 'error';
-}
-
 /** Tool call segment - rendered while waiting for a tool handler to resolve */
 export interface AparteToolCallSegment extends AparteSegmentBase {
     type: 'tool_call';
@@ -229,7 +221,6 @@ export type AparteSegment =
     | AparteThinkingSegment
     | AparteCodeSegment
     | AparteErrorSegment
-    | AparteProgressSegment
     | AparteCustomSegment
     | AparteToolCallSegment
     | AparteArtifactSegment
