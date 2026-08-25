@@ -20,10 +20,21 @@ export interface AparteTool {
     maxTurns?: number;
     /**
      * When true, the agent loop pauses before running this tool's handler and
-     * waits for a human decision (approve / reject) — "human in the loop". The
-     * UI surfaces Approve/Reject (default renderer, or a custom tool renderer)
-     * and resolves it by dispatching an `aparte-tool-decision` event. On reject,
-     * a synthetic "rejected by user" result is injected and the turn stops.
+     * waits for a human decision — "human in the loop".
+     *
+     * The decision is asked AT THE COMPOSER, through the same `requestUserInput`
+     * a tool handler calls: every request for the user is answered in one place.
+     * The row in the transcript is the anchor, naming which tool is waiting, and
+     * holds nothing clickable. An `approvalResolver` on `AparteClientOptions`
+     * answers it programmatically instead.
+     *
+     * On a refusal the rest of the turn is skipped — no later tool call of the
+     * same turn runs — and then the model gets a turn to answer it, so it can
+     * say what it will do instead. The refusal may carry the user's own words.
+     *
+     * All three clauses of this comment used to say something else: the default
+     * renderer surfaced the buttons, an `aparte-tool-decision` event resolved
+     * them, and a refusal ended the turn. None of that is true any more.
      */
     needsApproval?: boolean;
 }

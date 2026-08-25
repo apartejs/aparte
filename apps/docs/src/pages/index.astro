@@ -540,7 +540,8 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
             </ul>
           </div>
           <div class="code mono">
-<pre><span class="cm">// the turn pauses here until someone presses Approve</span>
+<pre><span class="cm">// the loop stops before the handler and asks in the composer;</span>
+<span class="cm">// a refusal skips the rest of the turn, then the model answers it</span>
 aparteGlobalConfig.<span class="fn">registerTool</span>(
   &#123;
     name: <span class="st">'delete_file'</span>,

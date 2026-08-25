@@ -101,10 +101,12 @@ export interface AparteClientOptions {
 
     /**
      * Custom human-in-the-loop approval resolver for tools marked
-     * `needsApproval`. Defaults to a global `document` `aparte-tool-decision`
-     * listener (the built-in Approve/Reject gate). Inject this to run multiple
-     * isolated clients on one page, or to drive approval from a headless source
-     * (CLI / webhook) with no DOM.
+     * `needsApproval`. Without one, the gate asks at the composer through
+     * `requestUserInput`, like every other request for the user. Inject this to
+     * decide from the call itself — it receives `(call, signal)` — or to drive
+     * approval from a headless source (CLI / webhook) with no DOM.
+     *
+     * It may return an `instruction`, which the model reads as part of the refusal.
      */
     approvalResolver?: AparteToolApprovalResolver;
 
@@ -503,36 +505,16 @@ export class AparteClient {
         this._activeToolControllers.clear();
     }
 
-    /**
-     * Human-in-the-loop: wait for an `aparte-tool-decision` event matching this
-     * tool call (dispatched by the built-in Approve/Reject UI or an app-level
-     * approval surface). Resolves `{ approved, payload }` — `approved` is `true`
-     * only on an explicit approve, and `payload` carries any arbitrary data a
-     * custom approval UI attached to the decision (the built-in gate sends
-     * none). The `signal` (an AbortController registered in
-     * `_activeToolControllers`) lets `abort()` cleanly resolve a pending
-     * approval to `{ approved: false }` — there is no timeout, since a human may
-     * take any amount of time to decide.
-     */
-    /**
-     * Await the human's Approve/Reject for one tool call.
-     *
-     * `target` is not decoration: it is the scope of the consent. The listener sits
-     * on `document` and used to accept any `aparte-tool-decision` whose
-     * `detail.toolCallId` matched — and that id is the tool-call id the MODEL chose.
-     * The built-in buttons dispatch with `bubbles: true, composed: true`, so on a
-     * page with two chats a click aimed at one tool could satisfy the gate awaiting
-     * a different tool in a different conversation. The consented action and the
-     * executed action came apart, which is the entire failure mode an approval gate
-     * exists to prevent — and the handler behind it is arbitrary consumer code.
-     *
-     * The check is DOM CONTAINMENT rather than a `targetId` string comparison. A
-     * model can choose an id; it cannot choose where in the tree the click happened.
-     * It also needs no change on the dispatch side, so a consumer's own Approve
-     * button keeps working as long as it fires from inside its own chat.
-     *
-     * The request half of this handshake was hardened with `targetId` for exactly
-     * this hazard. This is its sibling, and it was missed.
+    /*
+     * Two docblocks stood here, both describing `_awaitToolDecision` — the method
+     * this replaced. Deleting a method and leaving its documentation is worse than
+     * leaving the method: only the LAST comment before a declaration is its JSDoc,
+     * so those two were floating prose, and one of them explained a DOM-containment
+     * check as a live security property. It was the fix for a cross-chat hazard that
+     * only existed because the decision travelled as a bubbling `document` event.
+     * Routing through `requestUserInput` removed the hazard rather than guarding it,
+     * so the guard is gone too — and a reader who found that comment would have
+     * believed a containment check was still protecting them.
      */
     /**
      * Ask the human at the COMPOSER, and report what they decided.
