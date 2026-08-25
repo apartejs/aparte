@@ -10,9 +10,9 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * Opens a native file picker on click, then pushes picked files to root.addAttachments().
  * Also sets up drag & drop on the nearest <aparte-composer> root.
  *
- * @attr accept    - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
- * @attr multiple  - Allow multiple file selection (default: true)
- * @attr disabled  - Greys out the picker and ignores drops.
+ * @attr {string} accept - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
+ * @attr {boolean} multiple - Allow multiple file selection (default: true)
+ * @attr {boolean} disabled - Greys out the picker and ignores drops.
   *
  * @example
  * <!-- Opt-in: nothing consumes the files unless your host does (an AparteClient, or

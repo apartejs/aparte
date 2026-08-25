@@ -9,9 +9,9 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * @element aparte-composer-action
  * The consumer declares it directly in markup — no global registration needed.
  *
- * @attr icon      - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`
- * @attr label     - Accessible label (also used as tooltip)
- * @attr disabled  - Disables the button
+ * @attr {string} icon - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`
+ * @attr {string} label - Accessible label (also used as tooltip)
+ * @attr {boolean} disabled - Disables the button
  *
  * @fires aparte-action-click - Bubbles up when the button is clicked
  *                            detail: { actionId: string, composer: AparteComposer | null }

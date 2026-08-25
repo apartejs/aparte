@@ -25,10 +25,13 @@ import { escapeAttr } from '../../utils/escape.js';
  * Size the element via CSS (a height, or let it fill a sized parent).
  *
  * @element aparte-chat
- * @attr placeholder  - Placeholder for the composer input (default composition)
- * @attr disabled     - Disables the composer
- * @attr center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
- * @attr attachments  - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
+ * @attr {string} placeholder - Placeholder for the composer input (default composition)
+ * @attr {boolean} disabled - Disables the composer
+ * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
+ * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
+ *   element composes none of its own children, because the framework owns them. All four
+ *   wrappers set it; it was read by this element and declared by nothing until now.
+ * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
   *
  * @example
  * <!-- Left empty it fills in a viewport, an input and a send button. -->

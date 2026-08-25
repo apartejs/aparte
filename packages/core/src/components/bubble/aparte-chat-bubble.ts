@@ -88,7 +88,7 @@ const INFO_ICON_SVG =
  * @attr {string} role - The message role. `data-role` is the styled mirror of it.
  * @attr {string} data-role - `user` / `assistant` / `system`; what the CSS keys off.
  * @attr {string} content - Plain text content, for a bubble with no segments.
- * @attr {string} timestamp - Epoch milliseconds, rendered in the header.
+ * @attr {number | string} timestamp - Epoch milliseconds OR a date string: `_updateTimestamp` accepts either and only coerces when the value is numeric.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
  * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
  * @attr {string} name - The display name in the header.

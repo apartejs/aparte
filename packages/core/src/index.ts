@@ -105,7 +105,28 @@ export type {
     AparteToolRenderer,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surface (aliased by every wrapper's handle type).
-    AparteChatImperativeApi
+    AparteChatImperativeApi,
+    // The attribute surface of every element, for the wrappers to map over.
+    AparteElementAttributes,
+    AparteElementTagName,
+    AparteAttrValue,
+    AparteTemplateAttrs,
+    AparteNoAttributes,
+    AparteChatAttributes,
+    AparteChatViewportAttributes,
+    AparteChatBubbleAttributes,
+    AparteChatStatusAttributes,
+    AparteComposerAttributes,
+    AparteComposerInputAttributes,
+    AparteComposerActionAttributes,
+    AparteComposerAddAttachmentAttributes,
+    AparteComposerToolbarAttributes,
+    AparteConversationListAttributes,
+    AparteSelectAttributes,
+    AparteOptionAttributes,
+    AparteOptgroupAttributes,
+    AparteModelSelectorAttributes,
+    AparteProgressSpinnerAttributes,
 } from './types/index.js';
 
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';

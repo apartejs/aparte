@@ -14,10 +14,10 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * Behaviour: Enter submits (calls root.submit()), Shift+Enter inserts newline.
  * Auto-expands up to max-height. Paste strips HTML, handles image paste.
  *
- * @attr disabled     - Makes the field non-editable; the composer's own `disabled` also reaches it.
- * @attr placeholder  - Placeholder text (fallback: reads from aparte-composer)
- * @attr max-height   - Max height in px before scroll (default: 200)
- * @attr min-height   - Min height in px. When omitted, the stylesheet's
+ * @attr {boolean} disabled - Makes the field non-editable; the composer's own `disabled` also reaches it.
+ * @attr {string} placeholder - Placeholder text (fallback: reads from aparte-composer)
+ * @attr {number} max-height - Max height in px before scroll (default: 200)
+ * @attr {number} min-height - Min height in px. When omitted, the stylesheet's
  *                      min-height governs (44px in aparte.css) — so themes can
  *                      resize the editor in pure CSS without being fought by
  *                      an inline height.

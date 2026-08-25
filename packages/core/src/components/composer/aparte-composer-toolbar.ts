@@ -13,7 +13,7 @@
  * The row is not part of the default `<aparte-chat>` shell — nothing is drawn until you
  * put something in it.
  *
- * @attr data-empty - Reflected BY the element while it holds no element child; the
+ * @attr {boolean} data-empty - Reflected BY the element while it holds no element child; the
  *                    stylesheet hides it then. Read-only, do not set it yourself.
  *
  * @example
