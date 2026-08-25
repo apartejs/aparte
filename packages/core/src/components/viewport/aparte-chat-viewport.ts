@@ -749,6 +749,11 @@ export class AparteChatViewport extends HTMLElement {
         return this._repo.getMessageById(messageId);
     }
 
+    /**
+     * The messages on the currently ACTIVE path, root → head — not the whole tree.
+     * A message that was retried contributes only the branch currently selected;
+     * `exportTree()` is what returns every sibling.
+     */
     getMessages(): AparteMessage[] {
         return this._repo.getMessages();
     }

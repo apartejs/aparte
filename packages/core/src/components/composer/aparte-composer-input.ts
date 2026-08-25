@@ -79,6 +79,10 @@ export class AparteComposerInput extends HTMLElement {
 
     // ── Public API ──────────────────────────────────────────────────────────
 
+    /**
+     * The editor's text, with `<br>` serialized back to newlines — `textContent`
+     * alone would collapse a multi-line draft onto a single line.
+     */
     getValue(): string {
         // `textContent` drops `<br>`, so multi-line content would collapse onto one
         // line. Serialize the editor ourselves: text nodes as-is, `<br>` → newline.
@@ -97,6 +101,7 @@ export class AparteComposerInput extends HTMLElement {
         return out.trim();
     }
 
+    /** Replace the editor's content and mirror the value onto the parent composer. */
     setValue(value: string): void {
         if (!this._editor) return;
         this._editor.textContent = value;
@@ -105,6 +110,7 @@ export class AparteComposerInput extends HTMLElement {
         this._getRoot()?.setValue(value);
     }
 
+    /** Empty the editor and mirror the empty value onto the parent composer. */
     clear(): void {
         if (!this._editor) return;
         this._editor.innerHTML = '';
@@ -113,7 +119,9 @@ export class AparteComposerInput extends HTMLElement {
         this._getRoot()?.setValue('');
     }
 
+    /** Focus the inner contenteditable rather than the host element. */
     override focus(): void { this._editor?.focus(); }
+    /** Blur the inner contenteditable rather than the host element. */
     override blur(): void { this._editor?.blur(); }
 
     /** Focus the editor and place the caret at the very end of its content. */

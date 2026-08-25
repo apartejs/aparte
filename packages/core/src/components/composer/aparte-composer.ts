@@ -231,21 +231,36 @@ export class AparteComposer extends HTMLElement {
         };
     }
 
+    /**
+     * Set the composer's value and notify its parts.
+     *
+     * Mind the asymmetry: `<aparte-composer-input>` acts on the empty string (that
+     * is how it clears itself after a submit) and ignores every other value, so
+     * setting text here changes what a send SUBMITS without changing what the
+     * editor DISPLAYS. Call `setValue` on the input element to move both.
+     */
     setValue(value: string): void {
         this._value = value;
         this._emit('value-change', { value });
     }
 
+    /** Append files to the pending attachments and notify. Does not de-duplicate. */
     addAttachments(files: FileList | File[]): void {
         this._attachments = [...this._attachments, ...Array.from(files)];
         this._emit('attachments-change', { attachments: this._attachments });
     }
 
+    /**
+     * Drop one pending attachment and notify. Matched by IDENTITY — pass the same
+     * `File` object the composer handed you, not an equal one; two picks of the same
+     * file on disk are two distinct objects.
+     */
     removeAttachment(file: File): void {
         this._attachments = this._attachments.filter(f => f !== file);
         this._emit('attachments-change', { attachments: this._attachments });
     }
 
+    /** Drop every pending attachment and notify. */
     clearAttachments(): void {
         this._attachments = [];
         this._emit('attachments-change', { attachments: [] });
