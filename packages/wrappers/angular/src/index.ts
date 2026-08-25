@@ -34,8 +34,6 @@ export {
     AparteConversationListDirective,
     AparteProgressSpinnerDirective,
     AparteElicitationDirective,
-    AparteModelSelectorDirective,
-    AparteAskUserDirective,
 } from './lib/element.directives';
 
 // Annex: client lifecycle + reactive conversation manager.

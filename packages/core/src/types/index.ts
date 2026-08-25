@@ -172,7 +172,6 @@ export type {
     AparteSelectAttributes,
     AparteOptionAttributes,
     AparteOptgroupAttributes,
-    AparteModelSelectorAttributes,
     AparteProgressSpinnerAttributes
 } from './element-attributes.js';
 

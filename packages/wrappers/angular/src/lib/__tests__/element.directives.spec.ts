@@ -13,7 +13,6 @@ import {
     AparteComposerCancelDirective,
     AparteComposerToolbarDirective,
     AparteElicitationDirective,
-    AparteAskUserDirective,
 } from '../element.directives';
 
 /*
@@ -227,7 +226,6 @@ describe('the element directives', () => {
         <aparte-composer-cancel></aparte-composer-cancel>
         <aparte-composer-toolbar></aparte-composer-toolbar>
         <aparte-elicitation></aparte-elicitation>
-        <aparte-ask-user></aparte-ask-user>
 
         <aparte-select value="v" placeholder="p" [disabled]="true" [grouped]="true"
             [searchable]="true" [open]="true"
@@ -246,9 +244,6 @@ describe('the element directives', () => {
             (unarchiveConversation)="seen['unarchiveConversation'] = true"></aparte-conversation-list>
 
         <aparte-progress-spinner [value]="42"></aparte-progress-spinner>
-
-        <aparte-model-selector placeholder="Pick" [autoSelect]="true" [persist]="true" [searchable]="true"
-            (modelChange)="seen['modelChange'] = true"></aparte-model-selector>
     `,
 })
 class EverythingHost {
@@ -303,10 +298,6 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-optgroup', 'loading', ''],
         ['aparte-conversation-list', 'active-id', 'c1'],
         ['aparte-progress-spinner', 'value', '42'],
-        ['aparte-model-selector', 'placeholder', 'Pick'],
-        ['aparte-model-selector', 'auto-select', ''],
-        ['aparte-model-selector', 'persist', ''],
-        ['aparte-model-selector', 'searchable', ''],
     ];
 
     it.each(ATTRS)('%s writes [%s]', (tag, attr, expected) => {
@@ -339,7 +330,6 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-conversation-list', 'aparte-delete-conversation', 'deleteConversation'],
         ['aparte-conversation-list', 'aparte-archive-conversation', 'archiveConversation'],
         ['aparte-conversation-list', 'aparte-unarchive-conversation', 'unarchiveConversation'],
-        ['aparte-model-selector', 'aparte-model-change', 'modelChange'],
     ];
 
     it.each(EVENTS)('%s forwards %s', (tag, event, key) => {
@@ -360,7 +350,7 @@ describe('the element directives, across the whole surface', () => {
          * measured the element; what needed measuring was the directive.
          */
         for (const D of [AparteComposerSendDirective, AparteComposerCancelDirective,
-            AparteComposerToolbarDirective, AparteElicitationDirective, AparteAskUserDirective]) {
+            AparteComposerToolbarDirective, AparteElicitationDirective]) {
             expect(Object.keys(new D()), D.name).toEqual([]);
         }
     });

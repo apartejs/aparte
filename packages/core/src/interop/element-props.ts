@@ -15,8 +15,14 @@
  * from the generated manifest, which now records every element's events because their
  * docblocks were reattached.
  *
- * Two events are deliberately NOT here. `aparte-abort` and `aparte-message-aborted` go
- * out through `window.dispatchEvent` — they concern the whole page, not one subtree —
+ * A PLUGIN's events are not here either, and `aparte-model-change` was until this line
+ * was written. The reason is the same one that keeps plugin tags out of the element
+ * registry: this default is core's, and a third-party plugin's author cannot add to it,
+ * so listing ours would privilege our packages over theirs. Pass the names you need —
+ * `events: ['aparte-model-change']` — which is one line for everyone equally.
+ *
+ * Two events are deliberately NOT here for a different reason. `aparte-abort` and
+ * `aparte-message-aborted` go out through `window.dispatchEvent` — they concern the whole page, not one subtree —
  * so an element-level listener can never receive them and listing them would promise a
  * forward that cannot happen.
  *
@@ -53,9 +59,6 @@ export const APARTE_DEFAULT_UI_EVENTS: readonly string[] = [
     'aparte-select-open',
     'aparte-select-close',
     'aparte-optgroup-toggle',
-    // @aparte/plugin-model-selector — an optional package, but a consumer who imports
-    // it and proxies the element expects its one event to arrive.
-    'aparte-model-change',
 ];
 
 /**

@@ -125,7 +125,6 @@ export type {
     AparteSelectAttributes,
     AparteOptionAttributes,
     AparteOptgroupAttributes,
-    AparteModelSelectorAttributes,
     AparteProgressSpinnerAttributes,
 } from './types/index.js';
 

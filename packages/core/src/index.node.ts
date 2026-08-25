@@ -110,7 +110,6 @@ export type {
     AparteSelectAttributes,
     AparteOptionAttributes,
     AparteOptgroupAttributes,
-    AparteModelSelectorAttributes,
     AparteProgressSpinnerAttributes,
 } from './types/index.js';
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';

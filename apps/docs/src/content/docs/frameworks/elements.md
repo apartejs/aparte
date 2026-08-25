@@ -11,9 +11,9 @@ is about placing those with your compiler on your side.
 
 ## What "typed" means here
 
-Every element's attribute surface is declared once in `@aparte/core` and consumed by all four
-wrappers. The registry is `AparteElementAttributes`, one entry per tag, with `AparteElementTagName`
-as its key union:
+Every **core** element's attribute surface is declared once in `@aparte/core` and consumed by all
+four wrappers. The registry is `AparteElementAttributes`, one entry per tag, with
+`AparteElementTagName` as its key union:
 
 ```ts
 import type { AparteElementAttributes, AparteElementTagName, AparteSelectAttributes } from '@aparte/core';
@@ -31,8 +31,12 @@ around one: `AparteChatAttributes`, `AparteChatViewportAttributes`, `AparteChatB
 `AparteChatStatusAttributes`, `AparteComposerAttributes`, `AparteComposerInputAttributes`,
 `AparteComposerActionAttributes`, `AparteComposerAddAttachmentAttributes`,
 `AparteComposerToolbarAttributes`, `AparteConversationListAttributes`, `AparteSelectAttributes`,
-`AparteOptionAttributes`, `AparteOptgroupAttributes`, `AparteProgressSpinnerAttributes`,
-`AparteModelSelectorAttributes`, and `AparteNoAttributes` for the four that observe nothing.
+`AparteOptionAttributes`, `AparteOptgroupAttributes`, `AparteProgressSpinnerAttributes`, and
+`AparteNoAttributes` for the four that observe nothing.
+
+An element that does **not** come from core — from a plugin, or one of yours — is not in this
+registry, and that is the boundary rather than an omission. See
+[Your own element, or a plugin's](#your-own-element-or-a-plugins).
 
 ### The one thing to know about presence attributes
 
@@ -126,17 +130,17 @@ import { APARTE_ELEMENT_DIRECTIVES } from '@aparte/angular';
     imports: [...APARTE_ELEMENT_DIRECTIVES],
     template: `
         @if (showPicker) {
-            <aparte-model-selector
-                [persist]="true"
+            <aparte-select
                 [searchable]="true"
-                (modelChange)="use($event.modelId)"
-            ></aparte-model-selector>
+                placeholder="Pick a model"
+                (selectChange)="use($event.value)"
+            ></aparte-select>
         }
     `,
 })
 export class PickerComponent {
     protected readonly showPicker = true;
-    protected use(modelId: string): void { console.info(modelId); }
+    protected use(value: string): void { console.info(value); }
 }
 ```
 
@@ -158,10 +162,76 @@ The directives are `AparteChatViewportDirective`, `AparteChatBubbleDirective`,
 `AparteComposerAttachmentsDirective`, `AparteComposerSendDirective`, `AparteComposerCancelDirective`,
 `AparteComposerToolbarDirective`, `AparteSelectDirective`, `AparteOptionDirective`,
 `AparteOptgroupDirective`, `AparteConversationListDirective`, `AparteProgressSpinnerDirective`,
-`AparteElicitationDirective`, `AparteModelSelectorDirective` and `AparteAskUserDirective`.
+and `AparteElicitationDirective`.
 
 `<aparte-chat>` has no directive on purpose: `AparteChatComponent` already claims that tag and
 renders the whole turn.
+
+## Your own element, or a plugin's
+
+The typing above covers `@aparte/core`'s elements — the ones each wrapper depends on. Nothing else
+is in it, including aparté's own plugins, and that is deliberate: a third-party plugin's author
+cannot add a line to `@aparte/core`, so shipping typing for *our* plugins would give our packages a
+privilege theirs could never have. The rule is symmetric instead — **whoever owns the element owns
+its contract and its bindings.**
+
+Two mechanisms, and they are the same amount of work for us as for you.
+
+### React, Vue and Svelte: type the tag from your own package
+
+All three learn a tag through **module augmentation**, and the augmentation does not have to come
+from us. Put it in your own `.d.ts` and it applies exactly when your package is in the program —
+install it and the tag is typed, don't and it isn't. TypeScript enforces that, nobody has to.
+
+`AparteTemplateAttrs` is exported for this: it takes any interface of yours and gives back the
+template spelling, so you inherit the presence-attribute rule rather than rediscovering it.
+
+<!-- doc-check: skip augments 'vue', which the snippet compiler has no resolution for — it type-checks in a Vue app, which is the only place it belongs -->
+```ts
+import type { AparteTemplateAttrs } from '@aparte/core';
+
+interface MyWidgetAttributes { label?: string; compact?: boolean }
+
+declare module 'vue' {
+    interface GlobalComponents {
+        'my-widget': import('vue').DefineComponent<AparteTemplateAttrs<MyWidgetAttributes>>;
+    }
+}
+```
+
+Events need nothing from us at all — augment `HTMLElementEventMap` with your own detail type and
+`e.detail` is typed everywhere, in every framework, the same way core's own events are.
+
+### Angular: a directive, and it is six lines
+
+Angular has no types-only path: claiming a tag needs a directive class, which is runtime code. The
+one non-obvious part is already exported — `applyElementProps` is core's attribute-versus-property
+rule, which is what makes a presence attribute land as `attr=""` and a `false` remove it:
+
+```ts
+import { Directive, ElementRef, Input, booleanAttribute, inject } from '@angular/core';
+import { applyElementProps } from '@aparte/core';
+
+@Directive({ selector: 'my-widget', standalone: true })
+export class MyWidget {
+    private readonly host = inject(ElementRef<HTMLElement>);
+    @Input() set label(v: string | undefined) { this.write('label', v); }
+    @Input({ transform: booleanAttribute }) set compact(v: boolean) { this.write('compact', v); }
+    private write(name: string, value: unknown): void {
+        applyElementProps(this.host.nativeElement, { [name]: value });
+    }
+}
+```
+
+That is what the Angular example does for `<aparte-model-selector>`, which comes from
+[`@aparte/plugin-model-selector`](/plugins/model-selector/) rather than from core — read it there
+for a working case. If you would rather not, `CUSTOM_ELEMENTS_SCHEMA` still works, and so does
+`<aparte-ui>` below.
+
+One thing to know either way: a hyphenated tag is legal HTML whether or not anything defines it, so
+an element whose package you never imported mounts empty and inert with no error, and upgrades on
+its own the moment the definition arrives. That is what makes lazy plugin loading work — and it
+means the types promise a *shape*, never a *definition*.
 
 ## `<aparte-ui>` is the escape hatch, not the default
 
@@ -173,10 +243,10 @@ third-party web component:
 <AparteUi name="my-token-counter" props={{ 'data-budget': '8000' }} onElementEvent={log} />
 ```
 
-For aparté's own elements, reach for the typed surface above instead. `name` is a string, `props` is
-an untyped bag, and the element is created imperatively — so no control flow or projection reaches
-it. That was the only way to place a model selector in Angular before the directives existed; it is
-not the way now.
+`name` is a string, `props` is an untyped bag, and the element is created imperatively — so no
+control flow or projection reaches it. For core's elements the typed surface above is strictly
+better; for anything else, the two mechanisms in the previous section beat it as soon as you care
+about types. `<aparte-ui>` earns its place when you want none of that ceremony for a one-off.
 
 ## Where the facts come from
 

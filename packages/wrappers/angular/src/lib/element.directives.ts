@@ -23,7 +23,12 @@
  * ## What is deliberately not here
  *
  * The attribute facts are not restated — they come from `AparteElementAttributes` in
- * core, the same registry React's JSX intrinsics are derived from. Event details are
+ * core, the same registry React's JSX intrinsics are derived from. Only CORE's elements
+ * are here: a wrapper types what it depends on, and this package depends on no plugin.
+ * An element from `@aparte/plugin-model-selector` — or from a plugin of yours — is typed
+ * by whoever owns it, or by three lines in your own app; see the docs. Shipping a
+ * directive for our own plugin would have given our packages a privilege a third party's
+ * could never have. Event details are
  * not restated either: `@aparte/core` augments `HTMLElementEventMap`, so the detail
  * types below are the ones `scripts/check-event-map.mjs` already guards in both
  * directions.
@@ -62,7 +67,6 @@ import type {
     AparteConversationArchiveDetail,
     AparteSelectChangeDetail,
     AparteOptgroupToggleEventDetail,
-    AparteModelChangeEventDetail,
 } from '@aparte/core';
 
 /**
@@ -400,39 +404,6 @@ export class AparteComposerToolbarDirective {}
 export class AparteElicitationDirective {}
 
 /**
- * `<aparte-model-selector>` — from `@aparte/plugin-model-selector`.
- *
- * The directive lives HERE and not in that package, because a plugin must not gain an
- * Angular dependency (the framework lives only in its own wrapper). It needs nothing
- * from the plugin either: the element's attributes are declared in core's registry and
- * `AparteModelChangeEventDetail` is a core type, so this compiles with no new edge in
- * the dependency graph.
- *
- * This is the element the Angular example needed `CUSTOM_ELEMENTS_SCHEMA` for, with the
- * reason written in a trailing comment. That schema switches checking off for every
- * unknown tag in the template, not just this one.
- *
- * @example
- * <aparte-model-selector persist searchable (modelChange)="use($event.modelId)" />
- */
-@Directive({ selector: 'aparte-model-selector', standalone: true })
-export class AparteModelSelectorDirective extends AparteElementBase {
-    @Input() set placeholder(v: string | undefined) { this.write('placeholder', v); }
-    @Input({ transform: booleanAttribute }) set autoSelect(v: boolean) { this.write('auto-select', v); }
-    @Input({ transform: booleanAttribute }) set persist(v: boolean) { this.write('persist', v); }
-    @Input({ transform: booleanAttribute }) set searchable(v: boolean) { this.write('searchable', v); }
-
-    @Output() readonly modelChange = new EventEmitter<AparteModelChangeEventDetail>();
-
-    @HostListener('aparte-model-change', ['$event'])
-    protected onModelChange(e: CustomEvent<AparteModelChangeEventDetail>): void { this.modelChange.emit(e.detail); }
-}
-
-/** `<aparte-ask-user>` — the presenter under its intent-revealing name. @see AparteComposerSendDirective */
-@Directive({ selector: 'aparte-ask-user', standalone: true })
-export class AparteAskUserDirective {}
-
-/**
  * Every element directive, for one import in a standalone component.
  *
  * ```ts
@@ -461,6 +432,4 @@ export const APARTE_ELEMENT_DIRECTIVES = [
     AparteConversationListDirective,
     AparteProgressSpinnerDirective,
     AparteElicitationDirective,
-    AparteModelSelectorDirective,
-    AparteAskUserDirective,
 ] as const;

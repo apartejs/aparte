@@ -1,6 +1,34 @@
-import { Component } from '@angular/core';
-import { AparteChatComponent, AparteModelSelectorDirective } from '@aparte/angular';
+import { Component, Directive, ElementRef, EventEmitter, Input, Output, HostListener, booleanAttribute, inject } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import { applyElementProps, type AparteModelChangeEventDetail } from '@aparte/core';
 import { sendPrompt } from './aparte';
+
+/**
+ * `<aparte-model-selector>` comes from `@aparte/plugin-model-selector`, so
+ * `@aparte/angular` does NOT ship a directive for it — a wrapper types what it depends
+ * on, and it depends on no plugin. Doing otherwise would give aparté's own plugins a
+ * privilege a third party's could never have: its author cannot add a line to core.
+ *
+ * So the app declares the binding, and this is the whole of it. `applyElementProps` is
+ * core's own rule for the one non-obvious part — aparté elements are attribute-driven,
+ * so a property write is a silent no-op — and the same six lines work for any custom
+ * element, ours or yours.
+ */
+@Directive({ selector: 'aparte-model-selector', standalone: true })
+export class ModelSelector {
+    private readonly host = inject(ElementRef<HTMLElement>);
+    @Input({ transform: booleanAttribute }) set persist(v: boolean) { this.write('persist', v); }
+    @Input({ transform: booleanAttribute }) set autoSelect(v: boolean) { this.write('auto-select', v); }
+    @Input({ transform: booleanAttribute }) set searchable(v: boolean) { this.write('searchable', v); }
+    @Output() readonly modelChange = new EventEmitter<AparteModelChangeEventDetail>();
+
+    @HostListener('aparte-model-change', ['$event'])
+    protected onChange(e: CustomEvent<AparteModelChangeEventDetail>): void { this.modelChange.emit(e.detail); }
+
+    private write(name: string, value: unknown): void {
+        applyElementProps(this.host.nativeElement, { [name]: value });
+    }
+}
 
 
 const CHIPS = [
@@ -12,10 +40,10 @@ const CHIPS = [
 @Component({
     selector: 'app-root',
     standalone: true,
-    // `AparteModelSelectorDirective` claims the tag, so CUSTOM_ELEMENTS_SCHEMA is gone.
+    // The local `ModelSelector` above claims the tag, so CUSTOM_ELEMENTS_SCHEMA is gone.
     // That schema was here "for <aparte-model-selector>" — and it switched template
     // checking off for every unknown tag in this file, not just that one.
-    imports: [AparteChatComponent, AparteModelSelectorDirective],
+    imports: [AparteChatComponent, ModelSelector],
     template: `
         <div class="app">
             <header class="topbar">

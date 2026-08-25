@@ -27,6 +27,15 @@
  * repeat the exact defect that made this lot necessary: a hand-maintained parallel
  * structure with nothing watching it.
  *
+ * ## Only core's elements
+ *
+ * A plugin's element is NOT here, and that is the boundary rather than an omission. This
+ * registry is what the four wrappers derive their typing from, so an entry here is a
+ * wrapper typing something the wrapper does not depend on. Do it for our own plugin and
+ * our packages get a privilege a third party's plugin could never have — its author
+ * cannot add a line to this file. The element's owner declares its contract; nobody else
+ * can, symmetrically.
+ *
  * Keep in step with `packages/core/dist/custom-elements.json` — the element guard
  * checks that the two agree.
  */
@@ -197,27 +206,6 @@ export interface AparteProgressSpinnerAttributes {
 }
 
 /**
- * `<aparte-model-selector>` — from `@aparte/plugin-model-selector`, not from core.
- *
- * Declared here anyway, and the precedent is core's own: `types/event-map.ts` already
- * maps `aparte-model-change`, and its detail type is defined in `types/events.ts`. Core
- * knowing the SHAPE of an optional element's surface is not core depending on it —
- * nothing here imports the package, and the tag simply stays inert until a consumer
- * imports it. Leaving it out would mean the most-placed element in the library is the
- * one element no wrapper can type.
- */
-export interface AparteModelSelectorAttributes {
-    /** Selects the first model as soon as one is available. */
-    'auto-select'?: boolean;
-    /** Writes the selection back through the config, so it survives a reload. */
-    persist?: boolean;
-    /** Adds the dropdown's filter field. */
-    searchable?: boolean;
-    /** Overrides the text shown while nothing is selected. */
-    placeholder?: string;
-}
-
-/**
  * `<aparte-composer-send>`, `<aparte-composer-cancel>`, `<aparte-composer-attachments>`
  * and `<aparte-elicitation>` observe no attribute at all: they read the composer's
  * shared state, or they render nothing of their own. An empty surface is the honest
@@ -250,9 +238,6 @@ export interface AparteElementAttributes {
     'aparte-option': AparteOptionAttributes;
     'aparte-optgroup': AparteOptgroupAttributes;
     'aparte-progress-spinner': AparteProgressSpinnerAttributes;
-    // From the plugins. Present so a wrapper can type them; inert until imported.
-    'aparte-model-selector': AparteModelSelectorAttributes;
-    'aparte-ask-user': AparteNoAttributes;
 }
 
 /**
