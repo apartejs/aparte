@@ -59,6 +59,51 @@ const runLines = ci.split('\n')
     .join('\n');
 
 const missing = steps.filter(step => !EXEMPT.has(step) && !runLines.includes(step));
+
+/*
+ * A step can be PRESENT and never run, which this guard could not see.
+ *
+ * The cold audit's saboteur added `if: false` to the `ci:` job. All 22 non-exempt steps
+ * became dead and the guard reported "OK: 22 of 30 gate steps appear in a workflow
+ * `run:`" — because it greps `run:` lines and a dead step still has one. `continue-on-error:
+ * true` on a step has the same effect by the same mechanism, and that is the realistic
+ * accident: somebody soft-disables a flaky guard to unblock a merge and forgets.
+ *
+ * So: no `if:` on a JOB, and no `continue-on-error` anywhere. A job-level `if:` is what
+ * silences a whole job; a step-level one is normal and stays allowed (`if:
+ * github.event_name == 'pull_request'` guards the changeset check today), which is why the
+ * two are told apart by indentation rather than lumped together.
+ *
+ * Deliberately blunt. A legitimate job-level `if:` will trip this, and then the right move
+ * is to say why HERE rather than to loosen the pattern — the same bargain EXEMPT makes.
+ */
+const lines = ci.split('\n');
+const silenced = [];
+for (const [i, line] of lines.entries()) {
+    const trimmed = line.trim();
+    if (/^#/.test(trimmed)) continue;
+    if (/^continue-on-error\s*:\s*true/.test(trimmed) || /^-?\s*continue-on-error\s*:\s*true/.test(trimmed)) {
+        silenced.push({ line: i + 1, text: trimmed, why: 'a failing step would not fail the job' });
+        continue;
+    }
+    // Job level = exactly four spaces of indent under `jobs:`; a step's `if:` is deeper
+    // (six or more, since a step is a list item inside `steps:`).
+    if (/^ {4}if\s*:/.test(line)) {
+        silenced.push({ line: i + 1, text: trimmed, why: 'a job-level `if:` can switch the whole job off' });
+    }
+}
+
+if (silenced.length) {
+    console.error('\n[gate-in-ci] a workflow can be silenced without any step going missing:\n');
+    for (const s of silenced) console.error(`  .github/workflows (line ${s.line}): ${s.text}\n    ${s.why}`);
+    console.error(
+        '\nThis guard checks that a gate step APPEARS in a `run:`. It cannot tell whether the\n'
+        + 'job around it executes — `if: false` on a job leaves every step present and dead,\n'
+        + 'which is exactly how it was fooled in an audit. Remove it, or write down here why\n'
+        + 'this one is legitimate.\n',
+    );
+    process.exit(1);
+}
 const staleExemptions = [...EXEMPT.keys()].filter(step => !steps.includes(step));
 
 if (missing.length || staleExemptions.length) {

@@ -228,6 +228,9 @@ export type { ExportedMessageRepository } from './runtime/message-repository.js'
 // these two — omit them here and any SSR toolchain resolving the `node` condition
 // crashes the whole barrel with "does not provide an export named 'applyElementProps'".
 export { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from './interop/element-props.js';
+// A type, so it costs nothing here and its absence WAS a compile error for an SSR
+// consumer — `check:node-barrel-types` caught it the moment the browser barrel gained it.
+export type { AparteUiEventName } from './interop/element-props.js';
 // Same rule: DOM-free at import (it only reaches for `URL.createObjectURL` when
 // CALLED, which is a browser-side concern), so it belongs on the SSR surface too.
 export { filesToAttachments, revokeAttachmentUrls } from './utils/files-to-attachments.js';
