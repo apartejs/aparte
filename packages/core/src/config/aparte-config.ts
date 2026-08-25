@@ -28,6 +28,7 @@ import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandl
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
 import type { AparteElicitationPresenter, AparteElicitationRequest, AparteElicitationResult } from '../elicitation/types.js';
+import { AparteElicitationAbortError } from '../elicitation/types.js';
 import { escapeHtml } from '../utils/escape.js';
 
 export type AparteMarkdownProvider = (raw: string) => string;
@@ -1172,21 +1173,21 @@ export class AparteConfig {
                 this._warnedNoPresenter = true;
                 console.warn(
                     '[aparte] requestUserInput() was called with no elicitation presenter, '
-                    + 'so it resolved `cancel` — the model will read that as the user refusing, '
-                    + 'but nothing was ever shown. Add <aparte-elicitation></aparte-elicitation> '
+                    + 'so it rejected with an AbortError — nothing was ever shown to anybody. '
+                    + 'Add <aparte-elicitation></aparte-elicitation> '
                     + 'inside your <aparte-chat>, or register your own by calling '
                     + 'setElicitationPresenter() on the config this chat resolves — '
                     + 'the scoped one if you passed a `config`, aparteGlobalConfig otherwise.',
                 );
             }
-            return Promise.resolve({ action: 'cancel' });
+            return Promise.reject(new AparteElicitationAbortError('no-presenter'));
         }
         /*
          * Re-checked HERE rather than on the way in: a request can sit in the queue
          * while the turn that raised it is stopped, and opening a panel for a run
          * that is already over would ask the user about nothing.
          */
-        if (request.signal?.aborted) return Promise.resolve({ action: 'cancel' });
+        if (request.signal?.aborted) return Promise.reject(new AparteElicitationAbortError('aborted'));
         return this._elicitationPresenter(request);
     }
 

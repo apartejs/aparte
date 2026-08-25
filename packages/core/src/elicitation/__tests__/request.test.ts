@@ -10,9 +10,11 @@ describe('requestUserInput / elicitation presenter', () => {
         document.body.innerHTML = '';
     });
 
-    it('resolves cancel when no presenter is registered (never hangs)', async () => {
-        const res = await aparteGlobalConfig.requestUserInput({ message: 'x', schema: { type: 'string' } });
-        expect(res).toEqual({ action: 'cancel' });
+    it('rejects when no presenter is registered (never hangs, never lies)', async () => {
+        // It used to resolve `{ action: 'cancel' }`, which a caller could pass on as an
+        // answer — and the approval gate did exactly that.
+        await expect(aparteGlobalConfig.requestUserInput({ message: 'x', schema: { type: 'string' } }))
+            .rejects.toMatchObject({ name: 'AbortError', reason: 'no-presenter' });
     });
 
     it('delegates to the registered presenter and returns its result', async () => {
@@ -96,7 +98,7 @@ describe('requestUserInput / elicitation presenter', () => {
         release!();
         await first;
 
-        expect(await second).toEqual({ action: 'cancel' });
+        await expect(second).rejects.toMatchObject({ name: 'AbortError', reason: 'aborted' });
         expect(seen, 'the presenter must never see it').toEqual(['first']);
     });
 
@@ -123,6 +125,7 @@ describe('requestUserInput / elicitation presenter', () => {
         const c = new AparteConfig();
         c.setElicitationPresenter(async () => ({ action: 'accept', content: 1 }));
         c.reset();
-        expect(await c.requestUserInput({ message: 'x', schema: { type: 'string' } })).toEqual({ action: 'cancel' });
+        await expect(c.requestUserInput({ message: 'x', schema: { type: 'string' } }))
+            .rejects.toMatchObject({ name: 'AbortError', reason: 'no-presenter' });
     });
 });

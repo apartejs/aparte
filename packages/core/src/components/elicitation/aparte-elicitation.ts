@@ -27,6 +27,7 @@ import type { AparteConfig } from '../../config/aparte-config.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
+import { AparteElicitationAbortError } from '../../elicitation/types.js';
 
 /**
  * The slice of the composer this presenter drives.
@@ -40,7 +41,8 @@ import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitati
 type ComposerEl = HTMLElement & Pick<AparteComposer, 'showPanel' | 'hidePanel' | 'setPanelSubmitEnabled'>;
 
 interface Pending {
-    settle(result: AparteElicitationResult): void;
+    /** End the request without an answer — see `AparteElicitationAbortError`. */
+    abort(): void;
     composer: ComposerEl;
     /**
      * The open panel, kept so a language switch can reach it.
@@ -165,9 +167,11 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
          * degrades to a settled request instead of a wedged one.
          */
         const composer = this._getComposer();
-        if (!composer) return Promise.resolve<AparteElicitationResult>({ action: 'cancel' });
+        // Mounted outside a chat that has a composer: there is nowhere to put the
+        // panel, which is the same situation as no presenter at all.
+        if (!composer) return Promise.reject(new AparteElicitationAbortError('no-presenter'));
 
-        return new Promise<AparteElicitationResult>((resolve) => {
+        return new Promise<AparteElicitationResult>((resolve, reject) => {
             let done = false;
             /**
              * The slot this request owns, once `showPanel` has handed it over.
@@ -181,20 +185,34 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * "not handed over yet" more plainly than an unassigned binding.
              */
             const slot: { token?: symbol } = {};
-            const settle = (result: AparteElicitationResult): void => {
-                if (done) return;
+            const close = (): boolean => {
+                if (done) return false;
                 done = true;
                 this._pending = null;
-                // Scoped to our own panel: settling late must not tear down the panel
+                // Scoped to our own panel: finishing late must not tear down the panel
                 // that replaced ours.
                 composer.hidePanel(slot.token);
-                resolve(result);
+                return true;
+            };
+            const settle = (result: AparteElicitationResult): void => {
+                if (close()) resolve(result);
+            };
+            /**
+             * End it without an answer.
+             *
+             * A rejection rather than a third `action`, because a value is easy to
+             * mistake for an answer and this one was: the approval gate read the old
+             * `cancel` as a refusal and told the model the user had refused a tool they
+             * had only stopped.
+             */
+            const fail = (reason: 'aborted' | 'no-presenter' = 'aborted'): void => {
+                if (close()) reject(new AparteElicitationAbortError(reason));
             };
 
             // Caller-side cancellation (tool handler signal: timeout / turn abort).
             if (request.signal) {
-                if (request.signal.aborted) { settle({ action: 'cancel' }); return; }
-                request.signal.addEventListener('abort', () => settle({ action: 'cancel' }), { once: true });
+                if (request.signal.aborted) { fail(); return; }
+                request.signal.addEventListener('abort', () => fail(), { once: true });
             }
 
             // Built INSIDE this instance's config, so the panel's own strings come
@@ -218,7 +236,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
 
-            this._pending = { settle, composer, panel, skip };
+            this._pending = { abort: () => fail(), composer, panel, skip };
             slot.token = composer.showPanel(panel.el, {
                 submitEnabled: panel.canProceed(),
                 mode: panel.mode(),
@@ -230,7 +248,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  * for the life of the page. `cancel`, not `decline`: nobody declined
                  * anything, the question was taken away.
                  */
-                onEvict: () => settle({ action: 'cancel' }),
+                onEvict: () => fail(),
                 onSubmit: () => {
                     // The same button advances through the form and submits at the end;
                     // the panel is what knows which of the two this click is.
@@ -247,7 +265,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
     };
 
     private _cancelPending(): void {
-        this._pending?.settle({ action: 'cancel' });
+        this._pending?.abort();
     }
 
     /**

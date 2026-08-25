@@ -18,6 +18,17 @@ function mountChat(withComposer = true): { composer: ComposerEl | null } {
     return { composer };
 }
 
+/**
+ * A request that ended without an answer REJECTS.
+ *
+ * It used to resolve `{ action: 'cancel' }`, and a value is easy to handle as though
+ * it were an answer — which the approval gate did, telling the model a stopped turn
+ * had been refused. `reason` separates a person stopping something from a developer
+ * mounting nothing.
+ */
+const endedWithoutAnswer = (p: Promise<unknown>, reason: 'aborted' | 'no-presenter' = 'aborted') =>
+    expect(p).rejects.toMatchObject({ name: 'AbortError', reason });
+
 function pick(value: string): void {
     const input = document.querySelector<HTMLInputElement>(`.aparte-elic-panel input[value="${value}"]`)!;
     input.checked = true;
@@ -65,11 +76,11 @@ describe('<aparte-elicitation> presenter', () => {
         expect(await p).toEqual({ action: 'decline' });
     });
 
-    it('resolves cancel when the assistant turn is aborted', async () => {
+    it('ends without an answer when the assistant turn is aborted', async () => {
         mountChat();
         const p = requestUserInput({ message: '?', schema: { type: 'string' } });
         window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
-        expect(await p).toEqual({ action: 'cancel' });
+        await endedWithoutAnswer(p);
     });
 
     /**
@@ -103,7 +114,10 @@ describe('<aparte-elicitation> presenter', () => {
         /** Did the promise settle by the next macrotask, or is it still waiting? */
         async function settledYet(p: Promise<unknown>): Promise<'settled' | 'pending'> {
             return Promise.race([
-                p.then(() => 'settled' as const),
+                // Either outcome counts as settled — and catching matters now that
+                // ending without an answer is a rejection, which would otherwise
+                // surface as an unhandled one.
+                p.then(() => 'settled' as const, () => 'settled' as const),
                 new Promise<'pending'>((r) => { setTimeout(() => r('pending'), 0); }),
             ]);
         }
@@ -117,9 +131,11 @@ describe('<aparte-elicitation> presenter', () => {
             const a = mountHost('chat-a', { presenter: false });
             mountHost('chat-b', { composer: false });
 
-            const result = await requestUserInput({ message: '?', schema: { type: 'string' } });
+            await endedWithoutAnswer(
+                requestUserInput({ message: '?', schema: { type: 'string' } }),
+                'no-presenter',
+            );
 
-            expect(result, 'nothing was shown, so nothing was answered').toEqual({ action: 'cancel' });
             expect(
                 a.composer!.querySelector('.aparte-elic-panel'),
                 'the other chat\'s composer must stay untouched',
@@ -139,16 +155,16 @@ describe('<aparte-elicitation> presenter', () => {
             expect(await settledYet(p), 'the question must survive another chat\'s Stop').toBe('pending');
             expect(document.querySelector('.aparte-elic-panel')).not.toBeNull();
 
-            // And OUR turn ending still cancels it.
+            // And OUR turn ending still ends it.
             window.dispatchEvent(new CustomEvent('aparte-message-aborted', { detail: { targetId: 'chat-a' } }));
-            expect(await p).toEqual({ action: 'cancel' });
+            await endedWithoutAnswer(p);
         });
 
-        it('an event with no targetId still cancels — a single-chat app sets none', async () => {
+        it('an event with no targetId still ends it — a single-chat app sets none', async () => {
             mountHost('chat-a');
             const p = requestUserInput({ message: '?', schema: { type: 'string' } });
             window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
-            expect(await p).toEqual({ action: 'cancel' });
+            await endedWithoutAnswer(p);
         });
     });
 
@@ -172,7 +188,7 @@ describe('<aparte-elicitation> presenter', () => {
             expect(composer!.hasAttribute('data-panel-active'), 'the composer is in panel mode').toBe(true);
 
             window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
-            await p;
+            await endedWithoutAnswer(p);
 
             expect(composer!.hasAttribute('data-panel-active'), 'and back to composing').toBe(false);
         });
@@ -188,32 +204,36 @@ describe('<aparte-elicitation> presenter', () => {
 
             const p = requestUserInput({ message: '?', schema: { type: 'string' } });
             window.dispatchEvent(new CustomEvent('aparte-message-aborted'));
-            await p;
+            await endedWithoutAnswer(p);
 
             expect(input.style.display, 'the consumer\'s own display survives').toBe('flex');
         });
     });
 
-    it('resolves cancel when there is no composer to present in', async () => {
+    it('ends without an answer when there is no composer to present in', async () => {
         mountChat(false);
-        expect(await requestUserInput({ message: '?', schema: { type: 'string' } })).toEqual({ action: 'cancel' });
+        // Nowhere to put the panel is the same situation as nothing to present it.
+        await endedWithoutAnswer(
+            requestUserInput({ message: '?', schema: { type: 'string' } }),
+            'no-presenter',
+        );
     });
 
-    it('resolves cancel when the caller aborts via signal (tool timeout / turn abort)', async () => {
+    it('ends without an answer when the caller aborts via signal (tool timeout / turn abort)', async () => {
         mountChat();
         const ctrl = new AbortController();
         const p = requestUserInput({ message: '?', schema: { type: 'string' }, signal: ctrl.signal });
         expect(document.querySelector('.aparte-elic-panel')).not.toBeNull();
         ctrl.abort();
-        expect(await p).toEqual({ action: 'cancel' });
+        await endedWithoutAnswer(p);
         expect(document.querySelector('.aparte-elic-panel')).toBeNull();
     });
 
-    it('resolves cancel immediately for an already-aborted signal', async () => {
+    it('ends without an answer immediately for an already-aborted signal', async () => {
         mountChat();
-        expect(await requestUserInput({
+        await endedWithoutAnswer(requestUserInput({
             message: '?', schema: { type: 'string' }, signal: AbortSignal.abort(),
-        })).toEqual({ action: 'cancel' });
+        }));
     });
 
     it('a turn ending does not wedge the presenter', async () => {
@@ -229,7 +249,7 @@ describe('<aparte-elicitation> presenter', () => {
         // Raced rather than awaited: with the defect present this promise never
         // resolves, and a hung test reports a timeout instead of the reason.
         const settled = await Promise.race([
-            first,
+            first.then(() => 'settled', () => 'settled'),
             new Promise((r) => setTimeout(() => r('never'), 50)),
         ]);
         expect(settled, 'a request whose panel was torn down has to settle').not.toBe('never');
@@ -275,20 +295,21 @@ describe('<aparte-elicitation> presenter', () => {
     });
 });
 
-describe('no presenter at all — the cancel is loud, not silent', () => {
+describe('no presenter at all — the failure is loud, not silent', () => {
     // A docs page of ours said `<aparte-elicitation>` "installs itself — nothing to
     // register". It does register itself, but only from connectedCallback, so a
-    // consumer who never puts it in the DOM gets `cancel` for every question: the
-    // model reads a refusal the user was never asked for. Resolving is right (a
-    // question nobody can render cannot be awaited); doing it quietly was not.
-    it('warns once, and still resolves cancel rather than hanging', async () => {
+    // consumer who never puts it in the DOM gets nothing for every question. It used to
+    // RESOLVE `cancel`, which the model read as a refusal the user was never asked for;
+    // it rejects now, which a caller cannot mistake for an answer. Failing is right — a
+    // question nobody can render cannot be awaited — doing it quietly was not.
+    it('warns once, and rejects rather than hanging', async () => {
         const cfg = new AparteConfig();
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-        expect(await cfg.requestUserInput({ message: 'a', schema: { type: 'string' } }))
-            .toEqual({ action: 'cancel' });
-        expect(await cfg.requestUserInput({ message: 'b', schema: { type: 'string' } }))
-            .toEqual({ action: 'cancel' });
+        await expect(cfg.requestUserInput({ message: 'a', schema: { type: 'string' } }))
+            .rejects.toMatchObject({ name: 'AbortError', reason: 'no-presenter' });
+        await expect(cfg.requestUserInput({ message: 'b', schema: { type: 'string' } }))
+            .rejects.toMatchObject({ name: 'AbortError', reason: 'no-presenter' });
 
         // Once per config, not once per request: a tool loop can ask repeatedly.
         expect(warn).toHaveBeenCalledTimes(1);

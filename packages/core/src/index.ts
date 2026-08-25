@@ -245,7 +245,7 @@ export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
 
 // Export elicitation (human-in-the-loop typed input)
-export { requestUserInput, buildElicitationPanel } from './elicitation/index.js';
+export { requestUserInput, buildElicitationPanel, AparteElicitationAbortError } from './elicitation/index.js';
 export type {
     AparteElicitationSchema,
     AparteElicitationField,

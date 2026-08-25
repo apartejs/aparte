@@ -22,6 +22,9 @@ export type {
     AparteElicitationResult,
     AparteElicitationPresenter,
 } from './types.js';
+// A VALUE export: a consumer catching a failed request needs the constructor to test
+// against, not only its type. DOM-free, so the SSR barrel carries it too.
+export { AparteElicitationAbortError } from './types.js';
 export { buildElicitationPanel } from './panel.js';
 export type { BuiltElicitationPanel } from './panel.js';
 

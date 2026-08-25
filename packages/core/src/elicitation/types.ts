@@ -102,9 +102,10 @@ export interface AparteElicitationRequest {
      */
     target?: HTMLElement | null;
     /**
-     * Aborts the request — the presenter settles `cancel` and closes the panel.
-     * Pass a tool handler's signal so a client-side timeout or turn abort tears
-     * the panel down instead of leaving it open.
+     * Aborts the request — the panel closes and the promise REJECTS with
+     * {@link AparteElicitationAbortError}. Pass a tool handler's signal so a
+     * client-side timeout or a stopped turn tears the panel down instead of leaving
+     * it open.
      */
     signal?: AbortSignal;
 }
@@ -116,11 +117,48 @@ export interface AparteElicitationRequest {
  */
 export type AparteElicitationResult =
     | { action: 'accept'; content: unknown }
-    | { action: 'decline' }
-    | { action: 'cancel' };
+    | { action: 'decline' };
 
 /**
- * Presents an elicitation request and resolves with the user's response.
+ * The request ended without an answer: the turn was stopped, the signal fired, the
+ * question was taken away by another request, or nothing was mounted to ask it.
+ *
+ * A THROW, and not a third member of {@link AparteElicitationResult}. `cancel` was a
+ * VALUE, so it was easy to handle as though it were an answer — and that is exactly
+ * what happened: the approval gate treated it as a refusal, stamped the segment
+ * `rejected`, and told the model "Tool execution was rejected by the user." The user
+ * had pressed Stop. A rejection cannot be mistaken for a decision by a caller that
+ * forgot a branch, which is the property `cancel` never had.
+ *
+ * `name` is `'AbortError'`, so every `err.name === 'AbortError'` check already written
+ * treats it correctly — including `askUserHandler`, which used to perform this exact
+ * conversion by hand. That hand-conversion existing is the evidence the shape is
+ * right, and it is gone.
+ */
+export class AparteElicitationAbortError extends DOMException {
+    /**
+     * Which of the two ways it ended.
+     *
+     * `'no-presenter'` is a developer's setup problem and `'aborted'` is a person
+     * stopping something; a host that reports them the same way reports a bug as a
+     * user action. The distinction is why this carries a field at all.
+     */
+    readonly reason: 'aborted' | 'no-presenter';
+
+    constructor(reason: 'aborted' | 'no-presenter' = 'aborted') {
+        super(
+            reason === 'no-presenter'
+                ? 'No elicitation presenter is mounted, so the request could not be shown.'
+                : 'The request ended without an answer.',
+            'AbortError',
+        );
+        this.reason = reason;
+    }
+}
+
+/**
+ * Presents an elicitation request and resolves with the user's response, or rejects
+ * with {@link AparteElicitationAbortError} when it ends without one.
  * Registered per config instance via `aparteGlobalConfig.setElicitationPresenter`
  * (the `<aparte-elicitation>` Web Component is the default presenter).
  */

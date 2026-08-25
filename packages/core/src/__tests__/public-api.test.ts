@@ -50,6 +50,7 @@ describe('@aparte/core public API', () => {
             "AparteConversationManager",
             "AparteDirectTransport",
             "AparteElicitation",
+            "AparteElicitationAbortError",
             "AparteError",
             "AparteErrorCode",
             "AparteMessageRepository",

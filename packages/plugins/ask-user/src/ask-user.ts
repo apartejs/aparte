@@ -231,14 +231,16 @@ export const askUserHandler: AparteToolHandler = async (call, signal, context): 
     // and the model was told the user had refused a question never shown to them.
     // The handler had no way to know which chat it was running for until
     // `AparteToolContext` existed.
+    // No try/catch and no third branch: a request that ends without an answer REJECTS
+    // with an AbortError now, which is what this handler used to build by hand from
+    // `{ action: 'cancel' }`. Letting it propagate is the same outcome with one fewer
+    // place to get it wrong — and the conversion existing here is what showed the
+    // rejection was the right shape for the primitive.
     const result = await requestUserInput({ message, schema, signal, target: context?.target });
     if (result.action === 'accept') {
         return { toolCallId: call.id, content: formatAnswer(result.content, labels) };
     }
-    if (result.action === 'decline') {
-        return { toolCallId: call.id, content: ASK_USER_DECLINED };
-    }
-    throw new DOMException('ask_user aborted', 'AbortError');
+    return { toolCallId: call.id, content: ASK_USER_DECLINED };
 };
 
 /**

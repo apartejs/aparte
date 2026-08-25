@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
-import { aparteGlobalConfig, AparteConfig, attachConfig } from '@aparte/core';
+import { aparteGlobalConfig, AparteConfig, attachConfig, AparteElicitationAbortError } from '@aparte/core';
 import type { AparteElicitationRequest, AparteElicitationResult } from '@aparte/core';
 import { createAskUserTool, askUserHandler } from './ask-user.js';
 
@@ -64,6 +64,13 @@ describe('askUserHandler — elicitation adapter', () => {
     /** Register a scripted presenter and capture the request it receives. */
     function presenter(result: AparteElicitationResult): void {
         aparteGlobalConfig.setElicitationPresenter(async (req) => { lastRequest = req; return result; });
+    }
+    /** A request that ends without an answer — a stop, or nothing mounted to ask it. */
+    function presenterEndsWithoutAnswer(): void {
+        aparteGlobalConfig.setElicitationPresenter(async (req) => {
+            lastRequest = req;
+            throw new AparteElicitationAbortError();
+        });
     }
     const schema = () => lastRequest!.schema as any;
 
@@ -146,8 +153,12 @@ describe('askUserHandler — elicitation adapter', () => {
         expect(res.content).toBe('The user declined to answer.');
     });
 
-    it('cancel rejects with an AbortError', async () => {
-        presenter({ action: 'cancel' });
+    it('a request that ends without an answer propagates the AbortError', async () => {
+        // The handler used to build this error itself, out of `{ action: 'cancel' }`. The
+        // primitive throws now, so the handler has one fewer branch and no conversion to
+        // get wrong — and the conversion having existed here is what showed the
+        // rejection was the right shape for the primitive.
+        presenterEndsWithoutAnswer();
         await expect(askUserHandler(call({ question: 'q', options: [{ title: 'a' }] }), sig()))
             .rejects.toMatchObject({ name: 'AbortError' });
     });

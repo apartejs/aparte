@@ -15,7 +15,7 @@ composer, and resolve with what the user chose. It is a generalisation of the
 here it is carried by a schema, so one call covers all of them.
 
 The shape follows [MCP elicitation](https://modelcontextprotocol.io/) (a message plus a
-requested schema, answered with accept / decline / cancel), but the mechanism is
+requested schema, answered with accept or decline), but the mechanism is
 transport-agnostic: a presenter registered per config instance, never window events.
 
 ## Asking for one thing
@@ -125,31 +125,49 @@ different questions in the middle of a conversation is not that, and no product 
 it by stacking them in one box. The form case is real, so it stays — it was just never
 the right default.
 
-## Always handle all three answers
+## Two answers, and a rejection
 
 ```ts
-import { requestUserInput } from '@aparte/core';
+import { requestUserInput, AparteElicitationAbortError } from '@aparte/core';
 
-const answer = await requestUserInput({ message: 'Delete the branch?', schema: { type: 'boolean' } });
-
-switch (answer.action) {
-  case 'accept':  /* the user answered — `answer.content` is the value */ break;
-  case 'decline': /* the user said no to being asked at all */ break;
-  case 'cancel':  /* the panel was torn down: aborted turn, or a signal fired */ break;
+try {
+  const answer = await requestUserInput({ message: 'Delete the branch?', schema: { type: 'boolean' } });
+  if (answer.action === 'accept') {
+    // The user answered — `answer.content` is the value.
+  } else {
+    // `decline`: the user said no to being asked at all.
+  }
+} catch (err) {
+  if (err instanceof AparteElicitationAbortError) {
+    // No answer: the turn was stopped, a signal fired, the question was taken away,
+    // or nothing was mounted to ask it. `err.reason` is 'aborted' or 'no-presenter'.
+  }
 }
 ```
 
-`decline` and `cancel` are different, and a tool that treats them the same will
-eventually do the wrong thing: declining is an answer, cancelling is the absence of
-one.
+Declining is an answer. Ending without one is not, and that is why it **rejects**
+rather than resolving a third `action`. It used to resolve `{ action: 'cancel' }`, and a
+value is easy to handle as though it were an answer — which is exactly what happened
+one level up: the tool-approval gate read that `cancel` as a refusal and told the model
+the user had rejected a tool they had merely stopped. A rejection cannot be mistaken
+for a decision by a caller that forgot a branch.
+
+`name` is `'AbortError'`, so a handler that already tests `err.name === 'AbortError'`
+needs no change.
+
+One consequence worth knowing: a request you start and never `await` will surface an
+**unhandled rejection** when it ends without an answer, because that is what an ignored
+failed promise is. Attach a `.catch()` if you genuinely do not care about the outcome —
+the noise is the point, and it is the price of an ending that cannot be mistaken for a
+decision.
 
 ## Wiring it to a tool's lifetime
 
 Two options matter when the request comes from a tool handler:
 
 - **`signal`** — pass the handler's own `AbortSignal`. When the turn is stopped or the
-  per-tool timeout fires, the panel is torn down and the promise settles `cancel`,
-  instead of leaving an orphan form in the composer.
+  per-tool timeout fires, the panel is torn down and the promise rejects with an
+  `AbortError`, instead of leaving an orphan form in the composer.
 - **`target`** — any element inside the chat that should present the request. It
   resolves *which* instance answers (its config, its composer). Omit it for a
   single-chat page; pass it when several chats share a page.
@@ -203,12 +221,13 @@ inside your `<aparte-chat>`:
 It then mounts its panel inside the composer of the resolved chat, so the question
 appears where the user is already typing.
 
-:::caution[Leave it out and the refusal is invented]
-With no presenter registered, `requestUserInput()` resolves `{ action: 'cancel' }` — so
-your tool reports a refusal the user was never asked for, and the model answers as
-though they had declined. Core warns once on the console when this happens; there is no
-way for it to do better, because a question nobody can render cannot be waited on
-either.
+:::caution[Leave it out and nothing can ask]
+With no presenter registered, `requestUserInput()` rejects with
+`AparteElicitationAbortError` and `reason: 'no-presenter'`, and core warns once on the
+console. It used to resolve `{ action: 'cancel' }`, which meant your tool reported a
+refusal the user was never asked for and the model answered as though they had
+declined. A question nobody can render still cannot be waited on — but failing is not
+the same as answering, and only one of the two can be told apart from a real refusal.
 :::
 
 To render it yourself, register a presenter on the config:
@@ -234,7 +253,7 @@ send button and `isComplete()` to whether that button is enabled.
 
 ## Replacing one field, not the whole panel
 
-Writing a presenter means owning placement, accept/decline/cancel, the send-button
+Writing a presenter means owning placement, accept/decline and the rejection, the send-button
 gating, focus and the teardown when a turn is stopped. Most of the time what you want
 is a different-looking *choice*, so there is a hook for exactly that:
 

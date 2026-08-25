@@ -231,7 +231,7 @@ See the [Conversation persistence](/guides/conversation-persistence/) guide.
 
 - `setElicitationPresenter(presenter: AparteElicitationPresenter | null): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default.
 - `getElicitationPresenter(): AparteElicitationPresenter | undefined` — the registered presenter, if any.
-- `requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult>` — ask the user for typed input mid-run; resolves `{ action: 'accept' | 'decline' | 'cancel', ... }`. Resolves `cancel` immediately when no presenter is registered.
+- `requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult>` — ask the user for typed input mid-run; resolves `{ action: 'accept' | 'decline', ... }`, or **rejects** with `AparteElicitationAbortError` when the request ends without an answer (a stopped turn, a fired signal, the question taken away, or no presenter mounted — `err.reason` tells the last one apart from the others). One request reaches the presenter at a time; a second one waits.
 
 ### Subscribe & reset
 
