@@ -6,7 +6,7 @@
  * Requires `pnpm build` first (it reads dist, not source).
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
 
@@ -16,22 +16,31 @@ async function ask(page: import('@playwright/test').Page, text: string): Promise
     await new ChatPage(page).send(text, { gated: false });
 }
 
+/** An approval option, by the label the page wrote. */
+const option = (page: Page, label: string) =>
+    page.locator('.aparte-approval-option', { hasText: label });
+
 test('mounts and runs the human-in-the-loop tool approval', async ({ page }) => {
     const errors = collectPageErrors(page);
 
     await page.goto('/');
     await ask(page, 'please delete my notes');
 
-    // The default tool_call renderer offers Approve / Reject.
-    const approve = page.locator('[data-tool-decision="approve"]');
-    const reject = page.locator('[data-tool-decision="reject"]');
-    await expect(approve).toBeVisible({ timeout: 15_000 });
-    await expect(reject).toBeVisible();
+    // The decision is at the COMPOSER. It used to be a pair of buttons inside the
+    // bubble — this spec asserted `[data-tool-decision]`, and the event those buttons
+    // dispatched is gone with them.
+    await expect(option(page, 'Approve')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('aparte-composer')).toHaveAttribute('data-panel-active', '');
 
-    // Approving resolves the segment and streams the follow-up reply.
-    await approve.click();
+    // And the transcript holds the anchor, with nothing to press.
+    await expect(page.locator('.segment-tool-call[data-status="awaiting-approval"]')).toBeVisible();
+    await expect(page.locator('[data-tool-decision]')).toHaveCount(0);
+
+    // One click, no confirm step.
+    await option(page, 'Approve').click();
     await expect(page.locator('.segment-tool-call[data-status="resolved"]')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').last()).toContainText('Approved');
+    await expect(page.locator('.aparte-approval-panel'), 'the panel closes with the decision').toHaveCount(0);
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
@@ -42,12 +51,33 @@ test('rejecting a tool call halts the action', async ({ page }) => {
     await page.goto('/');
     await ask(page, 'delete everything');
 
-    const reject = page.locator('[data-tool-decision="reject"]');
-    await expect(reject).toBeVisible({ timeout: 15_000 });
-    await reject.click();
+    await expect(option(page, 'Reject')).toBeVisible({ timeout: 15_000 });
+    await option(page, 'Reject').click();
 
     await expect(page.locator('.segment-tool-call[data-status="rejected"]')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').last()).toContainText('Rejected');
+
+    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+});
+
+test('a refusal can carry the words the user typed instead', async ({ page }) => {
+    // The arm that did not exist: a refusal with a reason. It is only useful because a
+    // refusal now hands the model a turn to read it in — before, whatever was written
+    // here went into a history nobody sent.
+    const errors = collectPageErrors(page);
+
+    await page.goto('/');
+    await ask(page, 'delete everything');
+    await expect(option(page, 'Approve')).toBeVisible({ timeout: 15_000 });
+
+    await page.locator('.aparte-approval-instruction').fill('move them to the archive instead');
+    // Written text is submitted by the composer's own button, which is the act it
+    // already means; an option is its own click.
+    await page.locator('aparte-composer-send button').click();
+
+    await expect(page.locator('.segment-tool-call[data-status="rejected"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').last())
+        .toContainText('move them to the archive instead');
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
