@@ -146,7 +146,7 @@ const KINDS: Kind[] = [
   { tag: 'text', body: 'Streamed token by token. Markdown and highlighting are plugins you opt into, so the core stays dependency-free.', states: [] },
   { tag: 'thinking', body: 'A collapsible block that closes itself the moment the model stops thinking — not when the answer ends.', states: [] },
   { tag: 'code', body: 'A fenced block with a copy button that copies the source, not the markup.', states: [] },
-  { tag: 'tool_call', body: 'Five states, including a built-in Approve / Reject gate that pauses the turn.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
+  { tag: 'tool_call', body: 'Five states, including a turn paused for a person — the pill is the anchor, the decision is asked at the composer.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
   { tag: 'progress', body: 'A live bar for long work, so a slow step is visible instead of silent.', states: ['pending', 'running', 'complete', 'error'] },
   { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
   { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
@@ -416,11 +416,15 @@ aparteGlobalConfig.<span class="fn">registerTool</span>(&#123;
   <span class="kw">needsApproval</span>: <span class="tg">true</span>,
 &#125;, <span class="kw">async</span> (&#123; path &#125;) =&gt; remove(path));
 
-<span class="cm">// core renders Approve / Reject and dispatches this.</span>
-<span class="cm">// AparteClient answers it for you; this page answers</span>
-<span class="cm">// it itself, which is all a host has to do.</span>
-chat.<span class="fn">addEventListener</span>(<span class="st">'aparte-tool-decision'</span>, (e) =&gt; &#123;
-  <span class="kw">const</span> &#123; toolCallId, approved &#125; = e.detail;
+<span class="cm">// AparteClient asks at the composer and resumes for you.</span>
+<span class="cm">// Ask it yourself the same way — no client, no loop:</span>
+<span class="kw">const</span> answer = <span class="kw">await</span> aparteGlobalConfig.<span class="fn">requestUserInput</span>(&#123;
+  kind: <span class="st">'approval'</span>,
+  message: <span class="st">'Run delete_file?'</span>,
+  options: [
+    &#123; value: <span class="st">'allow'</span>, label: <span class="st">'Approve'</span>, tone: <span class="st">'affirm'</span> &#125;,
+    &#123; value: <span class="st">'deny'</span>, label: <span class="st">'Reject'</span>, tone: <span class="st">'deny'</span> &#125;,
+  ],
 &#125;);</pre>
 <pre class="pane" data-pane="segments"><span class="cm">// two kinds in one reply, both streamed:</span>
 <span class="cm">// open empty, append, then settle</span>
@@ -540,7 +544,7 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
         <div class="split">
           <div class="prose">
             <ul>
-              <li>Mark a tool <b>needsApproval</b> and the loop pauses before the handler runs. Core renders Approve and Reject inline and dispatches a decision event; on reject a &#8220;rejected by user&#8221; result is injected and the turn stops.</li>
+              <li>Mark a tool <b>needsApproval</b> and the loop pauses before the handler runs. Core asks at the composer, where every request for the user is answered, and the pill in the transcript is the anchor. A refusal skips the rest of the turn and then the model gets a turn to answer it &#8212; and it can carry your own words.</li>
               <li><b>Ten tool round-trips</b> per turn by default, overridable per run and per tool.</li>
               <li>A turn can also <b>ask a structured question</b> &#8212; a schema-driven panel in the composer, and the question with its answer stays in the transcript afterwards.</li>
               <li><b>Abort</b> is checked on both sides of every stream read, and each tool call can race its own timeout.</li>
@@ -840,15 +844,12 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         window.dispatchEvent(new CustomEvent('aparte-message-done'));
       }
 
-      /** A tool call waiting for this page to answer, if any. */
-      let pending: { mid: string; sid: string } | null = null;
       /** One scripted reply at a time, whichever panel asked for it. */
       let busy = false;
       function resetDemo() {
         run++;
         timers.forEach((t) => clearTimeout(t));
         timers = [];
-        pending = null;
         busy = false;
         // A tab switch mid-reply would otherwise leave the composer showing Stop for a
         // turn that no longer exists.
@@ -919,7 +920,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       function replyTo(q: string) {
         q = q.toLowerCase();
         if (/approv|human|tool|loop|agent/.test(q))
-          return 'A tool marked needsApproval pauses the turn before its handler runs — core draws Approve and Reject itself, and the loop resumes or injects a rejection. Up to ten tool round-trips per turn by default.';
+          return 'A tool marked needsApproval pauses the turn before its handler runs, and the decision is asked at the composer. A refusal can carry your own words, which the model reads on the turn it gets back. Up to ten tool round-trips per turn by default.';
         if (/frame|react|vue|svelte|angular|vanilla/.test(q))
           return 'React, Vue, Svelte, Angular — or none at all. It’s one web component underneath, so the chat renders identically everywhere; only the two lines that mount it change.';
         if (/style|css|theme|token|variable/.test(q))
@@ -973,7 +974,6 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         timers.forEach((t) => clearTimeout(t));
         timers = [];
         busy = false;
-        pending = null;
         // Settle what was mid-flight: a stopped turn keeps what it produced — that is
         // the whole point of stopping rather than resetting — but it must stop LOOKING
         // like it is still arriving, caret and all.
@@ -1022,7 +1022,10 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
                 id: 'tl-call', type: 'tool_call', status: 'awaiting-approval',
                 toolCall: { id: 'tc-1', name: 'delete_file', input: { path: 'src/legacy.ts' } },
               });
-              pending = { mid, sid: 'tl-call' };
+              // The pill above is the ANCHOR; the decision is asked at the composer.
+              // `requestUserInput` is a plain function on the config — no AparteClient,
+              // no loop — which is the whole of what a host owes the gate.
+              askApproval(mid, 'tl-call', 'delete_file');
             }, 260);
           });
         }, 420);
@@ -1242,25 +1245,51 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         lvLocale.value = localeKey;
       };
 
-      // The page is the host, so it answers the decision core dispatched. This is
-      // the whole of what a host owes the built-in approval gate.
-      document.addEventListener('aparte-tool-decision', (e) => {
-        if (!pending) return;
-        const approved = !!(e as any).detail?.approved;
-        const { mid, sid } = pending;
-        pending = null;
-        viewport.updateSegment(mid, sid, approved
-          ? { status: 'resolved', result: 'Deleted src/legacy.ts' }
-          : { status: 'rejected' });
-        const closing = 'tl-end';
-        after(() => {
-          viewport.addSegment(mid, { id: closing, type: 'text', content: '', isStreaming: true });
-          streamSegment(mid, closing, approved
-            ? 'Done — the file is gone and the turn carried on from there.'
-            : 'Understood, I left it alone. On a rejection the loop injects a “rejected by user” result and stops.',
-            () => completeTurn(mid));
-        }, 340);
-      });
+      /**
+       * Ask for the decision, at the composer, and act on what comes back.
+       *
+       * This used to listen for `aparte-tool-decision` on `document` — the event core
+       * dispatched from the Approve / Reject buttons it drew inside the bubble. Those
+       * buttons are gone: a request for the user is answered where the user answers, and
+       * the transcript keeps the pill as the anchor. `requestUserInput` is the same
+       * function a tool handler calls, so this page and a real agent loop ask
+       * identically.
+       */
+      async function askApproval(mid: string, sid: string, tool: string) {
+        try {
+          const answer = await aparteGlobalConfig.requestUserInput({
+            kind: 'approval',
+            message: `Run ${tool}?`,
+            options: [
+              { value: 'allow', label: 'Approve', tone: 'affirm' },
+              { value: 'deny', label: 'Reject', tone: 'deny' },
+            ],
+          });
+          const picked = answer.action === 'accept' ? (answer.content as any) : undefined;
+          const instruction: string | undefined = picked?.instruction?.trim() || undefined;
+          const approved = !instruction && picked?.option === 'allow';
+
+          viewport.updateSegment(mid, sid, approved
+            ? { status: 'resolved', result: 'Deleted src/legacy.ts' }
+            : { status: 'rejected' });
+
+          const closing = 'tl-end';
+          after(() => {
+            viewport.addSegment(mid, { id: closing, type: 'text', content: '', isStreaming: true });
+            streamSegment(mid, closing, approved
+              ? 'Done — the file is gone and the turn carried on from there.'
+              : instruction
+                ? `Understood — “${instruction}”. A refusal can carry your words, and the model gets a turn to read them.`
+                : 'Understood, I left it alone. A refusal skips the rest of the turn, then the model answers it.',
+              () => completeTurn(mid));
+          }, 340);
+        } catch {
+          // The request ended without an answer — the panel was taken away, or the tab
+          // was switched. Nobody refused anything, so the pill says aborted.
+          viewport.updateSegment(mid, sid, { status: 'aborted' });
+          completeTurn(mid);
+        }
+      }
 
       // ── panel switching ───────────────────────────────────────────────────
       const RUNNERS: Record<string, () => void> = {
@@ -1273,7 +1302,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       const N_LOCALE = stageEl.dataset.locale ?? '';
       const CAPTIONS: Record<string, string> = {
         chat: 'The component itself, streaming token by token — and the composer collecting files, because <b>attachments are one attribute</b> once a host consumes them.',
-        tools: 'A tool marked <b>needsApproval</b> pauses the turn. Core draws Approve and Reject and dispatches the decision; press either and watch the turn resume or stop.',
+        tools: 'A tool marked <b>needsApproval</b> pauses the turn and asks at the composer. Press a choice &#8212; or type what to do instead &#8212; and watch the reply come back either way.',
         segments: `One assistant reply holding <b>reasoning and code</b> in the same message. ${N_KINDS} kinds ship registered by default, mixable in any order.`,
         artifact: 'The model wrote a document, and core renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
         branch: 'Retry <b>forks a sibling</b> instead of overwriting, and the picker appears on its own. Bubble actions stay off until a host answers them.',

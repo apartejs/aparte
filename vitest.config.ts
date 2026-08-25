@@ -88,8 +88,8 @@ export default defineConfig({
         // suite, the real-stream stamping test and the renderer-additivity tests
         // moved the global to 84.67% lines and 80.05% functions. The ratchet guard
         // asked for it — that is what a two-sided floor is for.
-        lines: 83,
-        statements: 83,
+        lines: 85,
+        statements: 85,
         functions: 79,
         branches: 83,
         // Set from the MEASURED aggregate minus a point, not from a round number.

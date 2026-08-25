@@ -261,7 +261,7 @@ Constructor options (all optional):
 | Option | Type | Purpose |
 |---|---|---|
 | `keyResolver` | `(providerId: string) => string \| Record<string,string> \| Promise<... \| undefined \| null> \| undefined \| null` | Resolve the API key/config for a provider. |
-| `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools. Defaults to a global `aparte-tool-decision` DOM listener. |
+| `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`. |
 | `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: drop everything. |
 | `streamRunner` | `AparteStreamRunner` | Delegate the agentic loop to a headless runner (e.g. `@aparte/engine`'s `runStreamAgent`) instead of the built-in inline loop. |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |

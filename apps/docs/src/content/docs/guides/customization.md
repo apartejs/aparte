@@ -179,10 +179,12 @@ half-signalling is the same lie in a quieter voice.
 either — but that's the primary function, the failure is immediate and it's the developer,
 not the user, who sees it.
 
-The **tool-approval gate** (Approve / Reject on a `tool_call` segment) needs no declaration
-either, for a different reason: it renders only while the segment says
-`status: 'awaiting-approval'`, and only a loop that is actually waiting for the verdict sets
-that. The affordance declares itself. The **download on a binary artifact** is the
+The **tool-approval gate** needs no declaration either, for a different reason: the
+`tool_call` pill shows only that a tool is waiting, and the choices are raised at the
+composer by a loop that is actually waiting for the verdict. Nothing in the transcript is
+clickable, so there is no affordance there to declare — and a segment restored from
+storage cannot offer a button whose listener went with the page, which is what the old
+inline Approve / Reject did. The **download on a binary artifact** is the
 opposite — a model producing a spreadsheet doesn't mean anything in the page can
 regenerate the bytes, which is why it waits for `artifactRedownload`.
 
@@ -613,8 +615,8 @@ custom renderer goes half-stale:
 `relabel` exists because the obvious alternative does not work: re-rendering a segment
 to pick up a new locale throws away state the DOM owns and the segment data does not —
 a preview iframe that is running, a reasoning block the reader expanded by clicking
-`<summary>`, scroll position inside a long reasoning pane, the focus on an Approve/Reject
-button. Implement it only if your output contains text or icons that came from the
+`<summary>`, scroll position inside a long reasoning pane, the caret in a half-typed
+answer. Implement it only if your output contains text or icons that came from the
 config; a renderer whose chrome is all its own data correctly leaves it out.
 
 ## Content providers (opt-in)

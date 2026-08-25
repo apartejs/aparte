@@ -99,13 +99,27 @@ aparteGlobalConfig.registerTool(deleteFilesTool, async (call) => {
 ```
 
 Before running the handler, `AparteClient` flips the segment to
-`status: 'awaiting-approval'` — the built-in renderer swaps the pill for **Approve** /
-**Reject** buttons (shown even when a custom renderer is registered for the tool: approval
-always precedes the tool's own UI). It also dispatches **`aparte-tool-approval-request`**
-on the target element (`detail: { toolCallId, toolName, input }`) — listen here to show a
-richer surface (a modal, a diff) — then awaits a decision. Clicking Approve/Reject
-dispatches **`aparte-tool-decision`** (`detail: { toolCallId, approved, payload? }`), the
-event the client waits on.
+`status: 'awaiting-approval'` and **asks at the composer** — the same place every other
+request for the user is answered, through the same `requestUserInput` a tool handler
+calls. The panel offers the choices and a free-text field; the pill in the transcript is
+the **anchor**, saying which tool is waiting, and holds nothing clickable.
+
+That split is deliberate. The panel is capped at half the viewport, so it cannot hold a
+diff or a plan, while the transcript is already scrollable, copyable and persisted: the
+thing being judged stays in the thread, the decision moves to where the user answers.
+
+It also dispatches **`aparte-tool-approval-request`** on the target element
+(`detail: { toolCallId, toolName, input }`) — observation only, for an app that wants to
+raise an OS notification when a gate opens.
+
+:::note[`aparte-tool-decision` is gone]
+The Approve / Reject buttons used to live in the transcript and dispatch
+`aparte-tool-decision`, which the client answered with a `document` listener. Both are
+removed. The event existed only because a segment renderer has no reference to the client,
+and two seams that can disagree about who answers a decision are one too many. To answer
+programmatically, pass an `approvalResolver` (below) or register your own presenter — each
+sees the whole request rather than an id on an event.
+:::
 
 - On **reject**, the handler never runs. A synthetic *"rejected by user"* result is fed
   back, the turn's **remaining** tool calls are skipped — the model may have asked for
@@ -119,19 +133,27 @@ event the client waits on.
 - On **approve**, the handler runs with the original input, unless the decision carries a
   plain-object `payload`, which is merged onto the input first — so a custom approval
   surface can edit the arguments (fix a path, tighten a query) before the tool runs. The
-  built-in buttons send no payload.
+  built-in panel sends no payload.
+- **Typing instead of choosing** is a refusal that carries your words: the instruction
+  becomes the `tool_result` the model reads on the turn it gets back. That is only useful
+  because a refusal hands the model a turn — before, whatever you wrote had nowhere to go.
 
-By default the client listens on `document` for `aparte-tool-decision`. To run several
-isolated clients on one page, or to drive approval from something with no DOM (a CLI, a
-webhook), pass an `approvalResolver` in `AparteClientOptions`:
+To drive approval from something with no DOM — a CLI, a webhook, an ops channel — or to
+decide without asking at all, pass an `approvalResolver` in `AparteClientOptions`. It
+replaces the panel entirely:
 
 ```ts
 new AparteClient({
-  approvalResolver: async (toolCallId, signal) => ({
-    approved: await confirmWithOpsTeam(toolCallId, signal),
+  // The whole CALL, not just its id: you cannot ask "run this?" without naming what.
+  approvalResolver: async (call, signal) => ({
+    approved: await confirmWithOpsTeam(call.name, call.input, signal),
+    // Optional, on a refusal: the words the model reads back.
+    instruction: 'use the staging bucket instead',
   }),
 }).start();
 ```
+
+An "auto" mode is this and nothing more: a resolver that answers without asking anybody.
 
 :::caution[Approval is UX, not authorization]
 `needsApproval` runs **in the browser** — it protects the user from surprising tool runs,
@@ -219,7 +241,7 @@ This runs with no model and no API key — it drives the viewport the same way
 ```ts
 import '@aparte/core';
 import '@aparte/core/styles.css';
-import { registerDefaultRenderers } from '@aparte/core';
+import { registerDefaultRenderers, aparteGlobalConfig } from '@aparte/core';
 
 registerDefaultRenderers();
 
@@ -227,15 +249,15 @@ const chat = document.querySelector('aparte-chat')!;
 const vp = () => (chat as any).viewport;
 
 let n = 0;
-let pending: { messageId: string; segId: string } | null = null;
 
 function reply(text: string) {
   vp().appendMessage({ id: `a-${++n}`, role: 'assistant', content: text, timestamp: Date.now() });
 }
 
-// Human-in-the-loop: inject a tool_call segment awaiting approval. The default
-// renderer shows Approve/Reject and dispatches `aparte-tool-decision`.
-function askApproval() {
+// Human-in-the-loop with no client and no loop: the pill is the anchor in the
+// transcript, and `requestUserInput` asks at the composer. This is the same function
+// the built-in gate calls, so a page and a real agent loop ask identically.
+async function askApproval() {
   const id = `a-${++n}`;
   const segId = `seg-${n}`;
   vp().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
@@ -245,16 +267,33 @@ function askApproval() {
     status: 'awaiting-approval',
     toolCall: { id: `tc-${n}`, name: 'delete_files', input: { path: '~/notes/todo.md' } },
   });
-  pending = { messageId: id, segId };
-}
 
-document.addEventListener('aparte-tool-decision', (e) => {
-  if (!pending) return;
-  const { approved } = (e as CustomEvent).detail;
-  vp().updateSegment(pending.messageId, pending.segId, { status: approved ? 'resolved' : 'rejected' });
-  pending = null;
-  reply(approved ? 'Approved — the file would be deleted here.' : 'Rejected — nothing happened.');
-});
+  try {
+    const answer = await aparteGlobalConfig.requestUserInput({
+      kind: 'approval',
+      message: 'Run delete_files?',
+      // The options are YOURS. Core cannot write "and always for this tool" or know
+      // that your app has somewhere to remember it.
+      options: [
+        { value: 'allow', label: 'Approve', tone: 'affirm' },
+        { value: 'deny', label: 'Reject', tone: 'deny' },
+      ],
+    });
+    const picked = answer.action === 'accept'
+      ? (answer.content as { option?: string; instruction?: string })
+      : {};
+    const approved = !picked.instruction && picked.option === 'allow';
+    vp().updateSegment(id, segId, { status: approved ? 'resolved' : 'rejected' });
+    reply(approved
+      ? 'Approved — the file would be deleted here.'
+      : picked.instruction
+        ? `Understood: ${picked.instruction}`
+        : 'Rejected — nothing happened.');
+  } catch {
+    // It ended without an answer: a stopped turn, or nothing mounted to ask it.
+    vp().updateSegment(id, segId, { status: 'aborted' });
+  }
+}
 
 chat.addEventListener('aparte-send', (e) => {
   const text = (e as CustomEvent).detail.content as string;
@@ -264,8 +303,8 @@ chat.addEventListener('aparte-send', (e) => {
 });
 ```
 
-Type a message containing "delete" and the bubble shows the Approve/Reject pill; either
-button dispatches the same `aparte-tool-decision` event `AparteClient` listens for. Swap
+Type a message containing "delete" and the pill appears in the transcript while the
+choices appear in the composer — the same panel `AparteClient` raises. Swap
 the manual `addSegment` call for a registered `delete_files` tool (`needsApproval: true`)
 plus a started `AparteClient`, and a real model drives the exact same segment and events.
 

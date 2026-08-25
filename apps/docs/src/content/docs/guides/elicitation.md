@@ -161,6 +161,46 @@ failed promise is. Attach a `.catch()` if you genuinely do not care about the ou
 the noise is the point, and it is the price of an ending that cannot be mistaken for a
 decision.
 
+## Asking for a decision instead of a value
+
+A `kind: 'approval'` request asks the user to pick one of the options **you** supply,
+and resolves with which one — plus anything they typed instead. It is the same
+mechanism, the same panel slot and the same queue; only what is on screen differs,
+because a decision is not a value and a schema there would be a form with nothing in it.
+
+```ts
+import { requestUserInput } from '@aparte/core';
+
+const answer = await requestUserInput({
+  kind: 'approval',
+  message: 'Run delete_files?',
+  options: [
+    { value: 'allow', label: 'Approve', tone: 'affirm' },
+    // Two options may share a `value` and differ only in reach: this is what
+    // "Yes" and "Yes, and always" are. YOU write the label, because only you can
+    // honour it — core has nowhere to remember a grant.
+    { value: 'allow', label: 'Approve, and always for this tool', tone: 'affirm' },
+    { value: 'deny', label: 'Reject', tone: 'deny' },
+  ],
+});
+
+if (answer.action === 'accept') {
+  const { option, instruction } = answer.content as { option?: string; instruction?: string };
+  // `instruction` is the free-text arm — "no, do this instead". It is a refusal that
+  // carries words, which is only useful because a refusal hands the model a turn.
+  void [option, instruction];
+}
+```
+
+An option is answered by its own click — approving is the most frequent act in the
+feature, and spending two gestures on it to reuse the composer's send button would be
+the tail wagging the dog. Written text goes through that button instead, which is
+exactly the act it already means.
+
+The built-in tool-approval gate is one caller of this, with two options and a question
+built from the tool's name. Anything richer — a scope option, a third choice — is the
+host's to supply, and `buildApprovalPanel` is exported for a presenter of your own.
+
 ## Wiring it to a tool's lifetime
 
 Two options matter when the request comes from a tool handler:
