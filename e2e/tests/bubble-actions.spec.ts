@@ -99,29 +99,29 @@ test('copy puts the reply on the clipboard and confirms it in the button', async
     }
 });
 
-test('retry forks a branch and the ‹1/2› picker navigates between versions', async ({ page }, testInfo) => {
+test('retry forks a branch and the ‹1/2› picker navigates between versions', async ({ page }) => {
     /*
-     * KNOWN DEFECT, framework-managed mode: navigating back can land on "1 / 1"
-     * instead of "1 / 2" — the picker then hides itself, and the other version is
-     * unreachable. Measured on `react` (3 of 3, chromium) and once on `react-webkit`,
-     * which later reached "1 / 2" on a re-run: it is a RACE, not dead logic.
+     * FIXED, and this assertion is why it stays fixed. It ran on native mode only while
+     * framework-managed mode was known broken: navigating back landed on "1 / 1", the
+     * picker hid itself, and the other version was unreachable.
      *
-     * Suspected mechanism, NOT proven: the host answers `aparte-branch-navigate` in
-     * the capture phase with `syncRepoFromMessages()` (aparte-chat-host.ts:786), and
-     * the array it syncs from is the framework's own — which holds the ACTIVE PATH
-     * only, with no siblings. Whether the tree survives then depends on whether
-     * React has re-rendered yet, which is exactly the shape of an intermittent
-     * result.
+     * The mechanism turned out not to be the suspected one. It was not
+     * `syncRepoFromMessages` losing the tree — that call only adds and updates, it never
+     * deletes. It was `_applyPendingSiblings` in the host: it `continue`d past a bubble
+     * that was not on the page yet and then cleared `_pendingSiblings` unconditionally, so
+     * a callback running one tick early DISCARDED the branch counts with nothing to retry.
+     * React's `afterRender` is `requestAnimationFrame(() => cb())`, a bet that the next
+     * paint lands after React's commit — which is a bet this repo has lost before
+     * (`25f356b`). Reproduced without a browser in
+     * `packages/core/src/host/__tests__/pending-siblings-race.test.ts`, then fixed in the
+     * host so all four wrappers get it rather than React's rAF call being special-cased.
      *
-     * Why this is asserted on one mode and not the other: the assertion used to be
-     * `toContainText('1')`, which "1 / 1" satisfies exactly as well as "1 / 2", so it
-     * never distinguished "back to version 1 of 2" from "lost a branch" and the defect
-     * sat under a green suite. Native mode now gets the assertion the title promises.
-     * Framework mode gets the weaker property that is actually true today, because a
-     * `test.fail` on an intermittent outcome is red in both directions — tried, and it
-     * failed the run where react-webkit happened to succeed.
+     * The assertion history is the other half of the lesson. It used to be
+     * `toContainText('1')`, which "1 / 1" satisfies exactly as well as "1 / 2" — so it
+     * never distinguished "back to version 1 of 2" from "lost a branch", and the defect sat
+     * under a green suite through four cold audits. A substring assertion on a counter is
+     * not an assertion.
      */
-    const frameworkManaged = testInfo.project.name.startsWith('react');
 
     const errors = collectPageErrors(page);
     const chat = new ChatPage(page);
@@ -144,9 +144,7 @@ test('retry forks a branch and the ‹1/2› picker navigates between versions',
 
     // Navigating back shows version 1 — and, natively, BOTH versions stay reachable.
     await pressUntilSwapped(picker, AT_SECOND);
-    if (!frameworkManaged) {
-        await expect(picker, 'going back must not discard the other version').toContainText(BOTH_REACHABLE);
-    }
+    await expect(picker, 'going back must not discard the other version').toContainText(BOTH_REACHABLE);
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });

@@ -155,7 +155,9 @@
 
   `@aparte/core` now declares each element's attributes once — `AparteElementAttributes`, keyed by `AparteElementTagName`, with a per-element interface exported for each. Every wrapper derives from that registry rather than listing tags, so an element added to core is typed everywhere the moment it lands.
 
-  - **React** — the `aparte-*` JSX intrinsics are typed. A typo, a wrong value type, or an attribute the element does not observe is a compile error.
+  - **React** — the `aparte-*` JSX intrinsics are typed. A wrong value type is a compile error.
+
+    _Amended after release:_ this said "a typo, a wrong value type, or an attribute the element does not observe is a compile error". The value half holds; the other two do not, for the hyphenated names the sentence used as its own examples. TypeScript treats a JSX attribute whose name is not a valid JS identifier as "known" even when it is absent from the attributes type, so none of the 12 hyphenated aparté attributes is typo-checked — `max-rendered-bubles={200}` compiles. Presence-attribute enforcement is unaffected.
   - **Vue** — declared through `GlobalComponents`, checked by `vue-tsc`.
   - **Svelte** — declared through `SvelteHTMLElements`, checked by `svelte-check`, including `on:` handlers derived from the DOM event map.
   - **Angular** — a standalone directive per element, exported individually and as `APARTE_ELEMENT_DIRECTIVES`. Real `@Input()`s that write attributes (never properties — eight of `<aparte-composer>`'s accessors are getter-only), one typed `@Output()` per event emitting the event's detail, and the real tag in the template so control flow and projection work. It also means **no `CUSTOM_ELEMENTS_SCHEMA`**, which used to switch template checking off for every unknown tag in the file.
@@ -176,7 +178,9 @@
 
   Nothing about core's own 18 elements changes: their attributes, the 26 declared events with 20 typed details, the JSX/Vue/Svelte typing and the 17 Angular directives all stay.
 
-  The Angular example now declares its own six-line directive for the model selector instead of importing one, which makes it a worked demonstration of the pattern rather than a consumer of a privilege — and it keeps its `CUSTOM_ELEMENTS_SCHEMA` removed.
+  The Angular example keeps its `CUSTOM_ELEMENTS_SCHEMA` removed.
+
+  _Amended after release:_ this said the example "now declares its own six-line directive for the model selector instead of importing one". It does not — it imports the directive from `@aparte/plugin-model-selector/angular`. The plugin shipped that subpath later in the same release and the example was switched back to it, but this paragraph was not re-measured before publishing. The pattern itself is documented, with a worked example, at `/frameworks/elements/#your-own-element-or-a-plugins`.
 
 ### Patch Changes
 
