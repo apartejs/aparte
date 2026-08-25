@@ -163,7 +163,31 @@ test('the transcript is anchored at the bottom once a streamed reply lands', asy
 
 test('scrolling up mid-stream is not overridden by the arriving reply', async ({ page }) => {
     const errors = collectPageErrors(page);
-    await installLlmMock(page, { pace: 90 });
+    /*
+     * 250ms, not 90 — this test needs a stream that is still RUNNING for its whole
+     * polling window, and the arithmetic has to hold under load.
+     *
+     * The paced text scenario is 18 frames (15 reply chunks + finish/usage/done), so
+     * `pace: 90` gave the stream ~1.6s of life. The window below is 20 polls × 100ms = 2s
+     * on its own, and before it there is a send, a wait for the streaming class, a scroll
+     * gesture and a geometry read — each a round trip. Under the full gate (8 workers, a
+     * build just finished) that setup outran the stream, so the reply had ENDED before the
+     * first poll and `grew` could never become true.
+     *
+     * It fails as "no further frames arrived", which reads like a product defect and is
+     * not one: the scroll assertion inside the loop passed on every iteration. Caught on
+     * react-webkit in a gate:full run, then 12/12 green re-running the file in isolation —
+     * which is the signature of setup time, not of flakiness in the thing under test.
+     *
+     * 18 × 250ms = 4.5s of stream against a 2s window leaves room for a slow setup. The
+     * invariant to keep if either number moves: frames × pace > setup + window.
+     *
+     * It costs about 13s per project, because the four filler turns above pay the slow
+     * pace too and `installLlmMock` sets it per page rather than per turn. That is the
+     * price of the assertion being able to fail for the right reason; don't trade it back
+     * without changing the invariant.
+     */
+    await installLlmMock(page, { pace: 250 });
     const chat = new ChatPage(page);
     await page.goto('/');
 
