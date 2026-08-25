@@ -66,9 +66,14 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
         expect(seenSeg).toBe(seg);
     });
 
-    it('keeps the built-in Approve/Reject gate over the custom renderer while awaiting approval', () => {
+    it('lets a tool draw its own surface while it awaits approval', () => {
+        // The exact OPPOSITE of what this asserted, and the inversion is the fix. The
+        // built-in Approve / Reject branch ran BEFORE this lookup, so a registered tool
+        // renderer could never draw anything while its tool waited — a seam reported as
+        // missing that was only being shadowed. With the decision at the composer there
+        // is nothing left to shadow it with.
         aparteGlobalConfig.registerToolRenderer('visual_tool', {
-            render: () => `<div class="my-visual">SHOULD NOT SHOW YET</div>`,
+            render: () => `<div class="my-visual">MY OWN REVIEW SURFACE</div>`,
         });
         const seg = {
             id: 'vt4', type: 'tool_call',
@@ -76,8 +81,8 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
             status: 'awaiting-approval',
         };
         const html = getSegmentRenderer('tool_call')!.render(seg as any);
-        expect(html).toContain('data-tool-decision="approve"');
-        expect(html).not.toContain('SHOULD NOT SHOW YET'); // custom only takes over AFTER approval
+        expect(html).toContain('MY OWN REVIEW SURFACE');
+        expect(html, 'and no decision control in the transcript').not.toContain('data-tool-decision');
     });
 });
 

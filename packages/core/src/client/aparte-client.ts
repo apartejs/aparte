@@ -16,6 +16,7 @@ import type { AparteToolCall, AparteTool } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { uuid } from '../utils/uuid.js';
+import { requestUserInput } from '../elicitation/index.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -52,11 +53,27 @@ const DEFAULT_TOOL_HANDLER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 /**
  * Resolves a human-in-the-loop tool approval for a `needsApproval` tool call.
  * Resolves `{ approved, payload? }`; the `signal` aborts a pending decision.
+ *
+ * It receives the CALL, not just its id. You cannot ask a person "run this?" without
+ * naming what — the built-in channel needs the tool's name for its question, and an
+ * id alone forced a lookup table filled by one event and read by another, which is the
+ * shape that breaks in silence.
  */
 export type AparteToolApprovalResolver = (
-    toolCallId: string,
+    call: { id: string; name: string; input: Record<string, unknown> },
     signal: AbortSignal,
-) => Promise<{ approved: boolean; payload?: unknown }>;
+) => Promise<{
+    approved: boolean;
+    payload?: unknown;
+    /**
+     * What the user said to do instead, on a refusal.
+     *
+     * It becomes the tool_result the model reads, which is possible at all only
+     * because a refusal now hands the model a turn. Optional and additive: a resolver
+     * that returns a bare `{ approved }` behaves exactly as before.
+     */
+    instruction?: string;
+}>;
 
 /**
  * Decides how a conversation is compacted: which messages are summarized away
@@ -517,29 +534,55 @@ export class AparteClient {
      * The request half of this handshake was hardened with `targetId` for exactly
      * this hazard. This is its sibling, and it was missed.
      */
-    private _awaitToolDecision(toolCallId: string, signal: AbortSignal, target?: HTMLElement): Promise<{ approved: boolean; payload?: unknown }> {
-        return new Promise<{ approved: boolean; payload?: unknown }>((resolve) => {
-            if (signal.aborted) { resolve({ approved: false }); return; }
-            const cleanup = () => {
-                document.removeEventListener('aparte-tool-decision', onDecision as EventListener);
-                signal.removeEventListener('abort', onAbort);
-            };
-            const onDecision = (e: Event) => {
-                const detail = (e as CustomEvent).detail as { toolCallId?: string; approved?: boolean; payload?: unknown } | undefined;
-                if (detail?.toolCallId !== toolCallId) return;
-                // Only a decision made INSIDE the chat that asked counts. A
-                // programmatic dispatch on `window`/`document` (no node inside the
-                // target) is still honoured: that is a host answering on the user's
-                // behalf, which is a documented path.
-                if (target && e.target instanceof Node && e.target !== document && !target.contains(e.target)) return;
-                cleanup();
-                resolve({ approved: detail?.approved === true, payload: detail?.payload });
-            };
-            const onAbort = () => { cleanup(); resolve({ approved: false }); };
-            document.addEventListener('aparte-tool-decision', onDecision as EventListener);
-            signal.addEventListener('abort', onAbort, { once: true });
+    /**
+     * Ask the human at the COMPOSER, and report what they decided.
+     *
+     * The default channel, replacing a `document` listener for `aparte-tool-decision`
+     * that existed only because the buttons lived in a segment renderer with no
+     * reference to this client. Routing through `requestUserInput` puts the decision
+     * where every other request for the user already goes, which is the whole point:
+     * one queue, one panel slot, one teardown, and the same behaviour whether the
+     * request came from a tool handler or from this gate.
+     *
+     * The tool NAME is the question; the arguments stay in the transcript, on the pill
+     * this request is anchored to. A panel capped at 50vh cannot hold a diff or a plan,
+     * and the transcript is already scrollable, copyable and persisted.
+     *
+     * `aparte-tool-decision` is GONE with the buttons that dispatched it, and so is the
+     * `document` listener that answered it. It existed only because a segment renderer
+     * has no reference to this client; two seams that can disagree about who answers a
+     * decision are one seam too many, and the ratified elicitation rule already said so
+     * — "a typed presenter registered per config instance, never window events". A host
+     * that wants to answer programmatically registers an `approvalResolver` (headless,
+     * no DOM) or its own presenter, both strictly more capable than an id on an event.
+     */
+    private async _askForApproval(
+        event: { id: string; name: string; input: Record<string, unknown> },
+        signal: AbortSignal,
+        target: HTMLElement,
+    ): Promise<{ approved: boolean; payload?: unknown; instruction?: string }> {
+        const loc = this._config.getLocale();
+        const answer = await requestUserInput({
+            kind: 'approval',
+            message: (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name),
+            options: [
+                { value: 'allow', label: loc.approveTool ?? 'Approve', tone: 'affirm' },
+                { value: 'deny', label: loc.rejectTool ?? 'Reject', tone: 'deny' },
+            ],
+            signal,
+            target,
         });
+        // `decline` is the corner escape, which for a decision means "not this": the
+        // safe reading of an unanswered approval is never "go ahead".
+        if (answer.action !== 'accept') return { approved: false };
+        const content = answer.content as { option?: string; instruction?: string } | undefined;
+        const instruction = content?.instruction?.trim();
+        // Typed text with no option chosen IS the refusal — "no, do this instead" — so
+        // the instruction alone denies. An option decides on its own.
+        if (instruction) return { approved: false, instruction };
+        return { approved: content?.option === 'allow' };
     }
+
 
     /**
      * Resolve the auth for a provider: `options.keyResolver` takes precedence,
@@ -1571,18 +1614,28 @@ export class AparteClient {
                 dispatchLifecycleEvent(targetElement, 'aparte-tool-approval-request', {
                     toolCallId: event.id, toolName: event.name, input: event.input,
                 });
-                let decision: { approved: boolean; payload?: unknown };
+                let decision: { approved: boolean; payload?: unknown; instruction?: string };
                 const resolveApproval = this.options.approvalResolver
-                    ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
+                    ?? ((call, sig) => this._askForApproval(call, sig, targetElement as unknown as HTMLElement));
                 try {
-                    decision = await resolveApproval(event.id, approvalController.signal);
+                    decision = await resolveApproval(event, approvalController.signal);
+                } catch (err: unknown) {
+                    // The request ended without an answer — a stopped turn, a torn-down
+                    // panel, nothing mounted to ask. Not a refusal: see the signal check
+                    // just below, which says the same thing for a resolver that reports
+                    // an abort by VALUE instead of by throwing.
+                    if ((err as { name?: string })?.name === 'AbortError') {
+                        targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+                        return { flow: 'halt' };
+                    }
+                    throw err;
                 } finally {
                     this._activeToolControllers.delete(approvalController);
                 }
                 /*
                  * A stop is not a refusal.
                  *
-                 * `_awaitToolDecision` resolves `{ approved: false }` when the signal
+                 * A consumer's resolver may resolve `{ approved: false }` when the signal
                  * fires — the same value an explicit Reject produces — so a stopped turn
                  * fell into the refusal branch below, stamped the segment `'rejected'`
                  * and pushed "rejected by the user" into the history. The model read a
@@ -1599,7 +1652,16 @@ export class AparteClient {
                     return { flow: 'halt' };
                 }
                 if (!decision.approved) {
-                    const rejection = 'Tool execution was rejected by the user.';
+                    /*
+                     * The user's own words when they gave them, and the fixed sentence
+                     * otherwise. This is the "no, do this instead" branch, and it is
+                     * only useful because a refusal hands the model a turn to read it
+                     * in — before that, whatever was written here went into a history
+                     * nobody sent.
+                     */
+                    const rejection = decision.instruction
+                        ? `The user rejected this tool call and said: ${decision.instruction}`
+                        : 'Tool execution was rejected by the user.';
                     targetElement.updateSegment?.(toolSeg.id, { status: 'rejected', result: rejection });
                     const existingToolCallMsg = messages.find(
                         m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
@@ -2232,8 +2294,13 @@ export class AparteClient {
             const tool = this._config.getTools().find(t => t.name === name);
             return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;
         };
+        // The SAME channel as the inline loop's. It used to be the `document` listener
+        // while the inline loop asked at the composer — two loops asking two different
+        // ways, which the parity suite cannot see because it supplies its own resolver
+        // to both sides.
         const approvalResolver = this.options.approvalResolver
-            ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
+            ?? ((call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) =>
+                this._askForApproval(call, sig, targetElement as unknown as HTMLElement));
 
         const usage = await streamRunner({
             messageId,

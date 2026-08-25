@@ -208,9 +208,9 @@ export interface StreamToolConfig {
  * `AparteToolApprovalResolver`). Injected so the loop stays headless.
  */
 export type StreamApprovalResolver = (
-    toolCallId: string,
+    call: { id: string; name: string; input: Record<string, unknown> },
     signal: AbortSignal,
-) => Promise<{ approved: boolean; payload?: unknown }>;
+) => Promise<{ approved: boolean; payload?: unknown; instruction?: string }>;
 
 // ─── The events runStreamAgent emits ─────────────────────────────────────────
 

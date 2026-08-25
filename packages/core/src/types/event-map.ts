@@ -59,7 +59,7 @@ import type {
 import type { AparteActionClickEventDetail } from '../components/composer/aparte-composer-action.js';
 import type { AparteOptgroupToggleEventDetail } from '../primitives/select/aparte-optgroup.js';
 import type { AparteConfigChangeEventDetail } from '../config/aparte-config.js';
-import type { AparteToolDecisionDetail, AparteToolApprovalRequestDetail } from './tools.js';
+import type { AparteToolApprovalRequestDetail } from './tools.js';
 import type { AparteSegmentUpdateEventDetail } from './segments.js';
 import type { AparteSelectChangeDetail } from '../primitives/select/aparte-select.js';
 import type {
@@ -105,7 +105,6 @@ interface AparteEventMap {
     // however, is field-for-field what the Download button really dispatches, so
     // the type moved to the live event instead of being deleted.
     'aparte-artifact-redownload': CustomEvent<AparteArtifactRedownloadEventDetail>;
-    'aparte-tool-decision': CustomEvent<AparteToolDecisionDetail>;
     'aparte-tool-approval-request': CustomEvent<AparteToolApprovalRequestDetail>;
     // Forwarded by the wrappers' AparteUi (in APARTE_DEFAULT_UI_EVENTS); detail is
     // component-coupled but event-map is a top-level aggregator, so typing it here.

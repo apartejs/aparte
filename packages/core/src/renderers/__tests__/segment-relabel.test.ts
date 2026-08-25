@@ -43,6 +43,7 @@ const FR = () => ({
     running: 'En cours…',
     approveTool: 'Approuver',
     rejectTool: 'Refuser',
+    approvalWaiting: 'en attente de vous',
     error: 'Erreur',
 });
 
@@ -79,19 +80,23 @@ describe('relabel reaches a rendered segment', () => {
         expect(btn.innerHTML).toContain('data-mine');
     });
 
-    it('the human approval gate — the highest-stakes strings in the library', () => {
+    it('a tool waiting for a person — a label that outlasts a language switch', () => {
+        // This used to assert the Approve / Reject labels. Those live on the composer's
+        // panel now, which relabels itself; what is left in the transcript is the pill
+        // saying WHY nothing is happening. Still worth pinning: the request it describes
+        // stays open for as long as somebody takes to decide, which is exactly long
+        // enough for a locale switch to land on it.
         const el = mount([{
             id: 's1', type: 'tool_call', status: 'awaiting-approval',
             toolCall: { id: 'tc1', name: 'delete_file', input: {} },
         } as AparteToolCallSegment]);
-        const approve = el.querySelector('.tool-approve-btn')!;
-        const reject = el.querySelector('.tool-reject-btn')!;
+        expect(el.querySelector('.tool-approve-btn'), 'no decision control in the transcript').toBeNull();
+        const waiting = el.querySelector('.tool-pill-status')!;
+        expect(waiting.textContent).toBe('waiting for you');
 
         aparteGlobalConfig.setLocale(FR());
 
-        expect(approve.textContent).toBe('Approuver');
-        expect(approve.getAttribute('aria-label')).toBe('Approuver');
-        expect(reject.textContent).toBe('Refuser');
+        expect(waiting.textContent).toBe('en attente de vous');
     });
 
     it('an artifact card’s copy button — and nothing else on the card', () => {

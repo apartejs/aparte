@@ -442,7 +442,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                         continueLoop = false;
                         break;
                     }
-                    const decision = await approvalResolver(event.id, signal);
+                    const decision = await approvalResolver(
+                        { id: event.id, name: event.name, input: event.input as Record<string, unknown> },
+                        signal,
+                    );
 
                     /*
                      * A stop is not a refusal either. Core's built-in channel resolves
