@@ -35,6 +35,11 @@ export interface AparteUiHandle {
  * its own once the definition arrives, which is what makes `provideAparte`'s lazy
  * `plugins` loaders work.
  *
+ * A PLUGIN's event is not in the default forward list — that default is core's, and a
+ * third-party plugin's author cannot add to it, so listing ours would privilege our
+ * packages over theirs. Name it in `events` and it arrives; leave it out and the handler
+ * silently never fires, which is what this example used to do.
+ *
  * @example
  * ```html
  * <aparte-ui
@@ -44,6 +49,7 @@ export interface AparteUiHandle {
  *     '--glow-opacity': '1',
  *     '--glow-speed': '4s'
  *   }"
+ *   [events]="['aparte-model-change']"
  *   (elementEvent)="onEvent($event)"
  * />
  * ```

@@ -147,9 +147,10 @@ Variables are grouped by region. The most-reached-for ones:
 `--aparte-input-text`, `--aparte-input-placeholder`,
 `--aparte-composer-control-size` (sizes the whole composer control row at once).
 
-**Segments** — each rich block has its own group: `--aparte-code-*`,
-`--aparte-thinking-*`, `--aparte-error-*`,
-`--aparte-progress-*`.
+**Segments** — the rich blocks with a group of their own: `--aparte-code-*`,
+`--aparte-thinking-*`, `--aparte-error-*`. The tool row has a single knob,
+`--aparte-tool-row-radius`; everything else about it comes from the surface, border and
+text tokens above.
 
 :::tip
 The complete, always-current token list is generated from the stylesheet and surfaced in

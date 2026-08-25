@@ -133,7 +133,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
      * `connectedCallback` alone is not enough and cannot be: registering is a
      * WRITE, and under all four wrappers it happens before `attachConfig` runs, so
      * it lands on the global singleton. `requestUserInput()` then resolves the
-     * instance config, finds nothing, and answers the model `cancel` — the model
+     * instance config, finds nothing, and rejects the request — the model
      * hears the user refuse a question the user never saw.
      *
      * See {@link AparteConfigAware}.
@@ -358,7 +358,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
      * appeared under the other conversation, and answering it resolved a tool call
      * belonging to a chat the user was not looking at.
      *
-     * Returning `null` instead resolves `cancel`, which is honest: nothing was
+     * Returning `null` instead REJECTS the request, which is honest: nothing was
      * shown, so nothing was answered. The warning names the fix, because this is a
      * setup mistake and only the developer can correct it — the guide's own example
      * puts `<aparte-elicitation>` inside `<aparte-chat>`.
@@ -380,7 +380,8 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         }
         console.warn(
             '[aparte-elicitation] No <aparte-composer> in this element\'s subtree, so the request '
-            + 'was cancelled — the model will read that as a refusal. Move <aparte-elicitation> '
+            + 'could not be shown, so it REJECTED and the turn halted. Nothing was told to the '
+            + 'model — there is nothing true to tell it. Move <aparte-elicitation> '
             + 'inside the <aparte-chat> it belongs to. It is deliberately NOT borrowing another '
             + 'chat\'s composer: on a page with two chats that put the question under the wrong one.',
         );

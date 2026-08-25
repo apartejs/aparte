@@ -296,7 +296,7 @@ export class AparteConfig {
      * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
      *
      * @example
-     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, terminalRun: true });
+     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
      */
     setHostHandlers(config: AparteHostHandlersConfig): void {
         this._hostHandlers = { ...this._hostHandlers, ...config };
@@ -1197,17 +1197,33 @@ export class AparteConfig {
     /**
      * Ask the user for typed input mid-run and await their response. This is the
      * generic primitive behind `ask_user` and tool approval — the KIND of
-     * question is the schema, not a bespoke tool. Resolves `accept` with the
-     * value, `decline` when the user declines, or `cancel` when the turn is
-     * cancelled.
+     * question is the schema, not a bespoke tool.
      *
-     * With NO presenter registered it resolves `cancel` rather than hanging — and
-     * warns, once, because that `cancel` is otherwise a lie told quietly. The
-     * model reads it as "the user refused"; the user was never asked, and the
-     * developer sees nothing at all. The default presenter is
-     * `<aparte-elicitation>`, which registers itself from its `connectedCallback`
-     * — so it has to be IN THE DOM. A docs page of ours claimed it "installs
-     * itself — nothing to register", which is how this failure mode was found.
+     * **Resolves** `accept` with the value, or `decline` when the user declines.
+     *
+     * **Rejects** — it does not resolve — when the request ends without an answer, with
+     * an {@link AparteElicitationAbortError} whose `name` is `'AbortError'` and whose
+     * `reason` is `'aborted'` (the turn was stopped, the signal fired, or another request
+     * took the question away) or `'no-presenter'` (nothing was mounted to ask it). So
+     * `await` it inside a `try`, or attach a `.catch()`.
+     *
+     * That is a change, and this block described the old behaviour for a whole release:
+     * "resolves `cancel` when the turn is cancelled", and "with NO presenter registered it
+     * resolves `cancel` rather than hanging". Both were false the moment `cancel` was
+     * removed — and the second is the one that bites, because a developer who reads
+     * "rather than hanging" writes no `.catch()` and gets an unhandled rejection. It ships
+     * in the `.d.ts` and in the custom-elements manifest, which is the API surface the
+     * docs site renders, so it was the most-read wrong sentence in the library.
+     *
+     * A value was removed rather than renamed on purpose: `cancel` was easy to handle as
+     * though it were an answer, and the approval gate did exactly that — it read a stopped
+     * turn as the user refusing a tool they were never shown.
+     *
+     * With no presenter it rejects `'no-presenter'` and warns once, because a request
+     * nobody could see is a setup mistake only the developer can fix. The default
+     * presenter is `<aparte-elicitation>`, which registers itself from its
+     * `connectedCallback` — so it has to be IN THE DOM. A docs page of ours claimed it
+     * "installs itself — nothing to register", which is how that was found.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
         const previous = this._elicitationQueue;
