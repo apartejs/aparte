@@ -116,7 +116,9 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         // no reference to itself — see `Pending.panel`.
         this._unsubscribeConfig = subscribeConfigChange(this, () => this._relabelPending());
         // Become the presenter for this instance's config (or the global one).
-        resolveConfig(this).setElicitationPresenter(this._present);
+        // `this` as the owner: it is what lets a request naming a `target` reach the
+        // presenter in the SAME chat, instead of whichever one mounted last.
+        resolveConfig(this).setElicitationPresenter(this._present, this);
         // Safety net: if the turn is stopped/errored while a request is open,
         // resolve it as cancelled so the client loop unblocks and the composer
         // input is restored.
@@ -137,13 +139,18 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
      * See {@link AparteConfigAware}.
      */
     aparteConfigChanged(next: AparteConfig, previous: AparteConfig): void {
-        if (previous.getElicitationPresenter() === this._present) previous.setElicitationPresenter(null);
-        next.setElicitationPresenter(this._present);
+        // Withdraw OURS by name. `setElicitationPresenter(null)` cleared the whole
+        // registry, so moving one chat's registration took every other mounted chat's
+        // presenter down with it.
+        previous.removeElicitationPresenter(this._present);
+        next.setElicitationPresenter(this._present, this);
     }
 
     disconnectedCallback(): void {
-        const cfg = resolveConfig(this);
-        if (cfg.getElicitationPresenter() === this._present) cfg.setElicitationPresenter(null);
+        // Ours only. This used to clear the slot whenever it happened to hold our
+        // presenter, which left a still-mounted sibling chat unable to ask anything for
+        // the life of the page — silently, since the no-presenter warning fires once.
+        resolveConfig(this).removeElicitationPresenter(this._present);
         window.removeEventListener('aparte-message-aborted', this._onTurnEnd);
         window.removeEventListener('aparte-message-error', this._onTurnEnd);
         this._unsubscribeConfig?.();

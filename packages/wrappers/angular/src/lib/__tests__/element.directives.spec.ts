@@ -56,9 +56,12 @@ registerAllComponents();
         @if (showViewport) {
             <aparte-chat-viewport [scrollThreshold]="threshold"></aparte-chat-viewport>
         }
+
+        <aparte-composer-add-attachment [multiple]="multiple"></aparte-composer-add-attachment>
     `,
 })
 class Host {
+    multiple = true;
     placeholder: string | undefined = 'Pick a model';
     searchable = false;
     disabled = false;
@@ -126,6 +129,38 @@ describe('the element directives', () => {
 
     it('coerces a numeric input through numberAttribute', () => {
         expect(el('aparte-chat-viewport').getAttribute('scroll-threshold')).toBe('64');
+    });
+
+    /*
+     * A THREE-STATE boolean, and the direction nothing used to test.
+     *
+     * `<aparte-composer-add-attachment>` reads
+     * `!hasAttribute('multiple') || getAttribute('multiple') !== 'false'` — default ON,
+     * off only via the literal string. Treated as a presence attribute, `false` REMOVED
+     * the attribute, which that expression reads as TRUE: `[multiple]="false"` turned
+     * multi-file selection ON. The suite asserted only `[multiple]="true"`, so the
+     * inversion was invisible.
+     */
+    it('turns a three-state boolean OFF with the string, not by removing the attribute', () => {
+        host.multiple = false;
+        fixture.detectChanges();
+
+        const picker = el('aparte-composer-add-attachment');
+        expect(picker.getAttribute('multiple'), 'removing it would read as ON').toBe('false');
+
+        // And the element itself agrees — the assertion that would have caught it.
+        expect(picker.hasAttribute('multiple')).toBe(true);
+        expect(picker.getAttribute('multiple') !== 'false').toBe(false);
+    });
+
+    it('turns a three-state boolean back ON with the presence value', () => {
+        host.multiple = false;
+        fixture.detectChanges();
+        host.multiple = true;
+        fixture.detectChanges();
+
+        // `''`, not removal: both read as ON, and keeping it present says so in the DOM.
+        expect(el('aparte-composer-add-attachment').getAttribute('multiple')).toBe('');
     });
 
     it('emits the event DETAIL, not the CustomEvent', () => {
@@ -208,15 +243,15 @@ describe('the element directives', () => {
 
         <aparte-chat-status [visible]="true" text="Working"></aparte-chat-status>
 
-        <aparte-composer placeholder="Ask" target="t" [disabled]="true"
+        <aparte-composer placeholder="Ask" target="t" [disabled]="true" [submitOnEnter]="false"
             (send)="seen['send'] = true" (cancel)="seen['cancel'] = true"
             (composerChange)="seen['composerChange'] = true"></aparte-composer>
 
         <aparte-composer-input placeholder="Ask" [disabled]="true" [maxHeight]="200" [minHeight]="44"
             (composerSubmit)="seen['composerSubmit'] = true"></aparte-composer-input>
 
-        <aparte-composer-action icon="mic" label="Dictate" [disabled]="true"
-            (actionClick)="seen['actionClick'] = true"></aparte-composer-action>
+        <aparte-composer-action icon="mic" label="Dictate" [disabled]="true" actionId="mic"
+            (actionClick)="lastAction = $event"></aparte-composer-action>
 
         <aparte-composer-add-attachment accept="image/*" [multiple]="true" [disabled]="true"></aparte-composer-add-attachment>
 
@@ -248,6 +283,7 @@ describe('the element directives', () => {
 })
 class EverythingHost {
     readonly seen: Record<string, boolean> = {};
+    lastAction: { actionId?: string } | null = null;
 }
 
 describe('the element directives, across the whole surface', () => {
@@ -278,10 +314,14 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-composer', 'placeholder', 'Ask'],
         ['aparte-composer', 'target', 't'],
         ['aparte-composer', 'disabled', ''],
+        // Read lazily by a getter, so the analyser never saw it until it was declared.
+        ['aparte-composer', 'submit-on-enter', 'false'],
         ['aparte-composer-input', 'max-height', '200'],
         ['aparte-composer-input', 'min-height', '44'],
         ['aparte-composer-action', 'icon', 'mic'],
         ['aparte-composer-action', 'label', 'Dictate'],
+        // The only way to tell two custom buttons apart; also undeclared until now.
+        ['aparte-composer-action', 'action-id', 'mic'],
         ['aparte-composer-add-attachment', 'accept', 'image/*'],
         ['aparte-composer-add-attachment', 'multiple', ''],
         ['aparte-select', 'value', 'v'],
@@ -320,7 +360,7 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-composer', 'aparte-cancel', 'cancel'],
         ['aparte-composer', 'aparte-composer-change', 'composerChange'],
         ['aparte-composer-input', 'aparte-composer-submit', 'composerSubmit'],
-        ['aparte-composer-action', 'aparte-action-click', 'actionClick'],
+
         ['aparte-composer-attachments', 'aparte-attachment-preview', 'stripPreview'],
         ['aparte-select', 'aparte-select-change', 'selectChange'],
         ['aparte-select', 'aparte-select-open', 'selectOpen'],
@@ -335,6 +375,23 @@ describe('the element directives, across the whole surface', () => {
     it.each(EVENTS)('%s forwards %s', (tag, event, key) => {
         at(tag).dispatchEvent(new CustomEvent(event, { detail: { id: 'x', value: 'x', modelId: 'm' } }));
         expect(fixture.componentInstance.seen[key]).toBe(true);
+    });
+
+    /*
+     * The PAYLOAD, not just that it fired — which is what the table row used to assert.
+     *
+     * `aparte-composer-action` carried a BARE `@fires`, so the manifest recorded
+     * `CustomEvent` with no type argument and the generator fell to its `void` branch:
+     * `EventEmitter<void>` with a `@HostListener` that dropped `$event`. Two custom
+     * composer buttons were indistinguishable, and a boolean "it fired" assertion could
+     * never see it. Every detail-carrying event needs one of these; this is the one whose
+     * absence cost something.
+     */
+    it('carries the action detail, so two buttons are distinguishable', () => {
+        at('aparte-composer-action').dispatchEvent(new CustomEvent('aparte-action-click', {
+            detail: { actionId: 'mic', composer: null },
+        }));
+        expect(fixture.componentInstance.lastAction?.actionId).toBe('mic');
     });
 
     it('adds nothing of its own to a tag it only claims', () => {

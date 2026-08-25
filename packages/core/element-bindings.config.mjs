@@ -45,6 +45,30 @@ export default {
     },
 
     /**
+     * Boolean attributes whose default is ON, turned off only by the literal `"false"`.
+     *
+     * The manifest says `{boolean}` and nothing more, so the generator treated all 17 as
+     * PRESENCE attributes — absent means off, `""` means on. For these two that is
+     * exactly backwards, and it made `[multiple]="false"` turn multi-file selection ON:
+     * `false` removed the attribute, and the element reads
+     * `!hasAttribute('multiple') || getAttribute('multiple') !== 'false'`, so absent is
+     * TRUE. The only value that turns it off is the string `"false"`, which no generated
+     * binding could produce and which the template types could not even express.
+     *
+     * Not a hypothetical: `AparteChat.tsx` already worked around it by hand, writing
+     * `submit-on-enter={submitOnEnter ? undefined : 'false'}` — the wrapper's author knew
+     * the semantics and the generator did not. This is where that knowledge goes.
+     *
+     * Grep for the shape before adding one: `!== 'false'` in an element's read path.
+     */
+    threeStateBooleans: {
+        // aparte-composer-add-attachment.ts — `input.multiple = !hasAttribute(…) || … !== 'false'`
+        'aparte-composer-add-attachment': ['multiple'],
+        // aparte-composer.ts — `get submitOnEnter() { return getAttribute(…) !== 'false'; }`
+        'aparte-composer': ['submit-on-enter'],
+    },
+
+    /**
      * Tags that already have a richer binding, so no directive is generated.
      *
      * `AparteChatComponent` claims `<aparte-chat>` and renders the whole turn through

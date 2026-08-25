@@ -155,6 +155,15 @@ const parityIdGen = (prefix: string): string =>
 interface ParityOpts {
     streams: AparteStreamEvent[][];
     approve?: boolean;
+    /**
+     * The words a refusing user typed, handed to BOTH resolvers.
+     *
+     * Its absence is what let the two loops diverge unseen: core built
+     * "The user rejected this tool call and said: …" from it while the engine hardcoded
+     * the generic sentence, and a resolver that never returned one made both sides agree
+     * on a case neither ran. A suite that asserts agreement can only see what it feeds.
+     */
+    instruction?: string;
     meta?: Record<string, unknown>;
     toolChoice?: unknown;
     /** Global turn ceiling — passed to the client option AND the runner option. */
@@ -181,7 +190,9 @@ interface ParityOpts {
 
 /** Run the same script through the real _streamLoop and through runStreamAgent+adapter. */
 async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: string[]; oldUsage: unknown; newUsage: unknown; oldError?: string; newError?: string }> {
-    const { streams, approve = true, meta, toolChoice } = opts;
+    const { streams, approve = true, instruction, meta, toolChoice } = opts;
+    const decide = async (): Promise<{ approved: boolean; instruction?: string }> =>
+        instruction === undefined ? { approved: approve } : { approved: approve, instruction };
     const baseReqExtras: Record<string, unknown> = {};
     if (meta) baseReqExtras['_meta'] = meta;
     if (toolChoice !== undefined) baseReqExtras['toolChoice'] = toolChoice;
@@ -210,7 +221,7 @@ async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: s
     const oldRec = makeRecorder();
     const oldClient = new AparteClient({
         config: oldCfg, autoRegister: false, targetResolver: () => oldRec.el,
-        approvalResolver: async () => ({ approved: approve }),
+        approvalResolver: decide,
         ...(opts.maxTurns !== undefined ? { maxTurns: opts.maxTurns } : {}),
         ...(opts.toolTimeoutMs !== undefined ? { toolTimeoutMs: opts.toolTimeoutMs } : {}),
     });
@@ -242,7 +253,7 @@ async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: s
         },
         toolLookup: makeToolLookup(opts),
         toolConfigLookup: makeToolConfigLookup(opts),
-        approvalResolver: async () => ({ approved: approve }),
+        approvalResolver: decide,
         emitter: adapter,
         signal: newAbort.signal,
         idGen: parityIdGen,
@@ -286,6 +297,25 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         ], approve: false });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+    });
+
+    // The scenario whose absence hid a real divergence for a whole release.
+    //
+    // Both loops took `{ approved: false }` and agreed. Neither was ever handed an
+    // `instruction`, so core's "The user rejected this tool call and said: …" and the
+    // engine's hardcoded generic sentence never had to line up — and they did not. A
+    // suite that asserts agreement is only as good as the inputs it feeds, and this is
+    // the input it was missing.
+    it('text → HITL tool (rejected WITH the user\'s words) → the words survive, identically', async () => {
+        const r = await captureParity({ streams: [
+            [{ type: 'text', delta: 'Trying a tool.' }, { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } }, { type: 'done' }],
+            [{ type: 'text', delta: 'Understood.' }, { type: 'done' }],
+        ], approve: false, instruction: 'use the staging bucket instead' });
+        expect(r.knew).toEqual(r.old);
+        expect(r.newUsage).toEqual(r.oldUsage);
+        // Agreement alone would pass if BOTH dropped the words, so pin the content too:
+        // the sentence has to be somewhere in what the target was told.
+        expect(JSON.stringify(r.knew)).toContain('use the staging bucket instead');
     });
 
     it('plain text, no tools, single turn', async () => {
