@@ -62,6 +62,7 @@ describe('@aparte/core public API', () => {
             "aparteGlobalConfig",
             "applyElementProps",
             "attachConfig",
+            "buildApprovalPanel",
             "buildElicitationPanel",
             "collectRendererStyles",
             "contentToText",

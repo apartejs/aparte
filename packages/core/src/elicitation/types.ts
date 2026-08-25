@@ -2,7 +2,7 @@
  * Elicitation — the generic "pause the run and ask the user for typed input"
  * primitive. Generalises the bespoke `ask_user` tool: the KIND of question
  * is carried by a flat schema, not by a dedicated tool. Shape is aligned with
- * MCP elicitation (message + requested schema, accept/decline/cancel), but the
+ * MCP elicitation (message + requested schema, accept/decline), but the
  * mechanism is transport-agnostic and framework-agnostic — a typed presenter
  * registered per config instance, never window events.
  */
@@ -95,12 +95,33 @@ export interface AparteElicitationRequest {
     /** Human-readable prompt shown above the input(s). */
     message: string;
     /** What to ask for. */
-    schema: AparteElicitationSchema;
+    /**
+     * What value to collect. Required on a `'question'`, absent on an `'approval'` —
+     * a decision is not a value, and a schema there would be a form with nothing in it.
+     */
+    schema?: AparteElicitationSchema;
     /**
      * An element inside the target chat, used to resolve WHICH instance presents
      * the request (its config + composer). Omit for the global/default chat.
      */
     target?: HTMLElement | null;
+    /**
+     * What kind of request this is, which decides what the panel puts on screen.
+     *
+     * `'question'` (the default) collects a VALUE against `schema`. `'approval'` asks
+     * the user to pick one of `options` — a decision, not a value — and its answer is
+     * an {@link AparteApprovalAnswer}. One mechanism, two presentations: what a person
+     * is being asked for differs, where they answer does not.
+     */
+    kind?: 'question' | 'approval';
+    /**
+     * The options offered, on `kind: 'approval'`. Required there, ignored otherwise.
+     *
+     * Supplied per request, never fixed by core: a gate that has nowhere to remember a
+     * grant offers two, one that does offers three. Rendering an option the host cannot
+     * honour is the affordance rule read backwards.
+     */
+    options?: readonly AparteApprovalOption[];
     /**
      * Aborts the request — the panel closes and the promise REJECTS with
      * {@link AparteElicitationAbortError}. Pass a tool handler's signal so a
@@ -108,6 +129,43 @@ export interface AparteElicitationRequest {
      * it open.
      */
     signal?: AbortSignal;
+}
+
+/**
+ * One thing the user can pick on an approval.
+ *
+ * The requester writes the LABEL, always. Core cannot know that "and always for git
+ * commands" is meaningful, or that this workspace has somewhere to remember it — so an
+ * option offering a scope exists only because the host built it and can honour it
+ * (ratified decision #8). Two options may share a `value` and differ only in scope,
+ * which is what "Yes" and "Yes, and always for X" are: the same verdict, a different
+ * reach.
+ */
+export interface AparteApprovalOption {
+    /** What {@link AparteApprovalAnswer.option} reports when this one is chosen. */
+    value: string;
+    /** What the user reads. */
+    label: string;
+    /**
+     * How it is drawn. `'affirm'` and `'deny'` are the two poles a decision has; a
+     * third would be a preference, not a meaning, so there is no `'neutral'`.
+     */
+    tone?: 'affirm' | 'deny';
+}
+
+/**
+ * What an approval resolves with, as `content`.
+ *
+ * `instruction` is the free-text arm — "no, do this instead" — and it is a separate
+ * field rather than a magic `option` value because only the host can name its options,
+ * and this text is the user's. It reaches the model as the refusal's reason, which is
+ * possible at all only because a refusal now hands the model a turn to read it in.
+ */
+export interface AparteApprovalAnswer {
+    /** The `value` of the option chosen, or `undefined` when only text was given. */
+    option?: string;
+    /** What the user typed instead, if they typed anything. */
+    instruction?: string;
 }
 
 /**

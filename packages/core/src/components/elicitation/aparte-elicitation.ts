@@ -26,6 +26,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import type { AparteConfig } from '../../config/aparte-config.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
+import { buildApprovalPanel } from '../../elicitation/approval-panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
 import { AparteElicitationAbortError } from '../../elicitation/types.js';
 
@@ -45,16 +46,14 @@ interface Pending {
     abort(): void;
     composer: ComposerEl;
     /**
-     * The open panel, kept so a language switch can reach it.
+     * Re-apply every string this request took from the locale, in place.
      *
-     * It was not kept before, and that was the whole reason an open question stayed
-     * in the previous language: nothing held a reference to relabel. Rebuilding is
-     * not the alternative — the reader may be halfway through typing an answer, or
-     * three questions into a form.
+     * ONE function, where this used to hold the panel and the skip button separately
+     * so the component could relabel each. That only worked because there was one kind
+     * of panel; an approval's strings live elsewhere, and a second field per kind is
+     * how the two would drift.
      */
-    panel: BuiltElicitationPanel;
-    /** The presenter's own button, whose text this file owns rather than the panel. */
-    skip: HTMLButtonElement;
+    relabel(): void;
 }
 
 /**
@@ -151,8 +150,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
     private _relabelPending(): void {
         if (!this._pending) return;
         const cfg = resolveConfig(this);
-        runWithConfig(cfg, () => this._pending!.panel.relabel());
-        this._pending.skip.textContent = cfg.t('elicitationSkip');
+        runWithConfig(cfg, () => this._pending!.relabel());
     }
 
     private _present: AparteElicitationPresenter = (request: AparteElicitationRequest) => {
@@ -220,8 +218,45 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             // ambient render config, and without this it would fall back to the
             // global one on a page where each chat has its own.
             const cfg = resolveConfig(this);
+
+            /*
+             * An APPROVAL: a decision, not a value.
+             *
+             * Same slot, same queue, same teardown — only what goes inside the panel
+             * differs, which is the whole claim of one mechanism with two
+             * presentations. The options come with the request because only the
+             * requester can write them.
+             *
+             * There is always an exit here without touching the composer's own
+             * controls: every option is a button. That matters because a panel takes
+             * the send button over, so Stop is unreachable while one is open — for a
+             * question the escape is the corner, for an approval it is a refusal.
+             */
+            if (request.kind === 'approval') {
+                const panel = runWithConfig(cfg, () =>
+                    buildApprovalPanel(request.message, request.options ?? [], () => {
+                        composer.setPanelSubmitEnabled(panel.isComplete(), 'submit');
+                    }));
+                panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
+                this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
+                slot.token = composer.showPanel(panel.el, {
+                    submitEnabled: panel.isComplete(),
+                    mode: 'submit',
+                    // The composer's button carries the INSTRUCTION, which is written
+                    // text — exactly the act that button already means. The options
+                    // never route through it: a decision is its own click.
+                    onSubmit: () => { if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() }); },
+                    onEvict: () => fail(),
+                });
+                panel.focus();
+                return;
+            }
+            // A question without a schema has nothing to collect; that is an approval,
+            // and it was handled above. The fallback keeps this branch total rather
+            // than throwing on a shape the type already forbids.
+            const schema = request.schema ?? { type: 'string' as const };
             const panel: BuiltElicitationPanel = runWithConfig(cfg, () =>
-                buildElicitationPanel(request.message, request.schema, () => {
+                buildElicitationPanel(request.message, schema, () => {
                     composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
                 }));
 
@@ -236,7 +271,11 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
 
-            this._pending = { abort: () => fail(), composer, panel, skip };
+            this._pending = {
+                abort: () => fail(),
+                composer,
+                relabel: () => { panel.relabel(); skip.textContent = resolveConfig(this).t('elicitationSkip'); },
+            };
             slot.token = composer.showPanel(panel.el, {
                 submitEnabled: panel.canProceed(),
                 mode: panel.mode(),

@@ -90,7 +90,6 @@ export type {
     AparteToolHandler,
     AparteToolContext,
     AparteToolRenderer,
-    AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
 } from './types/index.js';
@@ -246,7 +245,7 @@ export type { AparteHostHandlersConfig } from './types/models.js';
 export type { AparteKeyProvider } from './config/aparte-config.js';
 
 // Elicitation (human-in-the-loop typed input) — DOM-free at import.
-export { requestUserInput, buildElicitationPanel, AparteElicitationAbortError } from './elicitation/index.js';
+export { requestUserInput, buildElicitationPanel, buildApprovalPanel, AparteElicitationAbortError } from './elicitation/index.js';
 export type {
     AparteElicitationSchema,
     AparteElicitationField,
@@ -257,6 +256,9 @@ export type {
     AparteElicitationRequest,
     AparteElicitationResult,
     AparteElicitationPresenter,
+    AparteApprovalOption,
+    AparteApprovalAnswer,
+    BuiltApprovalPanel,
     BuiltElicitationPanel,
 } from './elicitation/index.js';
 

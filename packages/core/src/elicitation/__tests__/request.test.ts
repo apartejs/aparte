@@ -42,7 +42,7 @@ describe('requestUserInput / elicitation presenter', () => {
 
     it('a request with no target falls back to the global config presenter', async () => {
         let ran = false;
-        aparteGlobalConfig.setElicitationPresenter(async () => { ran = true; return { action: 'cancel' }; });
+        aparteGlobalConfig.setElicitationPresenter(async () => { ran = true; return { action: 'decline' }; });
         await requestUserInput({ message: 'x', schema: { type: 'string' } });
         expect(ran).toBe(true);
     });

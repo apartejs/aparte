@@ -124,6 +124,33 @@ export interface AparteLocale {
     elicitationNo?: string;
     /** Last-resort accessible name for a free-text answer (default: "Your answer") */
     elicitationAnswerLabel?: string;
+    /**
+     * Placeholder for the free-text arm of an approval (default: "Or tell it what to
+     * do instead…").
+     *
+     * The refusal's REASON, in the user's words, which the model now reads because a
+     * refusal hands it a turn. Before that this text had nowhere to go.
+     */
+    approvalInstructionPlaceholder?: string;
+    /**
+     * The question an approval asks (default: "Run {tool}?").
+     *
+     * `{tool}` is replaced with the tool's name. A placeholder rather than three
+     * concatenated fragments, because word order is the first thing a translation
+     * changes and "Run" + name + "?" only works in English.
+     */
+    approvalAsk?: string;
+    /**
+     * What the pill says while the decision is being made elsewhere (default:
+     * "waiting for you").
+     *
+     * The pill is the anchor, not the control — so it has to say WHY nothing is
+     * happening. A pill that just sits there while the answer is expected at the
+     * composer is the one thing this placement can get wrong.
+     */
+    approvalWaiting?: string;
+    /** Accessible name for the group of approval options (default: "Your decision") */
+    approvalOptionsLabel?: string;
 
     /**
      * The composer's attach-file button (default: "Attach file").
@@ -239,6 +266,10 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationYes: "Yes",
     elicitationNo: "No",
     elicitationAnswerLabel: "Your answer",
+    approvalInstructionPlaceholder: "Or tell it what to do instead…",
+    approvalAsk: "Run {tool}?",
+    approvalWaiting: "waiting for you",
+    approvalOptionsLabel: "Your decision",
     actionUpload: "Attach file",
     download: "Download",
     previewPending: "Press Preview to run this artifact.",

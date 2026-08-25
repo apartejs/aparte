@@ -670,6 +670,91 @@ textarea.aparte-elic-text {
   z-index: 1;
 }
 
+/* ── An approval: a decision, not a value ───────────────────────────────────
+   The options are buttons, not radios, because a decision has two primary actions
+   of opposite polarity and the composer's one button cannot carry both. So they
+   settle on the first click, and approving costs one gesture rather than two.
+
+   The colours are the ones the inline Approve / Reject pair used, moved here from
+   the runtime-injected `getStyles()` string in the tool_call renderer. That move is
+   the point: injected CSS is invisible to a consumer's own rules, absent from the
+   generated CSS reference, and unreachable by `check:derived-vars`. The elicitation
+   panel made the same move for the same reason. */
+/* A COLUMN, not a row of pills.
+   The panel lives in a composer, which is narrow — two or three labels side by side
+   either wrap into an unreadable jumble or get squeezed. And the labels are not short:
+   a scope option reads "Approve, and always for this tool". A stacked list is also what
+   every reference implementation of this shows, for the same reason: one target per
+   line, full width, so the choice is read rather than aimed at. */
+.aparte-approval-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-approval-gap, 4px);
+  margin: 0 6px;
+}
+
+.aparte-approval-option {
+  font: inherit;
+  font-size: var(--aparte-approval-option-size, 0.85rem);
+  font-weight: var(--aparte-font-weight-medium, 500);
+  line-height: 1.35;
+  /* Left-aligned and full width: the eye reads down a list, and a centred label in a
+     wide target is harder to scan than a flush one. */
+  text-align: start;
+  width: 100%;
+  padding: var(--aparte-approval-option-padding, 8px 10px);
+  border-radius: var(--aparte-approval-option-radius, 8px);
+  cursor: pointer;
+  border: 1px solid var(--aparte-border, rgba(128, 128, 128, 0.3));
+  background: transparent;
+  color: var(--aparte-text);
+}
+
+.aparte-approval-option:hover {
+  background: var(--aparte-surface-2, rgba(128, 128, 128, 0.08));
+}
+
+/* Tone is carried by a leading rule, not by colouring the label or ringing the whole
+   button. Both of those were tried: a green word on a dark panel reads as a link, and a
+   coloured border on every option turns the list into a traffic light. A 2px edge says
+   which way an option goes while leaving the text plain. */
+/* The SOLID colours, not the `-border` pair. Those carry ~40% alpha because they were
+   made for a 1px box outline over a surface; on a 2px rule against a light background
+   the deny edge came out a pale pink that read as decoration. A rule wants a colour. */
+.aparte-approval-option--affirm {
+  border-inline-start: 2px solid var(--aparte-success, rgb(21, 128, 61));
+}
+
+.aparte-approval-option--deny {
+  border-inline-start: 2px solid var(--aparte-error, rgb(185, 28, 28));
+}
+
+/* The refusal's reason, in the user's words. Quiet by default and one line tall: it is
+   the exception, not the expected act, and a box sized for a paragraph invites one. */
+.aparte-approval-instruction {
+  font: inherit;
+  font-size: var(--aparte-elic-input-size, 0.85rem);
+  color: var(--aparte-text);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--aparte-border, rgba(128, 128, 128, 0.3));
+  border-radius: 0;
+  padding: 8px 10px 2px;
+  margin: 4px 6px 0;
+  resize: none;
+  overflow: hidden;
+  min-height: 1.6em;
+}
+
+.aparte-approval-instruction:focus {
+  outline: none;
+  border-top-color: var(--aparte-accent, rgba(128, 128, 128, 0.6));
+}
+
+.aparte-approval-instruction::placeholder {
+  color: var(--aparte-text-muted, rgba(128, 128, 128, 0.75));
+}
+
 .aparte-elic-skip {
   border: none;
   background: transparent;
@@ -2184,6 +2269,23 @@ aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* A panel is mounted INSIDE that row, so its own buttons inherited the 44x44 sizing
+   above and rendered as circles with their labels spilling out. The rule above means
+   "the composer's own controls"; anything inside a panel is CONTENT, and a panel is
+   free to contain a button — the approval options are the first that do, and they will
+   not be the last. */
+[data-aparte-panel] button {
+  width: auto;
+  height: auto;
+  flex-shrink: 1;
+  /* The row also makes its controls centred flex boxes, which beats `text-align` — so a
+     left-aligned label in a panel came out centred until this line existed. Undo the
+     whole treatment, not the half of it that was visible. */
+  display: block;
+  justify-content: initial;
+  align-items: initial;
 }
 
 /* The composer's bottom row (mode picker, model selector, token counter…).

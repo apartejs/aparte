@@ -103,7 +103,6 @@ export type {
     AparteToolHandler,
     AparteToolContext,
     AparteToolRenderer,
-    AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surface (aliased by every wrapper's handle type).
     AparteChatImperativeApi
@@ -245,7 +244,7 @@ export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
 
 // Export elicitation (human-in-the-loop typed input)
-export { requestUserInput, buildElicitationPanel, AparteElicitationAbortError } from './elicitation/index.js';
+export { requestUserInput, buildElicitationPanel, buildApprovalPanel, AparteElicitationAbortError } from './elicitation/index.js';
 export type {
     AparteElicitationSchema,
     AparteElicitationField,
@@ -256,6 +255,9 @@ export type {
     AparteElicitationRequest,
     AparteElicitationResult,
     AparteElicitationPresenter,
+    AparteApprovalOption,
+    AparteApprovalAnswer,
+    BuiltApprovalPanel,
     BuiltElicitationPanel,
 } from './elicitation/index.js';
 
