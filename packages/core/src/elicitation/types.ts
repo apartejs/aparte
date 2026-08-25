@@ -93,7 +93,19 @@ export type AparteElicitationSchema = AparteElicitationField | AparteElicitation
 
 export interface AparteElicitationRequest {
     /** Human-readable prompt shown above the input(s). */
-    message: string;
+    /**
+     * The sentence above everything else. A string, or a function re-read on relabel.
+     *
+     * Same reason as an option's `label`, and I shipped the two an hour apart because I
+     * fixed the choices and left the QUESTION behind — a panel asking "Run delete_file?"
+     * over buttons reading "Approuver" and "Rejeter". A resolved string has nothing to
+     * re-derive from.
+     *
+     * A function only makes sense when the text comes from the LOCALE, which is core's
+     * own approval question. A tool's question is model-authored: it is a string, and
+     * re-reading it would mean nothing.
+     */
+    message: string | (() => string);
     /** What to ask for. */
     /**
      * What value to collect. Required on a `'question'`, absent on an `'approval'` —
@@ -144,8 +156,20 @@ export interface AparteElicitationRequest {
 export interface AparteApprovalOption {
     /** What {@link AparteApprovalAnswer.option} reports when this one is chosen. */
     value: string;
-    /** What the user reads. */
-    label: string;
+    /**
+     * What the user reads. A string, or a function re-read on every relabel.
+     *
+     * The function arm exists because these are the highest-stakes strings in the
+     * library and they have to follow a language switch WHILE the request is open — a
+     * person deciding whether to let a tool run should not be reading the choice in a
+     * language they did not pick. A plain string cannot: the panel receives it already
+     * resolved and has nothing to re-derive it from.
+     *
+     * So core's own two options pass a function that reads the locale, and a host
+     * passes whatever it likes: its label is its string, and core has no business
+     * translating it.
+     */
+    label: string | (() => string);
     /**
      * How it is drawn. `'affirm'` and `'deny'` are the two poles a decision has; a
      * third would be a preference, not a meaning, so there is no `'neutral'`.

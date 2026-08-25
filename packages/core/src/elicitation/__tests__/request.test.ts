@@ -4,6 +4,13 @@ import { attachConfig } from '../../config/config-context';
 import { requestUserInput } from '../index';
 import type { AparteElicitationResult } from '../types';
 
+/**
+ * A request's `message` is `string | (() => string)` — the function arm exists so a
+ * locale-derived question can follow a language switch while the panel is open. Tests
+ * only ever want the text.
+ */
+const asked = (m: string | (() => string)): string => (typeof m === 'function' ? m() : m);
+
 describe('requestUserInput / elicitation presenter', () => {
     afterEach(() => {
         aparteGlobalConfig.setElicitationPresenter(null);
@@ -29,7 +36,7 @@ describe('requestUserInput / elicitation presenter', () => {
         document.body.appendChild(host);
         const cfg = new AparteConfig();
         let seen: string | undefined;
-        cfg.setElicitationPresenter(async (req) => { seen = req.message; return { action: 'decline' }; });
+        cfg.setElicitationPresenter(async (req) => { seen = asked(req.message); return { action: 'decline' }; });
         attachConfig(host, cfg);
 
         const child = document.createElement('span');
@@ -61,8 +68,8 @@ describe('requestUserInput / elicitation presenter', () => {
         let release: (() => void) | undefined;
         const c = new AparteConfig();
         c.setElicitationPresenter(async (req) => {
-            seen.push(req.message);
-            if (req.message === 'first') await new Promise<void>((r) => { release = r; });
+            seen.push(asked(req.message));
+            if (asked(req.message) === 'first') await new Promise<void>((r) => { release = r; });
             return { action: 'decline' };
         });
 
@@ -83,8 +90,8 @@ describe('requestUserInput / elicitation presenter', () => {
         let release: (() => void) | undefined;
         const c = new AparteConfig();
         c.setElicitationPresenter(async (req) => {
-            seen.push(req.message);
-            if (req.message === 'first') await new Promise<void>((r) => { release = r; });
+            seen.push(asked(req.message));
+            if (asked(req.message) === 'first') await new Promise<void>((r) => { release = r; });
             return { action: 'decline' };
         });
 
@@ -108,7 +115,7 @@ describe('requestUserInput / elicitation presenter', () => {
         // behind would push every subsequent request onto a microtask.
         const c = new AparteConfig();
         const seen: string[] = [];
-        c.setElicitationPresenter((req) => { seen.push(req.message); return Promise.resolve({ action: 'decline' } as const); });
+        c.setElicitationPresenter((req) => { seen.push(asked(req.message)); return Promise.resolve({ action: 'decline' } as const); });
 
         await c.requestUserInput({ message: 'one', schema: { type: 'string' } });
         // A macrotask, because the tail clears two microtasks AFTER the request it

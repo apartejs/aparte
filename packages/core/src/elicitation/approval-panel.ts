@@ -50,16 +50,18 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 }
 
 export function buildApprovalPanel(
-    message: string,
+    message: string | (() => string),
     options: readonly AparteApprovalOption[],
     onChange: () => void,
 ): BuiltApprovalPanel {
     const cfg = contextConfig();
     const panel = el('div', 'aparte-elic-panel aparte-approval-panel');
 
+    const askText = (): string => (typeof message === 'function' ? message() : message);
     // `textContent`, never innerHTML: the message names a tool the MODEL chose and can
     // carry its arguments. The string arm of a render hook is a model-to-DOM XSS.
-    if (message) panel.appendChild(el('p', 'aparte-elic-message', message));
+    const ask = askText() ? el('p', 'aparte-elic-message', askText()) : null;
+    if (ask) panel.appendChild(ask);
 
     const dismiss = el('div', 'aparte-elic-dismiss');
     panel.appendChild(dismiss);
@@ -76,13 +78,18 @@ export function buildApprovalPanel(
     const row = el('div', 'aparte-approval-options');
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', cfg.t('approvalOptionsLabel'));
+    /** Kept so `relabel` can reach each button and the label that owns it. */
+    const labelled: Array<{ button: HTMLButtonElement; option: AparteApprovalOption }> = [];
+    const textOf = (option: AparteApprovalOption): string =>
+        typeof option.label === 'function' ? option.label() : option.label;
     for (const option of options) {
         const button = el('button', `aparte-approval-option aparte-approval-option--${option.tone ?? 'affirm'}`);
         button.type = 'button';
-        button.textContent = option.label;
+        button.textContent = textOf(option);
         // First click settles. No confirm-then-submit: the decision IS the click.
         button.addEventListener('click', () => fire({ option: option.value }));
         row.appendChild(button);
+        labelled.push({ button, option });
     }
     panel.appendChild(row);
 
@@ -118,9 +125,17 @@ export function buildApprovalPanel(
             panel.querySelector<HTMLButtonElement>('.aparte-approval-option')?.focus();
         },
         relabel: () => {
-            const label = contextConfig().t('approvalInstructionPlaceholder');
+            const now = contextConfig();
+            const label = now.t('approvalInstructionPlaceholder');
             instruction.placeholder = label;
             instruction.setAttribute('aria-label', label);
+            row.setAttribute('aria-label', now.t('approvalOptionsLabel'));
+            // The question, which was the half I left behind the first time.
+            if (ask) ask.textContent = askText();
+            // Text only, in place, per the relabel contract: the buttons keep their
+            // listeners and — the part that matters — their FOCUS. This is the one
+            // control a keyboard user may be sitting on when the language changes.
+            for (const { button, option } of labelled) button.textContent = textOf(option);
         },
     };
 }

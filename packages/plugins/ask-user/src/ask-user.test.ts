@@ -222,8 +222,11 @@ describe('the handler asks the RIGHT chat', () => {
         const cfg = new AparteConfig();
         attachConfig(host, cfg);
         const asked: string[] = [];
+        // `message` is `string | (() => string)`; a tool's question is always the
+        // string arm, the function arm being for locale-derived text.
+        const text = (m: string | (() => string)): string => (typeof m === 'function' ? m() : m);
         cfg.setElicitationPresenter(async (req: AparteElicitationRequest): Promise<AparteElicitationResult> => {
-            asked.push(req.message);
+            asked.push(text(req.message));
             return { action: 'accept', content: 'staging' };
         });
         return { el, cfg, asked };

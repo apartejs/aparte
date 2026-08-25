@@ -624,7 +624,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
 &#125;
 
 <span class="cm">/* light DOM: an ordinary selector, no ::part() */</span>
-<span class="tg">.segment-tool-call .tool-pill</span> &#123;
+<span class="tg">.segment-tool-call .tool-label</span> &#123;
   <span class="kw">font-variant</span>: <span class="st">small-caps</span>;
 &#125;</pre>
           </div>
@@ -1257,32 +1257,57 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
        */
       async function askApproval(mid: string, sid: string, tool: string) {
         try {
+          const t = () => aparteGlobalConfig.getLocale();
           const answer = await aparteGlobalConfig.requestUserInput({
             kind: 'approval',
-            message: `Run ${tool}?`,
+            // Read from the locale, not hardcoded — and the labels are FUNCTIONS, so
+            // they follow a language switch while the question is open. A plain string
+            // is treated as the host's own and left alone, which is right for an app's
+            // wording and wrong here, where the host is this page demonstrating core.
+            message: () => (t().approvalAsk ?? 'Run {tool}?').replace('{tool}', tool),
             options: [
-              { value: 'allow', label: 'Approve', tone: 'affirm' },
-              { value: 'deny', label: 'Reject', tone: 'deny' },
+              { value: 'allow', label: () => t().approveTool ?? 'Approve', tone: 'affirm' },
+              { value: 'deny', label: () => t().rejectTool ?? 'Reject', tone: 'deny' },
             ],
           });
           const picked = answer.action === 'accept' ? (answer.content as any) : undefined;
           const instruction: string | undefined = picked?.instruction?.trim() || undefined;
           const approved = !instruction && picked?.option === 'allow';
 
-          viewport.updateSegment(mid, sid, approved
-            ? { status: 'resolved', result: 'Deleted src/legacy.ts' }
-            : { status: 'rejected' });
-
           const closing = 'tl-end';
+          const reply = () => {
+            after(() => {
+              viewport.addSegment(mid, { id: closing, type: 'text', content: '', isStreaming: true });
+              streamSegment(mid, closing, approved
+                ? 'Done — the file is gone and the turn carried on from there.'
+                : instruction
+                  ? `Understood — “${instruction}”. A refusal can carry your words, and the model gets a turn to read them.`
+                  : 'Understood, I left it alone. A refusal skips the rest of the turn, then the model answers it.',
+                () => completeTurn(mid));
+            }, 340);
+          };
+
+          if (!approved) {
+            // A refused tool never runs, so there is nothing to wait for.
+            viewport.updateSegment(mid, sid, { status: 'rejected' });
+            reply();
+            return;
+          }
+
+          /*
+           * The RUNNING phase, which this demo used to skip.
+           *
+           * It jumped straight from the decision to the result, so the tool looked
+           * instantaneous and the spinner — which only shows while `pending` — was
+           * never visible on the page that sells it. A real loop runs the handler
+           * between the approval and the result, and that gap is exactly what the
+           * spinner is for.
+           */
+          viewport.updateSegment(mid, sid, { status: 'pending' });
           after(() => {
-            viewport.addSegment(mid, { id: closing, type: 'text', content: '', isStreaming: true });
-            streamSegment(mid, closing, approved
-              ? 'Done — the file is gone and the turn carried on from there.'
-              : instruction
-                ? `Understood — “${instruction}”. A refusal can carry your words, and the model gets a turn to read them.`
-                : 'Understood, I left it alone. A refusal skips the rest of the turn, then the model answers it.',
-              () => completeTurn(mid));
-          }, 340);
+            viewport.updateSegment(mid, sid, { status: 'resolved', result: 'Deleted src/legacy.ts' });
+            reply();
+          }, 900);
         } catch {
           // The request ended without an answer — the panel was taken away, or the tab
           // was switched. Nobody refused anything, so the pill says aborted.

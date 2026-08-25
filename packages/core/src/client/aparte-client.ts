@@ -561,13 +561,23 @@ export class AparteClient {
         signal: AbortSignal,
         target: HTMLElement,
     ): Promise<{ approved: boolean; payload?: unknown; instruction?: string }> {
-        const loc = this._config.getLocale();
         const answer = await requestUserInput({
             kind: 'approval',
-            message: (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name),
+            /*
+             * A function, like the option labels below, and for the same reason: the
+             * FRAME is locale text and follows a language switch while the question is
+             * open. The tool's NAME is substituted into it and never translated — it is
+             * wire format, the identifier the model called.
+             */
+            message: () => {
+                const loc = this._config.getLocale();
+                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name);
+            },
+            // Functions, not strings, same as the question: these follow a language
+            // switch while the request is open, which a resolved string cannot.
             options: [
-                { value: 'allow', label: loc.approveTool ?? 'Approve', tone: 'affirm' },
-                { value: 'deny', label: loc.rejectTool ?? 'Reject', tone: 'deny' },
+                { value: 'allow', label: () => this._config.getLocale().approveTool ?? 'Approve', tone: 'affirm' },
+                { value: 'deny', label: () => this._config.getLocale().rejectTool ?? 'Reject', tone: 'deny' },
             ],
             signal,
             target,

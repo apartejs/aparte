@@ -349,7 +349,7 @@ function buildField(field: AparteElicitationField, onChange: () => void, fallbac
 // ─── panel ─────────────────────────────────────────────────────────────────
 
 export function buildElicitationPanel(
-    message: string,
+    message: string | (() => string),
     schema: AparteElicitationSchema,
     onChange: () => void,
 ): BuiltElicitationPanel {
@@ -370,12 +370,16 @@ export function buildElicitationPanel(
 }
 
 function buildPanel(
-    message: string,
+    message: string | (() => string),
     schema: AparteElicitationSchema,
     onChange: () => void,
 ): Omit<BuiltElicitationPanel, 'relabel'> {
     const panel = el('div', 'aparte-elic-panel');
-    if (message) panel.appendChild(el('p', 'aparte-elic-message', message));
+    // Resolved once, and deliberately not re-read on relabel: a question here comes
+    // from the tool that asked, which means the MODEL wrote it. Re-reading a
+    // model-authored sentence on a language switch would mean nothing.
+    const asked = typeof message === 'function' ? message() : message;
+    if (asked) panel.appendChild(el('p', 'aparte-elic-message', asked));
 
     /*
      * The QUESTIONS scroll; the actions do not.
@@ -519,7 +523,7 @@ function buildPanel(
 
     // The single-field shape: the panel's message IS the question, so it names the
     // field. In the object shape each field carries its own title instead.
-    const field = buildField(schema, onChange, message);
+    const field = buildField(schema, onChange, asked);
     body.appendChild(field.el);
     return {
         el: panel,

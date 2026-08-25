@@ -236,6 +236,72 @@ describe('<aparte-elicitation> presenter', () => {
         }));
     });
 
+    it('relabels an open approval when the language changes', async () => {
+        /*
+         * Found by using it, not by a test — which is the whole point of writing one
+         * now. The approval labels used to live on the tool_call segment, whose
+         * `relabel` updated them and whose test called them the highest-stakes strings
+         * in the library. Moving the decision to the composer moved the strings with
+         * it and left the relabelling behind: the panel receives its labels already
+         * resolved, so a plain string has nothing to re-derive from.
+         *
+         * Hence the function arm on `label`. A person deciding whether to let a tool
+         * run must not be reading the choice in a language they did not pick.
+         */
+        mountChat();
+        const p = requestUserInput({
+            kind: 'approval',
+            message: 'Run delete_file?',
+            options: [
+                { value: 'allow', label: () => aparteGlobalConfig.t('elicitationYes'), tone: 'affirm' },
+                // A HOST's label is a plain string: it is theirs, and core has no
+                // business translating it.
+                { value: 'deny', label: 'Nope', tone: 'deny' },
+            ],
+        });
+
+        const labels = () => [...document.querySelectorAll('.aparte-approval-option')].map(b => b.textContent);
+        expect(labels()).toEqual(['Yes', 'Nope']);
+
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), elicitationYes: 'Oui' });
+
+        expect(labels(), 'ours follows the switch, theirs is left alone').toEqual(['Oui', 'Nope']);
+
+        document.querySelector<HTMLButtonElement>('.aparte-approval-option')!.click();
+        expect(await p).toEqual({ action: 'accept', content: { option: 'allow' } });
+    });
+
+    it('relabels the question too, while leaving the tool name alone', async () => {
+        /*
+         * The same fix as the test above, on the field I left behind the first time: I
+         * made the CHOICES follow a language switch and shipped a panel asking "Run
+         * delete_file?" over buttons reading "Approuver" and "Rejeter".
+         *
+         * And the half that must NOT move: the tool's name is substituted into the
+         * frame and never translated — it is wire format, the identifier the model
+         * called.
+         */
+        mountChat();
+        const ask = () => (aparteGlobalConfig.getLocale().approvalAsk ?? 'Run {tool}?')
+            .replace('{tool}', 'delete_file');
+        const p = requestUserInput({
+            kind: 'approval',
+            message: ask,
+            options: [{ value: 'deny', label: 'x', tone: 'deny' }],
+        });
+
+        const shown = () => document.querySelector('.aparte-elic-message')?.textContent;
+        expect(shown()).toBe('Run delete_file?');
+
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), approvalAsk: 'Exécuter {tool} ?' });
+
+        expect(shown(), 'the frame follows').toBe('Exécuter delete_file ?');
+        expect(shown(), 'and the tool name never does').toContain('delete_file');
+
+        document.querySelector<HTMLButtonElement>('.aparte-approval-option')!.click();
+        await p;
+    });
+
     it('a turn ending does not wedge the presenter', async () => {
         mountChat();
         const first = requestUserInput({ message: 'Framework?', schema: { type: 'string' } });
