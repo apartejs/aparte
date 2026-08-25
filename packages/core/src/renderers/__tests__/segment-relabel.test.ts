@@ -91,7 +91,7 @@ describe('relabel reaches a rendered segment', () => {
             toolCall: { id: 'tc1', name: 'delete_file', input: {} },
         } as AparteToolCallSegment]);
         expect(el.querySelector('.tool-approve-btn'), 'no decision control in the transcript').toBeNull();
-        const waiting = el.querySelector('.tool-pill-status')!;
+        const waiting = el.querySelector('.tool-state')!;
         expect(waiting.textContent).toBe('waiting for you');
 
         aparteGlobalConfig.setLocale(FR());

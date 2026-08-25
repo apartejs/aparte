@@ -149,6 +149,22 @@ export interface AparteLocale {
      * composer is the one thing this placement can get wrong.
      */
     approvalWaiting?: string;
+    /**
+     * The words in a tool call's state badge.
+     *
+     * A WORD and not only a glyph, which is what every current implementation shows
+     * ("Pending", "Running", "Completed", "Error"). A bare cross beside a name reads as
+     * a button that removes something — the state was being mistaken for an
+     * affordance, which is ratified decision #8 read backwards.
+     */
+    toolRunning?: string;
+    toolCompleted?: string;
+    toolRejected?: string;
+    toolStopped?: string;
+    /** Label above a tool call's arguments (default: "Input") */
+    toolInput?: string;
+    /** Label above a tool call's result (default: "Output") */
+    toolOutput?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
 
@@ -269,6 +285,12 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     approvalInstructionPlaceholder: "Or tell it what to do instead…",
     approvalAsk: "Run {tool}?",
     approvalWaiting: "waiting for you",
+    toolRunning: "Running",
+    toolCompleted: "Done",
+    toolRejected: "Rejected",
+    toolStopped: "Stopped",
+    toolInput: "Input",
+    toolOutput: "Output",
     approvalOptionsLabel: "Your decision",
     actionUpload: "Attach file",
     download: "Download",

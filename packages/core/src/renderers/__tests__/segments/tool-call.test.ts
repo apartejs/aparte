@@ -34,7 +34,7 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
         };
         const html = getSegmentRenderer('tool_call')!.render(seg as any);
         expect(html).toContain('class="my-visual"');
-        expect(html).not.toContain('tool-pill-name'); // the default pill is bypassed
+        expect(html).not.toContain('tool-name'); // the default pill is bypassed
     });
 
     it('falls back to the default pill when the custom render returns empty', () => {
@@ -45,7 +45,7 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
             status: 'pending',
         };
         const html = getSegmentRenderer('tool_call')!.render(seg as any);
-        expect(html).toContain('tool-pill'); // empty custom output => hide-to-default
+        expect(html).toContain('tool-label'); // empty custom output => hide-to-default
     });
 
     it('invokes the consumer setup() hook with the mounted element + segment', () => {
@@ -129,8 +129,81 @@ describe('default renderer: tool_call', () => {
             status: 'pending'
         };
         const html = renderer.render(seg as any);
-        expect(html).toContain('tool-pill-spinner');
+        expect(html).toContain('tool-spinner');
         expect(html).not.toContain(aparteGlobalConfig.getIcon('check'));
+    });
+
+    /*
+     * What went in and what came out. The pill named the tool and showed neither, while
+     * the segment carried both — missing presentation, not missing data.
+     */
+    describe('the disclosure', () => {
+        const resolved = () => ({
+            id: 'd1', type: 'tool_call', status: 'resolved',
+            toolCall: { id: 'c1', name: 'delete_file', input: { path: 'a.ts', force: true } },
+            result: 'deleted a.ts',
+        });
+        const el = (seg: unknown): HTMLElement => {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = String(getSegmentRenderer('tool_call')!.render(seg as never)).trim();
+            return tpl.content.firstElementChild as HTMLElement;
+        };
+
+        it('ships no source comment into the bubble', () => {
+            /*
+             * `check:text-escaping` reads the SOURCE, so it cannot see this: an
+             * exemption marker written at a use site lands inside the multi-line
+             * template literal and renders as visible text. It happened — the sentence
+             * "safe-text: markup built right here" appeared in the assistant's bubble,
+             * between the reply and the pill. The guard's own docblock warns about this
+             * exact mistake, in the first person, because it had been made once before.
+             *
+             * An assertion on the OUTPUT is the level that catches it.
+             */
+            for (const seg of [resolved(), { ...resolved(), status: 'pending', result: undefined }]) {
+                const html = String(getSegmentRenderer('tool_call')!.render(seg as never));
+                expect(html, 'a marker in the output is a marker served to users').not.toContain('safe-text');
+                expect(html).not.toContain('safe-attr');
+            }
+        });
+
+        it('shows the arguments and the result', () => {
+            const node = el(resolved());
+            expect(node.querySelector('[data-part="input"]')?.textContent).toContain('"path": "a.ts"');
+            expect(node.querySelector('[data-part="output"]')?.textContent).toContain('deleted a.ts');
+        });
+
+        it('is closed, including while a person is deciding', () => {
+            // The reasoning block stays closed while it is being PRODUCED — the most
+            // live moment there is — so a tool call has no stronger claim to unroll
+            // itself. One rule, no special cases.
+            expect(el(resolved()).hasAttribute('open')).toBe(false);
+            const waiting = { ...resolved(), status: 'awaiting-approval', result: undefined };
+            expect(el(waiting).hasAttribute('open')).toBe(false);
+        });
+
+        it('does not close what the reader opened', () => {
+            // Without an `update` the bubble REPLACES the element, and a tool call
+            // changes status several times a turn — the disclosure would slam shut
+            // under them every time.
+            const node = el({ ...resolved(), status: 'pending', result: undefined });
+            document.body.appendChild(node);
+            node.setAttribute('open', '');
+
+            getSegmentRenderer('tool_call')!.update!(node, resolved() as never);
+
+            expect(node.hasAttribute('open'), 'still open').toBe(true);
+            expect(node.getAttribute('data-status')).toBe('resolved');
+            expect(node.querySelector('[data-part="output"]')?.textContent).toContain('deleted a.ts');
+        });
+
+        it('offers no disclosure when there is nothing behind it', () => {
+            // A tool with no arguments and no result yet. A disclosure onto nothing is
+            // an affordance that lies.
+            const node = el({ id: 'd2', type: 'tool_call', status: 'pending', toolCall: { id: 'c2', name: 'get_time', input: {} } });
+            expect(node.tagName).toBe('DIV');
+            expect(node.querySelector('.tool-toggle')).toBeNull();
+        });
     });
 
     it('renders checkmark for resolved status', () => {
@@ -142,7 +215,11 @@ describe('default renderer: tool_call', () => {
         };
         const html = renderer.render(seg as any);
         expect(html).toContain(aparteGlobalConfig.getIcon('check'));
-        expect(html).not.toContain('tool-pill-spinner');
+        // The spinner node is always present now — `update` toggles `hidden` on it
+        // rather than adding and removing a node, so what a resolved call must not have
+        // is a VISIBLE spinner, and `hidden` is the part a test can actually read.
+        expect(html).toContain('tool-spinner');
+        expect(html).toContain('aria-hidden="true" hidden');
     });
 
     it('renders cross for aborted status', () => {
@@ -183,7 +260,7 @@ describe('default renderer: tool_call', () => {
         const renderer = getSegmentRenderer('tool_call')!;
         const styles = renderer.getStyles?.();
         expect(styles).toBeDefined();
-        expect(styles).toContain('tool-pill');
-        expect(styles).toContain('tool-pill-spinner');
+        expect(styles).toContain('tool-label');
+        expect(styles).toContain('tool-spinner');
     });
 });

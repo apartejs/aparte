@@ -192,6 +192,11 @@
   --aparte-elic-option-desc-size: 0.78rem;
   --aparte-elic-control-size: 15px;
   --aparte-elic-input-radius: 6px;
+  /* The tool-call row's corner. Declared here rather than left as an inline
+     fallback in the renderer: an undeclared custom property still WORKS, which is
+     what makes it dangerous — it is absent from the generated CSS reference, so a
+     consumer has no way to discover the knob exists. */
+  --aparte-tool-row-radius: 6px;
   --aparte-elic-textarea-min-height: 64px;
   --aparte-elic-skip-size: 0.8rem;
   --aparte-elic-step-size: 0.78rem;

@@ -177,7 +177,7 @@ import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteToolRenderer } from '@aparte/core';
 
 const webSearchRenderer: AparteToolRenderer = {
-  render: (segment) => `<div class="tool-pill">Searching the web…</div>`,
+  render: (segment) => `<div class="tool-label">Searching the web…</div>`,
   setup: (element, segment) => { /* wire listeners after injection, if any */ },
 };
 
@@ -203,7 +203,7 @@ import type { AparteToolRenderer } from '@aparte/core';
 const searchRenderer: AparteToolRenderer = {
   render: (segment) => {
     const el = document.createElement('div');
-    el.className = 'tool-pill';
+    el.className = 'tool-label';
     // textContent, so the value is text no matter what it contains.
     el.textContent = `Searching for ${String(segment.toolCall?.input?.['query'] ?? '')}`;
     return el;
@@ -224,7 +224,7 @@ import type { AparteToolRenderer } from '@aparte/core';
 const searchRenderer: AparteToolRenderer = {
   render: (segment) => {
     const query = String(segment.toolCall?.input?.['query'] ?? '');
-    return `<div class="tool-pill" title="${escapeAttr(query)}">Searching for ${escapeHtml(query)}</div>`;
+    return `<div class="tool-label" title="${escapeAttr(query)}">Searching for ${escapeHtml(query)}</div>`;
   },
 };
 
