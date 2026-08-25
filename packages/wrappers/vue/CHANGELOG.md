@@ -1,5 +1,7 @@
 # @aparte/vue
 
+## 0.12.1
+
 ## 0.12.0
 
 ## 0.11.0
@@ -15,6 +17,7 @@
   - **React** — the `aparte-*` JSX intrinsics are typed. A wrong value type is a compile error.
 
     _Amended after release:_ this said "a typo, a wrong value type, or an attribute the element does not observe is a compile error". The value half holds; the other two do not, for the hyphenated names the sentence used as its own examples. TypeScript treats a JSX attribute whose name is not a valid JS identifier as "known" even when it is absent from the attributes type, so none of the 12 hyphenated aparté attributes is typo-checked — `max-rendered-bubles={200}` compiles. Presence-attribute enforcement is unaffected.
+
   - **Vue** — declared through `GlobalComponents`, checked by `vue-tsc`.
   - **Svelte** — declared through `SvelteHTMLElements`, checked by `svelte-check`, including `on:` handlers derived from the DOM event map.
   - **Angular** — a standalone directive per element, exported individually and as `APARTE_ELEMENT_DIRECTIVES`. Real `@Input()`s that write attributes (never properties — eight of `<aparte-composer>`'s accessors are getter-only), one typed `@Output()` per event emitting the event's detail, and the real tag in the template so control flow and projection work. It also means **no `CUSTOM_ELEMENTS_SCHEMA`**, which used to switch template checking off for every unknown tag in the file.

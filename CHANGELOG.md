@@ -4,6 +4,46 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.12.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [681bb47](https://github.com/apartejs/aparte/commit/681bb47): **The branch picker no longer collapses to "1 / 1" and lose a retry fork.** In framework-managed mode — `@aparte/react`, `@aparte/vue`, `@aparte/svelte`, `@aparte/angular` — pressing ‹ after a retry could land the sibling label on "1 / 1" instead of "1 / 2". The picker then hid itself and **the other version became unreachable for the life of the page**: the fork was gone.
+
+  The cause was not where it was first suspected. `syncRepoFromMessages` was the obvious candidate, because it syncs from the framework's array which holds the active path only — but it never deletes, it only appends and updates, so it cannot lose a tree.
+
+  It was `_applyPendingSiblings`. It read each sibling's bubble, `continue`d past the ones not on the page yet, and then cleared `_pendingSiblings` unconditionally — so a callback running one tick early **discarded** the branch counts with nothing left to retry. The bubble arrived a moment later showing its default of one sibling.
+
+  Which needed a framework that renders late, and they all do. React implements `afterRender` as `requestAnimationFrame(() => cb())`: a bet that the next paint lands after React's commit. It does not always, and this repo has lost that same bet before (`25f356b`, "the stream-sync flake had a cause — a bet on rAF phase").
+
+  The fix reschedules instead of dropping, bounded at six render passes — the race needs one, and a message that has left the active path has no bubble and never will, so an unbounded retry would hold a callback forever. **It lives in the host rather than in React's rAF call**, because any binding whose `afterRender` can precede its commit hits this, and one fix there covers all four wrappers.
+
+  Two things this was hiding behind:
+
+  The e2e test named _"retry forks a branch and the ‹1/2› picker navigates between versions"_ asserted `toContainText('1')` — which `"1 / 1"` satisfies exactly as well as `"1 / 2"`. It never distinguished "back to version 1 of 2" from "lost a branch", and the defect sat under a green suite through four cold audits. The strict assertion now runs on **every** mode, not just native.
+
+  And the host's unit-test harness renders bubbles synchronously inside `setMessages`, with `afterRender: (cb) => cb()` — modelling a framework that commits during the setter, which none of the four do. `pending-siblings-race.test.ts` models the real ordering and reproduces the defect without a browser.
+  <sub>`@aparte/core`</sub>
+
+- [cd323aa](https://github.com/apartejs/aparte/commit/cd323aa): **The sanitizer's `--aparte-*` refusal can no longer be walked past with a CSS escape.**
+
+  Core's whole theme is custom properties, so the sanitizer keeps a model-authored `--shiki-light` and refuses `--aparte-primary`: setting ours would repaint the chat around whatever element a markdown or highlight provider produced. That is defacement with the library's own paint, not highlighting.
+
+  The refusal was spelled `!prop.startsWith('--aparte-')` and tested the name **as written**, so `--\61 parte-text` did not match and survived, and the browser decodes that ident back to `--aparte-text`.
+
+  The asymmetry is worth naming, because it is why one of the two checks in `scrubStyle` was fine and the other was not. `SAFE_STYLE_PROPS.has(prop)` is an **allowlist**, and an escape defeats itself against one: `col\6fr` is not in the set, so the declaration dies. The custom-property test is a **denylist** — anything except ours — and an escape defeats a denylist the other way round, by making the name not match the thing being refused.
+
+  Refused rather than decoded, which is the rule this file already applies to declaration VALUES for a stated reason: decoding is the general fix and is easy to get wrong — stripping the escape from `u\72 l(` yields `ul(`, not `url(`, which is how an earlier attempt at it passed its own test. No custom property worth setting from model-authored content needs a CSS escape.
+
+  The fix does not rest on how any particular engine decodes anything: the invariant is that the namespace is unreachable, and it now holds because no backslash survives in a property name rather than because of a prediction about what one would become.
+
+  Impact was bounded — custom properties inherit downward only, and `url()` / `expression()` / `javascript:` and every layout property were already refused, so this was defacement of the injected element's own subtree with no script, no beacon and no clickjack. Found by the 0.11.0 cold audit and reported as PLAUSIBLE rather than confirmed, since it rests on a spec reading no browser run was available to check; the fix is testable at our own layer, which is what made it actionable.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-transformers`, `@aparte/plugin-ask-user`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`.</sub>
+
 ## 0.12.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
