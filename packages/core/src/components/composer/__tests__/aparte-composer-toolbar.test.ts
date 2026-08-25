@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
 import '../aparte-composer-toolbar.js';
 
 /**
@@ -91,18 +90,7 @@ describe('the stylesheet styles the element, not just the legacy class', () => {
      * names is unstyled, and nothing else in the suite would notice. Removing
      * `aparte-composer-toolbar` from either rule must fail here.
      */
-    // Resolved by walking up from the cwd rather than from `import.meta.url`: under Vite
-    // that is an http URL, not a file one, and the cwd differs between `pnpm test` at the
-    // root and `nx test @aparte/core` in the package.
-    const css = ((): string => {
-        for (let dir = process.cwd(), i = 0; i < 6; i++, dir = dirname(dir)) {
-            for (const rel of ['packages/core/src/styles/aparte.css', 'src/styles/aparte.css']) {
-                const candidate = join(dir, rel);
-                if (existsSync(candidate)) return readFileSync(candidate, 'utf8');
-            }
-        }
-        throw new Error(`aparte.css not found from ${process.cwd()}`);
-    })();
+    const css = readAparteStylesheet();
 
     it('gives the element the row layout', () => {
         expect(css).toMatch(/aparte-composer-toolbar,\s*\n\s*\.aparte-composer-footer\s*\{/);

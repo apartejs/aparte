@@ -3,6 +3,7 @@
  *
  * One of the eleven files the old 844-line `segment-renderers.test.ts` became.
  */
+import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import {
     getSegmentRenderer,
@@ -256,11 +257,18 @@ describe('default renderer: tool_call', () => {
         expect(html).toContain('&lt;script&gt;');
     });
 
-    it('provides CSS via getStyles()', () => {
-        const renderer = getSegmentRenderer('tool_call')!;
-        const styles = renderer.getStyles?.();
-        expect(styles).toBeDefined();
-        expect(styles).toContain('tool-label');
-        expect(styles).toContain('tool-spinner');
+    it('ships its CSS in the stylesheet, not from getStyles()', () => {
+        /*
+         * The invariant is unchanged — the rules exist and name these classes — but the
+         * file that holds them is not the renderer any more. `getStyles` is the seam for
+         * a CONSUMER's renderer, which cannot edit aparte.css and has no other way onto
+         * the page; a built-in that used it was hiding its rules from the derived-vars
+         * guard and from the generated CSS reference both.
+         */
+        expect(getSegmentRenderer('tool_call')!.getStyles?.()).toBe('');
+
+        const sheet = readAparteStylesheet();
+        expect(sheet).toContain('.tool-label');
+        expect(sheet).toContain('.tool-spinner');
     });
 });
