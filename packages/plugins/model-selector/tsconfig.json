@@ -15,5 +15,10 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  // `*.spec.ts` and `__tests__/` join `*.test.ts` here for a measured reason: without
+  // them `tsc -b --emitDeclarationOnly` wrote `dist/__tests__/element.directives.spec.d.ts`
+  // into the PUBLISHED package. The root `tsconfig.tests.json` already covers
+  // `packages/plugins/*/src/**/*`, so excluding them here loses no type-checking — it is
+  // the same split every other package uses.
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
 }
