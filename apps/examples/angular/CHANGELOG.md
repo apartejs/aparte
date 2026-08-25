@@ -1,5 +1,33 @@
 # @aparte-workspace/playground-angular
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [7336ae4]
+- Updated dependencies [f52dbe9]
+- Updated dependencies [e40cf78]
+- Updated dependencies [ecd9ad5]
+- Updated dependencies [56e1247]
+- Updated dependencies [094d438]
+- Updated dependencies [02f2d4d]
+- Updated dependencies [093a196]
+- Updated dependencies [5ac31ff]
+- Updated dependencies [e406a98]
+- Updated dependencies [6f262cf]
+- Updated dependencies [16bcd8a]
+- Updated dependencies [d03b212]
+- Updated dependencies [c4d87a2]
+- Updated dependencies [c6d3a20]
+- Updated dependencies [d85cf6b]
+- Updated dependencies [9e30879]
+- Updated dependencies [2f6180e]
+  - @aparte/core@0.11.0
+  - @aparte/angular@0.11.0
+  - @aparte/plugin-model-selector@0.11.0
+  - @aparte/plugin-marked@0.11.0
+  - @aparte/provider-openai-compat@0.11.0
+
 ## 0.0.7
 
 ### Patch Changes

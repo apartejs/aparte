@@ -1,6 +1,6 @@
 {
     "name": "@aparte-workspace/example-vanilla-dist",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "private": true,
     "type": "module",
     "description": "Proof @aparte/core works standalone from its published dist — plus a human-in-the-loop tool-approval demo.",

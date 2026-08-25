@@ -1,5 +1,51 @@
 # @aparte/plugin-model-selector
 
+## 0.11.0
+
+### Minor Changes
+
+- 16bcd8a: **`@aparte/plugin-model-selector/angular`** — the fourth and last binding, so all four frameworks now get `<aparte-model-selector>` from the package that owns it.
+
+  ```ts
+  import { AparteModelSelectorDirective } from "@aparte/plugin-model-selector/angular";
+  // @Component({ imports: [AparteModelSelectorDirective], … })
+  ```
+
+  Angular is the only one of the four that needs real code — its template compiler requires a class claiming the selector, and `[persist]="true"` on a custom element writes a _property_, which on an attribute-driven element is a silent no-op. So this entry is compiled in **partial-Ivy** mode by `ngc`, the format a consumer's own AOT build finishes, while Vite keeps building everything else. The directive itself is generated from the package's own custom-elements manifest, like the other three bindings.
+
+  `@angular/core` is an **optional** peer dependency: install the plugin without Angular and nothing here is reachable, which is the point.
+
+  The Angular example now imports this instead of the six-line local directive it wrote while waiting — the import resolving at all _is_ the property, since you get the binding exactly when you have the plugin. That local directive remains the documented path for an element aparté does not define.
+
+- d03b212: **`@aparte/plugin-model-selector` types its own element**, through three new subpath exports: `./react`, `./vue` and `./svelte`.
+
+  ```ts
+  import "@aparte/plugin-model-selector/react";
+  // <aparte-model-selector persist="" searchable="" placeholder="Pick a model" />  ← typed
+  ```
+
+  This is the rule from the previous release made real: whoever owns the element owns its contract and its bindings. `@aparte/angular` briefly shipped a directive for this element and core briefly typed it — both were removed, because a third-party plugin's author cannot add a line to either, so doing it for our own plugin gave aparté's packages a privilege theirs could never have.
+
+  Putting the bindings in the plugin makes the property you actually want fall out of the module graph: **install the package and the tag is typed; don't and it isn't.** TypeScript enforces that, nobody has to remember it.
+
+  Subpaths rather than the main entry because a `declare module 'react'` block only compiles where React's types resolve — in a shared entry it breaks every Vue and Svelte consumer with `TS2664`. `react`, `vue` and `svelte` are **optional** peer dependencies; the three modules carry no runtime at all (0.04 kB each, the augmentation is the whole payload).
+
+  The package now also emits its own custom-elements manifest, and its attribute types are generated from it by the same `scripts/gen-element-bindings.mjs` that generates core's — so the types cannot fall behind the element's JSDoc, and a third-party plugin can run the same tool on its own manifest.
+
+  No Angular subpath yet: an Angular directive is runtime code, so it needs partial-Ivy compilation in a package that builds with Vite. Until then, the six-line local directive the Angular example demonstrates is the path.
+
+### Patch Changes
+
+- e406a98: **Every element now declares and describes its own surface**, and the generated API reference prints each event's detail type.
+
+  The manifest is the source of truth for the component API, and it was quietly incomplete. Four elements carried a full `@element` / `@attr` / `@fires` block at the top of their file, separated from the class by imports and interfaces — TypeScript associates only the comment physically adjacent to a declaration, so every authored description was dropped on the floor. Nothing _looked_ missing: the analyser reads `observedAttributes` and `this.dispatchEvent` structurally, so `<aparte-select>` still listed six attributes and three events. They just had no text, and the reference page shipped rows like `| aparte-cancel |  |`.
+
+  Seven event names reached the manifest through neither path and are now declared by hand, because no docblock fix can make them detectable: the analyser's fallback only visits real method declarations and only recognises `this.dispatchEvent`. `<aparte-conversation-list>` had **no events at all** — all four of its dispatches happen in an arrow class field. `<aparte-chat-bubble>` was missing exactly one, `aparte-branch-navigate`, for the same reason. `<aparte-composer>` was missing `aparte-abort` and `aparte-message-aborted`, which go out on `window`.
+
+  Every event that carries a detail now names its type — `@fires {CustomEvent<AparteConversationSelectDetail>} …` — sourced from `event-map.ts`, which is guarded in both directions. Before this, all 26 events in the manifest read as a bare `CustomEvent`; there was no working typed instance in the repo. The generated reference gained a **Type** column to print it, because that is what tells a consumer the shape of `e.detail`.
+
+  Result: 18 elements, every one with a description, every attribute and event described, 26 events of which 20 carry a typed detail.
+
 ## 0.10.0
 
 ### Minor Changes
