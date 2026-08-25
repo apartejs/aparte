@@ -28,7 +28,10 @@ const chat = useAparteChat();
 The user's message is appended automatically on send — don't add it yourself. `@message-sent` is
 optional and only for side-effects (scroll, analytics).
 
-`@aparte/core` and `vue` are **peer dependencies**. For any `<aparte-*>` element without a dedicated
-component, the generic `<AparteUi name="aparte-…" />` escape hatch mounts it.
+`@aparte/core` and `vue` are **peer dependencies**.
+
+Every `<aparte-*>` tag is declared through Vue's `GlobalComponents`, so `vue-tsc` checks its
+attributes in any template. `<AparteUi name="my-widget" />` remains for an element aparté does not
+define.
 
 > ESM-only. See the docs for the full API. Part of the aparté monorepo.

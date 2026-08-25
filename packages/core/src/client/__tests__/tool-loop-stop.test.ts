@@ -29,9 +29,11 @@ function harness(handlers: Record<string, () => void>, tools: AparteTool[], even
         cfg.registerTool(t, (async () => { handlers[t.name]?.(); return 'ok'; }) as never);
     }
     let served = false;
+    const turns = { count: 0 };
     cfg.setTransport({
         chat: () => new ReadableStream({
             start(controller) {
+                turns.count++;
                 // Only the first turn streams tool calls; a follow-up turn (if the
                 // loop wrongly continues) just completes, so the test cannot hang.
                 if (!served) { served = true; for (const e of events) controller.enqueue(e); }
@@ -45,7 +47,7 @@ function harness(handlers: Record<string, () => void>, tools: AparteTool[], even
     for (const m of ['updateMessage', 'addSegment', 'updateSegment', 'typeName', 'setUsage', 'updateLastMessage']) {
         (el as unknown as Record<string, unknown>)[m] = () => {};
     }
-    return { cfg, el };
+    return { cfg, el, turns };
 }
 
 describe('AparteClient — a turn that stops, stops', () => {
@@ -70,6 +72,29 @@ describe('AparteClient — a turn that stops, stops', () => {
 
         expect(alpha, 'a rejected tool must not run').not.toHaveBeenCalled();
         expect(beta, 'the turn was stopped by a refusal — later tool calls must not run').not.toHaveBeenCalled();
+    });
+
+    it('hands the model a turn to answer a refusal in', async () => {
+        // The other half of a refusal, and the half that did not exist: the turn ended,
+        // so the "rejected by the user" tool_result the loop had just appended was never
+        // sent to anybody. Telling the assistant what you actually wanted meant retyping
+        // it as a new message, which it then read out of order.
+        const alpha = vi.fn();
+        const { cfg, el, turns } = harness(
+            { alpha },
+            [tool('alpha', { needsApproval: true })],
+            [{ type: 'tool_use', id: 'c1', name: 'alpha', input: {} }],
+        );
+
+        const client = new AparteClient({
+            config: cfg, autoRegister: false,
+            approvalResolver: async () => ({ approved: false }),
+        });
+        await (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
+            ._streamTurn(el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
+
+        expect(alpha, 'the refused tool still must not run').not.toHaveBeenCalled();
+        expect(turns.count, 'the model is asked again, so it can answer the refusal').toBe(2);
     });
 
     it('still runs every tool of a turn nobody stopped', async () => {

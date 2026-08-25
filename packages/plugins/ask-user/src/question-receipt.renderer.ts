@@ -17,7 +17,7 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
     type: 'question-receipt',
 
     render(seg) {
-        return `<div class="segment seg-qreceipt" data-segment-id="${esc(seg.id)}">
+        return `<div class="aparte-segment seg-qreceipt" data-segment-id="${esc(seg.id)}">
   <span class="qr-question">${esc(seg.question)}</span>
   <span class="qr-sep">→</span>
   <span class="qr-answer">${esc(seg.answer)}</span>

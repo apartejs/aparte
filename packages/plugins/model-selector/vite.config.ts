@@ -21,6 +21,14 @@ export default defineConfig({
                 index: resolve(__dirname, 'src/index.ts'),
                 // The DOM-free entry the `node` export condition points at.
                 'index.node': resolve(__dirname, 'src/index.node.ts'),
+                // One entry per framework, because a `declare module 'react'` block only
+                // compiles where React's types resolve — in a shared entry it breaks
+                // every Vue and Svelte consumer with TS2664. They emit no runtime of
+                // their own; the module exists so `import '…/react'` can apply the
+                // augmentation as a side effect.
+                react: resolve(__dirname, 'src/react.ts'),
+                vue: resolve(__dirname, 'src/vue.ts'),
+                svelte: resolve(__dirname, 'src/svelte.ts'),
             },
             name: 'ApartePluginModelSelector',
             fileName: (_format, entryName) => `${entryName}.js`,

@@ -165,8 +165,25 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(received).toEqual({ path: '/a', mode: 'w', extra: 1 });
     });
 
-    it('stops on rejection and records a tool_result rejection (no re-call, no handler run)', async () => {
-        const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
+    /*
+     * A refusal answers two questions differently, which is why one flag could not
+     * carry it: it ends this turn's REMAINING calls, and it hands the model a turn.
+     *
+     * This asserted the opposite until now — "stops on rejection", one transport call.
+     * The turn simply ended, so the "rejected by the user" tool_result appended just
+     * above was never sent to anybody, and telling the assistant what you actually
+     * wanted meant retyping it as a new message it then read out of order.
+     */
+    it('a refusal ends the turn and hands the model a turn to answer in', async () => {
+        const t = scriptedTransport([
+            [
+                { type: 'tool_use', id: 'c1', name: 'danger', input: {} },
+                // A second call in the SAME turn. Refusing the first must not license it.
+                { type: 'tool_use', id: 'c2', name: 'also-danger', input: {} },
+                { type: 'done' },
+            ],
+            [{ type: 'text', delta: 'Understood, I will not.' }, { type: 'done' }],
+        ]);
         const rec = recorder();
         const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
         await runStreamAgent(baseOpts({
@@ -175,9 +192,68 @@ describe('runStreamAgent — tools & HITL', () => {
             toolConfigLookup: () => ({ needsApproval: true }),
             approvalResolver: async () => ({ approved: false }),
         }));
-        expect(rec.types()).toEqual(['run-start', 'turn-start', 'tool-start', 'tool-awaiting-approval', 'tool-rejected', 'text-flush', 'run-done']);
+
+        expect(rec.types()).toEqual([
+            'run-start',
+            'turn-start', 'tool-start', 'tool-awaiting-approval', 'tool-rejected', 'text-flush',
+            'turn-start', 'text-delta', 'text-flush',
+            'run-done',
+        ]);
+        // No `tool-start` for c2: the refusal ended the turn's remaining calls.
+        expect(rec.types().filter(t2 => t2 === 'tool-start')).toHaveLength(1);
+        expect(handler, 'neither tool runs').not.toHaveBeenCalled();
+
+        // And the refusal actually reached the model, which is the whole point.
+        expect(t.calls).toHaveLength(2);
+        expect(t.calls[1]!.messages.some(
+            m => m.role === 'tool_result' && typeof m.content === 'string'
+                && m.content.includes('rejected by the user'),
+        ), 'the second turn carries the refusal').toBe(true);
+    });
+
+    /*
+     * A stop is not a refusal, and a missing resolver is not one either.
+     *
+     * Both used to land on `{ approved: false }` — the abort because that is what the
+     * caller's resolver resolves when the signal fires, the missing resolver because
+     * the default WAS `async () => ({ approved: false })`. So the loop took the refusal
+     * branch and appended "Tool execution was rejected by the user." to the history: a
+     * sentence naming a decision nobody made, in the one place the model reads.
+     *
+     * The assertions are on the invariant rather than the exact event sequence, so that
+     * moving WHERE the gate is announced does not have to rewrite them.
+     */
+    it('an abort while awaiting approval is not reported as a rejection', async () => {
+        const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        const ac = new AbortController();
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter, signal: ac.signal,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: true }),
+            // The human presses Stop instead of deciding, which is exactly what core's
+            // built-in channel does: it resolves `{ approved: false }` on abort.
+            approvalResolver: async () => { ac.abort(); return { approved: false }; },
+        }));
+        expect(rec.types(), 'a stopped wait is aborted').toContain('tool-aborted');
+        expect(rec.types(), 'and never rejected').not.toContain('tool-rejected');
         expect(handler).not.toHaveBeenCalled();
-        expect(t.calls).toHaveLength(1);
+    });
+
+    it('a needsApproval tool with no resolver aborts rather than inventing a refusal', async () => {
+        const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: true }),
+            // No `approvalResolver`: nothing can ask, so nothing may answer.
+            }));
+        expect(rec.types(), 'nobody could be asked, so the wait is aborted').toContain('tool-aborted');
+        expect(rec.types(), 'a host that forgot a resolver has not refused anything').not.toContain('tool-rejected');
+        expect(handler).not.toHaveBeenCalled();
     });
 
     it('aborts the tool and stops when no handler is registered', async () => {
@@ -615,8 +691,15 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
 
     it('notifies a rejected tool call and a pipeline phase reply too', async () => {
         const rejected: StreamAgentMessage[] = [];
+        // A SCRIPTED transport, not one stream repeated: a refusal now takes another
+        // turn, and a transport that replays the same tool_use for ever would be
+        // refused again on every turn up to `maxTurns`.
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'rm', input: {} }, { type: 'done' }],
+            [{ type: 'done' }],
+        ]);
         await runStreamAgent(baseOpts({
-            transportCall: async () => streamOf([{ type: 'tool_use', id: 'c1', name: 'rm', input: {} }, { type: 'done' }]),
+            transportCall: t.transportCall,
             toolLookup: () => async () => ({ content: 'never runs' }),
             toolConfigLookup: () => ({ needsApproval: true }),
             approvalResolver: async () => ({ approved: false }),

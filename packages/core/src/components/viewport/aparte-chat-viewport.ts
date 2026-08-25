@@ -27,13 +27,24 @@ import {
 } from '../../utils/segments.js';
 
 /**
- * AparteChatViewport - The Core
- * 
- * Container component with smart scroll, streaming, and segment support.
- * Uses Light DOM for global CSS styling.
- * 
+ * The transcript surface: a light-DOM container with sticky scrolling, token
+ * streaming and segment-aware rendering.
+ *
  * @element aparte-chat-viewport
- * 
+ *
+ * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
+ *   element composes none of its own children, because the framework owns them. All four
+ *   wrappers set it; it was read by this element and declared by nothing until now.
+ * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
+ * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
+ * @attr {number} max-messages - DEPRECATED. It used to evict messages from the model; it now
+ *   only caps rendered bubbles, which is what `max-rendered-bubbles` says. For real history
+ *   retention configure the conversation manager instead.
+ *
+ * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment grew or settled during a stream.
+ * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
+ * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch path changed, after a retry fork or a navigation.
+ *
  * Features:
  * - Smart Scroll: Sticks to bottom when user is at bottom, stops on manual scroll up
  * - appendToken(): For simple content streaming

@@ -48,15 +48,15 @@ describe('default renderer: code (extra)', () => {
     it('renders the filename span when a filename is given', () => {
         const renderer = getSegmentRenderer('code')!;
         const html = renderer.render({ id: 'c10', type: 'code', content: 'x', filename: 'index.ts' } as any);
-        expect(html).toContain('<span class="code-filename">index.ts</span>');
-        expect(html).not.toContain('code-header-filler');
+        expect(html).toContain('<span class="aparte-code-filename">index.ts</span>');
+        expect(html).not.toContain('aparte-code-header-filler');
     });
 
     it('renders a header filler (no filename span) when filename is absent', () => {
         const renderer = getSegmentRenderer('code')!;
         const html = renderer.render({ id: 'c11', type: 'code', content: 'x' } as any);
-        expect(html).not.toContain('code-filename');
-        expect(html).toContain('<span class="code-header-filler"></span>');
+        expect(html).not.toContain('aparte-code-filename');
+        expect(html).toContain('<span class="aparte-code-header-filler"></span>');
     });
 
     it('defaults the code language class to "text" when no language is given', () => {
@@ -117,7 +117,7 @@ describe('default renderer: code — the copy button', () => {
         const settled = { id: 'c1', type: 'code', language: 'ts', content: 'const answer = 42;', isStreaming: true } as never;
         renderer.update?.(el, settled);
 
-        (el.querySelector('.code-copy') as HTMLElement).click();
+        (el.querySelector('.aparte-code-copy') as HTMLElement).click();
 
         expect(writeText).toHaveBeenCalledWith('const answer = 42;');
 

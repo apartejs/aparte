@@ -59,7 +59,6 @@ export type {
     AparteThinkingSegment,
     AparteCodeSegment,
     AparteErrorSegment,
-    AparteProgressSegment,
     AparteSegment,
     AparteCustomSegment,
     AparteToolCallSegment,
@@ -122,7 +121,6 @@ export type {
     AparteToolHandler,
     AparteToolContext,
     AparteToolRenderer,
-    AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
 } from './tools.js';
 
@@ -151,6 +149,31 @@ export type {
     AparteArtifactReadyEventDetail,
     AparteArtifactRedownloadEventDetail
 } from './events.js';
+
+// The attribute surface of every element, for the framework wrappers to map over.
+// Types only — no runtime, so both barrels carry them and check:node-barrel-types is
+// satisfied by construction.
+export type {
+    AparteElementAttributes,
+    AparteElementTagName,
+    AparteAttrValue,
+    AparteTemplateAttrs,
+    AparteNoAttributes,
+    AparteChatAttributes,
+    AparteChatViewportAttributes,
+    AparteChatBubbleAttributes,
+    AparteChatStatusAttributes,
+    AparteComposerAttributes,
+    AparteComposerInputAttributes,
+    AparteComposerActionAttributes,
+    AparteComposerAddAttachmentAttributes,
+    AparteComposerToolbarAttributes,
+    AparteConversationListAttributes,
+    AparteSelectAttributes,
+    AparteOptionAttributes,
+    AparteOptgroupAttributes,
+    AparteProgressSpinnerAttributes
+} from './element-attributes.js';
 
 // The canonical imperative surface every framework <AparteChat> exposes.
 export type { AparteChatImperativeApi } from './imperative-api.js';

@@ -26,7 +26,9 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import type { AparteConfig } from '../../config/aparte-config.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
+import { buildApprovalPanel } from '../../elicitation/approval-panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
+import { AparteElicitationAbortError } from '../../elicitation/types.js';
 
 /**
  * The slice of the composer this presenter drives.
@@ -40,22 +42,33 @@ import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitati
 type ComposerEl = HTMLElement & Pick<AparteComposer, 'showPanel' | 'hidePanel' | 'setPanelSubmitEnabled'>;
 
 interface Pending {
-    settle(result: AparteElicitationResult): void;
+    /** End the request without an answer — see `AparteElicitationAbortError`. */
+    abort(): void;
     composer: ComposerEl;
     /**
-     * The open panel, kept so a language switch can reach it.
+     * Re-apply every string this request took from the locale, in place.
      *
-     * It was not kept before, and that was the whole reason an open question stayed
-     * in the previous language: nothing held a reference to relabel. Rebuilding is
-     * not the alternative — the reader may be halfway through typing an answer, or
-     * three questions into a form.
+     * ONE function, where this used to hold the panel and the skip button separately
+     * so the component could relabel each. That only worked because there was one kind
+     * of panel; an approval's strings live elsewhere, and a second field per kind is
+     * how the two would drift.
      */
-    panel: BuiltElicitationPanel;
-    /** The presenter's own button, whose text this file owns rather than the panel. */
-    skip: HTMLButtonElement;
+    relabel(): void;
 }
 
 /**
+ * The default presenter for a request to the human. It renders nothing itself: it
+ * registers as the presenter for the config governing its subtree, and mounts a panel
+ * inside the nearest `<aparte-composer>` when something asks — a tool handler calling
+ * `requestUserInput`, or core's own approval gate.
+ *
+ * It dispatches no events on purpose. A request is answered through the typed presenter
+ * contract, not by listening for one; the `aparte-tool-decision` event this replaced
+ * existed only because the buttons used to live in a segment renderer with no reference
+ * to the client.
+ *
+ * @element aparte-elicitation
+ *
  * @example
  * <!-- Renders nothing by itself: it registers as the presenter for its subtree, so a
  *      tool handler calling requestUserInput() gets its panel mounted in the composer. -->
@@ -149,31 +162,67 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
     private _relabelPending(): void {
         if (!this._pending) return;
         const cfg = resolveConfig(this);
-        runWithConfig(cfg, () => this._pending!.panel.relabel());
-        this._pending.skip.textContent = cfg.t('elicitationSkip');
+        runWithConfig(cfg, () => this._pending!.relabel());
     }
 
     private _present: AparteElicitationPresenter = (request: AparteElicitationRequest) => {
-        // One request at a time — a concurrent request is declined rather than
-        // clobbering the open panel.
-        if (this._pending) return Promise.resolve<AparteElicitationResult>({ action: 'cancel' });
+        /*
+         * No concurrency guard here any more — `AparteConfig.requestUserInput` queues,
+         * so a second request arrives only once this one has settled.
+         *
+         * What was here answered the second request `cancel` immediately: a refusal
+         * invented for a question nobody was shown. And it protected only requests
+         * that came through THIS presenter, so a consumer's own presenter had nothing.
+         * If two ever do overlap, `showPanel` now evicts and NOTIFIES the first, which
+         * degrades to a settled request instead of a wedged one.
+         */
         const composer = this._getComposer();
-        if (!composer) return Promise.resolve<AparteElicitationResult>({ action: 'cancel' });
+        // Mounted outside a chat that has a composer: there is nowhere to put the
+        // panel, which is the same situation as no presenter at all.
+        if (!composer) return Promise.reject(new AparteElicitationAbortError('no-presenter'));
 
-        return new Promise<AparteElicitationResult>((resolve) => {
+        return new Promise<AparteElicitationResult>((resolve, reject) => {
             let done = false;
-            const settle = (result: AparteElicitationResult): void => {
-                if (done) return;
+            /**
+             * The slot this request owns, once `showPanel` has handed it over.
+             *
+             * `settle` can run BEFORE that — an already-aborted signal settles on the
+             * spot — so it starts absent, and `hidePanel(undefined)` then closes whatever
+             * is there, which is correct because nothing of ours is open yet.
+             *
+             * A holder rather than a `let`: `settle` reads it before `showPanel` assigns
+             * it, which is exactly the shape `prefer-const` rejects, and the object says
+             * "not handed over yet" more plainly than an unassigned binding.
+             */
+            const slot: { token?: symbol } = {};
+            const close = (): boolean => {
+                if (done) return false;
                 done = true;
                 this._pending = null;
-                composer.hidePanel();
-                resolve(result);
+                // Scoped to our own panel: finishing late must not tear down the panel
+                // that replaced ours.
+                composer.hidePanel(slot.token);
+                return true;
+            };
+            const settle = (result: AparteElicitationResult): void => {
+                if (close()) resolve(result);
+            };
+            /**
+             * End it without an answer.
+             *
+             * A rejection rather than a third `action`, because a value is easy to
+             * mistake for an answer and this one was: the approval gate read the old
+             * `cancel` as a refusal and told the model the user had refused a tool they
+             * had only stopped.
+             */
+            const fail = (reason: 'aborted' | 'no-presenter' = 'aborted'): void => {
+                if (close()) reject(new AparteElicitationAbortError(reason));
             };
 
             // Caller-side cancellation (tool handler signal: timeout / turn abort).
             if (request.signal) {
-                if (request.signal.aborted) { settle({ action: 'cancel' }); return; }
-                request.signal.addEventListener('abort', () => settle({ action: 'cancel' }), { once: true });
+                if (request.signal.aborted) { fail(); return; }
+                request.signal.addEventListener('abort', () => fail(), { once: true });
             }
 
             // Built INSIDE this instance's config, so the panel's own strings come
@@ -181,8 +230,45 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             // ambient render config, and without this it would fall back to the
             // global one on a page where each chat has its own.
             const cfg = resolveConfig(this);
+
+            /*
+             * An APPROVAL: a decision, not a value.
+             *
+             * Same slot, same queue, same teardown — only what goes inside the panel
+             * differs, which is the whole claim of one mechanism with two
+             * presentations. The options come with the request because only the
+             * requester can write them.
+             *
+             * There is always an exit here without touching the composer's own
+             * controls: every option is a button. That matters because a panel takes
+             * the send button over, so Stop is unreachable while one is open — for a
+             * question the escape is the corner, for an approval it is a refusal.
+             */
+            if (request.kind === 'approval') {
+                const panel = runWithConfig(cfg, () =>
+                    buildApprovalPanel(request.message, request.options ?? [], () => {
+                        composer.setPanelSubmitEnabled(panel.isComplete(), 'submit');
+                    }));
+                panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
+                this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
+                slot.token = composer.showPanel(panel.el, {
+                    submitEnabled: panel.isComplete(),
+                    mode: 'submit',
+                    // The composer's button carries the INSTRUCTION, which is written
+                    // text — exactly the act that button already means. The options
+                    // never route through it: a decision is its own click.
+                    onSubmit: () => { if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() }); },
+                    onEvict: () => fail(),
+                });
+                panel.focus();
+                return;
+            }
+            // A question without a schema has nothing to collect; that is an approval,
+            // and it was handled above. The fallback keeps this branch total rather
+            // than throwing on a shape the type already forbids.
+            const schema = request.schema ?? { type: 'string' as const };
             const panel: BuiltElicitationPanel = runWithConfig(cfg, () =>
-                buildElicitationPanel(request.message, request.schema, () => {
+                buildElicitationPanel(request.message, schema, () => {
                     composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
                 }));
 
@@ -197,10 +283,23 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
 
-            this._pending = { settle, composer, panel, skip };
-            composer.showPanel(panel.el, {
+            this._pending = {
+                abort: () => fail(),
+                composer,
+                relabel: () => { panel.relabel(); skip.textContent = resolveConfig(this).t('elicitationSkip'); },
+            };
+            slot.token = composer.showPanel(panel.el, {
                 submitEnabled: panel.canProceed(),
                 mode: panel.mode(),
+                /*
+                 * Something else took the slot — another request, a conversation switch,
+                 * or a turn ending. The composer tears the panel down either way; only
+                 * this callback can settle the promise, and without it the request hung
+                 * AND `_pending` stayed set, so every later question was short-circuited
+                 * for the life of the page. `cancel`, not `decline`: nobody declined
+                 * anything, the question was taken away.
+                 */
+                onEvict: () => fail(),
                 onSubmit: () => {
                     // The same button advances through the form and submits at the end;
                     // the panel is what knows which of the two this click is.
@@ -217,7 +316,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
     };
 
     private _cancelPending(): void {
-        this._pending?.settle({ action: 'cancel' });
+        this._pending?.abort();
     }
 
     /**

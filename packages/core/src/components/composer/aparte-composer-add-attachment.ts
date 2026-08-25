@@ -4,14 +4,15 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * @element aparte-composer-add-attachment
- *
  * File picker button for <aparte-composer>.
+ *
+ * @element aparte-composer-add-attachment
  * Opens a native file picker on click, then pushes picked files to root.addAttachments().
  * Also sets up drag & drop on the nearest <aparte-composer> root.
  *
- * @attr accept    - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
- * @attr multiple  - Allow multiple file selection (default: true)
+ * @attr {string} accept - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
+ * @attr {boolean} multiple - Allow multiple file selection (default: true)
+ * @attr {boolean} disabled - Greys out the picker and ignores drops.
   *
  * @example
  * <!-- Opt-in: nothing consumes the files unless your host does (an AparteClient, or
@@ -140,12 +141,12 @@ export class AparteComposerAddAttachment extends HTMLElement {
         const onDragOver = (e: Event) => {
             if (root.disabled) return; // no drop target while disabled (e.g. streaming)
             prevent(e);
-            root.classList.add('is-dragover');
+            root.classList.add('aparte-is-dragover');
         };
-        const onDragLeave = (e: Event) => { prevent(e); root.classList.remove('is-dragover'); };
+        const onDragLeave = (e: Event) => { prevent(e); root.classList.remove('aparte-is-dragover'); };
         const onDrop = (e: DragEvent) => {
             prevent(e); // always block the browser from navigating to the dropped file
-            root.classList.remove('is-dragover');
+            root.classList.remove('aparte-is-dragover');
             if (root.disabled) return; // don't attach while disabled (the add button is blocked too)
             const files = e.dataTransfer?.files;
             if (files?.length) this._getRoot()?.addAttachments(files);

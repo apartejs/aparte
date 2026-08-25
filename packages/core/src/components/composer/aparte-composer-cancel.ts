@@ -4,9 +4,9 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * @element aparte-composer-cancel
- *
  * Cancel/stop streaming button primitive for <aparte-composer>.
+ *
+ * @element aparte-composer-cancel
  * Must be a descendant of <aparte-composer>.
  *
  * Hidden when not streaming. Visible only during active streaming.

@@ -842,37 +842,6 @@ describe('AparteClient', () => {
     // but the decision channel itself only touches `document` events + the
     // abort signal, so its new { approved, payload } contract is unit-testable.
 
-    describe('_awaitToolDecision (HITL decision channel)', () => {
-        it('resolves { approved, payload } and ignores decisions for other tool ids', async () => {
-            client = new AparteClient({ autoRegister: false });
-            const ctrl = new AbortController();
-            const p = (client as any)._awaitToolDecision('call-1', ctrl.signal) as Promise<{ approved: boolean; payload?: unknown }>;
-
-            // a decision aimed at a different tool call must be ignored
-            document.dispatchEvent(new CustomEvent('aparte-tool-decision', { detail: { toolCallId: 'other', approved: true } }));
-            document.dispatchEvent(new CustomEvent('aparte-tool-decision', {
-                detail: { toolCallId: 'call-1', approved: true, payload: { path: '/edited' } },
-            }));
-
-            await expect(p).resolves.toEqual({ approved: true, payload: { path: '/edited' } });
-        });
-
-        it('resolves { approved: false } on reject', async () => {
-            client = new AparteClient({ autoRegister: false });
-            const ctrl = new AbortController();
-            const p = (client as any)._awaitToolDecision('call-1', ctrl.signal);
-            document.dispatchEvent(new CustomEvent('aparte-tool-decision', { detail: { toolCallId: 'call-1', approved: false } }));
-            await expect(p).resolves.toMatchObject({ approved: false });
-        });
-
-        it('resolves { approved: false } when the signal aborts', async () => {
-            client = new AparteClient({ autoRegister: false });
-            const ctrl = new AbortController();
-            const p = (client as any)._awaitToolDecision('call-1', ctrl.signal);
-            ctrl.abort();
-            await expect(p).resolves.toEqual({ approved: false });
-        });
-    });
 });
 
 // ─── API key resolution: keyResolver + aparteGlobalConfig fallback ──────────────────

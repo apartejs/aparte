@@ -28,14 +28,14 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
             return out;
         }
         return `
-        <div class="segment segment-error" data-segment-id="${escapeHtml(segment.id)}">
-            <div class="error-icon-wrapper">
+        <div class="aparte-segment aparte-segment-error" data-segment-id="${escapeHtml(segment.id)}">
+            <div class="aparte-error-icon-wrapper">
                 ${contextConfig().getIcon('error') || '⚠'}
             </div>
-            <div class="error-content">
-                <div class="error-title">${escapeHtml(contextConfig().t('error'))}</div>
-                <div class="error-message">${escapeHtml(segment.content)}</div>
-                ${segment.details ? `<div class="error-details">${escapeHtml(segment.details)}</div>` : ''}
+            <div class="aparte-error-content">
+                <div class="aparte-error-title">${escapeHtml(contextConfig().t('error'))}</div>
+                <div class="aparte-error-message">${escapeHtml(segment.content)}</div>
+                ${segment.details ? `<div class="aparte-error-details">${escapeHtml(segment.details)}</div>` : ''}
             </div>
         </div>
     `;
@@ -50,9 +50,9 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
      * language it arrived in. Relabelling it would be inventing content.
      */
     relabel: (element) => {
-        const wrap = element.querySelector('.error-icon-wrapper');
+        const wrap = element.querySelector('.aparte-error-icon-wrapper');
         if (wrap) wrap.innerHTML = contextConfig().getIcon('error') || '⚠';
-        const title = element.querySelector('.error-title');
+        const title = element.querySelector('.aparte-error-title');
         if (title) title.textContent = contextConfig().t('error');
     },
 

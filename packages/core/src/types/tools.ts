@@ -20,30 +20,23 @@ export interface AparteTool {
     maxTurns?: number;
     /**
      * When true, the agent loop pauses before running this tool's handler and
-     * waits for a human decision (approve / reject) — "human in the loop". The
-     * UI surfaces Approve/Reject (default renderer, or a custom tool renderer)
-     * and resolves it by dispatching an `aparte-tool-decision` event. On reject,
-     * a synthetic "rejected by user" result is injected and the turn stops.
+     * waits for a human decision — "human in the loop".
+     *
+     * The decision is asked AT THE COMPOSER, through the same `requestUserInput`
+     * a tool handler calls: every request for the user is answered in one place.
+     * The row in the transcript is the anchor, naming which tool is waiting, and
+     * holds nothing clickable. An `approvalResolver` on `AparteClientOptions`
+     * answers it programmatically instead.
+     *
+     * On a refusal the rest of the turn is skipped — no later tool call of the
+     * same turn runs — and then the model gets a turn to answer it, so it can
+     * say what it will do instead. The refusal may carry the user's own words.
+     *
+     * All three clauses of this comment used to say something else: the default
+     * renderer surfaced the buttons, an `aparte-tool-decision` event resolved
+     * them, and a refusal ended the turn. None of that is true any more.
      */
     needsApproval?: boolean;
-}
-
-/**
- * Detail for `aparte-tool-decision` — the human's verdict on a tool awaiting
- * approval. Dispatched by the approval UI (built-in or app-provided) and
- * consumed by the agent loop to resume or reject.
- */
-export interface AparteToolDecisionDetail {
-    toolCallId: string;
-    approved: boolean;
-    /**
-     * Optional payload from a custom approval surface. When it is a plain object
-     * and the decision is `approved`, the agent loop merges it onto the tool's
-     * input before invoking the handler — so a human can edit the arguments
-     * before the tool runs (correct a path, tighten a query, …). The built-in
-     * Approve/Reject gate sends no payload, so existing flows are unchanged.
-     */
-    payload?: unknown;
 }
 
 /**

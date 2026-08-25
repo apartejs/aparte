@@ -7,6 +7,9 @@
  * @attr {string} label - Group label
  * @attr {boolean} collapsible - Allow collapse/expand
  * @attr {boolean} collapsed - Collapsed state
+ * @attr {boolean} loading - Shows a spinner in place of the group's options.
+ *
+ * @fires {CustomEvent<AparteOptgroupToggleEventDetail>} aparte-optgroup-toggle - The group was collapsed or expanded.
   *
  * @example
  * <!-- Collapsed groups keep a long list readable; the label is the group's header. -->

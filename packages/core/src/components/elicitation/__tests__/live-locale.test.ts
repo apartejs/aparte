@@ -43,9 +43,14 @@ function mount() {
 
 afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 
-function ask(schema: unknown): Promise<AparteElicitationResult> {
+function ask(schema: unknown, message = 'Pick one'): Promise<AparteElicitationResult> {
     const present = aparteGlobalConfig.getElicitationPresenter()!;
-    return present({ message: 'Pick one', schema: schema as never });
+    const p = present({ message, schema: schema as never });
+    // Every assertion here is on a LABEL, never on the answer — and teardown clears the
+    // body, which aborts the open request. That rejects now, and a rejection nobody
+    // holds is an unhandled one, so the disinterest is made explicit rather than noisy.
+    p.catch(() => { /* the outcome is not what this file tests */ });
+    return p;
 }
 
 describe('a language switch reaches an OPEN question', () => {
@@ -103,7 +108,10 @@ describe('a language switch reaches an OPEN question', () => {
     it('the last-resort answer label IS ours, and it moves', async () => {
         mount();
         // No message, so nothing names the field but the locale.
-        void (aparteGlobalConfig.getElicitationPresenter()!)({ message: '', schema: { type: 'string' } as never });
+        // An EMPTY message, which is this test's whole premise. Routed through `ask`
+        // only so the rejection teardown produces is handled rather than surfacing as
+        // an unhandled one.
+        void ask({ type: 'string' }, '');
 
         const input = document.querySelector('.aparte-elic-panel input, .aparte-elic-panel textarea')!;
         expect(input.getAttribute('aria-label')).toBe('Your answer');

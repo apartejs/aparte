@@ -1,5 +1,9 @@
 import type { AparteChatViewport } from '../viewport/aparte-chat-viewport.js';
 import type { AparteComposer } from '../composer/aparte-composer.js';
+// Defines <aparte-elicitation>, which the default composition below writes. A tag
+// nothing has defined is an inert unknown element, so the import is the difference
+// between a presenter and a placeholder.
+import '../elicitation/aparte-elicitation.js';
 import { escapeAttr } from '../../utils/escape.js';
 
 /**
@@ -21,10 +25,13 @@ import { escapeAttr } from '../../utils/escape.js';
  * Size the element via CSS (a height, or let it fill a sized parent).
  *
  * @element aparte-chat
- * @attr placeholder  - Placeholder for the composer input (default composition)
- * @attr disabled     - Disables the composer
- * @attr center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
- * @attr attachments  - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
+ * @attr {string} placeholder - Placeholder for the composer input (default composition)
+ * @attr {boolean} disabled - Disables the composer
+ * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
+ * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
+ *   element composes none of its own children, because the framework owns them. All four
+ *   wrappers set it; it was read by this element and declared by nothing until now.
+ * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
   *
  * @example
  * <!-- Left empty it fills in a viewport, an input and a send button. -->
@@ -124,8 +131,20 @@ export class AparteChat extends HTMLElement {
     // a button that silently drops what the user attached.
     const attachments = this.hasAttribute('attachments');
 
+    /*
+     * The presenter ships in the default composition, and that is a change of tier.
+     *
+     * It renders nothing by itself — it registers as the presenter for this subtree and
+     * mounts a panel in the composer when something asks. It used to be opt-in, which
+     * was right while asking the user was a plugin's business. It is not any more: the
+     * BUILT-IN approval gate asks through it, so a chat without one cannot honour
+     * `needsApproval` at all. An affordance core can honour end to end is on by default
+     * (ratified decision #8, tier a); leaving this out would have made the gate depend
+     * on a tag nobody was told to write.
+     */
     this.innerHTML = `
       <aparte-chat-viewport></aparte-chat-viewport>
+      <aparte-elicitation></aparte-elicitation>
       <aparte-composer${composerAttrs}>
         <div class="aparte-composer-shell">
           ${attachments ? '<aparte-composer-attachments></aparte-composer-attachments>' : ''}

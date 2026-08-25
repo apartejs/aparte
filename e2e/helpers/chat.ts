@@ -114,7 +114,7 @@ export class ChatPage {
 
     /** A rendered segment by type, e.g. `segment('thinking')`. */
     segment(type: string): Locator {
-        return this.scope.locator(`.segment-${type}`);
+        return this.scope.locator(`.aparte-segment-${type}`);
     }
 
     /**

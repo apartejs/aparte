@@ -428,15 +428,54 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 // ── HITL approval gate ────────────────────────────────────────
                 if (cfg?.needsApproval) {
                     emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
-                    const resolve = approvalResolver ?? (async () => ({ approved: false }));
-                    const decision = await resolve(event.id, signal);
+                    /*
+                     * Nothing can ask, so nothing may answer.
+                     *
+                     * The default was `async () => ({ approved: false })`, which sent the
+                     * loop into the refusal branch and appended "rejected by the user" —
+                     * a host that forgot to wire a resolver had not refused anything, and
+                     * the model was told a person had. A misconfiguration is an aborted
+                     * call, not a decision.
+                     */
+                    if (!approvalResolver) {
+                        emitter({ type: 'tool-aborted', toolCallId: event.id });
+                        continueLoop = false;
+                        break;
+                    }
+                    const decision = await approvalResolver(
+                        { id: event.id, name: event.name, input: event.input as Record<string, unknown> },
+                        signal,
+                    );
+
+                    /*
+                     * A stop is not a refusal either. Core's built-in channel resolves
+                     * `{ approved: false }` on abort, indistinguishable by value from an
+                     * explicit Reject — so the signal is what tells them apart. No
+                     * `tool_result`: an aborted call has nothing true to tell the model.
+                     */
+                    if (signal.aborted) {
+                        emitter({ type: 'tool-aborted', toolCallId: event.id });
+                        continueLoop = false;
+                        break;
+                    }
 
                     if (!decision.approved) {
                         const rejection = 'Tool execution was rejected by the user.';
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
                         pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
                         append({ role: 'tool_result', content: rejection, toolCallId: event.id });
-                        continueLoop = false;
+                        /*
+                         * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
+                         * point. The remaining tool calls of this turn must not run — the
+                         * model asked for several and refusing one cannot license the
+                         * others — but the loop takes another turn, so the sentence just
+                         * appended actually reaches the model. It never did: the turn
+                         * ended here, and telling the assistant what you wanted instead
+                         * meant retyping it as a new message it read out of order.
+                         *
+                         * Core's twin returns `'respond'` for exactly this, and the parity
+                         * suite asserts the two agree.
+                         */
                         break;
                     }
                     if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {

@@ -30,3 +30,29 @@ export type {
     AparteCodeSegment,
     AparteThinkingSegment
 } from './types.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom-element types for Vue templates
+//
+// Types only — nothing here reaches the bundle. `GlobalComponents` is how Vue's
+// template checker (vue-tsc) learns a tag, so declaring it makes `<aparte-select
+// :searchable="''">` complete and check like any component, and rejects an attribute
+// that does not exist.
+//
+// Derived from `AparteElementAttributes` in core rather than listed, so an element
+// added there is typed here the moment it is added, and one removed stops resolving.
+// Listing tags by hand is what left React with nine of eighteen, all typed `any`.
+//
+// Events are not declared here: `@aparte/core` augments `HTMLElementEventMap`, so
+// `@aparte-select-change="e => e.detail.value"` is already typed through the DOM.
+// ─────────────────────────────────────────────────────────────────────────────
+import type { DefineComponent } from 'vue';
+import type { AparteElementAttributes, AparteElementTagName, AparteTemplateAttrs } from '@aparte/core';
+
+type AparteVueElements = {
+    [K in AparteElementTagName]: DefineComponent<AparteTemplateAttrs<AparteElementAttributes[K]>>;
+};
+
+declare module 'vue' {
+    interface GlobalComponents extends AparteVueElements {}
+}

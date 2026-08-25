@@ -103,10 +103,29 @@ export type {
     AparteToolHandler,
     AparteToolContext,
     AparteToolRenderer,
-    AparteToolDecisionDetail,
     AparteToolApprovalRequestDetail,
     // Canonical imperative surface (aliased by every wrapper's handle type).
-    AparteChatImperativeApi
+    AparteChatImperativeApi,
+    // The attribute surface of every element, for the wrappers to map over.
+    AparteElementAttributes,
+    AparteElementTagName,
+    AparteAttrValue,
+    AparteTemplateAttrs,
+    AparteNoAttributes,
+    AparteChatAttributes,
+    AparteChatViewportAttributes,
+    AparteChatBubbleAttributes,
+    AparteChatStatusAttributes,
+    AparteComposerAttributes,
+    AparteComposerInputAttributes,
+    AparteComposerActionAttributes,
+    AparteComposerAddAttachmentAttributes,
+    AparteComposerToolbarAttributes,
+    AparteConversationListAttributes,
+    AparteSelectAttributes,
+    AparteOptionAttributes,
+    AparteOptgroupAttributes,
+    AparteProgressSpinnerAttributes,
 } from './types/index.js';
 
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
@@ -245,7 +264,7 @@ export { AparteMessageRepository } from './runtime/message-repository.js';
 export type { ExportedMessageRepository } from './runtime/message-repository.js';
 
 // Export elicitation (human-in-the-loop typed input)
-export { requestUserInput, buildElicitationPanel } from './elicitation/index.js';
+export { requestUserInput, buildElicitationPanel, buildApprovalPanel, AparteElicitationAbortError } from './elicitation/index.js';
 export type {
     AparteElicitationSchema,
     AparteElicitationField,
@@ -256,6 +275,9 @@ export type {
     AparteElicitationRequest,
     AparteElicitationResult,
     AparteElicitationPresenter,
+    AparteApprovalOption,
+    AparteApprovalAnswer,
+    BuiltApprovalPanel,
     BuiltElicitationPanel,
 } from './elicitation/index.js';
 

@@ -1,62 +1,111 @@
 {
-    "name": "@aparte/plugin-model-selector",
-    "version": "0.10.0",
-    "description": "Provider + model selector web component (<aparte-model-selector>) for aparté — grouped dropdown, BYOK.",
-    "type": "module",
-    "sideEffects": true,
-    "main": "./dist/index.js",
-    "module": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": {
-            "@aparte-workspace/source": "./src/index.ts",
-            "node": {
-                "types": "./dist/index.node.d.ts",
-                "default": "./dist/index.node.js"
-            },
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "default": "./dist/index.js"
-        }
+  "name": "@aparte/plugin-model-selector",
+  "version": "0.10.0",
+  "description": "Provider + model selector web component (<aparte-model-selector>) for aparté — grouped dropdown, BYOK.",
+  "type": "module",
+  "sideEffects": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@aparte-workspace/source": "./src/index.ts",
+      "node": {
+        "types": "./dist/index.node.d.ts",
+        "default": "./dist/index.node.js"
+      },
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
-    "files": [
-        "dist",
-        "README.md",
-        "LICENSE"
-    ],
-    "engines": {
-        "node": ">=18"
+    "./react": {
+      "@aparte-workspace/source": "./src/react.ts",
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
     },
-    "scripts": {
-        "dev": "vite",
-        "build": "vite build && tsc -b --emitDeclarationOnly --force",
-        "preview": "vite preview",
-        "test": "vitest",
-        "test:run": "vitest run",
-        "test:coverage": "vitest run --coverage"
+    "./vue": {
+      "@aparte-workspace/source": "./src/vue.ts",
+      "types": "./dist/vue.d.ts",
+      "default": "./dist/vue.js"
     },
-    "peerDependencies": {
-        "@aparte/core": ">=0.7.0 <1.0.0"
+    "./svelte": {
+      "@aparte-workspace/source": "./src/svelte.ts",
+      "types": "./dist/svelte.d.ts",
+      "default": "./dist/svelte.js"
     },
-    "devDependencies": {
-        "@aparte/core": "workspace:*",
-        "typescript": "^5.4.0",
-        "vite": "^6.0.0"
-    },
-    "keywords": [
-        "aparte",
-        "plugin",
-        "model-selector",
-        "web-component",
-        "byok"
-    ],
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/apartejs/aparte.git",
-        "directory": "packages/plugins/model-selector"
-    },
-    "bugs": {
-        "url": "https://github.com/apartejs/aparte/issues"
+    "./angular": {
+      "@aparte-workspace/source": "./src/angular.ts",
+      "types": "./dist/angular.d.ts",
+      "default": "./dist/angular.js"
     }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -b --emitDeclarationOnly --force && ngc -p tsconfig.angular.json && pnpm run analyze",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "analyze": "cem analyze",
+    "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/model-selector --registry packages/plugins/model-selector/src/generated --angular packages/plugins/model-selector/src/generated"
+  },
+  "peerDependencies": {
+    "@angular/core": "^19.2.0",
+    "@aparte/core": ">=0.7.0 <1.0.0",
+    "react": "^19.2.7",
+    "svelte": "^4.2.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@angular/compiler": "^19.2.0",
+    "@angular/compiler-cli": "^19.2.0",
+    "@angular/core": "^19.2.0",
+    "@aparte/core": "workspace:*",
+    "@custom-elements-manifest/analyzer": "^0.11.0",
+    "@types/react": "^19.2.17",
+    "react": "^19.2.7",
+    "svelte": "^4.2.0",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0",
+    "vue": "^3.5.0"
+  },
+  "keywords": [
+    "aparte",
+    "plugin",
+    "model-selector",
+    "web-component",
+    "byok"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apartejs/aparte.git",
+    "directory": "packages/plugins/model-selector"
+  },
+  "bugs": {
+    "url": "https://github.com/apartejs/aparte/issues"
+  },
+  "customElements": "dist/custom-elements.json",
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "@angular/core": {
+      "optional": true
+    }
+  }
 }

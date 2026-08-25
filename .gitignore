@@ -74,3 +74,14 @@ packages/wrappers/*/.svelte-kit/
 .vitest-report.json
 apps/docs/src/data/test-counts.json
 apps/docs/.typedoc/
+
+# Generated framework bindings — rebuilt from the custom-elements manifest on every
+# build, so there is no committed artifact that can fall behind the elements.
+packages/*/src/generated/
+packages/wrappers/*/src/generated/
+# Plugins are one level deeper, and the first two patterns did not reach them — so the
+# model-selector's generated bindings were COMMITTED, which is the drifting artifact this
+# whole approach exists to avoid.
+packages/plugins/*/src/generated/
+packages/providers/*/*/src/generated/
+packages/locales/*/src/generated/

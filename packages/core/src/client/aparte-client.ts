@@ -16,6 +16,7 @@ import type { AparteToolCall, AparteTool } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { uuid } from '../utils/uuid.js';
+import { requestUserInput } from '../elicitation/index.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -52,11 +53,27 @@ const DEFAULT_TOOL_HANDLER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 /**
  * Resolves a human-in-the-loop tool approval for a `needsApproval` tool call.
  * Resolves `{ approved, payload? }`; the `signal` aborts a pending decision.
+ *
+ * It receives the CALL, not just its id. You cannot ask a person "run this?" without
+ * naming what — the built-in channel needs the tool's name for its question, and an
+ * id alone forced a lookup table filled by one event and read by another, which is the
+ * shape that breaks in silence.
  */
 export type AparteToolApprovalResolver = (
-    toolCallId: string,
+    call: { id: string; name: string; input: Record<string, unknown> },
     signal: AbortSignal,
-) => Promise<{ approved: boolean; payload?: unknown }>;
+) => Promise<{
+    approved: boolean;
+    payload?: unknown;
+    /**
+     * What the user said to do instead, on a refusal.
+     *
+     * It becomes the tool_result the model reads, which is possible at all only
+     * because a refusal now hands the model a turn. Optional and additive: a resolver
+     * that returns a bare `{ approved }` behaves exactly as before.
+     */
+    instruction?: string;
+}>;
 
 /**
  * Decides how a conversation is compacted: which messages are summarized away
@@ -84,10 +101,12 @@ export interface AparteClientOptions {
 
     /**
      * Custom human-in-the-loop approval resolver for tools marked
-     * `needsApproval`. Defaults to a global `document` `aparte-tool-decision`
-     * listener (the built-in Approve/Reject gate). Inject this to run multiple
-     * isolated clients on one page, or to drive approval from a headless source
-     * (CLI / webhook) with no DOM.
+     * `needsApproval`. Without one, the gate asks at the composer through
+     * `requestUserInput`, like every other request for the user. Inject this to
+     * decide from the call itself — it receives `(call, signal)` — or to drive
+     * approval from a headless source (CLI / webhook) with no DOM.
+     *
+     * It may return an `instruction`, which the model reads as part of the refusal.
      */
     approvalResolver?: AparteToolApprovalResolver;
 
@@ -268,6 +287,9 @@ function withToolTimeout<T>(
         done: () => clearTimeout(timer),
     };
 }
+
+/** See `_handleToolUseEvent`. Internal: the method returning it is private. */
+type AparteToolFlow = 'continue' | 'respond' | 'halt';
 
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
@@ -483,60 +505,76 @@ export class AparteClient {
         this._activeToolControllers.clear();
     }
 
-    /**
-     * Human-in-the-loop: wait for an `aparte-tool-decision` event matching this
-     * tool call (dispatched by the built-in Approve/Reject UI or an app-level
-     * approval surface). Resolves `{ approved, payload }` — `approved` is `true`
-     * only on an explicit approve, and `payload` carries any arbitrary data a
-     * custom approval UI attached to the decision (the built-in gate sends
-     * none). The `signal` (an AbortController registered in
-     * `_activeToolControllers`) lets `abort()` cleanly resolve a pending
-     * approval to `{ approved: false }` — there is no timeout, since a human may
-     * take any amount of time to decide.
+    /*
+     * Two docblocks stood here, both describing `_awaitToolDecision` — the method
+     * this replaced. Deleting a method and leaving its documentation is worse than
+     * leaving the method: only the LAST comment before a declaration is its JSDoc,
+     * so those two were floating prose, and one of them explained a DOM-containment
+     * check as a live security property. It was the fix for a cross-chat hazard that
+     * only existed because the decision travelled as a bubbling `document` event.
+     * Routing through `requestUserInput` removed the hazard rather than guarding it,
+     * so the guard is gone too — and a reader who found that comment would have
+     * believed a containment check was still protecting them.
      */
     /**
-     * Await the human's Approve/Reject for one tool call.
+     * Ask the human at the COMPOSER, and report what they decided.
      *
-     * `target` is not decoration: it is the scope of the consent. The listener sits
-     * on `document` and used to accept any `aparte-tool-decision` whose
-     * `detail.toolCallId` matched — and that id is the tool-call id the MODEL chose.
-     * The built-in buttons dispatch with `bubbles: true, composed: true`, so on a
-     * page with two chats a click aimed at one tool could satisfy the gate awaiting
-     * a different tool in a different conversation. The consented action and the
-     * executed action came apart, which is the entire failure mode an approval gate
-     * exists to prevent — and the handler behind it is arbitrary consumer code.
+     * The default channel, replacing a `document` listener for `aparte-tool-decision`
+     * that existed only because the buttons lived in a segment renderer with no
+     * reference to this client. Routing through `requestUserInput` puts the decision
+     * where every other request for the user already goes, which is the whole point:
+     * one queue, one panel slot, one teardown, and the same behaviour whether the
+     * request came from a tool handler or from this gate.
      *
-     * The check is DOM CONTAINMENT rather than a `targetId` string comparison. A
-     * model can choose an id; it cannot choose where in the tree the click happened.
-     * It also needs no change on the dispatch side, so a consumer's own Approve
-     * button keeps working as long as it fires from inside its own chat.
+     * The tool NAME is the question; the arguments stay in the transcript, on the pill
+     * this request is anchored to. A panel capped at 50vh cannot hold a diff or a plan,
+     * and the transcript is already scrollable, copyable and persisted.
      *
-     * The request half of this handshake was hardened with `targetId` for exactly
-     * this hazard. This is its sibling, and it was missed.
+     * `aparte-tool-decision` is GONE with the buttons that dispatched it, and so is the
+     * `document` listener that answered it. It existed only because a segment renderer
+     * has no reference to this client; two seams that can disagree about who answers a
+     * decision are one seam too many, and the ratified elicitation rule already said so
+     * — "a typed presenter registered per config instance, never window events". A host
+     * that wants to answer programmatically registers an `approvalResolver` (headless,
+     * no DOM) or its own presenter, both strictly more capable than an id on an event.
      */
-    private _awaitToolDecision(toolCallId: string, signal: AbortSignal, target?: HTMLElement): Promise<{ approved: boolean; payload?: unknown }> {
-        return new Promise<{ approved: boolean; payload?: unknown }>((resolve) => {
-            if (signal.aborted) { resolve({ approved: false }); return; }
-            const cleanup = () => {
-                document.removeEventListener('aparte-tool-decision', onDecision as EventListener);
-                signal.removeEventListener('abort', onAbort);
-            };
-            const onDecision = (e: Event) => {
-                const detail = (e as CustomEvent).detail as { toolCallId?: string; approved?: boolean; payload?: unknown } | undefined;
-                if (detail?.toolCallId !== toolCallId) return;
-                // Only a decision made INSIDE the chat that asked counts. A
-                // programmatic dispatch on `window`/`document` (no node inside the
-                // target) is still honoured: that is a host answering on the user's
-                // behalf, which is a documented path.
-                if (target && e.target instanceof Node && e.target !== document && !target.contains(e.target)) return;
-                cleanup();
-                resolve({ approved: detail?.approved === true, payload: detail?.payload });
-            };
-            const onAbort = () => { cleanup(); resolve({ approved: false }); };
-            document.addEventListener('aparte-tool-decision', onDecision as EventListener);
-            signal.addEventListener('abort', onAbort, { once: true });
+    private async _askForApproval(
+        event: { id: string; name: string; input: Record<string, unknown> },
+        signal: AbortSignal,
+        target: HTMLElement,
+    ): Promise<{ approved: boolean; payload?: unknown; instruction?: string }> {
+        const answer = await requestUserInput({
+            kind: 'approval',
+            /*
+             * A function, like the option labels below, and for the same reason: the
+             * FRAME is locale text and follows a language switch while the question is
+             * open. The tool's NAME is substituted into it and never translated — it is
+             * wire format, the identifier the model called.
+             */
+            message: () => {
+                const loc = this._config.getLocale();
+                return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name);
+            },
+            // Functions, not strings, same as the question: these follow a language
+            // switch while the request is open, which a resolved string cannot.
+            options: [
+                { value: 'allow', label: () => this._config.getLocale().approveTool ?? 'Approve', tone: 'affirm' },
+                { value: 'deny', label: () => this._config.getLocale().rejectTool ?? 'Reject', tone: 'deny' },
+            ],
+            signal,
+            target,
         });
+        // `decline` is the corner escape, which for a decision means "not this": the
+        // safe reading of an unanswered approval is never "go ahead".
+        if (answer.action !== 'accept') return { approved: false };
+        const content = answer.content as { option?: string; instruction?: string } | undefined;
+        const instruction = content?.instruction?.trim();
+        // Typed text with no option chosen IS the refusal — "no, do this instead" — so
+        // the instruction alone denies. An option decides on its own.
+        if (instruction) return { approved: false, instruction };
+        return { approved: content?.option === 'allow' };
     }
+
 
     /**
      * Resolve the auth for a provider: `options.keyResolver` takes precedence,
@@ -1425,11 +1463,22 @@ export class AparteClient {
     }
 
     /**
+     * What the loop does after one tool call. THREE outcomes, because a boolean
+     * conflated two questions that a refusal answers differently.
+     *
+     * - `'continue'` — run the next tool call of this turn.
+     * - `'respond'`  — skip this turn's remaining calls, then take another turn so the
+     *                  model reads what happened. A human refusal: the model asked for
+     *                  several calls and refusing one cannot license the others, but a
+     *                  refusal it never reads is one the user has to retype as a message.
+     * - `'halt'`     — the run is over: an abort, a turn limit, a missing handler.
+     */
+    /**
      * Handle one `tool_use` stream event from {@link _streamLoop}: the built-in
      * `create_artifact`, per-tool renderer selection, the human-in-the-loop
      * approval gate, and running the registered handler (timeout / abort).
      * Mutates the shared `messages` / `toolCallsThisTurn` history in place and
-     * returns whether the agentic loop should keep going.
+     * returns what the loop should do next.
      */
     private async _handleToolUseEvent(
         event: { id: string; name: string; input: Record<string, unknown> },
@@ -1443,9 +1492,9 @@ export class AparteClient {
             turns: number;
             globalMaxTurns: number;
         },
-    ): Promise<{ continueLoop: boolean }> {
+    ): Promise<{ flow: AparteToolFlow }> {
         const { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns } = ctx;
-        let continueLoop = true;
+        let flow: AparteToolFlow = 'continue';
 
         toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
 
@@ -1489,7 +1538,7 @@ export class AparteClient {
                 content: 'Artifact created successfully.',
                 toolCallId: event.id,
             });
-            return { continueLoop: true };
+            return { flow: 'continue' };
         }
         // ── End built-in create_artifact ──────────────────────────────
 
@@ -1533,7 +1582,7 @@ export class AparteClient {
         if (turns >= effectiveMaxTurns) {
             console.warn(`[AparteClient] Tool "${event.name}" maxTurns (${effectiveMaxTurns}) reached.`);
             targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-            return { continueLoop: false };
+            return { flow: 'halt' };
         }
 
         // Find and run the registered handler
@@ -1557,16 +1606,54 @@ export class AparteClient {
                 dispatchLifecycleEvent(targetElement, 'aparte-tool-approval-request', {
                     toolCallId: event.id, toolName: event.name, input: event.input,
                 });
-                let decision: { approved: boolean; payload?: unknown };
+                let decision: { approved: boolean; payload?: unknown; instruction?: string };
                 const resolveApproval = this.options.approvalResolver
-                    ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
+                    ?? ((call, sig) => this._askForApproval(call, sig, targetElement as unknown as HTMLElement));
                 try {
-                    decision = await resolveApproval(event.id, approvalController.signal);
+                    decision = await resolveApproval(event, approvalController.signal);
+                } catch (err: unknown) {
+                    // The request ended without an answer — a stopped turn, a torn-down
+                    // panel, nothing mounted to ask. Not a refusal: see the signal check
+                    // just below, which says the same thing for a resolver that reports
+                    // an abort by VALUE instead of by throwing.
+                    if ((err as { name?: string })?.name === 'AbortError') {
+                        targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+                        return { flow: 'halt' };
+                    }
+                    throw err;
                 } finally {
                     this._activeToolControllers.delete(approvalController);
                 }
+                /*
+                 * A stop is not a refusal.
+                 *
+                 * A consumer's resolver may resolve `{ approved: false }` when the signal
+                 * fires — the same value an explicit Reject produces — so a stopped turn
+                 * fell into the refusal branch below, stamped the segment `'rejected'`
+                 * and pushed "rejected by the user" into the history. The model read a
+                 * sentence naming a decision nobody made. Asking the signal instead of
+                 * the value is what tells the two apart, and it costs nothing: the
+                 * controller is already in hand.
+                 *
+                 * No `tool_result` here, deliberately. An aborted turn tells the model
+                 * nothing, because there is nothing true to say — the same treatment a
+                 * handler aborted mid-run already gets.
+                 */
+                if (approvalController.signal.aborted) {
+                    targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+                    return { flow: 'halt' };
+                }
                 if (!decision.approved) {
-                    const rejection = 'Tool execution was rejected by the user.';
+                    /*
+                     * The user's own words when they gave them, and the fixed sentence
+                     * otherwise. This is the "no, do this instead" branch, and it is
+                     * only useful because a refusal hands the model a turn to read it
+                     * in — before that, whatever was written here went into a history
+                     * nobody sent.
+                     */
+                    const rejection = decision.instruction
+                        ? `The user rejected this tool call and said: ${decision.instruction}`
+                        : 'Tool execution was rejected by the user.';
                     targetElement.updateSegment?.(toolSeg.id, { status: 'rejected', result: rejection });
                     const existingToolCallMsg = messages.find(
                         m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
@@ -1580,7 +1667,21 @@ export class AparteClient {
                         });
                     }
                     messages.push({ role: 'tool_result', content: rejection, toolCallId: event.id });
-                    return { continueLoop: false };
+                    /*
+                     * `'respond'`, not `'halt'`: the two questions a single flag used to
+                     * conflate have different answers here.
+                     *
+                     * Run the tool calls that follow this one in the same turn? NO — the
+                     * model asked for `rm -rf` plus two more, and refusing one must not
+                     * let the others run. That is the defect the `if (!continueLoop)
+                     * break` line downstream was added for.
+                     *
+                     * Take another turn so the model can READ the refusal? YES. It could
+                     * not before: the turn simply ended, so the sentence pushed above was
+                     * never sent, and telling the assistant what you actually wanted meant
+                     * retyping it as a new message it then read out of order.
+                     */
+                    return { flow: 'respond' };
                 }
                 // Approved → optionally let the human's payload edit the
                 // arguments, then restore pending and run the handler.
@@ -1626,7 +1727,7 @@ export class AparteClient {
             } catch (err: unknown) {
                 if ((err as { name?: string })?.name === 'AbortError') {
                     targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                    continueLoop = false;
+                    flow = 'halt';
                 } else {
                     throw err;
                 }
@@ -1637,9 +1738,9 @@ export class AparteClient {
         } else {
             console.warn(`[AparteClient] No handler registered for tool "${event.name}"`);
             targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-            continueLoop = false;
+            flow = 'halt';
         }
-        return { continueLoop };
+        return { flow };
     }
 
     /**
@@ -1707,6 +1808,10 @@ export class AparteClient {
         }
 
         while (continueLoop) {
+            // Reset per TURN: it says "stop reading this turn's events", which is a
+            // different question from `continueLoop`'s "take another turn". One boolean
+            // answered both, and a refusal needs opposite answers to the two.
+            let endTurnEarly = false;
             if (this._isAborted) {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 break;
@@ -1975,7 +2080,10 @@ export class AparteClient {
                                 { id: event.id, name: event.name, input: event.input },
                                 { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns },
                             );
-                            if (!toolResult.continueLoop) continueLoop = false;
+                            // Anything but `'continue'` ends THIS turn's remaining tool
+                            // calls; only `'halt'` also ends the run.
+                            if (toolResult.flow !== 'continue') endTurnEarly = true;
+                            if (toolResult.flow === 'halt') continueLoop = false;
                             break;
                         }
                         case 'error':
@@ -2010,7 +2118,11 @@ export class AparteClient {
                     // refusal, and their results were appended to a stopped loop's
                     // history. `runStreamAgent` exits its inner loop for the same
                     // reasons; this is the core side of that agreement.
-                    if (!continueLoop) break;
+                    //
+                    // Per TURN, not per run: a refusal ends this turn's remaining
+                    // calls and then hands the model a turn to answer in, which one
+                    // boolean could not express.
+                    if (endTurnEarly) break;
                 }
 
                 // artifactXml finalize comes FIRST: its `scanning` branch pushes
@@ -2174,8 +2286,13 @@ export class AparteClient {
             const tool = this._config.getTools().find(t => t.name === name);
             return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;
         };
+        // The SAME channel as the inline loop's. It used to be the `document` listener
+        // while the inline loop asked at the composer — two loops asking two different
+        // ways, which the parity suite cannot see because it supplies its own resolver
+        // to both sides.
         const approvalResolver = this.options.approvalResolver
-            ?? ((id: string, sig: AbortSignal) => this._awaitToolDecision(id, sig, targetElement as unknown as HTMLElement));
+            ?? ((call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) =>
+                this._askForApproval(call, sig, targetElement as unknown as HTMLElement));
 
         const usage = await streamRunner({
             messageId,

@@ -21,9 +21,18 @@ export type {
     AparteElicitationRequest,
     AparteElicitationResult,
     AparteElicitationPresenter,
+    AparteApprovalOption,
+    AparteApprovalAnswer,
 } from './types.js';
+// A VALUE export: a consumer catching a failed request needs the constructor to test
+// against, not only its type. DOM-free, so the SSR barrel carries it too.
+export { AparteElicitationAbortError } from './types.js';
 export { buildElicitationPanel } from './panel.js';
 export type { BuiltElicitationPanel } from './panel.js';
+// The decision panel's builder, public for the same reason its sibling is: someone
+// writing their own presenter should not have to rebuild the one core ships.
+export { buildApprovalPanel } from './approval-panel.js';
+export type { BuiltApprovalPanel } from './approval-panel.js';
 
 /**
  * Ask the user for typed input and await their response, on the config

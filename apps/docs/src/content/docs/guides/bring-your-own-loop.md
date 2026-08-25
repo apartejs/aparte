@@ -109,7 +109,7 @@ case where you have such controls — see
 ## Richer replies: segments instead of plain text
 
 `injectTokenStream` writes plain text into a message's `content`. For a thinking block,
-a tool pill or anything the bubble renders as a typed block, stream **segments** instead:
+a tool call or anything the bubble renders as a typed block, stream **segments** instead:
 
 ```ts
 chat.ref.current?.addSegment({ id: 'think-1', type: 'thinking', content: '' });
@@ -308,6 +308,6 @@ aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 …or leave them off, which is the default and costs you nothing. Same story for the ⓘ details
 popover and the image-tile preview — see
 [What ships enabled](/guides/customization/#what-ships-enabled). For
-tool-call pills, thinking sections and other rich segments, `addSegment` / `appendToSegment` /
+tool-call rows, thinking sections and other rich segments, `addSegment` / `appendToSegment` /
 `updateSegment` (same imperative API) stream structured segments the same way
 `injectTokenStream` streams plain text.

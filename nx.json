@@ -62,7 +62,9 @@
   "targetDefaults": {
     "build": {
       "dependsOn": [
-        "^build"
+        "^gen",
+        "^build",
+        "gen"
       ],
       "cache": true,
       "inputs": [
@@ -71,6 +73,30 @@
       ],
       "outputs": [
         "{projectRoot}/dist"
+      ]
+    },
+    "gen": {
+      "dependsOn": [
+        "^gen",
+        "^build"
+      ],
+      "cache": true,
+      "outputs": [
+        "{projectRoot}/src/generated"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^build",
+        "^gen",
+        "gen"
+      ]
+    },
+    "typecheck:tests": {
+      "dependsOn": [
+        "^build",
+        "^gen",
+        "gen"
       ]
     }
   }

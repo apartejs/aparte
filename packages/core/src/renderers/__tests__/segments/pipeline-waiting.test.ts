@@ -25,7 +25,7 @@ describe('default renderer: pipeline-waiting', () => {
         if (typeof html !== 'string') throw new Error('expected HTML markup, got an element');
         expect(html).toContain('role="status"');
         expect(html).toContain('aria-label="Generating…"');
-        expect((html.match(/pw-dot/g) || []).length).toBe(3);
+        expect((html.match(/aparte-pw-dot/g) || []).length).toBe(3);
     });
 
     it('auto-removes itself once a sibling segment is appended after it', async () => {

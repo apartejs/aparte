@@ -78,7 +78,10 @@ export interface AparteStreamRunOptions {
     /** Resolves a tool's loop config by name (maxTurns / needsApproval). */
     toolConfigLookup?: (name: string) => { maxTurns?: number; needsApproval?: boolean } | undefined;
     /** HITL approval resolver for `needsApproval` tools. */
-    approvalResolver?: (toolCallId: string, signal: AbortSignal) => Promise<{ approved: boolean; payload?: unknown }>;
+    approvalResolver?: (
+        call: { id: string; name: string; input: Record<string, unknown> },
+        signal: AbortSignal,
+    ) => Promise<{ approved: boolean; payload?: unknown; instruction?: string }>;
     /** The DOM adapter (from {@link createStreamAdapter}). */
     emitter: AparteStreamRunEmitter;
     /** Single abort signal (the client composes `_isAborted` + the controller). */

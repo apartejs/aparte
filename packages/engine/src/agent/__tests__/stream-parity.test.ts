@@ -273,9 +273,16 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         expect(r.newUsage).toEqual(r.oldUsage);
     });
 
-    it('text → HITL tool (rejected) stops the loop identically', async () => {
+    // The name used to say "stops the loop identically", and that is no longer what
+    // either loop does: a refusal ends the turn's remaining calls and then hands the
+    // model a turn to answer in. Both changed together, so this scenario stayed green
+    // through the change — which is the suite doing its job, and exactly why the name
+    // had to be corrected by hand. It asserts AGREEMENT, never behaviour; the two
+    // engine tests above are what pin the behaviour.
+    it('text → HITL tool (rejected) → the model answers, identically', async () => {
         const r = await captureParity({ streams: [
             [{ type: 'text', delta: 'Trying a tool.' }, { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } }, { type: 'done' }],
+            [{ type: 'text', delta: 'Understood.' }, { type: 'done' }],
         ], approve: false });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);

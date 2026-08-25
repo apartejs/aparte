@@ -80,6 +80,23 @@ put down on purpose, so a future session does not re-derive the answer from scra
   is what such a tool would give it.* The `terminal` segment that used to stand in for
   this was removed rather than kept: nothing emitted it, and its `exitCode` /
   `isRunning` fields were the signature of an app that owned the execution.
+- **Grouping consecutive tool calls** behind one "3 tools used" line, the way
+  assistant-ui's `ToolGroup` does. Two reasons to wait. It is not a renderer change: a
+  group spans SEGMENTS, so the bubble would have to notice that 3, 4 and 5 are all tool
+  calls and wrap them — a change in the most load-bearing composition path in core, for
+  a presentational nicety. And the row redesign removed most of its motivation: grouping
+  exists to tame visual noise, and the row is one quiet ~22px line where the old chip was
+  a bordered, colour-filled badge, so five of them is five quiet lines rather than a wall.
+  *Trigger: a real turn whose consecutive calls actually make the transcript unreadable —
+  measured on a page, not imagined.*
+- **Exporting the tool-row builders** so the default becomes a composable kit
+  (`buildToolRow` + the Input/Output parts) rather than only a good default. Measured
+  against the rule in #7 rather than assumed: the one in-repo consumer of
+  `registerToolRenderer` is `@aparte/plugin-ask-user`, and it REPLACES the row with a
+  receipt card, so it would not call such a builder. A layer no in-repo caller uses is a
+  contract maintained for nobody. *Trigger: a consumer that wants the default row with a
+  body of its own — which is the request to listen for, since it is the one thing
+  `registerToolRenderer` cannot do today without copying core's markup.*
 
 ---
 
@@ -219,6 +236,28 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 - Don't add `console.log` in `packages/core/` — now an eslint rule rather than a habit
   (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
   incomplete).
+- **A built-in's CSS goes in `packages/core/src/styles/aparte.css`, never in a
+  `getStyles()` template literal.** That seam exists for a *consumer's* renderer, which
+  cannot edit that file and has no other way onto the page. Two measured reasons, not
+  three: `check:derived-vars` reads only that path, so a derived declaration hidden in a
+  renderer is unchecked; and CSS in a template literal is not read as CSS — a backtick
+  closes the literal (it happened four times, once in the artifact card long before) and
+  a `//` comment is just text, which is how a `safe-text` marker ended up rendered in an
+  assistant's bubble. The reason that does *not* hold: reaching the generated CSS
+  reference. `gen-css-vars.mjs` walks all of core's source, so a knob read from a `.ts`
+  was already listed with its fallback as the default. (I first wrote that the move
+  changed the generated file "by zero lines" — measured with `git diff` on a file
+  `apps/docs/.gitignore` untracks, so it could not have shown anything. It did change:
+  the "Read by" column moves. The claim it supports stands on the generator's own walk
+  of `CORE_SRC`, not on that diff.)
+- **Every class core emits is prefixed `aparte-`.** There was no written policy, which is
+  exactly how it drifted: 146 prefixed component classes against 42 bare renderer ones.
+  Core is light DOM on purpose, so the bleed goes both ways, and the outward one is the
+  serious one — the rules were bare global selectors (`.error-message { }`), so importing
+  the package restyled a host's own error messages. Inbound has already bitten us twice: a
+  bare `nav` rule on this repo's own docs site moved the artifact card's tabs, and
+  `.segment` is Semantic UI's base class. One deliberate exception: `language-*` on a code
+  block stays unprefixed, because that is the name highlighters look for.
 - A changeset entry for any package with an API/CSS change.
 - **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
   (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).

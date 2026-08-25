@@ -41,9 +41,12 @@ export class Chat {
 }
 ```
 
-`@aparte/core`, `@angular/core`, `@angular/common` and `rxjs` are **peer dependencies**. For any
-`<aparte-*>` element without a dedicated component, the generic `<aparte-ui name="aparte-…">` escape
-hatch mounts it.
+`@aparte/core`, `@angular/core`, `@angular/common` and `rxjs` are **peer dependencies**.
+
+Every `<aparte-*>` element has a **standalone directive** whose selector is the tag — typed `@Input()`s
+that write attributes, one typed `@Output()` per event, and no `CUSTOM_ELEMENTS_SCHEMA` in your
+component. Import what you use or `APARTE_ELEMENT_DIRECTIVES` for all of them.
+`<aparte-ui name="my-widget">` remains for an element aparté does not define.
 
 **On the Angular version.** The peer range is `^19.2.0`, and that is the only major this
 package is built and browser-tested against. It is a thin bridge over standard custom

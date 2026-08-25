@@ -6,7 +6,8 @@ sidebar:
 ---
 
 `@aparte/angular` wraps `@aparte/core` for Angular 19: an ergonomic `<aparte-chat>` standalone
-component, services for the client and conversations, and a generic `<aparte-ui>` escape hatch.
+component, services for the client and conversations, a typed directive for every element, and a
+generic `<aparte-ui>` escape hatch.
 
 ```bash
 npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
@@ -129,27 +130,59 @@ agent loop** instead of core's inline one, inject it:
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 :::
 
-## Any element: `<aparte-ui>`
+## Any aparté element: a typed directive
 
-For an `<aparte-*>` element without a dedicated component, mount it generically. It forwards the
-interactive aparté events by default; pass `[events]` to listen to others:
+Every element has a standalone directive whose selector is the tag, so you write the real element
+with typed Inputs and one Output per event — and **no `CUSTOM_ELEMENTS_SCHEMA`**, which would switch
+template checking off for every unknown tag in the file. Import the ones you use, or
+`APARTE_ELEMENT_DIRECTIVES` for all of them:
+
+```ts
+import { AparteSelectDirective } from '@aparte/angular';
+// then: @Component({ imports: [AparteSelectDirective], … })
+```
+
+```html
+@if (showPicker) {
+  <aparte-select
+    [searchable]="true"
+    placeholder="Pick a model"
+    (selectChange)="use($event.value)"
+  ></aparte-select>
+}
+```
+
+The `@if` is the point: the element is really in the template, so control flow and content
+projection reach it. Full set and the rules on
+[Placing elements, typed](/frameworks/elements/).
+
+:::note[An element from a plugin, or one of your own]
+This typing covers `@aparte/core`'s elements — the ones the wrapper depends on. An element
+from a plugin (`aparte-model-selector`, from
+[`@aparte/plugin-model-selector`](/plugins/model-selector/)) or one of your own is typed by
+**whoever owns it**, never by us: a third-party plugin's author cannot add a line to core,
+so shipping typing for our own plugins would privilege our packages over theirs.
+
+See [your own element](/frameworks/elements/#your-own-element-or-a-plugins) for the two
+mechanisms — both are the same amount of work for us as for you.
+:::
+
+## Any OTHER element: `<aparte-ui>`
+
+For an element aparté does not define — one of yours, or a third party's — mount it generically. It
+forwards the interactive aparté events by default; pass `[events]` to listen to others:
 
 ```html
 <aparte-ui
-  name="aparte-model-selector"
-  [props]="{ placeholder: 'Ask…', '--glow-speed': '4s' }"
+  name="my-token-counter"
+  [props]="{ 'data-budget': '8000', '--glow-speed': '4s' }"
   (elementEvent)="onEvent($event)"
 />
 ```
 
-:::note[Where that element comes from]
-`aparte-model-selector` is **not** in `@aparte/core` — it is defined by
-[`@aparte/plugin-model-selector`](/plugins/model-selector/), and importing that package is
-what registers it. Until then the tag renders as an empty, inert element with no error:
-a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
-own the moment the definition arrives — which is exactly why `provideAparte`'s lazy
-`plugins` loaders work. `<aparte-ui>` mounts any element name, including your own.
-:::
+This used to be how you placed a model selector. It still works, and it is still the only way to
+mount a tag aparté knows nothing about — but for aparté's own elements the directive above gives you
+type checking, one output per event, and an element the template can actually wrap.
 
 ## Also exported
 

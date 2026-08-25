@@ -52,6 +52,54 @@ In the composer's bottom row — that is what the row is for, and it is one elem
 at the start. In the four wrappers the same thing goes through one `toolbar` slot — see
 [The composer toolbar](/guides/customization/#the-composer-toolbar).
 
+## Typed in your framework
+
+The element is typed by **this package**, not by the framework wrappers, through one
+subpath per framework. Import it once, anywhere:
+
+```ts
+import '@aparte/plugin-model-selector/react';   // or /vue, or /svelte
+```
+
+After that the tag is checked like any other: a typo, a wrong value type, or an
+attribute the element does not observe is a compile error.
+
+```tsx
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+```
+
+A presence attribute is `''` to set and `null` to remove, never `false` — see
+[the rule](/frameworks/elements/#the-one-thing-to-know-about-presence-attributes).
+Events are typed through the DOM, because `@aparte/core` augments `HTMLElementEventMap`
+with `aparte-model-change`.
+
+Angular gets a **directive** rather than a type, because its template compiler needs a
+class claiming the selector:
+
+```ts
+import { AparteModelSelectorDirective } from '@aparte/plugin-model-selector/angular';
+// @Component({ imports: [AparteModelSelectorDirective], … })
+```
+
+```html
+<aparte-model-selector [persist]="true" [searchable]="true" (modelChange)="use($event.modelId)" />
+```
+
+`react`, `vue`, `svelte` and `@angular/core` are all **optional** peer dependencies, so
+you carry only the one you use — and the three template bindings ship no runtime at all.
+
+:::note[Why the plugin and not the wrapper]
+`@aparte/angular` shipped a directive for this element for about a day, and it was
+removed: a third-party plugin's author cannot add a line to our wrapper, so typing our
+own plugin there would give aparté's packages a privilege theirs could never have.
+
+Owning the bindings where the element is owned also gives the property you actually
+want, and gives it for free — install this package and the tag is typed, don't and it
+isn't. The module graph enforces that; nothing has to be remembered. Your own plugin
+follows the same path, with the same tools: see
+[Your own element, or a plugin's](/frameworks/elements/#your-own-element-or-a-plugins).
+:::
+
 ## Gating the composer until a model is picked
 
 The model list loads asynchronously, so there's a window where the chat is mounted but no model is

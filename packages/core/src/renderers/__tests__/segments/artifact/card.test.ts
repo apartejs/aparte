@@ -229,7 +229,7 @@ describe('default renderer: artifact', () => {
             id: 'b1', type: 'artifact', mimeType: 'application/pdf', artifactType: 'pdf',
             content: 'sandbox code', isStreaming: true,
         } as any);
-        expect(html).toContain('segment-artifact-file');
+        expect(html).toContain('aparte-segment-artifact-file');
         expect(html).toContain('data-state="streaming"');
         expect(html).toContain('Generating…');
         expect(html).toContain('data-action="download" disabled');

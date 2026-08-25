@@ -173,7 +173,7 @@ test('scrolling up mid-stream is not overridden by the arriving reply', async ({
 
     // A new turn, then the user reads back while it streams.
     await chat.send('one more, and I will scroll away');
-    await expect(chat.sendButton).toHaveClass(/is-streaming/, { timeout: 10_000 });
+    await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 10_000 });
 
     await scrollUp(page, chat);
 
@@ -232,7 +232,7 @@ test('Stop keeps the text that had already arrived', async ({ page }) => {
     const partial = ((await chat.lastReply.textContent()) ?? '').trim();
 
     await chat.sendButton.click();   // the stop button, mid-stream
-    await expect(chat.sendButton).not.toHaveClass(/is-streaming/, { timeout: 10_000 });
+    await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/, { timeout: 10_000 });
 
     // The answer the user was reading is still there, and no failure is claimed.
     await expect(chat.lastReply).toContainText(partial.slice(0, Math.min(12, partial.length)));

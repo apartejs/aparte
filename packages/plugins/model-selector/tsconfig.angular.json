@@ -1,0 +1,22 @@
+{
+  // `ngc` EMITS the two Angular files; the main tsconfig still type-checks them, which is
+  // what eslint's project service needs to lint them at all. Both write declarations into
+  // `dist`, so the build script runs `tsc` first and `ngc` last: the partial-Ivy output
+  // wins, deterministically, rather than the two racing on one directory.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationDir": "./dist",
+    "emitDeclarationOnly": false
+  },
+  "angularCompilerOptions": {
+    // What makes this a LIBRARY build: partial-Ivy output is the format a consumer's own
+    // AOT compiler finishes. Full compilation here would bake in this Angular version.
+    "compilationMode": "partial",
+    "strictInjectionParameters": true,
+    "strictTemplates": true
+  },
+  "include": ["src/angular.ts", "src/generated/element.directives.ts"]
+}

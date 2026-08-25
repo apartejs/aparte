@@ -11,6 +11,7 @@
  * `width`/`height`) and silently showed nothing for the recommended, responsive one a
  * model is most likely to write.
  */
+import { readAparteStylesheet } from '../../__tests__/read-stylesheet.js';
 import { describe, it, expect } from 'vitest';
 import { buildSafePreviewDocument, PREVIEW_CSP } from '../segments/artifact/preview-document.js';
 import { getSegmentRenderer, registerDefaultRenderers } from '../segment-renderers.js';
@@ -67,7 +68,10 @@ describe('the SVG preview document', () => {
 
 describe('the artifact card’s own layout', () => {
     it('declares what its tab row depends on, so a host rule cannot move it', () => {
-        const styles = getSegmentRenderer('artifact')!.getStyles?.() ?? '';
+        // Read from the stylesheet, which is where a built-in's rules live: the card
+        // used to ship them from `getStyles()`, invisible to both the derived-vars guard
+        // and the generated CSS reference.
+        const styles = readAparteStylesheet();
 
         // Core is light DOM on purpose — no shadow root, no `::part()`, any selector
         // reaches in — and the corollary is that a component must STATE what its layout

@@ -88,7 +88,7 @@ function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void 
     if (!isSegmentSettled(segment)) return;
     const ms = segmentDuration(segment);
     if (ms === undefined) return;
-    const label = host.querySelector('.thinking-label');
+    const label = host.querySelector('.aparte-thinking-label');
     if (label) label.textContent = `Thought for ${(ms / 1000).toFixed(1)}s`;
 }
 

@@ -43,6 +43,7 @@ const FR = () => ({
     running: 'En cours…',
     approveTool: 'Approuver',
     rejectTool: 'Refuser',
+    approvalWaiting: 'en attente de vous',
     error: 'Erreur',
 });
 
@@ -53,7 +54,7 @@ afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 describe('relabel reaches a rendered segment', () => {
     it('the reasoning block’s default label', () => {
         const el = mount([seg({ id: 's1', type: 'thinking', content: 'why', isStreaming: false })]);
-        const label = el.querySelector('.thinking-label')!;
+        const label = el.querySelector('.aparte-thinking-label')!;
 
         aparteGlobalConfig.setLocale(FR());
 
@@ -65,12 +66,12 @@ describe('relabel reaches a rendered segment', () => {
 
         aparteGlobalConfig.setLocale(FR());
 
-        expect(el.querySelector('.thinking-label')!.textContent).toBe('Analysis');
+        expect(el.querySelector('.aparte-thinking-label')!.textContent).toBe('Analysis');
     });
 
     it('a code block’s copy button — tooltip and glyph', () => {
         const el = mount([seg({ id: 's1', type: 'code', content: 'x', language: 'ts' })]);
-        const btn = el.querySelector('.code-copy')!;
+        const btn = el.querySelector('.aparte-code-copy')!;
 
         aparteGlobalConfig.setLocale(FR());
         aparteGlobalConfig.setIconProvider({ copy: () => '<svg data-mine="1"></svg>' });
@@ -79,19 +80,23 @@ describe('relabel reaches a rendered segment', () => {
         expect(btn.innerHTML).toContain('data-mine');
     });
 
-    it('the human approval gate — the highest-stakes strings in the library', () => {
+    it('a tool waiting for a person — a label that outlasts a language switch', () => {
+        // This used to assert the Approve / Reject labels. Those live on the composer's
+        // panel now, which relabels itself; what is left in the transcript is the pill
+        // saying WHY nothing is happening. Still worth pinning: the request it describes
+        // stays open for as long as somebody takes to decide, which is exactly long
+        // enough for a locale switch to land on it.
         const el = mount([{
             id: 's1', type: 'tool_call', status: 'awaiting-approval',
             toolCall: { id: 'tc1', name: 'delete_file', input: {} },
         } as AparteToolCallSegment]);
-        const approve = el.querySelector('.tool-approve-btn')!;
-        const reject = el.querySelector('.tool-reject-btn')!;
+        expect(el.querySelector('.tool-approve-btn'), 'no decision control in the transcript').toBeNull();
+        const waiting = el.querySelector('.aparte-tool-state')!;
+        expect(waiting.textContent).toBe('waiting for you');
 
         aparteGlobalConfig.setLocale(FR());
 
-        expect(approve.textContent).toBe('Approuver');
-        expect(approve.getAttribute('aria-label')).toBe('Approuver');
-        expect(reject.textContent).toBe('Refuser');
+        expect(waiting.textContent).toBe('en attente de vous');
     });
 
     it('an artifact card’s copy button — and nothing else on the card', () => {
@@ -101,7 +106,7 @@ describe('relabel reaches a rendered segment', () => {
             content: '<svg/>',
         } as unknown as AparteSegment]);
         const copyBtn = el.querySelector('.aparte-art-card__btn[data-action="copy"]')!;
-        const card = el.querySelector('.segment-artifact-card')!;
+        const card = el.querySelector('.aparte-segment-artifact-card')!;
 
         aparteGlobalConfig.setLocale(FR());
         aparteGlobalConfig.setIconProvider({ copy: () => '<svg data-mine="1"></svg>' });
@@ -137,7 +142,7 @@ describe('relabel reaches a rendered segment', () => {
         expect(el.querySelector('[data-tab-target="preview"]')!.textContent).toBe('Aperçu');
         expect(el.querySelector('[data-tab-target="code"]')!.textContent).toBe('Code');
         // Which pane is open is the reader's state, not the locale's.
-        expect(el.querySelector('.segment-artifact-card')!.getAttribute('data-tab')).toBe('code');
+        expect(el.querySelector('.aparte-segment-artifact-card')!.getAttribute('data-tab')).toBe('code');
         expect(el.querySelector('[data-tab-target="code"]')!.getAttribute('aria-selected')).toBe('true');
     });
 
@@ -164,7 +169,7 @@ describe('relabel reaches a rendered segment', () => {
 
     it('the waiting indicator’s accessible name — its only content', () => {
         const el = mount([seg({ id: 's1', type: 'pipeline-waiting' })]);
-        const dots = el.querySelector('.segment-pipeline-waiting')!;
+        const dots = el.querySelector('.aparte-segment-pipeline-waiting')!;
 
         expect(dots.getAttribute('aria-label')).toBe('Generating…');
 
@@ -182,16 +187,16 @@ describe('relabel reaches a rendered segment', () => {
         aparteGlobalConfig.setIconProvider({ error: () => '<svg data-mine="1"></svg>' });
         aparteGlobalConfig.setLocale(FR());
 
-        expect(el.querySelector('.error-icon-wrapper')!.innerHTML).toContain('data-mine');
+        expect(el.querySelector('.aparte-error-icon-wrapper')!.innerHTML).toContain('data-mine');
         // `locale.error` is a REQUIRED key, documented, and already translated — and
         // was read by nothing at all while this heading hardcoded "Error". A
         // translated string with no consumer and a literal with no translation, in
         // the same card. "Erreur" is what `@aparte/locale-fr` ships for this key —
         // `packages/locales/fr` has carried it since it existed.
-        expect(el.querySelector('.error-title')!.textContent).toBe('Erreur');
+        expect(el.querySelector('.aparte-error-title')!.textContent).toBe('Erreur');
         // Not the message: that is the model's or the transport's text, in whatever
         // language it arrived in. Relabelling it would be inventing content.
-        expect(el.querySelector('.error-message')!.textContent).toBe('boom');
+        expect(el.querySelector('.aparte-error-message')!.textContent).toBe('boom');
     });
 });
 
@@ -221,12 +226,12 @@ describe('relabel does not rebuild', () => {
         aparteGlobalConfig.setLocale(FR());
 
         expect(details.open, 'the reader’s own expand was reverted').toBe(true);
-        expect(el.querySelector('.thinking-label')!.textContent).toBe('Réflexion');
+        expect(el.querySelector('.aparte-thinking-label')!.textContent).toBe('Réflexion');
     });
 
     it('does not disturb a code block’s "copied" confirmation', () => {
         const el = mount([seg({ id: 's1', type: 'code', content: 'x' })]);
-        const btn = el.querySelector('.code-copy') as HTMLElement;
+        const btn = el.querySelector('.aparte-code-copy') as HTMLElement;
         btn.dataset.copied = '1';
         btn.setAttribute('title', 'Copied!');
 
@@ -380,6 +385,6 @@ describe('a reasoning block folds itself away when it settles', () => {
         el.updateSegment('s1', { content: 'why, at greater length' });
 
         expect(details.open).toBe(false);
-        expect(el.querySelector('.thinking-content')!.textContent).toContain('at greater length');
+        expect(el.querySelector('.aparte-thinking-content')!.textContent).toContain('at greater length');
     });
 });

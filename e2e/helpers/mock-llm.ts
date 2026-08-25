@@ -51,7 +51,7 @@ export const MOCK_THINKING_FULL = THINKING_CHUNKS.join('');
 /**
  * A reasoning trace long enough to OVERFLOW the thinking block.
  *
- * `.thinking-content` is its own scroll container (`max-height: 300px`), and the
+ * `.aparte-thinking-content` is its own scroll container (`max-height: 300px`), and the
  * three chunks above never come close to filling it — which is why nothing ever
  * observed what the box does once it scrolls. It did nothing: `update()` replaced
  * the text without touching `scrollTop`, so the newest reasoning piled up below the

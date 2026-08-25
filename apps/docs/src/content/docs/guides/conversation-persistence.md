@@ -250,10 +250,15 @@ Read them back with `segmentDuration(segment)` rather than subtracting, so an ab
 gives you `undefined` instead of `NaN`.
 :::
 
-**One thing core cannot fix for you.** A `tool_call` persisted as `pending` or
-`awaiting-approval` comes back showing its Approve / Reject buttons, and the handler that
-was waiting on them is gone — so pressing one does nothing. If your adapter can be
-interrupted mid-turn, normalise those statuses on save.
+**A request that outlived its page is closed for you.** A `tool_call` persisted as
+`awaiting-approval` comes back as `aborted`. The loop that awaited the decision went with
+the page, so nothing can answer it — and `aborted` rather than `rejected` because nobody
+refused anything. Every load path shares one normalisation, so this holds whichever of
+them your adapter uses.
+
+**One thing core still cannot fix for you.** A `tool_call` persisted as `pending` comes
+back with a spinner and an open span, because the handler that was running is likewise
+gone. If your adapter can be interrupted mid-turn, normalise that status on save.
 
 ---
 

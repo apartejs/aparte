@@ -42,7 +42,10 @@ npm install @aparte/svelte @aparte/core svelte
 The user's message is appended automatically on send — don't add it yourself. `on:messageSent` is
 optional and only for side-effects (scroll, analytics).
 
-`@aparte/core` and `svelte` are **peer dependencies**. For any `<aparte-*>` element without a
-dedicated component, the generic `<AparteUi name="aparte-…" />` escape hatch mounts it.
+`@aparte/core` and `svelte` are **peer dependencies**.
+
+Every `<aparte-*>` tag is declared through `SvelteHTMLElements`, so `svelte-check` covers its
+attributes and its `on:` handlers. `<AparteUi name="my-widget" />` remains for an element aparté does
+not define.
 
 > ESM-only. See the docs for the full API. Part of the aparté monorepo.

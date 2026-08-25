@@ -108,9 +108,13 @@ for (const el of elements) {
 
   const events = el.events ?? [];
   if (events.length) {
-    md += `\n### Events\n\n| Event | Description |\n| --- | --- |\n`;
+    // The Type column matters as much as the name: it is what tells a consumer the
+    // shape of `e.detail`, and it is what a typed framework wrapper derives its
+    // Output from. The events that carry no detail render as a bare `CustomEvent` —
+    // that absence is information too.
+    md += `\n### Events\n\n| Event | Type | Description |\n| --- | --- | --- |\n`;
     for (const ev of events) {
-      md += `| \`${esc(ev.name)}\` | ${esc(ev.description)} |\n`;
+      md += `| \`${esc(ev.name)}\` | \`${esc(typeText(ev.type))}\` | ${esc(ev.description)} |\n`;
     }
   }
 

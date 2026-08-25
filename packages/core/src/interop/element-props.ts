@@ -4,15 +4,61 @@
  * a byte-identical copy — only the framework-specific mounting differs.
  */
 
-/** The custom events aparté elements actually dispatch (verified against core). */
+/**
+ * Every custom event an aparté element dispatches on ITSELF — the set `AparteUi`
+ * forwards through its single event output, in all four wrappers.
+ *
+ * It said "verified against core" while carrying seven of twenty-five, and the gap was
+ * not academic: `aparte-model-change` was missing, which is the event the ONE example
+ * in the wrappers' own docs exists to receive (`<aparte-ui name="aparte-model-selector"
+ * …>`). The documented usage could not hear the thing it was documenting. Re-derived
+ * from the generated manifest, which now records every element's events because their
+ * docblocks were reattached.
+ *
+ * A PLUGIN's events are not here either, and `aparte-model-change` was until this line
+ * was written. The reason is the same one that keeps plugin tags out of the element
+ * registry: this default is core's, and a third-party plugin's author cannot add to it,
+ * so listing ours would privilege our packages over theirs. Pass the names you need —
+ * `events: ['aparte-model-change']` — which is one line for everyone equally.
+ *
+ * Two events are deliberately NOT here for a different reason. `aparte-abort` and
+ * `aparte-message-aborted` go out through `window.dispatchEvent` — they concern the whole page, not one subtree —
+ * so an element-level listener can never receive them and listing them would promise a
+ * forward that cannot happen.
+ *
+ * Keep in step with `packages/core/dist/custom-elements.json`: this list is what a
+ * consumer gets without passing their own, so an event missing here is an event they
+ * cannot hear through the proxy.
+ */
 export const APARTE_DEFAULT_UI_EVENTS: readonly string[] = [
+    // <aparte-composer> and its parts
     'aparte-send',
+    'aparte-cancel',
+    'aparte-composer-change',
+    'aparte-composer-submit',
+    'aparte-action-click',
+    'aparte-attachment-preview',
+    // <aparte-chat-bubble>
     'aparte-action',
     'aparte-retry',
     'aparte-edit',
+    'aparte-feedback',
+    'aparte-message-info',
     'aparte-branch-navigate',
-    'aparte-composer-change',
+    // <aparte-chat-viewport>
+    'aparte-segment-update',
+    'aparte-reset-done',
     'aparte-path-changed',
+    // <aparte-conversation-list>
+    'aparte-select-conversation',
+    'aparte-delete-conversation',
+    'aparte-archive-conversation',
+    'aparte-unarchive-conversation',
+    // the select primitives
+    'aparte-select-change',
+    'aparte-select-open',
+    'aparte-select-close',
+    'aparte-optgroup-toggle',
 ];
 
 /**
