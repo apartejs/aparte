@@ -71,17 +71,17 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string): 
         return;
     }
     // The part appeared between two updates — a call that had no result now has one.
-    const detail = element.querySelector('.tool-detail');
+    const detail = element.querySelector('.aparte-tool-detail');
     if (!detail) return;
     const cfg = contextConfig();
     const wrap = document.createElement('div');
-    wrap.className = 'tool-part';
+    wrap.className = 'aparte-tool-part';
     wrap.dataset['part'] = part;  // safe-attr: a typed literal union ('input' | 'output'), not input
     const label = document.createElement('span');
-    label.className = 'tool-part-label';
+    label.className = 'aparte-tool-part-label';
     label.textContent = cfg.t(part === 'input' ? 'toolInput' : 'toolOutput');
     const body = document.createElement('div');
-    body.className = 'tool-part-body';
+    body.className = 'aparte-tool-part-body';
     const pre = document.createElement('pre');
     const code = document.createElement('code');
     code.textContent = text;
@@ -106,7 +106,7 @@ function setPart(element: HTMLElement, part: 'input' | 'output', text: string): 
  */
 function highlightParts(element: HTMLElement): void {
     const cfg = contextConfig();
-    for (const body of element.querySelectorAll<HTMLElement>('.tool-part-body')) {
+    for (const body of element.querySelectorAll<HTMLElement>('.aparte-tool-part-body')) {
         const text = body.querySelector('code')?.textContent ?? '';
         if (!text) continue;
         void cfg.highlightCode(text, 'json').then((html) => {
@@ -128,12 +128,12 @@ function highlightParts(element: HTMLElement): void {
 function pillMarkup(segment: AparteToolCallSegment, name: string, status: string): string {
     const badge = stateBadge(segment);  // safe-text: escaped locale text plus the icon provider's SVG — the same contract as getIcon, where escaping would print the source
     return `
-                <span class="tool-label">
-                    <span class="tool-icon">${contextConfig().getIcon('tool')}</span>
-                    <span class="tool-name">${escapeHtml(name)}</span>
+                <span class="aparte-tool-label">
+                    <span class="aparte-tool-icon">${contextConfig().getIcon('tool')}</span>
+                    <span class="aparte-tool-name">${escapeHtml(name)}</span>
                 </span>
-                <span class="tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
-                <span class="tool-state">${badge}</span>`;
+                <span class="aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
+                <span class="aparte-tool-state">${badge}</span>`;
 }
 
 export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
@@ -202,25 +202,25 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const result = segment.result;
         if (!input && !result) {
             return `
-            <div class="segment segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">${pill}
+            <div class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">${pill}
             </div>
         `;
         }
 
         const cfg = contextConfig();
         return `
-            <details class="segment segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">
-                <summary class="tool-summary"><span class="tool-toggle"></span>${pill}</summary>
-                <div class="tool-detail">
+            <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">
+                <summary class="aparte-tool-summary"><span class="aparte-tool-toggle"></span>${pill}</summary>
+                <div class="aparte-tool-detail">
                     ${input ? `
-                    <div class="tool-part" data-part="input">
-                        <span class="tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>
-                        <div class="tool-part-body"><pre><code>${escapeHtml(input)}</code></pre></div>
+                    <div class="aparte-tool-part" data-part="input">
+                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolInput'))}</span>
+                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(input)}</code></pre></div>
                     </div>` : ''}
                     ${result ? `
-                    <div class="tool-part" data-part="output">
-                        <span class="tool-part-label">${escapeHtml(cfg.t('toolOutput'))}</span>
-                        <div class="tool-part-body"><pre><code>${escapeHtml(result)}</code></pre></div>
+                    <div class="aparte-tool-part" data-part="output">
+                        <span class="aparte-tool-part-label">${escapeHtml(cfg.t('toolOutput'))}</span>
+                        <div class="aparte-tool-part-body"><pre><code>${escapeHtml(result)}</code></pre></div>
                     </div>` : ''}
                 </div>
             </details>
@@ -238,9 +238,9 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
      */
     relabel: (element, segment) => {
         const cfg = contextConfig();
-        const icon = element.querySelector('.tool-icon');
+        const icon = element.querySelector('.aparte-tool-icon');
         if (icon) icon.innerHTML = cfg.getIcon('tool');
-        const statusEl = element.querySelector('.tool-state');
+        const statusEl = element.querySelector('.aparte-tool-state');
         if (statusEl) {
             const s = segment.status;
             statusEl.innerHTML = s === 'resolved'
@@ -302,11 +302,11 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         }
 
         element.setAttribute('data-status', status);
-        const badge = element.querySelector('.tool-state');
+        const badge = element.querySelector('.aparte-tool-state');
         if (badge) badge.innerHTML = stateBadge(segment);
         // `hidden`, not a CSS-only rule: an attribute is a real DOM state a test can
         // read, and jsdom has no layout to ask. Same treatment as the cancel button.
-        element.querySelector('.tool-spinner')?.toggleAttribute('hidden', status !== 'pending');
+        element.querySelector('.aparte-tool-spinner')?.toggleAttribute('hidden', status !== 'pending');
 
         setPart(element, 'input', input);
         setPart(element, 'output', segment.result ?? '');

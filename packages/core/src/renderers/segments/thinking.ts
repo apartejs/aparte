@@ -44,25 +44,25 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * new class of risk. With no Markdown provider registered it degrades to the
      * zero-dependency default (escape + `<br>`), which is what it used to be.
      */
-    render: (segment) => `<details class="segment segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="thinking-header"><span class="thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="thinking-toggle"></span></summary><div class="thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    render: (segment) => `<details class="aparte-segment aparte-segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="aparte-thinking-toggle"></span></summary><div class="aparte-thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
     /**
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.
      */
     relabel: (el, segment) => {
-        const label = el.querySelector('.thinking-label');
+        const label = el.querySelector('.aparte-thinking-label');
         if (label) label.textContent = segment.label || contextConfig().t('thinking');
     },
     update: (el, segment) => {
         // collapsed state is managed by _applySegmentUpdate based on explicit updates only —
         // never override what the user set by clicking <summary>
-        const contentEl = el.querySelector('.thinking-content');
+        const contentEl = el.querySelector('.aparte-thinking-content');
         if (!contentEl) return;
 
         // Anchor to the bottom while the reasoning streams — but only if the reader
         // was already there.
         //
-        // `.thinking-content` is its own scroll container (`max-height` +
+        // `.aparte-thinking-content` is its own scroll container (`max-height` +
         // `overflow-y: auto`), and this update replaced its text without touching
         // `scrollTop`. So every delta pushed the newest line below the fold and the
         // block sat frozen on the first 300px of a reasoning trace that kept

@@ -458,7 +458,7 @@ export class AparteChatBubble extends HTMLElement {
     } else {
       warnMissingRenderer(segment.type);
       const fallback = document.createElement('div');
-      fallback.className = 'segment segment-unknown';
+      fallback.className = 'segment aparte-segment-unknown';
       fallback.textContent = `[Unknown segment type: ${segment.type}]`;
       this._segmentsEl.appendChild(fallback);
     }
@@ -776,7 +776,7 @@ export class AparteChatBubble extends HTMLElement {
         // Fallback for unknown segment types
         warnMissingRenderer(segment.type);
         const fallback = document.createElement('div');
-        fallback.className = 'segment segment-unknown';
+        fallback.className = 'segment aparte-segment-unknown';
         fallback.textContent = `[Unknown segment type: ${segment.type}]`;
         this._segmentsEl.appendChild(fallback);
       }

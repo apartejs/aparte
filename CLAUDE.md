@@ -250,6 +250,14 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   `apps/docs/.gitignore` untracks, so it could not have shown anything. It did change:
   the "Read by" column moves. The claim it supports stands on the generator's own walk
   of `CORE_SRC`, not on that diff.)
+- **Every class core emits is prefixed `aparte-`.** There was no written policy, which is
+  exactly how it drifted: 146 prefixed component classes against 42 bare renderer ones.
+  Core is light DOM on purpose, so the bleed goes both ways, and the outward one is the
+  serious one — the rules were bare global selectors (`.error-message { }`), so importing
+  the package restyled a host's own error messages. Inbound has already bitten us twice: a
+  bare `nav` rule on this repo's own docs site moved the artifact card's tabs, and
+  `.segment` is Semantic UI's base class. One deliberate exception: `language-*` on a code
+  block stays unprefixed, because that is the name highlighters look for.
 - A changeset entry for any package with an API/CSS change.
 - **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
   (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).

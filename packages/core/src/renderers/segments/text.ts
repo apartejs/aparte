@@ -22,9 +22,9 @@ import type {
  */
 export const textRenderer: AparteSegmentRenderer<AparteTextSegment> = {
     type: 'text',
-    render: (segment) => `<div class="segment segment-text" data-segment-id="${escapeHtml(segment.id)}"><div class="segment-content">${contextConfig().renderMarkdown(segment.content)}</div></div>`,
+    render: (segment) => `<div class="aparte-segment aparte-segment-text" data-segment-id="${escapeHtml(segment.id)}"><div class="aparte-segment-content">${contextConfig().renderMarkdown(segment.content)}</div></div>`,
     update: (el, segment) => {
-        const contentEl = el.querySelector('.segment-content');
+        const contentEl = el.querySelector('.aparte-segment-content');
         if (!contentEl) return;
         writeStreamedMarkdown(
             el as AparteMarkdownStreamHost,

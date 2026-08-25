@@ -140,12 +140,12 @@ export class AparteComposerAddAttachment extends HTMLElement {
         const onDragOver = (e: Event) => {
             if (root.disabled) return; // no drop target while disabled (e.g. streaming)
             prevent(e);
-            root.classList.add('is-dragover');
+            root.classList.add('aparte-is-dragover');
         };
-        const onDragLeave = (e: Event) => { prevent(e); root.classList.remove('is-dragover'); };
+        const onDragLeave = (e: Event) => { prevent(e); root.classList.remove('aparte-is-dragover'); };
         const onDrop = (e: DragEvent) => {
             prevent(e); // always block the browser from navigating to the dropped file
-            root.classList.remove('is-dragover');
+            root.classList.remove('aparte-is-dragover');
             if (root.disabled) return; // don't attach while disabled (the add button is blocked too)
             const files = e.dataTransfer?.files;
             if (files?.length) this._getRoot()?.addAttachments(files);

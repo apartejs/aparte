@@ -1032,7 +1032,7 @@ export class AparteConfig {
      *
      * @example
      * // Custom pill for a web-search tool
-     * aparteGlobalConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="tool-label">Searching...</div>` });
+     * aparteGlobalConfig.registerToolRenderer('web_search', { render: (seg) => `<div class="aparte-tool-label">Searching...</div>` });
      */
     registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void {
         this._toolRenderers.set(toolName, renderer);

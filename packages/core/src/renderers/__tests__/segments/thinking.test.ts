@@ -40,13 +40,13 @@ describe('default renderer: thinking (extra)', () => {
     it('falls back to the locale "thinking" string when no label is given', () => {
         const renderer = getSegmentRenderer('thinking')!;
         const html = renderer.render({ id: 't1', type: 'thinking', content: 'x' } as any);
-        expect(html).toContain('<span class="thinking-label">Thinking...</span>');
+        expect(html).toContain('<span class="aparte-thinking-label">Thinking...</span>');
     });
 
     it('uses a custom label verbatim (escaped) when provided', () => {
         const renderer = getSegmentRenderer('thinking')!;
         const html = renderer.render({ id: 't2', type: 'thinking', content: 'x', label: 'Reasoning' } as any);
-        expect(html).toContain('<span class="thinking-label">Reasoning</span>');
+        expect(html).toContain('<span class="aparte-thinking-label">Reasoning</span>');
     });
 
     it('is CLOSED when `collapsed` is absent — a disclosure the reader opens', () => {
@@ -55,7 +55,7 @@ describe('default renderer: thinking (extra)', () => {
         // The old default was the reverse, and nothing pinned it — which is how core's
         // own parser came to emit `collapsed: false` on every block it produced and
         // leave reasoning unfolded for a whole conversation.
-        expect(html).not.toContain('<details class="segment segment-thinking" data-segment-id="t0" open');
+        expect(html).not.toContain('<details class="aparte-segment aparte-segment-thinking" data-segment-id="t0" open');
         expect(html).toContain('<details');
     });
 
@@ -76,7 +76,7 @@ describe('default renderer: thinking (extra)', () => {
         const el = document.createElement('div');
         el.innerHTML = renderer.render({ id: 't5', type: 'thinking', content: 'old', collapsed: false } as any) as string;
         renderer.update!(el, { id: 't5', type: 'thinking', content: '<b>new</b>', collapsed: false } as any);
-        const contentEl = el.querySelector('.thinking-content')!;
+        const contentEl = el.querySelector('.aparte-thinking-content')!;
         expect(contentEl.textContent).toBe('<b>new</b>');
         expect(contentEl.innerHTML).not.toContain('<b>');
     });
@@ -102,7 +102,7 @@ describe('default renderer: thinking (extra)', () => {
             const el = document.createElement('div');
             el.innerHTML = renderer.render({ id: 'm1', type: 'thinking', content: 'a **bold** idea', collapsed: false } as any) as string;
 
-            expect(el.querySelector('.thinking-content strong')?.textContent).toBe('bold');
+            expect(el.querySelector('.aparte-thinking-content strong')?.textContent).toBe('bold');
         });
 
         it('and on update', () => {
@@ -113,7 +113,7 @@ describe('default renderer: thinking (extra)', () => {
 
             renderer.update!(el, { id: 'm2', type: 'thinking', content: 'now **bold**', collapsed: false } as any);
 
-            expect(el.querySelector('.thinking-content strong')?.textContent).toBe('bold');
+            expect(el.querySelector('.aparte-thinking-content strong')?.textContent).toBe('bold');
         });
 
         it('still escapes hostile markup with no provider registered', () => {
@@ -121,8 +121,8 @@ describe('default renderer: thinking (extra)', () => {
             const el = document.createElement('div');
             el.innerHTML = renderer.render({ id: 'm3', type: 'thinking', content: '<img src=x onerror=alert(1)>', collapsed: false } as any) as string;
 
-            expect(el.querySelector('.thinking-content img')).toBeNull();
-            expect(el.querySelector('.thinking-content')?.textContent).toContain('<img');
+            expect(el.querySelector('.aparte-thinking-content img')).toBeNull();
+            expect(el.querySelector('.aparte-thinking-content')?.textContent).toContain('<img');
         });
 
         /**
@@ -145,7 +145,7 @@ describe('default renderer: thinking (extra)', () => {
 
             renderer.update!(el, { id: 'm4', type: 'thinking', content: FENCE, isStreaming: false, collapsed: false } as any);
 
-            await vi.waitFor(() => expect(el.querySelector('.thinking-content pre.hl')).toBeTruthy());
+            await vi.waitFor(() => expect(el.querySelector('.aparte-thinking-content pre.hl')).toBeTruthy());
             expect(seen[0], 'the language must reach the provider').toEqual(['const a = 1;', 'ts']);
             document.body.innerHTML = '';
         });
@@ -170,7 +170,7 @@ describe('default renderer: thinking (extra)', () => {
     /**
      * Following the stream, only if the reader is already at the bottom.
      *
-     * `.thinking-content` is its own scroll container (`max-height` +
+     * `.aparte-thinking-content` is its own scroll container (`max-height` +
      * `overflow-y: auto`) and `update()` used to replace its text without touching
      * `scrollTop`, so a growing reasoning trace stayed frozen on its first 300px
      * while the new lines piled up below the fold.
@@ -189,7 +189,7 @@ describe('default renderer: thinking (extra)', () => {
             const renderer = getSegmentRenderer('thinking')!;
             const el = document.createElement('div');
             el.innerHTML = renderer.render({ id: 'a1', type: 'thinking', content, collapsed: false } as any) as string;
-            const contentEl = el.querySelector('.thinking-content')! as HTMLElement;
+            const contentEl = el.querySelector('.aparte-thinking-content')! as HTMLElement;
 
             const height = () => (contentEl.textContent ?? '').length * PX_PER_CHAR;
             const maxScroll = () => Math.max(0, height() - CLIENT_HEIGHT);

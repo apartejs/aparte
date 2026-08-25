@@ -146,7 +146,7 @@ export class AparteComposerSend extends HTMLElement {
             : (cfg.t('submitButton') || 'Submit');
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
-        this._button.classList.remove('is-streaming');
+        this._button.classList.remove('aparte-is-streaming');
     }
 
     private _handleClick(e: MouseEvent): void {
@@ -165,7 +165,7 @@ export class AparteComposerSend extends HTMLElement {
         const label = resolveConfig(this).t('sendButton') || 'Send';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
-        this._button.classList.remove('is-streaming');
+        this._button.classList.remove('aparte-is-streaming');
     }
 
     private _syncStreamingState(streaming: boolean): void {
@@ -179,7 +179,7 @@ export class AparteComposerSend extends HTMLElement {
             const label = resolveConfig(this).t('stopButton') || 'Stop';
             this._button.setAttribute('aria-label', label);
             this._button.setAttribute('title', label);
-            this._button.classList.add('is-streaming');
+            this._button.classList.add('aparte-is-streaming');
         } else {
             this._syncState();
         }

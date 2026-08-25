@@ -244,11 +244,11 @@ export class AparteComposerInput extends HTMLElement {
     }
 
     private _handleFocus(): void {
-        this.classList.add('is-focused');
+        this.classList.add('aparte-is-focused');
     }
 
     private _handleBlur(): void {
-        this.classList.remove('is-focused');
+        this.classList.remove('aparte-is-focused');
     }
 
     private _handlePaste(e: ClipboardEvent): void {

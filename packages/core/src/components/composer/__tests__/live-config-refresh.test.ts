@@ -160,7 +160,7 @@ describe('the send button keeps the meaning it currently has', () => {
         const { el } = mount('aparte-composer-send');
         const button = el.querySelector('button')!;
         startStreaming();
-        expect(button.classList.contains('is-streaming')).toBe(true);
+        expect(button.classList.contains('aparte-is-streaming')).toBe(true);
 
         aparteGlobalConfig.setIconProvider({ send: () => MARK, stop: () => '<svg data-stop="1"></svg>' });
 
@@ -168,7 +168,7 @@ describe('the send button keeps the meaning it currently has', () => {
         // have put the send glyph back while a reply was still streaming.
         expect(button.innerHTML).toContain('data-stop');
         expect(button.innerHTML).not.toContain('data-mine');
-        expect(button.classList.contains('is-streaming')).toBe(true);
+        expect(button.classList.contains('aparte-is-streaming')).toBe(true);
     });
 
     it('localizes the streaming label, which used to be a bare literal', () => {

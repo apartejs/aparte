@@ -28,7 +28,7 @@ test('a vendor 500 surfaces an error state and dispatches aparte-message-error',
     await expect.poll(async () => (await readErrors()).length, { timeout: 10_000 }).toBeGreaterThan(0);
 
     // A failed turn must not leave the composer stuck in streaming mode.
-    await expect(chat.sendButton).not.toHaveClass(/is-streaming/);
+    await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/);
 
     // The failure is rendered, not thrown.
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
@@ -58,7 +58,7 @@ test('malformed SSE degrades without crashing the page', async ({ page }) => {
     // Whatever the outcome (empty reply or error segment), the turn must END —
     // no bubble left spinning forever — and the composer must be usable again.
     await expect(chat.streaming(chat.lastReply)).toHaveCount(0, { timeout: 20_000 });
-    await expect(chat.sendButton).not.toHaveClass(/is-streaming/);
+    await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/);
     await expect(chat.editor).toBeEditable();
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
@@ -73,7 +73,7 @@ test('an empty stream completes the turn instead of hanging', async ({ page }) =
     await chat.send('nothing comes back');
 
     await expect(chat.streaming(chat.lastReply)).toHaveCount(0, { timeout: 20_000 });
-    await expect(chat.sendButton).not.toHaveClass(/is-streaming/);
+    await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/);
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });

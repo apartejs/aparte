@@ -41,13 +41,13 @@ test('the send button becomes a stop button while streaming, and back after', as
     const chat = new ChatPage(page);
     await page.goto('/');
 
-    await expect(chat.sendButton).not.toHaveClass(/is-streaming/);
+    await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/);
 
     await chat.send('stop button probe');
-    await expect(chat.sendButton).toHaveClass(/is-streaming/, { timeout: 15_000 });
+    await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 15_000 });
 
     await expect(chat.lastReply).toContainText(MOCK_REPLY_MARK, { timeout: 20_000 });
-    await expect(chat.sendButton).not.toHaveClass(/is-streaming/);
+    await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/);
 });
 
 test('cancelling mid-stream stops the turn and leaves the composer usable', async ({ page }) => {
@@ -59,14 +59,14 @@ test('cancelling mid-stream stops the turn and leaves the composer usable', asyn
     const readCancels = await chat.recordEvents('aparte-cancel');
     const readErrorEvents = await chat.recordEvents('aparte-message-error');
     await chat.send('cancel probe');
-    await expect(chat.sendButton).toHaveClass(/is-streaming/, { timeout: 15_000 });
+    await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 15_000 });
 
     // The stop button is the send button in streaming mode.
     await chat.sendButton.click();
     await expect.poll(async () => (await readCancels()).length, { timeout: 10_000 }).toBeGreaterThan(0);
 
     // Streaming state is fully unwound — no zombie flag, no stuck stop button.
-    await expect(chat.sendButton).not.toHaveClass(/is-streaming/, { timeout: 10_000 });
+    await expect(chat.sendButton).not.toHaveClass(/aparte-is-streaming/, { timeout: 10_000 });
     await expect(chat.streaming()).toHaveCount(0);
 
     // A deliberate Stop is NOT a failure. This is the half that let the defect

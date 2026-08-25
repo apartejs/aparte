@@ -135,7 +135,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
             ? contextConfig().sanitizeHtml(cached.previewHtml)
             : `<div class="aparte-art-file__preview-empty">Preview not available for ${escapeHtml(kind)} yet</div>`;
         return `
-            <div class="segment segment-artifact-file"
+            <div class="aparte-segment aparte-segment-artifact-file"
                  data-segment-id="${escapeHtml(segment.id)}"
                  data-artifact-type="${escapeHtml(kind)}"
                  data-state="ready">
@@ -164,7 +164,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
         ? contextConfig().t('generating')
         : contextConfig().t('rebuildingPreview');
     return `
-        <div class="segment segment-artifact-file"
+        <div class="aparte-segment aparte-segment-artifact-file"
              data-segment-id="${escapeHtml(segment.id)}"
              data-artifact-type="${escapeHtml(kind)}"
              data-state="${isStreaming ? 'streaming' : 'compiling'}">

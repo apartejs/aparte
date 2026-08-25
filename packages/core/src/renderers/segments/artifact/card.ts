@@ -79,7 +79,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         // did not produce does not get to act on its own.
 
         return `
-            <div class="segment segment-artifact-card"
+            <div class="aparte-segment aparte-segment-artifact-card"
                  data-segment-id="${escapeHtml(segment.id)}"
                  data-artifact-type="${escapeHtml(kind)}"
                  data-streaming="${isStreaming ? 'true' : 'false'}"
@@ -107,7 +107,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                 </nav>
                 <div class="aparte-art-card__body">
                     <div class="aparte-art-card__pane" data-pane="code">
-                        <div class="code-content-wrapper">
+                        <div class="aparte-code-content-wrapper">
                             <pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>
                         </div>
                     </div>
@@ -162,7 +162,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             return;
         }
         // Async highlight on the code pane
-        const wrapper = element.querySelector('.code-content-wrapper');
+        const wrapper = element.querySelector('.aparte-code-content-wrapper');
         if (wrapper) {
             const displayLang = languageForKind(kind);
             const cleanContent = stripCodeFences(segment.content || '');
@@ -254,13 +254,13 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         // pane flicker: it erased the highlighter's spans on every token.
         if (isStreaming) {
             const segId = element.getAttribute('data-segment-id') ?? segment.id;
-            streamHighlight(element, '.code-content-wrapper', cleanContent, languageForKind(kind), segId);
+            streamHighlight(element, '.aparte-code-content-wrapper', cleanContent, languageForKind(kind), segId);
         } else {
-            const codeEl = element.querySelector('.code-content-wrapper code');
+            const codeEl = element.querySelector('.aparte-code-content-wrapper code');
             if (codeEl) {
                 codeEl.textContent = cleanContent;
             } else {
-                const wrapper = element.querySelector('.code-content-wrapper');
+                const wrapper = element.querySelector('.aparte-code-content-wrapper');
                 if (wrapper) {
                     const displayLang = languageForKind(kind);
                     wrapper.innerHTML = `<pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>`;
@@ -279,7 +279,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             element.querySelector('.aparte-art-card__pulse')?.remove();
 
             // Re-run syntax highlight now that content is final
-            const wrapper = element.querySelector('.code-content-wrapper');
+            const wrapper = element.querySelector('.aparte-code-content-wrapper');
             if (wrapper) {
                 const displayLang = languageForKind(kind);
                 void contextConfig().highlightCode(cleanContent, displayLang).then(html => {

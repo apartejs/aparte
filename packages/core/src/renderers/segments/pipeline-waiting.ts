@@ -18,10 +18,10 @@ export const pipelineWaitingRenderer: AparteSegmentRenderer = {
     type: 'pipeline-waiting',
     render: (segment) => {
         return `
-        <div class="segment segment-pipeline-waiting" data-segment-id="${escapeHtml(segment.id)}" aria-label="${escapeAttr(waitingLabel())}" role="status">
-            <span class="pw-dot"></span>
-            <span class="pw-dot"></span>
-            <span class="pw-dot"></span>
+        <div class="aparte-segment aparte-segment-pipeline-waiting" data-segment-id="${escapeHtml(segment.id)}" aria-label="${escapeAttr(waitingLabel())}" role="status">
+            <span class="aparte-pw-dot"></span>
+            <span class="aparte-pw-dot"></span>
+            <span class="aparte-pw-dot"></span>
         </div>`;
     },
     update: () => { /* nothing to update */ },

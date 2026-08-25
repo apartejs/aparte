@@ -234,7 +234,7 @@
   --aparte-error-icon-size: 20px;
   --aparte-error-rail-width: 4px;
 
-  /* Prose (segment-content) */
+  /* Prose (aparte-segment-content) */
   --aparte-prose-p-margin: 0.4em 0;
   --aparte-prose-h1-size: 1.4em;
   --aparte-prose-h2-size: 1.25em;
@@ -424,7 +424,7 @@ aparte-chat {
   --aparte-scroll-btn-border: var(--aparte-border);
   --aparte-scroll-btn-hover-bg: var(--aparte-surface-2);
 
-  /* Prose (segment-content) */
+  /* Prose (aparte-segment-content) */
   --aparte-prose-blockquote-border: var(--aparte-border);
   --aparte-prose-code-bg: var(--aparte-surface-2);
 
@@ -1560,7 +1560,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   font-size: var(--aparte-font-size-md, 13px);
 }
 
-.aparte-input-upper.has-content {
+.aparte-input-upper.aparte-has-content {
   display: flex;
 }
 
@@ -1787,7 +1787,7 @@ aparte-chat-status:not([visible]) {
    ========================================= */
 
 /* Text */
-.segment-text {
+.aparte-segment-text {
   word-wrap: break-word;
 }
 
@@ -1798,60 +1798,60 @@ aparte-chat-status:not([visible]) {
    ========================================= */
 
 .aparte-content,
-.segment-content {
+.aparte-segment-content {
   white-space: normal;
 }
 
 .aparte-content p,
-.segment-content p,
-.thinking-content p {
+.aparte-segment-content p,
+.aparte-thinking-content p {
   margin: var(--aparte-prose-p-margin, 0.4em 0);
 }
 
 .aparte-content p:first-child,
-.segment-content p:first-child,
-.thinking-content p:first-child {
+.aparte-segment-content p:first-child,
+.aparte-thinking-content p:first-child {
   margin-top: 0;
 }
 
 .aparte-content p:last-child,
-.segment-content p:last-child,
-.thinking-content p:last-child {
+.aparte-segment-content p:last-child,
+.aparte-thinking-content p:last-child {
   margin-bottom: 0;
 }
 
-.aparte-content h1, .segment-content h1, .thinking-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.6em 0 0.2em; }
-.aparte-content h2, .segment-content h2, .thinking-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.5em 0 0.2em; }
-.aparte-content h3, .segment-content h3, .thinking-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.4em 0 0.15em; }
-.aparte-content h4, .segment-content h4, .thinking-content h4,
-.aparte-content h5, .segment-content h5, .thinking-content h5,
-.aparte-content h6, .segment-content h6, .thinking-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.3em 0 0.1em; }
+.aparte-content h1, .aparte-segment-content h1, .aparte-thinking-content h1 { font-size: var(--aparte-prose-h1-size, 1.4em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.6em 0 0.2em; }
+.aparte-content h2, .aparte-segment-content h2, .aparte-thinking-content h2 { font-size: var(--aparte-prose-h2-size, 1.25em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.5em 0 0.2em; }
+.aparte-content h3, .aparte-segment-content h3, .aparte-thinking-content h3 { font-size: var(--aparte-prose-h3-size, 1.1em); font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.4em 0 0.15em; }
+.aparte-content h4, .aparte-segment-content h4, .aparte-thinking-content h4,
+.aparte-content h5, .aparte-segment-content h5, .aparte-thinking-content h5,
+.aparte-content h6, .aparte-segment-content h6, .aparte-thinking-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold, 600); margin: 0.3em 0 0.1em; }
 
 .aparte-content ul,
-.segment-content ul,
-.thinking-content ul {
+.aparte-segment-content ul,
+.aparte-thinking-content ul {
   list-style: disc;
   padding-left: var(--aparte-prose-list-indent, 1.5em);
   margin: var(--aparte-prose-list-margin, 0.4em 0);
 }
 
 .aparte-content ol,
-.segment-content ol,
-.thinking-content ol {
+.aparte-segment-content ol,
+.aparte-thinking-content ol {
   list-style: decimal;
   padding-left: var(--aparte-prose-list-indent, 1.5em);
   margin: var(--aparte-prose-list-margin, 0.4em 0);
 }
 
 .aparte-content li,
-.segment-content li,
-.thinking-content li {
+.aparte-segment-content li,
+.aparte-thinking-content li {
   margin: var(--aparte-prose-li-margin, 0.15em 0);
 }
 
 .aparte-content blockquote,
-.segment-content blockquote,
-.thinking-content blockquote {
+.aparte-segment-content blockquote,
+.aparte-thinking-content blockquote {
   border-left: var(--aparte-prose-blockquote-border-width, 3px) solid var(--aparte-prose-blockquote-border, var(--aparte-border, #e5e7eb));
   padding-left: 1em;
   margin: 0.4em 0;
@@ -1860,20 +1860,20 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content strong,
-.segment-content strong,
-.thinking-content strong {
+.aparte-segment-content strong,
+.aparte-thinking-content strong {
   font-weight: var(--aparte-font-weight-semibold, 600);
 }
 
 .aparte-content em,
-.segment-content em,
-.thinking-content em {
+.aparte-segment-content em,
+.aparte-thinking-content em {
   font-style: italic;
 }
 
 .aparte-content code,
-.segment-content code,
-.thinking-content code {
+.aparte-segment-content code,
+.aparte-thinking-content code {
   font-family: var(--aparte-code-font-family, ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace);
   font-size: var(--aparte-code-inline-font-size, 0.875em);
   background: var(--aparte-prose-code-bg, var(--aparte-code-bg, #f3f4f6));
@@ -1882,29 +1882,29 @@ aparte-chat-status:not([visible]) {
 }
 
 .aparte-content a,
-.segment-content a,
-.thinking-content a {
+.aparte-segment-content a,
+.aparte-thinking-content a {
   color: var(--aparte-primary, #6366f1);
   text-decoration: underline;
 }
 
 .aparte-content hr,
-.segment-content hr,
-.thinking-content hr {
+.aparte-segment-content hr,
+.aparte-thinking-content hr {
   border: none;
   border-top: var(--aparte-border-width, 1px) solid var(--aparte-border, #e5e7eb);
   margin: 0.75em 0;
 }
 
 /* Thinking */
-.segment-thinking {
+.aparte-segment-thinking {
   /* Understated disclosure: a muted left rail, not a filled card. */
   border-left: var(--aparte-thinking-rail-width, 2px) solid var(--aparte-thinking-border, #e5e7eb);
   margin: var(--aparte-space-5, 10px) 0;
   background: transparent;
 }
 
-.thinking-header {
+.aparte-thinking-header {
   display: flex;
   align-items: center;
   gap: var(--aparte-space-3, 6px);
@@ -1916,27 +1916,27 @@ aparte-chat-status:not([visible]) {
   list-style: none;
 }
 
-.thinking-header::-webkit-details-marker {
+.aparte-thinking-header::-webkit-details-marker {
   display: none;
 }
 
-.thinking-toggle {
+.aparte-thinking-toggle {
   margin-inline-start: auto;
   /* Logical property */
   transition: transform 0.2s;
   opacity: 0.55;
 }
 
-details[open] .thinking-toggle {
+details[open] .aparte-thinking-toggle {
   transform: rotate(180deg);
 }
 
-.thinking-toggle::after {
+.aparte-thinking-toggle::after {
   content: '▼';
   font-size: var(--aparte-thinking-toggle-size, 9px);
 }
 
-.thinking-content {
+.aparte-thinking-content {
   padding: var(--aparte-space-2, 4px) 0 var(--aparte-space-1, 2px) var(--aparte-space-5, 10px);
   font-size: var(--aparte-font-size-md, 13px);
   line-height: var(--aparte-thinking-content-line-height, 1.55);
@@ -1947,14 +1947,14 @@ details[open] .thinking-toggle {
 }
 
 /* Code */
-.segment-code {
+.aparte-segment-code {
   margin: var(--aparte-space-6, 12px) 0;
   border-radius: var(--aparte-radius-code);
   overflow: hidden;
   border: var(--aparte-border-width, 1px) solid var(--aparte-code-border, #e5e7eb);
 }
 
-.code-header {
+.aparte-code-header {
   display: flex;
   align-items: center;
   padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
@@ -1964,25 +1964,25 @@ details[open] .thinking-toggle {
   color: var(--aparte-code-header-text, #4b5563);
 }
 
-.code-filename {
+.aparte-code-filename {
   font-weight: var(--aparte-font-weight-semibold, 600);
   margin-inline-end: auto;
   /* Logical property: pushes language + copy to the right when filename is present */
 }
 
-.code-header-filler {
+.aparte-code-header-filler {
   flex: 1;
   /* No-filename placeholder — keeps language + copy right-aligned */
 }
 
-.code-language {
+.aparte-code-language {
   margin-inline-end: var(--aparte-space-4, 8px);
   /* Logical property */
   text-transform: uppercase;
   opacity: 0.7;
 }
 
-.code-copy {
+.aparte-code-copy {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -1994,23 +1994,23 @@ details[open] .thinking-toggle {
   justify-content: center;
 }
 
-.code-copy:hover {
+.aparte-code-copy:hover {
   background: var(--aparte-code-copy-hover-bg, rgba(0, 0, 0, 0.05));
 }
 
-.code-copy svg {
+.aparte-code-copy svg {
   width: var(--aparte-code-copy-icon-size, 14px);
   height: var(--aparte-code-copy-icon-size, 14px);
 }
 
-.code-content-wrapper pre {
+.aparte-code-content-wrapper pre {
   margin: 0;
   padding: var(--aparte-space-6, 12px);
   /* Wrap long lines instead of a horizontal scrollbar. `pre-wrap` honours
      newlines + indentation but soft-wraps overflowing lines; `overflow-wrap:
      anywhere` breaks unbreakable tokens (long URLs, hashes). Applies to both
      the plain <pre><code> initial render and the shiki <pre class="shiki">
-     replacement, since both sit inside .code-content-wrapper. */
+     replacement, since both sit inside .aparte-code-content-wrapper. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow-x: hidden;
@@ -2026,7 +2026,7 @@ details[open] .thinking-toggle {
 }
 
 /* Error */
-.segment-error {
+.aparte-segment-error {
   display: flex;
   gap: var(--aparte-space-6, 12px);
   padding: var(--aparte-space-6, 12px) var(--aparte-space-8, 16px);
@@ -2039,7 +2039,7 @@ details[open] .thinking-toggle {
   font-family: var(--aparte-font-family, system-ui, sans-serif);
 }
 
-.error-icon-wrapper {
+.aparte-error-icon-wrapper {
   flex-shrink: 0;
   color: var(--aparte-error-solid, #dc2626);
   display: flex;
@@ -2047,29 +2047,29 @@ details[open] .thinking-toggle {
   padding-top: var(--aparte-space-1, 2px);
 }
 
-.error-icon-wrapper svg {
+.aparte-error-icon-wrapper svg {
   width: var(--aparte-error-icon-size, 20px);
   height: var(--aparte-error-icon-size, 20px);
 }
 
-.error-content {
+.aparte-error-content {
   flex: 1;
   min-width: 0;
 }
 
-.error-title {
+.aparte-error-title {
   font-weight: var(--aparte-font-weight-semibold, 600);
   font-size: var(--aparte-font-size-lg, 14px);
   margin-bottom: var(--aparte-space-2, 4px);
   color: var(--aparte-error-title, #7f1d1d);
 }
 
-.error-message {
+.aparte-error-message {
   font-size: var(--aparte-font-size-lg, 14px);
   line-height: var(--aparte-line-height-normal, 1.5);
 }
 
-.error-details {
+.aparte-error-details {
   margin-top: var(--aparte-space-4, 8px);
   padding-top: var(--aparte-space-4, 8px);
   border-top: var(--aparte-border-width, 1px) solid var(--aparte-error-border, #fecaca);
@@ -2111,7 +2111,7 @@ details[open] .thinking-toggle {
    ───────────────────────────────────────────────────────────────────────────── */
 
 /* Tool call */
-.segment-tool-call { display: block; padding: 2px 0; }
+.aparte-segment-tool-call { display: block; padding: 2px 0; }
 /* The row is the summary. list-style:none plus the ::-webkit- pseudo is the
    pair that actually removes the native marker across engines. */
 /* A ROW, not a badge.
@@ -2120,47 +2120,47 @@ details[open] .thinking-toggle {
    line: the disclosure control, the call's identity, and its state at the far
    end. The chip also had to carry a border and a fill, so it competed with the
    reply text beside it for attention it did not deserve. */
-.tool-summary {
+.aparte-tool-summary {
     display: flex; align-items: center; gap: 7px;
     padding: 3px 6px; margin-inline-start: -6px;
     border-radius: var(--aparte-tool-row-radius, 6px);
     cursor: pointer; list-style: none;
 }
-.tool-summary:hover { background: var(--aparte-surface-2, rgba(128,128,128,0.07)); }
-.tool-summary::-webkit-details-marker { display: none; }
-.tool-toggle {
+.aparte-tool-summary:hover { background: var(--aparte-surface-2, rgba(128,128,128,0.07)); }
+.aparte-tool-summary::-webkit-details-marker { display: none; }
+.aparte-tool-toggle {
     width: 0; height: 0; flex: none; margin-inline-start: -1px;
     border-inline-start: 5px solid currentColor;
     border-block: 4px solid transparent;
     opacity: 0.5; transition: transform 0.15s;
 }
-.tool-summary:hover .tool-toggle { opacity: 0.9; }
-details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
+.aparte-tool-summary:hover .aparte-tool-toggle { opacity: 0.9; }
+details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90deg); }
 /* A rule down the leading edge, so the disclosure reads as belonging to the
    pill above it rather than continuing the message text below. Without it
    "Output" and the assistant's next sentence sat in one undifferentiated
    column. */
-.tool-detail {
+.aparte-tool-detail {
     display: flex; flex-direction: column; gap: 8px;
     /* Aligned under the row's icon, so the rule reads as descending from the
        call rather than floating beside it. */
     margin: 4px 0 6px 3px; padding: 2px 0 2px 12px;
     border-inline-start: 1px solid var(--aparte-border, rgba(128,128,128,0.25));
 }
-.tool-part-label {
+.aparte-tool-part-label {
     display: block; font-size: 0.68rem; text-transform: uppercase;
     letter-spacing: 0.04em; opacity: 0.55; margin-bottom: 2px;
 }
-.tool-part-body pre { margin: 0; }
+.aparte-tool-part-body pre { margin: 0; }
 /* Always in the DOM so update can leave the node alone and toggle hidden
    instead — an attribute a test can read, where a CSS-only rule is invisible
    to jsdom. */
-.tool-spinner[hidden] { display: none; }
+.aparte-tool-spinner[hidden] { display: none; }
 /* The call's identity: its icon and its name, and no decoration of its own.
    No border, no fill, no tint at any status — the row is the container now, and
    the colour lives on the state badge alone. A resolved call used to be filled
    green, which made a finished step shout louder than the reply it belongs to. */
-.tool-label {
+.aparte-tool-label {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -2173,39 +2173,39 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
 /* A fixed square, and the glyph centred in it. The icon was baseline-aligned
    inside an inline box, so it sat low against the name and moved with whatever
    glyph the icon provider returned. */
-.tool-icon {
+.aparte-tool-icon {
     display: grid;
     place-items: center;
     width: 1em; height: 1em;
     flex: none;
     opacity: 0.7;
 }
-.tool-icon svg { width: 1em; height: 1em; display: block; }
-.tool-name { font-family: var(--aparte-code-font-family, ui-monospace, monospace); }
+.aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
+.aparte-tool-name { font-family: var(--aparte-code-font-family, ui-monospace, monospace); }
 /* The state, as a word with its glyph. Colour lives HERE and nowhere else.
    Pushed to the far end by DOM order plus an auto inline-start margin, which is
    the placement rule this repo already settled on: no left/right in a name, so
    a right-to-left locale mirrors it for free. */
-.tool-state {
+.aparte-tool-state {
     display: inline-flex; align-items: center; gap: 4px;
     margin-inline-start: auto;
     font-size: 0.72rem; font-weight: 500;
     color: var(--aparte-text-muted, rgba(128,128,128,0.75));
     user-select: none;
 }
-.tool-state svg { width: 0.9em; height: 0.9em; display: block; }
-[data-status="resolved"] .tool-state { color: var(--aparte-success, rgb(21,128,61)); }
-[data-status="rejected"] .tool-state,
-[data-status="aborted"] .tool-state { color: var(--aparte-error, rgb(185,28,28)); }
+.aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
+[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success, rgb(21,128,61)); }
+[data-status="rejected"] .aparte-tool-state,
+[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error, rgb(185,28,28)); }
 /* The Approve / Reject button rules were here. They moved with the buttons, to
    .aparte-approval-option in this same file - and what stayed behind was a
-   leftover: a rule tinting .tool-label's border while a decision was pending,
+   leftover: a rule tinting .aparte-tool-label's border while a decision was pending,
    which stopped painting anything the moment the row redesign took that border
-   off .tool-label. It reached for a variable that was never declared, and it
+   off .aparte-tool-label. It reached for a variable that was never declared, and it
    survived because a template literal is not a stylesheet anyone greps. The
-   state is named in words by .tool-state now, and the decision is at the
+   state is named in words by .aparte-tool-state now, and the decision is at the
    composer. */
-.tool-spinner {
+.aparte-tool-spinner {
     width: 10px; height: 10px;
     border: 1.5px solid currentColor;
     border-top-color: transparent;
@@ -2213,11 +2213,11 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
     display: inline-block;
     animation: tool-spin 0.7s linear infinite;
 }
-.tool-state { font-size: 0.75rem; }
+.aparte-tool-state { font-size: 0.75rem; }
 @keyframes tool-spin { to { transform: rotate(360deg); } }
 
 /* Artifact card */
-.segment-artifact-card {
+.aparte-segment-artifact-card {
     display: flex; flex-direction: column;
     margin: 8px 0;
     border: 1px solid var(--aparte-border, rgba(0,0,0,0.12));
@@ -2339,8 +2339,8 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
     overflow: hidden;
 }
 .aparte-art-card__pane { display: none; height: 100%; }
-.segment-artifact-card[data-tab="code"]    .aparte-art-card__pane[data-pane="code"]    { display: block; }
-.segment-artifact-card[data-tab="preview"] .aparte-art-card__pane[data-pane="preview"] { display: block; }
+.aparte-segment-artifact-card[data-tab="code"]    .aparte-art-card__pane[data-pane="code"]    { display: block; }
+.aparte-segment-artifact-card[data-tab="preview"] .aparte-art-card__pane[data-pane="preview"] { display: block; }
 .aparte-art-card__pane[data-pane="code"] {
     /* The body already caps this; repeating the number was the second owner. */
     max-height: var(--aparte-artifact-body-max, 600px); overflow: auto;
@@ -2365,7 +2365,7 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
     font-style: italic;
 }
 /* ── Binary file artifact (xlsx/pdf/docx) ──────────────────── */
-.segment-artifact-file {
+.aparte-segment-artifact-file {
     display: flex; flex-direction: column;
     margin: 8px 0;
     border: 1px solid var(--aparte-border, rgba(0,0,0,0.12));
@@ -2444,7 +2444,7 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
 /* Hide the download button until the sandbox has produced the buffer.
    Avoids confusing the user with a disabled-but-styled-primary button
    during streaming / compiling. */
-.segment-artifact-file:not([data-state="ready"]) .aparte-art-file__btn[data-action="download"] {
+.aparte-segment-artifact-file:not([data-state="ready"]) .aparte-art-file__btn[data-action="download"] {
     display: none;
 }
 .aparte-art-file__preview-pane table {
@@ -2474,7 +2474,7 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
     color: var(--aparte-text-muted, rgba(0,0,0,0.5));
     font-size: 0.85rem; font-style: italic;
 }
-.segment-artifact-file[data-state="error"] .aparte-art-file__icon {
+.aparte-segment-artifact-file[data-state="error"] .aparte-art-file__icon {
     background: linear-gradient(135deg, #c0392b, #7d1f17);
 }
 .aparte-art-file__error {
@@ -2506,14 +2506,14 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
 }
 
 /* Pipeline waiting */
-.segment-pipeline-waiting {
+.aparte-segment-pipeline-waiting {
     display: flex;
     align-items: center;
     gap: 5px;
     padding: 6px 2px;
     min-height: 28px;
 }
-.pw-dot {
+.aparte-pw-dot {
     display: inline-block;
     width: 8px;
     height: 8px;
@@ -2522,8 +2522,8 @@ details[open] > .tool-summary .tool-toggle { transform: rotate(90deg); }
     opacity: 0.3;
     animation: pw-pulse 1.2s ease-in-out infinite;
 }
-.pw-dot:nth-child(2) { animation-delay: 0.2s; }
-.pw-dot:nth-child(3) { animation-delay: 0.4s; }
+.aparte-pw-dot:nth-child(2) { animation-delay: 0.2s; }
+.aparte-pw-dot:nth-child(3) { animation-delay: 0.4s; }
 @keyframes pw-pulse {
     0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
     40%            { opacity: 1;   transform: scale(1.1);  }
@@ -2624,13 +2624,13 @@ aparte-composer-action {
 }
 
 /* ── Drag-over state on root ── */
-aparte-composer.is-dragover .aparte-composer-shell {
+aparte-composer.aparte-is-dragover .aparte-composer-shell {
   outline: var(--aparte-focus-outline-width, 2px) dashed var(--aparte-primary);
   outline-offset: -2px;
   border-radius: var(--aparte-radius-input, 12px);
 }
 /* fallback: no shell */
-aparte-composer.is-dragover:not(:has(.aparte-composer-shell)) {
+aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
   outline: var(--aparte-focus-outline-width, 2px) dashed var(--aparte-primary);
   outline-offset: -2px;
   border-radius: var(--aparte-radius-input, 12px);
@@ -2945,15 +2945,15 @@ aparte-conversation-list {
    Provider-HTML overflow guards
    ========================================= */
 
-/* Markdown providers inject arbitrary HTML into .segment-text, and the bubble
+/* Markdown providers inject arbitrary HTML into .aparte-segment-text, and the bubble
    clips overflow (`aparte-chat-bubble { overflow: hidden }`) — without these
    guards a wide image or table is silently cut at the bubble edge. */
-.segment-text img {
+.aparte-segment-text img {
   max-width: 100%;
   height: auto;
 }
 
-.segment-text table {
+.aparte-segment-text table {
   display: block;
   max-width: 100%;
   overflow-x: auto;

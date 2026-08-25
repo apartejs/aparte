@@ -85,8 +85,8 @@ test('an in-flight turn in one chat leaves the other composer idle', async ({ pa
     await a.send('slow turn in A');
 
     // A shows the streaming affordances; B's send button must not follow along.
-    await expect(a.sendButton).toHaveClass(/is-streaming/, { timeout: 15_000 });
+    await expect(a.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 15_000 });
     await expect(a.streaming()).toHaveCount(1);
-    await expect(b.sendButton).not.toHaveClass(/is-streaming/);
+    await expect(b.sendButton).not.toHaveClass(/aparte-is-streaming/);
     await expect(b.streaming()).toHaveCount(0);
 });

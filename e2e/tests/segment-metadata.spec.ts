@@ -88,7 +88,7 @@ test('the app turns that span into the reasoning line users expect', async ({ pa
     // Asserted as a PATTERN, not as "not empty": the built-in label is also
     // non-empty, so a looser assertion would stay green with the app's renderer
     // removed entirely — the exact hole a substring check leaves.
-    await expect(chat.segment('thinking').first().locator('.thinking-label'))
+    await expect(chat.segment('thinking').first().locator('.aparte-thinking-label'))
         .toHaveText(/Thought for \d+\.\d+s/, { timeout: 15_000 });
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
@@ -108,13 +108,13 @@ test('the reasoning line is readable while the answer is still streaming', async
     await chat.send('measure while it runs');
 
     // Still in flight…
-    await expect(chat.sendButton).toHaveClass(/is-streaming/, { timeout: 15_000 });
+    await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 15_000 });
     // …and the reasoning block already reports its own duration. Asserted in this
     // order on purpose: the label must be readable BEFORE the turn ends, not after.
-    await expect(chat.segment('thinking').first().locator('.thinking-label'))
+    await expect(chat.segment('thinking').first().locator('.aparte-thinking-label'))
         .toHaveText(/Thought for \d+\.\d+s/, { timeout: 20_000 });
     await expect(chat.sendButton, 'the label must land before the turn ends')
-        .toHaveClass(/is-streaming/);
+        .toHaveClass(/aparte-is-streaming/);
 
     expect(errors, 'uncaught page errors:\n' + errors.join('\n')).toEqual([]);
 });

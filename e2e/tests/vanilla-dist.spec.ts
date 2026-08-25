@@ -33,12 +33,12 @@ test('mounts and runs the human-in-the-loop tool approval', async ({ page }) => 
     await expect(page.locator('aparte-composer')).toHaveAttribute('data-panel-active', '');
 
     // And the transcript holds the anchor, with nothing to press.
-    await expect(page.locator('.segment-tool-call[data-status="awaiting-approval"]')).toBeVisible();
+    await expect(page.locator('.aparte-segment-tool-call[data-status="awaiting-approval"]')).toBeVisible();
     await expect(page.locator('[data-tool-decision]')).toHaveCount(0);
 
     // One click, no confirm step.
     await option(page, 'Approve').click();
-    await expect(page.locator('.segment-tool-call[data-status="resolved"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.aparte-segment-tool-call[data-status="resolved"]')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').last()).toContainText('Approved');
     await expect(page.locator('.aparte-approval-panel'), 'the panel closes with the decision').toHaveCount(0);
 
@@ -54,7 +54,7 @@ test('rejecting a tool call halts the action', async ({ page }) => {
     await expect(option(page, 'Reject')).toBeVisible({ timeout: 15_000 });
     await option(page, 'Reject').click();
 
-    await expect(page.locator('.segment-tool-call[data-status="rejected"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.aparte-segment-tool-call[data-status="rejected"]')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').last()).toContainText('Rejected');
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
@@ -75,7 +75,7 @@ test('a refusal can carry the words the user typed instead', async ({ page }) =>
     // already means; an option is its own click.
     await page.locator('aparte-composer-send button').click();
 
-    await expect(page.locator('.segment-tool-call[data-status="rejected"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('.aparte-segment-tool-call[data-status="rejected"]')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('aparte-chat-bubble[data-role="assistant"]').last())
         .toContainText('move them to the archive instead');
 

@@ -109,19 +109,19 @@ And every part is a class, so restyling needs no renderer:
 
 | Class | The part |
 | --- | --- |
-| `.tool-summary` | the clickable line |
-| `.tool-toggle` | the chevron |
-| `.tool-label` | the call's identity — holds `.tool-icon` and `.tool-name` |
-| `.tool-spinner` | shown only while `pending` |
-| `.tool-state` | the state word, pushed to the far end |
-| `.tool-detail` | the opened body |
-| `.tool-part` | one of Input / Output — holds `.tool-part-label` and `.tool-part-body` |
+| `.aparte-tool-summary` | the clickable line |
+| `.aparte-tool-toggle` | the chevron |
+| `.aparte-tool-label` | the call's identity — holds `.aparte-tool-icon` and `.aparte-tool-name` |
+| `.aparte-tool-spinner` | shown only while `pending` |
+| `.aparte-tool-state` | the state word, pushed to the far end |
+| `.aparte-tool-detail` | the opened body |
+| `.aparte-tool-part` | one of Input / Output — holds `.aparte-tool-part-label` and `.aparte-tool-part-body` |
 
 ```css
 :root { --aparte-tool-row-radius: 0; } /* the row's corner */
 
-.tool-summary:hover { background: none; }
-.tool-state { font-variant: small-caps; }
+.aparte-tool-summary:hover { background: none; }
+.aparte-tool-state { font-variant: small-caps; }
 ```
 
 Replacing the markup outright is [a custom tool renderer](#custom-tool-renderer) instead.
@@ -227,7 +227,7 @@ import { aparteGlobalConfig } from '@aparte/core';
 import type { AparteToolRenderer } from '@aparte/core';
 
 const webSearchRenderer: AparteToolRenderer = {
-  render: (segment) => `<div class="tool-label">Searching the web…</div>`,
+  render: (segment) => `<div class="aparte-tool-label">Searching the web…</div>`,
   setup: (element, segment) => { /* wire listeners after injection, if any */ },
 };
 
@@ -253,7 +253,7 @@ import type { AparteToolRenderer } from '@aparte/core';
 const searchRenderer: AparteToolRenderer = {
   render: (segment) => {
     const el = document.createElement('div');
-    el.className = 'tool-label';
+    el.className = 'aparte-tool-label';
     // textContent, so the value is text no matter what it contains.
     el.textContent = `Searching for ${String(segment.toolCall?.input?.['query'] ?? '')}`;
     return el;
@@ -274,7 +274,7 @@ import type { AparteToolRenderer } from '@aparte/core';
 const searchRenderer: AparteToolRenderer = {
   render: (segment) => {
     const query = String(segment.toolCall?.input?.['query'] ?? '');
-    return `<div class="tool-label" title="${escapeAttr(query)}">Searching for ${escapeHtml(query)}</div>`;
+    return `<div class="aparte-tool-label" title="${escapeAttr(query)}">Searching for ${escapeHtml(query)}</div>`;
   },
 };
 

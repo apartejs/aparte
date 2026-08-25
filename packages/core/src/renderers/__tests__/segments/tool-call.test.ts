@@ -35,7 +35,7 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
         };
         const html = getSegmentRenderer('tool_call')!.render(seg as any);
         expect(html).toContain('class="my-visual"');
-        expect(html).not.toContain('tool-name'); // the default pill is bypassed
+        expect(html).not.toContain('aparte-tool-name'); // the default pill is bypassed
     });
 
     it('falls back to the default pill when the custom render returns empty', () => {
@@ -46,7 +46,7 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
             status: 'pending',
         };
         const html = getSegmentRenderer('tool_call')!.render(seg as any);
-        expect(html).toContain('tool-label'); // empty custom output => hide-to-default
+        expect(html).toContain('aparte-tool-label'); // empty custom output => hide-to-default
     });
 
     it('invokes the consumer setup() hook with the mounted element + segment', () => {
@@ -130,7 +130,7 @@ describe('default renderer: tool_call', () => {
             status: 'pending'
         };
         const html = renderer.render(seg as any);
-        expect(html).toContain('tool-spinner');
+        expect(html).toContain('aparte-tool-spinner');
         expect(html).not.toContain(aparteGlobalConfig.getIcon('check'));
     });
 
@@ -203,7 +203,7 @@ describe('default renderer: tool_call', () => {
             // an affordance that lies.
             const node = el({ id: 'd2', type: 'tool_call', status: 'pending', toolCall: { id: 'c2', name: 'get_time', input: {} } });
             expect(node.tagName).toBe('DIV');
-            expect(node.querySelector('.tool-toggle')).toBeNull();
+            expect(node.querySelector('.aparte-tool-toggle')).toBeNull();
         });
     });
 
@@ -219,7 +219,7 @@ describe('default renderer: tool_call', () => {
         // The spinner node is always present now — `update` toggles `hidden` on it
         // rather than adding and removing a node, so what a resolved call must not have
         // is a VISIBLE spinner, and `hidden` is the part a test can actually read.
-        expect(html).toContain('tool-spinner');
+        expect(html).toContain('aparte-tool-spinner');
         expect(html).toContain('aria-hidden="true" hidden');
     });
 
@@ -268,7 +268,7 @@ describe('default renderer: tool_call', () => {
         expect(getSegmentRenderer('tool_call')!.getStyles?.()).toBe('');
 
         const sheet = readAparteStylesheet();
-        expect(sheet).toContain('.tool-label');
-        expect(sheet).toContain('.tool-spinner');
+        expect(sheet).toContain('.aparte-tool-label');
+        expect(sheet).toContain('.aparte-tool-spinner');
     });
 });

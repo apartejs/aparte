@@ -30,9 +30,9 @@ test('reasoning deltas render a thinking block the user can open and close', asy
     await expect(thinking).toBeAttached();
     // EXACT, not `toContainText`: the reasoning arrives in three deltas, and a
     // substring assertion stayed green while every chunk was being written twice.
-    await expect(thinking.locator('.thinking-content')).toHaveText(MOCK_THINKING_FULL);
+    await expect(thinking.locator('.aparte-thinking-content')).toHaveText(MOCK_THINKING_FULL);
     // A labelled summary is what makes it discoverable.
-    await expect(thinking.locator('.thinking-label')).not.toBeEmpty();
+    await expect(thinking.locator('.aparte-thinking-label')).not.toBeEmpty();
 
     // It is a native <details>, so opening/closing needs no JS from the host.
     const isOpen = () => thinking.evaluate((el) => (el as HTMLDetailsElement).open);
@@ -51,7 +51,7 @@ test('reasoning deltas render a thinking block the user can open and close', asy
 /**
  * A long reasoning trace has to follow itself down WHILE IT ARRIVES.
  *
- * `.thinking-content` is its own scroll container (`max-height: 300px`) and the
+ * `.aparte-thinking-content` is its own scroll container (`max-height: 300px`) and the
  * renderer replaced its text without ever touching `scrollTop`, so an open block
  * stayed frozen on its first lines while the newest reasoning piled up below the
  * fold. Reported from a real session with the block open, watching text arrive.
@@ -85,7 +85,7 @@ test('a long reasoning trace follows itself while it streams', async ({ page }) 
     if (!(await thinking.evaluate((el) => (el as HTMLDetailsElement).open))) {
         await thinking.locator('summary').click();
     }
-    const content = thinking.locator('.thinking-content');
+    const content = thinking.locator('.aparte-thinking-content');
 
     const geometry = () => content.evaluate((el) => ({
         top: el.scrollTop,
@@ -130,7 +130,7 @@ test('a fenced block renders as a code segment whose copy button yields the sour
     await expect(code).toBeAttached();
     await expect(code).toContainText(MOCK_CODE_MARK);
 
-    await code.locator('.code-copy').click();
+    await code.locator('.aparte-code-copy').click();
     if (canReadClipboard) {
         const clipboard = await page.evaluate(() => navigator.clipboard.readText());
         // The SOURCE, not the highlighted markup.

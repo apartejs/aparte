@@ -16,24 +16,24 @@ import type {
 export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     type: 'code',
     render: (segment) => `
-        <div class="segment segment-code" data-segment-id="${escapeHtml(segment.id)}">
-            <div class="code-header">
+        <div class="aparte-segment aparte-segment-code" data-segment-id="${escapeHtml(segment.id)}">
+            <div class="aparte-code-header">
                 ${segment.filename
-                    ? `<span class="code-filename">${escapeHtml(segment.filename)}</span>`
-                    : `<span class="code-header-filler"></span>`}
-                <span class="code-language">${escapeHtml(segment.language || '')}</span>
-                <button class="code-copy" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}">
+                    ? `<span class="aparte-code-filename">${escapeHtml(segment.filename)}</span>`
+                    : `<span class="aparte-code-header-filler"></span>`}
+                <span class="aparte-code-language">${escapeHtml(segment.language || '')}</span>
+                <button class="aparte-code-copy" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}">
                     ${contextConfig().getIcon('copy')}
                 </button>
             </div>
-            <div class="code-content-wrapper">
+            <div class="aparte-code-content-wrapper">
                 <pre><code class="language-${escapeHtml(segment.language || 'text')}">${escapeHtml(segment.content)}</code></pre>
             </div>
         </div>
     `,
     /** The copy button's icon and tooltip — nothing else here comes from config. */
     relabel: (element) => {
-        const copyBtn = element.querySelector('.code-copy') as HTMLElement | null;
+        const copyBtn = element.querySelector('.aparte-code-copy') as HTMLElement | null;
         // Leave a button mid-"copied" alone; its own timeout restores the resting
         // state from the new config a moment later anyway.
         if (!copyBtn || copyBtn.dataset.copied) return;
@@ -42,7 +42,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     },
     setup: (element, segment) => {
         // Async highlight: replace plain <pre><code> with highlighted HTML once ready
-        const wrapper = element.querySelector('.code-content-wrapper');
+        const wrapper = element.querySelector('.aparte-code-content-wrapper');
         if (wrapper) {
             void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
                 wrapper.innerHTML = html;
@@ -51,7 +51,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
 
         // Typed as HTMLElement: the confirmation is marked with a data attribute so
         // `relabel` can leave it alone, and `dataset` is not on `Element`.
-        const copyBtn = element.querySelector('.code-copy') as HTMLElement | null;
+        const copyBtn = element.querySelector('.aparte-code-copy') as HTMLElement | null;
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
                 // Read the DOM, not the segment this closure captured.
@@ -69,7 +69,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                 // `textContent` is the source either way: the highlighter wraps it
                 // in spans, which contribute no text. So this is also what makes
                 // "the source, not the markup" true rather than lucky.
-                const source = element.querySelector('.code-content-wrapper')?.textContent ?? '';
+                const source = element.querySelector('.aparte-code-content-wrapper')?.textContent ?? '';
                 // Late execution (user click) — the ambient render config is
                 // gone; resolve from the connected element instead.
                 void navigator.clipboard.writeText(source).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
@@ -94,10 +94,10 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
             // plain text and leave every highlight to stream-end, so a fence appeared
             // grey and turned colour once, at the end. The artifact card had solved the
             // same problem, which made this renderer the outlier rather than the design.
-            streamHighlight(element, '.code-content-wrapper', segment.content, segment.language || '', segment.id);
+            streamHighlight(element, '.aparte-code-content-wrapper', segment.content, segment.language || '', segment.id);
         } else {
             // Streaming complete — run the highlight provider for polished output.
-            const wrapper = element.querySelector('.code-content-wrapper');
+            const wrapper = element.querySelector('.aparte-code-content-wrapper');
             if (wrapper) {
                 void contextConfig().highlightCode(segment.content, segment.language || '').then(html => {
                     wrapper.innerHTML = html;
