@@ -195,24 +195,34 @@ function renderAngular(elements, config) {
  * \`(selectChange)="pick($event.value)"\` is the Angular idiom. Reach the event itself with
  * a plain host listener when you need \`stopPropagation\`.
  */
-import {
-    Directive,
-    ElementRef,
-    EventEmitter,
-    HostListener,
-    Input,
-    Output,
-    booleanAttribute,
-    inject,
-    numberAttribute,
-} from '@angular/core';
-import { applyElementProps } from '@aparte/core';
 `;
+
+    // Only what is used. A package with no numeric attribute — this plugin has none —
+    // otherwise imports `numberAttribute` for nothing and `noUnusedLocals` fails the
+    // build. Generated code has to satisfy the same lint the rest of the source does.
+    const anyAttrs = kept.some((el) => (el.attributes ?? []).some((a) => !(config.angularInputOmit?.[el.tagName] ?? []).includes(a.name)));
+    const anyEvents = kept.some((el) => (el.events ?? []).some((e) => !(config.angularOutputOmit?.[el.tagName] ?? []).includes(e.name)));
+    const usedTypes = new Set(kept.flatMap((el) =>
+        (el.attributes ?? [])
+            .filter((a) => !(config.angularInputOmit?.[el.tagName] ?? []).includes(a.name))
+            .map((a) => a.type?.text ?? 'string')));
+
+    const symbols = ['Directive'];
+    if (anyAttrs) symbols.push('ElementRef');
+    if (anyEvents) symbols.push('EventEmitter', 'HostListener');
+    if (anyAttrs) symbols.push('Input');
+    if (anyEvents) symbols.push('Output');
+    if (usedTypes.has('boolean')) symbols.push('booleanAttribute');
+    if (anyAttrs) symbols.push('inject');
+    if (usedTypes.has('number')) symbols.push('numberAttribute');
+
+    out += `import {\n${symbols.map((s) => `    ${s},`).join('\n')}\n} from '@angular/core';\n`;
+    if (anyAttrs) out += `import { applyElementProps } from '@aparte/core';\n`;
     if (details.size) {
         out += `import type {\n${[...details].sort().map((d) => `    ${d},`).join('\n')}\n} from '@aparte/core';\n`;
     }
 
-    out += `
+    if (anyAttrs) out += `
 /**
  * Writes one declared attribute onto the host element.
  *

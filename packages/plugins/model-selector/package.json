@@ -32,6 +32,11 @@
       "@aparte-workspace/source": "./src/svelte.ts",
       "types": "./dist/svelte.d.ts",
       "default": "./dist/svelte.js"
+    },
+    "./angular": {
+      "@aparte-workspace/source": "./src/angular.ts",
+      "types": "./dist/angular.d.ts",
+      "default": "./dist/angular.js"
     }
   },
   "files": [
@@ -44,21 +49,25 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -b --emitDeclarationOnly --force && pnpm run analyze",
+    "build": "vite build && tsc -b --emitDeclarationOnly --force && ngc -p tsconfig.angular.json && pnpm run analyze",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "analyze": "cem analyze",
-    "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/model-selector --registry packages/plugins/model-selector/src/generated"
+    "gen": "pnpm run analyze && node ../../../scripts/gen-element-bindings.mjs packages/plugins/model-selector --registry packages/plugins/model-selector/src/generated --angular packages/plugins/model-selector/src/generated"
   },
   "peerDependencies": {
+    "@angular/core": "^19.2.0",
     "@aparte/core": ">=0.7.0 <1.0.0",
     "react": "^19.2.7",
     "svelte": "^4.2.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
+    "@angular/compiler": "^19.2.0",
+    "@angular/compiler-cli": "^19.2.0",
+    "@angular/core": "^19.2.0",
     "@aparte/core": "workspace:*",
     "@custom-elements-manifest/analyzer": "^0.11.0",
     "@types/react": "^19.2.17",
@@ -93,6 +102,9 @@
       "optional": true
     },
     "svelte": {
+      "optional": true
+    },
+    "@angular/core": {
       "optional": true
     }
   }
