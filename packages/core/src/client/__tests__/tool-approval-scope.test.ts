@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AparteClient } from '../aparte-client.js';
 import { aparteGlobalConfig } from '../../config/aparte-config.js';
+import type { AparteToolDecisionDetail } from '../../types/tools.js';
 
 /** The private awaiter, reached the way the tool path reaches it. */
 type Awaiter = (id: string, signal: AbortSignal, target?: HTMLElement) =>
@@ -96,8 +97,11 @@ describe('tool approval is scoped to the chat that asked', () => {
         chatA.appendChild(el);
         el.innerHTML = '<button data-tool-decision="approve"></button>';
 
-        const seen: Array<Record<string, unknown>> = [];
-        document.addEventListener('aparte-tool-decision', (e) => seen.push((e as CustomEvent).detail));
+        // Typed, not `Record<string, unknown>`: `targetId` is declared on the detail
+        // now, so reading it through a cast would no longer prove anything — the point
+        // of declaring it is that this line compiles without one.
+        const seen: AparteToolDecisionDetail[] = [];
+        document.addEventListener('aparte-tool-decision', (e) => seen.push((e as CustomEvent<AparteToolDecisionDetail>).detail));
 
         toolCallRenderer.setup?.(el, {
             id: 's1', type: 'tool_call', status: 'awaiting-approval',
@@ -106,6 +110,6 @@ describe('tool approval is scoped to the chat that asked', () => {
         el.querySelector('button')!.click();
 
         await vi.waitFor(() => expect(seen.length).toBe(1));
-        expect(seen[0]?.['targetId'], 'the host id travels with the decision').toBe('chat-a');
+        expect(seen[0]?.targetId, 'the host id travels with the decision').toBe('chat-a');
     });
 });

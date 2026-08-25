@@ -44,6 +44,19 @@ export interface AparteToolDecisionDetail {
      * Approve/Reject gate sends no payload, so existing flows are unchanged.
      */
     payload?: unknown;
+    /**
+     * Which chat the verdict is for, when the dispatcher knows.
+     *
+     * Declared because the runtime has ALWAYS sent it: the built-in gate stamps it
+     * from the enclosing host, and a test reads it. An undeclared field on a public
+     * detail is a field every consumer has to cast to reach, which is the opposite
+     * of what a typed event map is for.
+     *
+     * The loop does not read it — scoping is decided by DOM containment, so a
+     * programmatic dispatch with no node inside the chat is still honoured. This is
+     * for an app filtering the event itself, which is why it is optional.
+     */
+    targetId?: string;
 }
 
 /**
