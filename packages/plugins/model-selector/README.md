@@ -16,8 +16,24 @@ import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 <aparte-model-selector auto-select persist searchable></aparte-model-selector>
 ```
 
-`@aparte/core` is the only **peer dependency**. Importing the package registers the
+`@aparte/core` is the only required **peer dependency**. Importing the package registers the
 `<aparte-model-selector>` element as a side effect.
+
+## Typed in your framework
+
+The element is typed by this package rather than by the framework wrappers, through one
+subpath per framework — so you get the binding exactly when you have the plugin:
+
+```ts
+import '@aparte/plugin-model-selector/react';   // or /vue, or /svelte — types only, no runtime
+```
+
+```ts
+// Angular needs a class claiming the selector, so it gets a directive:
+import { AparteModelSelectorDirective } from '@aparte/plugin-model-selector/angular';
+```
+
+`react`, `vue`, `svelte` and `@angular/core` are **optional** peers.
 
 | Attribute     | Effect                                                    |
 |---------------|-----------------------------------------------------------|
