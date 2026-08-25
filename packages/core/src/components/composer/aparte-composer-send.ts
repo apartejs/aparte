@@ -4,9 +4,9 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * @element aparte-composer-send
- *
  * Submit button primitive for <aparte-composer>.
+ *
+ * @element aparte-composer-send
  * Must be a descendant of <aparte-composer>.
  *
  * - Disabled when composer value is empty, composer is disabled, or streaming

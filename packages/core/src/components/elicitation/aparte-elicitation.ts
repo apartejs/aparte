@@ -57,6 +57,18 @@ interface Pending {
 }
 
 /**
+ * The default presenter for a request to the human. It renders nothing itself: it
+ * registers as the presenter for the config governing its subtree, and mounts a panel
+ * inside the nearest `<aparte-composer>` when something asks — a tool handler calling
+ * `requestUserInput`, or core's own approval gate.
+ *
+ * It dispatches no events on purpose. A request is answered through the typed presenter
+ * contract, not by listening for one; the `aparte-tool-decision` event this replaced
+ * existed only because the buttons used to live in a segment renderer with no reference
+ * to the client.
+ *
+ * @element aparte-elicitation
+ *
  * @example
  * <!-- Renders nothing by itself: it registers as the presenter for its subtree, so a
  *      tool handler calling requestUserInput() gets its panel mounted in the composer. -->

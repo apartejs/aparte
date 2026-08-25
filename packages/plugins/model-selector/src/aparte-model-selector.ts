@@ -1,19 +1,3 @@
-/**
- * Aparté Model Selector
- *
- * Web Component for selecting an AI provider + model. Renders an `aparte-select`
- * primitive with providers grouped into `aparte-optgroup`s (a single provider
- * renders a flat list). Enables the BYOK (Bring Your Own Key) pattern.
- *
- * @element aparte-model-selector
- * @attr {boolean} auto-select - Auto-select the first model (default: false)
- * @attr {boolean} persist - Persist the selection through the config
- * @attr {boolean} searchable - Enable search in the dropdown
- * @attr {string} placeholder - Override the placeholder text
- *
- * @fires aparte-model-change - Fired when the selected model changes
- */
-
 import {
     aparteGlobalConfig,
     escapeAttr,
@@ -46,6 +30,31 @@ function esc(value: unknown): string {
     return escapeAttr(String(value ?? ''));
 }
 
+/**
+ * Selects an AI provider and a model. Renders an `<aparte-select>` with providers
+ * grouped into `<aparte-optgroup>`s — a single provider renders a flat list — which is
+ * what makes the BYOK pattern possible without core knowing about any vendor.
+ *
+ * These tags sat at the top of the file, above the imports and a helper, so nothing
+ * read them: TypeScript associates only the comment adjacent to the declaration. This
+ * package ships no manifest of its own today (only `@aparte/core` runs `cem analyze`),
+ * so the loss was invisible to tooling — but it is also what an editor shows on hover,
+ * and what a typed framework wrapper is written from.
+ *
+ * @element aparte-model-selector
+ * @attr {boolean} auto-select - Selects the first model as soon as one is available.
+ * @attr {boolean} persist - Writes the selection back through the config, so it survives a reload.
+ * @attr {boolean} searchable - Adds the dropdown's filter field.
+ * @attr {string} placeholder - Overrides the text shown while nothing is selected.
+ *
+ * @fires {CustomEvent<AparteModelChangeEventDetail>} aparte-model-change - The provider or the model changed; carries both ids.
+ *
+ * @example
+ * <!-- Mount it in the composer's toolbar; it reads the models the config already knows. -->
+ * <aparte-composer-toolbar>
+ *   <aparte-model-selector searchable placeholder="Pick a model"></aparte-model-selector>
+ * </aparte-composer-toolbar>
+ */
 export class AparteModelSelector extends HTMLElement implements AparteConfigAware {
     private _currentProviderId: string | null = null;
     private _currentModelId: string | null = null;

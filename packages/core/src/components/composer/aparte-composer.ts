@@ -46,16 +46,29 @@ export interface AparteComposerChangeEventDetail {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * The root context for every `aparte-composer-*` primitive. It imposes no visual
+ * layout — the consumer owns the structure — and holds the shared state the parts
+ * read: the value, the streaming flag, pending attachments, the panel slot.
+ *
+ * Prose first, on purpose: when `@element` opens a docblock there is no free text
+ * left for the analyser to use, and this component's description came out empty in
+ * the manifest and blank on the generated reference page.
+ *
+ * `aparte-abort` and `aparte-message-aborted` have to be declared by hand and always
+ * will: they go out through `window.dispatchEvent` (they concern the whole page, not
+ * this subtree), and the analyser's fallback only recognises `this.dispatchEvent`.
+ *
  * @element aparte-composer
  *
- * Root context for all `aparte-composer-*` primitives.
- * Does NOT impose any visual layout — the consumer controls structure.
+ * @attr {string} placeholder - Forwarded to `<aparte-composer-input>` through the internal bus.
+ * @attr {boolean} disabled - Disables the whole composer, every part included.
+ * @attr {string} target - The id of the `<aparte-chat>` this composer drives.
  *
- * @attr placeholder  - Forwarded to aparte-composer-input via event
- * @attr disabled     - Disables the whole composer
- * @attr target       - ID of the <aparte-chat> target element
- *
- * @fires aparte-send   - Fired when a message is submitted
+ * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was submitted: the text, its attachments and the target.
+ * @fires aparte-cancel - The stop button was pressed. No detail; the two window events below carry the target.
+ * @fires {CustomEvent<AparteAbortEventDetail>} aparte-abort - Dispatched on `window`: stop the run for this target.
+ * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - Dispatched on `window`: the run for this target ended early.
+ * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - Any of value / streaming / disabled / attachments / panel changed, folded into one event.
  */
 export class AparteComposer extends HTMLElement {
     private _value = '';

@@ -7,6 +7,7 @@
  * @attr {string} value - Option value
  * @attr {boolean} disabled - Disabled state
  * @attr {boolean} selected - Selected state
+ * @attr {string} data-status - Free-form status the host sets; styled, never read by core.
   *
  * @example
  * <aparte-select placeholder="Pick a model">

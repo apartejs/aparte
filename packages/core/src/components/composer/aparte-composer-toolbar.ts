@@ -1,9 +1,9 @@
 /**
- * @element aparte-composer-toolbar
- *
  * The composer's bottom row — the strip a mode picker, a model selector or a token
  * counter belongs in, rather than a bar of your own floating below the chat. Purely
  * structural: it lays its children out in a row and gets out of the way.
+ *
+ * @element aparte-composer-toolbar
  *
  * **Position is the DOM order.** `margin-inline-start: auto` on a child pushes it (and
  * everything after it) to the end of the row. That is the whole placement API on

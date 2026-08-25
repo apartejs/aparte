@@ -1,16 +1,3 @@
-/**
- * AparteConversationList — conversation history sidebar primitive
- *
- * Framework-agnostic web component. The host sets the `conversations`
- * JS property and the `active-id` attribute; the component renders the
- * list and fires events for user interactions.
- *
- * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-select-conversation
- * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation
- * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-archive-conversation
- * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-unarchive-conversation
- */
-
 import { resolveConfig } from '../../config/index.js';
 import { escapeAttr } from '../../utils/escape.js';
 
@@ -36,6 +23,25 @@ export interface AparteConversationArchiveDetail {
 }
 
 /**
+ * Conversation-history sidebar — a framework-agnostic web component. The host sets
+ * the `conversations` JS property and the `active-id` attribute; this renders the
+ * list and fires the user's intent, never acting on it itself.
+ *
+ * These four `@fires` reached the manifest through neither of its two paths, which
+ * is why this element had no `events` key at all. The tag block was in a docblock at
+ * the top of the file, separated from the class by imports and four interfaces — and
+ * TypeScript attaches only the adjacent comment. The fallback could not save it
+ * either: the analyser's auto-detection visits `ts.isMethodDeclaration` only, and
+ * every dispatch here happens inside the `_onClick` arrow class field.
+ *
+ * @element aparte-conversation-list
+ * @attr {string} active-id - The id of the conversation to render as selected.
+ *
+ * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-select-conversation - A row was activated; the host loads that conversation.
+ * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation - The delete action was pressed. Nothing is removed here.
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-archive-conversation - The archive action was pressed on a live conversation.
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-unarchive-conversation - The same action on an already-archived one; same detail shape, opposite intent.
+ *
  * @example
  * // The host owns the data: set the `conversations` property, listen for the intent.
  * const list = document.querySelector('aparte-conversation-list')!;

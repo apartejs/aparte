@@ -9,16 +9,18 @@ const REMOVE_ICON =
     'L6 6.705l2.795 2.795.705-.705L6.705 6z"/></svg>';
 
 /**
- * @element aparte-composer-attachments
- *
  * Renders a square thumbnail tile for each file attached to the root composer.
+ *
+ * @element aparte-composer-attachments
  * Image files show the actual picture; other files show an extension badge.
  * The filename and a remove (✗) button surface on hover. Clicking an image asks
  * the app to open it full-size (`aparte-attachment-preview`) — only when the app
  * declared `attachmentPreview` via `aparteGlobalConfig.setHostHandlers()`.
  * Automatically hidden when there are no attachments.
  * Must be a descendant of <aparte-composer>.
-  *
+ *
+ * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked; the app opens it full-size, and only if it declared `attachmentPreview`.
+ *
  * @example
  * <!-- The strip hides itself while nothing is attached. Pair it with the picker, and
  *      only if your loop actually reads the files from the send event. -->

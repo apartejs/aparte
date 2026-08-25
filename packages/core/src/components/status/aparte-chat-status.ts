@@ -1,17 +1,16 @@
-/**
- * AparteChatStatus - The Indicator
- * 
- * Lightweight typing indicator with elegant animation.
- * Uses Light DOM for global CSS styling.
- * 
- * @element aparte-chat-status
- * @attr {boolean} visible - Show/hide the indicator
- * @attr {string} text - Custom text (default: "Typing...")
- */
 import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 
 /**
+ * A standalone status line — a light-DOM typing indicator the APP owns. Core never
+ * turns it on by itself, so it can never compete with the bubble's own waiting state.
+ *
+ * It dispatches nothing, deliberately: it reports, it does not ask.
+ *
+ * @element aparte-chat-status
+ * @attr {boolean} visible - Shows or hides the indicator.
+ * @attr {string} text - The line to show. Defaults to the locale's typing string.
+ *
  * @example
  * <!-- The app owns this indicator: core never turns it on by itself, so there is
  *      never a second one competing with the bubble's built-in waiting state. -->

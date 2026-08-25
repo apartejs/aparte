@@ -75,11 +75,32 @@ const INFO_ICON_SVG =
   '<path d="M12 8h.01"/></svg>';
 
 /**
- * AparteChatBubble - The Render
- * 
- * Message component supporting both simple content and rich segments.
- * Uses Light DOM for global CSS styling.
-  *
+ * One message: plain content or a list of rich segments, in light DOM.
+ *
+ * All seven events are declared by hand rather than left to the analyser, which
+ * found six. `aparte-branch-navigate` is dispatched from the `_onBranchPickerClick`
+ * arrow class field, and the auto-detection visits `ts.isMethodDeclaration` only —
+ * so the one event belonging to the branch picker was the one missing from the
+ * manifest, and from the generated reference, for as long as both existed.
+ *
+ * @element aparte-chat-bubble
+ *
+ * @attr {string} role - The message role. `data-role` is the styled mirror of it.
+ * @attr {string} data-role - `user` / `assistant` / `system`; what the CSS keys off.
+ * @attr {string} content - Plain text content, for a bubble with no segments.
+ * @attr {string} timestamp - Epoch milliseconds, rendered in the header.
+ * @attr {string} message-id - How streaming and the action bar address this bubble.
+ * @attr {boolean} streaming - Hides the action bar and shows the caret while a reply is in flight.
+ * @attr {string} name - The display name in the header.
+ *
+ * @fires {CustomEvent<AparteActionEventDetail>} aparte-action - A custom action-bar button was pressed.
+ * @fires {CustomEvent<AparteRetryEventDetail>} aparte-retry - Retry was pressed; the host forks the turn.
+ * @fires {CustomEvent<AparteEditEventDetail>} aparte-edit - An edit was saved.
+ * @fires {CustomEvent<AparteFeedbackEventDetail>} aparte-feedback - Thumbs up or down.
+ * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
+ * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
+ * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
+ *
  * @example
  * <!-- Rendered for you by the viewport. Written by hand only when you drive the DOM
  *      yourself: `message-id` is what streaming and the action bar address it by. -->

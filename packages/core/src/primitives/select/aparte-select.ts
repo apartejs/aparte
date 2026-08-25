@@ -1,22 +1,3 @@
-/**
- * AparteSelect
- * 
- * Dropdown select component for AparteCore.
- * Vanilla Web Component with configurable features.
- * 
- * @element aparte-select
- * @attr {string} value - Selected value
- * @attr {string} placeholder - Placeholder text
- * @attr {boolean} disabled - Disabled state
- * @attr {boolean} grouped - Enable optgroup mode
- * @attr {boolean} searchable - Enable search filter
- * @attr {boolean} open - Dropdown open state
- * 
- * @fires aparte-select-change - Fired when selection changes
- * @fires aparte-select-open - Fired when dropdown opens
- * @fires aparte-select-close - Fired when dropdown closes
- */
-
 import './aparte-option.js';
 import './aparte-optgroup.js';
 
@@ -27,6 +8,28 @@ export interface AparteSelectChangeDetail {
 }
 
 /**
+ * Dropdown select for aparté — a vanilla web component with optional grouping, a
+ * search filter and a keyboard-driven listbox.
+ *
+ * The tags above used to live in a docblock at the top of this file, separated from
+ * the class by these imports and the interface. TypeScript associates only the
+ * comment PHYSICALLY ADJACENT to a declaration, so the analyser never saw them: the
+ * manifest still listed six attributes and three events (it reads
+ * `observedAttributes` and `this.dispatchEvent` structurally) but with every
+ * description dropped, and the generated CSS-of-record for this element read blank.
+ *
+ * @element aparte-select
+ * @attr {string} value - The selected option's value.
+ * @attr {string} placeholder - Shown while nothing is selected.
+ * @attr {boolean} disabled - Blocks opening and selection.
+ * @attr {boolean} grouped - Renders `<aparte-optgroup>` children as collapsible groups.
+ * @attr {boolean} searchable - Adds a filter field above the options.
+ * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
+ *
+ * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The selection changed; carries the new value, its label and the previous value.
+ * @fires aparte-select-open - The dropdown opened. No detail.
+ * @fires aparte-select-close - The dropdown closed. No detail.
+ *
  * @example
  * <aparte-select placeholder="Pick a model" searchable value="gpt-4o-mini">
  *   <aparte-option value="gpt-4o-mini">GPT-4o mini</aparte-option>

@@ -4,14 +4,17 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * @element aparte-composer-input
- *
  * Contenteditable text input primitive.
+ *
+ * @element aparte-composer-input
  * Must be a descendant of <aparte-composer>.
+ *
+ * @fires aparte-composer-submit - Enter was pressed with content. No detail; the composer reads its own value.
  *
  * Behaviour: Enter submits (calls root.submit()), Shift+Enter inserts newline.
  * Auto-expands up to max-height. Paste strips HTML, handles image paste.
  *
+ * @attr disabled     - Makes the field non-editable; the composer's own `disabled` also reaches it.
  * @attr placeholder  - Placeholder text (fallback: reads from aparte-composer)
  * @attr max-height   - Max height in px before scroll (default: 200)
  * @attr min-height   - Min height in px. When omitted, the stylesheet's

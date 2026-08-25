@@ -97,12 +97,17 @@ const EXEMPT = new Map([
  * this is here to stop.
  */
 const MAX_UNMENTIONED = new Map([
-    ['@aparte/core', 97],       // of 172 type-only exports — 103 before the lifecycle events were documented
+    // The five below dropped when every element's events gained a TYPED detail and the
+    // generated api reference gained a Type column to print it in. The detail
+    // interfaces were exported all along; nothing named them anywhere a reader looks.
+    // Core lost 17, and each wrapper exactly 4 — the four conversation/optgroup/select
+    // detail types they re-export from core.
+    ['@aparte/core', 80],       // of 172 type-only exports — 97 before the event details were typed, 103 before the lifecycle events were documented
     ['@aparte/engine', 0],      // of 39 — credited by the generated reference; see below
-    ['@aparte/react', 12],      // of 20, incl. AparteChatProps and the three use* hook types
-    ['@aparte/vue', 8],         // of 16
-    ['@aparte/svelte', 9],      // of 17, incl. AparteChatStore
-    ['@aparte/angular', 12],    // of 20, incl. APARTE_CONFIG_TOKEN and ProvideAparteOptions
+    ['@aparte/react', 8],       // of 20, incl. AparteChatProps and the three use* hook types
+    ['@aparte/vue', 4],         // of 16
+    ['@aparte/svelte', 5],      // of 17, incl. AparteChatStore
+    ['@aparte/angular', 8],     // of 20, incl. APARTE_CONFIG_TOKEN and ProvideAparteOptions
     // First measurement of these nine. They are VALUE exports a consumer calls —
     // `setupShikiProvider`, `askUserTool`, `createAiSdkProvider` — so they matter
     // more than a type, and the ratchet is only the first step: it makes the number

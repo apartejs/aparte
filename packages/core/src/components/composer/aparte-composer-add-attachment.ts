@@ -4,14 +4,15 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * @element aparte-composer-add-attachment
- *
  * File picker button for <aparte-composer>.
+ *
+ * @element aparte-composer-add-attachment
  * Opens a native file picker on click, then pushes picked files to root.addAttachments().
  * Also sets up drag & drop on the nearest <aparte-composer> root.
  *
  * @attr accept    - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
  * @attr multiple  - Allow multiple file selection (default: true)
+ * @attr disabled  - Greys out the picker and ignores drops.
   *
  * @example
  * <!-- Opt-in: nothing consumes the files unless your host does (an AparteClient, or
