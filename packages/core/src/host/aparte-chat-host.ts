@@ -134,6 +134,15 @@ export interface AparteChatHostOptions {
  * changes (its idiomatic reactive hook: Angular effect, React effect, Vue
  * watch, Svelte afterUpdate).
  */
+/**
+ * How many render passes to wait for a sibling's bubble before giving up.
+ *
+ * The race needs ONE tick; six is slack for a slow commit. It is bounded because a
+ * message that left the active path has no bubble and never will, and an unbounded
+ * retry would hold a callback for the life of the page.
+ */
+const MAX_SIBLING_RETRIES = 6;
+
 export class AparteChatHost {
     private readonly binding: AparteChatHostBinding;
     private readonly options: AparteChatHostOptions;
@@ -144,6 +153,8 @@ export class AparteChatHost {
     private readonly _renderedIds = new Set<string>();
     /** Sibling info from the last path-change, applied after the next render. */
     private _pendingSiblings?: AparteSiblingInfo[];
+    /** How many render passes the sibling write has waited for — see `_applyPendingSiblings`. */
+    private _siblingRetries = 0;
     /** Abort handle for an in-flight {@link streamTokens} loop. */
     private _streamAbort?: AbortController;
     /** Segment chunks written to the bubble, awaiting one coalesced state sync. */
@@ -736,17 +747,45 @@ export class AparteChatHost {
         }
     }
 
+    /**
+     * Write the branch counts onto their bubbles — and RESCHEDULE for the ones that are
+     * not on the page yet, instead of dropping them.
+     *
+     * This used to `continue` past a missing bubble and then clear `_pendingSiblings`
+     * unconditionally, which lost the fork for good. That is the "1 / 1" defect: the
+     * bubble kept its default of one sibling, the picker hid itself, and the other version
+     * became unreachable for the life of the page.
+     *
+     * It needed a framework that renders LATE, which is every framework here. React's
+     * `afterRender` is `requestAnimationFrame(() => cb())` — a bet that the next paint
+     * lands after React's commit, and it does not always; the repo has lost that same bet
+     * before (`25f356b`, "a bet on rAF phase"). The fix is here rather than in the
+     * wrapper's rAF call, because ANY binding whose `afterRender` can precede its commit
+     * hits this, and one fix at the host covers all four.
+     *
+     * Bounded, because a sibling can legitimately never arrive — a message that left the
+     * path has no bubble and never will, and an unbounded retry would hold a callback for
+     * the page's lifetime. Six passes is far more than the one tick the race needs.
+     */
     private _applyPendingSiblings(): void {
         if (!this._pendingSiblings) return;
         const msgs = this.binding.getMessages();
+        const unresolved: AparteSiblingInfo[] = [];
         for (const sib of this._pendingSiblings) {
             if (sib.count <= 1) continue;
             const bubble = this._bubbleById(sib.id);
-            if (!bubble) continue;
+            if (!bubble) { unresolved.push(sib); continue; }
             const message = msgs.find((m) => m.id === sib.id);
             if (message) populateBubbleFromMessage(bubble, message, sib);
         }
         this._pendingSiblings = undefined;
+        if (unresolved.length && this._siblingRetries < MAX_SIBLING_RETRIES) {
+            this._siblingRetries += 1;
+            this._pendingSiblings = unresolved;
+            this.binding.afterRender(() => this._applyPendingSiblings());
+            return;
+        }
+        this._siblingRetries = 0;
     }
 
     // ── internals ──────────────────────────────────────────────────────────
