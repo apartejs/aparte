@@ -162,6 +162,29 @@ const SAFE_STYLE_PROPS = new Set([
  * refused.
  */
 function isSafeCustomProperty(prop: string): boolean {
+    /*
+     * A backslash disqualifies the name outright, and the reason is the asymmetry
+     * between the two checks in `scrubStyle`.
+     *
+     * `SAFE_STYLE_PROPS.has(prop)` is an ALLOWLIST, so an escape defeats itself:
+     * `col\6fr` is not in the set, so the declaration is dropped. This test is a
+     * DENYLIST — "any custom property except ours" — and an escape defeats a denylist
+     * the other way round: `--\61 parte-text` does not start with `--aparte-`, so it
+     * passed, and the browser decodes the ident back to `--aparte-text`. A
+     * prompt-injected model could repaint core's own theme inside whatever element a
+     * markdown or highlight provider gave it.
+     *
+     * Refused rather than decoded, for the reason the value check below already gives:
+     * decoding is the general fix and is easy to get wrong (stripping the escape from
+     * `u\72 l(` yields `ul(`, not `url(` — which is how an earlier attempt passed its
+     * own test). No custom property worth setting from model-authored content needs a
+     * CSS escape, so refusing costs nothing and leaves nothing to decode correctly.
+     *
+     * This does not rest on how a particular engine decodes anything: the invariant is
+     * that our namespace is unreachable, and it is enforced by the escape never
+     * surviving rather than by predicting what it would become.
+     */
+    if (prop.includes('\\')) return false;
     return prop.startsWith('--') && !prop.startsWith('--aparte-');
 }
 
