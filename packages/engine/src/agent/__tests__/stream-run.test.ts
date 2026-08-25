@@ -206,7 +206,8 @@ describe('runStreamAgent — tools & HITL', () => {
         // And the refusal actually reached the model, which is the whole point.
         expect(t.calls).toHaveLength(2);
         expect(t.calls[1]!.messages.some(
-            m => m.role === 'tool_result' && m.content.includes('rejected by the user'),
+            m => m.role === 'tool_result' && typeof m.content === 'string'
+                && m.content.includes('rejected by the user'),
         ), 'the second turn carries the refusal').toBe(true);
     });
 
