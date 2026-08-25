@@ -1565,6 +1565,25 @@ export class AparteClient {
                 } finally {
                     this._activeToolControllers.delete(approvalController);
                 }
+                /*
+                 * A stop is not a refusal.
+                 *
+                 * `_awaitToolDecision` resolves `{ approved: false }` when the signal
+                 * fires — the same value an explicit Reject produces — so a stopped turn
+                 * fell into the refusal branch below, stamped the segment `'rejected'`
+                 * and pushed "rejected by the user" into the history. The model read a
+                 * sentence naming a decision nobody made. Asking the signal instead of
+                 * the value is what tells the two apart, and it costs nothing: the
+                 * controller is already in hand.
+                 *
+                 * No `tool_result` here, deliberately. An aborted turn tells the model
+                 * nothing, because there is nothing true to say — the same treatment a
+                 * handler aborted mid-run already gets.
+                 */
+                if (approvalController.signal.aborted) {
+                    targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
+                    return { continueLoop: false };
+                }
                 if (!decision.approved) {
                     const rejection = 'Tool execution was rejected by the user.';
                     targetElement.updateSegment?.(toolSeg.id, { status: 'rejected', result: rejection });

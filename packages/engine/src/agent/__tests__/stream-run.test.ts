@@ -180,6 +180,51 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(t.calls).toHaveLength(1);
     });
 
+    /*
+     * A stop is not a refusal, and a missing resolver is not one either.
+     *
+     * Both used to land on `{ approved: false }` — the abort because that is what the
+     * caller's resolver resolves when the signal fires, the missing resolver because
+     * the default WAS `async () => ({ approved: false })`. So the loop took the refusal
+     * branch and appended "Tool execution was rejected by the user." to the history: a
+     * sentence naming a decision nobody made, in the one place the model reads.
+     *
+     * The assertions are on the invariant rather than the exact event sequence, so that
+     * moving WHERE the gate is announced does not have to rewrite them.
+     */
+    it('an abort while awaiting approval is not reported as a rejection', async () => {
+        const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        const ac = new AbortController();
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter, signal: ac.signal,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: true }),
+            // The human presses Stop instead of deciding, which is exactly what core's
+            // built-in channel does: it resolves `{ approved: false }` on abort.
+            approvalResolver: async () => { ac.abort(); return { approved: false }; },
+        }));
+        expect(rec.types(), 'a stopped wait is aborted').toContain('tool-aborted');
+        expect(rec.types(), 'and never rejected').not.toContain('tool-rejected');
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('a needsApproval tool with no resolver aborts rather than inventing a refusal', async () => {
+        const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: true }),
+            // No `approvalResolver`: nothing can ask, so nothing may answer.
+            }));
+        expect(rec.types(), 'nobody could be asked, so the wait is aborted').toContain('tool-aborted');
+        expect(rec.types(), 'a host that forgot a resolver has not refused anything').not.toContain('tool-rejected');
+        expect(handler).not.toHaveBeenCalled();
+    });
+
     it('aborts the tool and stops when no handler is registered', async () => {
         const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'ghost', input: {} }, { type: 'done' }]]);
         const rec = recorder();

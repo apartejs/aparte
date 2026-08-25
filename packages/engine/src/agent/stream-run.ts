@@ -428,8 +428,33 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 // ── HITL approval gate ────────────────────────────────────────
                 if (cfg?.needsApproval) {
                     emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
-                    const resolve = approvalResolver ?? (async () => ({ approved: false }));
-                    const decision = await resolve(event.id, signal);
+                    /*
+                     * Nothing can ask, so nothing may answer.
+                     *
+                     * The default was `async () => ({ approved: false })`, which sent the
+                     * loop into the refusal branch and appended "rejected by the user" —
+                     * a host that forgot to wire a resolver had not refused anything, and
+                     * the model was told a person had. A misconfiguration is an aborted
+                     * call, not a decision.
+                     */
+                    if (!approvalResolver) {
+                        emitter({ type: 'tool-aborted', toolCallId: event.id });
+                        continueLoop = false;
+                        break;
+                    }
+                    const decision = await approvalResolver(event.id, signal);
+
+                    /*
+                     * A stop is not a refusal either. Core's built-in channel resolves
+                     * `{ approved: false }` on abort, indistinguishable by value from an
+                     * explicit Reject — so the signal is what tells them apart. No
+                     * `tool_result`: an aborted call has nothing true to tell the model.
+                     */
+                    if (signal.aborted) {
+                        emitter({ type: 'tool-aborted', toolCallId: event.id });
+                        continueLoop = false;
+                        break;
+                    }
 
                     if (!decision.approved) {
                         const rejection = 'Tool execution was rejected by the user.';
