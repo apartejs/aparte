@@ -245,7 +245,11 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   a `//` comment is just text, which is how a `safe-text` marker ended up rendered in an
   assistant's bubble. The reason that does *not* hold: reaching the generated CSS
   reference. `gen-css-vars.mjs` walks all of core's source, so a knob read from a `.ts`
-  was already listed — moving 419 lines changed that file by zero lines.
+  was already listed with its fallback as the default. (I first wrote that the move
+  changed the generated file "by zero lines" — measured with `git diff` on a file
+  `apps/docs/.gitignore` untracks, so it could not have shown anything. It did change:
+  the "Read by" column moves. The claim it supports stands on the generator's own walk
+  of `CORE_SRC`, not on that diff.)
 - A changeset entry for any package with an API/CSS change.
 - **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
   (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).
