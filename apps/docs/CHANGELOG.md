@@ -1,5 +1,15 @@
 # @aparte-workspace/docs
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [2ac6080]
+- Updated dependencies [2ac6080]
+  - @aparte/core@0.12.0
+  - @aparte/locale-fr@0.12.0
+  - @aparte/plugin-shiki@0.12.0
+
 ## 0.0.8
 
 ### Patch Changes

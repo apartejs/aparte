@@ -1,5 +1,7 @@
 # @aparte/plugin-shiki
 
+## 0.12.0
+
 ## 0.11.0
 
 ## 0.10.0
@@ -408,7 +410,7 @@
       themes: [githubDark],
       langs: [ts],
       engine: createJavaScriptRegexEngine(),
-    }),
+    })
   );
   ```
 
