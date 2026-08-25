@@ -1,5 +1,5 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { AparteChatComponent } from '@aparte/angular';
+import { Component } from '@angular/core';
+import { AparteChatComponent, AparteModelSelectorDirective } from '@aparte/angular';
 import { sendPrompt } from './aparte';
 
 
@@ -12,8 +12,10 @@ const CHIPS = [
 @Component({
     selector: 'app-root',
     standalone: true,
-    imports: [AparteChatComponent],
-    schemas: [CUSTOM_ELEMENTS_SCHEMA], // for <aparte-model-selector>
+    // `AparteModelSelectorDirective` claims the tag, so CUSTOM_ELEMENTS_SCHEMA is gone.
+    // That schema was here "for <aparte-model-selector>" — and it switched template
+    // checking off for every unknown tag in this file, not just that one.
+    imports: [AparteChatComponent, AparteModelSelectorDirective],
     template: `
         <div class="app">
             <header class="topbar">
@@ -29,7 +31,16 @@ const CHIPS = [
                         }
                     </div>
                 </div>
-                <aparte-model-selector slot="toolbar" style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
+                @if (showModelPicker) {
+                    <aparte-model-selector
+                        slot="toolbar"
+                        style="margin-inline-start:auto"
+                        [autoSelect]="true"
+                        [persist]="true"
+                        [searchable]="true"
+                        (modelChange)="onModelChange($event.modelId)"
+                    ></aparte-model-selector>
+                }
             </aparte-chat>
         </div>
     `,
@@ -39,7 +50,15 @@ export class AppComponent {
     // the client on app init.
     protected readonly chips = CHIPS;
 
+    /** The picker sits behind a control-flow block on purpose: `<aparte-ui>` could not. */
+    protected readonly showModelPicker = true;
+
     protected send(prompt: string): void {
         sendPrompt(prompt);
+    }
+
+    /** `$event` is the event DETAIL, typed — `modelId` is checked, a typo is not. */
+    protected onModelChange(modelId: string): void {
+        console.info('[example-angular] model ->', modelId);
     }
 }

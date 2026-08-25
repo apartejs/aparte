@@ -90,8 +90,13 @@ export default defineConfig({
         // asked for it — that is what a two-sided floor is for.
         lines: 85,
         statements: 85,
-        functions: 79,
-        branches: 83,
+        // Raised with the typed element directives: 19 directives with a setter per
+        // attribute and a listener per event moved the function and branch numbers, and
+        // the table-driven suite in
+        // `packages/wrappers/angular/src/lib/__tests__/element.directives.spec.ts`
+        // exercises the whole surface rather than a sample.
+        functions: 81,
+        branches: 85,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
         // all four client suites this remediation added — 462 lines, 14 tests — and

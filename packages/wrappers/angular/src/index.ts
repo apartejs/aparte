@@ -12,6 +12,32 @@ export { AparteChatComponent } from './lib/aparte-chat.component';
 export { AparteUiComponent } from './lib/aparte-ui.component';
 export type { AparteUiHandle } from './lib/aparte-ui.component';
 
+// Typed directives, one per element: the real tag in the template with typed Inputs
+// and one Output per event. `<aparte-ui>` stays for an element aparté does not define
+// — a third-party one, or yours.
+export {
+    APARTE_ELEMENT_DIRECTIVES,
+    AparteChatViewportDirective,
+    AparteChatBubbleDirective,
+    AparteChatStatusDirective,
+    AparteComposerDirective,
+    AparteComposerInputDirective,
+    AparteComposerActionDirective,
+    AparteComposerAddAttachmentDirective,
+    AparteComposerAttachmentsDirective,
+    AparteComposerSendDirective,
+    AparteComposerCancelDirective,
+    AparteComposerToolbarDirective,
+    AparteSelectDirective,
+    AparteOptionDirective,
+    AparteOptgroupDirective,
+    AparteConversationListDirective,
+    AparteProgressSpinnerDirective,
+    AparteElicitationDirective,
+    AparteModelSelectorDirective,
+    AparteAskUserDirective,
+} from './lib/element.directives';
+
 // Annex: client lifecycle + reactive conversation manager.
 export { AparteAiService, APARTE_CLIENT_OPTIONS } from './lib/aparte-ai.service';
 export { ConversationManagerService } from './lib/conversation-manager.service';
