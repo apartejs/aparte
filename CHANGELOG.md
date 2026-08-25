@@ -4,6 +4,307 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.11.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [f52dbe9](https://github.com/apartejs/aparte/commit/f52dbe9): **Refusing a tool no longer ends the turn.** The model gets a turn to answer in, so it reads the refusal.
+
+  Before: a refusal appended a _"Tool execution was rejected by the user."_ tool_result and stopped the run — so the one sentence written for the model was never sent to it. Telling the assistant what you actually wanted meant retyping it as a new message, which it then read out of order.
+
+  After: the turn's **remaining** tool calls are still skipped (the model may have asked for several, and refusing one cannot license the others — that part was a real fix and it stands), and then another turn runs.
+
+  This needed one flag to become three states, because a refusal answers two questions differently: _run the calls that follow this one?_ — no; _take another turn?_ — yes. Core's `_handleToolUseEvent` returns `'continue' | 'respond' | 'halt'`; the engine's loop `break`s without clearing `continueLoop`. Both changed together, and the parity suite stayed green through it — which is the suite doing its job: it asserts the two loops agree, never what they do. The scenario named _"rejected stops the loop identically"_ had to be renamed by hand for exactly that reason.
+
+  Two other outcomes are now visibly distinct from a refusal rather than sharing its exit: a per-tool turn limit, a missing handler, and an abort all `halt` and tell the model nothing.
+
+  **If you depended on the old behaviour** — a refusal ending the run — refuse from an `approvalResolver` and stop the client yourself, or set `maxTurns: 1` on the tool.
+  <sub>`@aparte/core`, `@aparte/engine`</sub>
+
+- [e40cf78](https://github.com/apartejs/aparte/commit/e40cf78): **Breaking, pre-1.0, no shim:** a request for the human that ends without an answer now **rejects** instead of resolving `{ action: 'cancel' }`.
+
+  `AparteElicitationResult` loses its `cancel` arm and keeps `accept` / `decline`. The failure arrives as the new `AparteElicitationAbortError`, whose `name` is `'AbortError'` — so any handler already testing `err.name === 'AbortError'` needs no change — and whose `reason` is `'aborted'` (a stopped turn, a fired signal, a question taken away by another request) or `'no-presenter'` (nothing was mounted to ask it).
+
+  Why the shape had to change: a value is easy to handle as though it were an answer, and that is exactly what happened one level up. The tool-approval gate read `cancel` as a refusal, stamped the segment `rejected`, and told the model "Tool execution was rejected by the user." The user had pressed Stop. A rejection cannot be mistaken for a decision by a caller that forgot a branch, which is the property `cancel` never had.
+
+  Evidence the shape is right: `askUserHandler` already performed this exact conversion by hand — `{ action: 'cancel' }` in, `new DOMException(..., 'AbortError')` out. That conversion is gone; the error now propagates from the primitive.
+
+  **Migrating.** Replace a `case 'cancel':` branch with a `catch`. A `switch` on `action` that had all three arms keeps compiling with two, and the third path becomes the `catch`. One consequence worth knowing: a request you start and never `await` will surface an unhandled rejection when it ends without an answer, because that is what an ignored failed promise is — attach a `.catch()` if you genuinely do not care about the outcome.
+  <sub>`@aparte/core`</sub>
+
+- [ecd9ad5](https://github.com/apartejs/aparte/commit/ecd9ad5): **A tool call now shows what went in and what came out**, and it is drawn as a row rather than a badge.
+
+  The pill named the tool and showed nothing else — not the arguments the model chose, not the result it got — while the segment carried both the whole time. Missing presentation, not missing data. It opens onto `Input` (pretty-printed JSON) and `Output`, coloured by a registered highlight provider when there is one and readable as escaped text when there is not.
+
+  **Collapsed, always** — including while the loop waits for a decision. The reasoning block stays closed while it is being produced, which is the most live moment there is, so a tool call has no stronger claim to unroll itself. One rule, no special cases. A `<details>` appears only when there is something behind it: a disclosure onto nothing is an affordance that lies.
+
+  **Breaking, pre-1.0: four CSS classes are renamed**, because a name in a public CSS contract must name a ROLE and not a shape — the shape belongs to whoever is styling it. `tool-pill` → `tool-label`, `tool-pill-icon` → `tool-icon`, `tool-pill-name` → `tool-name`, `tool-pill-spinner` → `tool-spinner`, `tool-pill-status` → `tool-state`. Same reasoning that retired `footer-left/center/right`: a name the design contradicts is a name that will lie.
+
+  **And it no longer looks like a tag.** The identity is neutral at every status — it used to be filled green when a call resolved and red when it was refused, which made a finished step shout louder than the reply it belongs to. The colour lives on a small state badge at the far end, which now carries a WORD as well as a glyph (`Running`, `Done`, `Rejected`, `Stopped`): a bare cross beside a name reads as a button that removes something, so the state was being mistaken for an affordance.
+
+  The renderer gains an `update`, which it never had. Without one the bubble replaced the element on every change — and a tool call changes status several times a turn, so a disclosure the reader opened would have slammed shut under them each time. A registered `registerToolRenderer` still owns its whole markup and is rebuilt rather than patched.
+
+  New locale keys: `toolInput`, `toolOutput`, `toolRunning`, `toolCompleted`, `toolRejected`, `toolStopped`, translated in `@aparte/locale-fr`. New themable variable: `--aparte-tool-row-radius`.
+  <sub>`@aparte/core`</sub>
+
+- [56e1247](https://github.com/apartejs/aparte/commit/56e1247): **An open request now follows a language switch.** `AparteElicitationRequest.message` and `AparteApprovalOption.label` accept `string | (() => string)`; the function arm is re-read whenever the locale changes while the request is on screen.
+
+  Additive — a string still behaves exactly as before, and deliberately so: a plain string is treated as the host's own wording and left alone. That is right for an app's text and wrong for locale-derived text, which is why core's own approval gate now passes functions.
+
+  The gate was asking `Run delete_file?` over buttons reading `Approuver` and `Rejeter`. `approveTool` and `rejectTool` have been translated in `@aparte/locale-fr` since long before this: nothing was missing from the translations, the re-read path was missing. It existed while the buttons lived in the segment, and moving them to the composer left it behind.
+
+  The tool's NAME is substituted into the question and never translated — it is the identifier the model called, wire format, so only the frame switches.
+  <sub>`@aparte/core`</sub>
+
+- [094d438](https://github.com/apartejs/aparte/commit/094d438): **The tool-approval decision moves out of the transcript and into the composer.**
+
+  A request that blocks the run is answered where the user answers. That is now a rule for the library, not a choice made once: the composer is where a question already went, and the approval gate was the only decision surface left in a bubble. It was older than the mechanism that should have carried it — built with a segment renderer and a `document` event because neither `showPanel` nor a typed presenter existed yet — and nothing came back for it, partly because for a stretch the whole human-in-the-loop path was inert and so nothing exercised it.
+
+  **What you see.** The `tool_call` pill stays in the transcript as the **anchor**, saying which tool is waiting, with no role, no tab stop and nothing clickable. The choices appear in the composer, each settling on the first click, above a quiet field for saying what to do instead. The thing being judged stays in the thread, which is scrollable, copyable and persisted; the panel is capped at half the viewport and could not hold a diff or a plan.
+
+  **Breaking, pre-1.0, no shims:**
+
+  - **`aparte-tool-decision` is deleted** — the event, `AparteToolDecisionDetail`, its event-map entry and the `document` listener that answered it. It existed only because a segment renderer has no reference to the client. To answer programmatically, pass an `approvalResolver` or register your own presenter; both see the whole request instead of an id on an event.
+  - **`AparteToolApprovalResolver` and `StreamApprovalResolver` take the CALL**, `(call, signal)` rather than `(toolCallId, signal)`. You cannot ask a person "run this?" without naming what — and an id alone forced a lookup table filled by one event and read by another, the shape that breaks in silence.
+  - Both resolvers may return an **`instruction`**, the words the model reads back on a refusal.
+  - **`AparteElicitationRequest` gains `kind` and `options`**, and `schema` is now optional — required on a `'question'`, absent on an `'approval'`.
+
+  **New:** `buildApprovalPanel` and `BuiltApprovalPanel`, `AparteApprovalOption` and `AparteApprovalAnswer`, and four locale keys (`approvalAsk`, `approvalWaiting`, `approvalInstructionPlaceholder`, `approvalOptionsLabel`), translated in `@aparte/locale-fr`.
+
+  **`<aparte-chat>` now ships `<aparte-elicitation>` in its default composition.** The built-in gate asks through the presenter, so a chat without one could not honour `needsApproval` at all. An affordance core honours end to end is on by default; leaving this out would have made the gate depend on a tag nobody was told to write. Author-provided compositions are untouched, as always.
+
+  **The options come with the request.** Core supplies two — the tool's name as the question, Approve and Reject — and anything richer is the host's: a scope option ("and always for this tool") exists only because an app wrote the label and can remember the grant. Core never invents one and never interprets one.
+
+  **Also fixed, in passing:** a panel's own buttons inherited the composer row's 44×44 action-control sizing and rendered as circles with their labels spilling out. Any panel containing a button hit this; the approval options were the first that do.
+  <sub>`@aparte/core`, `@aparte/engine`</sub>
+
+- [5ac31ff](https://github.com/apartejs/aparte/commit/5ac31ff): **Every CSS class core emits is now prefixed `aparte-`.** Breaking, pre-1.0, no aliases: 42 names across 291 occurrences.
+
+  `aparte-segment` `aparte-segment-content` `aparte-segment-text` `aparte-segment-thinking` `aparte-segment-code` `aparte-segment-error` `aparte-segment-tool-call` `aparte-segment-artifact-card` `aparte-segment-artifact-file` `aparte-segment-pipeline-waiting` `aparte-segment-unknown` · `aparte-tool-summary` `aparte-tool-toggle` `aparte-tool-label` `aparte-tool-icon` `aparte-tool-name` `aparte-tool-spinner` `aparte-tool-state` `aparte-tool-detail` `aparte-tool-part` `aparte-tool-part-label` `aparte-tool-part-body` · `aparte-code-content-wrapper` `aparte-code-copy` `aparte-code-filename` `aparte-code-header` `aparte-code-header-filler` `aparte-code-language` · `aparte-error-content` `aparte-error-details` `aparte-error-icon-wrapper` `aparte-error-message` `aparte-error-title` · `aparte-thinking-content` `aparte-thinking-header` `aparte-thinking-label` `aparte-thinking-toggle` · `aparte-is-streaming` `aparte-is-focused` `aparte-is-dragover` `aparte-has-content` · `aparte-pw-dot`
+
+  If you style any of these, add the prefix. `--aparte-*` custom properties are unchanged — they were already namespaced.
+
+  **Why it mattered in both directions.** Core is light DOM on purpose: no shadow root, so every selector reaches in and out. Inbound has bitten this project twice already — a bare `nav { justify-content: space-between }` on aparté's own docs site pushed the artifact card's tabs to opposite ends, and `.segment` is Semantic UI's base layout class. Outbound is the worse half and was never stated: these were **bare global selectors**, so `@aparte/core` shipped a rule for `.error-message`, `.code-header` and `.thinking-header` onto the whole page. Almost every site has an `.error-message`.
+
+  The component classes were already prefixed (`aparte-message`, `aparte-composer-row`, `aparte-approval-option`, `aparte-elic-panel`); the renderer classes never were. With no written policy, the split held at 146 to 42. The policy is now in CLAUDE.md.
+
+  One deliberate exception: `language-*` on a code block stays unprefixed, because that is the class name highlighters look for.
+
+  Removing the `progress` segment in the same release already took out `progress-bar` and `progress-fill`, which are Bootstrap's.
+  <sub>`@aparte/core`</sub>
+
+- [c4d87a2](https://github.com/apartejs/aparte/commit/c4d87a2): A second request for the human now **waits** instead of being answered `cancel` on arrival.
+
+  `AparteConfig.requestUserInput` holds a queue, so one request reaches the presenter at a time. That limit is real — the composer has one panel slot, and a second request used to clobber the first's DOM — but the old protection lived in `<aparte-elicitation>`, which resolved the second request `{ action: 'cancel' }` immediately. That is a refusal invented for a question nobody was ever shown, and the model reads it as the user having refused. Waiting is the honest behaviour.
+
+  Two things this also fixes: a consumer's own presenter, registered with `setElicitationPresenter`, previously had no protection at all; and a request that has been queued while its turn is stopped is no longer presented, because asking about a run that is already over asks about nothing.
+
+  Filed minor rather than patch for one reason worth naming: code that leaves a request unawaited and then awaits a second one used to get an immediate `cancel` and now waits for the first to settle. Nothing in this repo did that, and a dangling request is itself settled by the composer's turn-end eviction, but the shape of the change is visible enough to be a minor.
+
+  The queue only costs a microtask when something is actually ahead: with nothing waiting, a request is still presented in the calling tick, which is what the panel being mounted synchronously depends on.
+  <sub>`@aparte/core`</sub>
+
+- [c6d3a20](https://github.com/apartejs/aparte/commit/c6d3a20): **The `progress` segment is removed.** `AparteProgressSegment`, `progressRenderer`, its registration in `registerDefaultRenderers()`, its CSS and its three `--aparte-progress-*` variables all go. Breaking, pre-1.0, with no alias and no shim.
+
+  No language model emits a progress bar. Not chat-completions, not Anthropic's messages API, not the AI SDK's stream protocol — a model emits text, reasoning, tool calls, tool results and sometimes citations. And nothing in this repo emitted one either: the only in-repo `'progress'` is a worker→main message in `@aparte/provider-transformers` reporting **model download** progress to an `onProgress` callback, which is a name collision and never a segment.
+
+  `label` + `percent` + `status` are the signature of an app that owns the work — word for word the reason the `terminal` segment was removed, and the sixth segment type to go for it. The line it sits on the wrong side of is visible one file away: `pipeline-waiting` stays, because **core emits that one itself** between the phases of a multi-step turn. Core-owned indicator, not app-owned data.
+
+  An app that wants a progress bar has the seam for it: `registerSegmentRenderer` with a segment type of its own. That is the same answer this library gives for a terminal, and it is a better one than a built-in nothing fills.
+
+  Also fixes the landing's hero, which claimed "ten kinds of content" over a list of eight. The count is computed from the list now, so it cannot drift again; it reads seven.
+  <sub>`@aparte/core`</sub>
+
+- [9e30879](https://github.com/apartejs/aparte/commit/9e30879): **Every aparté element now has a typed surface in all four frameworks.**
+
+  Placing an element used to mean one of two things: a stringly-typed proxy, or nothing at all. In Angular it was `<aparte-ui name="aparte-model-selector" [props]="{…}" (elementEvent)="…">` — a tag name as a string, an untyped bag of props mixing DOM attributes with CSS variables, one output for every event, and an element created imperatively so no `@if`, `@for` or content projection could reach it. In React it was nine tags declared `any`.
+
+  `@aparte/core` now declares each element's attributes once — `AparteElementAttributes`, keyed by `AparteElementTagName`, with a per-element interface exported for each. Every wrapper derives from that registry rather than listing tags, so an element added to core is typed everywhere the moment it lands.
+
+  - **React** — the `aparte-*` JSX intrinsics are typed. A typo, a wrong value type, or an attribute the element does not observe is a compile error.
+  - **Vue** — declared through `GlobalComponents`, checked by `vue-tsc`.
+  - **Svelte** — declared through `SvelteHTMLElements`, checked by `svelte-check`, including `on:` handlers derived from the DOM event map.
+  - **Angular** — a standalone directive per element, exported individually and as `APARTE_ELEMENT_DIRECTIVES`. Real `@Input()`s that write attributes (never properties — eight of `<aparte-composer>`'s accessors are getter-only), one typed `@Output()` per event emitting the event's detail, and the real tag in the template so control flow and projection work. It also means **no `CUSTOM_ELEMENTS_SCHEMA`**, which used to switch template checking off for every unknown tag in the file.
+
+  In the three template languages a presence attribute is `'' | null | undefined`, not `boolean`: all three stringify what they set on a custom element, so `searchable={false}` would render `searchable="false"` and an element testing `hasAttribute` reads that as on. Angular's directives take a real `boolean` and write the attribute themselves. `AparteTemplateAttrs` and `AparteAttrValue` are exported if you build your own integration.
+
+  `<aparte-ui>` is unchanged and still ships. It is the escape hatch for an element aparté does not define — one of yours, or a third party's — rather than the way to use aparté's own.
+
+  Also fixed while typing it, all found by the compiler rather than by reading: six attributes were documented as strings while the element treats them as booleans or numbers; `timestamp` accepts a number as well as a string; `framework-managed` is a real attribute of the contract that all four wrappers set, core reads on two elements, and nothing declared; and `max-messages` is marked deprecated in favour of `max-rendered-bubbles`, which the element has been warning about at runtime.
+
+  New docs page: [Placing elements, typed](/frameworks/elements/).
+  <sub>`@aparte/core`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [2f6180e](https://github.com/apartejs/aparte/commit/2f6180e): **A wrapper types only what it depends on.** `AparteModelSelectorDirective` and `AparteAskUserDirective` are removed from `@aparte/angular`; `aparte-model-selector` and `aparte-ask-user` are removed from core's `AparteElementAttributes` registry, along with the `AparteModelSelectorAttributes` export; and `aparte-model-change` is removed from `APARTE_DEFAULT_UI_EVENTS`.
+
+  They were added hours earlier in the same release, and the reason to take them back out is the one that matters: **a third-party plugin's author cannot add a line to `@aparte/core`.** Typing our own plugin's element from core and shipping its directive from the wrapper gave aparté's packages a privilege nobody else's plugin could have — an asymmetry baked into the library before it has an ecosystem.
+
+  The rule that replaces it is symmetric and states in one line: **whoever owns the element owns its contract and its bindings.** Core's elements are typed by core and wrapped by the wrappers. Everything else — a plugin's element, ours or yours — is typed by its owner, or in six lines by the app that places it. Both mechanisms are documented, and both are exactly the same work for us as for anyone: module augmentation for React/Vue/Svelte (types only, no runtime, applies exactly when the package is installed) and a directive for Angular, whose only non-obvious part — attribute versus property — is `applyElementProps`, already exported.
+
+  Nothing about core's own 18 elements changes: their attributes, the 26 declared events with 20 typed details, the JSX/Vue/Svelte typing and the 17 Angular directives all stay.
+
+  The Angular example now declares its own six-line directive for the model selector instead of importing one, which makes it a worked demonstration of the pattern rather than a consumer of a privilege — and it keeps its `CUSTOM_ELEMENTS_SCHEMA` removed.
+  <sub>`@aparte/core`, `@aparte/angular`</sub>
+
+- [16bcd8a](https://github.com/apartejs/aparte/commit/16bcd8a): **`@aparte/plugin-model-selector/angular`** — the fourth and last binding, so all four frameworks now get `<aparte-model-selector>` from the package that owns it.
+
+  ```ts
+  import { AparteModelSelectorDirective } from "@aparte/plugin-model-selector/angular";
+  // @Component({ imports: [AparteModelSelectorDirective], … })
+  ```
+
+  Angular is the only one of the four that needs real code — its template compiler requires a class claiming the selector, and `[persist]="true"` on a custom element writes a _property_, which on an attribute-driven element is a silent no-op. So this entry is compiled in **partial-Ivy** mode by `ngc`, the format a consumer's own AOT build finishes, while Vite keeps building everything else. The directive itself is generated from the package's own custom-elements manifest, like the other three bindings.
+
+  `@angular/core` is an **optional** peer dependency: install the plugin without Angular and nothing here is reachable, which is the point.
+
+  The Angular example now imports this instead of the six-line local directive it wrote while waiting — the import resolving at all _is_ the property, since you get the binding exactly when you have the plugin. That local directive remains the documented path for an element aparté does not define.
+  <sub>`@aparte/plugin-model-selector`</sub>
+
+- [d03b212](https://github.com/apartejs/aparte/commit/d03b212): **`@aparte/plugin-model-selector` types its own element**, through three new subpath exports: `./react`, `./vue` and `./svelte`.
+
+  ```ts
+  import "@aparte/plugin-model-selector/react";
+  // <aparte-model-selector persist="" searchable="" placeholder="Pick a model" />  ← typed
+  ```
+
+  This is the rule from the previous release made real: whoever owns the element owns its contract and its bindings. `@aparte/angular` briefly shipped a directive for this element and core briefly typed it — both were removed, because a third-party plugin's author cannot add a line to either, so doing it for our own plugin gave aparté's packages a privilege theirs could never have.
+
+  Putting the bindings in the plugin makes the property you actually want fall out of the module graph: **install the package and the tag is typed; don't and it isn't.** TypeScript enforces that, nobody has to remember it.
+
+  Subpaths rather than the main entry because a `declare module 'react'` block only compiles where React's types resolve — in a shared entry it breaks every Vue and Svelte consumer with `TS2664`. `react`, `vue` and `svelte` are **optional** peer dependencies; the three modules carry no runtime at all (0.04 kB each, the augmentation is the whole payload).
+
+  The package now also emits its own custom-elements manifest, and its attribute types are generated from it by the same `scripts/gen-element-bindings.mjs` that generates core's — so the types cannot fall behind the element's JSDoc, and a third-party plugin can run the same tool on its own manifest.
+
+  No Angular subpath yet: an Angular directive is runtime code, so it needs partial-Ivy compilation in a package that builds with Vite. Until then, the six-line local directive the Angular example demonstrates is the path.
+  <sub>`@aparte/plugin-model-selector`</sub>
+
+### Patch Changes
+
+- [7336ae4](https://github.com/apartejs/aparte/commit/7336ae4): **A built-in renderer's CSS moved out of `getStyles()` and into `styles/aparte.css`** — the tool call, the artifact card and the pipeline-waiting segment, 425 lines out of the three
+  renderers and 449 into the stylesheet (the difference is section comments and blank lines a real
+  stylesheet gets to have). No visual change: the same rules, in a file that ships the same way.
+
+  `getStyles()` stays on the renderer interface, because that seam is what a _consumer's_ renderer needs — something registered through `registerSegmentRenderer` or `registerToolRenderer` cannot edit core's stylesheet and has no other way onto the page. A built-in has the stylesheet.
+
+  Two measured reasons. `check:derived-vars` reads that one path and nothing else, so a declaration deriving from another variable could hide in a renderer unchecked. And CSS in a template literal is not read as CSS: a backtick closes the literal — the artifact card's own comment recorded that happening, and it happened three more times in one sitting, the worst rendering a source marker into an assistant's bubble as prose, because inside a template literal a `//` comment is just text.
+
+  Also removes a dead rule that tinted the tool row's border while a decision was pending: it stopped painting anything when that border went away in the row redesign, and it reached for `--aparte-border-strong`, a variable that was never declared anywhere.
+
+  Contract-neutral: core's entry imports the stylesheet and `package.json` marks every `.css` a side effect, so importing `@aparte/core` has always brought it along.
+  <sub>`@aparte/core`</sub>
+
+- [02f2d4d](https://github.com/apartejs/aparte/commit/02f2d4d): The composer's one panel slot now has an owner, which closes a defect that could permanently stop a chat from asking anything.
+
+  `showPanel` returns a token and accepts an `onEvict` callback; `hidePanel(token)` closes the panel only if that token still owns the slot. Both additions are additive — code that calls `showPanel()` and `hidePanel()` as before is unchanged.
+
+  The defect: the composer tears its panel down on **every** turn-ending event, and `<aparte-elicitation>` only listened for `aparte-message-error` and `aparte-message-aborted`. A question still open when a turn completed normally therefore lost its panel while the presenter kept its pending state — so `requestUserInput()` never settled, and because the presenter refuses a second request while one is pending, every later question was short-circuited for the life of the page. One finished turn and the chat could never ask again.
+
+  Three paths could close a panel whose owner was still awaiting an answer, and none of them told the owner: a second `showPanel`, the owner's own late `hidePanel`, and the turn-end teardown. All three now notify, and a presenter settling late can no longer tear down the panel that replaced its own.
+  <sub>`@aparte/core`</sub>
+
+- [093a196](https://github.com/apartejs/aparte/commit/093a196): **The element bindings are generated from the manifest, not written by hand.** 675 lines of
+  hand-maintained declarations out — 435 of Angular directives and 240 of attribute interfaces — for a
+  335-line generator and a 55-line config file, which three packages now share.
+
+  Core's attribute registry and the 17 Angular directives were a parallel structure over facts the custom-elements manifest already carried, with nothing watching them. Add an attribute to an element and the manifest records it, the registry records it, and React, Vue and Svelte type it automatically — they derive from the registry through a mapped type. Angular would silently not, because an `@Input()` is a hand-written member. Nothing would go red, and the Angular wrapper would be quietly behind within days.
+
+  `scripts/gen-element-bindings.mjs` now emits both from `dist/custom-elements.json`, into gitignored `src/generated/` directories rewritten on every build — the same pattern the docs' two generated reference pages already use, so there is no committed artifact that can fall behind and no new guard.
+
+  The generator was checked differentially against the output it replaced, and reproduced it: the same 15
+  interfaces carrying the same 48 attribute members, the same 17 directives, the same 24 Outputs. It
+  differs in exactly one place — 41 Inputs where the hand-written directives had 40, because it picked
+  up `framework-managed` on `<aparte-chat-viewport>`, an attribute core's registry declared and the
+  hand-written directive had missed. That is the drift this change exists to make impossible, found in
+  the artefact being deleted. The 109 directive tests pass unchanged against the generated file.
+
+  What cannot be derived lives in `packages/core/element-bindings.config.mjs`, visible rather than buried in a generator branch: `role` on the bubble is omitted as an Input because that name is ARIA's, `data-empty` on the toolbar is omitted because the element reflects it onto itself, and `aparte-abort` / `aparte-message-aborted` get no Output because they are dispatched on `window` where a host listener could never hear them.
+
+  No public API changes: the same types and the same directive names are exported, from a generated file instead of a hand-written one.
+  <sub>`@aparte/core`, `@aparte/angular`</sub>
+
+- [e406a98](https://github.com/apartejs/aparte/commit/e406a98): **Every element now declares and describes its own surface**, and the generated API reference prints each event's detail type.
+
+  The manifest is the source of truth for the component API, and it was quietly incomplete. Four elements carried a full `@element` / `@attr` / `@fires` block at the top of their file, separated from the class by imports and interfaces — TypeScript associates only the comment physically adjacent to a declaration, so every authored description was dropped on the floor. Nothing _looked_ missing: the analyser reads `observedAttributes` and `this.dispatchEvent` structurally, so `<aparte-select>` still listed six attributes and three events. They just had no text, and the reference page shipped rows like `| aparte-cancel |  |`.
+
+  Seven event names reached the manifest through neither path and are now declared by hand, because no docblock fix can make them detectable: the analyser's fallback only visits real method declarations and only recognises `this.dispatchEvent`. `<aparte-conversation-list>` had **no events at all** — all four of its dispatches happen in an arrow class field. `<aparte-chat-bubble>` was missing exactly one, `aparte-branch-navigate`, for the same reason. `<aparte-composer>` was missing `aparte-abort` and `aparte-message-aborted`, which go out on `window`.
+
+  Every event that carries a detail now names its type — `@fires {CustomEvent<AparteConversationSelectDetail>} …` — sourced from `event-map.ts`, which is guarded in both directions. Before this, all 26 events in the manifest read as a bare `CustomEvent`; there was no working typed instance in the repo. The generated reference gained a **Type** column to print it, because that is what tells a consumer the shape of `e.detail`.
+
+  Result: 18 elements, every one with a description, every attribute and event described, 26 events of which 20 carry a typed detail.
+  <sub>`@aparte/core`, `@aparte/plugin-ask-user`, `@aparte/plugin-model-selector`</sub>
+
+- [6f262cf](https://github.com/apartejs/aparte/commit/6f262cf): Three fixes to the human-in-the-loop gate. No API changes: nothing that compiles today stops compiling.
+
+  **A stop is no longer reported to the model as a refusal.** Pressing Stop while a tool waited for approval stamped the segment `rejected` and put "Tool execution was rejected by the user." into the history — the sentence the model reads named a decision nobody made. The abort path resolved `{ approved: false }`, the same value an explicit Reject produces, so the gate could not tell them apart. It now asks the signal instead of the value, and an aborted wait stamps `aborted` and appends no `tool_result`: there is nothing true to tell the model, which is already how a handler aborted mid-run is treated.
+
+  **A `needsApproval` tool with no `approvalResolver` aborts instead of inventing a refusal.** `runStreamAgent` defaulted to `async () => ({ approved: false })`, so a host that had simply forgotten to wire a resolver was reported to the model as having refused.
+
+  **A reloaded conversation stops waiting for a decision nobody can give.** A `tool_call` persisted as `awaiting-approval` came back still awaiting it, with Approve / Reject buttons wired to a listener that went with the page — and `isSegmentSettled` reads _status_ for a tool call, so the segment also stayed open and collected an `endedAt` from the next turn-close. `adoptSegment` now normalises it to `aborted` on every load path: nobody refused it, the page simply went away. The persistence guide documented this as something core could not fix for you; that half of the paragraph is gone, and `pending` — the same defect on the sibling nobody had looked at — is named as still outstanding.
+
+  **`AparteToolDecisionDetail.targetId` is declared.** The runtime always sent it and a test read it, so reaching the chat id on a public event required casting past its own type.
+  <sub>`@aparte/core`, `@aparte/engine`</sub>
+
+- [d85cf6b](https://github.com/apartejs/aparte/commit/d85cf6b): **`APARTE_DEFAULT_UI_EVENTS` now lists every event an aparté element dispatches on itself** — 23 names, up from 7.
+
+  This is the set `AparteUi` forwards in all four wrappers, so an event missing from it is an event a consumer cannot hear through the proxy. It described itself as "verified against core" while carrying seven of twenty-three, and the gap was not academic: `aparte-model-change` was absent, and `<aparte-ui name="aparte-model-selector">` was the one worked example in the wrappers' own documentation — the documented usage could not receive the event it exists to receive.
+
+  That example is gone from this release for a better reason than a longer list: `@aparte/plugin-model-selector` now types its own element and ships its own bindings, so its event is typed through the DOM and the proxy is not on the path at all. `aparte-model-change` is therefore _not_ in this list — a plugin's event is the plugin's to declare, and core listing it was the same privilege the boundary change removed everywhere else.
+
+  Two of core's own events are also deliberately excluded: `aparte-abort` and `aparte-message-aborted` go out through `window.dispatchEvent`, so an element-level listener can never receive them and listing them would promise a forward that cannot happen. That is the whole difference between the manifest's 25 distinct event names and this list's 23.
+  <sub>`@aparte/core`</sub>
+
+- [e40cf78](https://github.com/apartejs/aparte/commit/e40cf78): **Breaking, pre-1.0, no shim:** a request for the human that ends without an answer now **rejects** instead of resolving `{ action: 'cancel' }`.
+
+  `AparteElicitationResult` loses its `cancel` arm and keeps `accept` / `decline`. The failure arrives as the new `AparteElicitationAbortError`, whose `name` is `'AbortError'` — so any handler already testing `err.name === 'AbortError'` needs no change — and whose `reason` is `'aborted'` (a stopped turn, a fired signal, a question taken away by another request) or `'no-presenter'` (nothing was mounted to ask it).
+
+  Why the shape had to change: a value is easy to handle as though it were an answer, and that is exactly what happened one level up. The tool-approval gate read `cancel` as a refusal, stamped the segment `rejected`, and told the model "Tool execution was rejected by the user." The user had pressed Stop. A rejection cannot be mistaken for a decision by a caller that forgot a branch, which is the property `cancel` never had.
+
+  Evidence the shape is right: `askUserHandler` already performed this exact conversion by hand — `{ action: 'cancel' }` in, `new DOMException(..., 'AbortError')` out. That conversion is gone; the error now propagates from the primitive.
+
+  **Migrating.** Replace a `case 'cancel':` branch with a `catch`. A `switch` on `action` that had all three arms keeps compiling with two, and the third path becomes the `catch`. One consequence worth knowing: a request you start and never `await` will surface an unhandled rejection when it ends without an answer, because that is what an ignored failed promise is — attach a `.catch()` if you genuinely do not care about the outcome.
+  <sub>`@aparte/plugin-ask-user`</sub>
+
+- [ecd9ad5](https://github.com/apartejs/aparte/commit/ecd9ad5): **A tool call now shows what went in and what came out**, and it is drawn as a row rather than a badge.
+
+  The pill named the tool and showed nothing else — not the arguments the model chose, not the result it got — while the segment carried both the whole time. Missing presentation, not missing data. It opens onto `Input` (pretty-printed JSON) and `Output`, coloured by a registered highlight provider when there is one and readable as escaped text when there is not.
+
+  **Collapsed, always** — including while the loop waits for a decision. The reasoning block stays closed while it is being produced, which is the most live moment there is, so a tool call has no stronger claim to unroll itself. One rule, no special cases. A `<details>` appears only when there is something behind it: a disclosure onto nothing is an affordance that lies.
+
+  **Breaking, pre-1.0: four CSS classes are renamed**, because a name in a public CSS contract must name a ROLE and not a shape — the shape belongs to whoever is styling it. `tool-pill` → `tool-label`, `tool-pill-icon` → `tool-icon`, `tool-pill-name` → `tool-name`, `tool-pill-spinner` → `tool-spinner`, `tool-pill-status` → `tool-state`. Same reasoning that retired `footer-left/center/right`: a name the design contradicts is a name that will lie.
+
+  **And it no longer looks like a tag.** The identity is neutral at every status — it used to be filled green when a call resolved and red when it was refused, which made a finished step shout louder than the reply it belongs to. The colour lives on a small state badge at the far end, which now carries a WORD as well as a glyph (`Running`, `Done`, `Rejected`, `Stopped`): a bare cross beside a name reads as a button that removes something, so the state was being mistaken for an affordance.
+
+  The renderer gains an `update`, which it never had. Without one the bubble replaced the element on every change — and a tool call changes status several times a turn, so a disclosure the reader opened would have slammed shut under them each time. A registered `registerToolRenderer` still owns its whole markup and is rebuilt rather than patched.
+
+  New locale keys: `toolInput`, `toolOutput`, `toolRunning`, `toolCompleted`, `toolRejected`, `toolStopped`, translated in `@aparte/locale-fr`. New themable variable: `--aparte-tool-row-radius`.
+  <sub>`@aparte/locale-fr`</sub>
+
+- [094d438](https://github.com/apartejs/aparte/commit/094d438): **The tool-approval decision moves out of the transcript and into the composer.**
+
+  A request that blocks the run is answered where the user answers. That is now a rule for the library, not a choice made once: the composer is where a question already went, and the approval gate was the only decision surface left in a bubble. It was older than the mechanism that should have carried it — built with a segment renderer and a `document` event because neither `showPanel` nor a typed presenter existed yet — and nothing came back for it, partly because for a stretch the whole human-in-the-loop path was inert and so nothing exercised it.
+
+  **What you see.** The `tool_call` pill stays in the transcript as the **anchor**, saying which tool is waiting, with no role, no tab stop and nothing clickable. The choices appear in the composer, each settling on the first click, above a quiet field for saying what to do instead. The thing being judged stays in the thread, which is scrollable, copyable and persisted; the panel is capped at half the viewport and could not hold a diff or a plan.
+
+  **Breaking, pre-1.0, no shims:**
+
+  - **`aparte-tool-decision` is deleted** — the event, `AparteToolDecisionDetail`, its event-map entry and the `document` listener that answered it. It existed only because a segment renderer has no reference to the client. To answer programmatically, pass an `approvalResolver` or register your own presenter; both see the whole request instead of an id on an event.
+  - **`AparteToolApprovalResolver` and `StreamApprovalResolver` take the CALL**, `(call, signal)` rather than `(toolCallId, signal)`. You cannot ask a person "run this?" without naming what — and an id alone forced a lookup table filled by one event and read by another, the shape that breaks in silence.
+  - Both resolvers may return an **`instruction`**, the words the model reads back on a refusal.
+  - **`AparteElicitationRequest` gains `kind` and `options`**, and `schema` is now optional — required on a `'question'`, absent on an `'approval'`.
+
+  **New:** `buildApprovalPanel` and `BuiltApprovalPanel`, `AparteApprovalOption` and `AparteApprovalAnswer`, and four locale keys (`approvalAsk`, `approvalWaiting`, `approvalInstructionPlaceholder`, `approvalOptionsLabel`), translated in `@aparte/locale-fr`.
+
+  **`<aparte-chat>` now ships `<aparte-elicitation>` in its default composition.** The built-in gate asks through the presenter, so a chat without one could not honour `needsApproval` at all. An affordance core honours end to end is on by default; leaving this out would have made the gate depend on a tag nobody was told to write. Author-provided compositions are untouched, as always.
+
+  **The options come with the request.** Core supplies two — the tool's name as the question, Approve and Reject — and anything richer is the host's: a scope option ("and always for this tool") exists only because an app wrote the label and can remember the grant. Core never invents one and never interprets one.
+
+  **Also fixed, in passing:** a panel's own buttons inherited the composer row's 44×44 action-control sizing and rendered as circles with their labels spilling out. Any panel containing a button hit this; the approval options were the first that do.
+  <sub>`@aparte/locale-fr`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-transformers`, `@aparte/plugin-marked`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`.</sub>
+
 ## 0.10.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
