@@ -2,7 +2,9 @@
 '@aparte/core': patch
 ---
 
-**A built-in renderer's CSS moved out of `getStyles()` and into `styles/aparte.css`** — the tool call, the artifact card and the pipeline-waiting segment, 419 lines in total. No visual change: the same rules, in a file that ships the same way.
+**A built-in renderer's CSS moved out of `getStyles()` and into `styles/aparte.css`** — the tool call, the artifact card and the pipeline-waiting segment, 425 lines out of the three
+renderers and 449 into the stylesheet (the difference is section comments and blank lines a real
+stylesheet gets to have). No visual change: the same rules, in a file that ships the same way.
 
 `getStyles()` stays on the renderer interface, because that seam is what a *consumer's* renderer needs — something registered through `registerSegmentRenderer` or `registerToolRenderer` cannot edit core's stylesheet and has no other way onto the page. A built-in has the stylesheet.
 
