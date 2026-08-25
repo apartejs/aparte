@@ -244,15 +244,24 @@ describe('<aparte-elicitation> presenter', () => {
         ).not.toBeNull();
     });
 
-    it('declines a second concurrent request while one is open', async () => {
-        const { composer } = mountChat();
+    it('makes a second request wait instead of refusing it', async () => {
+        // This asserted the opposite until the queue existed: the second request was
+        // answered `cancel` the moment it arrived — a refusal for a question nobody
+        // had been shown, which the model then read as the user having refused.
+        mountChat();
         const first = requestUserInput({ message: 'first', schema: { type: 'string' } });
-        const second = await requestUserInput({ message: 'second', schema: { type: 'string' } });
-        expect(second).toEqual({ action: 'cancel' });
-        // The first is still open and resolvable.
+        const second = requestUserInput({ message: 'second', schema: { type: 'string' } });
+
+        expect(document.querySelectorAll('.aparte-elic-panel')).toHaveLength(1);
+        expect(document.querySelector('.aparte-elic-message')?.textContent).toBe('first');
+
         document.querySelector<HTMLButtonElement>('.aparte-elic-skip')!.click();
         expect(await first).toEqual({ action: 'decline' });
-        void composer;
+
+        await vi.waitFor(() =>
+            expect(document.querySelector('.aparte-elic-message')?.textContent).toBe('second'));
+        document.querySelector<HTMLButtonElement>('.aparte-elic-skip')!.click();
+        expect(await second).toEqual({ action: 'decline' });
     });
 
     it('clears the presenter on disconnect', () => {

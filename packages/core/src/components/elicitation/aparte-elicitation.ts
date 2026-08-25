@@ -154,9 +154,16 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
     }
 
     private _present: AparteElicitationPresenter = (request: AparteElicitationRequest) => {
-        // One request at a time — a concurrent request is declined rather than
-        // clobbering the open panel.
-        if (this._pending) return Promise.resolve<AparteElicitationResult>({ action: 'cancel' });
+        /*
+         * No concurrency guard here any more — `AparteConfig.requestUserInput` queues,
+         * so a second request arrives only once this one has settled.
+         *
+         * What was here answered the second request `cancel` immediately: a refusal
+         * invented for a question nobody was shown. And it protected only requests
+         * that came through THIS presenter, so a consumer's own presenter had nothing.
+         * If two ever do overlap, `showPanel` now evicts and NOTIFIES the first, which
+         * degrades to a settled request instead of a wedged one.
+         */
         const composer = this._getComposer();
         if (!composer) return Promise.resolve<AparteElicitationResult>({ action: 'cancel' });
 

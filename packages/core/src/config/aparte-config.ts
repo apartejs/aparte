@@ -116,6 +116,9 @@ export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStr
  */
 export type AparteArtifactPreviewBuilder = (kind: string, body: string, title: string) => string;
 
+/** The queue tail must never reject, so a failed request cannot wedge every later one. */
+const NOOP = (): void => { /* deliberately empty */ };
+
 export class AparteConfig {
     private _markdownProvider?: AparteMarkdownProvider;
     private _streamingMarkdownProvider?: AparteStreamingMarkdownProvider;
@@ -175,6 +178,23 @@ export class AparteConfig {
     private _elicitationPresenter?: AparteElicitationPresenter;
     /** Warn once per config, not once per request — a tool loop can ask repeatedly. */
     private _warnedNoPresenter = false;
+    /**
+     * The tail of the queue of requests waiting for the human, or `null` when none is.
+     *
+     * One request reaches the presenter at a time — not because a presenter could not
+     * cope, but because the COMPOSER cannot: it has one panel slot, and a second
+     * request used to clobber the first's DOM. The previous protection lived in the
+     * default presenter, which answered the second request `cancel` on the spot; that
+     * is a refusal invented for a question nobody was ever shown, the same class of
+     * lie as telling the model a stopped turn was refused. WAITING is the honest
+     * behaviour.
+     *
+     * Here rather than in the presenter because this is the only place that sees
+     * EVERY request whatever raised it — a tool handler, an app's own button, and
+     * (soon) the tool-approval gate. A custom presenter registered by a consumer gets
+     * the same protection for free, which it previously had none of.
+     */
+    private _elicitationQueue: Promise<void> | null = null;
 
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
@@ -1122,6 +1142,31 @@ export class AparteConfig {
      * itself — nothing to register", which is how this failure mode was found.
      */
     requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
+        const previous = this._elicitationQueue;
+        /*
+         * Nothing waiting → present in THIS tick.
+         *
+         * The panel is mounted synchronously today, and the unit tests and the browser
+         * E2E both read it on the line after the call. A microtask hop for every
+         * request would be an observable change bought for nothing, so the queue only
+         * costs a hop when there is actually something ahead.
+         */
+        const settled = previous === null ? this._present(request) : previous.then(
+            () => this._present(request),
+            () => this._present(request),
+        );
+        const mine: Promise<void> = settled.then(NOOP, NOOP).then(() => {
+            // Drained: back to "nothing waiting", so the next request is immediate
+            // again. Guarded because a request enqueued behind this one owns the tail
+            // now, and clearing it would drop that one on the floor.
+            if (this._elicitationQueue === mine) this._elicitationQueue = null;
+        });
+        this._elicitationQueue = mine;
+        return settled;
+    }
+
+    /** Hand ONE request to the presenter. Called only from the queue. */
+    private _present(request: AparteElicitationRequest): Promise<AparteElicitationResult> {
         if (!this._elicitationPresenter) {
             if (!this._warnedNoPresenter) {
                 this._warnedNoPresenter = true;
@@ -1136,6 +1181,12 @@ export class AparteConfig {
             }
             return Promise.resolve({ action: 'cancel' });
         }
+        /*
+         * Re-checked HERE rather than on the way in: a request can sit in the queue
+         * while the turn that raised it is stopped, and opening a panel for a run
+         * that is already over would ask the user about nothing.
+         */
+        if (request.signal?.aborted) return Promise.resolve({ action: 'cancel' });
         return this._elicitationPresenter(request);
     }
 
@@ -1167,6 +1218,9 @@ export class AparteConfig {
         this._keyProvider = undefined;
         this._conversationManager = undefined;
         this._elicitationPresenter = undefined;
+        // The queue too: a request left waiting across a reset belongs to a chat that
+        // no longer exists, and holding the tail would make the next request wait on it.
+        this._elicitationQueue = null;
         this._locale = APARTE_DEFAULT_LOCALE;
         this._actions = [];
         this._sanitizer = defaultSanitizer;
