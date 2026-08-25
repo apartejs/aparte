@@ -32,7 +32,8 @@
     "typecheck:tests": "tsc -p tsconfig.spec.json --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "gen": "node ../../../scripts/gen-element-bindings.mjs packages/core --angular packages/wrappers/angular/src/generated"
   },
   "peerDependencies": {
     "@angular/common": "^19.2.0",

@@ -12,9 +12,11 @@ export { AparteChatComponent } from './lib/aparte-chat.component';
 export { AparteUiComponent } from './lib/aparte-ui.component';
 export type { AparteUiHandle } from './lib/aparte-ui.component';
 
-// Typed directives, one per element: the real tag in the template with typed Inputs
-// and one Output per event. `<aparte-ui>` stays for an element aparté does not define
-// — a third-party one, or yours.
+// Typed directives, one per element: the real tag in the template with typed Inputs and
+// one Output per event. GENERATED from core's custom-elements manifest at build time —
+// hand-written, they were a parallel structure that nothing watched, so an attribute
+// added to an element would be typed in the other three wrappers and silently missing
+// here. `<aparte-ui>` stays for an element aparté does not define.
 export {
     APARTE_ELEMENT_DIRECTIVES,
     AparteChatViewportDirective,
@@ -34,7 +36,7 @@ export {
     AparteConversationListDirective,
     AparteProgressSpinnerDirective,
     AparteElicitationDirective,
-} from './lib/element.directives';
+} from './generated/element.directives';
 
 // Annex: client lifecycle + reactive conversation manager.
 export { AparteAiService, APARTE_CLIENT_OPTIONS } from './lib/aparte-ai.service';

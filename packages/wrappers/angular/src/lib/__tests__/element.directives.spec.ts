@@ -13,7 +13,7 @@ import {
     AparteComposerCancelDirective,
     AparteComposerToolbarDirective,
     AparteElicitationDirective,
-} from '../element.directives';
+} from '../../generated/element.directives';
 
 /*
  * What these prove, and why each matters more than it looks.
