@@ -108,6 +108,14 @@ export function stampSegmentOnInsert(
  *    with `isStreaming: true` would render a caret forever, and — through
  *    `openSegmentIds`, which reads exactly this flag — would have the next turn-close
  *    stamp it a brand-new `endedAt`.
+ *  - a `tool_call` persisted as `awaiting-approval` becomes `'aborted'`, for the same
+ *    reason and through a hole the line above cannot reach: `isSegmentSettled` reads
+ *    STATUS for a tool call, not `isStreaming`, so a restored gate stayed OPEN. The loop
+ *    that awaited the decision is gone and the promise it would have settled went with
+ *    the page, so the request is unanswerable — and `'aborted'` rather than `'rejected'`
+ *    because nobody refused anything. Documented as a consumer's problem in the
+ *    persistence guide until now ("normalise those statuses on save"), which is a
+ *    normalisation this function was already the single funnel for.
  */
 export function adoptSegment(
     segments: readonly AparteSegment[],
@@ -119,6 +127,9 @@ export function adoptSegment(
         messageId,
         index: segments.length,
         isStreaming: false,
+        ...(segment.type === 'tool_call' && segment.status === 'awaiting-approval'
+            ? { status: 'aborted' as const }
+            : {}),
     } as AparteSegment;
 }
 

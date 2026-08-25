@@ -134,6 +134,28 @@ describe.each(PATHS)('history through $name', (path) => {
         expect(segments.every((s) => s.isStreaming === false)).toBe(true);
         expect(openSegmentIds(segments)).toEqual([]);
     });
+
+    it('closes a request for a human decision nobody can answer any more', () => {
+        const pending = history();
+        // A tab closed on a tool call that was waiting for Approve / Reject. The loop
+        // that awaited it is gone and the promise it would have settled went with the
+        // page, so nothing can answer it — yet `status` survived the round trip
+        // untouched, which is a different hole from the `isStreaming` one above:
+        // `isSegmentSettled` reads STATUS for a tool_call, so the assertion in the
+        // previous test cannot see this case at all.
+        pending[0]!.segments![0] = {
+            id: 's-gate', type: 'tool_call', status: 'awaiting-approval',
+            toolCall: { id: 'c1', name: 'danger', input: {} },
+        } as unknown as AparteSegment;
+
+        const segments = segmentsOf(path.load(pending));
+        const gate = segments.find((s) => s.id === 's-gate') as { status?: string } | undefined;
+
+        // `'aborted'` and not `'rejected'`: nobody refused it. The same distinction the
+        // live gate now makes when a turn is stopped mid-wait.
+        expect(gate?.status, 'nobody refused it — the page simply went away').toBe('aborted');
+        expect(openSegmentIds(segments), 'and the next turn-close must not stamp it an end').toEqual([]);
+    });
 });
 
 describe('adoptMessageSegments', () => {
