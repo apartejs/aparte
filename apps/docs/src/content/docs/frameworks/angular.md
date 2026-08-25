@@ -6,7 +6,8 @@ sidebar:
 ---
 
 `@aparte/angular` wraps `@aparte/core` for Angular 19: an ergonomic `<aparte-chat>` standalone
-component, services for the client and conversations, and a generic `<aparte-ui>` escape hatch.
+component, services for the client and conversations, a typed directive for every element, and a
+generic `<aparte-ui>` escape hatch.
 
 ```bash
 npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
@@ -129,18 +130,31 @@ agent loop** instead of core's inline one, inject it:
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 :::
 
-## Any element: `<aparte-ui>`
+## Any aparté element: a typed directive
 
-For an `<aparte-*>` element without a dedicated component, mount it generically. It forwards the
-interactive aparté events by default; pass `[events]` to listen to others:
+Every element has a standalone directive whose selector is the tag, so you write the real element
+with typed Inputs and one Output per event — and **no `CUSTOM_ELEMENTS_SCHEMA`**, which would switch
+template checking off for every unknown tag in the file. Import the ones you use, or
+`APARTE_ELEMENT_DIRECTIVES` for all of them:
+
+```ts
+import { AparteModelSelectorDirective } from '@aparte/angular';
+// then: @Component({ imports: [AparteModelSelectorDirective], … })
+```
 
 ```html
-<aparte-ui
-  name="aparte-model-selector"
-  [props]="{ placeholder: 'Ask…', '--glow-speed': '4s' }"
-  (elementEvent)="onEvent($event)"
-/>
+@if (showPicker) {
+  <aparte-model-selector
+    [persist]="true"
+    [searchable]="true"
+    (modelChange)="use($event.modelId)"
+  ></aparte-model-selector>
+}
 ```
+
+The `@if` is the point: the element is really in the template, so control flow and content
+projection reach it. Full set and the rules on
+[Placing elements, typed](/frameworks/elements/).
 
 :::note[Where that element comes from]
 `aparte-model-selector` is **not** in `@aparte/core` — it is defined by
@@ -148,8 +162,25 @@ interactive aparté events by default; pass `[events]` to listen to others:
 what registers it. Until then the tag renders as an empty, inert element with no error:
 a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
 own the moment the definition arrives — which is exactly why `provideAparte`'s lazy
-`plugins` loaders work. `<aparte-ui>` mounts any element name, including your own.
+`plugins` loaders work.
 :::
+
+## Any OTHER element: `<aparte-ui>`
+
+For an element aparté does not define — one of yours, or a third party's — mount it generically. It
+forwards the interactive aparté events by default; pass `[events]` to listen to others:
+
+```html
+<aparte-ui
+  name="my-token-counter"
+  [props]="{ 'data-budget': '8000', '--glow-speed': '4s' }"
+  (elementEvent)="onEvent($event)"
+/>
+```
+
+This used to be how you placed a model selector. It still works, and it is still the only way to
+mount a tag aparté knows nothing about — but for aparté's own elements the directive above gives you
+type checking, one output per event, and an element the template can actually wrap.
 
 ## Also exported
 

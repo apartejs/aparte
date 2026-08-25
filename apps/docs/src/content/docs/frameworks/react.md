@@ -6,7 +6,7 @@ sidebar:
 ---
 
 `@aparte/react` wraps `@aparte/core` for React 18/19: an ergonomic `<AparteChat>` component, hooks
-for state and the client, and a generic `<AparteUi>` escape hatch.
+for state and the client, typed JSX for every element, and a generic `<AparteUi>` escape hatch.
 
 ```bash
 npm install @aparte/react @aparte/core react react-dom
@@ -81,16 +81,19 @@ For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
 :::
 
-## Any element: `<AparteUi>`
+## Any aparté element: typed JSX
 
-For an `<aparte-*>` element without a dedicated component, mount it generically:
+The `aparte-*` tags are typed JSX intrinsics as soon as you import from `@aparte/react` — nothing to
+register. Attribute names are the HTML ones, and a typo or a wrong value type is a compile error:
 
-<!-- doc-check: skip excerpt — `onEvent` is the reader's handler -->
 ```tsx
-import { AparteUi } from '@aparte/react';
-
-<AparteUi name="aparte-model-selector" props={{ placeholder: 'Ask…', '--glow-speed': '4s' }} onElementEvent={onEvent} />
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
 ```
+
+Presence attributes are `''`, not `true` — React stringifies what it sets on a custom element, so
+`searchable={false}` would render `searchable="false"` and an element testing `hasAttribute` reads
+that as on. Events reach you by ref and are typed through the DOM. The rules and the full set are on
+[Placing elements, typed](/frameworks/elements/).
 
 :::note[Where that element comes from]
 `aparte-model-selector` is **not** in `@aparte/core` — it is defined by
@@ -98,8 +101,22 @@ import { AparteUi } from '@aparte/react';
 what registers it. Until then the tag renders as an empty, inert element with no error:
 a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
 own the moment the definition arrives — which is exactly why loading the plugin lazily
-works. `AparteUi` mounts any element name, including your own.
+works.
 :::
+
+## Any OTHER element: `<AparteUi>`
+
+For an element aparté does not define — one of yours, or a third party's:
+
+<!-- doc-check: skip excerpt — `onEvent` is the reader's handler -->
+```tsx
+import { AparteUi } from '@aparte/react';
+
+<AparteUi name="my-token-counter" props={{ 'data-budget': '8000' }} onElementEvent={onEvent} />
+```
+
+It mounts any tag name, which is exactly what you want for a foreign element and exactly what you do
+not need for aparté's own — those are typed above.
 
 ## Also exported
 

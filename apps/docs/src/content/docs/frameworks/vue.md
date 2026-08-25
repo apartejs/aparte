@@ -88,10 +88,39 @@ For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
 :::
 
-## Any element: `<AparteUi>`
+## Any aparté element: typed in the template
 
-For an `<aparte-*>` element without a dedicated component, mount it generically. It forwards the
-interactive aparté events by default; pass `:events` to listen to others:
+The `aparte-*` tags are declared through Vue's `GlobalComponents`, so `vue-tsc` checks them in any
+template once the package is imported — no `AparteUi`, no `isCustomElement` guesswork about names:
+
+```vue
+<template>
+  <aparte-model-selector
+    persist=""
+    searchable=""
+    placeholder="Pick a model"
+    @aparte-model-change="(e) => use(e.detail.modelId)"
+  />
+</template>
+```
+
+Presence attributes take `''` to set and `null` to remove, never `false` — Vue stringifies what it
+sets on a custom element, so `:searchable="false"` would render `searchable="false"` and an element
+testing `hasAttribute` reads that as on. The rules and the full set are on
+[Placing elements, typed](/frameworks/elements/).
+
+:::note[Where that element comes from]
+`aparte-model-selector` is **not** in `@aparte/core` — it is defined by
+[`@aparte/plugin-model-selector`](/plugins/model-selector/), and importing that package is
+what registers it. Until then the tag renders as an empty, inert element with no error:
+a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
+own the moment the definition arrives — which is exactly why loading the plugin lazily
+works.
+:::
+
+## Any OTHER element: `<AparteUi>`
+
+For an element aparté does not define — one of yours, or a third party's:
 
 ```vue
 <script setup lang="ts">
@@ -100,21 +129,14 @@ import { AparteUi } from '@aparte/vue';
 
 <template>
   <AparteUi
-    name="aparte-model-selector"
-    :props="{ placeholder: 'Ask…', '--glow-speed': '4s' }"
+    name="my-token-counter"
+    :props="{ 'data-budget': '8000' }"
     @element-event="(e) => console.log(e.type, e.detail)"
   />
 </template>
 ```
 
-:::note[Where that element comes from]
-`aparte-model-selector` is **not** in `@aparte/core` — it is defined by
-[`@aparte/plugin-model-selector`](/plugins/model-selector/), and importing that package is
-what registers it. Until then the tag renders as an empty, inert element with no error:
-a hyphenated tag is legal HTML whether or not anything defines it, and it upgrades on its
-own the moment the definition arrives — which is exactly why loading the plugin lazily
-works. `AparteUi` mounts any element name, including your own.
-:::
+It mounts any tag name, which is what a foreign element needs and what aparté's own no longer do.
 
 ## Also exported
 

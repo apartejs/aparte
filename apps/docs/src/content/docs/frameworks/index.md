@@ -9,15 +9,20 @@ sidebar:
 `@aparte/core` is vanilla web components, so it already works in **any** framework. The framework
 packages add ergonomics on top — you don't have to hand-wire refs, events and lifecycle yourself.
 
-Each wrapper ships **two layers**:
+Each wrapper ships **three layers**:
 
 - **An opinionated component** — e.g. React's `<AparteChat>`: the full chat surface (viewport +
   composer + slots) as one idiomatic component, plus hooks/stores/services for state and the client.
-- **A generic escape hatch** — e.g. React's `<AparteUi name="aparte-…" />`: mounts **any**
-  custom element as a framework component (props + events forwarded), so you're never
-  boxed in by the opinionated component. It takes a tag name, not a registry lookup, so an
-  element from a [plugin](/plugins/) — or one of your own — works the same way; whatever
-  defines the element has to be imported, and until it is the tag mounts empty and inert.
+- **A typed surface for every element** — see [Placing elements, typed](/frameworks/elements/).
+  Real attributes and real events on the real tag, checked by your compiler: JSX intrinsics in
+  React, `GlobalComponents` in Vue, `SvelteHTMLElements` in Svelte, a standalone directive per
+  element in Angular. This is how you place a model selector, a conversation list, or a composer
+  you compose yourself.
+- **A generic escape hatch** — e.g. React's `<AparteUi name="my-widget" />`: mounts **any**
+  custom element as a framework component (props + events forwarded). It takes a tag name, not a
+  registry lookup, so an element of your own or a third party's works the same way; whatever
+  defines the element has to be imported, and until it is the tag mounts empty and inert. For
+  aparté's own elements, reach for the typed surface instead.
 
 The wrappers depend **only** on `@aparte/core` — never on a specific provider. You register a
 provider (or none) in the [config](/providers/); the wrapper streams whatever's configured. See

@@ -27,7 +27,9 @@ function Chat() {
 The user's message is appended automatically on send — don't add it yourself. `onMessageSent` is
 optional and only for side-effects (scroll, analytics).
 
-`@aparte/core`, `react` and `react-dom` are **peer dependencies**. For any `<aparte-*>` element
-without a dedicated component, the generic `<AparteUi name="aparte-…" />` escape hatch mounts it.
+`@aparte/core`, `react` and `react-dom` are **peer dependencies**.
+
+Every `<aparte-*>` tag is a **typed JSX intrinsic** — real attributes, checked by the compiler, no
+registration. `<AparteUi name="my-widget" />` remains for an element aparté does not define.
 
 > ESM-only. See the docs for the full API. Part of the aparté monorepo.
