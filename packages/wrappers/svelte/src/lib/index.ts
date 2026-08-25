@@ -32,3 +32,45 @@ export type {
     AparteCodeSegment,
     AparteThinkingSegment
 } from './types.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom-element types for Svelte templates
+//
+// Types only — nothing here reaches the bundle. `SvelteHTMLElements` from
+// `svelte/elements` is what svelte-check consults for a tag's attributes, so
+// augmenting it makes `<aparte-select searchable="" />` check, and rejects a typo.
+//
+// Derived from core's registry for the same reason as the other wrappers: a
+// hand-written list is a list that goes stale, which is the defect this whole lot
+// existed to remove.
+//
+// Events stay with the DOM: `@aparte/core` augments `HTMLElementEventMap`, so
+// `on:aparte-select-change={e => e.detail.value}` is typed already.
+// ─────────────────────────────────────────────────────────────────────────────
+import type { HTMLAttributes } from 'svelte/elements';
+import type { AparteElementAttributes, AparteElementTagName, AparteTemplateAttrs } from '@aparte/core';
+
+/**
+ * Svelte's `on:` handlers, for every event aparté dispatches.
+ *
+ * Derived from `HTMLElementEventMap`, which `@aparte/core` augments — so this needs no
+ * list of its own and cannot fall behind. Declaring the elements without it made the
+ * wrapper's OWN component stop type-checking (`on:aparte-send` on `<aparte-composer>`),
+ * which is how the gap surfaced.
+ */
+type AparteEventName = Extract<keyof HTMLElementEventMap, `aparte-${string}`>;
+
+type AparteSvelteHandlers = {
+    [K in AparteEventName as `on:${K}`]?: (event: HTMLElementEventMap[K]) => void;
+};
+
+type AparteSvelteElements = {
+    [K in AparteElementTagName]:
+        HTMLAttributes<HTMLElement>
+        & AparteTemplateAttrs<AparteElementAttributes[K]>
+        & AparteSvelteHandlers;
+};
+
+declare module 'svelte/elements' {
+    interface SvelteHTMLElements extends AparteSvelteElements {}
+}
