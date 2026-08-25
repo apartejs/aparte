@@ -23,11 +23,8 @@ a consumer's project. Two defects were measured in it, and both reached everyone
   accepts only on the overload declarations) onto the sibling forms, so both real calling
   conventions are documented instead of one documented and one blank.
 
-Two behaviours are written down for the first time rather than changed. `getMessages()`
+One behaviour is written down for the first time rather than changed: `getMessages()`
 returns the messages on the **active path**, root → head — not the whole tree, which is
-`exportTree()`. And `<aparte-composer>`'s `setValue(text)` changes what a send submits
-**without** changing what the editor displays: `<aparte-composer-input>` acts on the
-empty string, which is how it clears itself after a submit, and ignores every other
-value. Call `setValue` on the input element to move both.
+what `exportTree()` returns.
 
-No runtime code changed.
+No runtime code changed by this entry.

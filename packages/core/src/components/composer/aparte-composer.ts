@@ -232,12 +232,10 @@ export class AparteComposer extends HTMLElement {
     }
 
     /**
-     * Set the composer's value and notify its parts.
-     *
-     * Mind the asymmetry: `<aparte-composer-input>` acts on the empty string (that
-     * is how it clears itself after a submit) and ignores every other value, so
-     * setting text here changes what a send SUBMITS without changing what the
-     * editor DISPLAYS. Call `setValue` on the input element to move both.
+     * Set the composer's value — both what a send will submit and what the editor
+     * shows. `<aparte-composer-input>` writes through any value it does not already
+     * hold, so this prefills the visible field (a template button, a restored draft)
+     * as readily as it stages text for an immediate `submit()`.
      */
     setValue(value: string): void {
         this._value = value;

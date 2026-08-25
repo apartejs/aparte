@@ -189,10 +189,23 @@ export class AparteComposerInput extends HTMLElement {
             root._on('disabled-change', ({ disabled }) => this._updateDisabled(disabled))
         );
 
-        // When root clears value (after submit), clear our editor
+        // The editor shows what the composer says.
+        //
+        // Compared, not special-cased. While the user types, `_handleInput` has just
+        // pushed this very value up, so the two sides are equal and nothing is
+        // rewritten — which is what keeps the caret where the user left it, and was the
+        // entire reason the old form acted on `''` alone. Any other value arrived from
+        // somewhere else: `setValue()` on the composer, or the `''` that `submit()`
+        // writes on its way out. Both now land, where only the second one used to.
+        //
+        // Compared against `value.trim()` because `getValue()` trims. A padded value
+        // would never look equal otherwise, and the mirror back through `setValue`
+        // would re-enter this callback forever.
         this._unsubscribes.push(
             root._on('value-change', ({ value }) => {
-                if (value === '' && this.getValue() !== '') this.clear();
+                if (this.getValue() === value.trim()) return;
+                if (value === '') this.clear();
+                else this.setValue(value);
             })
         );
 
