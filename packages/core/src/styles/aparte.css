@@ -2194,9 +2194,15 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
     user-select: none;
 }
 .aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
-[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success, rgb(21,128,61)); }
-[data-status="rejected"] .aparte-tool-state,
-[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error, rgb(185,28,28)); }
+/* Scoped to the segment, not to a bare [data-status].
+   These three were the only rules in this file whose leftmost compound is an unprefixed
+   non-element selector, which means they reached OUT of core: a host wrapping the chat in
+   <div data-status="rejected"> re-tinted every completed tool call's word red, because
+   0,2,0 beats the base rule's 0,1,0 and source order puts rejected/aborted last. Core
+   itself documents data-status as a free-form host attribute on <aparte-option>. */
+.aparte-segment-tool-call[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success, rgb(21,128,61)); }
+.aparte-segment-tool-call[data-status="rejected"] .aparte-tool-state,
+.aparte-segment-tool-call[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error, rgb(185,28,28)); }
 /* The Approve / Reject button rules were here. They moved with the buttons, to
    .aparte-approval-option in this same file - and what stayed behind was a
    leftover: a rule tinting .aparte-tool-label's border while a decision was pending,

@@ -107,6 +107,36 @@ describe('two chats sharing one config', () => {
         });
     });
 
+    /*
+     * Stop in one chat must not tear down the other chat's open question.
+     *
+     * The RECEIVE side learned to identify itself by walking up to its chat host when no
+     * `target` attribute is set — which is the whole of raw core, since the quick start's
+     * hand-written markup sets none. The SEND side did not: `cancel()` read the attribute
+     * only, so the abort carried `targetId: undefined`, and a missing id means "for
+     * everyone". The scoping was inert exactly where it was needed.
+     */
+    it('Stop in one chat leaves the other chat\'s open question alone', async () => {
+        const a = mountChat('chat-a');
+        const b = mountChat('chat-b');
+
+        const pending = ask(b.composer);
+        expect(panelIn(b)).not.toBeNull();
+
+        // A's stop button.
+        (a.composer as HTMLElement & { cancel(): void }).cancel();
+
+        expect(
+            panelIn(b),
+            "A's Stop must not reach B — the question would vanish and B's turn would hang",
+        ).not.toBeNull();
+
+        // And B's own Stop still does end it.
+        (b.composer as HTMLElement & { cancel(): void }).cancel();
+        await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        expect(panelIn(b)).toBeNull();
+    });
+
     it('withdraws only its own registration, so re-mounting is not needed', () => {
         const a = mountChat('chat-a');
         const b = mountChat('chat-b');

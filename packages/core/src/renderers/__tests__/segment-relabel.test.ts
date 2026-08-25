@@ -45,6 +45,11 @@ const FR = () => ({
     rejectTool: 'Refuser',
     approvalWaiting: 'en attente de vous',
     error: 'Erreur',
+    // The four settled-state words. They are the ones `relabel` used to delete.
+    toolRunning: 'En cours',
+    toolCompleted: 'Terminé',
+    toolRejected: 'Refusé',
+    toolStopped: 'Arrêté',
 });
 
 const seg = (s: Partial<AparteSegment> & { id: string; type: string }) => s as AparteSegment;
@@ -97,6 +102,38 @@ describe('relabel reaches a rendered segment', () => {
         aparteGlobalConfig.setLocale(FR());
 
         expect(waiting.textContent).toBe('en attente de vous');
+    });
+
+    /*
+     * The four statuses this suite did NOT cover, which is why the word disappeared.
+     *
+     * `awaiting-approval` above was the one status `relabel` handled: it rebuilt the badge
+     * as the ICON ALONE and then re-wrote that single case via `textContent`. So a settled
+     * tool call lost its localized word on any config change — `setLocale`,
+     * `setIconProvider`, `registerTool`, `reset()`, anything calling `_notify()` — and a
+     * settled call gets no further `update()`, so it never came back. "✓ Done" became "✓",
+     * and pending's "Running" became empty.
+     *
+     * Worst is `rejected`: a bare cross beside a tool's name, which the badge's own
+     * docblock says the word exists to prevent because it reads as a button that removes
+     * the call.
+     */
+    it.each([
+        ['resolved', 'Done', 'Terminé'],
+        ['pending', 'Running', 'En cours'],
+        ['rejected', 'Rejected', 'Refusé'],
+        ['aborted', 'Stopped', 'Arrêté'],
+    ] as const)('a %s tool call keeps its word through a language switch', (status, en, fr) => {
+        const el = mount([{
+            id: 's1', type: 'tool_call', status,
+            toolCall: { id: 'tc1', name: 'read_file', input: {} },
+        } as AparteToolCallSegment]);
+        const badge = el.querySelector('.aparte-tool-state')!;
+        expect(badge.textContent, `the English word for ${status}`).toContain(en);
+
+        aparteGlobalConfig.setLocale(FR());
+
+        expect(badge.textContent, `${status} must be relabelled, not emptied`).toContain(fr);
     });
 
     it('an artifact card’s copy button — and nothing else on the card', () => {

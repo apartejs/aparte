@@ -445,7 +445,20 @@ export class AparteComposer extends HTMLElement {
         // aparte-message-aborted → resets the composer's own streaming state
         // Scope the abort to this composer's host so cancelling one chat doesn't
         // abort every scoped client / reset every composer on the page.
-        const abortDetail = { targetId: this.targetId ?? undefined };
+        /*
+         * `_ownTargetId()`, not the bare attribute.
+         *
+         * The receive side got this fix and the SEND side did not, which left the whole
+         * scoping inert in raw core: nothing writes the `target` attribute in the
+         * hand-written markup the quick start shows, so this detail carried
+         * `targetId: undefined` — and `_isForThisComposer` treats a missing id as "for
+         * everyone". So Stop in chat A still tore down chat B's open panel, which is
+         * exactly the failure `_ownTargetId`'s own docblock describes as fixed.
+         *
+         * Both sides now resolve the same way: the attribute if the wrapper set one,
+         * otherwise the id of the chat host above us.
+         */
+        const abortDetail = { targetId: this._ownTargetId() };
         window.dispatchEvent(new CustomEvent('aparte-abort', { bubbles: false, detail: abortDetail }));
         window.dispatchEvent(new CustomEvent('aparte-message-aborted', { bubbles: false, detail: abortDetail }));
     }
