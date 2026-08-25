@@ -461,7 +461,18 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
                         pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
                         append({ role: 'tool_result', content: rejection, toolCallId: event.id });
-                        continueLoop = false;
+                        /*
+                         * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
+                         * point. The remaining tool calls of this turn must not run — the
+                         * model asked for several and refusing one cannot license the
+                         * others — but the loop takes another turn, so the sentence just
+                         * appended actually reaches the model. It never did: the turn
+                         * ended here, and telling the assistant what you wanted instead
+                         * meant retyping it as a new message it read out of order.
+                         *
+                         * Core's twin returns `'respond'` for exactly this, and the parity
+                         * suite asserts the two agree.
+                         */
                         break;
                     }
                     if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {

@@ -107,8 +107,15 @@ richer surface (a modal, a diff) — then awaits a decision. Clicking Approve/Re
 dispatches **`aparte-tool-decision`** (`detail: { toolCallId, approved, payload? }`), the
 event the client waits on.
 
-- On **reject**, a synthetic *"rejected by user"* result is fed back and the turn stops —
-  the handler never runs.
+- On **reject**, the handler never runs. A synthetic *"rejected by user"* result is fed
+  back, the turn's **remaining** tool calls are skipped — the model may have asked for
+  several, and refusing one cannot license the others — and then the model is given
+  another turn, so it actually reads the refusal and can answer it. It could not before:
+  the turn simply ended there, and telling the assistant what you wanted instead meant
+  retyping it as a new message it then read out of order.
+- A **stop** is not a reject. Pressing Stop while a tool waits for approval marks the
+  segment `aborted` and appends nothing: there is nothing true to tell the model. The two
+  used to be indistinguishable, so a stopped turn was reported as a refusal.
 - On **approve**, the handler runs with the original input, unless the decision carries a
   plain-object `payload`, which is merged onto the input first — so a custom approval
   surface can edit the arguments (fix a path, tighten a query) before the tool runs. The

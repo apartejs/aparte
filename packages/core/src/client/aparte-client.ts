@@ -269,6 +269,9 @@ function withToolTimeout<T>(
     };
 }
 
+/** See `_handleToolUseEvent`. Internal: the method returning it is private. */
+type AparteToolFlow = 'continue' | 'respond' | 'halt';
+
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
@@ -1425,11 +1428,22 @@ export class AparteClient {
     }
 
     /**
+     * What the loop does after one tool call. THREE outcomes, because a boolean
+     * conflated two questions that a refusal answers differently.
+     *
+     * - `'continue'` — run the next tool call of this turn.
+     * - `'respond'`  — skip this turn's remaining calls, then take another turn so the
+     *                  model reads what happened. A human refusal: the model asked for
+     *                  several calls and refusing one cannot license the others, but a
+     *                  refusal it never reads is one the user has to retype as a message.
+     * - `'halt'`     — the run is over: an abort, a turn limit, a missing handler.
+     */
+    /**
      * Handle one `tool_use` stream event from {@link _streamLoop}: the built-in
      * `create_artifact`, per-tool renderer selection, the human-in-the-loop
      * approval gate, and running the registered handler (timeout / abort).
      * Mutates the shared `messages` / `toolCallsThisTurn` history in place and
-     * returns whether the agentic loop should keep going.
+     * returns what the loop should do next.
      */
     private async _handleToolUseEvent(
         event: { id: string; name: string; input: Record<string, unknown> },
@@ -1443,9 +1457,9 @@ export class AparteClient {
             turns: number;
             globalMaxTurns: number;
         },
-    ): Promise<{ continueLoop: boolean }> {
+    ): Promise<{ flow: AparteToolFlow }> {
         const { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns } = ctx;
-        let continueLoop = true;
+        let flow: AparteToolFlow = 'continue';
 
         toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
 
@@ -1489,7 +1503,7 @@ export class AparteClient {
                 content: 'Artifact created successfully.',
                 toolCallId: event.id,
             });
-            return { continueLoop: true };
+            return { flow: 'continue' };
         }
         // ── End built-in create_artifact ──────────────────────────────
 
@@ -1533,7 +1547,7 @@ export class AparteClient {
         if (turns >= effectiveMaxTurns) {
             console.warn(`[AparteClient] Tool "${event.name}" maxTurns (${effectiveMaxTurns}) reached.`);
             targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-            return { continueLoop: false };
+            return { flow: 'halt' };
         }
 
         // Find and run the registered handler
@@ -1582,7 +1596,7 @@ export class AparteClient {
                  */
                 if (approvalController.signal.aborted) {
                     targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                    return { continueLoop: false };
+                    return { flow: 'halt' };
                 }
                 if (!decision.approved) {
                     const rejection = 'Tool execution was rejected by the user.';
@@ -1599,7 +1613,21 @@ export class AparteClient {
                         });
                     }
                     messages.push({ role: 'tool_result', content: rejection, toolCallId: event.id });
-                    return { continueLoop: false };
+                    /*
+                     * `'respond'`, not `'halt'`: the two questions a single flag used to
+                     * conflate have different answers here.
+                     *
+                     * Run the tool calls that follow this one in the same turn? NO — the
+                     * model asked for `rm -rf` plus two more, and refusing one must not
+                     * let the others run. That is the defect the `if (!continueLoop)
+                     * break` line downstream was added for.
+                     *
+                     * Take another turn so the model can READ the refusal? YES. It could
+                     * not before: the turn simply ended, so the sentence pushed above was
+                     * never sent, and telling the assistant what you actually wanted meant
+                     * retyping it as a new message it then read out of order.
+                     */
+                    return { flow: 'respond' };
                 }
                 // Approved → optionally let the human's payload edit the
                 // arguments, then restore pending and run the handler.
@@ -1645,7 +1673,7 @@ export class AparteClient {
             } catch (err: unknown) {
                 if ((err as { name?: string })?.name === 'AbortError') {
                     targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                    continueLoop = false;
+                    flow = 'halt';
                 } else {
                     throw err;
                 }
@@ -1656,9 +1684,9 @@ export class AparteClient {
         } else {
             console.warn(`[AparteClient] No handler registered for tool "${event.name}"`);
             targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-            continueLoop = false;
+            flow = 'halt';
         }
-        return { continueLoop };
+        return { flow };
     }
 
     /**
@@ -1726,6 +1754,10 @@ export class AparteClient {
         }
 
         while (continueLoop) {
+            // Reset per TURN: it says "stop reading this turn's events", which is a
+            // different question from `continueLoop`'s "take another turn". One boolean
+            // answered both, and a refusal needs opposite answers to the two.
+            let endTurnEarly = false;
             if (this._isAborted) {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 break;
@@ -1994,7 +2026,10 @@ export class AparteClient {
                                 { id: event.id, name: event.name, input: event.input },
                                 { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns },
                             );
-                            if (!toolResult.continueLoop) continueLoop = false;
+                            // Anything but `'continue'` ends THIS turn's remaining tool
+                            // calls; only `'halt'` also ends the run.
+                            if (toolResult.flow !== 'continue') endTurnEarly = true;
+                            if (toolResult.flow === 'halt') continueLoop = false;
                             break;
                         }
                         case 'error':
@@ -2029,7 +2064,11 @@ export class AparteClient {
                     // refusal, and their results were appended to a stopped loop's
                     // history. `runStreamAgent` exits its inner loop for the same
                     // reasons; this is the core side of that agreement.
-                    if (!continueLoop) break;
+                    //
+                    // Per TURN, not per run: a refusal ends this turn's remaining
+                    // calls and then hands the model a turn to answer in, which one
+                    // boolean could not express.
+                    if (endTurnEarly) break;
                 }
 
                 // artifactXml finalize comes FIRST: its `scanning` branch pushes
