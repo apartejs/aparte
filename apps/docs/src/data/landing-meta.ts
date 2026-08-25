@@ -20,8 +20,8 @@ const KIND_COUNT = SEGMENT_KINDS.length;
 export const LANDING_TITLE = 'aparté — AI chat in Web Components, with the agent loop inside';
 
 export const LANDING_DESCRIPTION =
-    'AI chat in Web Components with the agent loop inside: tools that pause for human '
-    + `approval, branch-and-retry, ${KIND_COUNT} kinds of content in one turn. `
+    'AI chat in Web Components with the agent loop inside: human-in-the-loop tools, '
+    + `branch-and-retry, ${KIND_COUNT} kinds of content in one turn. `
     + 'Zero runtime dependencies.';
 
 /**
@@ -35,8 +35,8 @@ export const LANDING_DESCRIPTION =
  */
 export const LANDING_IMAGE_ALT =
     'A dark card with a brass edge and the aparté mascot, headed “AI chat in Web '
-    + 'Components”, over the line “With the agent loop inside: tools that pause for '
-    + `human approval, branch-and-retry, ${KIND_COUNT} kinds of content in one turn.”`;
+    + 'Components”, over the line “With the agent loop inside: human-in-the-loop tools, '
+    + `branch-and-retry, ${KIND_COUNT} kinds of content in one turn.”`;
 
 /*
  * The social card is not the same shape as a meta tag: astro-og-canvas renders its
@@ -52,5 +52,5 @@ export const LANDING_IMAGE_ALT =
 export const LANDING_CARD_TITLE = 'AI chat in Web Components';
 
 export const LANDING_CARD_BODY =
-    'With the agent loop inside: tools that pause for human approval, branch-and-retry, '
+    'With the agent loop inside: human-in-the-loop tools, branch-and-retry, '
     + `${KIND_COUNT} kinds of content in one turn. Zero runtime dependencies.`;
