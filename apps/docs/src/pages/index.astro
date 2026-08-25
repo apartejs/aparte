@@ -146,7 +146,7 @@ const KINDS: Kind[] = [
   { tag: 'text', body: 'Streamed token by token. Markdown and highlighting are plugins you opt into, so the core stays dependency-free.', states: [] },
   { tag: 'thinking', body: 'A collapsible block that closes itself the moment the model stops thinking — not when the answer ends.', states: [] },
   { tag: 'code', body: 'A fenced block with a copy button that copies the source, not the markup.', states: [] },
-  { tag: 'tool_call', body: 'Five states, including a turn paused for a person — the pill is the anchor, the decision is asked at the composer.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
+  { tag: 'tool_call', body: 'Five states, including a turn paused for a person — the row is the anchor, the decision is asked at the composer. It opens onto the arguments the model sent and the result your handler returned.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
   { tag: 'progress', body: 'A live bar for long work, so a slow step is visible instead of silent.', states: ['pending', 'running', 'complete', 'error'] },
   { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
   { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
@@ -544,7 +544,7 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
         <div class="split">
           <div class="prose">
             <ul>
-              <li>Mark a tool <b>needsApproval</b> and the loop pauses before the handler runs. Core asks at the composer, where every request for the user is answered, and the pill in the transcript is the anchor. A refusal skips the rest of the turn and then the model gets a turn to answer it &#8212; and it can carry your own words.</li>
+              <li>Mark a tool <b>needsApproval</b> and the loop pauses before the handler runs. Core asks at the composer, where every request for the user is answered, and the row in the transcript is the anchor. A refusal skips the rest of the turn and then the model gets a turn to answer it &#8212; and it can carry your own words.</li>
               <li><b>Ten tool round-trips</b> per turn by default, overridable per run and per tool.</li>
               <li>A turn can also <b>ask a structured question</b> &#8212; a schema-driven panel in the composer, and the question with its answer stays in the transcript afterwards.</li>
               <li><b>Abort</b> is checked on both sides of every stream read, and each tool call can race its own timeout.</li>
@@ -1022,7 +1022,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
                 id: 'tl-call', type: 'tool_call', status: 'awaiting-approval',
                 toolCall: { id: 'tc-1', name: 'delete_file', input: { path: 'src/legacy.ts' } },
               });
-              // The pill above is the ANCHOR; the decision is asked at the composer.
+              // The row above is the ANCHOR; the decision is asked at the composer.
               // `requestUserInput` is a plain function on the config — no AparteClient,
               // no loop — which is the whole of what a host owes the gate.
               askApproval(mid, 'tl-call', 'delete_file');
@@ -1251,7 +1251,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
        * This used to listen for `aparte-tool-decision` on `document` — the event core
        * dispatched from the Approve / Reject buttons it drew inside the bubble. Those
        * buttons are gone: a request for the user is answered where the user answers, and
-       * the transcript keeps the pill as the anchor. `requestUserInput` is the same
+       * the transcript keeps the row as the anchor. `requestUserInput` is the same
        * function a tool handler calls, so this page and a real agent loop ask
        * identically.
        */
@@ -1310,7 +1310,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
           }, 900);
         } catch {
           // The request ended without an answer — the panel was taken away, or the tab
-          // was switched. Nobody refused anything, so the pill says aborted.
+          // was switched. Nobody refused anything, so the row says aborted.
           viewport.updateSegment(mid, sid, { status: 'aborted' });
           completeTurn(mid);
         }

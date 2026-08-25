@@ -8,7 +8,7 @@ sidebar:
 A **tool** is a function the model can ask to run — read a file, hit an API, delete
 something. Register a definition plus a handler and `AparteClient` does the rest: it
 offers the tool to the model, runs your handler when it's called, feeds the result back,
-and renders the call as a status pill. For anything sensitive, one flag makes the model
+and renders the call as a row you can open. For anything sensitive, one flag makes the model
 wait for a human to click **Approve** before your handler ever runs.
 
 ## Define and register a tool
@@ -65,7 +65,7 @@ act, and dropping it silently because a listing is terse would turn your registr
 into a no-op with nothing to read anywhere. When the model calls one:
 
 1. A **`tool_call`** segment is added (`status: 'pending'`) — the built-in renderer shows
-   a pill with the tool name + a spinner.
+   a row with the tool name and a spinner.
 2. The client resolves the handler via `aparteGlobalConfig.getToolHandler(name)`, runs it, and
    on resolve flips the segment to `status: 'resolved'`.
 3. The `tool_call` and its result are appended to history and the provider is re-called
@@ -75,6 +75,56 @@ into a no-op with nothing to read anywhere. When the model calls one:
 `AparteToolCallSegment.status` is one of
 `'pending' | 'resolved' | 'aborted' | 'awaiting-approval' | 'rejected'` — the last two
 only apply to approval-gated tools.
+
+### What the row shows
+
+One line per call: the tool's name, a spinner while it runs, and the state as a word at
+the far end — `Running`, `Done`, `Rejected`, `Stopped`. When the call has arguments or a
+result, that line becomes a disclosure, and opening it shows both — the arguments the
+model chose under **Input**, pretty-printed, and whatever your handler returned under
+**Output**. A registered [highlight provider](/plugins/shiki/) colours them; without one
+they are escaped text, because a tool's arguments are model-authored and are never
+injected as HTML.
+
+It opens on a click and never on its own, including while a decision is pending. The
+reasoning block stays closed while it is being produced, which is the most live moment
+there is, so a tool call has no stronger claim to unroll itself.
+
+Every word is a locale key:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.extendLocale({
+  toolInput: 'Arguments',
+  toolOutput: 'Result',
+  toolRunning: 'Working…',
+  toolCompleted: 'Done',
+  toolRejected: 'Refused',
+  toolStopped: 'Stopped',
+});
+```
+
+And every part is a class, so restyling needs no renderer:
+
+| Class | The part |
+| --- | --- |
+| `.tool-summary` | the clickable line |
+| `.tool-toggle` | the chevron |
+| `.tool-label` | the call's identity — holds `.tool-icon` and `.tool-name` |
+| `.tool-spinner` | shown only while `pending` |
+| `.tool-state` | the state word, pushed to the far end |
+| `.tool-detail` | the opened body |
+| `.tool-part` | one of Input / Output — holds `.tool-part-label` and `.tool-part-body` |
+
+```css
+:root { --aparte-tool-row-radius: 0; } /* the row's corner */
+
+.tool-summary:hover { background: none; }
+.tool-state { font-variant: small-caps; }
+```
+
+Replacing the markup outright is [a custom tool renderer](#custom-tool-renderer) instead.
 
 ## Require approval (human-in-the-loop)
 
@@ -101,7 +151,7 @@ aparteGlobalConfig.registerTool(deleteFilesTool, async (call) => {
 Before running the handler, `AparteClient` flips the segment to
 `status: 'awaiting-approval'` and **asks at the composer** — the same place every other
 request for the user is answered, through the same `requestUserInput` a tool handler
-calls. The panel offers the choices and a free-text field; the pill in the transcript is
+calls. The panel offers the choices and a free-text field; the row in the transcript is
 the **anchor**, saying which tool is waiting, and holds nothing clickable.
 
 That split is deliberate. The panel is capped at half the viewport, so it cannot hold a
@@ -166,7 +216,7 @@ valid? If you proxy through `createAparteChatHandler`, its
 
 ## Custom tool renderer
 
-Replace the generic pill for a specific tool name with `registerToolRenderer`. `render`
+Replace the generic row for a specific tool name with `registerToolRenderer`. `render`
 returns either an HTML string or a ready DOM element (`''` renders nothing — e.g. a
 UI-only tool); `setup` runs once after injection for listeners; `getStyles` is injected
 into `document.head` once per tool. For a `needsApproval` tool this only takes over
@@ -254,7 +304,7 @@ function reply(text: string) {
   vp().appendMessage({ id: `a-${++n}`, role: 'assistant', content: text, timestamp: Date.now() });
 }
 
-// Human-in-the-loop with no client and no loop: the pill is the anchor in the
+// Human-in-the-loop with no client and no loop: the row is the anchor in the
 // transcript, and `requestUserInput` asks at the composer. This is the same function
 // the built-in gate calls, so a page and a real agent loop ask identically.
 async function askApproval() {
@@ -303,7 +353,7 @@ chat.addEventListener('aparte-send', (e) => {
 });
 ```
 
-Type a message containing "delete" and the pill appears in the transcript while the
+Type a message containing "delete" and the row appears in the transcript while the
 choices appear in the composer — the same panel `AparteClient` raises. Swap
 the manual `addSegment` call for a registered `delete_files` tool (`needsApproval: true`)
 plus a started `AparteClient`, and a real model drives the exact same segment and events.

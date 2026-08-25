@@ -180,7 +180,7 @@ either — but that's the primary function, the failure is immediate and it's th
 not the user, who sees it.
 
 The **tool-approval gate** needs no declaration either, for a different reason: the
-`tool_call` pill shows only that a tool is waiting, and the choices are raised at the
+`tool_call` row shows only that a tool is waiting, and the choices are raised at the
 composer by a loop that is actually waiting for the verdict. Nothing in the transcript is
 clickable, so there is no affordance there to declare — and a segment restored from
 storage cannot offer a button whose listener went with the page, which is what the old
@@ -370,7 +370,7 @@ rather than the page.
 
 Every segment carries where it sits and when it happened, so you can build the chrome the
 market has taught users to expect — a collapsed reasoning line with its duration, a tool
-pill with how long the call took — without replacing a renderer:
+row with how long the call took — without replacing a renderer:
 
 | Field | |
 |---|---|
