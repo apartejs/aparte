@@ -139,7 +139,6 @@
   --aparte-input-gap: 8px;
   --aparte-input-editor-font-size: 15px;
   --aparte-input-editor-max-height: 200px;
-  --aparte-input-container-min-height: 44px;
 
   /* Send button + inline action buttons */
   --aparte-send-btn-size: 36px;
@@ -169,13 +168,7 @@
   --aparte-elic-padding: 6px 4px;
   --aparte-elic-max-height: 50vh;
   --aparte-elic-field-gap: 8px;
-  --aparte-elic-message-size: 0.82rem;
-  --aparte-elic-title-size: 0.8rem;
-  --aparte-elic-desc-size: 0.76rem;
-  --aparte-elic-option-padding: 7px 10px;
   --aparte-elic-option-radius: 8px;
-  --aparte-elic-option-title-size: 0.875rem;
-  --aparte-elic-option-desc-size: 0.78rem;
   --aparte-elic-control-size: 15px;
   --aparte-elic-input-radius: 6px;
   /* The tool-call row's corner. Declared here rather than left as an inline
@@ -184,8 +177,6 @@
      consumer has no way to discover the knob exists. */
   --aparte-tool-row-radius: 6px;
   --aparte-elic-textarea-min-height: 64px;
-  --aparte-elic-skip-size: 0.8rem;
-  --aparte-elic-step-size: 0.78rem;
   --aparte-elic-step-padding: 4px 2px;
   --aparte-elic-step-gap: 14px;
   /* Tabs, not pills.
@@ -260,8 +251,6 @@
 
   /* Conversation List */
   --aparte-conv-list-gap: 2px;
-  --aparte-conv-item-padding: 7px 10px;
-  --aparte-conv-item-font-size: 0.8125rem;
   --aparte-conv-item-gap: 6px;
   --aparte-conv-action-btn-size: 20px;
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
@@ -446,6 +435,23 @@ aparte-chat {
   --aparte-font-size-md: calc(0.8125rem * var(--aparte-font-scale));
   --aparte-font-size-lg: calc(0.875rem * var(--aparte-font-scale));
   --aparte-font-size-base: calc(0.9375rem * var(--aparte-font-scale));
+
+  /* Elicitation and the conversation item, on the scale.
+     They were literals off every step — 0.76 / 0.78 / 0.8 / 0.82rem and a `7px 10px`
+     padding written twice — so two panels sat outside the type and spacing systems
+     and neither followed --aparte-font-scale. Each lands on its nearest step; the
+     largest move is under half a pixel. Derived, so they live here. */
+  --aparte-input-container-min-height: var(--aparte-touch-target-size);
+  --aparte-elic-message-size: var(--aparte-font-size-md);
+  --aparte-elic-title-size: var(--aparte-font-size-md);
+  --aparte-elic-desc-size: var(--aparte-font-size-sm);
+  --aparte-elic-option-title-size: var(--aparte-font-size-lg);
+  --aparte-elic-option-desc-size: var(--aparte-font-size-sm);
+  --aparte-elic-skip-size: var(--aparte-font-size-md);
+  --aparte-elic-step-size: var(--aparte-font-size-sm);
+  --aparte-elic-option-padding: var(--aparte-space-4) var(--aparte-space-5);
+  --aparte-conv-item-padding: var(--aparte-space-4) var(--aparte-space-5);
+  --aparte-conv-item-font-size: var(--aparte-font-size-md);
 
   /* Borders */
   --aparte-border-focus: var(--aparte-primary);
@@ -1709,19 +1715,19 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 /* Model Selector Component */
-aparte-model-selector {
-  display: flex;
-  align-items: center;
-  gap: var(--aparte-space-4);
-}
-/* Respect native hidden attribute — overrides the display:flex above */
-aparte-model-selector[hidden] { display: none !important; }
-
+/* The element and the class said the same three things in two rules. The class is
+   the hook for an app that lays out its own selector; grouping them is what stops
+   the two from drifting — and it is why `[hidden]` now covers the class too, which
+   it did not, so a hidden wrapper stayed laid out. */
+aparte-model-selector,
 .aparte-model-selector {
   display: flex;
   align-items: center;
   gap: var(--aparte-space-4);
 }
+/* Respect native hidden attribute — overrides the display:flex above */
+aparte-model-selector[hidden],
+.aparte-model-selector[hidden] { display: none !important; }
 
 .aparte-provider-select,
 .aparte-model-select {
@@ -2371,7 +2377,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
 @keyframes tool-spin { to { transform: rotate(360deg); } }
 
 /* Artifact card */
-.aparte-segment-artifact-card {
+.aparte-segment-artifact-card,
+.aparte-segment-artifact-file {
     display: flex; flex-direction: column;
     margin: var(--aparte-space-4) 0;
     border: var(--aparte-border-width) solid var(--aparte-border);
@@ -2519,16 +2526,6 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
     font-style: italic;
 }
 /* ── Binary file artifact (xlsx/pdf/docx) ──────────────────── */
-.aparte-segment-artifact-file {
-    display: flex; flex-direction: column;
-    margin: var(--aparte-space-4) 0;
-    border: var(--aparte-border-width) solid var(--aparte-border);
-    border-radius: var(--aparte-radius-xl);
-    background: var(--aparte-surface);
-    overflow: hidden;
-    color: var(--aparte-text);
-    font: inherit;
-}
 .aparte-art-file__card {
     display: flex; align-items: center; gap: var(--aparte-space-6);
     padding: var(--aparte-space-6) var(--aparte-space-7);
