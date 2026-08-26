@@ -274,6 +274,22 @@ A conventional abbreviation is fine in a variable name (\`btn\`, \`nav\`); an in
 author can expand is not, which is why \`.aparte-cs-button\` became
 \`.aparte-composer-send__button\`.
 
+## What core does not give you
+
+Building a plugin, you will look for these and not find them. Stated here so the search is
+short, and so the answer is not "read our source and copy it".
+
+| Pattern | Today |
+| --- | --- |
+| **Button** | \`.aparte-control\` above is the class. For a whole element there is \`<aparte-composer-action>\`, which mounts and fires outside a composer too. |
+| **Text field** | \`<aparte-composer-input>\` is the only one, and it needs a composer. A plain \`<input>\` of your own carries no aparté styling. |
+| **Tabs** | Nothing. The artifact card has a tablist and so does this site, each hand-written — copy the ARIA, not the classes. |
+| **Card · Panel · Chip · Badge · Disclosure** | Nothing shared. The artifact card, the elicitation panel and the attachment chips each style their own. |
+| **Listbox** | \`<aparte-select>\` with \`<aparte-option>\`, and it is genuinely reusable. |
+
+None of that is an oversight to fix quietly: each is a public element or a documented class
+once it exists, so it is a decision, not a gap someone can fill by accident.
+
 ## Classes core writes
 
 A **contract** row means core checks for that class on connect and skips its own render if it
