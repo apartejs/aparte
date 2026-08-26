@@ -8,8 +8,7 @@
     "gen:api": "node scripts/gen-api-ref.mjs",
     "gen:engine-api": "node scripts/gen-engine-api.mjs",
     "gen:wrapper-ref": "node scripts/gen-wrapper-ref.mjs",
-    "gen:llms": "node scripts/gen-llms-txt.mjs",
-    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs && node scripts/gen-llms-txt.mjs",
+    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs",
     "dev": "pnpm gen && astro dev",
     "build": "pnpm gen && astro build",
     "preview": "astro preview",
@@ -27,7 +26,8 @@
     "astro": "^7.2.7",
     "sharp": "^0.34.2",
     "shiki": "^4.0.0",
-    "starlight-changelogs": "^0.6.0"
+    "starlight-changelogs": "^0.6.0",
+    "starlight-llms-txt": "^0.11.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

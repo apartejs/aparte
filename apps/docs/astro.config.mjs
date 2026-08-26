@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
+import starlightLlmsTxt from 'starlight-llms-txt';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -69,7 +70,24 @@ export default defineConfig({
       // 3087-line page — 26% of the whole docs corpus, with two releases alone (0.10.0
       // and 0.8.0) accounting for 46% of it. The input is the root CHANGELOG.md that
       // `pnpm version-packages` already generates, so nothing new has to be maintained.
-      plugins: [starlightChangelogs()],
+      plugins: [
+        starlightChangelogs(),
+        // Replaces apps/docs/scripts/gen-llms-txt.mjs. llmstxt.org is an external spec
+        // that will keep moving, and tracking a spec is the thing to delegate rather
+        // than reimplement. It also emits an llms-small.txt we never had.
+        //
+        // `description` carries over the paragraph the old script hand-wrote: Starlight's
+        // own `description` is one line for a meta tag, and an LLM reading the site cold
+        // needs the architecture stated, not the tagline.
+        starlightLlmsTxt({
+          description:
+            'aparté is a framework-agnostic AI-chat library: vanilla web components with zero '
+            + 'runtime dependencies (@aparte/core), plus thin React, Vue, Svelte and Angular '
+            + 'wrappers. It is backend-agnostic — a transport sends requests either browser-direct '
+            + '(bring your own key, or a local model) or to your own endpoint, where the key stays '
+            + 'server-side. Providers and plugins are opt-in packages.',
+        }),
+      ],
       // Adds the `og:image` Starlight's own `twitter:card: summary_large_image`
       // already asks for and never provided (see the component for why an override
       // rather than a `head` entry).
