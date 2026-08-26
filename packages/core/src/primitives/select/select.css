@@ -48,6 +48,7 @@ aparte-select[disabled] .aparte-select-trigger {
 }
 
 .aparte-select-chevron {
+    --aparte-icon-size: var(--aparte-icon-size-sm);
     flex-shrink: 0;
     color: var(--aparte-select-chevron, var(--aparte-text-muted));
     transition: transform var(--aparte-duration-slow);

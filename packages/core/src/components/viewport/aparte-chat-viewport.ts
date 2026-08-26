@@ -15,6 +15,7 @@ import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
 import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
+import { scrollDownIcon } from '../../icons/glyphs.js';
 import {
     stampSegmentOnInsert,
     adoptMessageSegments,
@@ -1184,7 +1185,7 @@ export class AparteChatViewport extends HTMLElement {
             this._scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
             const scrollIcon = resolveConfig(this).getIcon('scrollDown');
             this._scrollBtn.innerHTML = scrollIcon
-                || `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
+                || scrollDownIcon;
             this.appendChild(this._scrollBtn);
         } else {
             this._container = this.querySelector('.aparte-viewport-container');
@@ -1220,7 +1221,7 @@ export class AparteChatViewport extends HTMLElement {
         scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
         const scrollIcon = resolveConfig(this).getIcon('scrollDown');
         scrollBtn.innerHTML = scrollIcon
-            || `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
+            || scrollDownIcon;
         this.appendChild(scrollBtn);
         this._scrollBtn = scrollBtn;
     }

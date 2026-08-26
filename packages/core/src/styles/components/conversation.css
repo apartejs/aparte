@@ -27,10 +27,12 @@
 }
 
 .aparte-conv-item:hover .aparte-conv-item__delete {
+  --aparte-icon-size: var(--aparte-icon-size-sm);
   opacity: 1;
 }
 
 .aparte-conv-item:hover .aparte-conv-item__archive {
+  --aparte-icon-size: var(--aparte-icon-size-sm);
   opacity: 1;
 }
 

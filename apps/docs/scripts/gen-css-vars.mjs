@@ -58,6 +58,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, relative, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coreStylesheets } from '../../../scripts/core-stylesheets.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE_SRC = resolve(here, '../../../packages/core/src');
@@ -67,42 +68,7 @@ const CORE_SRC = resolve(here, '../../../packages/core/src');
  * and reported 6 declared tokens instead of 286 — a corpus picked by path, silently
  * shrinking, exactly the failure this file's own header describes.
  */
-const CSS_SHEETS = [
-  resolve(here, '../../../packages/core/src/styles/theme.css'),
-  resolve(here, '../../../packages/core/src/styles/base.css'),
-  resolve(here, '../../../packages/core/src/styles/button.css'),
-  resolve(here, '../../../packages/core/src/styles/field.css'),
-  resolve(here, '../../../packages/core/src/styles/display/avatar.css'),
-  resolve(here, '../../../packages/core/src/styles/display/badge.css'),
-  resolve(here, '../../../packages/core/src/styles/display/tag.css'),
-  resolve(here, '../../../packages/core/src/styles/display/thumbnail.css'),
-  resolve(here, '../../../packages/core/src/styles/display/spinner.css'),
-  resolve(here, '../../../packages/core/src/styles/display/progress.css'),
-  resolve(here, '../../../packages/core/src/styles/display/skeleton.css'),
-  resolve(here, '../../../packages/core/src/styles/display/divider.css'),
-  resolve(here, '../../../packages/core/src/styles/display/alert.css'),
-  resolve(here, '../../../packages/core/src/styles/display/card.css'),
-  resolve(here, '../../../packages/core/src/styles/display/kbd.css'),
-  resolve(here, '../../../packages/core/src/styles/surface/tabs.css'),
-  resolve(here, '../../../packages/core/src/styles/surface/accordion.css'),
-  resolve(here, '../../../packages/core/src/styles/surface/menu.css'),
-  resolve(here, '../../../packages/core/src/styles/surface/popover.css'),
-  resolve(here, '../../../packages/core/src/styles/surface/tooltip.css'),
-  resolve(here, '../../../packages/core/src/styles/components/shell.css'),
-  resolve(here, '../../../packages/core/src/styles/components/bubble.css'),
-  resolve(here, '../../../packages/core/src/styles/components/composer.css'),
-  resolve(here, '../../../packages/core/src/styles/segment/thinking.css'),
-  resolve(here, '../../../packages/core/src/styles/segment/code.css'),
-  resolve(here, '../../../packages/core/src/styles/segment/tool-call.css'),
-  resolve(here, '../../../packages/core/src/styles/segment/error.css'),
-  resolve(here, '../../../packages/core/src/styles/segment/pipeline.css'),
-  resolve(here, '../../../packages/core/src/styles/segment/text.css'),
-  resolve(here, '../../../packages/core/src/styles/segment/artifact.css'),
-  resolve(here, '../../../packages/core/src/styles/components/elicitation.css'),
-  resolve(here, '../../../packages/core/src/styles/components/conversation.css'),
-  resolve(here, '../../../packages/core/src/styles/prose.css'),
-  resolve(here, '../../../packages/core/src/styles/responsive.css'),
-];
+const CSS_SHEETS = coreStylesheets();
 const OUT = resolve(here, '../src/content/docs/reference/css-variables.md');
 
 const css = CSS_SHEETS.map((p) => readFileSync(p, 'utf8')).join(String.fromCharCode(10));

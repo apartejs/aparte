@@ -1,12 +1,8 @@
 import type { AparteComposer } from './aparte-composer.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { escapeAttr } from '../../utils/escape.js';
+import { closeIcon } from '../../icons/glyphs.js';
 
-/** ✗ glyph for the hover remove button. */
-const REMOVE_ICON =
-    '<svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">' +
-    '<path d="M9.5 3.205 8.795 2.5 6 5.295 3.205 2.5 2.5 3.205 5.295 6 2.5 8.795l.705.705' +
-    'L6 6.705l2.795 2.795.705-.705L6.705 6z"/></svg>';
 
 /**
  * Renders a square thumbnail tile for each file attached to the root composer.
@@ -116,7 +112,7 @@ export class AparteComposerAttachments extends HTMLElement {
             const name = this._escape(file.name);
             const remove =
                 `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-thumb__remove" type="button" ` +
-                `aria-label="Remove ${name}">${REMOVE_ICON}</button>`;
+                `aria-label="Remove ${name}">${closeIcon}</button>`;
 
             if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);

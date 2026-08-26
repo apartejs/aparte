@@ -138,6 +138,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 }
 
 .aparte-thumb__remove {
+  --aparte-icon-size: var(--aparte-icon-size-sm);
   position: absolute;
   top: var(--aparte-thumb-remove-inset);
   right: var(--aparte-thumb-remove-inset);
@@ -231,6 +232,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    the row helper the two agree with the documented order; outside it, only the second
    is defined and a standalone send button keeps its own measure. */
 .aparte-send-button {
+  --aparte-icon-size: var(--aparte-icon-size-xl);
   width: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
   height: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
 }
@@ -562,6 +564,7 @@ aparte-composer-dictate .aparte-cd-button[hidden] {
    composer row, tighter than a standalone icon button. */
 aparte-composer-cancel .aparte-cc-button,
 aparte-composer-dictate .aparte-cd-button {
+  --aparte-icon-size: var(--aparte-icon-size-lg);
   padding: var(--aparte-space-3);
 }
 

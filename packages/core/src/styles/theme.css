@@ -143,6 +143,12 @@
   /* Input */
   --aparte-input-editor-max-height: 200px;
 
+  /* Icons — one knob, inherited: a container declares it, every glyph below follows. */
+  --aparte-icon-size: 14px;
+  --aparte-icon-size-sm: 12px;
+  --aparte-icon-size-lg: 16px;
+  --aparte-icon-size-xl: 20px;
+
   /* Send button + inline action buttons */
   --aparte-send-btn-size: 36px;
   --aparte-input-action-btn-size: 36px;

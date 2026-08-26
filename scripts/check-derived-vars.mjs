@@ -40,6 +40,7 @@
  * Run by `pnpm gate`.
  */
 import { readFileSync } from 'node:fs';
+import { coreStylesheets } from './core-stylesheets.mjs';
 
 /**
  * The sheets core ships, in the order `src/index.ts` imports them — which is the order
@@ -48,44 +49,7 @@ import { readFileSync } from 'node:fs';
  * lives in theme.css while its responsive overrides live at the end of aparte.css, so
  * a guard reading one file would judge half a rule.
  */
-const SHEETS = [
-    'packages/core/src/styles/theme.css',
-    'packages/core/src/styles/base.css',
-    'packages/core/src/styles/button.css',
-    'packages/core/src/styles/field.css',
-    'packages/core/src/styles/display/avatar.css',
-    'packages/core/src/styles/display/badge.css',
-    'packages/core/src/styles/display/tag.css',
-    'packages/core/src/styles/display/thumbnail.css',
-    'packages/core/src/styles/display/spinner.css',
-    'packages/core/src/styles/display/progress.css',
-    'packages/core/src/styles/display/skeleton.css',
-    'packages/core/src/styles/display/divider.css',
-    'packages/core/src/styles/display/alert.css',
-    'packages/core/src/styles/display/card.css',
-    'packages/core/src/styles/display/kbd.css',
-    'packages/core/src/styles/surface/tabs.css',
-    'packages/core/src/styles/surface/accordion.css',
-    'packages/core/src/styles/surface/menu.css',
-    'packages/core/src/styles/surface/popover.css',
-    'packages/core/src/styles/surface/tooltip.css',
-    'packages/core/src/styles/components/shell.css',
-    'packages/core/src/styles/components/bubble.css',
-    'packages/core/src/styles/components/composer.css',
-    'packages/core/src/styles/segment/thinking.css',
-    'packages/core/src/styles/segment/code.css',
-    'packages/core/src/styles/segment/tool-call.css',
-    'packages/core/src/styles/segment/error.css',
-    'packages/core/src/styles/segment/pipeline.css',
-    'packages/core/src/styles/segment/text.css',
-    'packages/core/src/styles/segment/artifact.css',
-    'packages/core/src/styles/components/elicitation.css',
-    'packages/core/src/styles/components/conversation.css',
-    'packages/core/src/styles/prose.css',
-    'packages/core/src/styles/responsive.css',
-    'packages/core/src/primitives/select/select.css',
-    'packages/core/src/primitives/progress-spinner/progress-spinner.css',
-];
+const SHEETS = coreStylesheets(false);
 /** Same reasoning as ANCHORED_FLOOR: a collapsed reference count is a broken matcher. */
 const REF_FLOOR = 500;
 /** Global concatenated line index -> `sheet:line`, so a message still points somewhere real. */

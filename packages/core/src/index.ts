@@ -18,6 +18,7 @@ import './styles/base.css';
 import './styles/button.css';
 import './styles/field.css';
 import './styles/display/avatar.css';
+import './styles/display/icon.css';
 import './styles/display/badge.css';
 import './styles/display/tag.css';
 import './styles/display/thumbnail.css';

@@ -1,0 +1,49 @@
+/*
+ * aparté — the icon. Every glyph the library draws carries this class.
+ *
+ *     <svg class="aparte-icon" viewBox="0 0 24 24">…</svg>
+ *
+ * The glyph does NOT carry its own size. It used to — `width="14"`, `width="16"`,
+ * `width="20"` baked into the markup — and that is precisely what kept the same drawing
+ * from being shared: an ✕ sized for a remove button could not also be the ✕ of a tool
+ * call, so the library ended up with three of them, on three grids, at three stroke
+ * widths. Size is a property of the PLACE an icon sits in, so it is declared by the
+ * container and inherited down.
+ *
+ * `--aparte-icon-size` is therefore the one knob, and it inherits: set it on any
+ * ancestor and every glyph below follows. A container with a rule of its own
+ * (`.aparte-action-button svg`, `.aparte-tool-icon svg`) still wins on specificity —
+ * those already expressed size in CSS and are left alone.
+ */
+
+.aparte-icon {
+  inline-size: var(--aparte-icon-size);
+  block-size: var(--aparte-icon-size);
+  /* A glyph never absorbs the row's slack: it is a fixed mark beside text, and a
+     shrunk icon reads as a rendering fault rather than as a smaller icon. */
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.aparte-icon--sm { --aparte-icon-size: var(--aparte-icon-size-sm); }
+.aparte-icon--lg { --aparte-icon-size: var(--aparte-icon-size-lg); }
+.aparte-icon--xl { --aparte-icon-size: var(--aparte-icon-size-xl); }
+
+/* The spinning glyph — the `loading` icon wears this.
+   It carried the class and nothing declared it, so core's own loading icon sat still.
+   The keyframes live here rather than in `spinner.css` because they belong to the ICON:
+   `<aparte-progress-spinner>` is a different thing, an element that computes its own
+   radius and dash offset, and its animation is its own. */
+.aparte-icon-spin {
+  animation: aparte-icon-spin var(--aparte-duration-spin) linear infinite;
+  transform-origin: center;
+}
+
+@keyframes aparte-icon-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-icon-spin { animation: none; }
+}

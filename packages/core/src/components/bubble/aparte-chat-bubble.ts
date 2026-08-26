@@ -67,13 +67,6 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
     return wrapper.firstElementChild as HTMLElement | null;
 }
 
-/** Lucide "info" glyph — inline so the action bar needs no icon-provider key. */
-const INFO_ICON_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" ' +
-  'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
-  'stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/>' +
-  '<path d="M12 8h.01"/></svg>';
-
 /**
  * One message: plain content or a list of rich segments, in light DOM.
  *
@@ -1211,7 +1204,7 @@ export class AparteChatBubble extends HTMLElement {
         // dead button. The popover itself is the app's (see `aparte-message-info`).
         if (!this._usage) return '';
         const l = locale.messageInfo ?? 'Details';
-        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${INFO_ICON_SVG}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${this._cfg.getIcon('info')}</button>`;
       }
       default:
         return '';

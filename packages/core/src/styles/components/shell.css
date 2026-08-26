@@ -107,6 +107,7 @@ aparte-chat-viewport {
 /* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
 
 .aparte-scroll-btn {
+  --aparte-icon-size: var(--aparte-icon-size-lg);
   position: absolute;
   bottom: var(--aparte-space-8);
   left: 50%;

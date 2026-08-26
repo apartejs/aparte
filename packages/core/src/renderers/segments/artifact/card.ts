@@ -29,6 +29,7 @@ import {
     setupBinaryFileArtifact,
     updateBinaryFileArtifact,
 } from './binary-file.js';
+import { downloadIcon } from '../../../icons/glyphs.js';
 
 
 const PREVIEWABLE_KINDS: ReadonlySet<string> = new Set(['react', 'html', 'svg', 'js', 'css']);
@@ -97,7 +98,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                             ${contextConfig().getIcon('copy')}
                         </button>
                         <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 13h12"/></svg>
+                            ${downloadIcon}
                         </button>
                     </div>
                 </header>
