@@ -57,7 +57,7 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
     border-radius: var(--aparte-radius-full);
     background: var(--aparte-surface-2);
     border: var(--aparte-border-width) solid var(--aparte-border);
-    font-size: 0.8rem;
+    font-size: var(--aparte-font-size-md);
     max-width: 100%;
     overflow: hidden;
     animation: aparte-question-receipt-appear var(--aparte-duration-slow) ease-out both;
@@ -77,7 +77,7 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
 }
 .aparte-question-receipt__answer {
     color: var(--aparte-success);
-    font-weight: 600;
+    font-weight: var(--aparte-font-weight-semibold);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
