@@ -126,6 +126,16 @@
   --aparte-thumb-remove-bg-hover: rgba(0, 0, 0, 0.85);
   --aparte-thumb-remove-color: #ffffff;
 
+  /* Control primitive — the sizes `.aparte-control--sm` / `--lg` name.
+     DECLARED here rather than left as a `var(x, 28px)` fallback inside the rule: a
+     token that exists only as an inline fallback cannot be discovered, does not reach
+     the generated reference, and is the shape this repo already carries 37 of. The
+     medium size stays `--aparte-input-action-btn-size`, which shipped and is themed. */
+  --aparte-control-size-sm: 28px;
+  --aparte-control-size-lg: 44px;
+  --aparte-control-icon-size-sm: 15px;
+  --aparte-control-icon-size-lg: 24px;
+
   /* Action Bar */
   --aparte-action-bar-gap: 4px;
   --aparte-action-bar-btn-size: 28px;
@@ -1511,9 +1521,16 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 /* Action Buttons in Input */
 .aparte-control {
+  /* The four knobs every modifier writes, declared here so a control with NO modifier is
+     already a complete control. Routing the two colours through local properties is
+     behaviour-identical — the defaults are the values that were hardcoded before. */
+  --_accent: var(--aparte-neutral, #6b7280);
+  --_accent-contrast: var(--aparte-on-primary, #fff);
+  --_hover: var(--aparte-primary, #6366f1);
+
   background: transparent;
   border: none;
-  color: var(--aparte-neutral, #6b7280);
+  color: var(--_accent);
   padding: var(--aparte-space-4, 8px);
   border-radius: var(--aparte-radius-action-btn);
   cursor: pointer;
@@ -1526,15 +1543,121 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 .aparte-control:hover {
-  color: var(--aparte-primary, #6366f1);
-  /* Derive the hover tint from --aparte-primary instead of hardcoding indigo, so a
-     custom theme's action buttons tint with its own accent. */
-  background-color: color-mix(in srgb, var(--aparte-primary, #6366f1) 10%, transparent);
+  color: var(--_hover);
+  /* Derive the hover tint from the accent instead of hardcoding indigo, so a custom
+     theme's action buttons tint with its own. With no accent modifier `--_hover` is
+     `--aparte-primary`, which is exactly what this rule did before. */
+  background-color: color-mix(in srgb, var(--_hover) 10%, transparent);
 }
 
 .aparte-control svg {
   width: var(--aparte-input-action-btn-icon-size, 20px);
   height: var(--aparte-input-action-btn-icon-size, 20px);
+}
+
+/* =========================================
+   The control primitive: four axes that compose
+   =========================================
+
+   `.aparte-control` alone is the default every icon button in core already wears —
+   quiet, neutral, medium, square-ish. The modifiers below are additive, so nothing
+   that shipped changes appearance.
+
+   They COMPOSE because an accent modifier sets `--_accent` and a fill modifier reads
+   it: four fills times five accents is twenty looks from nine rules, and adding a
+   sixth accent adds one rule rather than four.
+
+   Written on a `<button>` of your own, they make it match core's:
+
+       <button type="button"
+               class="aparte-control aparte-control--filled aparte-control--primary">
+
+   `type="button"` is yours to write here — a class cannot set it, and a `<button>`
+   with no type inside a form defaults to submit. `<aparte-composer-action>` is the
+   element that writes it for you, and resolves an icon through the icon provider,
+   which is the one thing this contract cannot do. */
+
+/* ── Accent: sets the colour role. Alone it only recolours the quiet look. ── */
+.aparte-control--primary { --_accent: var(--aparte-primary, #6366f1); --_hover: var(--aparte-primary-hover, var(--aparte-primary, #6366f1)); }
+.aparte-control--success { --_accent: var(--aparte-success, #16a34a); --_hover: var(--aparte-success, #16a34a); }
+.aparte-control--danger  { --_accent: var(--aparte-error, #dc2626);   --_hover: var(--aparte-error, #dc2626); }
+.aparte-control--warning { --_accent: var(--aparte-warning, #d97706); --_hover: var(--aparte-warning, #d97706); }
+
+/* ── Fill: reads the accent. ── */
+.aparte-control--filled {
+  background: var(--_accent);
+  color: var(--_accent-contrast);
+}
+.aparte-control--filled:hover:not(:disabled) {
+  background: var(--_hover);
+  color: var(--_accent-contrast);
+}
+
+.aparte-control--tinted {
+  background: color-mix(in srgb, var(--_accent) 12%, transparent);
+  color: var(--_accent);
+}
+.aparte-control--tinted:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--_accent) 20%, transparent);
+  color: var(--_accent);
+}
+
+.aparte-control--outline {
+  background: transparent;
+  border: var(--aparte-border-width, 1px) solid var(--_accent);
+  color: var(--_accent);
+}
+.aparte-control--outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--_accent) 10%, transparent);
+}
+
+/* ── Size. The three that already exist in this stylesheet, named once. ── */
+.aparte-control--sm {
+  width: var(--aparte-control-size-sm, 28px);
+  height: var(--aparte-control-size-sm, 28px);
+  padding: var(--aparte-space-2, 4px);
+}
+.aparte-control--sm svg { width: var(--aparte-control-icon-size-sm, 15px); height: var(--aparte-control-icon-size-sm, 15px); }
+
+.aparte-control--lg {
+  width: var(--aparte-control-size-lg, 44px);
+  height: var(--aparte-control-size-lg, 44px);
+}
+.aparte-control--lg svg { width: var(--aparte-control-icon-size-lg, 24px); height: var(--aparte-control-icon-size-lg, 24px); }
+
+/* ── Shape. ── */
+.aparte-control--circle { border-radius: 50%; }
+.aparte-control--pill { border-radius: 999px; }
+
+/* ── Content: a control with a LABEL is no longer square. ──
+   Width becomes automatic and the padding turns horizontal; the height stays, so a
+   labelled control still lines up with the icon buttons beside it in a row. */
+.aparte-control--label {
+  width: auto;
+  min-width: var(--aparte-input-action-btn-size, 36px);
+  gap: var(--aparte-space-2, 4px);
+  padding-inline: var(--aparte-space-5, 12px);
+  font: inherit;
+  font-size: var(--aparte-font-size-sm, 0.875rem);
+}
+.aparte-control--label.aparte-control--sm { padding-inline: var(--aparte-space-4, 8px); }
+.aparte-control--label.aparte-control--lg { padding-inline: var(--aparte-space-6, 16px); }
+
+/* ── Disabled, once, for every combination above. ── */
+.aparte-control:disabled,
+.aparte-control[aria-disabled='true'] {
+  opacity: var(--aparte-disabled-opacity, 0.5);
+  cursor: not-allowed;
+}
+
+/* A coarse pointer raises every size to the touch-target floor. It already did this for
+   the default; the two named sizes were new and would have shipped under it. */
+@media (pointer: coarse) {
+  .aparte-control--sm,
+  .aparte-control--lg {
+    min-width: var(--aparte-touch-target-size, 44px);
+    min-height: var(--aparte-touch-target-size, 44px);
+  }
 }
 
 /* =========================================

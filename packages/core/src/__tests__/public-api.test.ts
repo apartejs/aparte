@@ -30,6 +30,7 @@ describe('@aparte/core public API', () => {
             "APARTE_DEFAULT_UI_EVENTS",
             "APARTE_HOST_ATTR",
             "AparteBackendTransport",
+            "AparteButton",
             "AparteChat",
             "AparteChatBubble",
             "AparteChatHost",

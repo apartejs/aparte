@@ -274,6 +274,32 @@ A conventional abbreviation is fine in a variable name (\`btn\`, \`nav\`); an in
 author can expand is not, which is why \`.aparte-cs-button\` became
 \`.aparte-composer-send__button\`.
 
+### \`.aparte-control\` — the four axes
+
+They **compose**: an accent modifier sets the colour role, a fill modifier reads it. So four
+fills times five accents is twenty looks, and adding a sixth accent adds one rule rather than
+four. **The default of each axis is the base rule and takes no modifier**, which is what keeps
+\`.aparte-control\` alone a complete control.
+
+| Axis | Default | Modifiers |
+| --- | --- | --- |
+| Fill | quiet | \`--filled\` · \`--tinted\` · \`--outline\` |
+| Accent | neutral | \`--primary\` · \`--success\` · \`--danger\` · \`--warning\` |
+| Size | md (36px) | \`--sm\` (28px) · \`--lg\` (44px) |
+| Shape | rounded | \`--circle\` · \`--pill\` |
+| Content | icon-only | \`--label\` — width becomes automatic, padding turns horizontal |
+
+\`\`\`html
+<button type="button" class="aparte-control aparte-control--filled aparte-control--primary">
+  Save
+</button>
+\`\`\`
+
+\`type="button"\` is yours to write here: a class cannot set it, and a \`<button>\` with no type
+inside a form submits it. [\`<aparte-button>\`](/components/primitives/aparte-button/) writes it
+for you, and resolves \`icon="copy"\` through the configured icon provider — the one thing this
+contract cannot do, since a class has no way to reach the config.
+
 ## What core does not give you
 
 Building a plugin, you will look for these and not find them. Stated here so the search is

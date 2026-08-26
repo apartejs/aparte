@@ -24,7 +24,7 @@ import './types/event-map.js';
 import './types/element-map.js';
 
 // Export primitives
-export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner } from './primitives/index.js';
+export { AparteButton, type AparteButtonClickEventDetail, AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner } from './primitives/index.js';
 
 // Export types
 export type {
@@ -293,6 +293,7 @@ import './components/status/aparte-chat-status.js';
 import './components/viewport/aparte-chat-viewport.js';
 import './components/elicitation/aparte-elicitation.js';
 // Import primitives to auto-register
+import './primitives/button/aparte-button.js';
 import './primitives/select/aparte-select.js';
 import './primitives/select/aparte-option.js';
 import './primitives/select/aparte-optgroup.js';
