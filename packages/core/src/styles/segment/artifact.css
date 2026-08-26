@@ -42,8 +42,8 @@
 }
 .aparte-art-card__actions { display: flex; gap: var(--aparte-space-2); }
 .aparte-art-card__btn {
-  width: var(--aparte-art-card-btn-size);
-  height: var(--aparte-art-card-btn-size);
+  /* Same as .aparte-action-btn: declare the size, let the recipe draw. */
+  --aparte-btn-size: var(--aparte-art-card-btn-size);
 }
 .aparte-art-card__btn:hover:not(:disabled) {
     background: var(--aparte-surface-hover);

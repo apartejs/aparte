@@ -137,8 +137,11 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 .aparte-action-btn {
-  width: var(--aparte-action-bar-btn-size);
-  height: var(--aparte-action-bar-btn-size);
+  /* The token, not the box: the recipe draws it, and its icon size moves with it.
+     This used to set width/height directly while the element also carried
+     `--sm` — two sources for one measure, and 28px is the `--md` default the
+     modifier was contradicting. */
+  --aparte-btn-size: var(--aparte-action-bar-btn-size);
 }
 
 .aparte-action-btn:hover {

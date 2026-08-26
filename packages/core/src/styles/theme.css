@@ -632,7 +632,7 @@ aparte-chat {
   --aparte-btn-color-toggled: var(--aparte-text);
   --aparte-btn-size: var(--aparte-btn-size-md);
   --aparte-btn-ink: var(--aparte-text);
-  --aparte-btn-icon-size: var(--aparte-space-8);
+  --aparte-btn-icon-size: var(--aparte-icon-size-lg);
   --aparte-btn-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
   --aparte-btn-padding-lg: var(--aparte-space-3) var(--aparte-space-5);
 

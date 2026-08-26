@@ -163,8 +163,8 @@
 .aparte-btn--circle { padding: 0; width: var(--aparte-btn-size); height: var(--aparte-btn-size); border-radius: var(--aparte-radius-full); }
 .aparte-btn--block { display: flex; width: 100%; }
 
-.aparte-btn--sm { --aparte-btn-size: var(--aparte-btn-size-sm); font-size: var(--aparte-font-size-sm); padding: var(--aparte-btn-padding-sm); }
-.aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); font-size: var(--aparte-font-size-lg); padding: var(--aparte-btn-padding-lg); }
+.aparte-btn--sm { --aparte-btn-size: var(--aparte-btn-size-sm); --aparte-btn-icon-size: var(--aparte-icon-size-sm); font-size: var(--aparte-font-size-sm); padding: var(--aparte-btn-padding-sm); }
+.aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); --aparte-btn-icon-size: var(--aparte-icon-size-xl); font-size: var(--aparte-font-size-lg); padding: var(--aparte-btn-padding-lg); }
 .aparte-btn--sm.aparte-btn--icon,
 .aparte-btn--sm.aparte-btn--circle,
 .aparte-btn--lg.aparte-btn--icon,

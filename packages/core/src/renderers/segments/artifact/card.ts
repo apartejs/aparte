@@ -94,10 +94,10 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                         ${isStreaming ? '<span class="aparte-dot aparte-art-card__pulse" aria-label="Streaming"></span>' : ''}
                     </div>
                     <div class="aparte-art-card__actions">
-                        <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">
+                        <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">
                             ${contextConfig().getIcon('copy')}
                         </button>
-                        <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
+                        <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
                             ${downloadIcon}
                         </button>
                     </div>
