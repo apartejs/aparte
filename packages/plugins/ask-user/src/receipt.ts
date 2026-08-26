@@ -107,13 +107,13 @@ export function buildReceipt(call: ReceiptSource): HTMLElement {
     wrap.className = 'aparte-question-receipt__group';
     for (const row of rows) {
         const card = document.createElement('div');
-        card.className = 'aparte-segment aparte-question-receipt' + (row.declined ? ' aparte-question-receipt--declined' : '');
+        card.className = 'aparte-segment aparte-tag aparte-question-receipt' + (row.declined ? ' aparte-question-receipt--declined' : '');
 
         // A declined request has no question → answer pair to show, so it gets neither
         // a question nor an arrow: one line saying what happened.
         if (!row.declined) {
             const q = document.createElement('span');
-            q.className = 'aparte-question-receipt__question';
+            q.className = 'aparte-tag__label aparte-question-receipt__question';
             q.textContent = row.question;
 
             const sep = document.createElement('span');
@@ -124,7 +124,7 @@ export function buildReceipt(call: ReceiptSource): HTMLElement {
         }
 
         const a = document.createElement('span');
-        a.className = row.declined ? 'aparte-question-receipt__answer--declined' : 'aparte-question-receipt__answer';
+        a.className = 'aparte-tag__label ' + (row.declined ? 'aparte-question-receipt__answer--declined' : 'aparte-question-receipt__answer');
         a.textContent = row.answer;
 
         card.appendChild(a);
