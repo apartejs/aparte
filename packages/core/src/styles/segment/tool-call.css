@@ -90,7 +90,7 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
 .aparte-segment-tool-call[data-status="rejected"] .aparte-tool-state,
 .aparte-segment-tool-call[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error); }
 /* The Approve / Reject button rules were here. They moved with the buttons, to
-   .aparte-approval-option in this same file - and what stayed behind was a
+   .aparte-approval-option in components/elicitation.css - and what stayed behind was a
    leftover: a rule tinting .aparte-tool-label's border while a decision was pending,
    which stopped painting anything the moment the row redesign took that border
    off .aparte-tool-label. It reached for a variable that was never declared, and it
@@ -99,12 +99,9 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
    composer. */
 /* The spinner is `.aparte-spinner`; only its size is the tool row's business — the
    row is one quiet line, so its indicator is smaller than a standalone one. */
-/* The spinner is `.aparte-spinner`; only its size is the tool row's business — the
-   row is one quiet line, so its indicator is smaller than a standalone one. */
 .aparte-tool-spinner {
     width: var(--aparte-tool-spinner-size);
     height: var(--aparte-tool-spinner-size);
 }
-.aparte-tool-state { font-size: var(--aparte-font-size-sm); }
 
 /* Pipeline waiting */

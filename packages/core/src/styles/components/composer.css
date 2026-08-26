@@ -423,7 +423,11 @@ aparte-composer-cancel {
   display: contents;
 }
 
-/* ── Attachment chips list ── */
+/* ── The attachment strip: lays out the thumbnail tiles (.aparte-thumb) ──
+   One rule. It used to be two, fifteen lines apart in this same file, repeating
+   `display`, `flex-wrap` and `gap` at identical values — so the later block silently
+   owned those three and editing the earlier one changed nothing. Two owners for one
+   value is the shape every drift in this stylesheet has taken. */
 aparte-composer-attachments {
   display: flex;
   flex-wrap: wrap;
@@ -432,21 +436,14 @@ aparte-composer-attachments {
   width: 100%;
   box-sizing: border-box;
   border-bottom: var(--aparte-border-width) solid var(--aparte-border);
-}
-
-aparte-composer-attachments[hidden] {
-  display: none;
-}
-
-/* Composer attachment strip — lays out the thumbnail tiles (.aparte-thumb). */
-aparte-composer-attachments {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--aparte-space-3);
   --aparte-attachment-image-size: 56px;
   /* Many attachments → cap the height and scroll. */
   max-height: var(--aparte-attachments-max-height);
   overflow-y: auto;
+}
+
+aparte-composer-attachments[hidden] {
+  display: none;
 }
 
 /* ── Add attachment button ── */
