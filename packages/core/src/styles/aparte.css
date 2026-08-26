@@ -320,6 +320,15 @@
 
   --aparte-line-height-snug: 1.4;
 
+  /* One value for "this control is disabled". It was seven states carrying five
+     different opacities — 0.3, 0.45, 0.5, 0.5, 0.55, 0.6, 0.6 — and not one of them
+     had a comment saying why, so there was nothing to preserve in keeping them.
+     Deliberately ONE knob and not Material's content/container pair: that split
+     tints a container's background apart from its text, and every case here is a
+     whole control fading. Not Bootstrap's per-component variable either — that is
+     the drift we just removed, with names on it. */
+  --aparte-disabled-opacity: 0.5;
+
   --aparte-select-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   --aparte-select-min-width: 200px;
   --aparte-select-dropdown-max-height: 300px;
@@ -607,7 +616,7 @@ aparte-chat > aparte-chat-viewport,
    Unscoped so it greys the composer in EVERY host (vanilla shell + all wrappers),
    not only a `[data-aparte-chat]` direct child. */
 aparte-composer[data-model-gated] {
-  opacity: 0.55;
+  opacity: var(--aparte-disabled-opacity);
 }
 aparte-composer[data-model-gated] aparte-composer-send {
   pointer-events: none;
@@ -1478,7 +1487,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 .aparte-branch-prev:disabled,
 .aparte-branch-next:disabled {
-  opacity: 0.3;
+  opacity: var(--aparte-disabled-opacity);
   cursor: default;
 }
 
@@ -1591,7 +1600,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 /* Disabled state */
 .aparte-editor[contenteditable="false"] {
-  opacity: 0.6;
+  opacity: var(--aparte-disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -1616,7 +1625,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 .aparte-send-button:disabled {
-  opacity: 0.45;
+  opacity: var(--aparte-disabled-opacity);
   cursor: not-allowed;
   background: var(--aparte-send-disabled-bg, var(--aparte-primary));
 }
@@ -2720,7 +2729,7 @@ aparte-composer-input .aparte-ci-editor:empty::before {
 }
 
 aparte-composer-input .aparte-ci-editor[aria-disabled="true"] {
-  opacity: 0.6;
+  opacity: var(--aparte-disabled-opacity);
   cursor: not-allowed;
 }
 

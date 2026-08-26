@@ -35,7 +35,7 @@ aparte-select {
 }
 
 aparte-select[disabled] .aparte-select-trigger {
-    opacity: 0.5;
+    opacity: var(--aparte-disabled-opacity);
     cursor: not-allowed;
 }
 
@@ -130,7 +130,7 @@ aparte-option[selected] {
 }
 
 aparte-option[disabled] {
-    opacity: 0.5;
+    opacity: var(--aparte-disabled-opacity);
     cursor: not-allowed;
 }
 
