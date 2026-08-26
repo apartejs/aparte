@@ -1,6 +1,6 @@
 import type { AparteComposer } from './aparte-composer.js';
 import { resolveConfig } from '../../config/config-context.js';
-import { escapeAttr } from '../../utils/escape.js';
+import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 
 /** ✗ glyph for the hover remove button. */
 const REMOVE_ICON =
@@ -113,7 +113,7 @@ export class AparteComposerAttachments extends HTMLElement {
         this._revokeUrls();
 
         this.innerHTML = files.map((file) => {
-            const name = this._escape(file.name);
+            const name = escapeHtml(file.name);
             const remove =
                 `<button class="aparte-thumb__remove" type="button" ` +
                 `aria-label="Remove ${name}">${REMOVE_ICON}</button>`;
@@ -126,7 +126,7 @@ export class AparteComposerAttachments extends HTMLElement {
                     `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
             }
             return `<div class="aparte-thumb aparte-thumb--file" title="${escapeAttr(name)}">` +
-                `<span class="aparte-thumb__ext">${this._escape(this._ext(file.name))}</span>` +
+                `<span class="aparte-thumb__ext">${escapeHtml(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');
 
@@ -171,9 +171,6 @@ export class AparteComposerAttachments extends HTMLElement {
         return dot > 0 ? filename.slice(dot + 1).toUpperCase().slice(0, 4) : 'FILE';
     }
 
-    private _escape(str: string): string {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    }
 }
 
 if (!customElements.get('aparte-composer-attachments')) {

@@ -70,11 +70,32 @@ const stripComments = (src) =>
 // ── 1. declared: every class selector in every stylesheet we ship ────────────
 /** @type {Map<string, Set<string>>} class → stylesheets declaring it */
 const declared = new Map();
+/** Class selectors WITHOUT the prefix, per file — see the report at the end. */
+const bare = new Map();
+/** `language-*` is the name highlighters look for; it is unprefixed on purpose. */
+const ALLOWED_BARE = /^(language-|ec-|expressive-)/;
+
 for (const [, root] of ROOTS) {
   for (const f of walk(root, ['.css'])) {
     const css = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     for (const m of css.matchAll(/\.(aparte-[\w-]+)/g)) {
       (declared.get(m[1]) ?? declared.set(m[1], new Set()).get(m[1])).add(rel(f));
+    }
+    for (const m of css.matchAll(/(?<![\w-])\.([a-zA-Z][\w-]*)(?![\w-(])/g)) {
+      if (m[1].startsWith('aparte-') || ALLOWED_BARE.test(m[1])) continue;
+      (bare.get(rel(f)) ?? bare.set(rel(f), new Set()).get(rel(f))).add(m[1]);
+    }
+  }
+}
+// Also the styles a renderer ships as a template literal, which never reach a .css file.
+for (const [, root] of ROOTS) {
+  for (const f of walk(root, ['.ts'])) {
+    if (f.includes('__tests__') || f.includes('.test.')) continue;
+    const src = readFileSync(f, 'utf8');
+    const styles = [...src.matchAll(/getStyles[^`]*`([\s\S]*?)`/g)].map((m) => m[1]).join('\n');
+    for (const m of styles.matchAll(/(?<![\w-])\.([a-zA-Z][\w-]*)(?![\w-(])/g)) {
+      if (m[1].startsWith('aparte-') || ALLOWED_BARE.test(m[1])) continue;
+      (bare.get(rel(f)) ?? bare.set(rel(f), new Set()).get(rel(f))).add(m[1]);
     }
   }
 }
@@ -282,6 +303,20 @@ intend consumers to use, or delete. It is here rather than silent so the decisio
 md += orphans.length
   ? orphans.map((c) => `- \`.${esc(c)}\` — ${esc([...(declared.get(c) ?? [])].map((f) => f.replace(/^packages\/(core\/src|plugins)\//, '')).join(', '))}\n`).join('')
   : '_None._\n';
+
+/**
+ * Say what was seen, rather than adding a guard.
+ *
+ * The prefix policy has drifted twice — 42 bare classes in core, then seven in the ask-user
+ * plugin including `segment`, which is Semantic UI's own base class. Core is light DOM, so a
+ * bare rule is a global rule on a consumer's page. A twenty-fourth `check:*` step is not the
+ * answer to a generator that already walks every stylesheet on every docs build: it just has
+ * to stop being silent about what it reads.
+ */
+if (bare.size) {
+  console.warn(`[gen-css-classes] UNPREFIXED class selectors — core is light DOM, so these are global on a consumer's page:`);
+  for (const [file, names] of bare) console.warn(`  ${file}: ${[...names].sort().join(', ')}`);
+}
 
 const wrote = writeIfChanged(OUT, md);
 console.log(

@@ -1,5 +1,5 @@
 import { resolveConfig } from '../../config/index.js';
-import { escapeAttr } from '../../utils/escape.js';
+import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -155,11 +155,11 @@ export class AparteConversationList extends HTMLElement {
         const isArchived = !!conv.archivedAt;
         const activeClass = isActive ? ' aparte-conv-item--active' : '';
         const archivedClass = isArchived ? ' aparte-conv-item--archived' : '';
-        const escapedId = this._esc(conv.id);
-        const escapedTitle = this._esc(conv.title || locale.newChat);
-        const deleteLabel = this._esc(locale.deleteConversation);
-        const archiveLabel = this._esc(locale['archiveConversation'] ?? 'Archive conversation');
-        const unarchiveLabel = this._esc(locale['unarchiveConversation'] ?? 'Unarchive conversation');
+        const escapedId = escapeHtml(conv.id);
+        const escapedTitle = escapeHtml(conv.title || locale.newChat);
+        const deleteLabel = escapeHtml(locale.deleteConversation);
+        const archiveLabel = escapeHtml(locale['archiveConversation'] ?? 'Archive conversation');
+        const unarchiveLabel = escapeHtml(locale['unarchiveConversation'] ?? 'Unarchive conversation');
         const archiveAction = isArchived ? 'unarchive' : 'archive';
         const archiveAriaLabel = isArchived ? unarchiveLabel : archiveLabel;
         // Distinct icons: a downward tray for archive, an upward tray for unarchive.
@@ -260,14 +260,6 @@ export class AparteConversationList extends HTMLElement {
 
     // ─── Helpers ──────────────────────────────────────────────────────────
 
-    private _esc(str: string): string {
-        return str
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/'/g, '&#039;');
-    }
 }
 
 if (!customElements.get('aparte-conversation-list')) customElements.define('aparte-conversation-list', AparteConversationList);

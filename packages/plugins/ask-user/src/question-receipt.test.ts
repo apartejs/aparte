@@ -39,18 +39,18 @@ describe('questionReceiptRenderer', () => {
     describe('update()', () => {
         it('updates the question text', () => {
             const el = document.createElement('div');
-            el.innerHTML = '<span class="qr-question">old q</span><span class="qr-sep">→</span><span class="qr-answer">old a</span>';
+            el.innerHTML = '<span class="aparte-question-receipt__question">old q</span><span class="aparte-question-receipt__sep">→</span><span class="aparte-question-receipt__answer">old a</span>';
             const seg = { id: 'seg-1', type: 'question-receipt' as const, question: 'New question', answer: 'old a' };
             questionReceiptRenderer.update!(el, seg);
-            expect(el.querySelector('.qr-question')!.textContent).toBe('New question');
+            expect(el.querySelector('.aparte-question-receipt__question')!.textContent).toBe('New question');
         });
 
         it('updates the answer text', () => {
             const el = document.createElement('div');
-            el.innerHTML = '<span class="qr-question">q</span><span class="qr-sep">→</span><span class="qr-answer">old</span>';
+            el.innerHTML = '<span class="aparte-question-receipt__question">q</span><span class="aparte-question-receipt__sep">→</span><span class="aparte-question-receipt__answer">old</span>';
             const seg = { id: 'seg-1', type: 'question-receipt' as const, question: 'q', answer: 'New answer' };
             questionReceiptRenderer.update!(el, seg);
-            expect(el.querySelector('.qr-answer')!.textContent).toBe('New answer');
+            expect(el.querySelector('.aparte-question-receipt__answer')!.textContent).toBe('New answer');
         });
 
         it('is a no-op when elements are missing', () => {
@@ -66,8 +66,8 @@ describe('questionReceiptRenderer', () => {
             expect(questionReceiptRenderer.getStyles!().length).toBeGreaterThan(0);
         });
 
-        it('contains the seg-qreceipt selector', () => {
-            expect(questionReceiptRenderer.getStyles!()).toContain('.seg-qreceipt');
+        it('contains the aparte-question-receipt selector', () => {
+            expect(questionReceiptRenderer.getStyles!()).toContain('.aparte-question-receipt');
         });
     });
 });

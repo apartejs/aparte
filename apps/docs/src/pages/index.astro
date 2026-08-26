@@ -1411,12 +1411,37 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       };
       const snip = document.getElementById('snippet')!;
       const render = (fw: string) => { snip.innerHTML = snippets[fw]; };
+
+      /**
+       * ONE framework choice for the whole site, and it is remembered.
+       *
+       * This picker and the one in every component page's preview card are the same
+       * question asked twice. They did not agree: this one always started on Vanilla and
+       * stored nothing, so a reader who picked React on a component page and came back
+       * here was told Vanilla. Same key, same behaviour, both directions.
+       */
+      const FW_KEY = 'aparte-docs-framework';
+      const readFw = () => { try { return localStorage.getItem(FW_KEY); } catch { return null; } };
+      const writeFw = (v: string) => { try { localStorage.setItem(FW_KEY, v); } catch { /* private mode: the choice just does not persist */ } };
+
+      const selectFw = (fw: string) => {
+        // SCOPED to `#tabs`. It was a bare `.tab`, which also matches the five demo tabs
+        // in the section above — so picking a framework set aria-selected="false" on
+        // every one of them, leaving that tablist with nothing selected and a screen
+        // reader with no current tab until the reader clicked one again.
+        document.querySelectorAll<HTMLElement>('#tabs .tab')
+          .forEach((x) => x.setAttribute('aria-selected', String(x.dataset.fw === fw)));
+        render(fw);
+      };
+
       document.getElementById('tabs')?.addEventListener('click', (e) => {
         const t = (e.target as HTMLElement).closest('.tab') as HTMLElement | null; if (!t) return;
-        document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
-        render(t.dataset.fw!);
+        writeFw(t.dataset.fw!);
+        selectFw(t.dataset.fw!);
       });
-      render('vanilla');
+
+      const storedFw = readFw();
+      selectFw(storedFw && snippets[storedFw] ? storedFw : 'vanilla');
     </script>
   </body>
 </html>
