@@ -28,6 +28,10 @@
  *      an `<aparte-chat>` nested in a dark wrapper, where a local declaration beats
  *      the inherited dark value, and the chat would go light.
  *   3. No name is declared in both the derived block and a theme block. One owner.
+ *   4. No name is declared twice in the SAME block: the later one wins in silence,
+ *      and the first then reads like the value in force without being it.
+ *   5. A DECLARED token is referenced without a fallback. The fallback is a second
+ *      owner of the same default and drifts from it — 155 had, across 54 names.
  *
  * A note on testing this: jsdom does not resolve `var()`, so no unit test can assert
  * "the avatar follows the primary". The browser proof belongs in `pnpm e2e`; the
@@ -38,6 +42,18 @@
 import { readFileSync } from 'node:fs';
 
 const FILE = 'packages/core/src/styles/aparte.css';
+/**
+ * Every sheet core ships. `src/index.ts` imports all three, so a token declared in
+ * the theme sheet resolves inside the other two — which is what makes the
+ * single-owner rule below apply across the set rather than file by file.
+ */
+const SHEETS = [
+    FILE,
+    'packages/core/src/primitives/select/select.css',
+    'packages/core/src/primitives/progress-spinner/progress-spinner.css',
+];
+/** Same reasoning as ANCHORED_FLOOR: a collapsed reference count is a broken matcher. */
+const REF_FLOOR = 500;
 
 /** Every place a palette can change, and therefore every place the layer re-anchors. */
 const ANCHORS = [':root', ':host', '[data-aparte-theme]', '[data-aparte-host]', 'aparte-chat'];
@@ -79,6 +95,9 @@ const anchored = [];
 const atRuleExempt = [];
 const stray = [];
 const byBlock = new Map();
+const declaredNames = new Set();
+const duplicated = new Set();
+const blockOf = new Map();
 let anchoredSelectors = null;
 let literalSelectors = null;
 
@@ -98,6 +117,10 @@ for (let i = 0; i < lines.length; i++) {
     const top = stack[stack.length - 1];
     const insideAtRule = stack.some((f) => f.isAtRule);
 
+    const scope = stack.map((fr) => fr.key).join(' > ');
+    if (blockOf.get(name) === scope) duplicated.add(name);
+    blockOf.set(name, scope);
+    declaredNames.add(name);
     if (!byBlock.has(top.key)) byBlock.set(top.key, new Set());
     byBlock.get(top.key).add(name);
 
@@ -148,6 +171,68 @@ if (anchoredSelectors) {
         }
     }
 }
+/**
+ * One owner, second half: a name declared TWICE in the same block. The later
+ * declaration silently wins, so the earlier one reads like the value in force and
+ * is not. Caught the day it was written: `--aparte-select-min-width` already meant
+ * `.aparte-model-select` at 120px when a second declaration gave it 200px for the
+ * `<aparte-select>` element, which would have widened the model picker with nothing
+ * on screen to explain why.
+ */
+for (const [key, names] of byBlock) {
+    const dupes = [...names].filter((n) => duplicated.has(n) && blockOf.get(n).endsWith(key));
+    if (dupes.length) {
+        problems.push(
+            `\`${key}\` declares ${dupes.length} name(s) twice: ${dupes.join(', ')}.\n`
+            + '      The later declaration wins and the earlier one is a decoy. Pick one, or\n'
+            + '      give the second thing its own name.',
+        );
+    }
+}
+
+/**
+ * One owner per value. A `var(--x, fallback)` on a token this sheet also DECLARES
+ * states the same default twice, and the two drift: 155 of them had, with
+ * `--aparte-border` carrying eleven different fallbacks and `--aparte-primary`
+ * falling back to an indigo the palette had left. Since `src/index.ts` imports every
+ * sheet in SHEETS, a declared token always resolves and its fallback is dead text.
+ * A token this sheet never declares is the opposite case: there the fallback IS the
+ * owner — that is the "unset by default" knob, and it stays.
+ */
+let refs = 0;
+for (const sheet of SHEETS) {
+    const text = readFileSync(sheet, 'utf8');
+    const textLines = text.split('\n');
+    for (let i = 0; i < text.length; i++) {
+        if (!text.startsWith('var(--aparte-', i)) continue;
+        let depth = 0;
+        let j = i + 3;
+        for (; j < text.length; j++) {
+            if (text[j] === '(') depth++;
+            else if (text[j] === ')') { depth--; if (!depth) break; }
+        }
+        const inner = text.slice(i + 4, j);
+        const comma = inner.indexOf(',');
+        refs++;
+        if (comma < 0) continue;
+        const name = inner.slice(0, comma).trim();
+        if (!declaredNames.has(name)) continue;
+        const line = text.slice(0, i).split('\n').length;
+        const decl = textLines.find((l) => l.trim().startsWith(name + ':'));
+        problems.push(
+            `${sheet}:${line}  ${name} is DECLARED and still carries a fallback.\n`
+            + `      Declared as: ${(decl ?? '?').trim()}\n`
+            + '      Two owners for one default is how the old palette survived in the fallbacks.',
+        );
+    }
+}
+if (refs < REF_FLOOR) {
+    problems.push(
+        `only ${refs} var() references scanned across ${SHEETS.length} sheets, floor is ${REF_FLOOR}.\n`
+        + '      A collapsed count means the scanner stopped seeing the sheets.',
+    );
+}
+
 if (atRuleExempt.length > AT_RULE_CEILING) {
     problems.push(
         `${atRuleExempt.length} derived declarations inside an @media/@container, ceiling is ${AT_RULE_CEILING}:\n`
@@ -177,5 +262,5 @@ if (problems.length) {
 console.log(
     `[derived-vars] OK: ${anchored.length} derived declarations, all on the ${ANCHORS.length}-anchor layer; `
     + `the literal palette stays on \`${LITERAL_SELECTORS.join(', ')}\`; `
-    + `${atRuleExempt.length} responsive exemption(s).`,
+    + `${atRuleExempt.length} responsive exemption(s); ${refs} var() refs, single-owner.`,
 );

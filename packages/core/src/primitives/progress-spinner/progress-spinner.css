@@ -34,7 +34,7 @@ aparte-progress-spinner svg {
     stroke: var(--aparte-spinner-color, currentColor);
     stroke-width: var(--aparte-spinner-stroke, 2.5);
     stroke-linecap: round;
-    transition: stroke-dashoffset 0.25s ease;
+    transition: stroke-dashoffset 0.25s var(--aparte-ease);
 }
 
 /* Indeterminate: rotate the whole SVG continuously */
