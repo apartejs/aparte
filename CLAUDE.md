@@ -237,20 +237,27 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
   incomplete).
 - **A built-in's CSS goes in `packages/core/src/styles/`, never in a
-  `getStyles()` template literal.** Eleven sheets there. `theme.css` holds every token —
-  light palette, dark overrides, derived layer — and ten more hold the rules, one per
-  family: `base`, `shell`, `bubble`, `composer`, `segment`, `artifact`,
-  `elicitation`, `conversation`, `prose`, `responsive`. You open one to change a value
-  and another to change a look, and `aparte.css` no longer exists.
+  `getStyles()` template literal.** Thirty-seven sheets there, one family each — count
+  them, don't trust this line:
+  `node -e "const s=require('fs').readFileSync('packages/core/src/index.ts','utf8');console.log((s.match(/^import '\.\/styles\//gm)||[]).length)"`.
+  `theme.css` holds every token (light palette, dark overrides, derived layer);
+  `button`/`field` hold the two control recipes; `display/` and `surface/` the rest of
+  the neutral layer; `primitives/`, `segment/` and `components/` what core itself
+  renders. You open one to change a value and another to change a look, and
+  `aparte.css` no longer exists.
 
-  **The import ORDER in `src/index.ts` is the cascade**, so a new sheet is not appended
-  casually: `responsive` stays last because it overrides, and everything that reads the
-  sheets reads them in that same order — `check:derived-vars`, `gen-css-vars` and the
-  test helper `src/__tests__/read-stylesheet.ts`. All three located their corpus by a
-  single PATH before the split and all three went blind on it the same hour: the
-  generator reported 6 declared tokens instead of 286, and three suites went red. Each
-  carries a floor now, because a corpus that silently shrinks is the failure worth
-  catching. The `getStyles()` seam exists for a *consumer's* renderer, which
+  **The import ORDER in `src/index.ts` is the cascade** — and it is now the SOURCE of
+  that order, not a copy of it. Five readers each kept their own list and every one of
+  them drifted: `check:derived-vars`, the docs' `gen-css-vars`, the test helper
+  `src/__tests__/read-stylesheet.ts`, the landing page's variable count, and
+  `styles/bundle.css`. Four now derive the list from the import block via
+  `scripts/core-stylesheets.mjs`; `bundle.css` cannot (a bundler reads it as CSS) so
+  `check:derived-vars` asserts it matches, import for import. Each also carries a floor,
+  because a corpus that silently shrinks is the failure worth catching — the generator
+  once reported 6 declared tokens instead of 286, and `bundle.css` had quietly fallen a
+  sheet behind with no symptom but the docs site rendering without it. `responsive`
+  stays last because it overrides. The `getStyles()` seam exists for a *consumer's*
+  renderer, which
   cannot edit any of them and has no other way onto the page. Two measured reasons, not
   three: `check:derived-vars` reads only those sheets, so a derived declaration hidden in
   a renderer is unchecked; and CSS in a template literal is not read as CSS — a backtick
@@ -271,6 +278,44 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   bare `nav` rule on this repo's own docs site moved the artifact card's tabs, and
   `.segment` is Semantic UI's base class. One deliberate exception: `language-*` on a code
   block stays unprefixed, because that is the name highlighters look for.
+- **A component wears the recipe; it does not redraw it.** `aparte-btn`, `aparte-field`,
+  `aparte-tag`, `aparte-checkbox`, `aparte-radio`, `aparte-icon` and the rest of the
+  neutral layer own shape, spacing, states and focus. What a component adds is only what
+  is genuinely its own — where it floats, the scrim it needs over a picture. Three rules
+  follow, each learned by breaking it:
+  - **Declare the recipe's token, don't out-specify the recipe.** `.aparte-composer-row`
+    sets `--aparte-btn-size`; it used to be `.aparte-composer-row button`, a type
+    selector, which also hit every button in a panel mounted inside that row. Its
+    antidote in `base.css` had the same specificity, so which won came down to two
+    imports, and splitting the sheets flipped it — the approval options came back as
+    44×44 squares with their labels spilling out. A declaration only the intended reader
+    can see needs no antidote and cannot be re-broken by a re-ordering.
+  - **A per-component token that resolves to what the recipe already gives is an alias,
+    not a knob.** The scroll button declared `--aparte-scroll-btn-bg: var(--aparte-surface-1)`,
+    `-color: var(--aparte-text)`, `-border: var(--aparte-border)` and a hover to match:
+    four names for exactly what `aparte-btn--surface` is. Core is light DOM, so a
+    consumer can always write `.aparte-scroll-btn { … }` — a named knob earns its keep
+    only when it parameterises something a selector cannot reach.
+  - **A documented `@cssprop` must be read by a stylesheet.** When a component stops
+    drawing its own radius and lets the recipe draw it, the component's token loses its
+    last reader and stays in the JSDoc — so the generated page keeps offering a knob that
+    does nothing. Ten had gone that way in one evening. `check:derived-vars` now refuses
+    it; the fix is to feed the recipe (`--aparte-btn-radius: var(--aparte-radius-send-btn)`),
+    not to delete the documentation.
+- **Every glyph lives in `packages/core/src/icons/`, and carries no size.** Scattering
+  SVG did not merely spread the source around, it let it DRIFT: three different ✕, two
+  chevrons, `paperclip` and `scrollDown` duplicated byte for byte. A glyph carrying
+  `width="14"` cannot also be the glyph a 12px slot needs, which is how that happened —
+  size is `--aparte-icon-size` (or `--aparte-btn-icon-size` inside a button, which
+  out-specifies it), declared by the container. `glyphs.ts` is the set core draws and
+  doubles as the icon-provider keys; `extended.ts` is behind `@aparte/core/icons`,
+  because the fallback record is read by a computed key and therefore ships whole.
+- **One keyframe per motion, prefixed.** Four did a 360° turn (three identical, plus an
+  unprefixed `tool-spin` nothing used and which could shadow a consumer's own rule).
+  They live in `base.css` beside their consumers, since distance is how they multiplied.
+  `check:derived-vars` refuses a duplicate, a dead one, an unprefixed one, and an
+  `animation` naming a keyframe that does not exist — that last one is total silence:
+  `aparte-icon-spin` was on the loading glyph and declared nowhere, so it simply sat still.
 - A changeset entry for any package with an API/CSS change.
 - **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
   (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).

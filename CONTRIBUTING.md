@@ -172,9 +172,57 @@ The flow:
    > `npm i @aparte/core`. The day a stable line exists, `latest` stops following — and
    > that is the day to change that script.
 
+## Styling
+
+`@aparte/core` renders into the **light DOM**. There is no shadow root anywhere, which
+means two things at once: every class we emit is a public theming surface a consumer may
+target, and every selector we write can reach elements we did not render. Both halves
+have bitten us, so the rules below are enforced by `pnpm check:derived-vars` rather than
+left to review.
+
+**Where CSS goes.** `packages/core/src/styles/`, one sheet per family — never a
+`getStyles()` template literal. That seam exists only for a *consumer's* renderer, which
+has no other way onto the page. CSS in a template literal is not read as CSS: a backtick
+closes the literal, and a `//` comment is just text that ends up rendered.
+
+**The import order in `src/index.ts` is the cascade.** It is the single source of that
+order; `scripts/core-stylesheets.mjs` derives the list for everything that reads the
+sheets. If you add a sheet, add it to the import block and to `styles/bundle.css` — the
+one list that cannot derive itself, and which the guard therefore asserts matches.
+
+**Class names are prefixed `aparte-`.** The one exception is `language-*` on a code
+block, which is the name highlighters look for. An unprefixed rule restyles the
+consumer's page; the reverse has bitten us too.
+
+**Wear the recipe, don't redraw it.** `aparte-btn`, `aparte-field`, `aparte-tag`,
+`aparte-checkbox`, `aparte-radio`, `aparte-icon` own shape, spacing, states and focus. A
+component adds only what is genuinely its own. In practice:
+
+- Declare the recipe's token (`--aparte-btn-size`, `--aparte-btn-radius`) instead of
+  out-specifying the recipe with a more specific selector. A type selector like
+  `.some-row button` also hits content mounted inside that row.
+- Don't invent a per-component token that resolves to what the recipe already gives —
+  it is an alias, not a knob. In light DOM a consumer can always target the class.
+- A documented `@cssprop` must be read by some stylesheet. If a component stops drawing
+  something itself, feed the recipe from its token rather than leaving the token
+  stranded in the JSDoc, where the generated page keeps offering a knob that does
+  nothing.
+
+**Icons** live in `packages/core/src/icons/` and carry no size — the container declares
+`--aparte-icon-size` (or `--aparte-btn-icon-size` inside a button). A glyph that carries
+its own size cannot be shared, which is how the library once ended up with three
+different ✕.
+
+**Animations**: one prefixed keyframe per motion, declared in `base.css` next to its
+consumers.
+
 ## Anti-patterns
 
 - No dependencies in `@aparte/core` (the zero-dep promise).
 - No framework code at the repo root — frameworks live only in their wrapper package (peer + dev)
   and its example.
 - No product logic (routing, settings, persistence) in the library.
+- No CSS in a `getStyles()` string for anything core itself renders.
+- No unprefixed class or keyframe name.
+- No bare type selector (`div`, `button`) outside a container that owns its own content —
+  prose and code panes qualify; a row that something else can be mounted into does not.
