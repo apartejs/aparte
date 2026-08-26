@@ -63,7 +63,16 @@ test('a gated composer blocks send until a model is selected', async ({ page }) 
     await page.goto('/');
 
     await expect(chat.gatedComposer).toBeVisible({ timeout: 20_000 });
-    await expect(chat.gatedComposer).toHaveCSS('opacity', '0.55');
+    // Asserted against the TOKEN, not a literal. This line used to read '0.55' and
+    // broke the day the seven disabled states were unified behind one knob — which
+    // is a design value moving, not a regression. What the test is actually for is
+    // that the gate is dimmed AND that it dims by reading the token, so hardcoding
+    // an opacity back into the rule still fails it.
+    const dimmed = (await chat.gatedComposer.evaluate((el) =>
+        getComputedStyle(el).getPropertyValue('--aparte-disabled-opacity'))).trim();
+    expect(Number(dimmed)).toBeGreaterThan(0);
+    expect(Number(dimmed)).toBeLessThan(1);
+    await expect(chat.gatedComposer).toHaveCSS('opacity', dimmed);
 
     // Typing + Enter must NOT send: core's submit() bails on the gate, so no
     // bubble appears and the input is NOT cleared (a real send clears it).
