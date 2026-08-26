@@ -51,6 +51,7 @@ import { readFileSync } from 'node:fs';
 const SHEETS = [
     'packages/core/src/styles/theme.css',
     'packages/core/src/styles/base.css',
+    'packages/core/src/styles/button.css',
     'packages/core/src/styles/shell.css',
     'packages/core/src/styles/bubble.css',
     'packages/core/src/styles/composer.css',

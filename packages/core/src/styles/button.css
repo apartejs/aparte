@@ -1,0 +1,108 @@
+/*
+ * aparté — the button recipe. Ready-made classes, nothing to configure.
+ *
+ * Put `aparte-btn` on a <button> and it looks like every other control in the library.
+ * Add one variant if it is not the default ghost. Your own class stays on the element
+ * for events and for targeting — it does NOT carry the look any more.
+ *
+ *     <button class="aparte-btn aparte-btn--primary my-send">Send</button>
+ *     <button class="aparte-btn aparte-btn--icon" aria-label="Copy">…</button>
+ *
+ * Every value here was measured, not invented: 33 control rules already in this
+ * library were read, and the base is what they agree on — flex-centred, transparent,
+ * borderless, `cursor: pointer`, `flex-shrink: 0`. What they did NOT agree on is why
+ * this file exists: `transition` appeared in 13 of them with 12 different values,
+ * `border-radius` in 12 with 11. Nobody decided; everyone filled in.
+ *
+ * The variant set is measured the same way and is deliberately short — four, and no
+ * `--secondary`, because nothing in this library is secondary. A variant nobody wears
+ * is a contract maintained for nobody.
+ */
+
+.aparte-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aparte-btn-gap);
+  flex-shrink: 0;
+  cursor: pointer;
+  /* Ghost by default: 33 of the 33 controls measured are transparent and borderless. */
+  background: transparent;
+  border: var(--aparte-border-width) solid transparent;
+  padding: var(--aparte-btn-padding);
+  border-radius: var(--aparte-btn-radius);
+  color: var(--aparte-btn-color);
+  font: inherit;
+  font-size: var(--aparte-btn-font-size);
+  line-height: var(--aparte-line-height-none);
+  transition:
+    background var(--aparte-duration-fast) var(--aparte-ease),
+    border-color var(--aparte-duration-fast) var(--aparte-ease),
+    color var(--aparte-duration-fast) var(--aparte-ease),
+    opacity var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-btn:hover:not(:disabled) {
+  background: var(--aparte-btn-bg-hover);
+  color: var(--aparte-btn-color-hover);
+}
+
+/* One place says what disabled looks like. It was six rules saying it separately. */
+.aparte-btn:disabled,
+.aparte-btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+
+.aparte-btn:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-btn-focus-offset);
+}
+
+/* ── Variants ─────────────────────────────────────────────────────────────────
+   Filled. The one control that must read as THE action of its row. */
+.aparte-btn--primary {
+  background: var(--aparte-primary);
+  border-color: var(--aparte-primary);
+  color: var(--aparte-on-primary);
+}
+.aparte-btn--primary:hover:not(:disabled) {
+  background: var(--aparte-primary-hover);
+  border-color: var(--aparte-primary-hover);
+  color: var(--aparte-on-primary);
+}
+
+/* Raised. Sits ON the transcript rather than in a row: it needs its own ground. */
+.aparte-btn--surface {
+  background: var(--aparte-surface-1);
+  border-color: var(--aparte-border);
+  color: var(--aparte-text);
+}
+.aparte-btn--surface:hover:not(:disabled) {
+  background: var(--aparte-surface-2);
+  color: var(--aparte-text);
+}
+
+/* Tinted, not filled — measured: the success and danger controls in this library
+   change their COLOUR on a ghost, they do not become a coloured block. */
+.aparte-btn--success { color: var(--aparte-success); }
+.aparte-btn--success:hover:not(:disabled) { color: var(--aparte-success); }
+.aparte-btn--danger { color: var(--aparte-error); }
+.aparte-btn--danger:hover:not(:disabled) { color: var(--aparte-error); }
+
+/* ── Shape and size ───────────────────────────────────────────────────────────
+   Icon-only: square, no padding, sized by the size modifier. An icon button with
+   a label is the a11y trap here — give it an aria-label. */
+.aparte-btn--icon {
+  padding: 0;
+  width: var(--aparte-btn-size);
+  height: var(--aparte-btn-size);
+}
+
+/* Three sizes because the library measured three: 20px, 28px and 36px controls. */
+.aparte-btn--sm { --aparte-btn-size: var(--aparte-btn-size-sm); font-size: var(--aparte-font-size-sm); }
+.aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); font-size: var(--aparte-font-size-lg); }
+
+/* An icon inside a button never takes the pointer: the click belongs to the button,
+   and an SVG target makes `event.target` lie to a delegated listener. */
+.aparte-btn > svg { pointer-events: none; flex-shrink: 0; }

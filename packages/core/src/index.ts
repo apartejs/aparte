@@ -15,6 +15,7 @@
  */
 import './styles/theme.css';
 import './styles/base.css';
+import './styles/button.css';
 import './styles/shell.css';
 import './styles/bubble.css';
 import './styles/composer.css';

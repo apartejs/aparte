@@ -70,6 +70,7 @@ const CORE_SRC = resolve(here, '../../../packages/core/src');
 const CSS_SHEETS = [
   resolve(here, '../../../packages/core/src/styles/theme.css'),
   resolve(here, '../../../packages/core/src/styles/base.css'),
+  resolve(here, '../../../packages/core/src/styles/button.css'),
   resolve(here, '../../../packages/core/src/styles/shell.css'),
   resolve(here, '../../../packages/core/src/styles/bubble.css'),
   resolve(here, '../../../packages/core/src/styles/composer.css'),

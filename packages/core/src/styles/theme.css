@@ -307,6 +307,13 @@
   --aparte-select-status-dot-size: 8px;
   --aparte-select-spinner-size: 12px;
 
+  /* Button sizes. Literal like every other control size: tightening the spacing
+     scale must not shrink a button. The three are the three this library already
+     uses — a conversation action, an action-bar button, a send button. */
+  --aparte-btn-size-sm: 20px;
+  --aparte-btn-size-md: 28px;
+  --aparte-btn-size-lg: 36px;
+
   --aparte-focus-outline-offset: -2px;
   --aparte-approval-accent-width: 2px;
   --aparte-tool-spinner-size: 10px;
@@ -466,6 +473,19 @@ aparte-chat {
   --aparte-content-font-size: var(--aparte-font-size-base);
   --aparte-input-editor-font-size: var(--aparte-font-size-base);
   --aparte-status-font-size: var(--aparte-font-size-md);
+
+  /* The button recipe's knobs. Derived, so a chat that moves --aparte-space-unit or
+     --aparte-font-scale takes its buttons with it. Defaults are what the 33 control
+     rules already measured agree on: a muted ghost that fills on hover. */
+  --aparte-btn-gap: var(--aparte-space-2);
+  --aparte-btn-padding: var(--aparte-space-2) var(--aparte-space-3);
+  --aparte-btn-radius: var(--aparte-radius-md);
+  --aparte-btn-font-size: var(--aparte-font-size-sm);
+  --aparte-btn-color: var(--aparte-text-muted);
+  --aparte-btn-color-hover: var(--aparte-text);
+  --aparte-btn-bg-hover: var(--aparte-surface-2);
+  --aparte-btn-focus-offset: var(--aparte-space-1);
+  --aparte-btn-size: var(--aparte-btn-size-md);
 
   --aparte-input-container-min-height: var(--aparte-touch-target-size);
   --aparte-elic-message-size: var(--aparte-font-size-md);

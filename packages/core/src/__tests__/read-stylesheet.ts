@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
  * The rendered half belongs to `pnpm e2e`.
  */
 const SHEETS = [
-    'theme', 'base', 'shell', 'bubble', 'composer', 'segment',
+    'theme', 'base', 'button', 'shell', 'bubble', 'composer', 'segment',
     'artifact', 'elicitation', 'conversation', 'prose', 'responsive',
 ];
 /** Below this, the corpus has collapsed and every assertion below is vacuous. */
