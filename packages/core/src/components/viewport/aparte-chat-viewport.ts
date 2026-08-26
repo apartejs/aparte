@@ -122,7 +122,10 @@ export class AparteChatViewport extends HTMLElement {
     // The scroll surface: an internal `.aparte-viewport-container` div (core mode)
     // or the host element itself (framework-managed mode). HTMLElement covers both.
     private _container: HTMLElement | null = null;
-    private _scrollBtn: HTMLButtonElement | null = null;
+    // HTMLElement, not HTMLButtonElement: with `setControlRenderer` the node is the
+    // consumer's, and it may not be a <button>. Nothing here needs one — append,
+    // listen, toggle a class.
+    private _scrollBtn: HTMLElement | null = null;
     private _bottomSpacer: HTMLDivElement | null = null;
     /**
      * In framework-managed mode there is no spacer ELEMENT (an extra child would
@@ -1189,7 +1192,7 @@ export class AparteChatViewport extends HTMLElement {
             this.appendChild(this._scrollBtn);
         } else {
             this._container = this.querySelector('.aparte-viewport-container');
-            this._scrollBtn = this.querySelector('.aparte-scroll-btn');
+            this._scrollBtn = this.querySelector('[data-aparte-control="aparte-scroll-btn"]');
             this._bottomSpacer = this.querySelector('.aparte-bottom-spacer');
         }
     }
@@ -1210,7 +1213,7 @@ export class AparteChatViewport extends HTMLElement {
         this._container = this;
         this._bottomSpacer = null;
         if (this.classList.contains('aparte-viewport--framework')) {
-            this._scrollBtn = this.querySelector(':scope > .aparte-scroll-btn') as HTMLButtonElement | null;
+            this._scrollBtn = this.querySelector(':scope > [data-aparte-control="aparte-scroll-btn"]');
             return; // already set up (re-entrant _render)
         }
         this.classList.add('aparte-viewport--framework');
@@ -1229,7 +1232,7 @@ export class AparteChatViewport extends HTMLElement {
      * it wears `type="button"` and its accessible name the same way every other control
      * in core does.
      */
-    private _createScrollButton(): HTMLButtonElement {
+    private _createScrollButton(): HTMLElement {
         return createControl({
             part: 'aparte-scroll-btn',
             modifiers: ['aparte-scroll-btn--hidden'],

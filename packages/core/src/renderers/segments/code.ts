@@ -37,7 +37,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     `,
     /** The copy button's icon and tooltip — nothing else here comes from config. */
     relabel: (element) => {
-        const copyBtn = element.querySelector('.aparte-code-copy') as HTMLElement | null;
+        const copyBtn = element.querySelector('[data-aparte-control="aparte-code-copy"]') as HTMLElement | null;
         // Leave a button mid-"copied" alone; its own timeout restores the resting
         // state from the new config a moment later anyway.
         if (!copyBtn || copyBtn.dataset.copied) return;
@@ -55,7 +55,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
 
         // Typed as HTMLElement: the confirmation is marked with a data attribute so
         // `relabel` can leave it alone, and `dataset` is not on `Element`.
-        const copyBtn = element.querySelector('.aparte-code-copy') as HTMLElement | null;
+        const copyBtn = element.querySelector('[data-aparte-control="aparte-code-copy"]') as HTMLElement | null;
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
                 // Read the DOM, not the segment this closure captured.

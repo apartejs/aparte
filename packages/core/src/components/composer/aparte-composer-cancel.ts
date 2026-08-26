@@ -87,7 +87,7 @@ export class AparteComposerCancel extends HTMLElement {
         // safe-text: _getStopIcon() returns the provider's SVG markup — escaping it would print the source
         this.innerHTML = controlMarkup({ part: CANCEL_BUTTON_CLASS, label, icon, hidden: true });
 
-        this._button = this.querySelector(`.${CANCEL_BUTTON_CLASS}`);
+        this._button = this.querySelector(`[data-aparte-control="${CANCEL_BUTTON_CLASS}"]`);
         this._button?.addEventListener('click', this._onClick);
     }
 

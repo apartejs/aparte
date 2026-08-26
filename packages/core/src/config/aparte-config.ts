@@ -19,6 +19,7 @@ import type { AparteAttachmentRenderer } from './attachment-renderer.js';
 import type { AparteElicitationFieldRenderer } from './elicitation-field-renderer.js';
 import type { AparteSiblingNavRenderer } from './sibling-nav-renderer.js';
 import type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
+import type { AparteControlRenderer } from './control-renderer.js';
 import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../types/model-provider.js';
 import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
@@ -137,6 +138,7 @@ export class AparteConfig {
     private _attachmentRenderer?: AparteAttachmentRenderer;
     private _siblingNavRenderer?: AparteSiblingNavRenderer;
     private _bubbleShellRenderer?: AparteBubbleShellRenderer;
+    private _controlRenderer?: AparteControlRenderer;
     private _iconProvider?: AparteIconProvider;
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
@@ -607,6 +609,26 @@ export class AparteConfig {
     /** Returns the registered bubble-shell renderer, or null if none. */
     getBubbleShellRenderer(): AparteBubbleShellRenderer | null {
         return this._bubbleShellRenderer ?? null;
+    }
+
+    /**
+     * Swap every button aparté draws for one of your own — see
+     * {@link AparteControlRenderer}.
+     *
+     * One function, fourteen sites: send, stop, attach, the bubble's action row, the
+     * branch arrows, the code block's copy, scroll-to-bottom. Return `null` for a control
+     * you want left alone, so a partial swap needs no exhaustive switch. Core keeps the
+     * wiring — it finds your node by `data-aparte-control`, which it stamps for you.
+     * Cleared with `null`. Notifies mounted components.
+     */
+    setControlRenderer(renderer: AparteControlRenderer | null): void {
+        this._controlRenderer = renderer ?? undefined;
+        this._notify();
+    }
+
+    /** Returns the registered control renderer, or null if none. */
+    getControlRenderer(): AparteControlRenderer | null {
+        return this._controlRenderer ?? null;
     }
 
     /**

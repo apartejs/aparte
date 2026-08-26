@@ -130,7 +130,7 @@ export class AparteComposerAction extends HTMLElement {
             part: ACTION_BUTTON_CLASS, look: 'icon', label, icon, disabled,
         });
 
-        this._button = this.querySelector(`.${ACTION_BUTTON_CLASS}`);
+        this._button = this.querySelector(`[data-aparte-control="${ACTION_BUTTON_CLASS}"]`);
         this._button?.addEventListener('click', this._onClick);
     }
 

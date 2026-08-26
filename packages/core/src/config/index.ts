@@ -24,6 +24,7 @@ export type {
 } from './elicitation-field-renderer.js';
 export type { AparteSiblingNavRenderer } from './sibling-nav-renderer.js';
 export type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
+export type { AparteControlRenderer } from './control-renderer.js';
 export type { AparteLocale } from './locale.js';
 export { APARTE_DEFAULT_LOCALE } from './locale.js';
 export type { AparteAction, AparteActionZone } from './action-provider.js';

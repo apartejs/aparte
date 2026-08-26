@@ -1,4 +1,19 @@
 import { escapeAttr } from './escape.js';
+import { contextConfig } from '../config/config-context.js';
+
+/**
+ * The attribute core finds its own controls by, carrying the part name.
+ *
+ * **Wiring and styling stop sharing a name here, and that is the point.** Core used to
+ * re-query a control it had just rendered by its CLASS — nine places did. That works
+ * until someone substitutes the control: a replacement forced to carry
+ * `.aparte-composer-send__button` so core can find it also inherits that class's primary
+ * background, so the contract would fight the substitution it exists to enable.
+ *
+ * An attribute carries no styling, so a `<p-button>` can wear it and still look like
+ * PrimeNG's.
+ */
+export const APARTE_CONTROL_ATTR = 'data-aparte-control';
 
 /**
  * The one class every control core renders wears, and the only place the shared
@@ -69,17 +84,40 @@ export function controlClassList(spec: AparteControlSpec): string {
  * controls had shipped without it — so a composer or a bubble dropped inside a
  * consumer's `<form>` submitted it on every copy, retry or branch click.
  */
-export function controlMarkup(spec: AparteControlSpec): string {
+export function controlMarkup(spec: AparteControlSpec, host?: Element | null): string {
+  const custom = contextConfig(host).getControlRenderer()?.render(spec);
+  if (custom != null && custom !== '') {
+    return stampWiring(typeof custom === 'string' ? custom : custom.outerHTML, spec.part);
+  }
+  return defaultControlMarkup(spec);
+}
+
+/**
+ * Put `data-aparte-control` on a substituted control that did not write it.
+ *
+ * A string, not a DOM parse: `controlMarkup` is callable without a document (the Node
+ * entry imports this module), and parsing to add one attribute would make it require one.
+ * The regex targets the first opening tag only, which is the root of what a renderer
+ * returned — anything nested is its own business.
+ */
+function stampWiring(markup: string, part: string): string {
+  if (new RegExp(`${APARTE_CONTROL_ATTR}\\s*=`).test(markup)) return markup;
+  return markup.replace(/^(\s*<[a-zA-Z][\w-]*)/, `$1 ${APARTE_CONTROL_ATTR}="${escapeAttr(part)}"`);
+}
+
+/** The built-in control markup — what you get with no renderer registered. */
+export function defaultControlMarkup(spec: AparteControlSpec): string {
   const attrs = Object.entries(spec.data ?? {})
     .map(([k, v]) => ` data-${k}="${escapeAttr(v)}"`)
     .join('');
+  const wiring = ` ${APARTE_CONTROL_ATTR}="${escapeAttr(spec.part)}"`;
   // Escaped rather than exempted. Every caller in core passes a module constant, so
   // nothing attacker-controlled reaches it today — but `part` is a plain string on a
   // published interface, and an exemption is a promise about callers that do not exist yet.
   const cls = escapeAttr(controlClassList(spec));
   const icon = spec.icon ?? '';  // safe-text: provider SVG, or markup the consumer declared trusted — see the field's doc.
   return (
-    `<button type="button" class="${cls}"`
+    `<button type="button" class="${cls}"${wiring}`
     + ` aria-label="${escapeAttr(spec.label)}" title="${escapeAttr(spec.label)}"${attrs}`
     + `${spec.disabled ? ' disabled' : ''}${spec.hidden ? ' hidden' : ''}`
     + `>${icon}</button>`
@@ -92,10 +130,30 @@ export function controlMarkup(spec: AparteControlSpec): string {
  * Attributes are set rather than interpolated, so a consumer-provided label cannot
  * inject markup — which is why the bubble's custom actions build DOM in the first place.
  */
-export function createControl(spec: AparteControlSpec): HTMLButtonElement {
+export function createControl(spec: AparteControlSpec, host?: Element | null): HTMLElement {
+  const custom = contextConfig(host).getControlRenderer()?.render(spec);
+  if (custom != null && custom !== '') {
+    const node = typeof custom === 'string' ? nodeFromMarkup(custom) : custom;
+    if (node) {
+      if (!node.hasAttribute(APARTE_CONTROL_ATTR)) node.setAttribute(APARTE_CONTROL_ATTR, spec.part);
+      return node;
+    }
+  }
+  return defaultCreateControl(spec);
+}
+
+function nodeFromMarkup(markup: string): HTMLElement | null {
+  const host = document.createElement('div');
+  host.innerHTML = markup;  // safe-text: the consumer's own renderer output, by definition theirs
+  return host.firstElementChild as HTMLElement | null;
+}
+
+/** The built-in control node — what you get with no renderer registered. */
+export function defaultCreateControl(spec: AparteControlSpec): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = controlClassList(spec);
+  button.setAttribute(APARTE_CONTROL_ATTR, spec.part);
   button.setAttribute('aria-label', spec.label);
   button.setAttribute('title', spec.label);
   for (const [k, v] of Object.entries(spec.data ?? {})) button.dataset[k] = v;
@@ -104,4 +162,34 @@ export function createControl(spec: AparteControlSpec): HTMLButtonElement {
   // safe-text: same contract as controlMarkup — provider SVG or declared-trusted markup.
   if (spec.icon) button.innerHTML = spec.icon;
   return button;
+}
+
+/**
+ * Apply a state change to a control, whoever built it.
+ *
+ * Core writes `disabled`, `hidden` and the icon on the node it holds. That is right for a
+ * `<button>` and **inert for a framework component**: setting `.disabled` on a `<p-button>`
+ * host touches no `@Input` and runs no change detection. So every state write goes through
+ * here — a registered renderer's `update` gets first refusal, and the DOM write is the
+ * fallback rather than the only path.
+ *
+ * Pass only what changed; the spec is the control's current desired state.
+ */
+export function updateControl(
+  node: HTMLElement | null | undefined,
+  spec: AparteControlSpec,
+  host?: Element | null,
+): void {
+  if (!node) return;
+  const renderer = contextConfig(host ?? node).getControlRenderer();
+  if (renderer?.update) {
+    renderer.update(node, spec);
+    return;
+  }
+  node.setAttribute('aria-label', spec.label);
+  node.setAttribute('title', spec.label);
+  if ('disabled' in node) (node as HTMLButtonElement).disabled = spec.disabled ?? false;
+  node.hidden = spec.hidden ?? false;
+  // safe-text: same contract as the builders — provider SVG or declared-trusted markup.
+  if (spec.icon !== undefined) node.innerHTML = spec.icon;
 }

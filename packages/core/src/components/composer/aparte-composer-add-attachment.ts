@@ -135,7 +135,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
             part: ADD_ATTACHMENT_BUTTON_CLASS, look: 'icon', label, icon, disabled,
         });
 
-        this._button = this.querySelector(`.${ADD_ATTACHMENT_BUTTON_CLASS}`);
+        this._button = this.querySelector(`[data-aparte-control="${ADD_ATTACHMENT_BUTTON_CLASS}"]`);
         this._button?.addEventListener('click', this._onClick);
     }
 

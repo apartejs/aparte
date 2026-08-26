@@ -110,7 +110,7 @@ export class AparteComposerSend extends HTMLElement {
         // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
         this.innerHTML = controlMarkup({ part: SEND_BUTTON_CLASS, label, icon, disabled });
 
-        this._button = this.querySelector(`.${SEND_BUTTON_CLASS}`);
+        this._button = this.querySelector(`[data-aparte-control="${SEND_BUTTON_CLASS}"]`);
         this._button?.addEventListener('click', this._onClick);
     }
 

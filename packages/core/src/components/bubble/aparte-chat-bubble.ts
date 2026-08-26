@@ -1151,7 +1151,7 @@ export class AparteChatBubble extends HTMLElement {
 
     // Wire up button handlers — messageId read dynamically at click time
     // so it's always correct even when Angular sets the attribute after connectedCallback
-    this._actionBarEl.querySelectorAll(`.${BUBBLE_ACTION_CLASS}`).forEach(btn => {
+    this._actionBarEl.querySelectorAll(`[data-aparte-control="${BUBBLE_ACTION_CLASS}"]`).forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
 
@@ -1253,7 +1253,7 @@ export class AparteChatBubble extends HTMLElement {
         icon: this._cfg.getIcon('close'),
         data: { action: 'edit-cancel' },
       });
-    this._actionBarEl.querySelectorAll(`.${BUBBLE_ACTION_CLASS}`).forEach(btn => {
+    this._actionBarEl.querySelectorAll(`[data-aparte-control="${BUBBLE_ACTION_CLASS}"]`).forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
     // Save/cancel must show even when every action flag is off.

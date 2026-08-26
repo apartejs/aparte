@@ -208,7 +208,7 @@ export class AparteButton extends HTMLElement {
             disabled: this.hasAttribute('disabled'),
         });
 
-        this._button = this.querySelector(`.${BUTTON_CLASS}`);
+        this._button = this.querySelector(`[data-aparte-control="${BUTTON_CLASS}"]`);
         this._button?.addEventListener('click', this._onClick);
     }
 
