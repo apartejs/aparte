@@ -21,10 +21,11 @@
     "@aparte/core": "workspace:*",
     "@aparte/locale-fr": "workspace:*",
     "@aparte/plugin-shiki": "workspace:*",
-    "@astrojs/starlight": "^0.37.1",
+    "@astrojs/markdown-remark": "^7.2.4",
+    "@astrojs/starlight": "^0.41.9",
     "@shikijs/langs": "^4.0.0",
     "@shikijs/themes": "^4.0.0",
-    "astro": "^5.6.1",
+    "astro": "^7.2.7",
     "sharp": "^0.34.2",
     "shiki": "^4.0.0"
   },

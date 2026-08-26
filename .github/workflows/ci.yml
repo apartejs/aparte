@@ -253,8 +253,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Everything EXCEPT the docs site. This job exists to test the `engines.node: ">=18"`
+      # promise of the PUBLISHED packages; `apps/docs` is private and makes no such claim,
+      # and since the Astro 7 upgrade it requires Node 22. Building it here would only
+      # prove that a private app does not run on a floor it never advertised — and would
+      # fail the one job whose whole point is a different question.
       - name: Build
-        run: pnpm build
+        run: pnpm build --exclude @aparte-workspace/docs
 
       - name: Test
         run: pnpm test

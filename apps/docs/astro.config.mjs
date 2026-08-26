@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { unified } from '@astrojs/markdown-remark';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -40,7 +41,10 @@ function rehypeExternalLinksInOwnTab() {
 
 // https://astro.build/config
 export default defineConfig({
-  markdown: { rehypePlugins: [rehypeExternalLinksInOwnTab] },
+  // Astro 7 deprecated `markdown.remarkPlugins` / `rehypePlugins` / `remarkRehype` in
+  // favour of naming the processor: the pipeline is now an object you build, not a set of
+  // loose keys Astro assembles. Warned only at build time, not by `astro check`.
+  markdown: { processor: unified({ rehypePlugins: [rehypeExternalLinksInOwnTab] }) },
   // The canonical site URL — enables the sitemap + correct canonical/OG links.
   // Change this one string if the docs move to another domain.
   site: 'https://apartejs.dev',
@@ -64,19 +68,23 @@ export default defineConfig({
       // rather than a `head` entry).
       components: { Head: './src/components/Head.astro' },
       customCss: ['./src/styles/palette.css', './src/styles/aparte-theme.css'],
+      // A labelled group and its `autogenerate` are two nested objects since Starlight
+      // 0.39: `{ label, autogenerate }` on one object was removed. The order inside each
+      // group is unaffected — it still comes from each page's `sidebar.order` frontmatter,
+      // which is what keeps theming second in Guides.
       sidebar: [
         { label: 'Why aparté', link: '/why/' },
-        { label: 'Guides', autogenerate: { directory: 'guides' } },
+        { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
         {
           label: 'Providers',
           items: [
             { label: 'Overview', link: '/providers/' },
-            { label: 'AI', autogenerate: { directory: 'providers/ai' } },
+            { label: 'AI', items: [{ autogenerate: { directory: 'providers/ai' } }] },
           ],
         },
-        { label: 'Frameworks', autogenerate: { directory: 'frameworks' } },
-        { label: 'Plugins', autogenerate: { directory: 'plugins' } },
-        { label: 'Reference', autogenerate: { directory: 'reference' } },
+        { label: 'Frameworks', items: [{ autogenerate: { directory: 'frameworks' } }] },
+        { label: 'Plugins', items: [{ autogenerate: { directory: 'plugins' } }] },
+        { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
         // Top level, and labelled with the word people scan for. It lived under
         // Reference for a few hours and nobody found it — including an AI asked to
         // check it, which went straight to /changelog.
