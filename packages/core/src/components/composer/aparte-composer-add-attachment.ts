@@ -1,7 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
-import { controlMarkup } from '../../utils/control.js';
+import { controlMarkup, updateControl } from '../../utils/control.js';
 
 /**
  * This element's button. A child already carrying it suppresses core's own render,
@@ -94,9 +94,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
     }
 
     attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
-        if (name === 'disabled' && this._button) {
-            this._button.disabled = value !== null;
-        }
+        if (name === 'disabled') updateControl(this._button, { disabled: value !== null }, this);
     }
 
     // ── Private ─────────────────────────────────────────────────────────────
@@ -119,9 +117,10 @@ export class AparteComposerAddAttachment extends HTMLElement {
         if (!this._button) return;
         const cfg = resolveConfig(this);
         const label = cfg.t('actionUpload') || 'Attach file';
-        this._button.setAttribute('aria-label', label);
-        this._button.setAttribute('title', label);
-        this._button.innerHTML = cfg.getIcon('paperclip') || this._defaultIcon();
+        updateControl(this._button, {
+            label,
+            icon: cfg.getIcon('paperclip') || this._defaultIcon(),
+        }, this);
     }
 
     private _render(): void {
@@ -145,12 +144,12 @@ export class AparteComposerAddAttachment extends HTMLElement {
 
         this._unsubscribes.push(
             root._on('disabled-change', ({ disabled }) => {
-                if (this._button) this._button.disabled = disabled;
+                updateControl(this._button, { disabled }, this);
             })
         );
         this._unsubscribes.push(
             root._on('streaming-change', ({ streaming }) => {
-                if (this._button) this._button.disabled = streaming || root.disabled;
+                updateControl(this._button, { disabled: streaming || root.disabled }, this);
             })
         );
     }

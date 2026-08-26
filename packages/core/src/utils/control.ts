@@ -165,6 +165,14 @@ export function defaultCreateControl(spec: AparteControlSpec): HTMLButtonElement
 }
 
 /**
+ * What can change on a control after it is built — a PARTIAL of the spec, deliberately.
+ *
+ * `part`, `look` and `modifiers` are absent: they decide what the control IS, and changing
+ * them means rebuilding it, not updating it.
+ */
+export type AparteControlChanges = Partial<Pick<AparteControlSpec, 'label' | 'icon' | 'disabled' | 'hidden'>>;
+
+/**
  * Apply a state change to a control, whoever built it.
  *
  * Core writes `disabled`, `hidden` and the icon on the node it holds. That is right for a
@@ -177,19 +185,27 @@ export function defaultCreateControl(spec: AparteControlSpec): HTMLButtonElement
  */
 export function updateControl(
   node: HTMLElement | null | undefined,
-  spec: AparteControlSpec,
+  changes: AparteControlChanges,
   host?: Element | null,
 ): void {
   if (!node) return;
   const renderer = contextConfig(host ?? node).getControlRenderer();
   if (renderer?.update) {
-    renderer.update(node, spec);
+    renderer.update(node, changes);
     return;
   }
-  node.setAttribute('aria-label', spec.label);
-  node.setAttribute('title', spec.label);
-  if ('disabled' in node) (node as HTMLButtonElement).disabled = spec.disabled ?? false;
-  node.hidden = spec.hidden ?? false;
+  // ONLY what was passed. The first version took a full spec and wrote every field, so a
+  // caller that meant "disable this" also un-hid it, relabelled it and rewrote its icon —
+  // and the stop button, which renders hidden and is un-hidden only by the root's
+  // streaming listener, would have reappeared on any unrelated update.
+  if (changes.label !== undefined) {
+    node.setAttribute('aria-label', changes.label);
+    node.setAttribute('title', changes.label);
+  }
+  if (changes.disabled !== undefined && 'disabled' in node) {
+    (node as HTMLButtonElement).disabled = changes.disabled;
+  }
+  if (changes.hidden !== undefined) node.hidden = changes.hidden;
   // safe-text: same contract as the builders — provider SVG or declared-trusted markup.
-  if (spec.icon !== undefined) node.innerHTML = spec.icon;
+  if (changes.icon !== undefined) node.innerHTML = changes.icon;
 }

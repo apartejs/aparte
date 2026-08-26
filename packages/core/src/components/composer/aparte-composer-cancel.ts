@@ -1,7 +1,7 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
-import { controlMarkup } from '../../utils/control.js';
+import { controlMarkup, updateControl } from '../../utils/control.js';
 
 /**
  * This element's button. A child already carrying it suppresses core's own render,
@@ -97,12 +97,12 @@ export class AparteComposerCancel extends HTMLElement {
 
         this._unsubscribes.push(
             root._on('streaming-change', ({ streaming }) => {
-                if (this._button) this._button.hidden = !streaming;
+                updateControl(this._button, { hidden: !streaming }, this);
             })
         );
 
         // Sync initial state
-        if (root.streaming && this._button) this._button.hidden = false;
+        if (root.streaming) updateControl(this._button, { hidden: false }, this);
     }
 
     private _handleClick(e: MouseEvent): void {
@@ -120,9 +120,7 @@ export class AparteComposerCancel extends HTMLElement {
     private _refreshChrome(): void {
         if (!this._button) return;
         const label = resolveConfig(this).t('stopButton') || 'Stop';
-        this._button.setAttribute('aria-label', label);
-        this._button.setAttribute('title', label);
-        this._button.innerHTML = this._getStopIcon();
+        updateControl(this._button, { label, icon: this._getStopIcon() }, this);
     }
 
     private _getStopIcon(): string {

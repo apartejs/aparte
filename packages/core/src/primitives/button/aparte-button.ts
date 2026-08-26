@@ -1,6 +1,6 @@
 import { resolveConfig, type AparteIconName } from '../../config/index.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
-import { controlMarkup } from '../../utils/control.js';
+import { controlMarkup, updateControl } from '../../utils/control.js';
 
 /**
  * This element's button. A child already carrying it suppresses core's own render,
@@ -112,7 +112,7 @@ export class AparteButton extends HTMLElement {
         // An icon-provider or locale swap rewrites the glyph in place rather than
         // rebuilding: a rebuild would drop focus off a button the reader may be on.
         this._unsubscribes.push(subscribeConfigChange(this, () => {
-            if (this._button) this._button.innerHTML = this._iconMarkup() + this._labelMarkup();
+            updateControl(this._button, { icon: this._iconMarkup() + this._labelMarkup() }, this);
         }));
     }
 

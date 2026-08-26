@@ -1,7 +1,7 @@
 import { resolveConfig, type AparteIconName } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
-import { controlMarkup } from '../../utils/control.js';
+import { controlMarkup, updateControl } from '../../utils/control.js';
 
 /**
  * This element's button. A child already carrying it suppresses core's own render,
@@ -85,7 +85,7 @@ export class AparteComposerAction extends HTMLElement {
         // the `icon` attribute — `_resolveIcon` already decides between a provider
         // key and raw markup, so calling it again is idempotent.
         this._unsubscribes.push(subscribeConfigChange(this, () => {
-            if (this._button) this._button.innerHTML = this._resolveIcon(this.getAttribute('icon') ?? '');
+            updateControl(this._button, { icon: this._resolveIcon(this.getAttribute('icon') ?? '') }, this);
         }));
     }
 
@@ -97,16 +97,9 @@ export class AparteComposerAction extends HTMLElement {
 
     attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
         if (!this._button) return;
-        if (name === 'disabled') {
-            this._button.disabled = value !== null;
-        }
-        if (name === 'label') {
-            this._button.setAttribute('aria-label', value ?? '');
-            this._button.setAttribute('title', value ?? '');
-        }
-        if (name === 'icon') {
-            this._button.innerHTML = this._resolveIcon(value ?? '');
-        }
+        if (name === 'disabled') updateControl(this._button, { disabled: value !== null }, this);
+        if (name === 'label') updateControl(this._button, { label: value ?? '' }, this);
+        if (name === 'icon') updateControl(this._button, { icon: this._resolveIcon(value ?? '') }, this);
     }
 
     // ── Private ─────────────────────────────────────────────────────────────
@@ -140,12 +133,12 @@ export class AparteComposerAction extends HTMLElement {
 
         this._unsubscribes.push(
             root._on('disabled-change', ({ disabled }) => {
-                if (this._button) this._button.disabled = disabled || this.hasAttribute('disabled');
+                updateControl(this._button, { disabled: disabled || this.hasAttribute('disabled') }, this);
             })
         );
         this._unsubscribes.push(
             root._on('streaming-change', ({ streaming }) => {
-                if (this._button) this._button.disabled = streaming || root.disabled || this.hasAttribute('disabled');
+                updateControl(this._button, { disabled: streaming || root.disabled || this.hasAttribute('disabled') }, this);
             })
         );
     }

@@ -1,6 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
-import { controlMarkup } from '../../utils/control.js';
+import { controlMarkup, updateControl } from '../../utils/control.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
@@ -178,13 +178,14 @@ export class AparteComposerSend extends HTMLElement {
         if (!this._button || !panel?.active) return;
         const cfg = resolveConfig(this);
         const advancing = panel.mode === 'advance';
-        this._button.disabled = !panel.submitEnabled;
-        this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();
         const label = advancing
             ? (cfg.t('elicitationNext') || 'Next')
             : (cfg.t('submitButton') || 'Submit');
-        this._button.setAttribute('aria-label', label);
-        this._button.setAttribute('title', label);
+        updateControl(this._button, {
+            disabled: !panel.submitEnabled,
+            icon: advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon(),
+            label,
+        }, this);
         this._button.classList.remove('aparte-is-streaming');
     }
 
@@ -199,25 +200,25 @@ export class AparteComposerSend extends HTMLElement {
         if (root.streaming) return; // streaming state managed separately
 
         const isEmpty = root.value.trim() === '' && root.attachments.length === 0;
-        this._button.disabled = root.disabled || isEmpty;
-        this._button.innerHTML = this._getSendIcon();
-        const label = resolveConfig(this).t('sendButton') || 'Send';
-        this._button.setAttribute('aria-label', label);
-        this._button.setAttribute('title', label);
+        updateControl(this._button, {
+            disabled: root.disabled || isEmpty,
+            icon: this._getSendIcon(),
+            label: resolveConfig(this).t('sendButton') || 'Send',
+        }, this);
         this._button.classList.remove('aparte-is-streaming');
     }
 
     private _syncStreamingState(streaming: boolean): void {
         if (!this._button) return;
         if (streaming) {
-            this._button.disabled = false;
-            this._button.innerHTML = this._getStopIcon();
             // Was the bare literal 'Stop', so no locale could reach it — the same
             // gap `aparte-composer-cancel` had, on a second element. The key is
             // declared now.
-            const label = resolveConfig(this).t('stopButton') || 'Stop';
-            this._button.setAttribute('aria-label', label);
-            this._button.setAttribute('title', label);
+            updateControl(this._button, {
+                disabled: false,
+                icon: this._getStopIcon(),
+                label: resolveConfig(this).t('stopButton') || 'Stop',
+            }, this);
             this._button.classList.add('aparte-is-streaming');
         } else {
             this._syncState();

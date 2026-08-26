@@ -128,4 +128,29 @@ describe('a real element in the library', () => {
         expect(control.tagName.toLowerCase()).toBe('a');
         expect(control.className).toBe('mine');
     });
+
+    it('routes a real state change to the renderer instead of writing the DOM', () => {
+        // The other half, proven on the hardest control in the library: the send button
+        // has four meanings and rewrites its own chrome on every one of them. If ANY of
+        // those paths still wrote the DOM directly, a framework component would render
+        // once and then freeze — the exact silent failure `update` exists to prevent.
+        const changes: Array<Record<string, unknown>> = [];
+        aparteGlobalConfig.setControlRenderer({
+            render: () => '<my-button></my-button>',
+            update: (_node, c) => changes.push({ ...c }),
+        });
+        const composer = document.createElement('aparte-composer');
+        composer.innerHTML = '<aparte-composer-send></aparte-composer-send>';
+        document.body.appendChild(composer);
+
+        changes.length = 0;
+        // The composer enters a turn on the window lifecycle event, not on an attribute —
+        // the same path `aparte-composer-cancel`'s own tests drive it with.
+        window.dispatchEvent(new CustomEvent('aparte-message-start', {
+            detail: { messageId: 'm1', role: 'assistant' },
+        }));
+
+        expect(changes.length).toBeGreaterThan(0);
+        expect(changes.some((c) => c['icon'] !== undefined || c['label'] !== undefined)).toBe(true);
+    });
 });

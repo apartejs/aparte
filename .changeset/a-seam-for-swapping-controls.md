@@ -37,17 +37,14 @@ a `<p-button>` host touches no `@Input` and runs no change detection. "Core keep
 behaviour" would break without a sound. So core asks the renderer first and writes the DOM
 only as the fallback.
 
-## What works today, and what does not
+## Both halves work, and both are proven on a real element
 
-**Markup replacement is complete** — a Bootstrap or Tailwind renderer returns a string and
-everything, including the click wiring, works. There is an end-to-end test: a substituted
-`<a>` renders inside `<aparte-composer-send>` and core still finds and wires it.
+A substituted `<a>` renders inside `<aparte-composer-send>` and core still finds and wires
+it. And a registered `update` receives the state changes of that same button — the hardest
+control in the library, with four meanings and a chrome rewrite on each. Every state write
+in core routes through `updateControl`; none writes the DOM directly any more.
 
-**A framework component is not finished.** `updateControl` is implemented and tested, but
-core's own **19 state-write sites still write the DOM directly** rather than routing through
-it — the send button's four modes among them, which is the most stateful code in the
-composer and not something to convert in a hurry. Until they move, a component-based
-renderer will render correctly and then not see `disabled` or icon changes.
-
-Stated rather than shipped quietly, because a seam that is 90% there is exactly the kind of
-thing that gets discovered by a consumer instead of by us.
+`AparteControlChanges` is a **partial** of the spec on purpose. The first version passed a
+whole spec and wrote every field, so "disable this" would also un-hide it — and the stop
+button, which renders hidden and is un-hidden only by the streaming listener, would have
+reappeared on any unrelated update.

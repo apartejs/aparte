@@ -1,4 +1,4 @@
-import type { AparteControlSpec } from '../utils/control.js';
+import type { AparteControlChanges, AparteControlSpec } from '../utils/control.js';
 
 /**
  * Control Renderer — swap every button aparté draws for one of your own.
@@ -71,7 +71,9 @@ import type { AparteControlSpec } from '../utils/control.js';
  *     refs.set(ref.location.nativeElement, ref);
  *     return ref.location.nativeElement;
  *   },
- *   update: (node, spec) => refs.get(node)?.setInput('disabled', spec.disabled ?? false),
+ *   update: (node, changes) => {
+ *     if (changes.disabled !== undefined) refs.get(node)?.setInput('disabled', changes.disabled);
+ *   },
  * });
  */
 export interface AparteControlRenderer {
@@ -96,5 +98,5 @@ export interface AparteControlRenderer {
      * *what changed*, you tell your component. Without it, core falls back to writing the
      * DOM itself — correct for markup, inert for a component.
      */
-    update?(node: HTMLElement, spec: AparteControlSpec): void;
+    update?(node: HTMLElement, changes: AparteControlChanges): void;
 }
