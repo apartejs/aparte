@@ -46,6 +46,15 @@ const at = (p: string) => new URL(p, REPO);
 const CORE_VERSION: string = JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')).version;
 
 /**
+ * The chip SAYS a version, so it goes to that version's release notes rather than to the
+ * list. Derived from the same string it displays — starlight-changelogs slugs a version by
+ * replacing dots with dashes — so it cannot point at a release the chip is not showing.
+ * `pnpm version-packages` bumps package.json and writes the CHANGELOG section in one step,
+ * and check:doc-links fails the gate if the two ever disagree.
+ */
+const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
+
+/**
  * The numbers this page quotes, MEASURED at build time.
  *
  * They were hardcoded first, which is the exact failure this repo keeps finding:
@@ -289,7 +298,7 @@ const FAMILIES = [
       <nav class="site-nav">
         <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
         <div class="nav-links">
-          <a class="ver" href="/changelog/" title="What changed in each release">
+          <a class="ver" href={CORE_VERSION_HREF} title={`What changed in ${CORE_VERSION}`}>
             <b>v{CORE_VERSION}</b><span class="alpha">alpha</span>
           </a>
           <a href="/why/" class="hide-sm">Why apart&eacute;</a>
