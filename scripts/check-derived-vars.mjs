@@ -98,6 +98,7 @@ const byBlock = new Map();
 const declaredNames = new Set();
 const duplicated = new Set();
 const blockOf = new Map();
+const fallbacks = new Map();
 let anchoredSelectors = null;
 let literalSelectors = null;
 
@@ -216,6 +217,8 @@ for (const sheet of SHEETS) {
         refs++;
         if (comma < 0) continue;
         const name = inner.slice(0, comma).trim();
+        if (!fallbacks.has(name)) fallbacks.set(name, new Set());
+        fallbacks.get(name).add(inner.slice(comma + 1).trim().replace(/\s+/g, ' '));
         if (!declaredNames.has(name)) continue;
         const line = text.slice(0, i).split('\n').length;
         const decl = textLines.find((l) => l.trim().startsWith(name + ':'));
@@ -226,6 +229,22 @@ for (const sheet of SHEETS) {
         );
     }
 }
+/**
+ * One owner, third shape. A token this sheet never declares is owned by its fallback
+ * — so every reference has to state the SAME one. Two different fallbacks means two
+ * defaults for one knob, and which applies depends on which rule wins. Found the day
+ * it was written: a `String.replace` fixed the first `--aparte-select-radius` and
+ * left the second, so the element and its dropdown disagreed about their own radius.
+ */
+for (const [name, fbs] of fallbacks) {
+    if (declaredNames.has(name) || fbs.size < 2) continue;
+    problems.push(
+        `${name} is never declared, so its fallback is its default — but it carries ${fbs.size}:\n`
+        + [...fbs].map((f) => `        ${f}`).join('\n')
+        + '\n      Pick one, or declare the token and drop the fallbacks.',
+    );
+}
+
 if (refs < REF_FLOOR) {
     problems.push(
         `only ${refs} var() references scanned across ${SHEETS.length} sheets, floor is ${REF_FLOOR}.\n`
