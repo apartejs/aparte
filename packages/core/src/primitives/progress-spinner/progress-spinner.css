@@ -9,8 +9,8 @@ aparte-progress-spinner {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--aparte-spinner-size, 14px);
-    height: var(--aparte-spinner-size, 14px);
+    width: var(--aparte-spinner-size);
+    height: var(--aparte-spinner-size);
     flex-shrink: 0;
 }
 

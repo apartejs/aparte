@@ -301,6 +301,15 @@
      the drift we just removed, with names on it. */
   --aparte-disabled-opacity: 0.5;
 
+  /* Elevation for the layered surfaces. Literal, and each has a dark value below —
+     a shadow tuned for a light ground is no shadow at all on a dark one, which is how
+     the select's dropdown lost its lift in dark mode until it was caught. */
+  --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --aparte-popover-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+
   --aparte-select-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   --aparte-select-min-width: 200px;
   --aparte-select-dropdown-max-height: 300px;
@@ -310,6 +319,28 @@
   /* Button sizes. Literal like every other control size: tightening the spacing
      scale must not shrink a button. The three are the three this library already
      uses — a conversation action, an action-bar button, a send button. */
+
+  /* Display primitives — sizes. Literal like every other control size: tightening the
+     spacing scale must not shrink an avatar or a spinner. */
+  /* Sizes for the five native controls the field sheet dresses. Literal, like every
+     other control size. The date minimum width exists because a date field otherwise
+     collapses to the intrinsic width of its digits, which differs per locale. */
+  --aparte-color-size: 32px;
+  --aparte-datetime-min-width: 160px;
+  --aparte-meter-height: 8px;
+  --aparte-datetime-indicator-opacity: 0.6;
+
+  --aparte-avatar-size-xs: 20px;
+  --aparte-avatar-size-sm: 24px;
+  --aparte-avatar-size-lg: 40px;
+  --aparte-avatar-size-xl: 56px;
+  --aparte-spinner-size-sm: 12px;
+  --aparte-spinner-size-md: 16px;
+  --aparte-spinner-size-lg: 24px;
+  --aparte-skeleton-rect-height: 5rem;
+  --aparte-skeleton-text-last-width: 60%;
+  --aparte-progress-indeterminate-width: 40%;
+
   --aparte-btn-size-sm: 20px;
   --aparte-btn-size-md: 28px;
   --aparte-btn-size-lg: 36px;
@@ -358,6 +389,11 @@
   /* Scroll-to-bottom button */
   --aparte-scroll-btn-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
   --aparte-select-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --aparte-popover-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   /* Not the paper — that stays light on purpose. This is a code block inside the
      error panel, which does follow the theme. */
   --aparte-art-file-error-msg-bg: rgba(255, 255, 255, 0.06);
@@ -477,15 +513,105 @@ aparte-chat {
   /* The button recipe's knobs. Derived, so a chat that moves --aparte-space-unit or
      --aparte-font-scale takes its buttons with it. Defaults are what the 33 control
      rules already measured agree on: a muted ghost that fills on hover. */
+
+  /* Display primitives. Every one composed from a scale or the palette, so a chat that
+     moves --aparte-space-unit or --aparte-font-scale carries them along. */
+  /* A tooltip is an INVERTED surface: dark on a light theme, light on a dark one.
+     Reading the text pair gives exactly that, and for free — no third palette. */
+  --aparte-tooltip-bg: var(--aparte-text);
+  --aparte-tooltip-color: var(--aparte-text-inverse);
+
+  /* A meter is judged against a range, so its three bands take the three status
+     colours rather than one accent. */
+  /* Shared by both spinners the library ships — the display recipe and the
+     <aparte-progress-spinner> element. Declared here rather than on one of them, so
+     the other can resolve it too. */
+  --aparte-spinner-size: var(--aparte-spinner-size-md);
+
+  --aparte-meter-track: var(--aparte-surface-3);
+  --aparte-meter-optimum: var(--aparte-success);
+  --aparte-meter-suboptimum: var(--aparte-warning);
+  --aparte-meter-poor: var(--aparte-error);
+  --aparte-output-padding: var(--aparte-space-1) var(--aparte-space-2);
+  --aparte-output-bg: var(--aparte-surface-2);
+  --aparte-link-color: var(--aparte-primary);
+  --aparte-link-color-hover: var(--aparte-primary-hover);
+  --aparte-link-underline-thickness: var(--aparte-border-width);
+  --aparte-link-underline-offset: var(--aparte-space-1);
+
+  --aparte-alert-gap: var(--aparte-space-3);
+  --aparte-alert-padding: var(--aparte-space-4) var(--aparte-space-5);
+  --aparte-alert-radius: var(--aparte-radius-md);
+  --aparte-alert-rail-width: var(--aparte-space-1);
+  --aparte-alert-icon-size: var(--aparte-space-8);
+  --aparte-alert-dismiss-size: var(--aparte-btn-size-sm);
+  --aparte-alert-title-font-size: var(--aparte-font-size-md);
+  --aparte-alert-message-font-size: var(--aparte-font-size-sm);
+
+  --aparte-avatar-fallback-bg: var(--aparte-surface-3);
+  --aparte-avatar-fallback-color: var(--aparte-text);
+  --aparte-avatar-group-overlap: var(--aparte-space-3);
+  --aparte-avatar-group-ring-width: var(--aparte-border-width);
+  --aparte-avatar-group-ring-color: var(--aparte-surface-1);
+
+  --aparte-badge-font-size: var(--aparte-font-size-2xs);
+  --aparte-badge-gap: var(--aparte-space-1);
+  --aparte-badge-padding: var(--aparte-space-1) var(--aparte-space-2);
+  --aparte-badge-radius: var(--aparte-radius-full);
+  --aparte-badge-min-width: var(--aparte-space-8);
+  --aparte-badge-dot-size: var(--aparte-space-4);
+
+  --aparte-tag-font-size: var(--aparte-font-size-sm);
+  --aparte-tag-gap: var(--aparte-space-2);
+  --aparte-tag-padding: var(--aparte-space-1) var(--aparte-space-3);
+  --aparte-tag-radius: var(--aparte-radius-sm);
+  --aparte-tag-remove-size: var(--aparte-space-6);
+  --aparte-tag-remove-icon-size: var(--aparte-space-5);
+
+  --aparte-card-radius: var(--aparte-radius-xl);
+  --aparte-card-header-padding: var(--aparte-space-4) var(--aparte-space-5);
+  --aparte-card-body-padding: var(--aparte-space-5);
+  --aparte-card-footer-padding: var(--aparte-space-4) var(--aparte-space-5);
+  --aparte-card-header-font-size: var(--aparte-font-size-lg);
+
+  --aparte-divider-margin: var(--aparte-space-5);
+  --aparte-divider-label-gap: var(--aparte-space-4);
+  --aparte-divider-label-font-size: var(--aparte-font-size-sm);
+
+  --aparte-kbd-bg: var(--aparte-surface-2);
+  --aparte-kbd-radius: var(--aparte-radius-sm);
+  --aparte-kbd-padding: var(--aparte-space-1) var(--aparte-space-2);
+  --aparte-kbd-font-size: var(--aparte-font-size-2xs);
+  --aparte-kbd-min-width: var(--aparte-space-8);
+  --aparte-kbd-border-bottom-width: var(--aparte-space-1);
+
+  --aparte-progress-height: var(--aparte-space-2);
+  --aparte-progress-fill: var(--aparte-primary);
+
+  --aparte-skeleton-base: var(--aparte-surface-2);
+  --aparte-skeleton-shine: var(--aparte-surface-3);
+  --aparte-skeleton-text-height: var(--aparte-space-6);
+  --aparte-skeleton-text-gap: var(--aparte-space-3);
+  --aparte-skeleton-circle-size: var(--aparte-avatar-size);
+
+  --aparte-spinner-thickness: var(--aparte-space-1);
+
+  --aparte-field-error-ring: 0 0 0 var(--aparte-focus-outline-width) var(--aparte-error-solid);
+
   --aparte-btn-gap: var(--aparte-space-2);
   --aparte-btn-padding: var(--aparte-space-2) var(--aparte-space-3);
   --aparte-btn-radius: var(--aparte-radius-md);
   --aparte-btn-font-size: var(--aparte-font-size-sm);
-  --aparte-btn-color: var(--aparte-text-muted);
-  --aparte-btn-color-hover: var(--aparte-text);
   --aparte-btn-bg-hover: var(--aparte-surface-2);
   --aparte-btn-focus-offset: var(--aparte-space-1);
+  --aparte-btn-bg-active: var(--aparte-surface-3);
+  --aparte-btn-bg-toggled: var(--aparte-surface-2);
+  --aparte-btn-color-toggled: var(--aparte-text);
   --aparte-btn-size: var(--aparte-btn-size-md);
+  --aparte-btn-ink: var(--aparte-text);
+  --aparte-btn-icon-size: var(--aparte-space-8);
+  --aparte-btn-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
+  --aparte-btn-padding-lg: var(--aparte-space-3) var(--aparte-space-5);
 
   --aparte-input-container-min-height: var(--aparte-touch-target-size);
   --aparte-elic-message-size: var(--aparte-font-size-md);

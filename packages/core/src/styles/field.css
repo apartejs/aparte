@@ -1,0 +1,722 @@
+/*
+ * aparté — form fields. Ready-made classes; nothing to configure.
+ *
+ * Every input control a UI library offers: text entry, textarea, select, checkbox,
+ * radio, switch, range. The library renders into the LIGHT DOM — there is no shadow
+ * root and no ::part() — so a class is the only handle a consumer has onto a native
+ * form control, and `appearance: none` is how this file takes the browser's own
+ * chrome off a checkbox/radio/switch/range so these classes can repaint it.
+ *
+ *     <label class="aparte-field-label" for="email">
+ *       Email <span class="aparte-field-required" aria-hidden="true">*</span>
+ *     </label>
+ *     <input id="email" class="aparte-field" type="email" placeholder="you@example.com" />
+ *     <p class="aparte-field-hint">We only use this to send a receipt.</p>
+ *
+ *     <div class="aparte-field-group">
+ *       <span class="aparte-field-group__prefix">https://</span>
+ *       <input class="aparte-field" placeholder="example.com" />
+ *     </div>
+ *
+ *     <label><input type="checkbox" class="aparte-checkbox aparte-checkbox--danger" /> Delete my account</label>
+ *     <input type="checkbox" role="switch" class="aparte-switch aparte-switch--success" checked />
+ *
+ * `.aparte-field` is ONE shared recipe — border, background, radius, padding, focus
+ * ring, placeholder — applied to <input>, <textarea> and <select> alike, so a form
+ * built from all three still reads as one control family. Checkbox, radio and switch
+ * are drawn from the native control itself (`appearance: none` plus a pseudo-element),
+ * never a div standing in for one, so the browser's own focus/keyboard/AT handling
+ * stays intact — only the paint changes.
+ *
+ * Checkbox, radio, switch and range carry an INTENT axis, exactly like the button: a
+ * checked checkbox can be success or danger, not only primary. Unlike the button
+ * there is no separate FILL axis here — a checkbox has exactly one filled look, not
+ * five — so intent is the only modifier each of these needs.
+ *
+ * This layer is NEUTRAL: it is what a UI library offers, not a summary of what this
+ * repo happens to use. A control nothing wears yet still ships, because the form the
+ * repo hasn't built is not a reason to leave it out.
+ */
+
+/* ── The shared text-entry recipe ────────────────────────────────────────────── */
+
+.aparte-field {
+  /* Padding recipe, declared here: nothing in the shared token file defines a field
+     padding yet, so this file owns its own default and size variants. */
+  --aparte-field-padding: var(--aparte-space-2) var(--aparte-space-3);
+
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-size: var(--aparte-font-size-sm);
+  line-height: var(--aparte-line-height-normal);
+  color: var(--aparte-text);
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-md);
+  padding: var(--aparte-field-padding);
+  transition:
+    border-color var(--aparte-duration-fast) var(--aparte-ease),
+    background var(--aparte-duration-fast) var(--aparte-ease),
+    box-shadow var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-field::placeholder {
+  color: var(--aparte-text-muted);
+}
+
+/* Native select keeps its own platform arrow and popup: replacing them with a CSS
+   affordance would mean either an inline-SVG chevron that cannot track the user's
+   colour scheme (a data-URI image is painted outside the CSS cascade, so it cannot
+   read `currentColor`) or a `mask` hack that fights the box this recipe already
+   draws. The shared border/background/padding/focus treatment below still applies —
+   only the arrow is left to the platform, which already themes and localises it. */
+
+/* Shared by two selectors that don't nest — the field itself and the field-group
+   wrapper around it — so it lives at :root rather than on either one alone. Shape
+   matches the avatar's error ring (see theme.css): a solid ring in the error colour,
+   the same width as the focus outline. */
+
+/* ── States ──────────────────────────────────────────────────────────────────── */
+
+.aparte-field:hover:not(:disabled) {
+  background: var(--aparte-surface-hover);
+}
+
+.aparte-field:active:not(:disabled) {
+  border-color: var(--aparte-border-focus);
+}
+
+.aparte-field:disabled {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+  background: var(--aparte-surface-2);
+}
+
+.aparte-field[readonly] {
+  background: var(--aparte-surface-2);
+}
+
+/* `:invalid` fires the moment a `type="email"` or `pattern` field is empty — before
+   the user has typed a single character, which is why this reads `aria-invalid`
+   instead: the app sets it once validation has actually run. */
+.aparte-field[aria-invalid='true'] {
+  border-color: var(--aparte-error);
+}
+
+.aparte-field:focus-visible {
+  outline: none;
+  border-color: var(--aparte-border-focus);
+  box-shadow: var(--aparte-focus-ring);
+}
+
+.aparte-field[aria-invalid='true']:focus-visible {
+  border-color: var(--aparte-error);
+  box-shadow: var(--aparte-field-error-ring);
+}
+
+/* ── Sizes ───────────────────────────────────────────────────────────────────── */
+
+.aparte-field--sm {
+  --aparte-field-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
+
+  padding: var(--aparte-field-padding-sm);
+  font-size: var(--aparte-font-size-xs);
+}
+
+.aparte-field--lg {
+  --aparte-field-padding-lg: var(--aparte-space-3) var(--aparte-space-4);
+
+  padding: var(--aparte-field-padding-lg);
+  font-size: var(--aparte-font-size-md);
+}
+
+/* ── Textarea ────────────────────────────────────────────────────────────────── */
+
+.aparte-field--textarea {
+  --aparte-field-textarea-min-height: 80px;
+
+  display: block;
+  min-block-size: var(--aparte-field-textarea-min-height);
+  line-height: var(--aparte-line-height-relaxed);
+  resize: vertical;
+}
+
+/* ── Field group — a shared border around a prefix and/or suffix slot ──────────── */
+
+.aparte-field-group {
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-md);
+  transition:
+    border-color var(--aparte-duration-fast) var(--aparte-ease),
+    box-shadow var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+/* The inner field gives up its own border/background/radius/ring: the GROUP carries
+   those now, so the whole row reads as one control instead of a field glued to two
+   labels. */
+.aparte-field-group > .aparte-field {
+  flex: 1 1 auto;
+  width: auto;
+  min-inline-size: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+.aparte-field-group > .aparte-field:focus-visible {
+  box-shadow: none;
+}
+
+.aparte-field-group__prefix,
+.aparte-field-group__suffix {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--aparte-space-3);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-text-muted);
+  white-space: nowrap;
+}
+
+.aparte-field-group:hover:not(:has(.aparte-field:disabled)) {
+  background: var(--aparte-surface-hover);
+}
+
+.aparte-field-group:focus-within {
+  border-color: var(--aparte-border-focus);
+  box-shadow: var(--aparte-focus-ring);
+}
+
+/* `aria-invalid` lives on the field itself, not the wrapper the app didn't write a
+   prop for — `:has()` lets the group notice its child's state instead of asking the
+   consumer to duplicate the attribute on the div too. */
+.aparte-field-group:has(.aparte-field[aria-invalid='true']) {
+  border-color: var(--aparte-error);
+}
+
+.aparte-field-group:has(.aparte-field[aria-invalid='true']):focus-within {
+  box-shadow: var(--aparte-field-error-ring);
+}
+
+/* ── Checkbox ────────────────────────────────────────────────────────────────── */
+
+.aparte-checkbox {
+  /* Same two-part axis as the button: INTENT is the colour, ON-INTENT is what sits
+     on top of it. Ink beats white on every intent this palette declares except
+     neutral (see button.css) — checked-neutral is the one override below. */
+  --aparte-checkbox-intent: var(--aparte-primary);
+  --aparte-checkbox-on-intent: var(--aparte-text);
+  /* No shared control-size token covers a checkbox yet (the button's own sizes are
+     button-specific), so its box is declared here. */
+  --aparte-checkbox-size: 18px;
+
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-content: center;
+  width: var(--aparte-checkbox-size);
+  height: var(--aparte-checkbox-size);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-sm);
+  background: var(--aparte-surface-1);
+  cursor: pointer;
+  transition:
+    background var(--aparte-duration-fast) var(--aparte-ease),
+    border-color var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-checkbox::after {
+  content: '';
+  opacity: 0;
+  transition: opacity var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-checkbox:checked,
+.aparte-checkbox:indeterminate {
+  background: var(--aparte-checkbox-intent);
+  border-color: var(--aparte-checkbox-intent);
+}
+
+/* The checkmark: a rotated corner of a box, drawn from two borders rather than an
+   image, so it inherits `on-intent` instead of shipping its own fixed colour. */
+.aparte-checkbox:checked::after {
+  inline-size: 30%;
+  block-size: 55%;
+  border-inline-end: calc(var(--aparte-checkbox-size) * 0.12) solid var(--aparte-checkbox-on-intent);
+  border-block-end: calc(var(--aparte-checkbox-size) * 0.12) solid var(--aparte-checkbox-on-intent);
+  transform: rotate(45deg) translateY(-10%);
+  opacity: 1;
+}
+
+.aparte-checkbox:indeterminate::after {
+  inline-size: 55%;
+  block-size: 0;
+  border-block-end: calc(var(--aparte-checkbox-size) * 0.16) solid var(--aparte-checkbox-on-intent);
+  opacity: 1;
+}
+
+.aparte-checkbox--primary   { --aparte-checkbox-intent: var(--aparte-primary); }
+.aparte-checkbox--secondary { --aparte-checkbox-intent: var(--aparte-secondary); }
+.aparte-checkbox--neutral   { --aparte-checkbox-intent: var(--aparte-neutral); --aparte-checkbox-on-intent: var(--aparte-on-primary); }
+.aparte-checkbox--info      { --aparte-checkbox-intent: var(--aparte-info); }
+.aparte-checkbox--success   { --aparte-checkbox-intent: var(--aparte-success); }
+.aparte-checkbox--warning   { --aparte-checkbox-intent: var(--aparte-warning); }
+.aparte-checkbox--danger    { --aparte-checkbox-intent: var(--aparte-error); }
+
+.aparte-checkbox:hover:not(:disabled) {
+  border-color: var(--aparte-checkbox-intent);
+}
+
+.aparte-checkbox:active:not(:disabled) {
+  opacity: 0.85;
+}
+
+.aparte-checkbox:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-checkbox-intent);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+
+/* Forced-colors strips backgrounds, and background is the only thing telling checked
+   from unchecked here — so the check mark's border becomes the affordance instead. */
+@media (forced-colors: active) {
+  .aparte-checkbox { border-color: currentColor; }
+  .aparte-checkbox:checked,
+  .aparte-checkbox:indeterminate { background: Canvas; border-color: Highlight; }
+  .aparte-checkbox:checked::after,
+  .aparte-checkbox:indeterminate::after { border-color: Highlight; }
+  .aparte-checkbox:focus-visible { outline-color: Highlight; }
+}
+
+/* ── Radio ───────────────────────────────────────────────────────────────────── */
+
+.aparte-radio {
+  --aparte-radio-intent: var(--aparte-primary);
+  --aparte-radio-size: 18px;
+  --aparte-radio-dot-size: 8px;
+
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-content: center;
+  width: var(--aparte-radio-size);
+  height: var(--aparte-radio-size);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-surface-1);
+  cursor: pointer;
+  transition: border-color var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-radio::after {
+  content: '';
+  width: var(--aparte-radio-dot-size);
+  height: var(--aparte-radio-dot-size);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-radio-intent);
+  transform: scale(0);
+  transition: transform var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-radio:checked {
+  border-color: var(--aparte-radio-intent);
+}
+
+.aparte-radio:checked::after {
+  transform: scale(1);
+}
+
+.aparte-radio--primary   { --aparte-radio-intent: var(--aparte-primary); }
+.aparte-radio--secondary { --aparte-radio-intent: var(--aparte-secondary); }
+.aparte-radio--neutral   { --aparte-radio-intent: var(--aparte-neutral); }
+.aparte-radio--info      { --aparte-radio-intent: var(--aparte-info); }
+.aparte-radio--success   { --aparte-radio-intent: var(--aparte-success); }
+.aparte-radio--warning   { --aparte-radio-intent: var(--aparte-warning); }
+.aparte-radio--danger    { --aparte-radio-intent: var(--aparte-error); }
+
+.aparte-radio:hover:not(:disabled) {
+  border-color: var(--aparte-radio-intent);
+}
+
+.aparte-radio:active:not(:disabled) {
+  opacity: 0.85;
+}
+
+.aparte-radio:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-radio-intent);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-radio:disabled {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+
+@media (forced-colors: active) {
+  .aparte-radio { border-color: currentColor; }
+  .aparte-radio::after { background: Highlight; }
+  .aparte-radio:checked { border-color: Highlight; }
+  .aparte-radio:focus-visible { outline-color: Highlight; }
+}
+
+/* ── Switch — a track and a thumb, not a checkbox pretending to be one ─────────── */
+
+.aparte-switch {
+  --aparte-switch-intent: var(--aparte-primary);
+  /* Unlike the plain intent alias above, the track's colour is a STATE (it moves from
+     neutral to `--aparte-switch-intent` on check), not a fixed structural value, so it
+     has to live here where `:checked` can override it — a central default could never
+     react to the class + state combo. */
+  --aparte-switch-track: var(--aparte-surface-3);
+  --aparte-switch-width: 36px;
+  --aparte-switch-height: 20px;
+  --aparte-switch-thumb-size: 16px;
+  --aparte-switch-thumb-inset: 2px;
+  /* No shared shadow token fits a small thumb like this one, so it's a plain literal —
+     kept the same in both themes rather than reaching for a per-theme split this file
+     has no other precedent for. */
+
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  margin: 0;
+  flex-shrink: 0;
+  inline-size: var(--aparte-switch-width);
+  block-size: var(--aparte-switch-height);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-switch-track);
+  cursor: pointer;
+  transition:
+    background var(--aparte-duration-fast) var(--aparte-ease),
+    border-color var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-switch::after {
+  content: '';
+  position: absolute;
+  inset-block-start: var(--aparte-switch-thumb-inset);
+  inset-inline-start: var(--aparte-switch-thumb-inset);
+  inline-size: var(--aparte-switch-thumb-size);
+  block-size: var(--aparte-switch-thumb-size);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-surface-1);
+  box-shadow: var(--aparte-switch-thumb-shadow);
+  transition: inset-inline-start var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-switch:checked {
+  --aparte-switch-track: var(--aparte-switch-intent);
+  border-color: var(--aparte-switch-intent);
+}
+
+.aparte-switch:checked::after {
+  inset-inline-start: calc(100% - var(--aparte-switch-thumb-size) - var(--aparte-switch-thumb-inset));
+}
+
+.aparte-switch--primary   { --aparte-switch-intent: var(--aparte-primary); }
+.aparte-switch--secondary { --aparte-switch-intent: var(--aparte-secondary); }
+.aparte-switch--neutral   { --aparte-switch-intent: var(--aparte-neutral); }
+.aparte-switch--info      { --aparte-switch-intent: var(--aparte-info); }
+.aparte-switch--success   { --aparte-switch-intent: var(--aparte-success); }
+.aparte-switch--warning   { --aparte-switch-intent: var(--aparte-warning); }
+.aparte-switch--danger    { --aparte-switch-intent: var(--aparte-error); }
+
+.aparte-switch:hover:not(:disabled) {
+  border-color: var(--aparte-switch-intent);
+}
+
+.aparte-switch:active:not(:disabled) {
+  opacity: 0.85;
+}
+
+.aparte-switch:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-switch-intent);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-switch:disabled {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+
+/* Both the track's on/off state and the thumb's position carry the meaning here —
+   forced-colors keeps the thumb's travel (that survives) but needs real borders to
+   keep the track and the thumb readable as two distinct shapes once colour is gone. */
+@media (forced-colors: active) {
+  .aparte-switch { border-color: currentColor; background: Canvas; }
+  .aparte-switch::after { background: CanvasText; box-shadow: none; forced-color-adjust: none; }
+  .aparte-switch:checked { border-color: Highlight; background: Canvas; }
+  .aparte-switch:checked::after { background: Highlight; }
+  .aparte-switch:focus-visible { outline-color: Highlight; }
+}
+
+/* ── Range ───────────────────────────────────────────────────────────────────── */
+
+.aparte-range {
+  --aparte-range-intent: var(--aparte-primary);
+  --aparte-range-thumb-size: 16px;
+  --aparte-range-track-height: 4px;
+
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: var(--aparte-range-thumb-size);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* WebKit/Blink and Firefox never agree to share a selector list for these
+   pseudo-elements — an engine that doesn't recognise one drops the whole rule — so
+   every ::-webkit-* gets its own rule, separate from its ::-moz-* twin. */
+.aparte-range::-webkit-slider-runnable-track {
+  block-size: var(--aparte-range-track-height);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-surface-3);
+}
+
+.aparte-range::-moz-range-track {
+  block-size: var(--aparte-range-track-height);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-surface-3);
+}
+
+.aparte-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-block-start: calc((var(--aparte-range-track-height) - var(--aparte-range-thumb-size)) / 2);
+  inline-size: var(--aparte-range-thumb-size);
+  block-size: var(--aparte-range-thumb-size);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-range-intent);
+  border: var(--aparte-border-width) solid var(--aparte-surface-1);
+  box-shadow: var(--aparte-range-thumb-shadow);
+  cursor: pointer;
+  transition: transform var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-range::-moz-range-thumb {
+  inline-size: var(--aparte-range-thumb-size);
+  block-size: var(--aparte-range-thumb-size);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-range-intent);
+  border: var(--aparte-border-width) solid var(--aparte-surface-1);
+  box-shadow: var(--aparte-range-thumb-shadow);
+  cursor: pointer;
+  transition: transform var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+/* Firefox draws its own dotted focus ring around the thumb on top of ours. */
+.aparte-range::-moz-focus-outer {
+  border: 0;
+}
+
+.aparte-range--primary   { --aparte-range-intent: var(--aparte-primary); }
+.aparte-range--secondary { --aparte-range-intent: var(--aparte-secondary); }
+.aparte-range--neutral   { --aparte-range-intent: var(--aparte-neutral); }
+.aparte-range--info      { --aparte-range-intent: var(--aparte-info); }
+.aparte-range--success   { --aparte-range-intent: var(--aparte-success); }
+.aparte-range--warning   { --aparte-range-intent: var(--aparte-warning); }
+.aparte-range--danger    { --aparte-range-intent: var(--aparte-error); }
+
+.aparte-range:hover:not(:disabled)::-webkit-slider-thumb { transform: scale(1.1); }
+.aparte-range:hover:not(:disabled)::-moz-range-thumb { transform: scale(1.1); }
+
+.aparte-range:active::-webkit-slider-thumb { transform: scale(1.15); }
+.aparte-range:active::-moz-range-thumb { transform: scale(1.15); }
+
+.aparte-range:focus-visible::-webkit-slider-thumb {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-range-intent);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+.aparte-range:focus-visible::-moz-range-thumb {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-range-intent);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-range:disabled { cursor: not-allowed; opacity: var(--aparte-disabled-opacity); }
+.aparte-range:disabled::-webkit-slider-thumb { cursor: not-allowed; }
+.aparte-range:disabled::-moz-range-thumb { cursor: not-allowed; }
+
+@media (forced-colors: active) {
+  .aparte-range::-webkit-slider-runnable-track { background: ButtonFace; border: 1px solid currentColor; }
+  .aparte-range::-moz-range-track { background: ButtonFace; border: 1px solid currentColor; }
+  .aparte-range::-webkit-slider-thumb { background: Highlight; border-color: Highlight; }
+  .aparte-range::-moz-range-thumb { background: Highlight; border-color: Highlight; }
+  .aparte-range:focus-visible::-webkit-slider-thumb { outline-color: Highlight; }
+  .aparte-range:focus-visible::-moz-range-thumb { outline-color: Highlight; }
+}
+
+/* ── Label, hint, error, required marker ────────────────────────────────────── */
+
+.aparte-field-label {
+  display: inline-block;
+  margin-block-end: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-sm);
+  font-weight: var(--aparte-font-weight-medium);
+  color: var(--aparte-text);
+}
+
+.aparte-field-hint {
+  display: block;
+  margin-block-start: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-xs);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-field-error {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+  margin-block-start: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-xs);
+  color: var(--aparte-error-text);
+}
+
+/* A bare colour on the marker, not injected `*` content: a locale that doesn't mark
+   required fields with an asterisk still gets a place to say so, in its own text. */
+.aparte-field-required {
+  color: var(--aparte-error);
+}
+
+/* ── Grouping — fieldset and a field row ────────────────────────────────────── */
+
+.aparte-fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-4);
+}
+
+.aparte-fieldset > legend {
+  padding: 0;
+  margin-block-end: var(--aparte-space-2);
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-text);
+}
+
+.aparte-fieldset:disabled > legend {
+  opacity: var(--aparte-disabled-opacity);
+}
+
+.aparte-field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aparte-space-4);
+}
+
+.aparte-field-row > * {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+/* ── Colour ──────────────────────────────────────────────────────────────────
+   A colour input is a swatch in a chrome the UA draws itself, so it takes
+   `appearance: none` and then its swatch pseudo-element on each engine — WebKit
+   wraps the swatch in a second element that carries its own padding, which is what
+   makes an unstyled one look inset. */
+.aparte-color {
+  appearance: none;
+  -webkit-appearance: none;
+  inline-size: var(--aparte-color-size);
+  block-size: var(--aparte-color-size);
+  padding: 0;
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-md);
+  background: none;
+  cursor: pointer;
+}
+.aparte-color::-webkit-color-swatch-wrapper { padding: 0; }
+.aparte-color::-webkit-color-swatch { border: none; border-radius: var(--aparte-radius-sm); }
+.aparte-color::-moz-color-swatch { border: none; border-radius: var(--aparte-radius-sm); }
+.aparte-color:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-btn-focus-offset);
+}
+.aparte-color:disabled { cursor: not-allowed; opacity: var(--aparte-disabled-opacity); }
+
+/* ── Date and time ───────────────────────────────────────────────────────────
+   These wear `.aparte-field` for their box; what needs saying is the parts only
+   WebKit exposes. The picker indicator is a UA-drawn glyph that cannot take a
+   colour, so it is tinted with opacity rather than fought — and Firefox, which
+   exposes none of these, simply renders the field it already inherited. */
+.aparte-field[type='date'],
+.aparte-field[type='time'],
+.aparte-field[type='datetime-local'],
+.aparte-field[type='month'],
+.aparte-field[type='week'] {
+  /* Without this the field collapses to the intrinsic width of its digits, which
+     differs per locale and makes a form jump when the value changes. */
+  min-inline-size: var(--aparte-datetime-min-width);
+}
+.aparte-field::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: var(--aparte-datetime-indicator-opacity);
+  border-radius: var(--aparte-radius-xs);
+}
+.aparte-field::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+.aparte-field::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+.aparte-field::-webkit-datetime-edit-text { color: var(--aparte-text-muted); padding-inline: var(--aparte-space-1); }
+
+/* ── Meter ───────────────────────────────────────────────────────────────────
+   A gauge, not a progress bar: the value is judged against a range, so the three
+   bands the element defines — optimum, suboptimum, poor — get the three status
+   colours rather than one accent. Both engines name their parts differently and
+   neither inherits from the other, so both are written out. */
+.aparte-meter {
+  appearance: none;
+  -webkit-appearance: none;
+  inline-size: 100%;
+  block-size: var(--aparte-meter-height);
+  border: none;
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-meter-track);
+  overflow: hidden;
+}
+.aparte-meter::-webkit-meter-bar { background: var(--aparte-meter-track); border: none; border-radius: var(--aparte-radius-full); }
+.aparte-meter::-webkit-meter-optimum-value { background: var(--aparte-meter-optimum); border-radius: var(--aparte-radius-full); }
+.aparte-meter::-webkit-meter-suboptimum-value { background: var(--aparte-meter-suboptimum); border-radius: var(--aparte-radius-full); }
+.aparte-meter::-webkit-meter-even-less-good-value { background: var(--aparte-meter-poor); border-radius: var(--aparte-radius-full); }
+.aparte-meter:-moz-meter-optimum::-moz-meter-bar { background: var(--aparte-meter-optimum); }
+.aparte-meter:-moz-meter-sub-optimum::-moz-meter-bar { background: var(--aparte-meter-suboptimum); }
+.aparte-meter:-moz-meter-sub-sub-optimum::-moz-meter-bar { background: var(--aparte-meter-poor); }
+
+/* ── Output ──────────────────────────────────────────────────────────────────
+   A computed result, not an input: it reads as a value the page produced, so it is
+   set in the code face and on a quiet ground rather than in a bordered box that
+   would invite a click. */
+.aparte-output {
+  display: inline-block;
+  padding: var(--aparte-output-padding);
+  border-radius: var(--aparte-radius-sm);
+  background: var(--aparte-output-bg);
+  color: var(--aparte-text);
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-font-size-sm);
+}
+
+@media (forced-colors: active) {
+  .aparte-meter,
+  .aparte-output,
+  .aparte-color { border: var(--aparte-border-width) solid currentColor; }
+}

@@ -1,0 +1,487 @@
+/*
+ * aparté — layered surfaces. Ready-made classes for the things that float ABOVE the
+ * transcript: tabs, an accordion, a dropdown menu, a popover, a tooltip.
+ *
+ * Dialog, drawer and toast are deliberately NOT here. A modal needs a portal and a
+ * stack manager — something that owns exactly one top layer for the whole page — and
+ * that is the consuming application's job, not a component stylesheet's.
+ *
+ * Everything below is the LOOK only. Where and when a surface opens is markup and
+ * script the caller owns: a <details> toggling itself, a positioning library placing
+ * a menu next to its trigger. Nothing here reaches for position:fixed on your behalf.
+ *
+ *     <div class="aparte-tabs" role="tablist">
+ *       <button class="aparte-tabs__tab" role="tab" aria-selected="true">Preview</button>
+ *       <button class="aparte-tabs__tab" role="tab" aria-selected="false">Code</button>
+ *     </div>
+ *     <div class="aparte-tabs__panel" role="tabpanel">…</div>
+ *
+ *     <details class="aparte-accordion__item">
+ *       <summary class="aparte-accordion__header">Section title
+ *         <svg class="aparte-accordion__icon" aria-hidden="true">…</svg>
+ *       </summary>
+ *       <div class="aparte-accordion__panel">…</div>
+ *     </details>
+ *
+ *     <div class="aparte-menu" role="menu">
+ *       <div class="aparte-menu__label">Export as</div>
+ *       <button class="aparte-menu__item" role="menuitem">PNG</button>
+ *       <div class="aparte-menu__separator"></div>
+ *       <button class="aparte-menu__item" role="menuitemcheckbox" aria-checked="true">
+ *         Include metadata
+ *       </button>
+ *     </div>
+ *
+ * `.aparte-popover` and `.aparte-tooltip` are single boxes: drop content straight in
+ * and position the element yourself, however the app already places floating things
+ * (an absolutely-placed div, a floating-UI anchor, a JS library's own logic).
+ *
+ * This layer is NEUTRAL: it is what a UI library offers, not a summary of what this
+ * repo happens to use. A class nothing wears today still ships, because the plugin
+ * that needs it is not written yet.
+ */
+
+/* ── Tabs ────────────────────────────────────────────────────────────────────── */
+
+.aparte-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+  /* A tab list is exactly as wide as its container, and a chat panel is often
+     narrower than the tab labels it holds — a code-preview strip with six
+     languages, say. Scrolling beats wrapping: a wrapped tab row eats vertical
+     space that was never budgeted for it and reflows the panel beneath it every
+     time a tab is added. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  /* No scrollbar: a chrome-less horizontal scroll region reads as "this row of
+     tabs continues", where a scrollbar reads as "this is a list with a bottom".
+     `scrollbar-width` covers Firefox, the pseudo-element covers Chrome/Safari,
+     and `-ms-overflow-style` is free insurance for the one legacy engine that
+     never got either. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.aparte-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.aparte-tabs__tab {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  padding: var(--aparte-space-4) var(--aparte-space-5);
+  border: none;
+  /* The active indicator IS a border, at the same width whether it is showing or
+     not — so selecting a tab never nudges its neighbours by changing box height.
+     `--aparte-space-unit` doubles as the width because it is the one allowed
+     token that already equals the thickness an indicator needs to read as a
+     line rather than a hairline. */
+  border-block-end: var(--aparte-space-unit) solid transparent;
+  background: transparent;
+  color: var(--aparte-text-muted);
+  font: inherit;
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-medium);
+  line-height: var(--aparte-line-height-none);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--aparte-duration-fast) var(--aparte-ease),
+    border-color var(--aparte-duration-fast) var(--aparte-ease),
+    background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-tabs__tab:hover:not(:disabled):not([aria-disabled='true']) {
+  color: var(--aparte-text);
+}
+
+.aparte-tabs__tab:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-2);
+  /* Logical corners: the press feedback rounds the two edges nearest the START of
+     the block (the top, in the horizontal writing modes this row is normally used
+     in) and leaves the underline edge square, so it reads as one continuous strip
+     rather than four independent pills. */
+  border-start-start-radius: var(--aparte-radius-sm);
+  border-start-end-radius: var(--aparte-radius-sm);
+}
+
+.aparte-tabs__tab:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-tabs__tab[aria-selected='true'] {
+  color: var(--aparte-primary);
+  border-block-end-color: var(--aparte-primary);
+}
+
+.aparte-tabs__tab:disabled,
+.aparte-tabs__tab[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+
+.aparte-tabs__panel {
+  padding-block: var(--aparte-space-6);
+}
+
+.aparte-tabs__panel:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+/* Underline is the default look and needs no class — restated explicitly anyway,
+   the same reasoning `.aparte-btn--ghost` uses, so a caller that must be explicit
+   about it (next to a `--segmented` sibling elsewhere on the page) can say so
+   rather than merely omit the modifier. */
+.aparte-tabs--underline {
+  gap: var(--aparte-space-1);
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.aparte-tabs--underline .aparte-tabs__tab {
+  border-block-end-width: var(--aparte-space-unit);
+  border-radius: 0;
+}
+
+/* Segmented — the whole list becomes one pill-shaped track and the active tab is
+   its own raised chip, rather than an underline beneath a plain row. Same markup,
+   same states; only the container and the active tab's fill change. */
+.aparte-tabs--segmented {
+  gap: 0;
+  padding: var(--aparte-space-1);
+  background: var(--aparte-surface-2);
+  border-radius: var(--aparte-radius-full);
+}
+
+.aparte-tabs--segmented .aparte-tabs__tab {
+  border-block-end: none;
+  border-radius: var(--aparte-radius-full);
+  padding: var(--aparte-space-3) var(--aparte-space-5);
+}
+
+.aparte-tabs--segmented .aparte-tabs__tab:active:not(:disabled):not([aria-disabled='true']) {
+  border-radius: var(--aparte-radius-full);
+}
+
+.aparte-tabs--segmented .aparte-tabs__tab[aria-selected='true'] {
+  background: var(--aparte-surface-1);
+  color: var(--aparte-text);
+}
+
+/* ── Accordion ───────────────────────────────────────────────────────────────── */
+
+.aparte-accordion {
+  display: flex;
+  flex-direction: column;
+}
+
+.aparte-accordion__item {
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-accordion__item:last-child {
+  border-block-end: none;
+}
+
+/* Works as a <summary> (native <details> disclosure) or as a <div role="button"
+   aria-expanded>. Either way it is the whole clickable row, so it gets the same
+   reset a button does: no native chrome, full width, cursor and text alignment
+   fixed for a header that reads left-to-right of its own toggle icon. */
+.aparte-accordion__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aparte-space-3);
+  width: 100%;
+  padding: var(--aparte-space-5) var(--aparte-space-2);
+  border: none;
+  background: transparent;
+  color: var(--aparte-text);
+  font: inherit;
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-medium);
+  text-align: start;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  /* Removes the native disclosure triangle when this sits on a <summary>. Firefox
+     and current Chrome/Safari honour `list-style`; the pseudo-elements below catch
+     the two engines that don't. Harmless, and a no-op, on a plain <div>. */
+  list-style: none;
+  transition: background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-accordion__header::-webkit-details-marker {
+  display: none;
+}
+
+.aparte-accordion__header::marker {
+  display: none;
+}
+
+.aparte-accordion__header:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-2);
+}
+
+.aparte-accordion__header:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-3);
+}
+
+.aparte-accordion__header:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-accordion__header:disabled,
+.aparte-accordion__header[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+
+.aparte-accordion__icon {
+  flex-shrink: 0;
+  /* Sized off the same step the button recipe already uses for an icon glyph
+     (`--aparte-btn-icon-size: var(--aparte-space-8)`), so a disclosure chevron
+     reads as the same weight of icon as everywhere else in the library. */
+  width: var(--aparte-space-8);
+  height: var(--aparte-space-8);
+  color: var(--aparte-text-muted);
+  transition: transform var(--aparte-duration-slow) var(--aparte-ease);
+}
+
+/* Two selectors for two ways an item can be open: the ARIA disclosure pattern
+   puts aria-expanded on the header itself; native <details> puts `open` on the
+   ancestor and gives the browser no attribute to select on at all. */
+.aparte-accordion__header[aria-expanded='true'] .aparte-accordion__icon,
+details[open] > .aparte-accordion__header .aparte-accordion__icon {
+  transform: rotate(180deg);
+}
+
+.aparte-accordion__panel {
+  padding-inline: var(--aparte-space-2);
+  padding-block-end: var(--aparte-space-5);
+  color: var(--aparte-text-secondary);
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-line-height-relaxed);
+}
+
+/* ── Menu ────────────────────────────────────────────────────────────────────── */
+
+.aparte-menu {
+  /* Component-local tokens: no shared knob in the token set covers a dropdown's
+     own width and elevation, so they live here — same width as the select's
+     own dropdown (`--aparte-select-min-width`) and the same elevation recipe
+     as `--aparte-select-shadow`, since both are the identical "floating list"
+     surface. */
+  --aparte-menu-min-width: 200px;
+
+  display: flex;
+  flex-direction: column;
+  min-width: var(--aparte-menu-min-width);
+  padding: var(--aparte-space-2);
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-lg);
+  box-shadow: var(--aparte-menu-shadow);
+  color: var(--aparte-text);
+  z-index: var(--aparte-z-dropdown);
+}
+
+.aparte-menu__item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  width: 100%;
+  padding: var(--aparte-space-3) var(--aparte-space-4);
+  border: none;
+  border-radius: var(--aparte-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-line-height-snug);
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-menu__item:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-2);
+}
+
+.aparte-menu__item:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-3);
+}
+
+.aparte-menu__item:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-menu__item:disabled,
+.aparte-menu__item[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+  /* A disabled row must stay inert, not merely look it — otherwise it still opens
+     a submenu on hover or fires on click via a wrapper listener upstream. */
+  pointer-events: none;
+}
+
+/* The check mark for menuitemcheckbox / menuitemradio. Reserved as an invisible
+   glyph on every checkable item (matched by the presence of aria-checked, true or
+   false) so labels in a mixed checked/unchecked list stay aligned to one gutter;
+   a plain role="menuitem" without aria-checked gets no gutter at all. Text colour
+   rather than a fill or a box-shadow is deliberate: a glyph inherits `color`,
+   which forced-colors mode preserves, so the checked state survives that mode
+   with no separate override. */
+.aparte-menu__item[aria-checked]::before {
+  content: '✓';
+  flex-shrink: 0;
+  visibility: hidden;
+}
+
+.aparte-menu__item[aria-checked='true']::before {
+  visibility: visible;
+}
+
+.aparte-menu__separator {
+  height: var(--aparte-border-width);
+  margin-block: var(--aparte-space-2);
+  margin-inline: var(--aparte-space-2);
+  background: var(--aparte-border);
+}
+
+.aparte-menu__label {
+  padding: var(--aparte-space-2) var(--aparte-space-4);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Popover ─────────────────────────────────────────────────────────────────── */
+
+/* Deliberately just a box. A popover's content is arbitrary — a form, a colour
+   picker, a card of details — so this supplies the surface, border and elevation
+   that say "this is floating above the page" and leaves layout of what's inside,
+   and where the box itself sits, entirely to the caller. */
+.aparte-popover {
+  /* Component-local tokens, same reasoning as the menu's above: a cap that
+     keeps arbitrary caller content (a form, a colour picker) from growing
+     unbounded, and the same elevation recipe as every other dropdown-class
+     surface in the library. */
+  --aparte-popover-max-width: 320px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-3);
+  max-width: var(--aparte-popover-max-width);
+  padding: var(--aparte-space-5);
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-lg);
+  box-shadow: var(--aparte-popover-shadow);
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-line-height-normal);
+  z-index: var(--aparte-z-dropdown);
+}
+
+/* ── Tooltip ─────────────────────────────────────────────────────────────────── */
+
+/* A tooltip's job is to be legible against whatever it happens to sit on top of —
+   a bright image, a dark code block, either app theme — so its colours are fixed
+   literals rather than the themed text/surface tokens, the same reasoning already
+   applied to the artifact "paper" tokens: this box does not follow the palette on
+   purpose, and skips the dark-theme override block for that reason. */
+.aparte-tooltip {
+  /* Component-local tokens: `bg`/`color` are fixed literals on purpose (see the
+     comment above) rather than the themed surface/text tokens, so they cannot
+     come from the shared set — the dark chip literal already used for
+     `--aparte-art-paper-text`, and the off-white already used for the light
+     theme's `--aparte-text-inverse`, both reused rather than inventing new
+     colours. `shadow` reuses the same elevation recipe as `--aparte-scroll-btn-shadow`.
+     `max-width` keeps a tooltip a short label, not a paragraph. */
+  --aparte-tooltip-max-width: 240px;
+
+  position: relative;
+  display: inline-block;
+  max-width: var(--aparte-tooltip-max-width);
+  padding: var(--aparte-space-2) var(--aparte-space-4);
+  background: var(--aparte-tooltip-bg);
+  color: var(--aparte-tooltip-color);
+  border-radius: var(--aparte-radius-sm);
+  box-shadow: var(--aparte-tooltip-shadow);
+  font-size: var(--aparte-font-size-sm);
+  line-height: var(--aparte-line-height-snug);
+  text-align: start;
+  z-index: var(--aparte-z-dropdown);
+  /* A tooltip describes the element under the pointer; it must never itself be
+     what the pointer is over, or hovering the tooltip re-triggers the hover that
+     produced it. */
+  pointer-events: none;
+}
+
+/* Points down by default — the common case of a tooltip sitting above the thing
+   it labels. `[data-side="bottom"]` flips it for a tooltip placed below instead.
+   Horizontal centring uses inline-start + a negative inline-start margin rather
+   than a transform, so it re-centres correctly under `direction: rtl` without a
+   second rule. Placement to either side is the caller's own transform math, the
+   same "position is the caller's job" split as the popover above. */
+.aparte-tooltip__arrow {
+  position: absolute;
+  inset-inline-start: 50%;
+  /* `--aparte-space-4` doubles as the arrow's size — an allowed token that
+     already lands at a size an arrow reads at against the box it points from. */
+  inset-block-end: calc(var(--aparte-space-4) * -0.5);
+  margin-inline-start: calc(var(--aparte-space-4) * -0.5);
+  width: var(--aparte-space-4);
+  height: var(--aparte-space-4);
+  background: var(--aparte-tooltip-bg);
+  transform: rotate(45deg);
+}
+
+.aparte-tooltip[data-side='bottom'] .aparte-tooltip__arrow {
+  inset-block-end: auto;
+  inset-block-start: calc(var(--aparte-space-4) * -0.5);
+}
+
+/* ── Forced colors ───────────────────────────────────────────────────────────────
+   The menu and the popover already carry a real border by default, so those two
+   boxes survive forced-colors mode once background and box-shadow are both
+   dropped — nothing more is needed there. The two states below are the ones that
+   relied on a fill with NO border to carry them: the segmented tab's active pill
+   (a background swap, nothing else) and the tooltip (deliberately borderless, so
+   its whole silhouette is its background colour). Each gets the border the
+   shadow can no longer give it. The tooltip's arrow is dropped rather than
+   patched: under forced colors it would be an unlabelled bordered diamond, and
+   the bordered tooltip body alone already reads as a floating panel. */
+@media (forced-colors: active) {
+  .aparte-tabs--segmented .aparte-tabs__tab[aria-selected='true'] {
+    border: var(--aparte-border-width) solid currentColor;
+  }
+
+  .aparte-tooltip {
+    border: var(--aparte-border-width) solid currentColor;
+  }
+
+  .aparte-tooltip__arrow {
+    display: none;
+  }
+}

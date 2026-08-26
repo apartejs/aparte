@@ -1,53 +1,134 @@
 /*
- * aparté — the button recipe. Ready-made classes, nothing to configure.
+ * aparté — the button. Ready-made classes; nothing to configure.
  *
- * Put `aparte-btn` on a <button> and it looks like every other control in the library.
- * Add one variant if it is not the default ghost. Your own class stays on the element
- * for events and for targeting — it does NOT carry the look any more.
+ * TWO AXES, and keeping them apart is the whole design. An INTENT says which colour
+ * the button means; a FILL says what to do with that colour. Seven intents times five
+ * fills is thirty-five buttons out of twelve classes, and every combination works
+ * because neither axis knows about the other.
  *
- *     <button class="aparte-btn aparte-btn--primary my-send">Send</button>
+ *     <button class="aparte-btn aparte-btn--primary aparte-btn--solid">Send</button>
+ *     <button class="aparte-btn aparte-btn--danger aparte-btn--outline">Delete</button>
  *     <button class="aparte-btn aparte-btn--icon" aria-label="Copy">…</button>
  *
- * Every value here was measured, not invented: 33 control rules already in this
- * library were read, and the base is what they agree on — flex-centred, transparent,
- * borderless, `cursor: pointer`, `flex-shrink: 0`. What they did NOT agree on is why
- * this file exists: `transition` appeared in 13 of them with 12 different values,
- * `border-radius` in 12 with 11. Nobody decided; everyone filled in.
+ * An intent on its own is a ghost — the quietest form, and the one a chat uses most.
+ * Add a fill when the button has to carry more weight.
  *
- * The variant set is measured the same way and is deliberately short — four, and no
- * `--secondary`, because nothing in this library is secondary. A variant nobody wears
- * is a contract maintained for nobody.
+ * This layer is NEUTRAL: it is what a UI library offers, not a summary of what this
+ * repo happens to use. A variant nothing wears still ships, because the plugin that
+ * needs it is not written yet, and its absence is what makes an author invent a
+ * seventh shade of orange.
+ *
+ * Your own class stays on the element, for events and for targeting. It just stops
+ * carrying the look.
  */
 
 .aparte-btn {
+  /* The intent, as a value. Every fill below reads THIS and nothing else, which is
+     what keeps the two axes independent. */
+  --aparte-btn-intent: var(--aparte-neutral);
+  --aparte-btn-on-intent: var(--aparte-btn-ink);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--aparte-btn-gap);
   flex-shrink: 0;
   cursor: pointer;
-  /* Ghost by default: 33 of the 33 controls measured are transparent and borderless. */
-  background: transparent;
-  border: var(--aparte-border-width) solid transparent;
   padding: var(--aparte-btn-padding);
+  border: var(--aparte-border-width) solid transparent;
   border-radius: var(--aparte-btn-radius);
-  color: var(--aparte-btn-color);
   font: inherit;
   font-size: var(--aparte-btn-font-size);
   line-height: var(--aparte-line-height-none);
+  /* The native reset. Without `appearance` Safari and iOS paint their own chrome over
+     this one; without `touch-action` a tap costs 300ms; without `user-select` a double
+     click selects the label instead of firing twice. */
+  appearance: none;
+  -webkit-appearance: none;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
   transition:
     background var(--aparte-duration-fast) var(--aparte-ease),
     border-color var(--aparte-duration-fast) var(--aparte-ease),
     color var(--aparte-duration-fast) var(--aparte-ease),
     opacity var(--aparte-duration-fast) var(--aparte-ease);
+
+  /* Default fill: ghost. */
+  background: transparent;
+  color: var(--aparte-btn-intent);
 }
 
-.aparte-btn:hover:not(:disabled) {
-  background: var(--aparte-btn-bg-hover);
-  color: var(--aparte-btn-color-hover);
+/* ── Axis 1 — INTENT. Sets a colour; says nothing about how it is used. ─────────
+   Ink is the default text colour on a solid fill, measured rather than assumed: on
+   every intent this palette declares, ink beats white — warning 7.49 against 2.15,
+   success 6.34 against 2.54 — except neutral, which is dark enough to want white.
+   Three of them reach neither 4.5 with either colour (primary 4.46, info 4.37,
+   danger 4.27); that is the palette's mid-luminance, not this file's doing. */
+.aparte-btn--primary   { --aparte-btn-intent: var(--aparte-primary); }
+.aparte-btn--secondary { --aparte-btn-intent: var(--aparte-secondary); }
+.aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); --aparte-btn-on-intent: var(--aparte-on-primary); }
+.aparte-btn--info      { --aparte-btn-intent: var(--aparte-info); }
+.aparte-btn--success   { --aparte-btn-intent: var(--aparte-success); }
+.aparte-btn--warning   { --aparte-btn-intent: var(--aparte-warning); }
+.aparte-btn--danger    { --aparte-btn-intent: var(--aparte-error); }
+
+/* ── Axis 2 — FILL. Reads the intent; says nothing about which one. ───────────── */
+
+/* Ghost is the default and needs no class. Named anyway, so a button that must be a
+   ghost can say so rather than merely omit. */
+.aparte-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--aparte-btn-intent);
 }
 
-/* One place says what disabled looks like. It was six rules saying it separately. */
+/* Solid — the action of its row. */
+.aparte-btn--solid {
+  background: var(--aparte-btn-intent);
+  border-color: var(--aparte-btn-intent);
+  color: var(--aparte-btn-on-intent);
+}
+
+/* Outline — the weight of solid, half the ink. */
+.aparte-btn--outline {
+  background: transparent;
+  border-color: var(--aparte-btn-intent);
+  color: var(--aparte-btn-intent);
+}
+
+/* Soft — a wash of the intent. Between ghost and solid, and the one that reads best
+   in a dense transcript. */
+.aparte-btn--soft {
+  background: color-mix(in srgb, var(--aparte-btn-intent) 14%, transparent);
+  border-color: transparent;
+  color: var(--aparte-btn-intent);
+}
+
+/* Surface — the one fill that ignores the intent, on purpose: it is not a colour, it
+   is a raised plane. For a button that floats ON the transcript rather than in a row. */
+.aparte-btn--surface {
+  background: var(--aparte-surface-1);
+  border-color: var(--aparte-border);
+  color: var(--aparte-text);
+}
+
+/* ── States ──────────────────────────────────────────────────────────────────── */
+
+.aparte-btn:hover:not(:disabled) { background: var(--aparte-btn-bg-hover); }
+.aparte-btn--outline:hover:not(:disabled),
+.aparte-btn--soft:hover:not(:disabled) { background: color-mix(in srgb, var(--aparte-btn-intent) 22%, transparent); }
+.aparte-btn--solid:hover:not(:disabled) { background: var(--aparte-btn-intent); filter: brightness(1.07); }
+.aparte-btn--surface:hover:not(:disabled) { background: var(--aparte-surface-2); }
+
+/* Pressed. There was no `:active` anywhere in this library, which is what makes a
+   button feel broken: it takes the click and never acknowledges it. */
+.aparte-btn:active:not(:disabled) { background: var(--aparte-btn-bg-active); }
+.aparte-btn--outline:active:not(:disabled),
+.aparte-btn--soft:active:not(:disabled) { background: color-mix(in srgb, var(--aparte-btn-intent) 30%, transparent); }
+.aparte-btn--solid:active:not(:disabled) { background: var(--aparte-btn-intent); filter: brightness(0.93); }
+
 .aparte-btn:disabled,
 .aparte-btn[aria-disabled='true'] {
   cursor: not-allowed;
@@ -55,54 +136,66 @@
 }
 
 .aparte-btn:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-btn-intent);
   outline-offset: var(--aparte-btn-focus-offset);
 }
 
-/* ── Variants ─────────────────────────────────────────────────────────────────
-   Filled. The one control that must read as THE action of its row. */
-.aparte-btn--primary {
-  background: var(--aparte-primary);
-  border-color: var(--aparte-primary);
-  color: var(--aparte-on-primary);
-}
-.aparte-btn--primary:hover:not(:disabled) {
-  background: var(--aparte-primary-hover);
-  border-color: var(--aparte-primary-hover);
-  color: var(--aparte-on-primary);
+/* Toggled — a disclosure that is open, a toggle that is on. */
+.aparte-btn[aria-expanded='true'],
+.aparte-btn[aria-pressed='true'] {
+  background: var(--aparte-btn-bg-toggled);
+  color: var(--aparte-btn-color-toggled);
 }
 
-/* Raised. Sits ON the transcript rather than in a row: it needs its own ground. */
-.aparte-btn--surface {
-  background: var(--aparte-surface-1);
-  border-color: var(--aparte-border);
-  color: var(--aparte-text);
-}
-.aparte-btn--surface:hover:not(:disabled) {
-  background: var(--aparte-surface-2);
-  color: var(--aparte-text);
-}
+/* Busy is NOT disabled: it stays focusable, and the app is what swaps the icon for a
+   spinner. Only the cursor changes here. */
+.aparte-btn[aria-busy='true'] { cursor: progress; }
 
-/* Tinted, not filled — measured: the success and danger controls in this library
-   change their COLOUR on a ghost, they do not become a coloured block. */
-.aparte-btn--success { color: var(--aparte-success); }
-.aparte-btn--success:hover:not(:disabled) { color: var(--aparte-success); }
-.aparte-btn--danger { color: var(--aparte-error); }
-.aparte-btn--danger:hover:not(:disabled) { color: var(--aparte-error); }
+/* ── Shape and size ──────────────────────────────────────────────────────────── */
 
-/* ── Shape and size ───────────────────────────────────────────────────────────
-   Icon-only: square, no padding, sized by the size modifier. An icon button with
-   a label is the a11y trap here — give it an aria-label. */
-.aparte-btn--icon {
-  padding: 0;
-  width: var(--aparte-btn-size);
-  height: var(--aparte-btn-size);
-}
+.aparte-btn--icon { padding: 0; width: var(--aparte-btn-size); height: var(--aparte-btn-size); }
+.aparte-btn--pill { border-radius: var(--aparte-radius-full); }
+.aparte-btn--circle { padding: 0; width: var(--aparte-btn-size); height: var(--aparte-btn-size); border-radius: var(--aparte-radius-full); }
+.aparte-btn--block { display: flex; width: 100%; }
 
-/* Three sizes because the library measured three: 20px, 28px and 36px controls. */
-.aparte-btn--sm { --aparte-btn-size: var(--aparte-btn-size-sm); font-size: var(--aparte-font-size-sm); }
-.aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); font-size: var(--aparte-font-size-lg); }
+.aparte-btn--sm { --aparte-btn-size: var(--aparte-btn-size-sm); font-size: var(--aparte-font-size-sm); padding: var(--aparte-btn-padding-sm); }
+.aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); font-size: var(--aparte-font-size-lg); padding: var(--aparte-btn-padding-lg); }
+.aparte-btn--sm.aparte-btn--icon,
+.aparte-btn--sm.aparte-btn--circle,
+.aparte-btn--lg.aparte-btn--icon,
+.aparte-btn--lg.aparte-btn--circle { padding: 0; }
 
 /* An icon inside a button never takes the pointer: the click belongs to the button,
-   and an SVG target makes `event.target` lie to a delegated listener. */
-.aparte-btn > svg { pointer-events: none; flex-shrink: 0; }
+   and an SVG target makes `event.target` lie to a delegated listener. It is sized with
+   the button so the two axes stay in step. */
+.aparte-btn > svg,
+.aparte-btn > .aparte-btn__icon {
+  pointer-events: none;
+  flex-shrink: 0;
+  width: var(--aparte-btn-icon-size);
+  height: var(--aparte-btn-icon-size);
+}
+
+/* ── Group — buttons that read as one control. ───────────────────────────────── */
+.aparte-btn-group { display: inline-flex; }
+.aparte-btn-group > .aparte-btn { border-radius: 0; }
+/* Logical properties, so the joined edge follows the writing direction instead of
+   assuming left-to-right. */
+.aparte-btn-group > .aparte-btn:first-child {
+  border-start-start-radius: var(--aparte-btn-radius);
+  border-end-start-radius: var(--aparte-btn-radius);
+}
+.aparte-btn-group > .aparte-btn:last-child {
+  border-start-end-radius: var(--aparte-btn-radius);
+  border-end-end-radius: var(--aparte-btn-radius);
+}
+.aparte-btn-group > .aparte-btn:not(:first-child) { margin-inline-start: calc(var(--aparte-border-width) * -1); }
+.aparte-btn-group > .aparte-btn:hover,
+.aparte-btn-group > .aparte-btn:focus-visible { z-index: var(--aparte-z-raised); }
+
+/* In forced-colors the UA repaints everything and drops backgrounds, so a solid button
+   loses the only thing marking it as the primary action. A border survives. */
+@media (forced-colors: active) {
+  .aparte-btn { border-color: currentColor; }
+  .aparte-btn:focus-visible { outline-color: Highlight; }
+}

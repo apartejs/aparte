@@ -52,6 +52,9 @@ const SHEETS = [
     'packages/core/src/styles/theme.css',
     'packages/core/src/styles/base.css',
     'packages/core/src/styles/button.css',
+    'packages/core/src/styles/field.css',
+    'packages/core/src/styles/display.css',
+    'packages/core/src/styles/surface.css',
     'packages/core/src/styles/shell.css',
     'packages/core/src/styles/bubble.css',
     'packages/core/src/styles/composer.css',
@@ -108,12 +111,44 @@ function selectorAt(i) {
     return parts.filter(Boolean);
 }
 
+/**
+ * A component may PARAMETERISE ITSELF. `.aparte-btn` declaring `--aparte-btn-intent`
+ * is not the failure this guard was written for: that failure is a THEME token derived
+ * once on `:root`, which then cannot follow a palette a subtree overrides. A component
+ * property is re-declared on the component's own element by each variant class, so it
+ * resolves there and does follow — `--aparte-btn-intent: var(--aparte-primary)` reads
+ * whatever primary is in force at that button.
+ *
+ * The exemption is deliberately narrow: the NAME must be prefixed by the component the
+ * SELECTOR names. `.aparte-btn` may declare `--aparte-btn-*` and nothing else, so this
+ * cannot become a way to hide a palette token in a rule.
+ */
+function parameterisesItself(name, selectors) {
+    return selectors.some((sel) => {
+        // `.aparte-field--sm` is still the field: a modifier belongs to its base, so
+        // the component name stops at the first `--`.
+        const m = /\.(aparte-[a-z0-9]+(?:-[a-z0-9]+)*?)(?:--|[\s,:.>+~[]|$)/.exec(`${sel} `);
+        return m ? name.startsWith('--' + m[1] + '-') : false;
+    });
+}
+
 const stack = [];
 const anchored = [];
 const atRuleExempt = [];
 const stray = [];
 const byBlock = new Map();
 const declaredNames = new Set();
+/**
+ * Declared where EVERY element can resolve it — a `:root`-rooted block, so the literal
+ * palette or the anchored layer. Only these forbid a fallback elsewhere.
+ *
+ * The distinction is not pedantry. `--aparte-spinner-size` was declared on
+ * `.aparte-spinner` alone, and the single-owner rule then flagged the fallback that
+ * `<aparte-progress-spinner>` — which does not wear that class, and therefore inherits
+ * nothing — was relying on. Removing it collapsed the element to `auto`. A
+ * component-scoped declaration is not a default; it is a value for that component.
+ */
+const globallyDeclared = new Set();
 const duplicated = new Set();
 const blockOf = new Map();
 const fallbacks = new Map();
@@ -140,6 +175,7 @@ for (let i = 0; i < lines.length; i++) {
     if (blockOf.get(name) === scope) duplicated.add(name);
     blockOf.set(name, scope);
     declaredNames.add(name);
+    if (top.selectors.some((sel) => sel.trim().startsWith(':root'))) globallyDeclared.add(name);
     if (!byBlock.has(top.key)) byBlock.set(top.key, new Set());
     byBlock.get(top.key).add(name);
 
@@ -154,6 +190,7 @@ for (let i = 0; i < lines.length; i++) {
         literalSelectors = top.selectors;
     }
     if (!isDerived(value)) continue;
+    if (parameterisesItself(name, top.selectors)) continue;
     if (insideAtRule) atRuleExempt.push({ name, line: i + 1, where: top.key });
     else stray.push({ name, line: i + 1, why: `derived, but declared on \`${top.key}\`` });
 }
@@ -237,7 +274,7 @@ for (const sheet of SHEETS) {
         const name = inner.slice(0, comma).trim();
         if (!fallbacks.has(name)) fallbacks.set(name, new Set());
         fallbacks.get(name).add(inner.slice(comma + 1).trim().replace(/\s+/g, ' '));
-        if (!declaredNames.has(name)) continue;
+        if (!globallyDeclared.has(name)) continue;
         const line = text.slice(0, i).split('\n').length;
         const decl = textLines.find((l) => l.trim().startsWith(name + ':'));
         problems.push(

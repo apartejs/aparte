@@ -95,3 +95,29 @@ aparte-conversation-list {
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+/* ── Link ────────────────────────────────────────────────────────────────────
+   A standalone link. Prose already styles the links a model writes; this is the one
+   an application places itself, in a toolbar or an empty state, where no prose
+   context applies.
+
+   The underline is offset and thinned rather than removed: an underline is the only
+   affordance a link has that survives both colour blindness and forced-colors, so
+   dropping it on a text link removes the only cue some readers get. */
+.aparte-link {
+  color: var(--aparte-link-color);
+  text-decoration: underline;
+  text-decoration-thickness: var(--aparte-link-underline-thickness);
+  text-underline-offset: var(--aparte-link-underline-offset);
+  border-radius: var(--aparte-radius-xs);
+  transition: color var(--aparte-duration-fast) var(--aparte-ease);
+}
+.aparte-link:hover { color: var(--aparte-link-color-hover); }
+.aparte-link:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-btn-focus-offset);
+}
+/* Quiet — for a link inside a dense row, where a coloured one would shout. It keeps
+   the underline, which is the part that carries the meaning. */
+.aparte-link--muted { color: var(--aparte-text-muted); }
+.aparte-link--muted:hover { color: var(--aparte-text); }
