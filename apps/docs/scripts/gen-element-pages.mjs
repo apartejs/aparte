@@ -301,33 +301,39 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
 
   if (description) md += `${mdxSafe(description)}\n\n`;
 
-  md += `<Tabs>\n<TabItem label="Usage">\n\n<ElementPreview tag="${tag}" />\n`;
+  // Sections STACKED, not tabbed. Usage/API/Theming were three `<Tabs>` panels, which put
+  // FIVE of every page's six headings inside a closed tab: Starlight builds its table of
+  // contents from the markdown, so each of those links scrolled to a hidden element and did
+  // nothing. Measured on the built site — 5 dead links per page, across every page.
+  //
+  // Not a Starlight bug: Docusaurus documents the same behaviour ("headings within Tabs will
+  // not be excluded") and carries an open issue with this exact symptom. It is what tabs do
+  // to a document outline, in every framework. Stacked, the outline IS the navigation.
+  //
+  // The FRAMEWORK tabs below stay: they carry no headings, so they cost the outline nothing.
+  md += `## Usage\n\n<ElementPreview tag="${tag}" />\n`;
 
   const ex = exampleBlocks(decl);
-  md += ex ? `\n## Example\n${ex}` : '';
+  md += ex ? `\n### Example\n${ex}` : '';
   for (const p of parts) {
     const pex = exampleBlocks(byTag.get(p).decl);
     const pdesc = String(byTag.get(p).decl.description ?? '').trim();
-    md += `\n## ${humanName(p)}\n\n\`<${p}>\`\n\n`;
+    md += `\n### ${humanName(p)}\n\n\`<${p}>\`\n\n`;
     if (pdesc) md += `${mdxSafe(pdesc)}\n`;
     md += pex;
   }
 
-  md += `\n</TabItem>\n<TabItem label="API">\n`;
-  md += parts.length ? `\n## \`<${tag}>\`\n${apiTables(decl, 3)}` : apiTables(decl, 2);
+  md += `\n## API\n`;
+  md += parts.length ? `\n### \`<${tag}>\`\n${apiTables(decl, 4)}` : apiTables(decl, 3);
   for (const p of parts) {
-    md += `\n## \`<${p}>\`\n${apiTables(byTag.get(p).decl, 3)}`;
+    md += `\n### \`<${p}>\`\n${apiTables(byTag.get(p).decl, 4)}`;
   }
-  md += `\n</TabItem>\n`;
 
   if (hasCss) {
-    md += `<TabItem label="Theming">\n\nOverride any of these on \`:root\`, on a subtree, or on one instance — custom properties inherit downward. Some are this element's own; others are site-wide tokens that also style it, and overriding one of those at \`:root\` moves everything that reads it. The full set is in the [CSS variables reference](/reference/css-variables/).\n`;
+    md += `\n## Theming\n\nOverride any of these on \`:root\`, on a subtree, or on one instance — custom properties inherit downward. Some are this element's own; others are site-wide tokens that also style it, and overriding one of those at \`:root\` moves everything that reads it. The full set is in the [CSS variables reference](/reference/css-variables/).\n`;
     for (const d of all) md += cssTable(d, 3);
-    md += `\n</TabItem>\n`;
   }
 
-  md += `</Tabs>
-`;
   md += frameworkTabs(decl);
   md += `
 {/* Generated from ${path} by apps/docs/scripts/gen-element-pages.mjs — edit the class JSDoc, not this file. */}
