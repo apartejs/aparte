@@ -1,7 +1,5 @@
 /**
- * AparteOptgroup
- * 
- * Option group element for aparte-select dropdown.
+ * A labelled, optionally collapsible band of options inside `<aparte-select>`.
  *
  * A labelled band of options inside `<aparte-select>`. Presentational only: the group
  * holds no value, and collapsing it just sets `display: none` on its `<aparte-option>`

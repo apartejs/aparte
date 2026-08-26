@@ -5,10 +5,10 @@ export type { SyncableBubble } from './bubble/index.js';
 export { AparteChatStatus } from './status/index.js';
 export { AparteChatViewport } from './viewport/index.js';
 
-// Composer primitives
+// Composer parts
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './composer/index.js';
 export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './composer/index.js';
 
-// Conversation list primitive
+// Conversation list
 export { AparteConversationList } from './conversation-list/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './conversation-list/index.js';

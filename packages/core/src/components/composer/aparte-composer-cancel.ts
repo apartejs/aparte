@@ -12,7 +12,7 @@ const CANCEL_BUTTON_CLASS = 'aparte-composer-cancel__button';
 
 
 /**
- * Cancel/stop streaming button primitive for <aparte-composer>.
+ * Cancel/stop-streaming button, a part of <aparte-composer>.
  *
  * Most composers should not use this element. `<aparte-composer-send>` already becomes
  * the stop button while a reply streams, so adding this one gives you a second, equally

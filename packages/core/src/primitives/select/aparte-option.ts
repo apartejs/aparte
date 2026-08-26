@@ -1,7 +1,5 @@
 /**
- * AparteOption
- * 
- * Option element for aparte-select dropdown.
+ * One selectable row inside `<aparte-select>`.
  *
  * One selectable row. Only meaningful inside `<aparte-select>` (directly, or nested in an
  * `<aparte-optgroup>`): the parent owns `selected` outright — on its first render, and on

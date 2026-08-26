@@ -238,7 +238,7 @@ export class AparteChatBubble extends HTMLElement {
   private _siblingIndex = 0;
   /** True while the user-message inline editor is open. */
   private _editing = false;
-  /** The live inline editor (the composer's contenteditable primitive), present only while `_editing`. */
+  /** The live inline editor (the composer's contenteditable input), present only while `_editing`. */
   private _editInput: AparteComposerInput | null = null;
 
   static get observedAttributes(): string[] {
@@ -1360,7 +1360,7 @@ export class AparteChatBubble extends HTMLElement {
    * Open the inline editor for a user message. Idempotent — a second `edit`
    * click while already editing is a no-op (no stacked editors).
    *
-   * The editor reuses the composer's contenteditable primitive
+   * The editor reuses the composer's contenteditable input
    * (`<aparte-composer-input>`) so editing is iso with composing: same autosize,
    * IME, paste and styling. With no `<aparte-composer>` root it runs standalone —
    * `Enter` (Shift+Enter = newline) surfaces as `aparte-composer-submit`, which we
@@ -1381,7 +1381,7 @@ export class AparteChatBubble extends HTMLElement {
     // ready — seed it with the current text (autosizes to fit).
     input.setValue(this._content);
 
-    // Enter (via the primitive's standalone submit event) saves; Esc cancels.
+    // Enter (via that element's standalone submit event) saves; Esc cancels.
     input.addEventListener('aparte-composer-submit', () => this._exitEditMode(true));
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !e.isComposing) {

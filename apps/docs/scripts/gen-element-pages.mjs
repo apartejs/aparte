@@ -15,14 +15,20 @@
  * - **A component made of parts is ONE page.** 5/6 — Ark UI puts 17 parts on the Select page,
  *   Radix 16, Material Web folds `md-menu-item` into Menus. Web Awesome is the lone splitter,
  *   and Material Web proves that is a choice rather than a constraint of web components.
- * - **Grouped by purpose, not by source tree.** Nebular: Navigation / Forms / Modals. Web
- *   Awesome: Actions / Forms / Feedback. Nobody groups by where the files live, which is what
- *   "primitives vs components" was.
+ * - **Grouped by purpose.** Nebular: Navigation / Forms / Modals. Web Awesome: Actions / Forms
+ *   / Feedback. This first read as "never group by source tree", and the two real primitives
+ *   were folded into a "Utility" bucket that said nothing about them. That was wrong, and the
+ *   correction sharpens the convention rather than breaking it: **reusable-anywhere IS a
+ *   purpose**, and it is the one a reader most needs, so `Primitives` is a group — read off
+ *   `packages/core/src/primitives/`, because there the tree and the purpose agree.
  *
- * Tabs are Nebular's idea (Overview | API | Theme) and the minority position — but Material Web
- * stacks exactly the same sections, so the split is validated six times and only its
- * presentation is contested. Ours are client-side so a component keeps ONE indexable URL, where
- * Nebular routes each tab to its own.
+ * Sections are STACKED, not tabbed. Nebular tabs Overview | API | Theme and Material Web stacks
+ * exactly those same sections, so the split is validated six times and only its presentation is
+ * contested — and tabs lose that argument on a measurable point: Starlight builds its table of
+ * contents from the markdown, so a heading inside a closed tab becomes a link that scrolls to a
+ * hidden element. Five of six links on every page did nothing. It is not a Starlight bug —
+ * Docusaurus documents the same behaviour — it is what tabs do to a document outline. Stacked,
+ * the outline IS the page's navigation.
  *
  * Output (git-ignored, always regenerated):
  *   src/content/docs/components/<group>/<tag>.mdx
@@ -32,6 +38,7 @@
 import { readFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { writeIfChanged } from './write-if-changed.mjs';
 import { mdxSafe } from './mdx-safe.mjs';
+import { exampleInFrameworks } from './example-frameworks.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -74,12 +81,22 @@ const PARTS = {
 };
 
 /**
- * Sidebar groups, by what a reader is looking for. Every surveyed site groups this way and none
- * groups by source tree, which is what "primitives vs components" was — the same critique that
- * retired the package-family sidebar earlier.
+ * Sidebar groups, by what a reader is looking for.
  *
- * An element missing from this map still gets a page, under `other`, and says so on the console.
- * A silent default would let a new element land somewhere arbitrary and unnoticed.
+ * **`primitives` is a group, and it is derived from the source tree rather than listed here.**
+ * That reverses this file's first version, which grouped purely by purpose and folded the two
+ * real primitives into a "Utility" bucket that said nothing about them. Paul's correction:
+ * *"les primitives doivent être à part, car ce sont des éléments qui sont réutilisés"* — and
+ * reusable-anywhere IS the purpose that distinguishes them. An element under
+ * `packages/core/src/primitives/` works outside the chat entirely; everything in
+ * `components/` finds its parent with `closest()` and is inert without one.
+ *
+ * Deriving it from the module path also means it cannot drift: move a file into `primitives/`
+ * and its page moves with it, which a hand-kept map would not do.
+ *
+ * The rest stays a judgement, because "conversation" and "input" are not in the tree. An
+ * element missing from the map still gets a page, under `other`, and says so on the console —
+ * a silent default would let a new element land somewhere arbitrary and unnoticed.
  */
 const GROUP = {
   'aparte-chat': 'conversation',
@@ -89,9 +106,11 @@ const GROUP = {
   'aparte-conversation-list': 'conversation',
   'aparte-composer': 'input',
   'aparte-elicitation': 'input',
-  'aparte-select': 'utility',
-  'aparte-progress-spinner': 'utility',
 };
+
+/** `primitives/` in the tree means a primitive on the site. Path wins over the map above. */
+const groupOf = (tag, modulePath) =>
+  (modulePath || '').includes('/primitives/') ? 'primitives' : (GROUP[tag] ?? 'other');
 
 /** Reading order inside a group, most load-bearing first; anything else follows alphabetically. */
 const LEAD = ['aparte-chat', 'aparte-chat-viewport', 'aparte-chat-bubble', 'aparte-composer', 'aparte-select'];
@@ -99,8 +118,18 @@ const LEAD = ['aparte-chat', 'aparte-chat-viewport', 'aparte-chat-bubble', 'apar
 const GROUP_LABEL = {
   conversation: 'The conversation',
   input: 'Input',
-  utility: 'Utility',
+  primitives: 'Primitives',
   other: 'Other',
+};
+
+/** One line per group on the catalogue index — what the group IS, not what it contains. */
+const GROUP_BLURB = {
+  conversation: 'The transcript and everything that renders inside it.',
+  input: 'Where the person writes, and where the model asks something back.',
+  primitives:
+    'Reusable anywhere, including outside a chat. They know nothing about a conversation, '
+    + 'take no host, and are the pieces to build your own surfaces from.',
+  other: '',
 };
 
 /** `aparte-composer-add-attachment` → `Composer add attachment`. Derived, so a new tag needs no map. */
@@ -156,6 +185,43 @@ function exampleBlocks(decl) {
   return examplesOf(decl)
     .map((ex) => `\n\`\`\`${ex.trimStart().startsWith('<') ? 'html' : 'ts'}\n${ex.trim()}\n\`\`\`\n`)
     .join('');
+}
+
+/**
+ * The Usage block for one element: the rendered thing, with its source behind a disclosure.
+ *
+ * HTML examples go through the five framework tabs; a JS/TS example does not, because it is
+ * already framework-agnostic — showing the same snippet five times would teach that they
+ * differ. An element with no example still gets the frame: the preview is the point.
+ */
+function previewBlock(decl) {
+  const examples = examplesOf(decl).map((e) => e.trim());
+  const html = examples.filter((e) => e.startsWith('<'));
+  const script = examples.filter((e) => !e.startsWith('<'));
+  if (!html.length && !script.length) return `\n<ElementPreview tag="${decl.tagName}" />\n`;
+  const byFramework = exampleInFrameworks(html, script);
+  const slots = Object.entries(byFramework)
+    .map(([f, code]) => `<Fragment slot="code-${f}">\n${code}</Fragment>\n`)
+    .join('');
+  return `\n<ElementPreview tag="${decl.tagName}">\n${slots}</ElementPreview>\n`;
+}
+
+/**
+ * The description, split where a reader's need splits.
+ *
+ * The first paragraph says what the element IS and belongs at the top. The rest is
+ * reference prose — up to eight paragraphs of it — and stacking all of it between the tag
+ * and the page put a wall in front of the one thing the page is for. It now sits under its
+ * own heading, which the table of contents can address.
+ *
+ * Markdown headings written in the JSDoc pass through untouched, so an element with a long
+ * description can section itself at the source rather than here.
+ */
+function splitDescription(decl) {
+  const desc = String(decl.description ?? '').trim();
+  if (!desc) return { lead: '', body: '' };
+  const paras = desc.split(/\n\s*\n/);
+  return { lead: paras[0].trim(), body: paras.slice(1).join('\n\n').trim() };
 }
 
 function apiTables(decl, h) {
@@ -230,10 +296,21 @@ const pascal = (s) => s.replace(/^aparte-/, '').replace(/(^|-)([a-z])/g, (_m, _d
 const camel = (s) => s.replace(/-([a-z])/g, (_m, c) => c.toUpperCase());
 const outputName = (event) => camel(event.replace(/^aparte-/, ''));
 
-function frameworkTabs(decl) {
+/**
+ * How the SAME element is bound in each framework — as a table, deliberately.
+ *
+ * This section used to be a second `<Tabs syncKey="framework">` group, which put a second
+ * framework selector on a page that already has one in the preview card, driven by a
+ * different mechanism. Two selectors that can disagree is worse than none.
+ *
+ * A table is also the better shape for what this section is FOR. The card answers "show me
+ * mine"; this answers "how do these differ", and a comparison you have to click through
+ * five times is not a comparison. The tag column repeating itself is the finding.
+ */
+function frameworkTable(decl) {
   const tag = decl.tagName;
   const attrs = decl.attributes ?? [];
-  // A presence attribute is the one worth showing: it is where the four frameworks differ most,
+  // A presence attribute is the one worth showing: it is where the frameworks differ most,
   // and where every one of them has the same trap.
   const bool = attrs.find((a) => /boolean/i.test(a.type?.text ?? ''));
   const attr = bool ?? attrs[0];
@@ -241,26 +318,37 @@ function frameworkTabs(decl) {
   // showing a handler with an unused parameter. Falls back to the first event otherwise.
   const events = decl.events ?? [];
   const ev = events.find((e) => /^CustomEvent<.+>$/.test(e.type?.text ?? '')) ?? events[0];
-  const detail = ev && /^CustomEvent<(.+)>$/.exec(ev.type?.text ?? '');
+  const hasDetail = ev && /^CustomEvent<.+>$/.test(ev.type?.text ?? '');
+  const handler = hasDetail ? 'use($event)' : 'onIt()';
 
-  const openTag = (syntax) => `<${tag}${attr ? ` ${syntax}` : ''}></${tag}>`;
-  const plain = attr ? (bool ? `${attr.name}=""` : `${attr.name}="…"`) : '';
+  let md = `\n## In a framework\n\nThe element is the same object everywhere — **the tag does not change**, which is why the preview above needs only one. What changes is how you write an attribute and how an event reaches you.\n\n`;
 
-  let md = `\n## In a framework\n\nThe element is the same object everywhere — **the tag does not change**. What changes is how an attribute is written and how an event reaches you.\n\n<Tabs syncKey="framework">\n`;
+  if (!attr && !ev) {
+    md += `\`<${tag}>\` takes no attribute and fires no event, so there is nothing to bind: write the tag.\n`;
+  } else {
+    md += `| | Attribute | Event |\n| --- | --- | --- |\n`;
+    const row = (name, a, e) => `| ${name} | ${a} | ${e} |\n`;
+    const na = '—';
+    const plainAttr = attr ? `\`${attr.name}${bool ? '=""' : '="…"'}\`` : na;
+    md += row('Vanilla', plainAttr, ev ? `\`el.addEventListener('${ev.name}', …)\`` : na);
+    md += row('React', plainAttr, ev ? 'by ref, typed through the DOM' : na);
+    md += row('Vue', plainAttr, ev ? `\`@${ev.name}="…"\`` : na);
+    md += row('Svelte', plainAttr, ev ? `\`on:${ev.name}={…}\`` : na);
+    md += row(
+      'Angular',
+      attr ? `\`${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}\`` : na,
+      ev ? `\`(${outputName(ev.name)})="${handler}"\`` : na,
+    );
+    md += `\n`;
+    if (bool) {
+      md += `The presence attribute is the shared trap: it is set with \`''\` and removed with \`null\`, never \`false\`. Every framework here stringifies \`false\` into \`${attr.name}="false"\`, which \`hasAttribute\` reads as ON. Angular's directive is the exception — \`[${camel(attr.name)}]\` takes a real boolean, because a directive is running.\n\n`;
+    }
+    if (ev) {
+      md += `Angular's \`(${outputName(ev.name)})\` comes from \`Aparte${pascal(tag)}Directive\`, a standalone directive whose selector IS the tag — so the real element sits in the template, and \`@if\`, \`@for\` and content projection all reach it with no \`CUSTOM_ELEMENTS_SCHEMA\`.\n\n`;
+    }
+  }
 
-  md += `<TabItem label="Vanilla">\n\n\`\`\`html\n${openTag(plain)}\n\`\`\`\n`;
-  if (ev) md += `\n\`\`\`js\nel.addEventListener('${ev.name}', ${detail ? '(e) => use(e.detail)' : '() => onIt()'});\n\`\`\`\n`;
-  md += `\n</TabItem>\n`;
-
-  md += `<TabItem label="React">\n\n\`\`\`tsx\n${openTag(plain)}\n\`\`\`\n\nThe \`aparte-*\` tags are typed JSX intrinsics as soon as you import from \`@aparte/react\`.${bool ? ` A presence attribute takes \`''\`, never \`true\` — React stringifies it, and \`${attr.name}={false}\` would render \`${attr.name}="false"\`, which \`hasAttribute\` reads as on.` : ''}${ev ? ' Events reach you by ref, typed through the DOM.' : ''}\n\n</TabItem>\n`;
-
-  md += `<TabItem label="Vue">\n\n\`\`\`vue\n<template>\n  ${openTag(ev ? `${plain}\n    @${ev.name}="${detail ? '(e) => use(e.detail)' : '() => onIt()'}"\n  ` : plain)}\n</template>\n\`\`\`\n\nDeclared through Vue's \`GlobalComponents\`, so \`vue-tsc\` checks the tag in any template.${bool ? ` A presence attribute takes \`''\` to set and \`null\` to remove, never \`false\`.` : ''}\n\n</TabItem>\n`;
-
-  md += `<TabItem label="Svelte">\n\n\`\`\`svelte\n${openTag(ev ? `${plain}\n  on:${ev.name}={${detail ? '(e) => use(e.detail)' : '() => onIt()'}}\n` : plain)}\n\`\`\`\n\nDeclared through \`SvelteHTMLElements\`, so \`svelte-check\` covers the attributes and the \`on:\` handlers.${bool ? ` A presence attribute takes \`''\`, never \`false\`.` : ''}\n\n</TabItem>\n`;
-
-  md += `<TabItem label="Angular">\n\n\`\`\`ts\nimport { Aparte${pascal(tag)}Directive } from '@aparte/angular';\n\`\`\`\n\n\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ev ? `\n  (${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"` : ''}></${tag}>\n\`\`\`\n\nA standalone directive whose selector IS the tag, so the real element sits in the template — \`@if\`, \`@for\` and content projection all reach it — and no \`CUSTOM_ELEMENTS_SCHEMA\` is needed.\n\n</TabItem>\n`;
-
-  md += `</Tabs>\n\nInstallation and the framework-specific traps: [React](/frameworks/react/) · [Vue](/frameworks/vue/) · [Svelte](/frameworks/svelte/) · [Angular](/frameworks/angular/).\n`;
+  md += `Installation and the framework-specific traps: [React](/frameworks/react/) · [Vue](/frameworks/vue/) · [Svelte](/frameworks/svelte/) · [Angular](/frameworks/angular/).\n`;
   return md;
 }
 
@@ -290,45 +378,54 @@ title: ${yaml(humanName(tag))}
 description: ${yaml(firstSentence(description) || `The <${tag}> custom element.`)}
 ${order === -1 ? '' : `sidebar:\n  order: ${order + 1}\n`}---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
 import ElementPreview from '../../../../components/ElementPreview.astro';
 
 `;
 
   // The tag before the prose: the page is titled in human words, so the identifier a reader
   // types has to be stated once, plainly, at the top.
-  md += `\`<${tag}>\`${parts.length ? ` — with ${parts.length} part${parts.length > 1 ? 's' : ''}: ${parts.map((p) => `\`<${p}>\``).join(', ')}` : ''}\n\n`;
+  // The class name is stated, not left to chance. It is what a TypeScript consumer writes
+  // (`querySelector<AparteComposerSend>(…)`), and it used to reach the page only when a
+  // JSDoc description happened to open with it — so tidying three of those descriptions
+  // deleted the only mention `AparteOption`, `AparteOptgroup` and `AparteProgressSpinner`
+  // had anywhere on the site. `check:export-mentions` caught it; this makes it structural.
+  md += `\`<${tag}>\` · class \`${decl.name}\`${parts.length ? ` · ${parts.length} part${parts.length > 1 ? 's' : ''}: ${parts.map((p) => `\`<${p}>\``).join(', ')}` : ''}\n\n`;
 
-  if (description) md += `${mdxSafe(description)}\n\n`;
+  // Sections STACKED, not tabbed. Usage/API/Theming were three `<Tabs>` panels, which put
+  // five of this page's six headings inside a closed tab: Starlight builds its table of
+  // contents from the markdown, so every one of those links scrolled to a hidden element
+  // and did nothing. It is not a Starlight bug — Docusaurus documents the same behaviour
+  // and has carried the issue for years — it is what tabs do to a document outline.
+  // Stacked, the outline IS the page's navigation. The FRAMEWORK tabs stay: they carry no
+  // headings, so they cost the outline nothing.
+  const { lead, body } = splitDescription(decl);
+  if (lead) md += `${mdxSafe(lead)}\n\n`;
 
-  md += `<Tabs>\n<TabItem label="Usage">\n\n<ElementPreview tag="${tag}" />\n`;
+  md += `## Usage\n${previewBlock(decl)}`;
 
-  const ex = exampleBlocks(decl);
-  md += ex ? `\n## Example\n${ex}` : '';
+  if (body) md += `\n## How it works\n\n${mdxSafe(body)}\n`;
+
   for (const p of parts) {
-    const pex = exampleBlocks(byTag.get(p).decl);
-    const pdesc = String(byTag.get(p).decl.description ?? '').trim();
+    const pd = byTag.get(p).decl;
+    const split = splitDescription(pd);
     md += `\n## ${humanName(p)}\n\n\`<${p}>\`\n\n`;
-    if (pdesc) md += `${mdxSafe(pdesc)}\n`;
-    md += pex;
+    if (split.lead) md += `${mdxSafe(split.lead)}\n`;
+    md += previewBlock(pd);
+    if (split.body) md += `\n${mdxSafe(split.body)}\n`;
   }
 
-  md += `\n</TabItem>\n<TabItem label="API">\n`;
-  md += parts.length ? `\n## \`<${tag}>\`\n${apiTables(decl, 3)}` : apiTables(decl, 2);
+  md += `\n## API\n`;
+  md += parts.length ? `\n### \`<${tag}>\`\n${apiTables(decl, 4)}` : apiTables(decl, 3);
   for (const p of parts) {
-    md += `\n## \`<${p}>\`\n${apiTables(byTag.get(p).decl, 3)}`;
+    md += `\n### \`<${p}>\`\n${apiTables(byTag.get(p).decl, 4)}`;
   }
-  md += `\n</TabItem>\n`;
 
   if (hasCss) {
-    md += `<TabItem label="Theming">\n\nOverride any of these on \`:root\`, on a subtree, or on one instance — custom properties inherit downward. Some are this element's own; others are site-wide tokens that also style it, and overriding one of those at \`:root\` moves everything that reads it. The full set is in the [CSS variables reference](/reference/css-variables/).\n`;
+    md += `\n## Theming\n\nOverride any of these on \`:root\`, on a subtree, or on one instance — custom properties inherit downward. Some are this element's own; others are site-wide tokens that also style it, and overriding one of those at \`:root\` moves everything that reads it. The full set is in the [CSS variables reference](/reference/css-variables/).\n`;
     for (const d of all) md += cssTable(d, 3);
-    md += `\n</TabItem>\n`;
   }
 
-  md += `</Tabs>
-`;
-  md += frameworkTabs(decl);
+  md += frameworkTable(decl);
   md += `
 {/* Generated from ${path} by apps/docs/scripts/gen-element-pages.mjs — edit the class JSDoc, not this file. */}
 `;
@@ -350,14 +447,25 @@ parts as sections. [Segments](/segments/text/) are the other family and a differ
 thing — data somebody renders, with no tag at all.
 
 `;
-  for (const group of ['conversation', 'input', 'utility', 'other']) {
+  for (const group of ['conversation', 'input', 'primitives', 'other']) {
     const list = pagesByGroup[group] ?? [];
     if (!list.length) continue;
-    md += `\n## ${GROUP_LABEL[group]}\n\n| Component | What it is |\n| --- | --- |\n`;
+    md += `\n## ${GROUP_LABEL[group]}\n\n`;
+    if (GROUP_BLURB[group]) md += `${GROUP_BLURB[group]}\n\n`;
+    md += `| Component | What it is |\n| --- | --- |\n`;
     for (const tag of list) {
       const { decl } = byTag.get(tag);
-      const parts = (PARTS[tag] ?? []).length;
-      md += `| [${humanName(tag)}](/components/${group}/${tag}/)${parts ? ` _(+${parts} parts)_` : ''} | ${esc(firstSentence(decl.description))} |\n`;
+      // Parts are NAMED, not counted. "(+7 parts)" told a reader something existed without
+      // telling them what, so `aparte-composer-toolbar` was reachable only by opening the page
+      // and scrolling — nothing on this index could be scanned, searched or linked for it.
+      const parts = (PARTS[tag] ?? []).filter((t) => byTag.has(t));
+      md += `| [${humanName(tag)}](/components/${group}/${tag}/) | ${esc(firstSentence(decl.description))} |\n`;
+      if (parts.length) {
+        const links = parts
+          .map((t) => `[${humanName(t)}](/components/${group}/${tag}/#${humanName(t).toLowerCase().replace(/\s+/g, '-')})`)
+          .join(' · ');
+        md += `| ${links} | _the ${parts.length} parts of ${humanName(tag)}_ |\n`;
+      }
     }
   }
   md += `\n{/* Generated by apps/docs/scripts/gen-element-pages.mjs — do not edit by hand. */}\n`;
@@ -369,8 +477,8 @@ thing — data somebody renders, with no tag at all.
 const pagesByGroup = {};
 for (const tag of byTag.keys()) {
   if (isPart.has(tag)) continue;
-  const group = GROUP[tag] ?? 'other';
-  if (!GROUP[tag]) console.warn(`[gen-element-pages] <${tag}> is in no purpose group — filed under "other"`);
+  const group = groupOf(tag, byTag.get(tag).path);
+  if (group === 'other') console.warn(`[gen-element-pages] <${tag}> is in no group — filed under "other"`);
   (pagesByGroup[group] ??= []).push(tag);
 }
 for (const list of Object.values(pagesByGroup)) {

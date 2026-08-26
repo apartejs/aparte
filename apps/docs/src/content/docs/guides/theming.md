@@ -101,6 +101,17 @@ The generated [CSS variables](/reference/css-variables/) reference marks every t
 this position **palette only**, so you can tell a knob from a base at a glance.
 :::
 
+## When a variable is not enough
+
+A variable is intent, a class is structure — and core renders into the **light DOM**, so
+every class it writes is already reachable from your stylesheet without a `::part()`. When
+you need to move something a token cannot express, the generated
+[CSS classes](/reference/css-classes/) reference lists all of them: which area writes each
+one, and which ones core will step aside for if you supply them yourself.
+
+It also answers the question you hit the first time you build a plugin — *which class goes
+on my own button?* `.aparte-control` does, and the page says why.
+
 ## The scales
 
 Structural values aren't magic numbers — they route through **scales**. Adjust a scale

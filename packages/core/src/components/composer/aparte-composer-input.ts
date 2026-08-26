@@ -4,12 +4,12 @@ import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
- * Contenteditable text input primitive.
+ * The composer's text field — a contenteditable, not a `<textarea>`.
  *
  * The element owns its subtree: on connect it writes one `.aparte-composer-input__editor`
  * contenteditable and binds its listeners to that node, so children you place inside are
  * replaced. There is nothing to project here — style the generated editor through the CSS
- * variables below, or replace the whole primitive.
+ * variables below, or replace the whole part.
  *
  * Enter submits and Shift+Enter inserts a newline; `submit-on-enter="false"` on the
  * composer inverts that mapping, and Enter never submits mid-IME-composition — the key
@@ -19,7 +19,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *
  * Without an `<aparte-composer>` ancestor it still works, and that is deliberate: a
  * submitting Enter then dispatches `aparte-composer-submit` instead of calling
- * `root.submit()`, which is how the bubble's inline editor reuses this primitive.
+ * `root.submit()`, which is how the bubble's inline editor reuses this element.
  * Everything the root owns goes with it though — the mirrored value, the placeholder
  * fallback, the disabled/streaming sync and image paste all need the composer.
  *
@@ -31,7 +31,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *
  * @fires aparte-composer-submit - A submitting Enter was pressed with no
  *   `<aparte-composer>` ancestor to submit to; with one it calls `root.submit()` and
- *   dispatches nothing. No detail — the host that placed this primitive reads
+ *   dispatches nothing. No detail — the host that placed this element reads
  *   `getValue()`.
  *
  * @attr {boolean} disabled - Makes the field non-editable; the composer's own `disabled` also reaches it.
@@ -291,7 +291,7 @@ export class AparteComposerInput extends HTMLElement {
             } else {
                 // Standalone (no <aparte-composer> parent, e.g. the bubble's inline
                 // editor): there is no root to submit to, so surface the intent as a
-                // DOM event the host can act on. Keeps this primitive reusable on its
+                // DOM event the host can act on. Keeps this element reusable on its
                 // own — the IME guard + submitOnEnter mapping above stay the single
                 // source of truth for "when to submit".
                 this.dispatchEvent(new CustomEvent('aparte-composer-submit', { bubbles: true }));

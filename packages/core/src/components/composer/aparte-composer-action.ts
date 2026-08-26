@@ -12,7 +12,7 @@ const ACTION_BUTTON_CLASS = 'aparte-composer-action__button';
 
 
 /**
- * Generic action button primitive for <aparte-composer>.
+ * Generic action button, a part of <aparte-composer>.
  *
  * The consumer declares it directly in markup — no global registration needed.
  *

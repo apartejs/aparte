@@ -1,5 +1,5 @@
 /**
- * AparteProgressSpinner
+ * A circular progress spinner, determinate or not.
  *
  * Circular progress spinner web component.
  * - Indeterminate (no `value` attribute): continuous rotation animation

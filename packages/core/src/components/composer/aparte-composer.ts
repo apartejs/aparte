@@ -3,7 +3,7 @@ import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Event map for internal pub/sub between primitives
+// Event map for internal pub/sub between the composer and its parts
 // ─────────────────────────────────────────────────────────────────────────────
 export interface AparteComposerEventMap {
     'value-change': { value: string };
@@ -46,7 +46,7 @@ export interface AparteComposerChangeEventDetail {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * The root context for every `aparte-composer-*` primitive. It imposes no visual
+ * The root context for every `aparte-composer-*` part. It imposes no visual
  * layout — the consumer owns the structure — and holds the shared state the parts
  * read: the value, the streaming flag, pending attachments, whether a panel is up.
  *
@@ -548,7 +548,7 @@ export class AparteComposer extends HTMLElement {
         if (this._panelActive) this._evictPanel();
     }
 
-    /** Focus the input primitive inside this composer. */
+    /** Focus the input part inside this composer. */
     override focus(): void {
         const input = this.querySelector('aparte-composer-input') as HTMLElement | null;
         input?.focus();

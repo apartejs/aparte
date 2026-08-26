@@ -7,9 +7,9 @@ import '../elicitation/aparte-elicitation.js';
 import { escapeAttr } from '../../utils/escape.js';
 
 /**
- * AparteChat - The Shell
+ * The shell: one element that lays out a whole chat.
  *
- * The container element for a chat. It lays out its Light DOM children as a flex
+ * It lays out its Light DOM children as a flex
  * column: an `<aparte-chat-viewport>` takes the space left over (`flex: 1 1 auto`)
  * and scrolls, an `<aparte-composer>` keeps its own height below it. Light DOM on
  * purpose, so the page's own global CSS reaches inside.
@@ -20,7 +20,7 @@ import { escapeAttr } from '../../utils/escape.js';
  * the composer) is simply another row of that column, in DOM order. Find none and
  * `innerHTML` is OVERWRITTEN with a default composition — a viewport, an
  * `<aparte-elicitation>` presenter, and a composer shell holding an input and a send
- * button, plus the two attachment primitives when `attachments` is set — so children
+ * button, plus the two attachment parts when `attachments` is set — so children
  * written without a viewport anywhere inside them are destroyed, that header included.
  * The test is a DESCENDANT query, so a viewport nested in a wrapper of your own still
  * counts — compose it yourself with the viewport somewhere in the tree, or leave the tag
@@ -49,7 +49,7 @@ import { escapeAttr } from '../../utils/escape.js';
  * deliberately not re-declared here, so a chat nested in a dark wrapper stays dark.
  *
  * Presentational only: it does NOT wire a transport/client. Attach an
- * `AparteClient`, or handle `aparte-send` yourself, as with the primitives.
+ * `AparteClient`, or handle `aparte-send` yourself, as with the composer parts.
  * Size the element via CSS (a height, or let it fill a sized parent).
  *
  * @element aparte-chat
@@ -196,7 +196,7 @@ export class AparteChat extends HTMLElement {
   }
 
   /**
-   * Add/remove the two attachment primitives on the composition we injected, so
+   * Add/remove the two attachment parts on the composition we injected, so
    * toggling the attribute after mount works like the wrappers' reactive prop
    * (there, a re-render does it). Author-provided markup is left alone.
    */

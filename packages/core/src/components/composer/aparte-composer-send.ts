@@ -11,7 +11,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 const SEND_BUTTON_CLASS = 'aparte-composer-send__button';
 
 /**
- * Submit button primitive for <aparte-composer>.
+ * Submit button, a part of <aparte-composer>.
  *
  * One control, four meanings: **send**, **stop** while the root is streaming, and — when
  * an elicitation panel is open — **submit** this answer or **advance** to the next

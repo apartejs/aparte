@@ -5,8 +5,9 @@ sidebar:
   order: 4
 ---
 
-The [Components](/components/), [CSS variables](/reference/css-variables/) and
-[`@aparte/engine`](/reference/engine/) pages are generated references for those surfaces.
+The [Components](/components/), [CSS variables](/reference/css-variables/),
+[CSS classes](/reference/css-classes/) and [`@aparte/engine`](/reference/engine/) pages are
+generated references for those surfaces.
 This page is the companion for the single biggest surface that has none: the **core JS
 API** — `aparteGlobalConfig`, `AparteClient`, and the transports. Every signature below is
 copied from `packages/core/src`; where a type is complex it is simplified for

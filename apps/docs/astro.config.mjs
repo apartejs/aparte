@@ -107,17 +107,18 @@ export default defineConfig({
             ],
           },
           {
-            // The catalogue. Three families because the source tree draws them: generic
-            // primitives, the chat surface, and segments — which are data with no tag, so a
-            // different page shape entirely. Every page here is GENERATED from the manifest
-            // and from the segment union, so shipping an element ships its page.
+            // The catalogue. Every page here is GENERATED from the manifest and from the
+            // segment union, so shipping an element ships its page. Segments sit apart
+            // because they are data with no tag — a different page shape entirely.
             label: 'Components',
             link: '/components/',
             items: [
               { label: 'Overview', link: '/components/' },
               // One autogenerate over `components/`, whose subdirectories ARE the groups —
-              // conversation, input, utility. Grouped by what a reader is looking for, which is
-              // what all six surveyed sites do; "primitives vs components" was our source tree.
+              // conversation, input, primitives. Grouped by what a reader is looking for, which
+              // is what all six surveyed sites do. `primitives` is read off the source tree
+              // rather than judged, because there the tree and the purpose agree: an element
+              // under `packages/core/src/primitives/` works outside a chat entirely.
               { autogenerate: { directory: 'components' } },
               { label: 'Segments', items: [{ autogenerate: { directory: 'segments' } }] },
             ],

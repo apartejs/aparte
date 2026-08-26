@@ -1,64 +1,272 @@
 ---
 /**
- * The preview frame on a generated element page — deliberately EMPTY for now.
+ * The element, shown the way this library's own artifact card shows one: a header, a row of
+ * tabs, a body with one pane at a time. Same vocabulary in the docs and in the product.
  *
- * It is an `<iframe>` and not an inline container, and that is the decision this file
- * exists to hold rather than a placeholder detail:
+ * **The design is reused; the classes are not.** The docs site does not load core's
+ * stylesheet — core is light DOM on purpose, so importing it here would restyle this whole
+ * site — and pinning the preview to `.aparte-art-card__*` would couple a page to a
+ * renderer's internal markup. That coupling has already bitten in the other direction: a
+ * bare `nav` rule on this very site moved the artifact card's tabs.
+ *
+ * **Two controls, two jobs.** The tabs switch Preview ↔ Code, as the artifact card does.
+ * The framework sits in the header instead, because it is not a third pane: it decides
+ * which source the Code pane shows, it applies to every card on every page, and it has to
+ * stay readable while you are looking at the preview. The preview itself does not move
+ * between frameworks — that is the library's thesis, not an economy.
+ *
+ * The frame is an `<iframe>` and not an inline container, and that is the decision this
+ * file exists to hold:
  *
  * - A responsive preview only works in a separate document. A div narrowed to 375px still
  *   sees the page's viewport, so media queries do not fire and the preview would lie.
- * - It isolates core's CSS from the docs site's own. Core is light DOM on purpose, and this
- *   very site has already moved the artifact card's tabs with a bare `nav` rule.
+ * - It isolates core's CSS from the docs site's own.
  * - A standalone preview route is also "open this demo in a tab" for free, and it is what a
  *   screenshot tool would point at.
  *
- * `resize: horizontal` on the wrapper gives the drag handle with no JavaScript; the width
- * presets and the framework-aware source pane belong to the later lot that fills this in.
+ * `resize: horizontal` gives the drag handle with no JavaScript. The frame's own content is
+ * the one piece still to come; the width presets belong with it.
  */
+const FRAMEWORKS = ['Vanilla', 'React', 'Vue', 'Svelte', 'Angular'] as const;
+
 interface Props {
-    /** The custom element this frame will render, e.g. `aparte-composer`. */
+    /** The custom element this frame renders, e.g. `aparte-composer`. */
     tag: string;
 }
 
 const { tag } = Astro.props;
+const shown = FRAMEWORKS.filter((f) => Astro.slots.has(`code-${f.toLowerCase()}`));
 ---
 
-<figure class="aparte-preview" data-tag={tag}>
-    <div class="aparte-preview-frame">
-        <iframe title={`Live preview of <${tag}>`} loading="lazy" src="about:blank"></iframe>
+<figure class="preview" data-tag={tag}>
+    <header class="preview__header">
+        <code class="preview__tag">{`<${tag}>`}</code>
+        {shown.length > 1 && (
+            <div class="preview__frameworks" role="group" aria-label="Framework">
+                {shown.map((f, i) => (
+                    <button
+                        type="button"
+                        class="preview__framework"
+                        data-framework={f.toLowerCase()}
+                        aria-pressed={i === 0 ? 'true' : 'false'}
+                    >{f}</button>
+                ))}
+            </div>
+        )}
+    </header>
+
+    {shown.length > 0 && (
+        <nav class="preview__tabs" role="tablist" aria-label={`View of <${tag}>`}>
+            <button type="button" role="tab" data-pane="preview" aria-selected="true">Preview</button>
+            <button type="button" role="tab" data-pane="code" aria-selected="false">Code</button>
+        </nav>
+    )}
+
+    <div class="preview__body">
+        <div class="preview__pane preview__pane--preview" data-pane="preview">
+            <div class="preview__frame">
+                <iframe title={`Live preview of <${tag}>`} loading="lazy" src="about:blank"></iframe>
+            </div>
+            <p class="preview__note">The live preview lands here. Until then, Code is the real markup.</p>
+        </div>
+
+        {shown.length > 0 && (
+            <div class="preview__pane" data-pane="code" hidden>
+                {shown.map((f, i) => (
+                    <div class="preview__code" data-framework={f.toLowerCase()} hidden={i !== 0}>
+                        <slot name={`code-${f.toLowerCase()}`} />
+                    </div>
+                ))}
+            </div>
+        )}
     </div>
-    <figcaption>
-        The live preview lands here. Until then, the example below is the real markup.
-    </figcaption>
 </figure>
 
+<script>
+    /**
+     * Two independent choices: which pane a card shows (per card), and which framework the
+     * whole site reads in (remembered).
+     *
+     * The framework half reproduces what Starlight's `<Tabs syncKey>` does, because these
+     * are not Starlight tabs: the choice has to live in the header while the source it
+     * selects lives in a pane below, and a Starlight tab group renders its row and its
+     * panels together.
+     *
+     * `localStorage` is wrapped: it throws outright in some privacy modes, and a reader who
+     * cannot store a preference must still be able to read the page.
+     */
+    const KEY = 'aparte-docs-framework';
+
+    const read = (): string | null => {
+        try { return localStorage.getItem(KEY); } catch { return null; }
+    };
+    const write = (value: string): void => {
+        try { localStorage.setItem(KEY, value); } catch { /* unavailable: the choice just does not persist */ }
+    };
+
+    function showPane(card: HTMLElement, pane: string): void {
+        for (const tab of card.querySelectorAll<HTMLButtonElement>('.preview__tabs [role="tab"]')) {
+            tab.setAttribute('aria-selected', String(tab.dataset.pane === pane));
+        }
+        for (const el of card.querySelectorAll<HTMLElement>('.preview__body > .preview__pane')) {
+            el.hidden = el.dataset.pane !== pane;
+        }
+    }
+
+    function applyFramework(framework: string): void {
+        for (const card of document.querySelectorAll<HTMLElement>('.preview')) {
+            const buttons = [...card.querySelectorAll<HTMLButtonElement>('.preview__framework')];
+            if (!buttons.some((b) => b.dataset.framework === framework)) continue;
+            for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.framework === framework));
+            for (const block of card.querySelectorAll<HTMLElement>('.preview__code')) {
+                block.hidden = block.dataset.framework !== framework;
+            }
+        }
+    }
+
+    function init(): void {
+        const stored = read();
+        if (stored) applyFramework(stored);
+
+        for (const tab of document.querySelectorAll<HTMLButtonElement>('.preview__tabs [role="tab"]')) {
+            tab.addEventListener('click', () => {
+                const card = tab.closest<HTMLElement>('.preview');
+                if (card && tab.dataset.pane) showPane(card, tab.dataset.pane);
+            });
+        }
+
+        for (const button of document.querySelectorAll<HTMLButtonElement>('.preview__framework')) {
+            button.addEventListener('click', () => {
+                const framework = button.dataset.framework;
+                if (!framework) return;
+                write(framework);
+                applyFramework(framework);
+                // Picking a framework is asking to see its code. Anything else makes the
+                // header look inert while the pane it drives is out of sight.
+                const card = button.closest<HTMLElement>('.preview');
+                if (card) showPane(card, 'code');
+            });
+        }
+    }
+
+    init();
+    // Starlight ships view transitions, so a navigation swaps the DOM without a reload.
+    document.addEventListener('astro:page-load', init);
+</script>
+
 <style>
-    .aparte-preview {
+    .preview {
         margin: 1.5rem 0;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background: var(--sl-color-bg);
+    }
+
+    .preview__header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.4rem 0.6rem;
+        background: var(--sl-color-gray-6);
+        border-bottom: 1px solid var(--sl-color-gray-5);
+    }
+
+    .preview__tag {
+        font-size: var(--sl-text-xs);
+        color: var(--sl-color-gray-2);
+    }
+
+    /* Placement by DOM order plus an auto margin, never a positional class name — the same
+       rule the library applies to its own layout (ratified decision #4). */
+    .preview__frameworks {
+        display: flex;
+        gap: 0.1rem;
+        margin-inline-start: auto;
+    }
+
+    /* Selection changes COLOUR, never geometry. The first version gave the pressed button a
+       border and the others a transparent one; equal in the box model, but the drawn box
+       read as a chip sitting proud of a row of bare labels — "vanilla a un grand carré de
+       header, et les autres non". Every button now carries the same box at rest, and the
+       outline is an inset shadow, which paints inside and cannot move anything. */
+    .preview__framework {
+        padding: 0.25rem 0.55rem;
+        font-size: var(--sl-text-xs);
+        line-height: 1.4;
+        background: transparent;
+        border: 0;
+        border-radius: 0.3rem;
+        color: var(--sl-color-gray-3);
+        cursor: pointer;
+    }
+
+    .preview__framework:hover {
+        color: var(--sl-color-white);
+        background: var(--sl-color-gray-5);
+    }
+
+    .preview__framework[aria-pressed='true'] {
+        background: var(--sl-color-bg);
+        box-shadow: inset 0 0 0 1px var(--sl-color-gray-5);
+        color: var(--sl-color-white);
+    }
+
+    .preview__tabs {
+        display: flex;
+        gap: 0.15rem;
+        padding: 0.4rem 0.6rem 0;
+        border-bottom: 1px solid var(--sl-color-gray-5);
+    }
+
+    /* Same rule as the header buttons: colour moves, the box does not. The `margin-bottom:
+       -1px` that used to pull the selected tab over the panel border is gone with it — it
+       made the active tab hang below its own row. */
+    .preview__tabs button {
+        padding: 0.3rem 0.75rem;
+        font-size: var(--sl-text-xs);
+        line-height: 1.4;
+        background: transparent;
+        border: 0;
+        border-radius: 0.375rem 0.375rem 0 0;
+        color: var(--sl-color-gray-3);
+        cursor: pointer;
+    }
+
+    .preview__tabs button:hover {
+        color: var(--sl-color-white);
+    }
+
+    .preview__tabs button[aria-selected='true'] {
+        background: var(--sl-color-bg);
+        box-shadow: inset 0 1px 0 var(--sl-color-gray-5), inset 1px 0 0 var(--sl-color-gray-5), inset -1px 0 0 var(--sl-color-gray-5);
+        color: var(--sl-color-white);
     }
 
     /* `resize: horizontal` needs a non-visible overflow to show the handle. The width is the
        reader's to change, so it is not clamped beyond the column. */
-    .aparte-preview-frame {
+    .preview__frame {
         overflow: hidden;
         resize: horizontal;
         min-width: 20rem;
         max-width: 100%;
-        border: 1px solid var(--sl-color-gray-5);
-        border-radius: 0.5rem;
-        background: var(--sl-color-bg);
     }
 
-    .aparte-preview-frame iframe {
+    .preview__frame iframe {
         display: block;
         width: 100%;
         height: 22rem;
         border: 0;
     }
 
-    .aparte-preview figcaption {
-        margin-top: 0.5rem;
+    .preview__note {
+        margin: 0;
+        padding: 0.5rem 0.75rem 0.6rem;
         font-size: var(--sl-text-xs);
         color: var(--sl-color-gray-3);
+    }
+
+    .preview__pane[data-pane='code'] {
+        padding: 0.25rem 0.75rem 0.5rem;
     }
 </style>
