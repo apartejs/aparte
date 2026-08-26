@@ -11,15 +11,47 @@ const REMOVE_ICON =
 /**
  * Renders a square thumbnail tile for each file attached to the root composer.
  *
- * @element aparte-composer-attachments
  * Image files show the actual picture; other files show an extension badge.
  * The filename and a remove (✗) button surface on hover. Clicking an image asks
  * the app to open it full-size (`aparte-attachment-preview`) — only when the app
  * declared `attachmentPreview` via `aparteGlobalConfig.setHostHandlers()`.
- * Automatically hidden when there are no attachments.
- * Must be a descendant of <aparte-composer>.
+ * Automatically hidden when there are no attachments. It reads the nearest
+ * <aparte-composer> ancestor; without one it renders nothing and stays hidden.
+ *
+ * This is the PENDING strip: what the user has attached and not yet sent. It mirrors
+ * `composer.attachments` and rewrites itself on every `attachments-change` — it is not the
+ * strip under a sent message, which the bubble draws with the same `.aparte-thumb` tile
+ * rules (minus the remove button), so a tile variable set at the theme root reaches both
+ * strips, while one set on this element reaches only this one. It owns its `innerHTML` and
+ * therefore projects nothing:
+ * children written inside it are discarded on the first render. Removing a tile calls
+ * `root.removeAttachment()` rather than mutating a list of its own, and the image previews
+ * are blob URLs minted per render and revoked on the next one and on disconnect.
+ *
+ * @element aparte-composer-attachments
  *
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked; the app opens it full-size, and only if it declared `attachmentPreview`.
+ *
+ * @cssprop [--aparte-attachments-max-height=140px] - Height cap on the strip; past it the
+ *   tiles scroll instead of pushing the composer up.
+ * @cssprop [--aparte-attachment-image-size=56px] - Tile edge. The stylesheet sets 56px on
+ *   this element (the `:root` default is 72px, and the sent-message strip re-sets 40px on
+ *   itself), so a theme-level value reaches neither strip — target
+ *   `aparte-composer-attachments` to resize these tiles.
+ * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Tile corner radius.
+ * @cssprop [--aparte-attachment-chip-bg=var(--aparte-surface-2)] - Tile background, seen
+ *   behind a non-image file.
+ * @cssprop [--aparte-attachment-chip-border=var(--aparte-border)] - Tile border colour.
+ * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename colour on the hover overlay.
+ * @cssprop [--aparte-thumb-name-scrim=linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0))] - Background behind the filename; a bottom-up black
+ *   gradient by default, so the name stays legible over any picture.
+ * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of that overlay.
+ * @cssprop [--aparte-thumb-remove-size=18px] - Diameter of the ✗ button.
+ * @cssprop [--aparte-thumb-remove-inset=3px] - Its inset from the tile's top and right
+ *   edges (physical `right`, so it does not flip in a right-to-left locale).
+ * @cssprop [--aparte-thumb-remove-bg=rgba(0, 0, 0, 0.6)] - Its background.
+ * @cssprop [--aparte-thumb-remove-bg-hover=rgba(0, 0, 0, 0.85)] - Its hover background.
+ * @cssprop [--aparte-thumb-remove-color=#ffffff] - Its glyph colour.
  *
  * @example
  * <!-- The strip hides itself while nothing is attached. Pair it with the picker, and

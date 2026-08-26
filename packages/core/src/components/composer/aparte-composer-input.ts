@@ -6,13 +6,33 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * Contenteditable text input primitive.
  *
+ * The element owns its subtree: on connect it writes one `.aparte-ci-editor`
+ * contenteditable and binds its listeners to that node, so children you place inside are
+ * replaced. There is nothing to project here — style the generated editor through the CSS
+ * variables below, or replace the whole primitive.
+ *
+ * Enter submits and Shift+Enter inserts a newline; `submit-on-enter="false"` on the
+ * composer inverts that mapping, and Enter never submits mid-IME-composition — the key
+ * that confirms a CJK candidate must not send the message. The editor auto-expands with
+ * its content up to `max-height`, then scrolls. Paste is intercepted: text lands as plain
+ * text with its markup stripped, and a pasted image goes to the composer's attachments.
+ *
+ * Without an `<aparte-composer>` ancestor it still works, and that is deliberate: a
+ * submitting Enter then dispatches `aparte-composer-submit` instead of calling
+ * `root.submit()`, which is how the bubble's inline editor reuses this primitive.
+ * Everything the root owns goes with it though — the mirrored value, the placeholder
+ * fallback, the disabled/streaming sync and image paste all need the composer.
+ *
+ * Not a `<textarea>` and not a stand-in for one: being a contenteditable it has no form
+ * value, no `name` and no native validation, and `getValue()` returns trimmed text with
+ * `<br>` serialized back to newlines. Use it for the chat draft, not as a form control.
+ *
  * @element aparte-composer-input
- * Must be a descendant of <aparte-composer>.
  *
- * @fires aparte-composer-submit - Enter was pressed with content. No detail; the composer reads its own value.
- *
- * Behaviour: Enter submits (calls root.submit()), Shift+Enter inserts newline.
- * Auto-expands up to max-height. Paste strips HTML, handles image paste.
+ * @fires aparte-composer-submit - A submitting Enter was pressed with no
+ *   `<aparte-composer>` ancestor to submit to; with one it calls `root.submit()` and
+ *   dispatches nothing. No detail — the host that placed this primitive reads
+ *   `getValue()`.
  *
  * @attr {boolean} disabled - Makes the field non-editable; the composer's own `disabled` also reaches it.
  * @attr {string} placeholder - Placeholder text (fallback: reads from aparte-composer)
@@ -21,6 +41,27 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *                      min-height governs (44px in aparte.css) — so themes can
  *                      resize the editor in pure CSS without being fought by
  *                      an inline height.
+ *
+ * @cssprop [--aparte-composer-control-size=44px] - Single-line min-height of the editor.
+ *          Inside the `.aparte-composer-row` layout helper the composer's buttons read
+ *          the same token, so one value resizes that whole control set and the row stays
+ *          aligned.
+ * @cssprop [--aparte-input-padding-y=10px] - Vertical padding inside the editor.
+ * @cssprop [--aparte-input-padding-x=12px] - Horizontal padding inside the editor.
+ * @cssprop [--aparte-input-font-size=14px] - Editor font size.
+ * @cssprop [--aparte-input-line-height=1.5] - Editor line height — also what the
+ *          auto-expand measures, so changing it changes the height the editor settles at
+ *          (until `max-height` clamps it).
+ * @cssprop --aparte-text - Text and caret colour of the editor.
+ * @cssprop --aparte-input-placeholder - Colour of the placeholder drawn by
+ *          `:empty::before` (falls back to `--aparte-text-muted`).
+ * @cssprop --aparte-input-bg - Field background, applied only when this input is the
+ *          bubble's inline editor (`.aparte-message[data-editing]`) — inside a composer
+ *          the shell paints the surface instead.
+ * @cssprop --aparte-input-border - Border colour of that same edit-mode box.
+ * @cssprop [--aparte-radius-input=8px] - Corner radius of the edit-mode box.
+ * @cssprop --aparte-input-focus-border - Border colour of the edit-mode box while it
+ *          holds focus (`:focus-within`).
   *
  * @example
  * <aparte-composer>

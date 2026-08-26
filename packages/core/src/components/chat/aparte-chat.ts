@@ -9,16 +9,44 @@ import { escapeAttr } from '../../utils/escape.js';
 /**
  * AparteChat - The Shell
  *
- * The container element for a chat. Wrap a `<aparte-chat-viewport>` and a
- * `<aparte-composer>` in it and it lays them out as a flex column — the viewport
- * grows and scrolls, the composer sits below. Provide your own children for full
- * control (custom composer, extra buttons), or leave it empty and it fills in a
- * sensible default composition. Uses Light DOM for global CSS styling.
+ * The container element for a chat. It lays out its Light DOM children as a flex
+ * column: an `<aparte-chat-viewport>` takes the space left over (`flex: 1 1 auto`)
+ * and scrolls, an `<aparte-composer>` keeps its own height below it. Light DOM on
+ * purpose, so the page's own global CSS reaches inside.
+ *
+ * The presence of an `<aparte-chat-viewport>` child at connect is the exact test for
+ * "the author composed this". Find one and the children are used as given — this
+ * element moves none of them, so anything else you drop in (a header, a banner above
+ * the composer) is simply another row of that column, in DOM order. Find none and
+ * `innerHTML` is OVERWRITTEN with a default composition — a viewport, an
+ * `<aparte-elicitation>` presenter, and a composer shell holding an input and a send
+ * button, plus the two attachment primitives when `attachments` is set — so children
+ * written without a viewport anywhere inside them are destroyed, that header included.
+ * The test is a DESCENDANT query, so a viewport nested in a wrapper of your own still
+ * counts — compose it yourself with the viewport somewhere in the tree, or leave the tag
+ * empty. Angular's wrapper sets `framework-managed` instead of relying on that test,
+ * because its children do not exist yet when this element upgrades; React, Vue and
+ * Svelte never create this element at all, so the question does not arise for them.
  *
  * Being a component (not a bare `<div>`), it also owns behaviour a wrapper div
  * can't: with `center-empty`, it watches its own viewport and keeps the composer
- * centered as a welcome state until the first message, then slides to the normal
- * layout — no external JavaScript.
+ * centered as a welcome state until the first `<aparte-chat-bubble>` lands, then
+ * slides to the normal layout — no external JavaScript. While centered it carries
+ * `data-empty` on itself (set and cleared by that same watcher), which is the hook to
+ * style the welcome state from an app's own CSS. The watcher needs a viewport somewhere
+ * inside, and hand-written markup always has one because composing the default injects
+ * it — so the only path where no watcher starts and `data-empty` is never set is
+ * `framework-managed`, where the framework owns the subtree anyway. The stylesheet
+ * centers through
+ * `aparte-chat[center-empty][data-empty]` and its DIRECT viewport child, so a
+ * framework-managed host that nests the viewport inside a container of its own gets
+ * nothing from the attribute — the wrappers ship their own centered layout.
+ *
+ * It is also one of the anchors where core re-declares its derived CSS layer, so
+ * overriding a master — `--aparte-primary`, a surface, a text colour — on a single
+ * `<aparte-chat>` re-derives the values computed from it for that instance rather
+ * than moving one button. That is per-instance theming. The literal palette is
+ * deliberately not re-declared here, so a chat nested in a dark wrapper stays dark.
  *
  * Presentational only: it does NOT wire a transport/client. Attach an
  * `AparteClient`, or handle `aparte-send` yourself, as with the primitives.
@@ -29,10 +57,18 @@ import { escapeAttr } from '../../utils/escape.js';
  * @attr {boolean} disabled - Disables the composer
  * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
  * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
- *   element composes none of its own children, because the framework owns them. All four
- *   wrappers set it; it was read by this element and declared by nothing until now.
+ *   element composes none of its own children, because the framework owns them. Read once at
+ *   connect (it is not observed), so it has to be in the initial markup. Angular's wrapper sets
+ *   it on this element — its component selector IS `aparte-chat`; React/Vue/Svelte render a
+ *   `[data-aparte-chat]` div and never create this element at all.
  * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
-  *
+ *
+ * @cssprop [--aparte-chat-bottom-gap=var(--aparte-space-8, 16px)] - Space below the
+ *   composer, as `padding-block-end` on the shell (the same rule covers a wrapper's
+ *   `[data-aparte-chat]` root). The gap belongs to this element because padding applied
+ *   from outside would also shrink the scroll area, stopping the transcript short of the
+ *   edge instead of scrolling to it.
+ *
  * @example
  * <!-- Left empty it fills in a viewport, an input and a send button. -->
  * <aparte-chat center-empty placeholder="Say something…" style="height: 600px"></aparte-chat>

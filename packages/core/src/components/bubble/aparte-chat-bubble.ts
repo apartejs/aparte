@@ -77,6 +77,40 @@ const INFO_ICON_SVG =
 /**
  * One message: plain content or a list of rich segments, in light DOM.
  *
+ * Normally created for you by `<aparte-chat-viewport>`, one per message in the store;
+ * you write the tag by hand only when you drive the DOM yourself. It is ONE message
+ * with one role — a transcript is the viewport's job, and a bubble is not a
+ * general-purpose card.
+ *
+ * **Not a slot host.** `_render()` writes its own markup into the light DOM on
+ * connect, so children placed inside the tag are replaced rather than projected.
+ * Everything customizable is a registered hook instead of a child: the structural
+ * shell (`setBubbleShellRenderer` — it must root at `.aparte-message` and carry the
+ * region hooks, since every query here is null-guarded and a partial shell silently
+ * loses that region), the avatar (`setAvatarProvider`), the attachment chips
+ * (`setAttachmentRenderer`), the `‹1/2›` position indicator
+ * (`setSiblingNavRenderer`) and the body itself (`registerSegmentRenderer`).
+ *
+ * Two content paths, mutually exclusive: the `content` attribute (plain text run
+ * through the configured Markdown provider, then highlighted once — after streaming
+ * ends, not per token) and `setSegments()` / `addSegment()`. Segments win:
+ * `.aparte-content` stays hidden for as long as any exist. The painted
+ * `.aparte-message-content` box hides itself when there is nothing in it, so a
+ * message that is only attachments is not a coloured rectangle.
+ *
+ * The bubble owns no transport and no host behaviour. The action bar and the branch
+ * picker only dispatch the events below; nothing here retries a turn, persists an
+ * edit, opens a stats popover or switches a branch. Which buttons exist follows from
+ * that: `copy` is on by default, `edit` / `retry` / `feedback` need
+ * `setBubbleActions`, `info` needs both that flag and a prior `setUsage()` (a details
+ * button over no numbers is a dead button), and an image attachment becomes a preview
+ * button only once `setHostHandlers` declares a lightbox — undeclared it stays a
+ * picture, with no role, tab stop or pointer.
+ *
+ * The error state is derived from the segments (an `error` segment sets `data-error`
+ * on `.aparte-message`), never from a status attribute, so it behaves identically in
+ * vanilla and in every wrapper.
+ *
  * All seven events are declared by hand rather than left to the analyser, which
  * found six. `aparte-branch-navigate` is dispatched from the `_onBranchPickerClick`
  * arrow class field, and the auto-detection visits `ts.isMethodDeclaration` only —
@@ -100,6 +134,65 @@ const INFO_ICON_SVG =
  * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
+ *
+ * @cssprop [--aparte-message-gap=12px] - Gap between the avatar column and the body (the viewport reuses it between messages).
+ * @cssprop [--aparte-message-padding=16px 12px] - Padding around one message row.
+ * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
+ *
+ * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
+ * @cssprop [--aparte-message-content-padding=10px 14px] - Padding of the USER box only; the assistant's content is plain full-width prose.
+ * @cssprop [--aparte-message-content-bg-user=#efe7f6] - Background of the user box.
+ * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
+ * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
+ * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
+ *
+ * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
+ * @cssprop [--aparte-avatar-radius=var(--aparte-radius-avatar)] - Avatar corner radius.
+ * @cssprop [--aparte-avatar-font-size=14px] - Size of the initial, for a shell that renders one (the default shell leaves the slot empty, and `.aparte-avatar:empty` hides it).
+ * @cssprop [--aparte-avatar-bg-user=var(--aparte-primary)] - Avatar background, user role.
+ * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
+ * @cssprop [--aparte-avatar-bg-assistant=var(--aparte-surface-3)] - Avatar background, assistant role.
+ * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text-inverse)] - Avatar text colour, assistant role.
+ * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider and no JS.
+ * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
+ * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.
+ *
+ * @cssprop [--aparte-name-font-size=14px] - Sender name in the header.
+ * @cssprop [--aparte-name-color=var(--aparte-text)] - Sender name colour.
+ * @cssprop [--aparte-timestamp-font-size=12px] - Timestamp in the header.
+ * @cssprop [--aparte-timestamp-color=var(--aparte-text-muted)] - Timestamp colour.
+ * @cssprop [--aparte-content-font-size=15px] - Body type size, applied to both the plain-content and the segments container.
+ * @cssprop [--aparte-content-color=var(--aparte-text)] - Body text colour.
+ * @cssprop [--aparte-content-line-height=var(--aparte-line-height-loose)] - Body line height.
+ *
+ * @cssprop [--aparte-attachments-max-height=140px] - Cap on the sent-attachment strip; past it the strip scrolls instead of growing.
+ * @cssprop [--aparte-attachment-image-size=40px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation.
+ * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Attachment tile radius (shared with the composer's preview tiles).
+ * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename overlaid on a tile.
+ * @cssprop --aparte-thumb-name-scrim - Gradient behind that filename, so it stays legible over any image.
+ * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of the filename overlay.
+ *
+ * @cssprop [--aparte-action-bar-gap=4px] - Gap between action buttons (and between the footer's two regions).
+ * @cssprop [--aparte-action-bar-btn-size=28px] - Square size of an action button; also the footer's reserved height.
+ * @cssprop [--aparte-action-bar-btn-color=var(--aparte-text-muted)] - Action icon colour at rest.
+ * @cssprop [--aparte-action-bar-btn-hover-bg=var(--aparte-surface-2)] - Action button hover background (the branch arrows reuse it).
+ * @cssprop [--aparte-action-bar-btn-hover-color=var(--aparte-text)] - Action icon colour on hover.
+ *
+ * @cssprop [--aparte-branch-picker-gap=4px] - Gap between the arrows and the position label.
+ * @cssprop [--aparte-branch-picker-btn-size=20px] - Square size of each arrow.
+ * @cssprop [--aparte-branch-picker-btn-icon-size=16px] - Glyph size inside an arrow.
+ * @cssprop [--aparte-branch-picker-btn-color=var(--aparte-text-muted)] - Arrow colour at rest.
+ * @cssprop [--aparte-branch-picker-btn-hover-color=var(--aparte-text)] - Arrow colour on hover (a disabled arrow is dimmed instead).
+ * @cssprop [--aparte-branch-picker-label-size=12px] - Type size of the position label.
+ * @cssprop [--aparte-branch-picker-label-color=var(--aparte-text-muted)] - Colour of the position label.
+ * @cssprop [--aparte-branch-picker-label-min-width=32px] - Reserved label width, so `9 / 9` growing to `10 / 12` does not shift the arrows.
+ *
+ * @cssprop [--aparte-waiting-height=1.5em] - Min height of the waiting region, so the first token does not jump the layout.
+ * @cssprop [--aparte-waiting-dot-gap=4px] - Gap between the three waiting dots.
+ * @cssprop [--aparte-status-dot-size=6px] - Diameter of a waiting dot (shared with the status indicator).
+ * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the waiting dots (shared with the status indicator).
+ *
+ * @cssprop [--aparte-error-solid=#dc2626] - Ring drawn around the avatar while `data-error` is set. The error CARD itself belongs to the error segment renderer.
  *
  * @example
  * <!-- Rendered for you by the viewport. Written by hand only when you drive the DOM

@@ -5,14 +5,29 @@
  * - Indeterminate (no `value` attribute): continuous rotation animation
  * - Determinate (`value="0–100"`): fills the arc proportionally
  *
+ * The ABSENCE of the attribute is what selects indeterminate, so `value=""` is not
+ * "unknown progress" — it parses to 0, i.e. an empty determinate arc. `value` is clamped
+ * to 0–100 and anything non-numeric reads as 0; nothing throws.
+ *
+ * It renders its own SVG into itself on connect and on every `value` change, so it takes
+ * no children: whatever you put inside is overwritten. The SVG is `aria-hidden` and the
+ * ARIA lives on the host (`role="progressbar"`, `aria-valuemin`/`aria-valuemax`, plus
+ * `aria-valuenow` only when determinate) — there is no accessible NAME, so give the
+ * element an `aria-label` unless the surrounding text already says what is loading.
+ *
+ * It draws an arc; it does not manage a loading lifecycle — no delay before appearing, no
+ * timeout, no label, no live announcement. Under `prefers-reduced-motion: reduce` the
+ * rotation stops (aparte.css scopes that rule to the library's own elements), which is the
+ * other reason the indeterminate arc must not be the only signal that work is in flight.
+ *
  * @element aparte-progress-spinner
  * @attr {number} value - Progress percentage 0–100 (omit for indeterminate)
  *
- * @cssvar --aparte-spinner-size    Size of the spinner. Default: 14px
- * @cssvar --aparte-spinner-stroke  Stroke width in SVG units. Default: 2.5
- * @cssvar --aparte-spinner-color   Fill arc stroke color. Default: currentColor
- * @cssvar --aparte-spinner-track   Track arc stroke color. Default: 15% currentColor
-  *
+ * @cssprop [--aparte-spinner-size=14px] - Width and height of the element; the SVG fills it.
+ * @cssprop [--aparte-spinner-stroke=2.5] - Stroke width of both arcs, in the units of the 24×24 viewBox.
+ * @cssprop [--aparte-spinner-color=currentColor] - Stroke of the filled (progress) arc.
+ * @cssprop [--aparte-spinner-track=color-mix(in srgb, currentColor 15%, transparent)] - Stroke of the track arc behind it.
+ *
  * @example
  * <!-- Omit `value` for the indeterminate spin; set it to show real progress. -->
  * <aparte-progress-spinner></aparte-progress-spinner>

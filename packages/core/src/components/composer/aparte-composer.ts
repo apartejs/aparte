@@ -48,7 +48,46 @@ export interface AparteComposerChangeEventDetail {
 /**
  * The root context for every `aparte-composer-*` primitive. It imposes no visual
  * layout — the consumer owns the structure — and holds the shared state the parts
- * read: the value, the streaming flag, pending attachments, the panel slot.
+ * read: the value, the streaming flag, pending attachments, whether a panel is up.
+ *
+ * It renders nothing of its own — no shadow root, no markup, no default children — so
+ * an `<aparte-composer>` with nothing inside is an empty block. The parts that need
+ * that state locate it with `closest('aparte-composer')`, which is why they may sit at
+ * any depth and why the opt-in `.aparte-composer-shell` / `.aparte-composer-row`
+ * wrappers can exist without this element knowing about them.
+ * Not every part looks it up, though: `<aparte-composer-toolbar>` is purely structural
+ * — it lays its children out and never resolves this element at all.
+ *
+ * WHAT GOES INSIDE — ordinary light-DOM children. Core has no shadow root and no
+ * `<slot>`, so there is no slot name to write: drop in `<aparte-composer-input>`,
+ * `<aparte-composer-send>`, `<aparte-composer-cancel>`,
+ * `<aparte-composer-attachments>`, `<aparte-composer-add-attachment>`,
+ * `<aparte-composer-action>`, `<aparte-composer-toolbar>`, plus whatever markup you
+ * wrap them in. Order and nesting are yours. Two behaviours read the tree rather than a
+ * flag, so they depend on what you put in: `focus()` forwards to the first
+ * `<aparte-composer-input>` descendant, and `showPanel()` inserts the panel right after
+ * it (appending to the host when there is none).
+ *
+ * A PANEL is neither markup you write nor a named slot: `showPanel()` takes the element,
+ * stamps it `data-aparte-panel` and inserts it, `hidePanel()` removes it. One at a time
+ * — a second `showPanel()` evicts the first and calls its `onEvict`. While one is up the
+ * host carries `[data-panel-active]`, which hides `<aparte-composer-input>` and
+ * `<aparte-composer-add-attachment>` and leaves the attachments strip and the toolbar in
+ * place.
+ *
+ * It is not a transport either. `submit()` trims, checks the gates (disabled, empty,
+ * no model selected), dispatches `aparte-send` and clears — nothing here talks to a
+ * model, so without `AparteClient` or a listener of your own a send is a dispatched
+ * event and no answer. With no panel up it doubles as the stop button: while `streaming`
+ * it routes to `cancel()`, which is why the `getState` example below keeps a custom send
+ * button clickable rather than disabling it mid-stream. With a panel up it means "answer
+ * the question" instead — it calls the panel's `onSubmit` and returns, so neither the
+ * stop branch nor a send is reached.
+ *
+ * The streaming flag comes from WINDOW lifecycle events, filtered by target. On a page
+ * with two chats, give the composer a `target` — or put it under a chat host that has
+ * an `id` — otherwise it answers to every chat's events, and one chat's Stop resets the
+ * other's composer and evicts its open panel.
  *
  * Prose first, on purpose: when `@element` opens a docblock there is no free text
  * left for the analyser to use, and this component's description came out empty in
@@ -60,8 +99,12 @@ export interface AparteComposerChangeEventDetail {
  *
  * @element aparte-composer
  *
- * @attr {string} placeholder - Forwarded to `<aparte-composer-input>` through the internal bus.
- * @attr {boolean} disabled - Disables the whole composer, every part included.
+ * @attr {string} placeholder - Fallback placeholder for `<aparte-composer-input>`, which
+ *   reads it off this element when it carries none of its own. Read when that input
+ *   renders, not pushed: changing it here leaves an input already on the page as it was.
+ * @attr {boolean} disabled - Disables the composer's own controls — the input, send,
+ *   add-attachment and `<aparte-composer-action>` buttons each read it. What you put in
+ *   the toolbar is yours to disable.
  * @attr {string} target - The id of the `<aparte-chat>` this composer drives.
  * @attr {boolean} submit-on-enter - Enter sends and Shift+Enter breaks the line (the
  *   default); set it to the string `"false"` to swap them. Read lazily by the
@@ -73,6 +116,24 @@ export interface AparteComposerChangeEventDetail {
  * @fires {CustomEvent<AparteAbortEventDetail>} aparte-abort - Dispatched on `window`: stop the run for this target.
  * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - Dispatched on `window`: the run for this target ended early.
  * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - Any of value / streaming / disabled / attachments / panel changed, folded into one event.
+ *
+ * @cssprop [--aparte-composer-control-size=44px] - Width and height of the composer's
+ *   own control buttons (`.aparte-composer-row button`, so it needs the opt-in row
+ *   wrapper) and the minimum height of the input's editor, which needs no wrapper. One
+ *   knob for the whole control set, so buttons stay aligned with a single line of text
+ *   and anchored to the bottom once the input grows.
+ * @cssprop [--aparte-input-bg=var(--aparte-surface-1)] - Background of the opt-in
+ *   `.aparte-composer-shell` wrapper.
+ * @cssprop [--aparte-input-border=var(--aparte-border)] - Border colour of that shell.
+ *   Its `:focus-within` colour is `--aparte-primary`, a global token rather than a
+ *   composer one.
+ * @cssprop [--aparte-radius-input=var(--aparte-radius-lg)] - Corner radius of the shell,
+ *   and of the dashed outline drawn while files are dragged over the composer.
+ * @cssprop [--aparte-message-max-width=800px] - Max width of the shell, which is
+ *   `margin: 0 auto` at this width — the same width `.aparte-message` uses, so the
+ *   composer keeps the transcript's column. Set on THIS element it moves the shell only:
+ *   custom properties inherit downward and the transcript is a sibling subtree, so set
+ *   it on a shared ancestor (the chat host, `:root`) to move both.
  */
 export class AparteComposer extends HTMLElement {
     private _value = '';

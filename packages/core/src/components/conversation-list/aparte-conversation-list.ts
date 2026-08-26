@@ -5,8 +5,7 @@ export interface AparteConversationListItem {
     id: string;
     title: string;
     updatedAt?: number;
-    /** When set, the item renders the unarchive action instead of archive.  *
- */
+    /** When set, the item renders the unarchive action instead of archive. */
     archivedAt?: number;
 }
 
@@ -27,12 +26,23 @@ export interface AparteConversationArchiveDetail {
  * the `conversations` JS property and the `active-id` attribute; this renders the
  * list and fires the user's intent, never acting on it itself.
  *
- * These four `@fires` reached the manifest through neither of its two paths, which
- * is why this element had no `events` key at all. The tag block was in a docblock at
- * the top of the file, separated from the class by imports and four interfaces — and
- * TypeScript attaches only the adjacent comment. The fallback could not save it
- * either: the analyser's auto-detection visits `ts.isMethodDeclaration` only, and
- * every dispatch here happens inside the `_onClick` arrow class field.
+ * Children are not a composition point: `_render()` assigns `innerHTML` from the
+ * `conversations` array, so any light-DOM child a host writes inside the element is
+ * discarded the next time the list renders — and switching this element's locale is
+ * enough to trigger one. Compose around the element, not inside it: it renders rows
+ * and nothing else, with no header, no new-conversation button and no search field.
+ *
+ * What it is not: a store. Clicking a row selects nothing, and the two row actions
+ * delete and archive nothing — the four events carry an id and stop. A row's text
+ * comes from the array, so it changes when the host assigns `conversations` again;
+ * the exception is an empty title, which falls back to the locale's new-chat label
+ * and therefore follows a locale switch. An archived item is still rendered (it gains
+ * `aparte-conv-item--archived` and swaps its action's icon and event name); filtering
+ * archived conversations out of the list is the host's decision, not this element's.
+ * The asymmetry between the two inputs is deliberate: `active-id` is an attribute
+ * because moving the selection patches the rendered rows in place, while
+ * `conversations` is a JS property because it is structured data an attribute cannot
+ * carry, and setting it re-renders the whole list.
  *
  * @element aparte-conversation-list
  * @attr {string} active-id - The id of the conversation to render as selected.
@@ -41,6 +51,26 @@ export interface AparteConversationArchiveDetail {
  * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation - The delete action was pressed. Nothing is removed here.
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-archive-conversation - The archive action was pressed on a live conversation.
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-unarchive-conversation - The same action on an already-archived one; same detail shape, opposite intent.
+ *
+ * @cssprop [--aparte-conv-list-gap=2px] - Vertical gap between rows. The element itself is the flex column, so this is its `gap`.
+ * @cssprop [--aparte-conv-item-padding=7px 10px] - Padding of a row.
+ * @cssprop [--aparte-conv-item-gap=6px] - Gap between a row's title and its two action buttons.
+ * @cssprop [--aparte-conv-item-radius=var(--aparte-radius-md)] - Corner radius of a row.
+ * @cssprop [--aparte-conv-item-font-size=0.8125rem] - Font size of a row's title.
+ * @cssprop [--aparte-conv-item-color=var(--aparte-text-muted)] - Title colour of an inactive row.
+ * @cssprop [--aparte-conv-item-bg-hover=var(--aparte-surface-3)] - Row background on hover.
+ * @cssprop [--aparte-conv-item-bg-active=var(--aparte-surface-3)] - Background of the row matching `active-id`.
+ * @cssprop [--aparte-conv-item-color-active=var(--aparte-text)] - Title colour of the active row.
+ * @cssprop [--aparte-conv-item-font-weight-active=var(--aparte-font-weight-medium, 500)] - Title weight of the active row.
+ * @cssprop [--aparte-conv-action-btn-size=20px] - Square size of both action buttons. Under `(pointer: coarse)` the stylesheet redeclares it as 28px on the buttons themselves, so a value set on the element does not reach them there; the buttons also stay visible instead of appearing on hover.
+ * @cssprop [--aparte-conv-delete-color=var(--aparte-text-muted)] - Icon colour of the delete button.
+ * @cssprop [--aparte-conv-delete-bg-hover=var(--aparte-error)] - Delete button background on hover.
+ * @cssprop [--aparte-conv-delete-color-hover=var(--aparte-text-inverse)] - Delete button icon colour on hover.
+ * @cssprop [--aparte-conv-delete-radius=var(--aparte-radius-sm)] - Corner radius of the delete button.
+ * @cssprop [--aparte-conv-archive-color=var(--aparte-text-muted)] - Icon colour of the archive/unarchive button.
+ * @cssprop [--aparte-conv-archive-bg-hover=var(--aparte-surface-4, var(--aparte-surface-3))] - Archive button background on hover. Core declares no `--aparte-surface-4`, so unset it resolves to `--aparte-surface-3`.
+ * @cssprop [--aparte-conv-archive-color-hover=var(--aparte-text)] - Archive button icon colour on hover.
+ * @cssprop [--aparte-conv-archive-radius=var(--aparte-radius-sm)] - Corner radius of the archive button.
  *
  * @example
  * // The host owns the data: set the `conversations` property, listen for the intent.

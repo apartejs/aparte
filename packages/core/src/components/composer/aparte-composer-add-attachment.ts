@@ -6,14 +6,48 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * File picker button for <aparte-composer>.
  *
- * @element aparte-composer-add-attachment
  * Opens a native file picker on click, then pushes picked files to root.addAttachments().
  * Also sets up drag & drop on the nearest <aparte-composer> root.
  *
+ * It only COLLECTS files: it never reads, uploads or renders them.
+ * `<aparte-composer-attachments>` draws the pending strip, and sending is the host's job
+ * (`event.detail.files` on `aparte-send`) — which is why the default `<aparte-chat>` shell
+ * only includes this button when the `attachments` attribute is set. With nothing reading
+ * the files, an attach button is an affordance core cannot honour (ratified decision #8).
+ *
+ * Drag & drop is installed on the composer ROOT, not on this button, so a drop anywhere
+ * over the composer attaches and the root carries `aparte-is-dragover` while a drag is
+ * over it. The dashed outline is drawn on `.aparte-composer-shell` when the markup has one
+ * and on the composer element itself when it does not — width from
+ * `--aparte-focus-outline-width`, colour from `--aparte-primary`, radius from
+ * `--aparte-radius-input`, none of them declared here. The drop handler always calls
+ * `preventDefault()`, even while disabled, so the browser can never navigate away to the
+ * dropped file. `disabled` on the ROOT removes the drop target; `streaming` does not — it
+ * only greys the button out, so a drop mid-turn still attaches.
+ *
+ * The label and the icon are not attributes — they come from the config (`t('actionUpload')`
+ * and the `paperclip` icon), so a locale or icon-provider change rewrites the existing
+ * button in place instead of re-rendering it.
+ *
+ * A child already carrying `class="aparte-caa-button"` suppresses core's own render — and
+ * core then wires nothing to it: no click listener (so no picker opens), and no label,
+ * icon or disabled/streaming writes. Drag & drop still works, since it is installed on the
+ * root regardless. Any other child is replaced on the first render. The file input itself
+ * is never a child: it is created on `document.body` per click and removed again.
+ *
+ * @element aparte-composer-add-attachment
+ *
  * @attr {string} accept - MIME types / extensions passed to the file input (e.g. "image/*,.pdf")
  * @attr {boolean} multiple - Allow multiple file selection (default: true)
- * @attr {boolean} disabled - Greys out the picker and ignores drops.
-  *
+ * @attr {boolean} disabled - Greys out the picker. Drops are gated by the composer root's
+ *   `disabled`, not by this one.
+ *
+ * @cssprop [--aparte-input-action-btn-size=36px] - Square size of the button. On a coarse
+ *   pointer the stylesheet re-sets it to `--aparte-touch-target-size` (44px) on
+ *   `.aparte-action-button` itself, which wins over a value inherited from your theme.
+ * @cssprop [--aparte-input-action-btn-icon-size=20px] - Size of the `<svg>` inside it.
+ * @cssprop [--aparte-radius-action-btn=var(--aparte-radius-sm)] - Corner radius.
+ *
  * @example
  * <!-- Opt-in: nothing consumes the files unless your host does (an AparteClient, or
  *      your own listener reading `event.detail.files` off `aparte-send`). -->

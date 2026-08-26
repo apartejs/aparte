@@ -30,11 +30,51 @@ import {
  * The transcript surface: a light-DOM container with sticky scrolling, token
  * streaming and segment-aware rendering.
  *
+ * Features:
+ * - Smart Scroll: Sticks to bottom when user is at bottom, stops on manual scroll up
+ * - appendToken(): For simple content streaming
+ * - appendToSegment(): For segment-aware streaming (thinking, code, etc.)
+ *
+ * Two DOM modes. By default the element builds its own scroll surface
+ * (`.aparte-viewport-container`) around a `.aparte-messages-wrapper`, and creates the
+ * `<aparte-chat-bubble>` elements itself (the last `max-rendered-bubbles` of the active
+ * path). With `framework-managed` set it builds neither wrapper: the HOST is the scroll
+ * surface, the framework owns the bubble elements, and the bottom spacer becomes additive
+ * host padding instead of an element — a relocated or removed child is what desynchronises
+ * a framework's view tree from the live DOM, so this mode touches neither. The one child
+ * it appends in both modes is the scroll-to-bottom button, kept trailing.
+ *
+ * Children you write inside the element are just children: there is no shadow root and no
+ * slot to target. In the default mode they are MOVED into the internal
+ * `.aparte-messages-wrapper` at first render, ahead of the bottom spacer, so pre-rendered
+ * `<aparte-chat-bubble>` elements land in the transcript flow. A custom element of your own
+ * is relocated the same way, and if it carries `data-aparte-bubble` plus a matching
+ * `message-id` it also receives the live token and segment pushes, not just a restyle.
+ * Do not expect such a child to outlive the transcript, though: anything that re-renders the
+ * active path (`addBranch`, `addSiblingOf`, `navigateBranch`, `importTree`) empties the
+ * wrapper and rebuilds it from the repository, so only what the repository holds comes back —
+ * and `clearAll()` removes `<aparte-chat-bubble>` nodes only, so a `[data-aparte-bubble]`
+ * element of your own is left behind with nothing left to render. With `framework-managed`
+ * set children are not relocated: they stay direct children of the host, which is itself the
+ * scroll surface.
+ *
+ * Messages are held as a TREE (siblings, branches, an active path), which is what lets
+ * a retry fork and a bubble's sibling picker navigate with no host object involved.
+ *
+ * What it is NOT is storage. `max-rendered-bubbles` is a DOM ceiling and never evicts
+ * from the repository — the full tree and its snapshot stay complete, `exportTree()` /
+ * `importTree()` hand that snapshot to whoever owns persistence, and real history
+ * retention is configured on the conversation manager instead. It is not a chat either:
+ * a bare viewport IS a valid `AparteClient` target, but the composer, the transport and
+ * the shell layout are other elements.
+ *
  * @element aparte-chat-viewport
  *
  * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
- *   element composes none of its own children, because the framework owns them. All four
- *   wrappers set it; it was read by this element and declared by nothing until now.
+ *   element builds no wrapper of its own and relocates none of the nodes the FRAMEWORK renders
+ *   into it, because the framework owns them. Not "none of its children": core's own
+ *   scroll-to-bottom button is re-appended whenever it stops being last, and that path runs in
+ *   this mode only. All four wrappers set it.
  * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
  * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
  * @attr {number} max-messages - DEPRECATED. It used to evict messages from the model; it now
@@ -45,12 +85,24 @@ import {
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
  * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch path changed, after a retry fork or a navigation.
  *
- * Features:
- * - Smart Scroll: Sticks to bottom when user is at bottom, stops on manual scroll up
- * - appendToken(): For simple content streaming
- * - appendToSegment(): For segment-aware streaming (thinking, code, etc.)
- * - Internal message registry for memory management
-  *
+ * @cssprop [--aparte-viewport-padding=16px] - Padding around the transcript — on
+ *   `.aparte-messages-wrapper`, or on the host itself in framework-managed mode, where the
+ *   auto-scroll spacer is added on top of it. A container narrower than 520px tightens it in
+ *   the default mode only: that rule reassigns the variable on `.aparte-messages-wrapper`,
+ *   which framework-managed mode never builds.
+ * @cssprop [--aparte-message-gap=12px] - Gap between consecutive bubbles in the transcript
+ *   column (both DOM modes). Shared: it is also the avatar-to-content gap inside a bubble.
+ * @cssprop [--aparte-scrollbar-width=6px] - Width of the WebKit scrollbar on the scroll
+ *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
+ * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A
+ *   coarse pointer raises it to `--aparte-touch-target-size`.
+ * @cssprop [--aparte-scroll-btn-bg=var(--aparte-surface-1)] - Scroll-to-bottom button background.
+ * @cssprop [--aparte-scroll-btn-hover-bg=var(--aparte-surface-2)] - Its background on hover.
+ * @cssprop [--aparte-scroll-btn-color=var(--aparte-text)] - Its icon colour.
+ * @cssprop [--aparte-scroll-btn-border=var(--aparte-border)] - Its border colour.
+ * @cssprop [--aparte-scroll-btn-shadow=0 2px 8px rgba(0, 0, 0, 0.12)] - Its shadow; the dark
+ *   theme sets a heavier one.
+ *
  * @example
  * // Three calls are a whole streamed turn.
  * const viewport = document.querySelector('aparte-chat-viewport')!;
