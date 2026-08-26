@@ -2071,7 +2071,7 @@ aparte-chat-status:not([visible]) {
 .aparte-thinking-toggle {
   margin-inline-start: auto;
   /* Logical property */
-  transition: transform 0.2s;
+  transition: transform var(--aparte-duration-slow);
   opacity: 0.55;
 }
 
@@ -2426,7 +2426,7 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
     border-color: var(--aparte-border);
     color: var(--aparte-text);
 }
-.aparte-art-card__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.aparte-art-card__btn:disabled { opacity: var(--aparte-disabled-opacity); cursor: not-allowed; }
 .aparte-art-card__tabs {
     /* justify-content and the padding are DECLARED, not left to a default.
        Core is light DOM on purpose - no shadow root, no ::part(), any selector
@@ -2466,7 +2466,7 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
     color: var(--aparte-text);
     font-weight: var(--aparte-font-weight-medium);
 }
-.aparte-art-card__tabs button:disabled { opacity: 0.4; cursor: not-allowed; }
+.aparte-art-card__tabs button:disabled { opacity: var(--aparte-disabled-opacity); cursor: not-allowed; }
 /* The card's heights, as variables with ONE owner each.
    They were four hardcoded numbers in the only part of this card that did not
    use a variable - everything else here already reads var(--aparte-code-bg) and
