@@ -82,8 +82,25 @@ export function buildApprovalPanel(
     const labelled: Array<{ button: HTMLButtonElement; option: AparteApprovalOption }> = [];
     const textOf = (option: AparteApprovalOption): string =>
         typeof option.label === 'function' ? option.label() : option.label;
+    /*
+     * The button recipe, and nothing else. An option used to carry a 2px coloured edge
+     * down its inline start — green for affirm, red for deny — and that was custom CSS
+     * doing a job the recipe already does: a coloured rule is an ALERT's vocabulary, not
+     * a control's, and at 2px it read as an artefact rather than as a signal.
+     *
+     * Colouring the fills instead was measured and is no better. Solid success on the
+     * dark palette gives 2.19:1 against its own label, which is unreadable, and tinting
+     * every option puts two greens beside one red — the traffic light this stacked list
+     * exists to avoid, on the highest-stakes control in the library. What separates the
+     * options is their WORDING, which is the only thing that can distinguish "Approve"
+     * from "Approve, and always for this tool" anyway.
+     *
+     * `--affirm` / `--deny` stay on the element and carry no CSS: they name the MEANING,
+     * which is what a consumer restyling this panel selects on.
+     */
     for (const option of options) {
-        const button = el('button', `aparte-approval-option aparte-approval-option--${option.tone ?? 'affirm'}`);
+        const tone = option.tone ?? 'affirm';
+        const button = el('button', `aparte-btn aparte-btn--block aparte-btn--surface aparte-approval-option aparte-approval-option--${tone}`);
         button.type = 'button';
         button.textContent = textOf(option);
         // First click settles. No confirm-then-submit: the decision IS the click.

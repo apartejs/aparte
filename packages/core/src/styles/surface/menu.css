@@ -1,0 +1,102 @@
+.aparte-menu {
+  /* Component-local tokens: no shared knob in the token set covers a dropdown's
+     own width and elevation, so they live here — same width as the select's
+     own dropdown (`--aparte-select-min-width`) and the same elevation recipe
+     as `--aparte-select-shadow`, since both are the identical "floating list"
+     surface. */
+  --aparte-menu-min-width: 200px;
+
+  display: flex;
+  flex-direction: column;
+  min-width: var(--aparte-menu-min-width);
+  padding: var(--aparte-space-2);
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-lg);
+  box-shadow: var(--aparte-menu-shadow);
+  color: var(--aparte-text);
+  z-index: var(--aparte-z-dropdown);
+}
+
+.aparte-menu__item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  width: 100%;
+  padding: var(--aparte-space-3) var(--aparte-space-4);
+  border: none;
+  border-radius: var(--aparte-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-line-height-snug);
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-menu__item:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-2);
+}
+
+.aparte-menu__item:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-3);
+}
+
+.aparte-menu__item:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-menu__item:disabled,
+.aparte-menu__item[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+  /* A disabled row must stay inert, not merely look it — otherwise it still opens
+     a submenu on hover or fires on click via a wrapper listener upstream. */
+  pointer-events: none;
+}
+
+/* The check mark for menuitemcheckbox / menuitemradio. Reserved as an invisible
+   glyph on every checkable item (matched by the presence of aria-checked, true or
+   false) so labels in a mixed checked/unchecked list stay aligned to one gutter;
+   a plain role="menuitem" without aria-checked gets no gutter at all. Text colour
+   rather than a fill or a box-shadow is deliberate: a glyph inherits `color`,
+   which forced-colors mode preserves, so the checked state survives that mode
+   with no separate override. */
+.aparte-menu__item[aria-checked]::before {
+  content: '✓';
+  flex-shrink: 0;
+  visibility: hidden;
+}
+
+.aparte-menu__item[aria-checked='true']::before {
+  visibility: visible;
+}
+
+.aparte-menu__separator {
+  height: var(--aparte-border-width);
+  margin-block: var(--aparte-space-2);
+  margin-inline: var(--aparte-space-2);
+  background: var(--aparte-border);
+}
+
+.aparte-menu__label {
+  padding: var(--aparte-space-2) var(--aparte-space-4);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Popover ─────────────────────────────────────────────────────────────────── */
+
+/* Deliberately just a box. A popover's content is arbitrary — a form, a colour
+   picker, a card of details — so this supplies the surface, border and elevation
+   that say "this is floating above the page" and leaves layout of what's inside,
+   and where the box itself sits, entirely to the caller. */

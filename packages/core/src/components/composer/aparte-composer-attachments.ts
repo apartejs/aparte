@@ -115,17 +115,17 @@ export class AparteComposerAttachments extends HTMLElement {
         this.innerHTML = files.map((file) => {
             const name = this._escape(file.name);
             const remove =
-                `<button class="aparte-thumb__remove" type="button" ` +
+                `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-thumb__remove" type="button" ` +
                 `aria-label="Remove ${name}">${REMOVE_ICON}</button>`;
 
             if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);
                 this._objectUrls.push(url);
-                return `<div class="aparte-thumb aparte-thumb--image" title="${escapeAttr(name)}">` +
+                return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${escapeAttr(name)}">` +
                     `<img class="aparte-thumb__img" src="${escapeAttr(url)}" alt="${escapeAttr(name)}" />` +
                     `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
             }
-            return `<div class="aparte-thumb aparte-thumb--file" title="${escapeAttr(name)}">` +
+            return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${escapeAttr(name)}">` +
                 `<span class="aparte-thumb__ext">${this._escape(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');

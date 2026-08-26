@@ -1,0 +1,25 @@
+.aparte-segment-pipeline-waiting {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    padding: var(--aparte-space-3) var(--aparte-space-1);
+    min-height: var(--aparte-pw-min-height);
+}
+/* The geometry is `.aparte-dot`. What stays is this row's own: its size, its resting
+   colour, and a STAGGERED pulse — three dots on delays read as a wave travelling, which
+   a symmetric breath does not. */
+.aparte-pw-dot {
+    --aparte-status-dot-size: var(--aparte-pw-dot-size);
+    --aparte-status-color: var(--aparte-text-muted);
+    opacity: 0.3;
+}
+.aparte-pw-dot:nth-child(2) { animation-delay: var(--aparte-duration-slow); }
+.aparte-pw-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* =========================================
+   Provider-HTML overflow guards
+   ========================================= */
+
+/* Markdown providers inject arbitrary HTML into .aparte-segment-text, and the bubble
+   clips overflow (`aparte-chat-bubble { overflow: hidden }`) — without these
+   guards a wide image or table is silently cut at the bubble edge. */

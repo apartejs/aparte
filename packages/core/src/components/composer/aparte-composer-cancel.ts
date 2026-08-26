@@ -77,7 +77,7 @@ export class AparteComposerCancel extends HTMLElement {
         const icon = this._getStopIcon();
 
         this.innerHTML = `<button
-            class="aparte-cc-button"
+            class="aparte-btn aparte-btn--icon aparte-cc-button"
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
             hidden

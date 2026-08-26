@@ -1,0 +1,37 @@
+.aparte-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-card-radius);
+  background: var(--aparte-surface-1);
+  color: var(--aparte-text);
+}
+
+.aparte-card__header {
+  padding: var(--aparte-card-header-padding);
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+  font-weight: var(--aparte-font-weight-semibold);
+  font-size: var(--aparte-card-header-font-size);
+}
+
+.aparte-card__body {
+  flex: 1;
+  padding: var(--aparte-card-body-padding);
+}
+
+.aparte-card__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  padding: var(--aparte-card-footer-padding);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+/* =========================================
+   aparte-kbd — a keyboard key
+   =========================================
+   The monospace stack is --aparte-code-font-family, reused rather than declared
+   again: it is already the library's one answer to "what font is code", and a
+   key label is exactly that question asked a second time. */
+

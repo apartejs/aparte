@@ -5,19 +5,16 @@
  * them in the order listed there, and check:derived-vars reads them concatenated in
  * that same order, the way a browser does.
  */
+/* A row in a list, which is what `.aparte-menu__item` is. What stays is what belongs
+   to a CONVERSATION row: it truncates, so it needs `min-width: 0`; and its own
+   measurements, because a sidebar row is tighter than a dropdown row. */
 .aparte-conv-item {
-  display: flex;
-  align-items: center;
+  min-width: 0;
   gap: var(--aparte-conv-item-gap);
   padding: var(--aparte-conv-item-padding);
   border-radius: var(--aparte-conv-item-radius);
-  cursor: pointer;
-  min-width: 0;
   color: var(--aparte-conv-item-color);
   font-size: var(--aparte-conv-item-font-size);
-  font-family: var(--aparte-font-family);
-  transition: background var(--aparte-duration-fast);
-  outline: none;
 }
 
 .aparte-conv-item:hover {
@@ -74,20 +71,10 @@
 }
 
 .aparte-conv-item__delete {
-  flex-shrink: 0;
   opacity: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: var(--aparte-conv-action-btn-size);
   height: var(--aparte-conv-action-btn-size);
-  border: none;
-  background: none;
   color: var(--aparte-conv-delete-color);
-  border-radius: var(--aparte-conv-delete-radius);
-  cursor: pointer;
-  padding: 0;
-  transition: opacity var(--aparte-duration-fast), background var(--aparte-duration-fast), color var(--aparte-duration-fast);
 }
 
 .aparte-conv-item__delete:hover {
@@ -96,20 +83,10 @@
 }
 
 .aparte-conv-item__archive {
-  flex-shrink: 0;
   opacity: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: var(--aparte-conv-action-btn-size);
   height: var(--aparte-conv-action-btn-size);
-  border: none;
-  background: none;
   color: var(--aparte-conv-archive-color, var(--aparte-text-muted));
-  border-radius: var(--aparte-conv-archive-radius, var(--aparte-radius-sm));
-  cursor: pointer;
-  padding: 0;
-  transition: opacity var(--aparte-duration-fast), background var(--aparte-duration-fast), color var(--aparte-duration-fast);
 }
 
 .aparte-conv-item__archive:hover {

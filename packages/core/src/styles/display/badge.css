@@ -1,0 +1,108 @@
+/*
+ * aparté — Display primitives: the non-interactive pieces a UI library offers.
+ * Ready-made classes; nothing to configure.
+ *
+ *     <span class="aparte-badge aparte-badge--success aparte-badge--solid">Live</span>
+ *     <div class="aparte-progress" style="--aparte-progress-value: 60">
+ *       <div class="aparte-progress__bar"></div>
+ *     </div>
+ *     <div class="aparte-alert aparte-alert--warning" role="alert">
+ *       <span class="aparte-alert__icon">…</span>
+ *       <div class="aparte-alert__body">
+ *         <p class="aparte-alert__title">Heads up</p>
+ *         <p class="aparte-alert__message">Your session expires soon.</p>
+ *       </div>
+ *     </div>
+ *
+ * This layer is NEUTRAL: it is what a UI library offers, not a summary of what this
+ * repo happens to use. A class nothing wears today still ships, because the plugin
+ * that needs it is not written yet.
+ *
+ * Badge and alert repeat the button's two-axis shape — an intent class sets a local
+ * custom property, a fill (or the intent alone) reads it — for the same reason: colour
+ * meaning and paint style are independent questions, and collapsing them into one
+ * flat list of classes is what produces a ninth accidental shade of orange.
+ */
+
+/* =========================================
+   aparte-badge — small count or status pill
+   ========================================= */
+
+.aparte-badge {
+  --aparte-badge-intent: var(--aparte-neutral);
+  --aparte-badge-on-intent: var(--aparte-text);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aparte-badge-gap);
+  min-width: var(--aparte-badge-min-width);
+  padding: var(--aparte-badge-padding);
+  border: var(--aparte-border-width) solid transparent;
+  border-radius: var(--aparte-badge-radius);
+  font-size: var(--aparte-badge-font-size);
+  font-weight: var(--aparte-font-weight-semibold);
+  line-height: var(--aparte-line-height-none);
+  white-space: nowrap;
+
+  /* Soft is the default and needs no class — the resting weight for a pill that
+     sits inline in a row of text. Named anyway, so a badge that must be soft can
+     say so rather than merely omit. */
+  background: color-mix(in srgb, var(--aparte-badge-intent) 14%, transparent);
+  color: var(--aparte-badge-intent);
+}
+
+/* ── Axis 1 — INTENT. ─────────────────────────────────────────────────────────
+   The on-intent swap for neutral (and neutral alone) mirrors the button's own
+   palette exactly, for the same reason: ink beats white on every intent this
+   palette declares except neutral, which is dark enough to want the light one. */
+.aparte-badge--primary   { --aparte-badge-intent: var(--aparte-primary); }
+.aparte-badge--secondary { --aparte-badge-intent: var(--aparte-secondary); }
+.aparte-badge--neutral   { --aparte-badge-intent: var(--aparte-neutral); --aparte-badge-on-intent: var(--aparte-on-primary); }
+.aparte-badge--info      { --aparte-badge-intent: var(--aparte-info); }
+.aparte-badge--success   { --aparte-badge-intent: var(--aparte-success); }
+.aparte-badge--warning   { --aparte-badge-intent: var(--aparte-warning); }
+.aparte-badge--danger    { --aparte-badge-intent: var(--aparte-error); }
+
+/* ── Axis 2 — FILL. ──────────────────────────────────────────────────────────── */
+.aparte-badge--soft {
+  background: color-mix(in srgb, var(--aparte-badge-intent) 14%, transparent);
+  border-color: transparent;
+  color: var(--aparte-badge-intent);
+}
+.aparte-badge--solid {
+  background: var(--aparte-badge-intent);
+  border-color: var(--aparte-badge-intent);
+  color: var(--aparte-badge-on-intent);
+}
+.aparte-badge--outline {
+  background: transparent;
+  border-color: var(--aparte-badge-intent);
+  color: var(--aparte-badge-intent);
+}
+
+/* A bare notification dot: no label, so it has no OTHER way to carry the intent —
+   it is always painted solid, regardless of a fill class placed alongside it. */
+.aparte-badge--dot {
+  min-width: 0;
+  width: var(--aparte-badge-dot-size);
+  height: var(--aparte-badge-dot-size);
+  padding: 0;
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-badge-intent);
+  border-color: transparent;
+}
+
+.aparte-badge--sm { gap: var(--aparte-space-1); padding: var(--aparte-space-1) var(--aparte-space-2); font-size: var(--aparte-font-size-2xs); }
+.aparte-badge--lg { gap: var(--aparte-space-2); padding: var(--aparte-space-2) var(--aparte-space-4); font-size: var(--aparte-font-size-sm); }
+
+/* A dot has no text, so it has no OTHER cue once forced-colors drops its
+   background — a border makes the shape itself survive. */
+@media (forced-colors: active) {
+  .aparte-badge { border-color: currentColor; }
+}
+
+/* =========================================
+   aparte-tag — a removable chip
+   ========================================= */
+

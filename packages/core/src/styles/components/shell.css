@@ -119,11 +119,6 @@ aparte-chat-viewport {
   color: var(--aparte-scroll-btn-color);
   border: var(--aparte-border-width) solid var(--aparte-scroll-btn-border);
   box-shadow: var(--aparte-scroll-btn-shadow);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity var(--aparte-duration-slow) var(--aparte-ease), transform var(--aparte-duration-slow) var(--aparte-ease), background var(--aparte-duration-base) var(--aparte-ease);
   pointer-events: auto;
 }
 

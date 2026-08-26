@@ -135,7 +135,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
             ? contextConfig().sanitizeHtml(cached.previewHtml)
             : `<div class="aparte-art-file__preview-empty">Preview not available for ${escapeHtml(kind)} yet</div>`;
         return `
-            <div class="aparte-segment aparte-segment-artifact-file"
+            <div class="aparte-segment aparte-card aparte-segment-artifact-file"
                  data-segment-id="${escapeHtml(segment.id)}"
                  data-artifact-type="${escapeHtml(kind)}"
                  data-state="ready">
@@ -146,7 +146,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
                         <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(formatBytes(cached.bytes))} · ${escapeHtml(kind.toUpperCase())}</div>
                     </div>
                     <div class="aparte-art-file__actions">
-                        ${canRedownload ? `<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">${downloadLabel}</button>` : ''}
+                        ${canRedownload ? `<button type="button" class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-art-file__btn aparte-art-file__btn--primary" data-action="download">${downloadLabel}</button>` : ''}
                     </div>
                 </div>
                 <div class="aparte-art-file__body">
@@ -164,7 +164,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
         ? contextConfig().t('generating')
         : contextConfig().t('rebuildingPreview');
     return `
-        <div class="aparte-segment aparte-segment-artifact-file"
+        <div class="aparte-segment aparte-card aparte-segment-artifact-file"
              data-segment-id="${escapeHtml(segment.id)}"
              data-artifact-type="${escapeHtml(kind)}"
              data-state="${isStreaming ? 'streaming' : 'compiling'}">
@@ -175,7 +175,7 @@ export function renderBinaryFileArtifact(segment: AparteArtifactSegment, kind: s
                     <div class="aparte-art-file__meta-sub" data-role="file-sub">${escapeHtml(subText)}</div>
                 </div>
                 <div class="aparte-art-file__actions">
-                    ${canRedownload ? `<button type="button" class="aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>${downloadLabel}</button>` : ''}
+                    ${canRedownload ? `<button type="button" class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-art-file__btn aparte-art-file__btn--primary" data-action="download" disabled>${downloadLabel}</button>` : ''}
                 </div>
             </div>
             <div class="aparte-art-file__body">
@@ -420,7 +420,7 @@ function showSandboxError(element: HTMLElement, phase: string, errorMsg: string)
         body.innerHTML = `
             <div class="aparte-art-file__error">
                 <div class="aparte-art-file__error-title">${escapeHtml(contextConfig().t('sandboxError'))}</div>
-                <div class="aparte-art-file__error-msg">${escapeHtml(short)}</div>
+                <div class="aparte-output aparte-art-file__error-msg">${escapeHtml(short)}</div>
                 <div class="aparte-art-file__error-hint">${escapeHtml(contextConfig().t('sandboxErrorHint'))}</div>
             </div>
         `;

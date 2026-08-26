@@ -1,0 +1,32 @@
+.aparte-segment-text {
+  word-wrap: break-word;
+}
+
+/* Thinking */
+.aparte-segment-code {
+  margin: var(--aparte-space-6) 0;
+  border-radius: var(--aparte-radius-code);
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-code-border);
+}
+
+/* The callout is `.aparte-alert--danger`. What stays is what a callout IN A
+   TRANSCRIPT needs: the rhythm between messages, and a wider rail than a standalone
+   alert because a failed turn should be findable when you scroll past it. */
+.aparte-segment-error {
+  margin: var(--aparte-space-6) 0;
+  --aparte-alert-rail-width: var(--aparte-error-rail-width);
+}
+
+.aparte-segment-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+.aparte-segment-text table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+

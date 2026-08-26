@@ -118,10 +118,12 @@ export interface AparteComposerChangeEventDetail {
  * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - Any of value / streaming / disabled / attachments / panel changed, folded into one event.
  *
  * @cssprop [--aparte-composer-control-size=44px] - Width and height of the composer's
- *   own control buttons (`.aparte-composer-row button`, so it needs the opt-in row
- *   wrapper) and the minimum height of the input's editor, which needs no wrapper. One
- *   knob for the whole control set, so buttons stay aligned with a single line of text
- *   and anchored to the bottom once the input grows.
+ *   own control buttons (each is an `.aparte-btn--icon`, so it needs the opt-in
+ *   `.aparte-composer-row` wrapper, which is what carries the size down) and the
+ *   minimum height of the input's editor, which needs no wrapper. One knob for the
+ *   whole control set, so buttons stay aligned with a single line of text and anchored
+ *   to the bottom once the input grows. It reaches the buttons by declaration, not by
+ *   out-specifying them, so a panel mounted in the row keeps its own content's sizing.
  * @cssprop [--aparte-input-bg=var(--aparte-surface-1)] - Background of the opt-in
  *   `.aparte-composer-shell` wrapper.
  * @cssprop [--aparte-input-border=var(--aparte-border)] - Border colour of that shell.

@@ -67,23 +67,6 @@
   animation: aparte-pulse var(--aparte-duration-pulse) infinite ease-in-out;
 }
 
-/* A panel is mounted INSIDE that row, so its own buttons inherited the 44x44 sizing
-   above and rendered as circles with their labels spilling out. The rule above means
-   "the composer's own controls"; anything inside a panel is CONTENT, and a panel is
-   free to contain a button — the approval options are the first that do, and they will
-   not be the last. */
-[data-aparte-panel] button {
-  width: auto;
-  height: auto;
-  flex-shrink: 1;
-  /* The row also makes its controls centred flex boxes, which beats `text-align` — so a
-     left-aligned label in a panel came out centred until this line existed. Undo the
-     whole treatment, not the half of it that was visible. */
-  display: block;
-  justify-content: initial;
-  align-items: initial;
-}
-
 /* =========================================
    aparte-conversation-list
    ========================================= */

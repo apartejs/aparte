@@ -330,7 +330,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             // whole request — see `dismiss` on BuiltElicitationPanel.
             const skip = document.createElement('button');
             skip.type = 'button';
-            skip.className = 'aparte-elic-skip';
+            skip.className = 'aparte-btn aparte-elic-skip';
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);

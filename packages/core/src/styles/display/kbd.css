@@ -1,0 +1,18 @@
+.aparte-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--aparte-kbd-min-width);
+  padding: var(--aparte-kbd-padding);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  /* A thicker bottom edge is the whole bevel — a raised key, with no shadow to
+     go blank under forced-colors or a reduced-transparency setting. */
+  border-block-end-width: var(--aparte-kbd-border-bottom-width);
+  border-radius: var(--aparte-kbd-radius);
+  background: var(--aparte-kbd-bg);
+  color: var(--aparte-text-secondary);
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-kbd-font-size);
+  line-height: var(--aparte-line-height-none);
+}
+

@@ -330,6 +330,10 @@
   --aparte-meter-height: 8px;
   --aparte-datetime-indicator-opacity: 0.6;
 
+  --aparte-thumbnail-size: 56px;
+  --aparte-thumbnail-size-sm: 40px;
+  --aparte-thumbnail-size-lg: 72px;
+
   --aparte-avatar-size-xs: 20px;
   --aparte-avatar-size-sm: 24px;
   --aparte-avatar-size-lg: 40px;
@@ -346,7 +350,6 @@
   --aparte-btn-size-lg: 36px;
 
   --aparte-focus-outline-offset: -2px;
-  --aparte-approval-accent-width: 2px;
   --aparte-tool-spinner-size: 10px;
   --aparte-model-select-chevron-room: 28px;
   --aparte-art-card-header-min-height: 36px;
@@ -377,6 +380,10 @@
   /* Text */
   --aparte-text: #f2eee7;
   --aparte-text-muted: #a89bb6;
+  /* Equal to text-muted, as it is in the light palette. The two had drifted apart in
+     dark for the only reason that this line was missing — which left the scrollbar
+     thumb, and now a neutral badge, at the light value on a dark ground. */
+  --aparte-neutral: #a89bb6;
   --aparte-text-inverse: #17141c;
 
   /* Borders */
@@ -528,6 +535,12 @@ aparte-chat {
      the other can resolve it too. */
   --aparte-spinner-size: var(--aparte-spinner-size-md);
 
+  /* A choice row: the whole line is the target, so it carries the padding a control
+     alone would not. */
+  --aparte-field-choice-gap: var(--aparte-space-5);
+  --aparte-field-choice-padding: var(--aparte-space-4) var(--aparte-space-5);
+  --aparte-field-choice-radius: var(--aparte-radius-lg);
+
   --aparte-meter-track: var(--aparte-surface-3);
   --aparte-meter-optimum: var(--aparte-success);
   --aparte-meter-suboptimum: var(--aparte-warning);
@@ -538,6 +551,10 @@ aparte-chat {
   --aparte-link-color-hover: var(--aparte-primary-hover);
   --aparte-link-underline-thickness: var(--aparte-border-width);
   --aparte-link-underline-offset: var(--aparte-space-1);
+
+  --aparte-thumbnail-bg: var(--aparte-surface-2);
+  --aparte-thumbnail-border: var(--aparte-border);
+  --aparte-thumbnail-radius: var(--aparte-radius-lg);
 
   --aparte-alert-gap: var(--aparte-space-3);
   --aparte-alert-padding: var(--aparte-space-4) var(--aparte-space-5);

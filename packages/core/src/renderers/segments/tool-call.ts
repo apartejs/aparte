@@ -132,7 +132,7 @@ function pillMarkup(segment: AparteToolCallSegment, name: string, status: string
                     <span class="aparte-tool-icon">${contextConfig().getIcon('tool')}</span>
                     <span class="aparte-tool-name">${escapeHtml(name)}</span>
                 </span>
-                <span class="aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
+                <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
                 <span class="aparte-tool-state">${badge}</span>`;
 }
 
@@ -322,7 +322,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
         customRenderer?.setup?.(element, segment);
     },
-    // CSS lives in styles/aparte.css — see its "Segment renderers" section for why a
+    // CSS lives in styles/segment/ — see that folder for why a
     // built-in's rules belong there. `getStyles` stays for a CONSUMER's renderer, which
     // has no other way onto the page.
     getStyles: () => ''

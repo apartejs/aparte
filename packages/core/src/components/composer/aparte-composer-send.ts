@@ -101,7 +101,7 @@ export class AparteComposerSend extends HTMLElement {
         const disabled = !root || root.disabled || root.value.trim() === '';
 
         this.innerHTML = `<button
-            class="aparte-cs-button aparte-send-button"
+            class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--icon aparte-cs-button aparte-send-button"
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
             ${disabled ? 'disabled' : ''}

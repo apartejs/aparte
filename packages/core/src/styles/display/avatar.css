@@ -1,0 +1,66 @@
+.aparte-avatar {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: var(--aparte-avatar-size);
+  height: var(--aparte-avatar-size);
+  border-radius: var(--aparte-avatar-radius);
+  background: var(--aparte-avatar-fallback-bg);
+  color: var(--aparte-avatar-fallback-color);
+  font-size: var(--aparte-avatar-font-size);
+  font-weight: var(--aparte-font-weight-semibold);
+  line-height: var(--aparte-line-height-none);
+  text-transform: uppercase;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* An <img>, present only when the consumer has a picture to show; the initials
+   are the element's own text content otherwise. The library does not attempt an
+   image-error fallback in CSS — that is a DOM swap, and belongs to the consumer's
+   own onerror handler, the same division of labour as everywhere else in this
+   file: primitives, not behaviour. */
+.aparte-avatar__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+/* Square is the default shape and needs no class (it is what the message avatar
+   already renders); named anyway so a square avatar can say so rather than omit. */
+.aparte-avatar--square { border-radius: var(--aparte-avatar-radius); }
+.aparte-avatar--circle { border-radius: var(--aparte-radius-full); }
+
+.aparte-avatar--xs { --aparte-avatar-size: var(--aparte-avatar-size-xs); --aparte-avatar-font-size: var(--aparte-font-size-2xs); }
+.aparte-avatar--sm { --aparte-avatar-size: var(--aparte-avatar-size-sm); --aparte-avatar-font-size: var(--aparte-font-size-xs); }
+.aparte-avatar--lg { --aparte-avatar-size: var(--aparte-avatar-size-lg); --aparte-avatar-font-size: var(--aparte-font-size-lg); }
+.aparte-avatar--xl { --aparte-avatar-size: var(--aparte-avatar-size-xl); --aparte-avatar-font-size: var(--aparte-font-size-lg); }
+
+/* ── Group — a fan of avatars that read as one party. ─────────────────────────
+   No z-index is set: later siblings simply paint over earlier ones in normal
+   source order, which is already "each new avatar sits on top of the last" —
+   the one thing z-index would otherwise be needed for. */
+.aparte-avatar-group {
+  display: inline-flex;
+  align-items: center;
+}
+.aparte-avatar-group > .aparte-avatar {
+  box-shadow: 0 0 0 var(--aparte-avatar-group-ring-width) var(--aparte-avatar-group-ring-color);
+}
+.aparte-avatar-group > .aparte-avatar:not(:first-child) {
+  margin-inline-start: calc(var(--aparte-avatar-group-overlap) * -1);
+}
+.aparte-avatar-group > .aparte-avatar:hover {
+  z-index: var(--aparte-z-raised);
+}
+
+/* =========================================
+   aparte-spinner — a rotating indicator
+   ========================================= */
+

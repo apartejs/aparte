@@ -6,16 +6,13 @@
  * that same order, the way a browser does.
  */
 /* Artifact card */
+/* The shell is `.aparte-card`; what stays here is what a card in a TRANSCRIPT needs
+   and a card in general does not — the vertical rhythm between messages, and `font:
+   inherit` so a segment never picks up a host's form-control font. */
 .aparte-segment-artifact-card,
 .aparte-segment-artifact-file {
-    display: flex; flex-direction: column;
     margin: var(--aparte-space-4) 0;
-    border: var(--aparte-border-width) solid var(--aparte-border);
-    border-radius: var(--aparte-radius-xl);
-    background: var(--aparte-surface);
-    overflow: hidden;
     font: inherit;
-    color: var(--aparte-text);
 }
 .aparte-art-card__header {
     display: flex; align-items: center; justify-content: space-between;
@@ -25,33 +22,28 @@
     min-height: var(--aparte-art-card-header-min-height);
 }
 .aparte-art-card__title-block { display: flex; align-items: center; gap: var(--aparte-space-4); min-width: 0; }
+/* An outline `.aparte-badge`. What stays is the lettering: a language tag reads as a
+   code marker, so it is upper-cased and tracked out — which a badge in general is not. */
 .aparte-art-card__kind {
-    font-size: var(--aparte-font-size-xs); font-weight: var(--aparte-font-weight-semibold);
-    text-transform: uppercase; letter-spacing: 0.04em;
-    padding: var(--aparte-space-1) var(--aparte-space-3); border-radius: var(--aparte-radius-sm);
-    background: var(--aparte-surface);
-    border: var(--aparte-border-width) solid var(--aparte-border);
-    color: var(--aparte-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    --aparte-badge-font-size: var(--aparte-font-size-xs);
+    --aparte-badge-radius: var(--aparte-radius-sm);
 }
 .aparte-art-card__title {
     font-size: var(--aparte-font-size-lg); font-weight: var(--aparte-font-weight-medium);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* The geometry is `.aparte-dot`; a streaming card breathes on the accent rather than
+   the status colour, and larger, because it marks a whole card and not a line. */
 .aparte-art-card__pulse {
-    width: var(--aparte-art-card-pulse-size); height: var(--aparte-art-card-pulse-size); border-radius: 50%;
-    background: var(--aparte-accent);
-    animation: aparte-art-card-pulse var(--aparte-duration-pulse) ease-in-out infinite;
+    --aparte-status-dot-size: var(--aparte-art-card-pulse-size);
+    --aparte-status-color: var(--aparte-accent);
 }
 .aparte-art-card__actions { display: flex; gap: var(--aparte-space-2); }
 .aparte-art-card__btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: var(--aparte-art-card-btn-size); height: var(--aparte-art-card-btn-size);
-    background: transparent;
-    border: var(--aparte-border-width) solid transparent;
-    border-radius: var(--aparte-radius-md);
-    color: var(--aparte-text-muted);
-    cursor: pointer;
-    transition: background var(--aparte-duration-fast), border-color var(--aparte-duration-fast), color var(--aparte-duration-fast);
+  width: var(--aparte-art-card-btn-size);
+  height: var(--aparte-art-card-btn-size);
 }
 .aparte-art-card__btn:hover:not(:disabled) {
     background: var(--aparte-surface-hover);
@@ -81,24 +73,9 @@
     border-bottom: var(--aparte-border-width) solid var(--aparte-border);
     background: var(--aparte-surface-2);
 }
-.aparte-art-card__tabs button {
-    padding: var(--aparte-space-3) var(--aparte-space-6);
-    font-size: var(--aparte-font-size-sm);
-    background: transparent;
-    border: var(--aparte-border-width) solid transparent;
-    border-bottom: none;
-    border-radius: var(--aparte-radius-md) var(--aparte-radius-md) 0 0;
-    color: var(--aparte-text-muted);
-    cursor: pointer;
-    transition: background var(--aparte-duration-fast), color var(--aparte-duration-fast);
-}
-.aparte-art-card__tabs button[aria-selected="true"] {
-    background: var(--aparte-surface);
-    border-color: var(--aparte-border);
-    color: var(--aparte-text);
-    font-weight: var(--aparte-font-weight-medium);
-}
-.aparte-art-card__tabs button:disabled { opacity: var(--aparte-disabled-opacity); cursor: not-allowed; }
+/* The tabs are `.aparte-tabs--underline`, like the elicitation panel's steps — one
+   tab in this library, not one per component. Only the row's own business stays. */
+.aparte-art-card__tabs button { font-size: var(--aparte-font-size-sm); }
 /* The card's heights, as variables with ONE owner each.
    They were four hardcoded numbers in the only part of this card that did not
    use a variable - everything else here already reads var(--aparte-code-bg) and
@@ -190,15 +167,12 @@
     color: var(--aparte-text-muted);
 }
 .aparte-art-file__actions { display: flex; gap: var(--aparte-space-3); flex-shrink: 0; }
+/* The chrome is `.aparte-btn`; every one of these is a `--primary --solid`, so the
+   fill comes from the recipe. Its own measurements stay: a labelled button in a card
+   is roomier than an icon in a row. */
 .aparte-art-file__btn {
-    border: var(--aparte-border-width) solid var(--aparte-border);
-    background: var(--aparte-surface);
-    color: var(--aparte-text);
     padding: var(--aparte-space-3) var(--aparte-space-5);
-    border-radius: var(--aparte-radius-md);
     font-size: var(--aparte-font-size-md);
-    cursor: pointer;
-    transition: background var(--aparte-duration-fast) var(--aparte-ease);
 }
 .aparte-art-file__btn:hover { background: var(--aparte-surface-2); }
 .aparte-art-file__btn--primary {
@@ -249,13 +223,14 @@
     margin-bottom: var(--aparte-space-3);
     color: var(--aparte-error-title);
 }
+/* A computed value shown back, which is `.aparte-output`. What stays is that this
+   one is an ERROR — tinted text on its own quiet ground — and that a raw message has
+   no spaces to wrap on, so it must be allowed to break mid-word. */
 .aparte-art-file__error-msg {
-    font-family: var(--aparte-code-font-family);
-    font-size: var(--aparte-font-size-sm);
+    display: block;
     padding: var(--aparte-space-3) var(--aparte-space-5);
-    background: var(--aparte-art-file-error-msg-bg);
-    border-radius: var(--aparte-radius-sm);
     margin-bottom: var(--aparte-space-4);
+    background: var(--aparte-art-file-error-msg-bg);
     color: var(--aparte-error-text);
     word-break: break-word;
 }

@@ -25,8 +25,9 @@ import { dirname, join } from 'node:path';
  * The rendered half belongs to `pnpm e2e`.
  */
 const SHEETS = [
-    'theme', 'base', 'button', 'field', 'display', 'surface', 'shell', 'bubble', 'composer', 'segment',
-    'artifact', 'elicitation', 'conversation', 'prose', 'responsive',
+    'theme', 'base', 'button', 'field',
+    'display/avatar', 'display/badge', 'display/tag', 'display/thumbnail', 'display/spinner', 'display/progress', 'display/skeleton', 'display/divider', 'display/alert', 'display/card', 'display/kbd', 'surface/tabs', 'surface/accordion', 'surface/menu', 'surface/popover', 'surface/tooltip', 'segment/thinking', 'segment/code', 'segment/tool-call', 'segment/error', 'segment/pipeline', 'segment/text',
+    'components/shell', 'components/bubble', 'components/composer',     'segment/artifact', 'components/elicitation', 'components/conversation', 'prose', 'responsive',
 ];
 /** Below this, the corpus has collapsed and every assertion below is vacuous. */
 const MIN_LINES = 2500;

@@ -4,7 +4,7 @@
  * One thing, at length — and it used to be twice this size, half of it a `getStyles()`
  * block, which is why it kept `segment-renderers.ts` at 1900 lines while that file's own
  * banners described it as a renderer registry plus nine small renderers. It is that now,
- * and the CSS has since gone to `styles/aparte.css` with every other built-in's.
+ * and the CSS has since gone to `styles/segment/artifact.css` with every other built-in's.
  *
  * The card owns the previewable path. When a segment's kind is binary (pdf/xlsx/docx)
  * it DELEGATES to `./binary-file.ts` — which is why `BINARY_FILE_KINDS` lives
@@ -79,7 +79,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         // did not produce does not get to act on its own.
 
         return `
-            <div class="aparte-segment aparte-segment-artifact-card"
+            <div class="aparte-segment aparte-card aparte-segment-artifact-card"
                  data-segment-id="${escapeHtml(segment.id)}"
                  data-artifact-type="${escapeHtml(kind)}"
                  data-streaming="${isStreaming ? 'true' : 'false'}"
@@ -88,22 +88,22 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                  data-binary="${isBinary ? 'true' : 'false'}">
                 <header class="aparte-art-card__header">
                     <div class="aparte-art-card__title-block">
-                        <span class="aparte-art-card__kind" data-kind="${escapeHtml(kind)}">${escapeHtml(displayLang)}</span>
+                        <span class="aparte-badge aparte-badge--outline aparte-art-card__kind" data-kind="${escapeHtml(kind)}">${escapeHtml(displayLang)}</span>
                         <span class="aparte-art-card__title">${escapeHtml(title)}</span>
-                        ${isStreaming ? '<span class="aparte-art-card__pulse" aria-label="Streaming"></span>' : ''}
+                        ${isStreaming ? '<span class="aparte-dot aparte-art-card__pulse" aria-label="Streaming"></span>' : ''}
                     </div>
                     <div class="aparte-art-card__actions">
-                        <button type="button" class="aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">
+                        <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">
                             ${contextConfig().getIcon('copy')}
                         </button>
-                        <button type="button" class="aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
+                        <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 13h12"/></svg>
                         </button>
                     </div>
                 </header>
-                <nav class="aparte-art-card__tabs" role="tablist">
-                    <button type="button" role="tab" data-tab-target="code" aria-selected="true">${escapeHtml(codeLabel)}</button>
-                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
+                <nav class="aparte-tabs aparte-tabs--underline aparte-art-card__tabs" role="tablist">
+                    <button type="button" class="aparte-tabs__tab" role="tab" data-tab-target="code" aria-selected="true">${escapeHtml(codeLabel)}</button>
+                    ${previewable ? `<button type="button" class="aparte-tabs__tab" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
                 </nav>
                 <div class="aparte-art-card__body">
                     <div class="aparte-art-card__pane" data-pane="code">
@@ -297,7 +297,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             // a real user press — see the note at `initialTab`.
         }
     },
-    // CSS lives in styles/aparte.css — see its "Segment renderers" section for why a
+    // CSS lives in styles/segment/ — see that folder for why a
     // built-in's rules belong there. `getStyles` stays for a CONSUMER's renderer, which
     // has no other way onto the page.
     getStyles: () => '',

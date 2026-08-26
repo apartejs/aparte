@@ -19,9 +19,9 @@ export const pipelineWaitingRenderer: AparteSegmentRenderer = {
     render: (segment) => {
         return `
         <div class="aparte-segment aparte-segment-pipeline-waiting" data-segment-id="${escapeHtml(segment.id)}" aria-label="${escapeAttr(waitingLabel())}" role="status">
-            <span class="aparte-pw-dot"></span>
-            <span class="aparte-pw-dot"></span>
-            <span class="aparte-pw-dot"></span>
+            <span class="aparte-dot aparte-pw-dot"></span>
+            <span class="aparte-dot aparte-pw-dot"></span>
+            <span class="aparte-dot aparte-pw-dot"></span>
         </div>`;
     },
     update: () => { /* nothing to update */ },
@@ -47,7 +47,7 @@ export const pipelineWaitingRenderer: AparteSegmentRenderer = {
         });
         observer.observe(parent, { childList: true });
     },
-    // CSS lives in styles/aparte.css — see its "Segment renderers" section for why a
+    // CSS lives in styles/segment/ — see that folder for why a
     // built-in's rules belong there. `getStyles` stays for a CONSUMER's renderer, which
     // has no other way onto the page.
     getStyles: () => ''

@@ -1,0 +1,110 @@
+.aparte-segment-tool-call { display: block; padding: var(--aparte-space-1) 0; }
+/* The row is the summary. list-style:none plus the ::-webkit- pseudo is the
+   pair that actually removes the native marker across engines. */
+/* A ROW, not a badge.
+   It was a rounded chip, which is what a tag looks like — and a tool call is not
+   a tag, it is a step of the turn. Every current implementation draws it as a
+   line: the disclosure control, the call's identity, and its state at the far
+   end. The chip also had to carry a border and a fill, so it competed with the
+   reply text beside it for attention it did not deserve. */
+.aparte-tool-summary {
+    display: flex; align-items: center; gap: var(--aparte-space-4);
+    padding: var(--aparte-space-2) var(--aparte-space-3); margin-inline-start: calc(var(--aparte-space-3) * -1);
+    border-radius: var(--aparte-tool-row-radius);
+    cursor: pointer; list-style: none;
+}
+.aparte-tool-summary:hover { background: var(--aparte-surface-2); }
+.aparte-tool-summary::-webkit-details-marker { display: none; }
+.aparte-tool-toggle {
+    width: 0; height: 0; flex: none; margin-inline-start: -1px;
+    border-inline-start: 5px solid currentColor;
+    border-block: 4px solid transparent;
+    opacity: 0.5; transition: transform var(--aparte-duration-base);
+}
+.aparte-tool-summary:hover .aparte-tool-toggle { opacity: 0.9; }
+details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90deg); }
+/* A rule down the leading edge, so the disclosure reads as belonging to the
+   pill above it rather than continuing the message text below. Without it
+   "Output" and the assistant's next sentence sat in one undifferentiated
+   column. */
+.aparte-tool-detail {
+    display: flex; flex-direction: column; gap: var(--aparte-space-4);
+    /* Aligned under the row's icon, so the rule reads as descending from the
+       call rather than floating beside it. */
+    margin: var(--aparte-space-2) 0 var(--aparte-space-3) var(--aparte-space-2); padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-6);
+    border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+.aparte-tool-part-label {
+    display: block; font-size: var(--aparte-font-size-xs); text-transform: uppercase;
+    letter-spacing: 0.04em; opacity: 0.55; margin-bottom: var(--aparte-space-1);
+}
+/* Always in the DOM so update can leave the node alone and toggle hidden
+   instead — an attribute a test can read, where a CSS-only rule is invisible
+   to jsdom. */
+.aparte-tool-spinner[hidden] { display: none; }
+/* The call's identity: its icon and its name, and no decoration of its own.
+   No border, no fill, no tint at any status — the row is the container now, and
+   the colour lives on the state badge alone. A resolved call used to be filled
+   green, which made a finished step shout louder than the reply it belongs to. */
+.aparte-tool-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    min-width: 0;
+    font-size: var(--aparte-font-size-md);
+    font-weight: var(--aparte-font-weight-medium);
+    color: var(--aparte-text);
+    user-select: none;
+}
+/* A fixed square, and the glyph centred in it. The icon was baseline-aligned
+   inside an inline box, so it sat low against the name and moved with whatever
+   glyph the icon provider returned. */
+.aparte-tool-icon {
+    display: grid;
+    place-items: center;
+    width: 1em; height: 1em;
+    flex: none;
+    opacity: 0.7;
+}
+.aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
+.aparte-tool-name { font-family: var(--aparte-code-font-family); }
+/* The state, as a word with its glyph. Colour lives HERE and nowhere else.
+   Pushed to the far end by DOM order plus an auto inline-start margin, which is
+   the placement rule this repo already settled on: no left/right in a name, so
+   a right-to-left locale mirrors it for free. */
+.aparte-tool-state {
+    display: inline-flex; align-items: center; gap: var(--aparte-space-2);
+    margin-inline-start: auto;
+    font-size: var(--aparte-font-size-sm); font-weight: var(--aparte-font-weight-medium);
+    color: var(--aparte-text-muted);
+    user-select: none;
+}
+.aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
+/* Scoped to the segment, not to a bare [data-status].
+   These three were the only rules in this file whose leftmost compound is an unprefixed
+   non-element selector, which means they reached OUT of core: a host wrapping the chat in
+   <div data-status="rejected"> re-tinted every completed tool call's word red, because
+   0,2,0 beats the base rule's 0,1,0 and source order puts rejected/aborted last. Core
+   itself documents data-status as a free-form host attribute on <aparte-option>. */
+.aparte-segment-tool-call[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success); }
+.aparte-segment-tool-call[data-status="rejected"] .aparte-tool-state,
+.aparte-segment-tool-call[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error); }
+/* The Approve / Reject button rules were here. They moved with the buttons, to
+   .aparte-approval-option in this same file - and what stayed behind was a
+   leftover: a rule tinting .aparte-tool-label's border while a decision was pending,
+   which stopped painting anything the moment the row redesign took that border
+   off .aparte-tool-label. It reached for a variable that was never declared, and it
+   survived because a template literal is not a stylesheet anyone greps. The
+   state is named in words by .aparte-tool-state now, and the decision is at the
+   composer. */
+/* The spinner is `.aparte-spinner`; only its size is the tool row's business — the
+   row is one quiet line, so its indicator is smaller than a standalone one. */
+/* The spinner is `.aparte-spinner`; only its size is the tool row's business — the
+   row is one quiet line, so its indicator is smaller than a standalone one. */
+.aparte-tool-spinner {
+    width: var(--aparte-tool-spinner-size);
+    height: var(--aparte-tool-spinner-size);
+}
+.aparte-tool-state { font-size: var(--aparte-font-size-sm); }
+
+/* Pipeline waiting */

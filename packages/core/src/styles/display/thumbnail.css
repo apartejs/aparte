@@ -1,0 +1,55 @@
+/*
+ * aparté — the thumbnail. A media tile: a fixed square that clips whatever is dropped
+ * into it, with room for a control in a corner.
+ *
+ *     <span class="aparte-thumbnail"><img class="aparte-thumbnail__image" …></span>
+ *     <span class="aparte-thumbnail aparte-thumbnail--lg">…</span>
+ *
+ * Distinct from `.aparte-avatar`, which is the same shape for a different reason: an
+ * avatar stands for a PERSON and falls back to initials, so it carries type styling and
+ * a text colour. A thumbnail stands for a FILE and falls back to an icon or a label, so
+ * it carries none of that — and it is `position: relative` because a remove button or a
+ * badge sits on it, which an avatar never has.
+ */
+
+.aparte-thumbnail {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  inline-size: var(--aparte-thumbnail-size);
+  block-size: var(--aparte-thumbnail-size);
+  border: var(--aparte-border-width) solid var(--aparte-thumbnail-border);
+  border-radius: var(--aparte-thumbnail-radius);
+  background: var(--aparte-thumbnail-bg);
+  /* The tile is the frame: anything larger is cropped by it rather than allowed to
+     push the row it sits in. */
+  overflow: hidden;
+}
+
+.aparte-thumbnail--sm { --aparte-thumbnail-size: var(--aparte-thumbnail-size-sm); }
+.aparte-thumbnail--lg { --aparte-thumbnail-size: var(--aparte-thumbnail-size-lg); }
+
+/* `cover` rather than `contain`: a tile of mixed aspect ratios reads as a grid only if
+   every one of them fills its frame. */
+.aparte-thumbnail__image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* A label instead of an image — a file extension, a page count. */
+.aparte-thumbnail__label {
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (forced-colors: active) {
+  .aparte-thumbnail { border-color: currentColor; }
+}

@@ -22,7 +22,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                     ? `<span class="aparte-code-filename">${escapeHtml(segment.filename)}</span>`
                     : `<span class="aparte-code-header-filler"></span>`}
                 <span class="aparte-code-language">${escapeHtml(segment.language || '')}</span>
-                <button class="aparte-code-copy" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}">
+                <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-code-copy" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}">
                     ${contextConfig().getIcon('copy')}
                 </button>
             </div>

@@ -124,7 +124,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
         this.innerHTML = `<button
-            class="aparte-caa-button aparte-action-button"
+            class="aparte-btn aparte-btn--icon aparte-caa-button aparte-action-button"
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
             type="button"

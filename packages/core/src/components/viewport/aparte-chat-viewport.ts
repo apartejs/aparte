@@ -1179,7 +1179,7 @@ export class AparteChatViewport extends HTMLElement {
 
             // Scroll-to-bottom button — absolutely positioned over the viewport
             this._scrollBtn = document.createElement('button');
-            this._scrollBtn.className = 'aparte-scroll-btn aparte-scroll-btn--hidden';
+            this._scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-scroll-btn aparte-scroll-btn--hidden';
             this._scrollBtn.setAttribute('type', 'button');
             this._scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
             const scrollIcon = resolveConfig(this).getIcon('scrollDown');
@@ -1215,7 +1215,7 @@ export class AparteChatViewport extends HTMLElement {
         this.classList.add('aparte-viewport--framework');
 
         const scrollBtn = document.createElement('button');
-        scrollBtn.className = 'aparte-scroll-btn aparte-scroll-btn--hidden';
+        scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-scroll-btn aparte-scroll-btn--hidden';
         scrollBtn.setAttribute('type', 'button');
         scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
         const scrollIcon = resolveConfig(this).getIcon('scrollDown');

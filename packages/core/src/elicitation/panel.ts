@@ -144,6 +144,14 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
     labelGroup(list, { multiple: field.multiple, titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
     const type = field.multiple ? 'checkbox' : 'radio';
+    /*
+     * The recipe that matches the input's own type. These used to be native controls
+     * tinted with `accent-color`, which is the one part of a form the browser still
+     * draws itself — so the panel's controls were the only thing in the library whose
+     * look changed with the OS, and on the dark palette they came out of a light-mode
+     * UA as a pale box on a dark row.
+     */
+    const controlRecipe = type === 'checkbox' ? 'aparte-checkbox' : 'aparte-radio';
     // The field wins when it says something — that is the APP calling
     // `requestUserInput` directly. Otherwise it is the host's policy, not a
     // hardcoded `true` and no longer anything the model can decide.
@@ -151,8 +159,8 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
     const defaults = new Set(Array.isArray(field.default) ? field.default : field.default != null ? [field.default] : []);
 
     const buildOption = (value: string, label: string, description?: string, recommended?: boolean): HTMLElement => {
-        const row = el('label', 'aparte-elic-option' + (recommended ? ' aparte-elic-option--recommended' : ''));
-        const control = el('input', 'aparte-elic-control');
+        const row = el('label', 'aparte-field-choice aparte-elic-option' + (recommended ? ' aparte-elic-option--recommended' : ''));
+        const control = el('input', controlRecipe + ' aparte-elic-control');
         control.type = type;
         control.name = name;
         control.value = value;
@@ -172,7 +180,7 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
     let otherText: HTMLInputElement | null = null;
     if (allowOther) {
         const row = el('label', 'aparte-elic-option aparte-elic-option--other');
-        const control = el('input', 'aparte-elic-control');
+        const control = el('input', controlRecipe + ' aparte-elic-control');
         control.type = type;
         control.name = name;
         control.value = '__other__';
@@ -185,7 +193,7 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
         const t = contextConfig();
         const otherTitle = el('span', 'aparte-elic-option-title', t.t('elicitationOther'));
         body.appendChild(otherTitle);
-        otherText = el('input', 'aparte-elic-other-input');
+        otherText = el('input', 'aparte-field aparte-elic-other-input');
         otherText.type = 'text';
         otherText.placeholder = t.t('elicitationOtherPlaceholder');
         otherText.style.display = 'none';
@@ -247,8 +255,8 @@ function buildBooleanField(field: AparteElicitationBooleanField, onChange: () =>
     labelGroup(list, { titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
     const mk = (val: 'true' | 'false', label: string, defaulted?: 'elicitationYes' | 'elicitationNo'): void => {
-        const row = el('label', 'aparte-elic-option');
-        const control = el('input', 'aparte-elic-control');
+        const row = el('label', 'aparte-field-choice aparte-elic-option');
+        const control = el('input', 'aparte-radio aparte-elic-control');
         control.type = 'radio';
         control.name = name;
         control.value = val;
@@ -284,8 +292,8 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
     const wrap = el('div', 'aparte-elic-field aparte-elic-string');
     fieldHeader(wrap, field, fallbackLabel);
     const input = field.multiline
-        ? el('textarea', 'aparte-elic-text')
-        : el('input', 'aparte-elic-text');
+        ? el('textarea', 'aparte-field aparte-field--textarea aparte-elic-text')
+        : el('input', 'aparte-field aparte-elic-text');
     if (!field.multiline) (input as HTMLInputElement).type = 'text';
     if (field.placeholder) input.setAttribute('placeholder', field.placeholder);
     if (field.default) (input as HTMLInputElement | HTMLTextAreaElement).value = field.default;
@@ -453,10 +461,10 @@ function buildPanel(
         panel.classList.add('aparte-elic-panel--stepped');
         let current = 0;
 
-        const steps = el('div', 'aparte-elic-steps');
+        const steps = el('div', 'aparte-tabs aparte-tabs--underline aparte-elic-steps');
         steps.setAttribute('role', 'tablist');
         const chips = fields.map((f, i) => {
-            const chip = el('button', 'aparte-elic-step');
+            const chip = el('button', 'aparte-tabs__tab aparte-elic-step');
             chip.type = 'button';
             chip.setAttribute('role', 'tab');
             // The position when the model gave no short label: honest, and it never

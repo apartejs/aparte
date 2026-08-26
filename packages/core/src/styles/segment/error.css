@@ -1,0 +1,71 @@
+.aparte-error-icon-wrapper {
+  flex-shrink: 0;
+  color: var(--aparte-error-solid);
+  display: flex;
+  align-items: flex-start;
+  padding-top: var(--aparte-space-1);
+}
+
+.aparte-error-icon-wrapper svg {
+  width: var(--aparte-error-icon-size);
+  height: var(--aparte-error-icon-size);
+}
+
+.aparte-error-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.aparte-error-title {
+  font-weight: var(--aparte-font-weight-semibold);
+  font-size: var(--aparte-font-size-lg);
+  margin-bottom: var(--aparte-space-2);
+  color: var(--aparte-error-title);
+}
+
+.aparte-error-message {
+  font-size: var(--aparte-font-size-lg);
+  line-height: var(--aparte-line-height-normal);
+}
+
+.aparte-error-details {
+  margin-top: var(--aparte-space-4);
+  padding-top: var(--aparte-space-4);
+  border-top: var(--aparte-border-width) solid var(--aparte-error-border);
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-font-size-sm);
+  opacity: 0.9;
+  white-space: pre-wrap;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Segment renderers — tool call · artifact card · pipeline waiting
+
+   These three shipped their CSS from `getStyles()` until now: a template literal
+   in the renderer's own .ts file, injected into <head> at runtime. That seam is
+   for a CONSUMER's renderer — something registered through registerSegmentRenderer
+   or registerToolRenderer cannot edit this file, so `getStyles()` is its only way
+   onto the page. A BUILT-IN has this file, and two reasons to use it:
+
+     - check:derived-vars reads this path and nothing else. A declaration whose
+       value reads another variable has to sit on the 5-anchor layer or it cannot
+       follow a palette a subtree overrides, and one hidden in a renderer was
+       never checked at all.
+     - it is read as CSS, by tools and by people. A backtick closes a template
+       literal, and one did — the artifact card's own comment recorded it
+       happening — then it happened three more times in one sitting, the worst of
+       them rendering a `safe-text` source marker into an assistant's bubble as
+       prose, because inside a template literal a `//` comment is just text.
+
+   NOT a reason, though it was the first one I wrote here: reaching the public CSS
+   reference. `gen-css-vars.mjs` walks all of core's source for `var(--aparte-*)`
+   reads, so a knob a renderer read was already listed with its fallback as the
+   default — the move changed that file by zero lines. Worth recording, because the
+   plausible version of this argument is the one that gets repeated.
+
+   Moving them changes no contract either: core's entry imports this file and
+   package.json marks every .css a side effect, so importing @aparte/core has
+   always brought this sheet along.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Tool call */

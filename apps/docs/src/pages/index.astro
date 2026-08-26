@@ -145,10 +145,20 @@ const LOCALE_KEYS = (readFileSync(at('packages/core/src/config/locale.ts'), 'utf
  */
 const LOGO_SVG = readFileSync(at('apps/docs/public/favicon.svg'), 'utf8').trim();
 
+/** Every knob core exposes, counted from the sheet that owns them. Read rather than
+ *  hardcoded, for the same reason as the logo above — and behind a floor, because this
+ *  page located the stylesheet by PATH and went down the day the sheets were split by
+ *  family. It was the fourth reader to do exactly that. */
 const CSS_VARS = new Set(
-    (readFileSync(at('packages/core/src/styles/aparte.css'), 'utf8')
+    (readFileSync(at('packages/core/src/styles/theme.css'), 'utf8')
         .match(/^\s*--aparte-[a-z0-9-]+(?=\s*:)/gm) ?? []).map((s) => s.trim()),
 ).size;
+if (CSS_VARS < 250) {
+    throw new Error(
+        `The landing page counted only ${CSS_VARS} CSS variables in theme.css. A sheet moved `
+        + 'and this number is now wrong — fix the path rather than publishing a short count.',
+    );
+}
 
 /** The page already numbers its facts row in serif italic roman; the segment
  *  cards echo it, which is what makes ten boxes read as one enumeration. */

@@ -77,16 +77,13 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    Shared by the composer attachment preview and the sent-message attachment
    strip. A square that shows the image itself (or a file glyph); the filename
    and — in the composer — a remove button surface on hover. */
+/* The tile is `.aparte-thumbnail`; the composer only sets its own measurements and
+   the quieter ground an attachment strip uses. */
 .aparte-thumb {
-  position: relative;
-  width: var(--aparte-attachment-image-size);
-  height: var(--aparte-attachment-image-size);
-  flex-shrink: 0;
-  border-radius: var(--aparte-thumb-radius);
-  overflow: hidden;
-  box-sizing: border-box;
-  background: var(--aparte-attachment-chip-bg);
-  border: var(--aparte-border-width) solid var(--aparte-attachment-chip-border);
+  --aparte-thumbnail-size: var(--aparte-attachment-image-size);
+  --aparte-thumbnail-radius: var(--aparte-thumb-radius);
+  --aparte-thumbnail-bg: var(--aparte-attachment-chip-bg);
+  --aparte-thumbnail-border: var(--aparte-attachment-chip-border);
 }
 
 /* Only an image tile the app declared it can preview is a button — see
@@ -146,17 +143,8 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
   right: var(--aparte-thumb-remove-inset);
   width: var(--aparte-thumb-remove-size);
   height: var(--aparte-thumb-remove-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
   border-radius: 50%;
-  background: var(--aparte-thumb-remove-bg);
-  color: var(--aparte-thumb-remove-color);
-  cursor: pointer;
   opacity: 0;
-  transition: opacity var(--aparte-duration-base) var(--aparte-ease), background var(--aparte-duration-base) var(--aparte-ease);
 }
 .aparte-thumb:hover .aparte-thumb__remove {
   opacity: 1;
@@ -239,20 +227,12 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
   cursor: not-allowed;
 }
 
+/* The row's size first, this button's own second — see `.aparte-composer-row`. Inside
+   the row helper the two agree with the documented order; outside it, only the second
+   is defined and a standalone send button keeps its own measure. */
 .aparte-send-button {
-  flex-shrink: 0;
-  width: var(--aparte-send-btn-size);
-  height: var(--aparte-send-btn-size);
-  border-radius: var(--aparte-radius-send-btn);
-  border: none;
-  background: var(--aparte-primary);
-  color: var(--aparte-on-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background var(--aparte-duration-slow), opacity var(--aparte-duration-slow);
-  padding: 0;
+  width: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
+  height: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
 }
 
 .aparte-send-button:hover:not(:disabled) {
@@ -512,27 +492,41 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
 }
 
 /* Inner row — flex container for input + buttons */
+/* Action buttons sized to the input's single-line height — they derive from
+   --aparte-composer-control-size (default 44px), so a theme resizes the whole
+   composer control set with ONE variable and alignment holds. Combined with
+   the row's `align-items: flex-end` this makes the buttons read as vertically
+   centered against a single line of text, and keeps them anchored to the
+   bottom once the input grows multi-line — no magic margins.
+
+   The row DECLARES the size, it does not restyle anything: `--aparte-btn-size` is
+   what `.aparte-btn--icon` already reads, and a custom property inherits. So every
+   one of the composer's own controls — each is an icon button — picks 44px up from
+   here, and nothing else does.
+
+   This used to be `.aparte-composer-row button`, a TYPE selector, and that is a rule
+   reaching into content it does not own: a panel mounts inside this row, and its
+   options are buttons too. They came out 44x44 circles with their labels spilling
+   out. The answer at the time was an undo rule in base.css (`[data-aparte-panel]
+   button`) — same 0,1,1 specificity, so which one won was decided by import order
+   alone, and splitting the stylesheet into families flipped that order and brought
+   the circles back. A declaration that only the intended reader can see needs no
+   undo, and cannot be re-broken by a re-ordering.
+
+   `--aparte-composer-row-control-size` is the row's own reading of that knob, and it
+   exists because an ancestor cannot out-rank a descendant's own declaration: the send
+   and action buttons DECLARE a size of their own, so the row cannot inherit one over
+   them. They opt in by reading this first and their own token second — which is
+   exactly the documented contract ("wins over --aparte-send-btn-size there"), now
+   written in the cascade instead of enforced by out-specifying it. Undefined outside
+   this row, so the same rule sizes a standalone button from its own token. */
 .aparte-composer-row {
   display: flex;
   align-items: flex-end;
   gap: var(--aparte-space-4);
   padding: var(--aparte-space-4) var(--aparte-space-6);
-}
-
-/* Action buttons sized to the input's single-line height — BOTH derive from
-   --aparte-composer-control-size (default 44px), so a theme resizes the whole
-   composer control set with ONE variable and alignment holds. Combined with
-   the row's `align-items: flex-end` this makes the buttons read as vertically
-   centered against a single line of text, and keeps them anchored to the
-   bottom once the input grows multi-line — no magic margins. */
-.aparte-composer-row button {
-  width: var(--aparte-composer-control-size, 44px);
-  height: var(--aparte-composer-control-size, 44px);
-  box-sizing: border-box;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  --aparte-composer-row-control-size: var(--aparte-composer-control-size, 44px);
+  --aparte-btn-size: var(--aparte-composer-row-control-size);
 }
 
 /* The composer's bottom row (mode picker, model selector, token counter…).
@@ -564,19 +558,11 @@ aparte-composer-dictate .aparte-cd-button[hidden] {
   display: none !important;
 }
 
+/* The chrome is `.aparte-btn`. Only the padding stays: these two sit inside the
+   composer row, tighter than a standalone icon button. */
 aparte-composer-cancel .aparte-cc-button,
 aparte-composer-dictate .aparte-cd-button {
-  background: transparent;
-  border: none;
-  color: var(--aparte-neutral);
   padding: var(--aparte-space-3);
-  border-radius: var(--aparte-radius-action-btn);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: color var(--aparte-duration-base), background var(--aparte-duration-base);
 }
 
 aparte-composer-cancel .aparte-cc-button:hover,

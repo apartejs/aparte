@@ -678,9 +678,9 @@ export class AparteChatBubble extends HTMLElement {
           </div>
           <div class="aparte-footer">
             <div class="aparte-branch-picker" hidden>
-              <button class="aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
+              <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
               <span class="aparte-branch-label">1 / 1</span>
-              <button class="aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
+              <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
             </div>
             <div class="aparte-action-bar" role="toolbar" aria-label="${escapeAttr(this._cfg.getLocale().messageActions ?? 'Message actions')}"></div>
           </div>
@@ -1188,30 +1188,30 @@ export class AparteChatBubble extends HTMLElement {
     switch (action) {
       case 'copy': {
         const l = locale.copy ?? 'Copy';
-        return `<button class="aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
       }
       case 'edit': {
         const l = locale.edit ?? 'Edit message';
-        return `<button class="aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
       }
       case 'retry': {
         const l = locale.retry ?? 'Retry';
-        return `<button class="aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
       }
       case 'thumbUp': {
         const l = locale.feedbackPositive ?? 'Good response';
-        return `<button class="aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
       }
       case 'thumbDown': {
         const l = locale.feedbackNegative ?? 'Bad response';
-        return `<button class="aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
       }
       case 'info': {
         // Only when there are numbers to show: a details button over nothing is a
         // dead button. The popover itself is the app's (see `aparte-message-info`).
         if (!this._usage) return '';
         const l = locale.messageInfo ?? 'Details';
-        return `<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${INFO_ICON_SVG}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${INFO_ICON_SVG}</button>`;
       }
       default:
         return '';
@@ -1225,9 +1225,9 @@ export class AparteChatBubble extends HTMLElement {
     const saveLabel = locale.editConfirm ?? 'Save';
     const cancelLabel = locale.editCancel ?? 'Cancel';
     this._actionBarEl.innerHTML =
-      `<button class="aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
+      `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--success aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
       `aria-label="${escapeAttr(saveLabel)}" title="${escapeAttr(saveLabel)}">${this._cfg.getIcon('check')}</button>` +
-      `<button class="aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
+      `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--danger aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
       `aria-label="${escapeAttr(cancelLabel)}" title="${escapeAttr(cancelLabel)}">${this._cfg.getIcon('close')}</button>`;
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));

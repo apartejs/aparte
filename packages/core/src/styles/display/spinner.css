@@ -1,0 +1,30 @@
+.aparte-spinner {
+
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--aparte-spinner-size);
+  height: var(--aparte-spinner-size);
+  border: var(--aparte-spinner-thickness) solid currentColor;
+  /* The one open side that makes rotation read as motion. Any logical side works
+     here — the animation is symmetric, so nothing about it needs to differ
+     between LTR and RTL; it is a logical property purely to stay off left/right. */
+  border-inline-end-color: transparent;
+  border-radius: var(--aparte-radius-full);
+  color: var(--aparte-text-muted);
+  animation: aparte-spinner-spin var(--aparte-duration-spin) linear infinite;
+}
+
+.aparte-spinner--sm { --aparte-spinner-size: var(--aparte-spinner-size-sm); }
+.aparte-spinner--lg { --aparte-spinner-size: var(--aparte-spinner-size-lg); }
+
+@keyframes aparte-spinner-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* =========================================
+   aparte-progress — determinate bar + indeterminate variant
+   =========================================
+   The consumer owns the ARIA: role="progressbar" plus aria-valuenow/min/max on
+   the determinate form, and aria-valuetext (or nothing, per platform convention)
+   on the indeterminate one — this file only paints what those attributes mean. */
+

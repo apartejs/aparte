@@ -43,18 +43,9 @@ aparte-chat-bubble {
   min-width: 0;
 }
 
-.aparte-avatar {
-  flex-shrink: 0;
-  width: var(--aparte-avatar-size);
-  height: var(--aparte-avatar-size);
-  border-radius: var(--aparte-avatar-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--aparte-avatar-font-size);
-  font-weight: var(--aparte-font-weight-semibold);
-  font-family: var(--aparte-font-family);
-}
+/* The avatar's shape, size and type live in `display.css` — a message avatar IS an
+   avatar, so the bubble does not redraw one. What stays here is the part that is
+   genuinely the bubble's: who the avatar belongs to, and what a failed turn does to it. */
 
 /* No message avatar by default — the slot only shows once an AvatarProvider
    (or a consumer) fills it. Role is carried by layout + colour instead. */
@@ -146,19 +137,8 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 .aparte-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: var(--aparte-action-bar-btn-size);
   height: var(--aparte-action-bar-btn-size);
-  border: none;
-  border-radius: var(--aparte-radius-sm);
-  background: transparent;
-  color: var(--aparte-action-bar-btn-color);
-  cursor: pointer;
-  padding: 0;
-  transition: background var(--aparte-duration-base) var(--aparte-ease), color var(--aparte-duration-base) var(--aparte-ease);
-  flex-shrink: 0;
 }
 
 .aparte-action-btn:hover {
@@ -198,20 +178,9 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 .aparte-branch-prev,
 .aparte-branch-next {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: var(--aparte-branch-picker-btn-size);
   height: var(--aparte-branch-picker-btn-size);
-  border: none;
-  border-radius: var(--aparte-radius-sm);
-  background: transparent;
-  color: var(--aparte-branch-picker-btn-color);
-  cursor: pointer;
-  padding: 0;
   font-size: var(--aparte-branch-picker-btn-icon-size);
-  line-height: var(--aparte-line-height-none);
-  transition: color var(--aparte-duration-base) var(--aparte-ease), background var(--aparte-duration-base) var(--aparte-ease);
 }
 
 .aparte-branch-prev:hover:not(:disabled),
@@ -240,35 +209,19 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   opacity: 1;
 }
 
-.aparte-action-btn.aparte-action-edit-save {
-  color: var(--aparte-success);
-}
-.aparte-action-btn.aparte-action-edit-save:hover {
-  background: var(--aparte-success-surface);
-  color: var(--aparte-success);
-}
-.aparte-action-btn.aparte-action-edit-cancel {
-  color: var(--aparte-error);
-}
-.aparte-action-btn.aparte-action-edit-cancel:hover {
-  background: var(--aparte-error-surface);
-  color: var(--aparte-error);
-}
+/* The colours ARE the intents: these two carry `aparte-btn--success` and
+   `aparte-btn--danger`, so the recipe tints them. Only the hover ground stays, because
+   a ghost button hovers to a neutral surface and a confirm/cancel pair reads better
+   hovering to its own. */
+.aparte-action-btn.aparte-action-edit-save:hover { background: var(--aparte-success-surface); }
+.aparte-action-btn.aparte-action-edit-cancel:hover { background: var(--aparte-error-surface); }
 
 /* Action Buttons in Input */
+/* The composer row's size first, this button's own second — see `.aparte-composer-row`
+   in composer.css. Undefined anywhere else, so only the second applies there. */
 .aparte-action-button {
-  background: transparent;
-  border: none;
-  color: var(--aparte-neutral);
-  padding: var(--aparte-space-4);
-  border-radius: var(--aparte-radius-action-btn);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--aparte-duration-base), background-color var(--aparte-duration-base);
-  width: var(--aparte-input-action-btn-size);
-  height: var(--aparte-input-action-btn-size);
+  width: var(--aparte-composer-row-control-size, var(--aparte-input-action-btn-size));
+  height: var(--aparte-composer-row-control-size, var(--aparte-input-action-btn-size));
 }
 
 .aparte-action-button:hover {

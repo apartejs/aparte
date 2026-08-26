@@ -168,7 +168,7 @@ export class AparteConversationList extends HTMLElement {
             : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 8 21 8"/><path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><polyline points="9 14 12 17 15 14"/><line x1="12" y1="11" x2="12" y2="17"/></svg>`;
         return `
 <div
-  class="aparte-conv-item${activeClass}${archivedClass}"
+  class="aparte-menu__item aparte-conv-item${activeClass}${archivedClass}"
   role="button"
   tabindex="0"
   data-conv-id="${escapedId}"
@@ -176,7 +176,7 @@ export class AparteConversationList extends HTMLElement {
 >
   <span class="aparte-conv-item__title">${escapedTitle}</span>
   <button
-    class="aparte-conv-item__archive"
+    class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-conv-item__archive"
     type="button"
     data-archive-id="${escapedId}"
     data-archive-action="${escapeAttr(archiveAction)}"
@@ -184,7 +184,7 @@ export class AparteConversationList extends HTMLElement {
     tabindex="0"
   >${archiveIcon}</button>
   <button
-    class="aparte-conv-item__delete"
+    class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-conv-item__delete"
     type="button"
     data-delete-id="${escapedId}"
     aria-label="${deleteLabel}"

@@ -720,3 +720,53 @@
   .aparte-output,
   .aparte-color { border: var(--aparte-border-width) solid currentColor; }
 }
+
+/* ── Choice row ──────────────────────────────────────────────────────────────
+   A whole row that selects — a label wrapping a radio or a checkbox, with a title
+   and often a description beside it. The control alone is a small target; the row
+   is the affordance, which is why the cursor and the hover live here and not on
+   the input.
+
+       <label class="aparte-field-choice">
+         <input type="radio" class="aparte-radio" name="k">
+         <span class="aparte-field-choice__body">…</span>
+       </label>
+
+   `align-items: flex-start` rather than centre: a description makes the row two or
+   three lines tall, and a control centred against that floats away from the title
+   it belongs to. */
+.aparte-field-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--aparte-field-choice-gap);
+  padding: var(--aparte-field-choice-padding);
+  border: var(--aparte-border-width) solid transparent;
+  border-radius: var(--aparte-field-choice-radius);
+  cursor: pointer;
+  transition:
+    background var(--aparte-duration-fast) var(--aparte-ease),
+    border-color var(--aparte-duration-fast) var(--aparte-ease);
+}
+.aparte-field-choice:hover { background: var(--aparte-surface-2); }
+
+/* Boxed — each row carries its own edge, for a list that must read as a set of
+   separate targets rather than a menu. */
+.aparte-field-choice--boxed { border-color: var(--aparte-border); }
+
+/* Selected. `:has()` covers the native case with no class to toggle; the explicit
+   modifier covers a row whose state lives elsewhere — a button acting as an option,
+   where there is no checked input to look at. */
+.aparte-field-choice:has(:checked),
+.aparte-field-choice--selected { border-color: var(--aparte-primary); }
+
+.aparte-field-choice:has(:disabled),
+.aparte-field-choice[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+.aparte-field-choice:has(:focus-visible) {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-btn-focus-offset);
+}
+
+.aparte-field-choice__body { flex: 1 1 auto; min-width: 0; }

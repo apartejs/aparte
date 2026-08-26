@@ -34,6 +34,11 @@
   gap: var(--aparte-btn-gap);
   flex-shrink: 0;
   cursor: pointer;
+  /* The recipe declares both a border and, for `--icon`/`--circle`, a size — so the two
+     have to mean the same box. Without this a 44px icon button measures 46. It used to
+     be set by the composer's own row rule, which is exactly the kind of thing a recipe
+     should not need a caller for. */
+  box-sizing: border-box;
   padding: var(--aparte-btn-padding);
   border: var(--aparte-border-width) solid transparent;
   border-radius: var(--aparte-btn-radius);
