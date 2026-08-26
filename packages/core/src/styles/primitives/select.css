@@ -213,11 +213,6 @@ aparte-optgroup[collapsed] .aparte-optgroup-chevron {
     border: 2px solid currentColor;
     border-top-color: transparent;
     border-radius: 50%;
+    /* `aparte-spin` is declared once, in base.css — see the shared-motion block there. */
     animation: aparte-spin var(--aparte-duration-spin) linear infinite;
-}
-
-@keyframes aparte-spin {
-    to {
-        transform: rotate(360deg);
-    }
 }

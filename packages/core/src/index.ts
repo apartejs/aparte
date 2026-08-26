@@ -34,6 +34,8 @@ import './styles/surface/accordion.css';
 import './styles/surface/menu.css';
 import './styles/surface/popover.css';
 import './styles/surface/tooltip.css';
+import './styles/primitives/select.css';
+import './styles/primitives/progress-spinner.css';
 import './styles/components/shell.css';
 import './styles/components/bubble.css';
 import './styles/components/composer.css';
@@ -48,8 +50,6 @@ import './styles/components/elicitation.css';
 import './styles/components/conversation.css';
 import './styles/prose.css';
 import './styles/responsive.css';
-import './primitives/select/select.css';
-import './primitives/progress-spinner/progress-spinner.css';
 
 // Global HTMLElementEventMap augmentation — typed `e.detail` for aparté events.
 import './types/event-map.js';

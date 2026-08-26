@@ -308,6 +308,79 @@ if (anchored.length < ANCHORED_FLOOR) {
     );
 }
 
+/*
+ * Keyframes: every animation names one that exists, and no keyframe is declared twice
+ * or left unused.
+ *
+ * Added because this failure mode is SILENT in both directions. `.aparte-icon-spin` was
+ * put on the `loading` glyph and no keyframe of that name was ever written, so core's
+ * own loading icon simply sat still — no error, no warning, nothing to notice unless
+ * you happened to watch it. And in the other direction the library had accumulated
+ * three byte-identical rotations under three names plus a fourth, `tool-spin`, that
+ * nothing used and that — being unprefixed — would have shadowed a rule of the same
+ * name on the consumer's page.
+ *
+ * `animation-name` is checked too, not just the `animation` shorthand: the shorthand is
+ * what the library happens to use today, and a guard that only reads today's spelling
+ * stops guarding the moment someone writes the other one.
+ */
+/*
+ * `styles/bundle.css` lists the same sheets, in the same order, for the `./styles.css`
+ * export's source variant — and it is the ONE list that cannot derive itself, because
+ * it is plain CSS that a bundler reads. So it is asserted instead.
+ *
+ * It had already fallen a sheet behind (`display/icon.css`) with no symptom anywhere a
+ * developer looks: everything built, every test passed, and the only thing wrong was
+ * that the docs site — the sole consumer that reads CSS from source rather than from
+ * `dist` — rendered without that sheet.
+ */
+const BUNDLE = 'packages/core/src/styles/bundle.css';
+const bundleImports = [...readFileSync(BUNDLE, 'utf8').matchAll(/@import\s+'([^']+)'/g)].map((m) =>
+    m[1].replace(/^\.\//, 'packages/core/src/styles/').replace(/^\.\.\//, 'packages/core/src/'),
+);
+if (bundleImports.join('|') !== SHEETS.join('|')) {
+    const missing = SHEETS.filter((s) => !bundleImports.includes(s));
+    const extra = bundleImports.filter((s) => !SHEETS.includes(s));
+    problems.push(
+        `${BUNDLE} does not match src/index.ts.`
+        + (missing.length ? `\n      missing: ${missing.join(', ')}` : '')
+        + (extra.length ? `\n      unknown: ${extra.join(', ')}` : '')
+        + (!missing.length && !extra.length ? '\n      same sheets, different ORDER — which is a different cascade.' : ''),
+    );
+}
+
+const css = lines.join(String.fromCharCode(10));
+const declaredFrames = new Map();
+for (const m of css.matchAll(/@keyframes\s+([\w-]+)/g)) {
+    declaredFrames.set(m[1], (declaredFrames.get(m[1]) ?? 0) + 1);
+}
+const usedFrames = new Set();
+for (const m of css.matchAll(/animation:\s*([\w-]+)/g)) if (m[1] !== 'none') usedFrames.add(m[1]);
+for (const m of css.matchAll(/animation-name:\s*([\w-]+)/g)) if (m[1] !== 'none') usedFrames.add(m[1]);
+
+for (const name of usedFrames) {
+    if (!declaredFrames.has(name)) {
+        problems.push(
+            `\`animation: ${name}\` names a @keyframes that no stylesheet declares. `
+            + 'The element will simply not move, and nothing will say so.',
+        );
+    }
+}
+for (const [name, count] of declaredFrames) {
+    if (count > 1) {
+        problems.push(`\`@keyframes ${name}\` is declared ${count} times. The last one silently wins.`);
+    }
+    if (!usedFrames.has(name)) {
+        problems.push(`\`@keyframes ${name}\` is declared but no animation uses it — dead weight in every bundle.`);
+    }
+    if (!name.startsWith('aparte-')) {
+        problems.push(
+            `\`@keyframes ${name}\` is not prefixed \`aparte-\`. Keyframe names are global: `
+            + "this one can shadow, or be shadowed by, a rule on the consumer's own page.",
+        );
+    }
+}
+
 if (problems.length) {
     console.error(`\n[derived-vars] ${problems.length} problem(s):\n`);
     for (const p of problems) console.error(`  ${p}\n`);

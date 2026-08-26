@@ -11,15 +11,11 @@
   border-inline-end-color: transparent;
   border-radius: var(--aparte-radius-full);
   color: var(--aparte-text-muted);
-  animation: aparte-spinner-spin var(--aparte-duration-spin) linear infinite;
+  animation: aparte-spin var(--aparte-duration-spin) linear infinite;
 }
 
 .aparte-spinner--sm { --aparte-spinner-size: var(--aparte-spinner-size-sm); }
 .aparte-spinner--lg { --aparte-spinner-size: var(--aparte-spinner-size-lg); }
-
-@keyframes aparte-spinner-spin {
-  to { transform: rotate(360deg); }
-}
 
 /* =========================================
    aparte-progress — determinate bar + indeterminate variant

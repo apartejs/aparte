@@ -104,3 +104,28 @@ aparte-conversation-list {
    the underline, which is the part that carries the meaning. */
 .aparte-link--muted { color: var(--aparte-text-muted); }
 .aparte-link--muted:hover { color: var(--aparte-text); }
+
+/* ─── The library's shared motion ─────────────────────────────────────────────
+   Two keyframes for everything that moves on its own, declared HERE because this is
+   where the first of them is used and because a keyframe that lives far from its
+   consumer is a keyframe that gets re-declared: there were three identical rotations
+   under three names (`aparte-spinner-spin`, `aparte-spin`, `aparte-icon-spin`) and a
+   fourth, `tool-spin`, that nothing used at all — and which, being unprefixed, would
+   have shadowed a rule of the same name on the consumer's own page.
+
+   `aparte-spinner-rotate` in the progress spinner is deliberately NOT folded in: it
+   starts at -90deg because an SVG arc's zero is at three o'clock, so it is a different
+   curve, not a differently-named copy of this one. */
+
+/* One pulse for every dot the library shows. There were three keyframes doing the
+   same thing at slightly different rhythms; the pipeline's travelling wave comes from
+   the animation-delay on its second and third dot, not from a skewed curve. */
+@keyframes aparte-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50%      { opacity: 1;   transform: scale(1.1);  }
+}
+
+/* One rotation, for every spinner and every spinning glyph. */
+@keyframes aparte-spin {
+  to { transform: rotate(360deg); }
+}
