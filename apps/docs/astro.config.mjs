@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
+import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -63,6 +64,12 @@ export default defineConfig({
         { tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '48x48 32x32 16x16' } },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' } },
       ],
+      // Renders the release notes as a paginated version LIST at /changelog/ plus one
+      // page per version at /changelog/version/<v>/. The 14 versions used to be one
+      // 3087-line page — 26% of the whole docs corpus, with two releases alone (0.10.0
+      // and 0.8.0) accounting for 46% of it. The input is the root CHANGELOG.md that
+      // `pnpm version-packages` already generates, so nothing new has to be maintained.
+      plugins: [starlightChangelogs()],
       // Adds the `og:image` Starlight's own `twitter:card: summary_large_image`
       // already asks for and never provided (see the component for why an override
       // rather than a `head` entry).
@@ -87,8 +94,10 @@ export default defineConfig({
         { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
         // Top level, and labelled with the word people scan for. It lived under
         // Reference for a few hours and nobody found it — including an AI asked to
-        // check it, which went straight to /changelog.
-        { label: 'Changelog', link: '/changelog/' },
+        // check it, which went straight to /changelog. `type: 'all'` keeps exactly that
+        // one link, aimed at the version list; the per-version pages hang off it instead
+        // of crowding the sidebar, and the URL people already have still resolves.
+        ...makeChangelogsSidebarLinks([{ type: 'all', base: 'changelog', label: 'Changelog' }]),
       ],
     }),
   ],

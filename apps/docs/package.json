@@ -7,10 +7,9 @@
     "gen:css-vars": "node scripts/gen-css-vars.mjs",
     "gen:api": "node scripts/gen-api-ref.mjs",
     "gen:engine-api": "node scripts/gen-engine-api.mjs",
-    "gen:release-notes": "node scripts/gen-release-notes.mjs",
     "gen:wrapper-ref": "node scripts/gen-wrapper-ref.mjs",
     "gen:llms": "node scripts/gen-llms-txt.mjs",
-    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-release-notes.mjs && node scripts/gen-wrapper-ref.mjs && node scripts/gen-llms-txt.mjs",
+    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs && node scripts/gen-llms-txt.mjs",
     "dev": "pnpm gen && astro dev",
     "build": "pnpm gen && astro build",
     "preview": "astro preview",
@@ -27,7 +26,8 @@
     "@shikijs/themes": "^4.0.0",
     "astro": "^7.2.7",
     "sharp": "^0.34.2",
-    "shiki": "^4.0.0"
+    "shiki": "^4.0.0",
+    "starlight-changelogs": "^0.6.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
