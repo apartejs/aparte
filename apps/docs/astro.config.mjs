@@ -3,6 +3,7 @@ import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
 import starlightLlmsTxt from 'starlight-llms-txt';
+import starlightLinksValidator from 'starlight-links-validator';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -72,6 +73,16 @@ export default defineConfig({
       // `pnpm version-packages` already generates, so nothing new has to be maintained.
       plugins: [
         starlightChangelogs(),
+        // Fails the BUILD on a broken internal link, where scripts/check-doc-links.mjs
+        // runs after it. It also checks things ours does not: relative-link policy,
+        // locale consistency, localhost URLs, links inside custom components.
+        //
+        // Our script stays, for the one question no option here covers: whether every
+        // built page is LINKED TO by something. That is the failure this repo keeps
+        // finding — a capability that ships documented and unreachable — and the pass
+        // needs the same crawl the link check already does, so it is not separable into
+        // something smaller. The overlap on link resolution is the price.
+        starlightLinksValidator(),
         // Replaces apps/docs/scripts/gen-llms-txt.mjs. llmstxt.org is an external spec
         // that will keep moving, and tracking a spec is the thing to delegate rather
         // than reimplement. It also emits an llms-small.txt we never had.
