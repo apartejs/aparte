@@ -167,7 +167,7 @@ test('editing a user message re-sends it and reports the new text', async ({ pag
     await inlineEditor.click();
     await page.keyboard.press('ControlOrMeta+a');
     await inlineEditor.pressSequentially('second wording');
-    await userBubble.locator('.aparte-action-btn[data-action="edit-save"]').click();
+    await userBubble.locator('.aparte-chat-bubble__action[data-action="edit-save"]').click();
 
     // The edit reached the app with the NEW content…
     await expect.poll(async () => (await readEdits()).at(-1)?.content, { timeout: 10_000 })

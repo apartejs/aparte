@@ -55,10 +55,10 @@ describe('multi-instance config isolation', () => {
         const b = bubbleIn(hostB);
         const outside = bubbleIn(document.body as unknown as HTMLElement);
 
-        expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="chat-a"');
-        expect(b.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="chat-b"');
+        expect(a.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).toContain('data-marker="chat-a"');
+        expect(b.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).toContain('data-marker="chat-b"');
         // No boundary above it → global fallback icon (not either instance's).
-        expect(outside.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).not.toContain('data-marker');
+        expect(outside.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).not.toContain('data-marker');
     });
 
     it('per-instance bubble actions do not leak to the other chat', () => {
@@ -73,8 +73,8 @@ describe('multi-instance config isolation', () => {
         const a = bubbleIn(hostA);
         const b = bubbleIn(hostB);
 
-        expect(a.querySelectorAll('.aparte-action-btn')).toHaveLength(0);
-        expect(b.querySelectorAll('.aparte-action-btn').length).toBeGreaterThan(0);
+        expect(a.querySelectorAll('.aparte-chat-bubble__action')).toHaveLength(0);
+        expect(b.querySelectorAll('.aparte-chat-bubble__action').length).toBeGreaterThan(0);
     });
 
     it('per-instance markdown providers render independently', () => {
@@ -101,7 +101,7 @@ describe('multi-instance config isolation', () => {
         const hostA = host();
         const a = bubbleIn(hostA);
         // Sanity: starts on the global (default icon, no marker).
-        expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).not.toContain('data-marker');
+        expect(a.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).not.toContain('data-marker');
 
         // AparteChatHost.bind() runs post-mount — attaching late must still apply.
         attachConfig(hostA, cfgWithCopyIcon('late'));
@@ -109,18 +109,18 @@ describe('multi-instance config isolation', () => {
         // path by dispatching the same window event the config emits.
         window.dispatchEvent(new CustomEvent('aparte-config-change'));
 
-        expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="late"');
+        expect(a.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).toContain('data-marker="late"');
     });
 
     it('detachConfig returns the subtree to the global config', () => {
         const hostA = host();
         attachConfig(hostA, cfgWithCopyIcon('temp'));
         const a = bubbleIn(hostA);
-        expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="temp"');
+        expect(a.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).toContain('data-marker="temp"');
 
         detachConfig(hostA);
         window.dispatchEvent(new CustomEvent('aparte-config-change'));
-        expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).not.toContain('data-marker');
+        expect(a.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).not.toContain('data-marker');
     });
 
     it('changing the global config does not override instance configs', () => {
@@ -132,7 +132,7 @@ describe('multi-instance config isolation', () => {
 
         // The global notify rebuilds all action bars — but this bubble re-reads
         // ITS instance config, not the global.
-        expect(a.querySelector('.aparte-action-btn[data-action="copy"]')!.innerHTML).toContain('data-marker="instance"');
+        expect(a.querySelector('.aparte-chat-bubble__action[data-action="copy"]')!.innerHTML).toContain('data-marker="instance"');
     });
 });
 

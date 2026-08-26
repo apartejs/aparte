@@ -1,7 +1,15 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
-import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { controlMarkup } from '../../utils/control.js';
+
+/**
+ * This element's button. A child already carrying it suppresses core's own render,
+ * so the name is a published contract — see `utils/control.ts` for why it is spelled
+ * out rather than initialled.
+ */
+const ADD_ATTACHMENT_BUTTON_CLASS = 'aparte-composer-add-attachment__button';
+
 
 /**
  * File picker button for <aparte-composer>.
@@ -29,7 +37,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * and the `paperclip` icon), so a locale or icon-provider change rewrites the existing
  * button in place instead of re-rendering it.
  *
- * A child already carrying `class="aparte-caa-button"` suppresses core's own render — and
+ * A child already carrying `class="aparte-composer-add-attachment__button"` suppresses core's own render — and
  * core then wires nothing to it: no click listener (so no picker opens), and no label,
  * icon or disabled/streaming writes. Drag & drop still works, since it is installed on the
  * root regardless. Any other child is replaced on the first render. The file input itself
@@ -44,7 +52,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *
  * @cssprop [--aparte-input-action-btn-size=36px] - Square size of the button. On a coarse
  *   pointer the stylesheet re-sets it to `--aparte-touch-target-size` (44px) on
- *   `.aparte-action-button` itself, which wins over a value inherited from your theme.
+ *   `.aparte-control` itself, which wins over a value inherited from your theme.
  * @cssprop [--aparte-input-action-btn-icon-size=20px] - Size of the `<svg>` inside it.
  * @cssprop [--aparte-radius-action-btn=var(--aparte-radius-sm)] - Corner radius.
  *
@@ -117,21 +125,17 @@ export class AparteComposerAddAttachment extends HTMLElement {
     }
 
     private _render(): void {
-        if (this.querySelector('.aparte-caa-button')) return;
+        if (this.querySelector(`.${ADD_ATTACHMENT_BUTTON_CLASS}`)) return;
 
         const label = resolveConfig(this).t('actionUpload') || 'Attach file';
         const icon = resolveConfig(this).getIcon('paperclip') || this._defaultIcon();
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
-        this.innerHTML = `<button
-            class="aparte-caa-button aparte-action-button"
-            aria-label="${escapeAttr(label)}"
-            title="${escapeAttr(label)}"
-            type="button"
-            ${disabled ? 'disabled' : ''}
-        >${icon}</button>`;
+        this.innerHTML = controlMarkup({
+            part: ADD_ATTACHMENT_BUTTON_CLASS, look: 'icon', label, icon, disabled,
+        });
 
-        this._button = this.querySelector('.aparte-caa-button');
+        this._button = this.querySelector(`.${ADD_ATTACHMENT_BUTTON_CLASS}`);
         this._button?.addEventListener('click', this._onClick);
     }
 

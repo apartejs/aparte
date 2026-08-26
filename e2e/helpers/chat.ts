@@ -89,7 +89,7 @@ export class ChatPage {
 
     /** An action-bar button inside `bubble`. */
     action(bubble: Locator, action: BubbleAction): Locator {
-        return bubble.locator(`.aparte-action-btn[data-action="${action}"]`);
+        return bubble.locator(`.aparte-chat-bubble__action[data-action="${action}"]`);
     }
 
     /**

@@ -339,8 +339,16 @@ if (offenders.length) {
  * catches a broken matcher (which collapses the count), not normal churn.
  *
  * Raise it when the real number grows; never lower it without saying why here.
+ *
+ * **Lowered 100 → 80 when every control moved behind `utils/control.ts`.** Fourteen
+ * hand-written `<button>`s each interpolated their own `aria-label`, `title` and
+ * `data-action`; they now call one helper that escapes those three in a single place.
+ * Measured on the changed files alone: 48 → 21 attribute interpolations, so the real
+ * total fell 114 → 87 with nothing left unescaped. That is markup legitimately deleted,
+ * not a matcher that stopped seeing it — the shape it matches is unchanged, and
+ * `check:text-escaping` still passes over the same files.
  */
-const SEEN_FLOOR = 100;
+const SEEN_FLOOR = 80;
 if (checked < SEEN_FLOOR) {
     console.error(
         `\n[attr-escaping] only ${checked} interpolations found, expected at least ${SEEN_FLOOR}.\n\n`

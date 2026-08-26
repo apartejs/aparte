@@ -1,7 +1,15 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
-import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { controlMarkup } from '../../utils/control.js';
+
+/**
+ * This element's button. A child already carrying it suppresses core's own render,
+ * so the name is a published contract — see `utils/control.ts` for why it is spelled
+ * out rather than initialled.
+ */
+const CANCEL_BUTTON_CLASS = 'aparte-composer-cancel__button';
+
 
 /**
  * Cancel/stop streaming button primitive for <aparte-composer>.
@@ -71,19 +79,15 @@ export class AparteComposerCancel extends HTMLElement {
     }
 
     private _render(): void {
-        if (this.querySelector('.aparte-cc-button')) return;
+        if (this.querySelector(`.${CANCEL_BUTTON_CLASS}`)) return;
 
         const label = resolveConfig(this).t('stopButton') || 'Stop';
         const icon = this._getStopIcon();
 
-        this.innerHTML = `<button
-            class="aparte-cc-button"
-            aria-label="${escapeAttr(label)}"
-            title="${escapeAttr(label)}"
-            hidden
-        >${icon}</button>`;  // safe-text: _getStopIcon() returns the provider's SVG markup — escaping it would print the source
+        // safe-text: _getStopIcon() returns the provider's SVG markup — escaping it would print the source
+        this.innerHTML = controlMarkup({ part: CANCEL_BUTTON_CLASS, label, icon, hidden: true });
 
-        this._button = this.querySelector('.aparte-cc-button');
+        this._button = this.querySelector(`.${CANCEL_BUTTON_CLASS}`);
         this._button?.addEventListener('click', this._onClick);
     }
 

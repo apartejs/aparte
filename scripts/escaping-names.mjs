@@ -45,6 +45,12 @@ export const ESCAPER_NAMES = new Set([
  */
 export const TRUSTED_MARKUP_CALLS = new Set([
     'getIcon', 'renderMarkdown', 'collectRendererStyles', 'buildElicitationPanel',
+    // Returns the markup for one <button> — that IS its return type. It escapes the
+    // label, the class list and every data value itself, which is the point of routing
+    // every control through it; the only thing it passes through untouched is the icon,
+    // and that is `getIcon` output one line up. Listed here as a contract rather than
+    // re-exempted at each of its call sites.
+    'controlMarkup',
 ]);
 
 /** Every `name(` called anywhere in an expression, as bare identifiers. */

@@ -100,14 +100,14 @@ describe('AparteChatBubble', () => {
 
         it('user bubble has "Edit" button, NOT "Retry"', () => {
             bubble = createBubble({ role: 'user', 'message-id': 'u1' });
-            expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
-            expect(bubble.querySelector('.aparte-action-retry')).toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--edit')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--retry')).toBeNull();
         });
 
         it('assistant bubble has "Retry" button, NOT "Edit"', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'a1' });
-            expect(bubble.querySelector('.aparte-action-retry')).not.toBeNull();
-            expect(bubble.querySelector('.aparte-action-edit')).toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--retry')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--edit')).toBeNull();
         });
     });
 
@@ -122,23 +122,23 @@ describe('AparteChatBubble', () => {
             bubble = createBubble({ 'message-id': 'u2' }); // no role → default assistant
             // At this point action bar would have Retry
             bubble.setAttribute('role', 'user'); // Angular sets it after CD
-            expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
-            expect(bubble.querySelector('.aparte-action-retry')).toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--edit')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--retry')).toBeNull();
         });
 
         it('assistant bubble retains Retry when role is set to assistant post-connection', () => {
             bubble = createBubble({ 'message-id': 'a2' });
             bubble.setAttribute('role', 'assistant');
-            expect(bubble.querySelector('.aparte-action-retry')).not.toBeNull();
-            expect(bubble.querySelector('.aparte-action-edit')).toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--retry')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--edit')).toBeNull();
         });
 
         it('switching role from assistant to user updates action bar', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'a3' });
-            expect(bubble.querySelector('.aparte-action-retry')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--retry')).not.toBeNull();
             bubble.setAttribute('role', 'user');
-            expect(bubble.querySelector('.aparte-action-retry')).toBeNull();
-            expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--retry')).toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--edit')).not.toBeNull();
         });
     });
 
@@ -248,7 +248,7 @@ describe('AparteChatBubble', () => {
             document.body.addEventListener('aparte-retry', (e: Event) => {
                 retryDetail = (e as CustomEvent).detail;
             });
-            const retryBtn = bubble.querySelector('.aparte-action-retry') as HTMLButtonElement;
+            const retryBtn = bubble.querySelector('.aparte-chat-bubble__action--retry') as HTMLButtonElement;
             retryBtn?.click();
             expect(retryDetail?.messageId).toBe('r1');
         });
@@ -277,7 +277,7 @@ describe('AparteChatBubble', () => {
             host.appendChild(b);
             let detail: { messageId?: string; targetId?: string } | null = null;
             document.body.addEventListener('aparte-retry', (e: Event) => { detail = (e as CustomEvent).detail; });
-            (b.querySelector('.aparte-action-retry') as HTMLButtonElement)?.click();
+            (b.querySelector('.aparte-chat-bubble__action--retry') as HTMLButtonElement)?.click();
             expect(detail!.messageId).toBe('rt1');
             expect(detail!.targetId).toBe('host-xyz'); // was undefined before the fix
             host.remove();
@@ -416,9 +416,9 @@ describe('AparteChatBubble', () => {
         it('rebuilds the action bar when setBubbleActions changes the per-role set', () => {
             bubble = createBubble({ role: 'assistant', 'message-id': 'cc1', content: 'hi' });
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
-            expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1);
+            expect(bubble.querySelectorAll('.aparte-chat-bubble__action')).toHaveLength(1);
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] });
-            expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(4);
+            expect(bubble.querySelectorAll('.aparte-chat-bubble__action')).toHaveLength(4);
         });
 
         it('re-reads icons when setIconProvider changes', () => {
@@ -428,17 +428,17 @@ describe('AparteChatBubble', () => {
             // start from the full fallback set so every connected bubble stays valid.
             const full = aparteGlobalConfig.getIconProvider();
             aparteGlobalConfig.setIconProvider({ ...full, copy: () => '<svg data-skin-copy></svg>' });
-            const btn = bubble.querySelector('.aparte-action-btn[data-action="copy"]');
+            const btn = bubble.querySelector('.aparte-chat-bubble__action[data-action="copy"]');
             expect(btn?.innerHTML).toContain('data-skin-copy');
         });
 
         it('stops rebuilding after the bubble is disconnected', () => {
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'cc3', content: 'hi' });
-            expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1);
+            expect(bubble.querySelectorAll('.aparte-chat-bubble__action')).toHaveLength(1);
             bubble.remove();
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'retry', 'thumbUp', 'thumbDown'] });
-            expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1); // unchanged, no throw
+            expect(bubble.querySelectorAll('.aparte-chat-bubble__action')).toHaveLength(1); // unchanged, no throw
         });
     });
 
@@ -496,7 +496,7 @@ describe('AparteChatBubble', () => {
             aparteGlobalConfig.registerAction({ id: 'share', icon: '<svg class="share-i"></svg>', label: 'Share', zones: ['bubble'] });
             bubble = createBubble({ role: 'assistant', 'message-id': 'ca1' });
 
-            const btn = bubble.querySelector('.aparte-action-custom[data-action="custom:share"]') as HTMLButtonElement;
+            const btn = bubble.querySelector('.aparte-chat-bubble__action--custom[data-action="custom:share"]') as HTMLButtonElement;
             expect(btn).not.toBeNull();
             expect(btn.getAttribute('aria-label')).toBe('Share');
             expect(btn.querySelector('.share-i')).not.toBeNull();
@@ -636,9 +636,9 @@ describe('AparteChatBubble', () => {
         it('shows the bar in edit mode even with every action off', () => {
             aparteGlobalConfig.setBubbleActions({ copy: false, edit: true });
             bubble = createBubble({ role: 'user', 'message-id': 'e7', content: 'hi' });
-            (bubble.querySelector('.aparte-action-edit') as HTMLButtonElement).click();
+            (bubble.querySelector('.aparte-chat-bubble__action--edit') as HTMLButtonElement).click();
             expect(bar(bubble).hidden).toBe(false);
-            expect(bubble.querySelector('.aparte-action-edit-save')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-chat-bubble__action--edit-save')).not.toBeNull();
         });
     });
 
@@ -740,7 +740,7 @@ describe('AparteChatBubble', () => {
         afterEach(() => aparteGlobalConfig.reset());
 
         const actionsOf = (el: HTMLElement) =>
-            [...el.querySelectorAll('.aparte-action-bar .aparte-action-btn')]
+            [...el.querySelectorAll('.aparte-action-bar .aparte-chat-bubble__action')]
                 .map((b) => b.getAttribute('data-action'));
         const withUsage = (el: HTMLElement) =>
             (el as unknown as { setUsage(u: unknown): void }).setUsage({ inputTokens: 3, outputTokens: 5 });
@@ -861,7 +861,7 @@ describe('AparteChatBubble', () => {
             expect(bubble.querySelector('.aparte-body')).toBeNull();
             // The bubble populated the region hooks the shell provided.
             expect(bubble.querySelector('.aparte-content')?.textContent).toContain('hello');
-            expect(bubble.querySelector('.aparte-action-bar .aparte-action-btn')).not.toBeNull();
+            expect(bubble.querySelector('.aparte-action-bar .aparte-chat-bubble__action')).not.toBeNull();
         });
     });
 });

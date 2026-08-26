@@ -1,7 +1,14 @@
 import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
-import { escapeAttr } from '../../utils/escape.js';
+import { controlMarkup } from '../../utils/control.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+
+/**
+ * This element's button. A child already carrying it suppresses core's own render,
+ * so the name is a published contract — see `utils/control.ts` for why it is spelled
+ * out rather than initialled.
+ */
+const SEND_BUTTON_CLASS = 'aparte-composer-send__button';
 
 /**
  * Submit button primitive for <aparte-composer>.
@@ -93,21 +100,17 @@ export class AparteComposerSend extends HTMLElement {
     }
 
     private _render(): void {
-        if (this.querySelector('.aparte-cs-button')) return;
+        if (this.querySelector(`.${SEND_BUTTON_CLASS}`)) return;
 
         const label = resolveConfig(this).t('sendButton') || 'Send';
         const icon = this._getSendIcon();
         const root = this._getRoot();
         const disabled = !root || root.disabled || root.value.trim() === '';
 
-        this.innerHTML = `<button
-            class="aparte-cs-button aparte-send-button"
-            aria-label="${escapeAttr(label)}"
-            title="${escapeAttr(label)}"
-            ${disabled ? 'disabled' : ''}
-        >${icon}</button>`;  // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
+        // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
+        this.innerHTML = controlMarkup({ part: SEND_BUTTON_CLASS, label, icon, disabled });
 
-        this._button = this.querySelector('.aparte-cs-button');
+        this._button = this.querySelector(`.${SEND_BUTTON_CLASS}`);
         this._button?.addEventListener('click', this._onClick);
     }
 

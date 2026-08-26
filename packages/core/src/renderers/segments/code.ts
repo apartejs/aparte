@@ -5,7 +5,8 @@
  * nowhere else to put them; the registry that consumes them is in
  * `../segment-renderers.ts`.
  */
-import { escapeHtml, escapeAttr } from '../../utils/escape.js';
+import { escapeHtml } from '../../utils/escape.js';
+import { controlMarkup } from '../../utils/control.js';
 import { contextConfig } from '../../config/index.js';
 import { streamHighlight } from '../highlight-stream.js';
 import type {
@@ -22,9 +23,12 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                     ? `<span class="aparte-code-filename">${escapeHtml(segment.filename)}</span>`
                     : `<span class="aparte-code-header-filler"></span>`}
                 <span class="aparte-code-language">${escapeHtml(segment.language || '')}</span>
-                <button class="aparte-code-copy" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}">
-                    ${contextConfig().getIcon('copy')}
-                </button>
+                ${controlMarkup({
+                    part: 'aparte-code-copy',
+                    label: contextConfig().t('copy'),
+                    icon: contextConfig().getIcon('copy'),
+                    data: { action: 'copy' },
+                })}
             </div>
             <div class="aparte-code-content-wrapper">
                 <pre><code class="language-${escapeHtml(segment.language || 'text')}">${escapeHtml(segment.content)}</code></pre>

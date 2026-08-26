@@ -1,7 +1,15 @@
 import { resolveConfig, type AparteIconName } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
-import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
+import { controlMarkup } from '../../utils/control.js';
+
+/**
+ * This element's button. A child already carrying it suppresses core's own render,
+ * so the name is a published contract — see `utils/control.ts` for why it is spelled
+ * out rather than initialled.
+ */
+const ACTION_BUTTON_CLASS = 'aparte-composer-action__button';
+
 
 /**
  * Generic action button primitive for <aparte-composer>.
@@ -9,7 +17,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * The consumer declares it directly in markup — no global registration needed.
  *
  * It is the escape hatch for a button core has no opinion about: it renders one icon
- * button wearing `.aparte-action-button` (the shared icon-button look — colour from
+ * button wearing `.aparte-control` (the shared icon-button look — colour from
  * `--aparte-neutral`, hover tint derived from `--aparte-primary`) and emits
  * `aparte-action-click`. It carries no behaviour of its own and nothing in core listens
  * for that event, so the app is the only thing that can make it do something. Prefer the
@@ -23,7 +31,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * app tracking that. Used outside a composer it still mounts and still fires, with
  * `composer: null` in the detail.
  *
- * A child already carrying `class="aparte-cact-button"` suppresses core's own render — and
+ * A child already carrying `class="aparte-composer-action__button"` suppresses core's own render — and
  * core then wires nothing to it: no click listener (so no `aparte-action-click`), no
  * `label` → `aria-label`/`title` write, no `icon` write, no disabled/streaming sync. Take
  * that path only for a button your own code drives end to end. Any other child is replaced
@@ -48,7 +56,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *
  * @cssprop [--aparte-input-action-btn-size=36px] - Square size of the button. On a coarse
  *   pointer the stylesheet re-sets it to `--aparte-touch-target-size` (44px) on
- *   `.aparte-action-button` itself, which wins over a value inherited from your theme.
+ *   `.aparte-control` itself, which wins over a value inherited from your theme.
  * @cssprop [--aparte-input-action-btn-icon-size=20px] - Size of the `<svg>` inside it.
  * @cssprop [--aparte-radius-action-btn=var(--aparte-radius-sm)] - Corner radius.
  *
@@ -108,24 +116,21 @@ export class AparteComposerAction extends HTMLElement {
     }
 
     private _render(): void {
-        if (this.querySelector('.aparte-cact-button')) return;
+        if (this.querySelector(`.${ACTION_BUTTON_CLASS}`)) return;
 
-        // `label` is a host-set attribute (often bound to dynamic/translated
-        // text by the consumer) — escape before it lands in a double-quoted
-        // attribute so a stray `"` can't break out and inject markup.
-        const label = escapeAttr(this.getAttribute('label') ?? '');
+        // `label` is a host-set attribute (often bound to dynamic/translated text by the
+        // consumer). The `escapeAttr` call that used to wrap it is gone rather than kept:
+        // `controlMarkup` escapes whatever it puts in an attribute, so escaping here too
+        // would double it and print `&amp;` in a tooltip.
+        const label = this.getAttribute('label') ?? '';
         const icon = this._resolveIcon(this.getAttribute('icon') ?? '');  // safe-text: _resolveIcon returns provider SVG, or the host-set icon attribute verbatim when it starts with < — documented as trusted markup, same contract as AparteIconProvider
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
-        this.innerHTML = `<button
-            class="aparte-cact-button aparte-action-button"
-            aria-label="${label}"
-            title="${label}"
-            type="button"
-            ${disabled ? 'disabled' : ''}
-        >${icon}</button>`;
+        this.innerHTML = controlMarkup({
+            part: ACTION_BUTTON_CLASS, look: 'icon', label, icon, disabled,
+        });
 
-        this._button = this.querySelector('.aparte-cact-button');
+        this._button = this.querySelector(`.${ACTION_BUTTON_CLASS}`);
         this._button?.addEventListener('click', this._onClick);
     }
 

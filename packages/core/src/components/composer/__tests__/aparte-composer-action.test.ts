@@ -34,7 +34,7 @@ function mount(attrs: Record<string, string> = {}, composerAttrs: Record<string,
     const action = document.createElement('aparte-composer-action');
     for (const [k, v] of Object.entries(attrs)) action.setAttribute(k, v);
     composer.appendChild(action);
-    return { composer, action, button: action.querySelector<HTMLButtonElement>('.aparte-cact-button')! };
+    return { composer, action, button: action.querySelector<HTMLButtonElement>('.aparte-composer-action__button')! };
 }
 
 afterEach(() => { document.body.innerHTML = ''; vi.restoreAllMocks(); });
@@ -110,7 +110,7 @@ describe('aparte-composer-action', () => {
         expect(() => document.body.appendChild(action)).not.toThrow();
         const seen: AparteActionClickEventDetail[] = [];
         document.addEventListener('aparte-action-click', (e) => seen.push(e.detail));
-        action.querySelector<HTMLButtonElement>('.aparte-cact-button')!.click();
+        action.querySelector<HTMLButtonElement>('.aparte-composer-action__button')!.click();
         // Still emits — with a null composer, which is why the detail type declares
         // that field nullable rather than optional.
         expect(seen[0]?.composer).toBeNull();
@@ -121,6 +121,6 @@ describe('aparte-composer-action', () => {
         const second = document.createElement('aparte-composer') as AparteComposer;
         document.body.appendChild(second);
         second.appendChild(action);
-        expect(action.querySelectorAll('.aparte-cact-button')).toHaveLength(1);
+        expect(action.querySelectorAll('.aparte-composer-action__button')).toHaveLength(1);
     });
 });

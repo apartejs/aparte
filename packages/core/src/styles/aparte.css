@@ -1298,7 +1298,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   display: none;
 }
 
-.aparte-action-btn {
+.aparte-chat-bubble__action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1314,16 +1314,16 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   flex-shrink: 0;
 }
 
-.aparte-action-btn:hover {
+.aparte-chat-bubble__action:hover {
   background: var(--aparte-action-bar-btn-hover-bg, var(--aparte-surface-2));
   color: var(--aparte-action-bar-btn-hover-color, var(--aparte-text));
 }
 
-.aparte-action-btn[data-copied] {
+.aparte-chat-bubble__action[data-copied] {
   color: var(--aparte-success, #10b981);
 }
 
-.aparte-action-btn[data-submitted] {
+.aparte-chat-bubble__action[data-submitted] {
   color: var(--aparte-primary, #6366f1);
 }
 
@@ -1393,7 +1393,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 /* Inline editor: the composer's contenteditable primitive, given the composer
    shell's box (bordered surface) so it reads as the same field. The inner
-   .aparte-ci-editor inherits its padding/font/caret from the shared composer rule. */
+   .aparte-composer-input__editor inherits its padding/font/caret from the shared composer rule. */
 .aparte-message[data-editing] aparte-composer-input {
   display: block;
   margin: var(--aparte-space-2, 4px) 0;
@@ -1413,17 +1413,17 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   opacity: 1;
 }
 
-.aparte-action-btn.aparte-action-edit-save {
+.aparte-chat-bubble__action--edit-save {
   color: var(--aparte-success, #16a34a);
 }
-.aparte-action-btn.aparte-action-edit-save:hover {
+.aparte-chat-bubble__action--edit-save:hover {
   background: var(--aparte-success-surface, rgba(34, 197, 94, 0.14));
   color: var(--aparte-success, #16a34a);
 }
-.aparte-action-btn.aparte-action-edit-cancel {
+.aparte-chat-bubble__action--edit-cancel {
   color: var(--aparte-error, #dc2626);
 }
-.aparte-action-btn.aparte-action-edit-cancel:hover {
+.aparte-chat-bubble__action--edit-cancel:hover {
   background: var(--aparte-error-surface, rgba(239, 68, 68, 0.14));
   color: var(--aparte-error, #dc2626);
 }
@@ -1439,15 +1439,6 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   gap: var(--aparte-input-gap, 8px);
   padding: var(--aparte-space-4, 8px) var(--aparte-space-6, 12px);
   background: transparent;
-}
-
-/* Action slots */
-.aparte-actions-left,
-.aparte-actions-right {
-  display: flex;
-  align-items: center;
-  gap: var(--aparte-space-2, 4px);
-  flex-shrink: 0;
 }
 
 .aparte-input-container {
@@ -1492,7 +1483,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   cursor: not-allowed;
 }
 
-.aparte-send-button {
+.aparte-composer-send__button {
   flex-shrink: 0;
   width: var(--aparte-send-btn-size, 36px);
   height: var(--aparte-send-btn-size, 36px);
@@ -1508,18 +1499,18 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   padding: 0;
 }
 
-.aparte-send-button:hover:not(:disabled) {
+.aparte-composer-send__button:hover:not(:disabled) {
   background: var(--aparte-primary-hover, #4f46e5);
 }
 
-.aparte-send-button:disabled {
+.aparte-composer-send__button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   background: var(--aparte-send-disabled-bg, var(--aparte-primary));
 }
 
 /* Action Buttons in Input */
-.aparte-action-button {
+.aparte-control {
   background: transparent;
   border: none;
   color: var(--aparte-neutral, #6b7280);
@@ -1534,14 +1525,14 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   height: var(--aparte-input-action-btn-size, 36px);
 }
 
-.aparte-action-button:hover {
+.aparte-control:hover {
   color: var(--aparte-primary, #6366f1);
   /* Derive the hover tint from --aparte-primary instead of hardcoding indigo, so a
      custom theme's action buttons tint with its own accent. */
   background-color: color-mix(in srgb, var(--aparte-primary, #6366f1) 10%, transparent);
 }
 
-.aparte-action-button svg {
+.aparte-control svg {
   width: var(--aparte-input-action-btn-icon-size, 20px);
   height: var(--aparte-input-action-btn-icon-size, 20px);
 }
@@ -2554,7 +2545,7 @@ aparte-composer-input {
 }
 
 /* Contenteditable editor inside aparte-composer-input */
-aparte-composer-input .aparte-ci-editor {
+aparte-composer-input .aparte-composer-input__editor {
   display: block;
   width: 100%;
   min-height: var(--aparte-composer-control-size, 44px);
@@ -2574,13 +2565,13 @@ aparte-composer-input .aparte-ci-editor {
 }
 
 /* Placeholder via CSS */
-aparte-composer-input .aparte-ci-editor:empty::before {
+aparte-composer-input .aparte-composer-input__editor:empty::before {
   content: attr(data-placeholder);
   color: var(--aparte-input-placeholder, var(--aparte-text-muted, #9ca3af));
   pointer-events: none;
 }
 
-aparte-composer-input .aparte-ci-editor[aria-disabled="true"] {
+aparte-composer-input .aparte-composer-input__editor[aria-disabled="true"] {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -2738,14 +2729,14 @@ aparte-composer-toolbar[data-empty],
   display: none;
 }
 
-/* Cancel/dictate button — same visual style as action buttons */
-aparte-composer-cancel .aparte-cc-button[hidden],
-aparte-composer-dictate .aparte-cd-button[hidden] {
+/* Stop button — same visual style as the shared icon controls.
+   The `aparte-composer-dictate` half of these three selectors was removed: no such
+   element exists anywhere in the repo, so the rules could never match. */
+aparte-composer-cancel .aparte-composer-cancel__button[hidden] {
   display: none !important;
 }
 
-aparte-composer-cancel .aparte-cc-button,
-aparte-composer-dictate .aparte-cd-button {
+aparte-composer-cancel .aparte-composer-cancel__button {
   background: transparent;
   border: none;
   color: var(--aparte-neutral, #6b7280);
@@ -2759,8 +2750,7 @@ aparte-composer-dictate .aparte-cd-button {
   transition: color 0.15s, background 0.15s;
 }
 
-aparte-composer-cancel .aparte-cc-button:hover,
-aparte-composer-dictate .aparte-cd-button:hover {
+aparte-composer-cancel .aparte-composer-cancel__button:hover {
   color: var(--aparte-text);
   background: var(--aparte-surface-2);
 }
@@ -3001,11 +2991,11 @@ aparte-conversation-list {
     --aparte-scroll-btn-size: var(--aparte-touch-target-size, 44px);
   }
 
-  .aparte-send-button {
+  .aparte-composer-send__button {
     --aparte-send-btn-size: var(--aparte-touch-target-size, 44px);
   }
 
-  .aparte-action-button {
+  .aparte-control {
     --aparte-input-action-btn-size: var(--aparte-touch-target-size, 44px);
   }
 

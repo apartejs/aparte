@@ -6,7 +6,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * Contenteditable text input primitive.
  *
- * The element owns its subtree: on connect it writes one `.aparte-ci-editor`
+ * The element owns its subtree: on connect it writes one `.aparte-composer-input__editor`
  * contenteditable and binds its listeners to that node, so children you place inside are
  * replaced. There is nothing to project here — style the generated editor through the CSS
  * variables below, or replace the whole primitive.
@@ -192,7 +192,7 @@ export class AparteComposerInput extends HTMLElement {
     }
 
     private _render(): void {
-        if (this.querySelector('.aparte-ci-editor')) return;
+        if (this.querySelector('.aparte-composer-input__editor')) return;
 
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
         // `placeholder` may come straight from a host attribute (often bound to
@@ -201,7 +201,7 @@ export class AparteComposerInput extends HTMLElement {
         const placeholder = escapeAttr(this._getPlaceholder());
 
         this.innerHTML = `<div
-            class="aparte-ci-editor"
+            class="aparte-composer-input__editor"
             contenteditable="${!disabled}"
             role="textbox"
             aria-multiline="true"
@@ -211,7 +211,7 @@ export class AparteComposerInput extends HTMLElement {
             data-placeholder="${placeholder}"
         ></div>`;
 
-        this._editor = this.querySelector('.aparte-ci-editor');
+        this._editor = this.querySelector('.aparte-composer-input__editor');
         this._editor?.addEventListener('input', this._onInput);
         this._editor?.addEventListener('keydown', this._onKeydown);
         this._editor?.addEventListener('focus', this._onFocus);

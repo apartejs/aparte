@@ -811,7 +811,7 @@ describe('aparte-edit event payload', () => {
         }, { once: true });
 
         // Enter edit mode via the real action button.
-        const editBtn = bubble.querySelector('.aparte-action-edit') as HTMLButtonElement;
+        const editBtn = bubble.querySelector('.aparte-chat-bubble__action--edit') as HTMLButtonElement;
         editBtn?.click();
 
         // Seed the new text through the primitive, then hit the real ✓ save button.
@@ -819,7 +819,7 @@ describe('aparte-edit event payload', () => {
             setValue(v: string): void;
         };
         input.setValue('edited text');
-        const saveBtn = bubble.querySelector('.aparte-action-edit-save') as HTMLButtonElement;
+        const saveBtn = bubble.querySelector('.aparte-chat-bubble__action--edit-save') as HTMLButtonElement;
         saveBtn.click();
 
         expect(receivedDetail).not.toBeNull();

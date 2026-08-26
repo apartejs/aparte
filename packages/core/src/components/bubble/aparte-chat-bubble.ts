@@ -18,6 +18,7 @@ import { cssEscape } from '../../utils/css-escape.js';
 import { mergeSegmentUpdate } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
+import { controlMarkup, createControl } from '../../utils/control.js';
 
 /**
  * Warn ONCE when a segment has no renderer — now only for types core has never
@@ -66,6 +67,15 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
     wrapper.innerHTML = result;
     return wrapper.firstElementChild as HTMLElement | null;
 }
+
+/**
+ * Every button in this bubble's action bar, built-in or registered by a consumer.
+ *
+ * Named for the element that owns it, per the rule in `utils/control.ts`. It replaces
+ * `.aparte-action-btn`, which lived one letter from `.aparte-action-button` — a
+ * different class, on a different element, with a different look.
+ */
+const BUBBLE_ACTION_CLASS = 'aparte-chat-bubble__action';
 
 /** Lucide "info" glyph — inline so the action bar needs no icon-provider key. */
 const INFO_ICON_SVG =
@@ -659,6 +669,11 @@ export class AparteChatBubble extends HTMLElement {
       if (out instanceof HTMLElement) this.replaceChildren(out);
       else this.innerHTML = out;
     } else {
+    // Built before the template, not inside it: a `// safe-text:` marker written between
+    // backticks is TEXT, not a comment — it has been rendered into a bubble before.
+    const locale = this._cfg.getLocale();
+    const branchPrev = controlMarkup({ part: 'aparte-branch-prev', label: locale.previousResponse ?? 'Previous response', icon: '&#8249;' });
+    const branchNext = controlMarkup({ part: 'aparte-branch-next', label: locale.nextResponse ?? 'Next response', icon: '&#8250;' });
     this.innerHTML = `
       <div class="aparte-message" data-role="${escapeAttr(role)}" role="article" aria-label="${escapeAttr(this._getAriaLabel())}">
         <div class="aparte-avatar" data-role="${escapeAttr(role)}"></div>
@@ -678,9 +693,9 @@ export class AparteChatBubble extends HTMLElement {
           </div>
           <div class="aparte-footer">
             <div class="aparte-branch-picker" hidden>
-              <button class="aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
+              ${branchPrev}
               <span class="aparte-branch-label">1 / 1</span>
-              <button class="aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
+              ${branchNext}
             </div>
             <div class="aparte-action-bar" role="toolbar" aria-label="${escapeAttr(this._cfg.getLocale().messageActions ?? 'Message actions')}"></div>
           </div>
@@ -1136,7 +1151,7 @@ export class AparteChatBubble extends HTMLElement {
 
     // Wire up button handlers — messageId read dynamically at click time
     // so it's always correct even when Angular sets the attribute after connectedCallback
-    this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
+    this._actionBarEl.querySelectorAll(`.${BUBBLE_ACTION_CLASS}`).forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
 
@@ -1164,18 +1179,20 @@ export class AparteChatBubble extends HTMLElement {
     for (const a of this._cfg.getActions('bubble')) {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
-      const btn = document.createElement('button');
-      btn.className = 'aparte-action-btn aparte-action-custom';
-      btn.dataset['action'] = `custom:${a.id}`;
-      // aria-label/title via setAttribute — safe for consumer-provided strings.
-      btn.setAttribute('aria-label', a.label);
-      btn.setAttribute('title', a.label);
       // Icon: raw inline SVG/HTML, else an icon-provider key (trusted output).
       const fromProvider = (icons as unknown as Record<string, (() => string) | undefined>)[a.icon];
-      btn.innerHTML = a.icon.startsWith('<')
+      const icon = a.icon.startsWith('<')
         ? a.icon
         : (typeof fromProvider === 'function' ? fromProvider() : (a.iconFallback ?? ''));
-      this._actionBarEl.appendChild(btn);
+      // `createControl`, not `controlMarkup`: the label is the consumer's, and this path
+      // sets it as an attribute rather than interpolating it into markup.
+      this._actionBarEl.appendChild(createControl({
+        part: BUBBLE_ACTION_CLASS,
+        modifiers: [`${BUBBLE_ACTION_CLASS}--custom`],
+        label: a.label,
+        icon,
+        data: { action: `custom:${a.id}` },
+      }));
     }
   }
 
@@ -1185,34 +1202,31 @@ export class AparteChatBubble extends HTMLElement {
     icons: ReturnType<AparteConfig['getIconProvider']>,
     locale: ReturnType<AparteConfig['getLocale']>,
   ): string {
+    /** `data-action` is the click handler's contract and is NOT always the modifier. */
+    const button = (modifier: string, label: string, icon: string, dataAction = modifier) =>
+      controlMarkup({
+        part: BUBBLE_ACTION_CLASS,
+        modifiers: [`${BUBBLE_ACTION_CLASS}--${modifier}`],
+        label,
+        icon,
+        data: { action: dataAction },
+      });
     switch (action) {
-      case 'copy': {
-        const l = locale.copy ?? 'Copy';
-        return `<button class="aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
-      }
-      case 'edit': {
-        const l = locale.edit ?? 'Edit message';
-        return `<button class="aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
-      }
-      case 'retry': {
-        const l = locale.retry ?? 'Retry';
-        return `<button class="aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
-      }
-      case 'thumbUp': {
-        const l = locale.feedbackPositive ?? 'Good response';
-        return `<button class="aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
-      }
-      case 'thumbDown': {
-        const l = locale.feedbackNegative ?? 'Bad response';
-        return `<button class="aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
-      }
-      case 'info': {
+      case 'copy':
+        return button('copy', locale.copy ?? 'Copy', icons.copy());
+      case 'edit':
+        return button('edit', locale.edit ?? 'Edit message', icons.edit());
+      case 'retry':
+        return button('retry', locale.retry ?? 'Retry', icons.retry());
+      case 'thumbUp':
+        return button('feedback-pos', locale.feedbackPositive ?? 'Good response', icons.thumbUp(), 'feedback-positive');
+      case 'thumbDown':
+        return button('feedback-neg', locale.feedbackNegative ?? 'Bad response', icons.thumbDown(), 'feedback-negative');
+      case 'info':
         // Only when there are numbers to show: a details button over nothing is a
         // dead button. The popover itself is the app's (see `aparte-message-info`).
         if (!this._usage) return '';
-        const l = locale.messageInfo ?? 'Details';
-        return `<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${INFO_ICON_SVG}</button>`;
-      }
+        return button('info', locale.messageInfo ?? 'Details', INFO_ICON_SVG);
       default:
         return '';
     }
@@ -1225,11 +1239,21 @@ export class AparteChatBubble extends HTMLElement {
     const saveLabel = locale.editConfirm ?? 'Save';
     const cancelLabel = locale.editCancel ?? 'Cancel';
     this._actionBarEl.innerHTML =
-      `<button class="aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
-      `aria-label="${escapeAttr(saveLabel)}" title="${escapeAttr(saveLabel)}">${this._cfg.getIcon('check')}</button>` +
-      `<button class="aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
-      `aria-label="${escapeAttr(cancelLabel)}" title="${escapeAttr(cancelLabel)}">${this._cfg.getIcon('close')}</button>`;
-    this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
+      controlMarkup({
+        part: BUBBLE_ACTION_CLASS,
+        modifiers: [`${BUBBLE_ACTION_CLASS}--edit-save`],
+        label: saveLabel,
+        icon: this._cfg.getIcon('check'),
+        data: { action: 'edit-save' },
+      })
+      + controlMarkup({
+        part: BUBBLE_ACTION_CLASS,
+        modifiers: [`${BUBBLE_ACTION_CLASS}--edit-cancel`],
+        label: cancelLabel,
+        icon: this._cfg.getIcon('close'),
+        data: { action: 'edit-cancel' },
+      });
+    this._actionBarEl.querySelectorAll(`.${BUBBLE_ACTION_CLASS}`).forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
     });
     // Save/cancel must show even when every action flag is off.

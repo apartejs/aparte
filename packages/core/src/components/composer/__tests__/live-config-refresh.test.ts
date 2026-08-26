@@ -4,7 +4,7 @@
  *
  * The docs say "a locale switch is live: mounted components re-render immediately",
  * and for the composer that was false: all four controls render once behind an
- * early-return guard (`if (this.querySelector('.aparte-cs-button')) return;` and
+ * early-return guard (`if (this.querySelector('.aparte-composer-send__button')) return;` and
  * its siblings), so an icon set or a language chosen after the first render never
  * reached them. Twenty-one files read a config-derived value at render time and
  * sixteen never re-read it; these are five of them.
@@ -63,7 +63,7 @@ afterEach(() => { document.body.innerHTML = ''; aparteGlobalConfig.reset(); });
 describe('a locale change reaches the composer', () => {
     it('the input placeholder — the one string a sighted user can read', () => {
         const { el } = mount('aparte-composer-input');
-        const editor = el.querySelector('.aparte-ci-editor')!;
+        const editor = el.querySelector('.aparte-composer-input__editor')!;
         const before = editor.getAttribute('data-placeholder');
 
         aparteGlobalConfig.setLocale(FR());

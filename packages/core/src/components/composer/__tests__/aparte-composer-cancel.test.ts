@@ -39,7 +39,7 @@ function mount(): { composer: AparteComposer; cancel: HTMLElement; button: HTMLB
     document.body.appendChild(composer);
     const cancel = document.createElement('aparte-composer-cancel');
     composer.appendChild(cancel);
-    return { composer, cancel, button: cancel.querySelector<HTMLButtonElement>('.aparte-cc-button')! };
+    return { composer, cancel, button: cancel.querySelector<HTMLButtonElement>('.aparte-composer-cancel__button')! };
 }
 
 afterEach(() => { document.body.innerHTML = ''; vi.restoreAllMocks(); });
@@ -73,7 +73,7 @@ describe('aparte-composer-cancel', () => {
 
         const cancel = document.createElement('aparte-composer-cancel');
         composer.appendChild(cancel);
-        expect(cancel.querySelector<HTMLButtonElement>('.aparte-cc-button')!.hidden).toBe(false);
+        expect(cancel.querySelector<HTMLButtonElement>('.aparte-composer-cancel__button')!.hidden).toBe(false);
     });
 
     it('cancels the turn on click, and does not submit the form it may sit in', () => {
@@ -98,9 +98,9 @@ describe('aparte-composer-cancel', () => {
         composer.appendChild(cancel);
 
         startTurn('chat-b');
-        expect(cancel.querySelector<HTMLButtonElement>('.aparte-cc-button')!.hidden).toBe(true);
+        expect(cancel.querySelector<HTMLButtonElement>('.aparte-composer-cancel__button')!.hidden).toBe(true);
         startTurn('chat-a');
-        expect(cancel.querySelector<HTMLButtonElement>('.aparte-cc-button')!.hidden).toBe(false);
+        expect(cancel.querySelector<HTMLButtonElement>('.aparte-composer-cancel__button')!.hidden).toBe(false);
     });
 
     it('renders without a composer ancestor instead of throwing', () => {
@@ -108,7 +108,7 @@ describe('aparte-composer-cancel', () => {
         // someone will mount it standalone; it must degrade, not crash.
         const cancel = document.createElement('aparte-composer-cancel');
         expect(() => document.body.appendChild(cancel)).not.toThrow();
-        const button = cancel.querySelector<HTMLButtonElement>('.aparte-cc-button')!;
+        const button = cancel.querySelector<HTMLButtonElement>('.aparte-composer-cancel__button')!;
         expect(button).toBeTruthy();
         expect(() => button.click()).not.toThrow();
     });
@@ -129,8 +129,8 @@ describe('aparte-composer-cancel', () => {
         second.appendChild(cancel);
         // `_render()` returns early when its button already exists, so a move must
         // not stack a second one.
-        expect(cancel.querySelectorAll('.aparte-cc-button')).toHaveLength(1);
+        expect(cancel.querySelectorAll('.aparte-composer-cancel__button')).toHaveLength(1);
         startTurn();
-        expect(cancel.querySelector<HTMLButtonElement>('.aparte-cc-button')!.hidden).toBe(false);
+        expect(cancel.querySelector<HTMLButtonElement>('.aparte-composer-cancel__button')!.hidden).toBe(false);
     });
 });
