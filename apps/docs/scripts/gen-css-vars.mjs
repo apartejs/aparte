@@ -69,7 +69,16 @@ const CORE_SRC = resolve(here, '../../../packages/core/src');
  */
 const CSS_SHEETS = [
   resolve(here, '../../../packages/core/src/styles/theme.css'),
-  resolve(here, '../../../packages/core/src/styles/aparte.css'),
+  resolve(here, '../../../packages/core/src/styles/base.css'),
+  resolve(here, '../../../packages/core/src/styles/shell.css'),
+  resolve(here, '../../../packages/core/src/styles/bubble.css'),
+  resolve(here, '../../../packages/core/src/styles/composer.css'),
+  resolve(here, '../../../packages/core/src/styles/segment.css'),
+  resolve(here, '../../../packages/core/src/styles/artifact.css'),
+  resolve(here, '../../../packages/core/src/styles/elicitation.css'),
+  resolve(here, '../../../packages/core/src/styles/conversation.css'),
+  resolve(here, '../../../packages/core/src/styles/prose.css'),
+  resolve(here, '../../../packages/core/src/styles/responsive.css'),
 ];
 const OUT = resolve(here, '../src/content/docs/reference/css-variables.md');
 

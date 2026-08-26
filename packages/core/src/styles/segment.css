@@ -1,0 +1,383 @@
+/*
+ * aparté — Segment renderers: thinking, code, tool call, error, pipeline.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+.aparte-segments {
+  font-size: var(--aparte-content-font-size);
+  line-height: var(--aparte-content-line-height);
+  color: var(--aparte-content-color);
+  font-family: var(--aparte-font-family);
+}
+
+.aparte-segments:empty {
+  display: none;
+}
+
+/* The waiting indicator: between "user sends" and the first token. Built into the
+   bubble, so it needs no wiring and behaves the same in core and every wrapper.
+   Sits in the content region and disappears as soon as there is anything to show. */
+.aparte-waiting {
+  display: flex;
+  align-items: center;
+  min-height: var(--aparte-waiting-height);
+}
+
+.aparte-waiting[hidden] {
+  display: none;
+}
+
+.aparte-waiting .aparte-dots {
+  gap: var(--aparte-waiting-dot-gap);
+}
+
+/* Staggered so it reads as "working", not as three synchronized blobs. Scoped to
+   the waiting region — the status element keeps its single-dot pulse. */
+.aparte-waiting .aparte-dot:nth-child(2) {
+  animation-delay: var(--aparte-duration-base);
+}
+
+.aparte-waiting .aparte-dot:nth-child(3) {
+  animation-delay: var(--aparte-duration-slower);
+}
+
+/* =========================================
+   Segment Renderers (Global Defaults)
+   ========================================= */
+
+/* Text */
+.aparte-segment-text {
+  word-wrap: break-word;
+}
+
+/* Thinking */
+.aparte-segment-thinking {
+  /* Understated disclosure: a muted left rail, not a filled card. */
+  border-left: var(--aparte-thinking-rail-width) solid var(--aparte-thinking-border);
+  margin: var(--aparte-space-5) 0;
+  background: transparent;
+}
+
+.aparte-thinking-header {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-5);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-thinking-text);
+  list-style: none;
+}
+
+.aparte-thinking-header::-webkit-details-marker {
+  display: none;
+}
+
+.aparte-thinking-toggle {
+  margin-inline-start: auto;
+  /* Logical property */
+  transition: transform var(--aparte-duration-slow);
+  opacity: 0.55;
+}
+
+details[open] .aparte-thinking-toggle {
+  transform: rotate(180deg);
+}
+
+.aparte-thinking-toggle::after {
+  content: '▼';
+  font-size: var(--aparte-thinking-toggle-size);
+}
+
+/* Code */
+.aparte-segment-code {
+  margin: var(--aparte-space-6) 0;
+  border-radius: var(--aparte-radius-code);
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-code-border);
+}
+
+.aparte-code-header {
+  display: flex;
+  align-items: center;
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  background: var(--aparte-code-header-bg);
+  border-bottom: var(--aparte-border-width) solid var(--aparte-code-border);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-code-header-text);
+}
+
+.aparte-code-filename {
+  font-weight: var(--aparte-font-weight-semibold);
+  margin-inline-end: auto;
+  /* Logical property: pushes language + copy to the right when filename is present */
+}
+
+.aparte-code-header-filler {
+  flex: 1;
+  /* No-filename placeholder — keeps language + copy right-aligned */
+}
+
+.aparte-code-language {
+  margin-inline-end: var(--aparte-space-4);
+  /* Logical property */
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.aparte-code-copy {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: var(--aparte-space-2);
+  border-radius: var(--aparte-radius-sm);
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aparte-code-copy:hover {
+  background: var(--aparte-code-copy-hover-bg);
+}
+
+.aparte-code-copy svg {
+  width: var(--aparte-code-copy-icon-size);
+  height: var(--aparte-code-copy-icon-size);
+}
+
+/* Error */
+.aparte-segment-error {
+  display: flex;
+  gap: var(--aparte-space-6);
+  padding: var(--aparte-space-6) var(--aparte-space-8);
+  background: var(--aparte-error-bg);
+  border: var(--aparte-border-width) solid var(--aparte-error-border);
+  border-left: var(--aparte-error-rail-width) solid var(--aparte-error-solid);
+  border-radius: var(--aparte-radius-error);
+  margin: var(--aparte-space-6) 0;
+  color: var(--aparte-error-text);
+  font-family: var(--aparte-font-family);
+}
+
+.aparte-error-icon-wrapper {
+  flex-shrink: 0;
+  color: var(--aparte-error-solid);
+  display: flex;
+  align-items: flex-start;
+  padding-top: var(--aparte-space-1);
+}
+
+.aparte-error-icon-wrapper svg {
+  width: var(--aparte-error-icon-size);
+  height: var(--aparte-error-icon-size);
+}
+
+.aparte-error-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.aparte-error-title {
+  font-weight: var(--aparte-font-weight-semibold);
+  font-size: var(--aparte-font-size-lg);
+  margin-bottom: var(--aparte-space-2);
+  color: var(--aparte-error-title);
+}
+
+.aparte-error-message {
+  font-size: var(--aparte-font-size-lg);
+  line-height: var(--aparte-line-height-normal);
+}
+
+.aparte-error-details {
+  margin-top: var(--aparte-space-4);
+  padding-top: var(--aparte-space-4);
+  border-top: var(--aparte-border-width) solid var(--aparte-error-border);
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-font-size-sm);
+  opacity: 0.9;
+  white-space: pre-wrap;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Segment renderers — tool call · artifact card · pipeline waiting
+
+   These three shipped their CSS from `getStyles()` until now: a template literal
+   in the renderer's own .ts file, injected into <head> at runtime. That seam is
+   for a CONSUMER's renderer — something registered through registerSegmentRenderer
+   or registerToolRenderer cannot edit this file, so `getStyles()` is its only way
+   onto the page. A BUILT-IN has this file, and two reasons to use it:
+
+     - check:derived-vars reads this path and nothing else. A declaration whose
+       value reads another variable has to sit on the 5-anchor layer or it cannot
+       follow a palette a subtree overrides, and one hidden in a renderer was
+       never checked at all.
+     - it is read as CSS, by tools and by people. A backtick closes a template
+       literal, and one did — the artifact card's own comment recorded it
+       happening — then it happened three more times in one sitting, the worst of
+       them rendering a `safe-text` source marker into an assistant's bubble as
+       prose, because inside a template literal a `//` comment is just text.
+
+   NOT a reason, though it was the first one I wrote here: reaching the public CSS
+   reference. `gen-css-vars.mjs` walks all of core's source for `var(--aparte-*)`
+   reads, so a knob a renderer read was already listed with its fallback as the
+   default — the move changed that file by zero lines. Worth recording, because the
+   plausible version of this argument is the one that gets repeated.
+
+   Moving them changes no contract either: core's entry imports this file and
+   package.json marks every .css a side effect, so importing @aparte/core has
+   always brought this sheet along.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Tool call */
+.aparte-segment-tool-call { display: block; padding: var(--aparte-space-1) 0; }
+/* The row is the summary. list-style:none plus the ::-webkit- pseudo is the
+   pair that actually removes the native marker across engines. */
+/* A ROW, not a badge.
+   It was a rounded chip, which is what a tag looks like — and a tool call is not
+   a tag, it is a step of the turn. Every current implementation draws it as a
+   line: the disclosure control, the call's identity, and its state at the far
+   end. The chip also had to carry a border and a fill, so it competed with the
+   reply text beside it for attention it did not deserve. */
+.aparte-tool-summary {
+    display: flex; align-items: center; gap: var(--aparte-space-4);
+    padding: var(--aparte-space-2) var(--aparte-space-3); margin-inline-start: calc(var(--aparte-space-3) * -1);
+    border-radius: var(--aparte-tool-row-radius);
+    cursor: pointer; list-style: none;
+}
+.aparte-tool-summary:hover { background: var(--aparte-surface-2); }
+.aparte-tool-summary::-webkit-details-marker { display: none; }
+.aparte-tool-toggle {
+    width: 0; height: 0; flex: none; margin-inline-start: -1px;
+    border-inline-start: 5px solid currentColor;
+    border-block: 4px solid transparent;
+    opacity: 0.5; transition: transform var(--aparte-duration-base);
+}
+.aparte-tool-summary:hover .aparte-tool-toggle { opacity: 0.9; }
+details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90deg); }
+/* A rule down the leading edge, so the disclosure reads as belonging to the
+   pill above it rather than continuing the message text below. Without it
+   "Output" and the assistant's next sentence sat in one undifferentiated
+   column. */
+.aparte-tool-detail {
+    display: flex; flex-direction: column; gap: var(--aparte-space-4);
+    /* Aligned under the row's icon, so the rule reads as descending from the
+       call rather than floating beside it. */
+    margin: var(--aparte-space-2) 0 var(--aparte-space-3) var(--aparte-space-2); padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-6);
+    border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
+}
+.aparte-tool-part-label {
+    display: block; font-size: var(--aparte-font-size-xs); text-transform: uppercase;
+    letter-spacing: 0.04em; opacity: 0.55; margin-bottom: var(--aparte-space-1);
+}
+/* Always in the DOM so update can leave the node alone and toggle hidden
+   instead — an attribute a test can read, where a CSS-only rule is invisible
+   to jsdom. */
+.aparte-tool-spinner[hidden] { display: none; }
+/* The call's identity: its icon and its name, and no decoration of its own.
+   No border, no fill, no tint at any status — the row is the container now, and
+   the colour lives on the state badge alone. A resolved call used to be filled
+   green, which made a finished step shout louder than the reply it belongs to. */
+.aparte-tool-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    min-width: 0;
+    font-size: var(--aparte-font-size-md);
+    font-weight: var(--aparte-font-weight-medium);
+    color: var(--aparte-text);
+    user-select: none;
+}
+/* A fixed square, and the glyph centred in it. The icon was baseline-aligned
+   inside an inline box, so it sat low against the name and moved with whatever
+   glyph the icon provider returned. */
+.aparte-tool-icon {
+    display: grid;
+    place-items: center;
+    width: 1em; height: 1em;
+    flex: none;
+    opacity: 0.7;
+}
+.aparte-tool-icon svg { width: 1em; height: 1em; display: block; }
+.aparte-tool-name { font-family: var(--aparte-code-font-family); }
+/* The state, as a word with its glyph. Colour lives HERE and nowhere else.
+   Pushed to the far end by DOM order plus an auto inline-start margin, which is
+   the placement rule this repo already settled on: no left/right in a name, so
+   a right-to-left locale mirrors it for free. */
+.aparte-tool-state {
+    display: inline-flex; align-items: center; gap: var(--aparte-space-2);
+    margin-inline-start: auto;
+    font-size: var(--aparte-font-size-sm); font-weight: var(--aparte-font-weight-medium);
+    color: var(--aparte-text-muted);
+    user-select: none;
+}
+.aparte-tool-state svg { width: 0.9em; height: 0.9em; display: block; }
+/* Scoped to the segment, not to a bare [data-status].
+   These three were the only rules in this file whose leftmost compound is an unprefixed
+   non-element selector, which means they reached OUT of core: a host wrapping the chat in
+   <div data-status="rejected"> re-tinted every completed tool call's word red, because
+   0,2,0 beats the base rule's 0,1,0 and source order puts rejected/aborted last. Core
+   itself documents data-status as a free-form host attribute on <aparte-option>. */
+.aparte-segment-tool-call[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success); }
+.aparte-segment-tool-call[data-status="rejected"] .aparte-tool-state,
+.aparte-segment-tool-call[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error); }
+/* The Approve / Reject button rules were here. They moved with the buttons, to
+   .aparte-approval-option in this same file - and what stayed behind was a
+   leftover: a rule tinting .aparte-tool-label's border while a decision was pending,
+   which stopped painting anything the moment the row redesign took that border
+   off .aparte-tool-label. It reached for a variable that was never declared, and it
+   survived because a template literal is not a stylesheet anyone greps. The
+   state is named in words by .aparte-tool-state now, and the decision is at the
+   composer. */
+.aparte-tool-spinner {
+    width: var(--aparte-tool-spinner-size); height: var(--aparte-tool-spinner-size);
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    animation: tool-spin var(--aparte-duration-spin) linear infinite;
+}
+.aparte-tool-state { font-size: var(--aparte-font-size-sm); }
+
+/* Pipeline waiting */
+.aparte-segment-pipeline-waiting {
+    display: flex;
+    align-items: center;
+    gap: var(--aparte-space-3);
+    padding: var(--aparte-space-3) var(--aparte-space-1);
+    min-height: var(--aparte-pw-min-height);
+}
+.aparte-pw-dot {
+    display: inline-block;
+    width: var(--aparte-pw-dot-size);
+    height: var(--aparte-pw-dot-size);
+    border-radius: 50%;
+    background: var(--aparte-text-muted);
+    opacity: 0.3;
+    animation: pw-pulse var(--aparte-duration-pulse) ease-in-out infinite;
+}
+.aparte-pw-dot:nth-child(2) { animation-delay: var(--aparte-duration-slow); }
+.aparte-pw-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* =========================================
+   Provider-HTML overflow guards
+   ========================================= */
+
+/* Markdown providers inject arbitrary HTML into .aparte-segment-text, and the bubble
+   clips overflow (`aparte-chat-bubble { overflow: hidden }`) — without these
+   guards a wide image or table is silently cut at the bubble edge. */
+.aparte-segment-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+.aparte-segment-text table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}

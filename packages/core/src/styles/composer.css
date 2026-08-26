@@ -1,0 +1,590 @@
+/*
+ * aparté — The composer and everything it holds: editor, send, attachments, model picker.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+/* Model-selection gate (opt-in via aparteGlobalConfig.setRequireModelSelection): grey the
+   composer and block its send button until a model is selected — e.g. while the
+   model selector is still fetching. Ungates automatically on selection.
+   Unscoped so it greys the composer in EVERY host (vanilla shell + all wrappers),
+   not only a `[data-aparte-chat]` direct child. */
+aparte-composer[data-model-gated] {
+  opacity: var(--aparte-disabled-opacity);
+}
+aparte-composer[data-model-gated] aparte-composer-send {
+  pointer-events: none;
+}
+
+/* Panel mode: the composer is answering a question, not composing a message.
+   The text input goes, and so does the attachment picker — an affordance nothing
+   can honour is not rendered (ratified decision #8), and it stayed clickable
+   through a whole elicitation. The attachments strip stays: pending attachments
+   are the user's STATE, not an action to offer. So does the toolbar —
+   switching model still does something. */
+aparte-composer[data-panel-active] aparte-composer-input,
+aparte-composer[data-panel-active] aparte-composer-add-attachment {
+  display: none;
+}
+
+aparte-composer {
+  flex: 0 0 auto;
+}
+
+.aparte-viewport-container::-webkit-scrollbar-thumb {
+  background: var(--aparte-neutral);
+  border-radius: var(--aparte-radius-xs);
+}
+
+.aparte-viewport-container::-webkit-scrollbar-thumb:hover {
+  background: var(--aparte-secondary);
+}
+
+aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
+  background: var(--aparte-neutral);
+  border-radius: var(--aparte-radius-xs);
+}
+
+/* =========================================
+   Attachments
+   ========================================= */
+
+.aparte-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  /* The strip sits directly above the message bubble and belongs to it, so it
+     must share the bubble's edge. The user bubble hugs its text on the LEADING
+     edge (AI-chat convention, see .aparte-message-content below), so anchoring
+     the strip to the trailing edge would split one message across both sides. */
+  justify-content: flex-start;
+  gap: var(--aparte-space-3);
+  margin-bottom: var(--aparte-space-4);
+  /* Really small tiles inside the conversation. */
+  --aparte-attachment-image-size: 40px;
+  /* Many attachments → cap the height and scroll instead of growing forever. */
+  max-height: var(--aparte-attachments-max-height);
+  overflow-y: auto;
+}
+
+/* The class `display: flex` above would otherwise override the `hidden`
+   attribute — restore it so an empty attachment strip takes no space. */
+.aparte-attachments[hidden] {
+  display: none;
+}
+
+/* ── Attachment thumbnail tile ──────────────────────────────────────────────
+   Shared by the composer attachment preview and the sent-message attachment
+   strip. A square that shows the image itself (or a file glyph); the filename
+   and — in the composer — a remove button surface on hover. */
+.aparte-thumb {
+  position: relative;
+  width: var(--aparte-attachment-image-size);
+  height: var(--aparte-attachment-image-size);
+  flex-shrink: 0;
+  border-radius: var(--aparte-thumb-radius);
+  overflow: hidden;
+  box-sizing: border-box;
+  background: var(--aparte-attachment-chip-bg);
+  border: var(--aparte-border-width) solid var(--aparte-attachment-chip-border);
+}
+
+/* Only an image tile the app declared it can preview is a button — see
+   aparteGlobalConfig.setHostHandlers(). Undeclared, it is a picture, not a control. */
+.aparte-thumb--image[role='button'] {
+  cursor: pointer;
+}
+
+.aparte-thumb--image[role='button']:focus-visible {
+  box-shadow: var(--aparte-focus-ring);
+}
+
+.aparte-thumb__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.aparte-thumb--file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aparte-thumb__ext {
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-bold);
+  letter-spacing: 0.03em;
+  color: var(--aparte-text-muted);
+}
+
+.aparte-thumb__name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--aparte-thumb-name-padding);
+  font-size: var(--aparte-font-size-2xs);
+  line-height: var(--aparte-line-height-tight);
+  color: var(--aparte-thumb-name-color);
+  background: var(--aparte-thumb-name-scrim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity var(--aparte-duration-base) var(--aparte-ease);
+  pointer-events: none;
+}
+.aparte-thumb:hover .aparte-thumb__name {
+  opacity: 1;
+}
+
+.aparte-thumb__remove {
+  position: absolute;
+  top: var(--aparte-thumb-remove-inset);
+  right: var(--aparte-thumb-remove-inset);
+  width: var(--aparte-thumb-remove-size);
+  height: var(--aparte-thumb-remove-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--aparte-thumb-remove-bg);
+  color: var(--aparte-thumb-remove-color);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--aparte-duration-base) var(--aparte-ease), background var(--aparte-duration-base) var(--aparte-ease);
+}
+.aparte-thumb:hover .aparte-thumb__remove {
+  opacity: 1;
+}
+.aparte-thumb__remove:hover {
+  background: var(--aparte-thumb-remove-bg-hover);
+}
+
+/* =========================================
+   Edit mode
+   ========================================= */
+
+/* Inline editor: the composer's contenteditable primitive, given the composer
+   shell's box (bordered surface) so it reads as the same field. The inner
+   .aparte-ci-editor inherits its padding/font/caret from the shared composer rule. */
+.aparte-message[data-editing] aparte-composer-input {
+  display: block;
+  margin: var(--aparte-space-2) 0;
+  background: var(--aparte-input-bg);
+  border: var(--aparte-border-width) solid var(--aparte-input-border);
+  border-radius: var(--aparte-radius-input);
+  box-sizing: border-box;
+  transition: border-color var(--aparte-duration-slow);
+}
+.aparte-message[data-editing] aparte-composer-input:focus-within {
+  border-color: var(--aparte-input-focus-border);
+}
+
+/* =========================================
+   Legacy composer input utility classes
+   ========================================= */
+
+.aparte-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--aparte-input-gap);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  background: transparent;
+}
+
+.aparte-input-container {
+  flex: 1;
+  min-height: var(--aparte-input-container-min-height);
+  /* Matches _minHeight default */
+  display: flex;
+  flex-direction: column;
+  /* justify-content: center; Removed to fix cursor pos */
+
+}
+
+.aparte-editor {
+  width: 100%;
+  max-height: var(--aparte-input-editor-max-height);
+  /* Matches _maxHeight default */
+  overflow-y: auto;
+  outline: none;
+  border: none;
+  font-family: var(--aparte-font-family);
+  font-size: var(--aparte-input-editor-font-size);
+  line-height: var(--aparte-line-height-normal);
+  color: var(--aparte-input-text);
+  background: transparent;
+  padding: var(--aparte-space-5) 0;
+  resize: none;
+  text-align: left;
+}
+
+/* Placeholder */
+.aparte-editor:empty:before {
+  content: attr(data-placeholder);
+  color: var(--aparte-input-placeholder);
+  pointer-events: none;
+  display: block;
+  /* Ensures proper rendering */
+}
+
+/* Disabled state */
+.aparte-editor[contenteditable="false"] {
+  opacity: var(--aparte-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.aparte-send-button {
+  flex-shrink: 0;
+  width: var(--aparte-send-btn-size);
+  height: var(--aparte-send-btn-size);
+  border-radius: var(--aparte-radius-send-btn);
+  border: none;
+  background: var(--aparte-primary);
+  color: var(--aparte-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--aparte-duration-slow), opacity var(--aparte-duration-slow);
+  padding: 0;
+}
+
+.aparte-send-button:hover:not(:disabled) {
+  background: var(--aparte-primary-hover);
+}
+
+.aparte-send-button:disabled {
+  opacity: var(--aparte-disabled-opacity);
+  cursor: not-allowed;
+  background: var(--aparte-send-disabled-bg, var(--aparte-primary));
+}
+
+/* =========================================
+   Input Upper (for file chips, previews, etc.)
+   ========================================= */
+
+.aparte-input-upper {
+  display: none; /* shown by JS when chips are added */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aparte-space-4);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  border-bottom: var(--aparte-border-width) solid var(--aparte-border);
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-input-upper.aparte-has-content {
+  display: flex;
+}
+
+/* =========================================
+   Input Footer (for Model Selector, etc.)
+   ========================================= */
+
+.aparte-input-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-6);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  border-top: var(--aparte-border-width) solid var(--aparte-border);
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-input-footer:empty {
+  display: none;
+}
+
+/* Slot areas */
+.aparte-input-footer slot[name="footer-left"] {
+  display: contents;
+}
+
+.aparte-input-footer slot[name="footer-center"] {
+  flex: 1;
+  display: contents;
+}
+
+.aparte-input-footer slot[name="footer-right"] {
+  display: contents;
+  margin-inline-start: auto;
+}
+
+/* Model Selector Component */
+/* The element and the class said the same three things in two rules. The class is
+   the hook for an app that lays out its own selector; grouping them is what stops
+   the two from drifting — and it is why `[hidden]` now covers the class too, which
+   it did not, so a hidden wrapper stayed laid out. */
+aparte-model-selector,
+.aparte-model-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-4);
+}
+/* Respect native hidden attribute — overrides the display:flex above */
+aparte-model-selector[hidden],
+.aparte-model-selector[hidden] { display: none !important; }
+
+.aparte-provider-select,
+.aparte-model-select {
+  appearance: none;
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-select);
+  padding: var(--aparte-space-3) var(--aparte-model-select-chevron-room) var(--aparte-space-3) var(--aparte-space-5);
+  font-size: var(--aparte-font-size-md);
+  font-family: var(--aparte-font-family);
+  color: var(--aparte-text);
+  cursor: pointer;
+  min-width: var(--aparte-model-select-min-width);
+  /* Chevron: baked into a data-URI SVG (CSS vars can't interpolate into url()).
+     The stroke colour is theme-matched via the [data-aparte-theme] override
+     below rather than a single var — the one spot that needs two variants. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--aparte-space-4) center;
+  transition: border-color var(--aparte-duration-base), box-shadow var(--aparte-duration-base);
+}
+
+.aparte-provider-select:hover,
+.aparte-model-select:hover {
+  border-color: var(--aparte-primary);
+}
+
+.aparte-provider-select:focus,
+.aparte-model-select:focus {
+  outline: none;
+  border-color: var(--aparte-primary);
+  box-shadow: var(--aparte-focus-ring);
+}
+
+/* Dark mode overrides for selects */
+[data-aparte-theme="dark"] .aparte-provider-select,
+[data-aparte-theme="dark"] .aparte-model-select {
+  background-color: var(--aparte-surface-1);
+  border-color: var(--aparte-border);
+  color: var(--aparte-text);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Composer Primitives
+   Headless by design — consumers own layout. These rules provide only the
+   minimum defaults needed for correctness (display, box model, interaction).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+aparte-composer {
+  display: block;
+  /* Container-query root — see aparte-chat-viewport. */
+  container-type: inline-size;
+}
+
+aparte-composer-input {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Contenteditable editor inside aparte-composer-input */
+aparte-composer-input .aparte-ci-editor {
+  display: block;
+  width: 100%;
+  min-height: var(--aparte-composer-control-size, 44px);
+  padding: var(--aparte-input-padding-y) var(--aparte-input-padding-x);
+  font-size: var(--aparte-input-font-size);
+  line-height: var(--aparte-input-line-height);
+  color: var(--aparte-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: hidden;
+  box-sizing: border-box;
+  caret-color: var(--aparte-text);
+}
+
+/* Placeholder via CSS */
+aparte-composer-input .aparte-ci-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--aparte-input-placeholder);
+  pointer-events: none;
+}
+
+aparte-composer-input .aparte-ci-editor[aria-disabled="true"] {
+  opacity: var(--aparte-disabled-opacity);
+  cursor: not-allowed;
+}
+
+aparte-composer-send {
+  display: contents;
+}
+
+aparte-composer-cancel {
+  display: contents;
+}
+
+/* ── Attachment chips list ── */
+aparte-composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-3);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  width: 100%;
+  box-sizing: border-box;
+  border-bottom: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+aparte-composer-attachments[hidden] {
+  display: none;
+}
+
+/* Composer attachment strip — lays out the thumbnail tiles (.aparte-thumb). */
+aparte-composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-3);
+  --aparte-attachment-image-size: 56px;
+  /* Many attachments → cap the height and scroll. */
+  max-height: var(--aparte-attachments-max-height);
+  overflow-y: auto;
+}
+
+/* ── Add attachment button ── */
+aparte-composer-add-attachment {
+  display: contents;
+}
+
+/* ── Generic action button ── */
+aparte-composer-action {
+  display: contents;
+}
+
+/* ── Drag-over state on root ── */
+aparte-composer.aparte-is-dragover .aparte-composer-shell {
+  outline: var(--aparte-focus-outline-width) dashed var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+  border-radius: var(--aparte-radius-input);
+}
+/* fallback: no shell */
+aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
+  outline: var(--aparte-focus-outline-width) dashed var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+  border-radius: var(--aparte-radius-input);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Composer Layout Helpers  (opt-in, not required)
+   Use these classes when you want the composer look out of the box.
+
+   <aparte-composer>
+     <div class="aparte-composer-shell">
+       <aparte-composer-attachments></aparte-composer-attachments>
+       <div class="aparte-composer-row">
+         <aparte-composer-add-attachment></aparte-composer-add-attachment>
+         <aparte-composer-input></aparte-composer-input>
+         <aparte-composer-send></aparte-composer-send>
+       </div>
+     </div>
+   </aparte-composer>
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Outer shell — visual border + radius. Mirrors .aparte-input-wrapper */
+.aparte-composer-shell {
+  background: var(--aparte-input-bg);
+  border: var(--aparte-border-width) solid var(--aparte-input-border);
+  border-radius: var(--aparte-radius-input);
+  max-width: var(--aparte-message-max-width);
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color var(--aparte-duration-slow);
+}
+
+.aparte-composer-shell:focus-within {
+  border-color: var(--aparte-primary);
+}
+
+/* Inner row — flex container for input + buttons */
+.aparte-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--aparte-space-4);
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+}
+
+/* Action buttons sized to the input's single-line height — BOTH derive from
+   --aparte-composer-control-size (default 44px), so a theme resizes the whole
+   composer control set with ONE variable and alignment holds. Combined with
+   the row's `align-items: flex-end` this makes the buttons read as vertically
+   centered against a single line of text, and keeps them anchored to the
+   bottom once the input grows multi-line — no magic margins. */
+.aparte-composer-row button {
+  width: var(--aparte-composer-control-size, 44px);
+  height: var(--aparte-composer-control-size, 44px);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The composer's bottom row (mode picker, model selector, token counter…).
+   `aparte-composer-toolbar` is the element consumers write — one name for vanilla and
+   every wrapper. `.aparte-composer-footer` is the class the same row used to be built
+   with, kept so markup that predates the element keeps its styling instead of silently
+   rendering as a bare div. Removable at 1.0. */
+aparte-composer-toolbar,
+.aparte-composer-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-4);
+  padding: var(--aparte-space-3) var(--aparte-space-6);
+  border-top: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+/* A row with nothing in it must not draw its separator. The element reflects
+   `data-empty` itself (see aparte-composer-toolbar.ts) because `:empty` is defeated by
+   the whitespace text node an indented template leaves behind; the legacy class keeps
+   `:empty`, which is all it ever had. */
+aparte-composer-toolbar[data-empty],
+.aparte-composer-footer:empty {
+  display: none;
+}
+
+/* Cancel/dictate button — same visual style as action buttons */
+aparte-composer-cancel .aparte-cc-button[hidden],
+aparte-composer-dictate .aparte-cd-button[hidden] {
+  display: none !important;
+}
+
+aparte-composer-cancel .aparte-cc-button,
+aparte-composer-dictate .aparte-cd-button {
+  background: transparent;
+  border: none;
+  color: var(--aparte-neutral);
+  padding: var(--aparte-space-3);
+  border-radius: var(--aparte-radius-action-btn);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color var(--aparte-duration-base), background var(--aparte-duration-base);
+}
+
+aparte-composer-cancel .aparte-cc-button:hover,
+aparte-composer-dictate .aparte-cd-button:hover {
+  color: var(--aparte-text);
+  background: var(--aparte-surface-2);
+}
+
+.aparte-chat-container--auto-center aparte-composer {
+  flex: 0 0 auto;
+}

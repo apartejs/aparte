@@ -1,0 +1,161 @@
+/*
+ * aparté — Reset-agnostic typography for model-authored markdown.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+.aparte-content {
+  font-size: var(--aparte-content-font-size);
+  line-height: var(--aparte-content-line-height);
+  color: var(--aparte-content-color);
+  font-family: var(--aparte-font-family);
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* =========================================
+   Prose — reset-agnostic typography
+   Compact defaults for chat context.
+   Customizable via --aparte-prose-* variables.
+   ========================================= */
+
+.aparte-content,
+.aparte-segment-content {
+  white-space: normal;
+}
+
+.aparte-content p,
+.aparte-segment-content p,
+.aparte-thinking-content p {
+  margin: var(--aparte-prose-p-margin);
+}
+
+.aparte-content p:first-child,
+.aparte-segment-content p:first-child,
+.aparte-thinking-content p:first-child {
+  margin-top: 0;
+}
+
+.aparte-content p:last-child,
+.aparte-segment-content p:last-child,
+.aparte-thinking-content p:last-child {
+  margin-bottom: 0;
+}
+
+.aparte-content h1, .aparte-segment-content h1, .aparte-thinking-content h1 { font-size: var(--aparte-prose-h1-size); font-weight: var(--aparte-font-weight-semibold); margin: var(--aparte-prose-h1-margin); }
+.aparte-content h2, .aparte-segment-content h2, .aparte-thinking-content h2 { font-size: var(--aparte-prose-h2-size); font-weight: var(--aparte-font-weight-semibold); margin: var(--aparte-prose-h2-margin); }
+.aparte-content h3, .aparte-segment-content h3, .aparte-thinking-content h3 { font-size: var(--aparte-prose-h3-size); font-weight: var(--aparte-font-weight-semibold); margin: var(--aparte-prose-h3-margin); }
+.aparte-content h4, .aparte-segment-content h4, .aparte-thinking-content h4,
+.aparte-content h5, .aparte-segment-content h5, .aparte-thinking-content h5,
+.aparte-content h6, .aparte-segment-content h6, .aparte-thinking-content h6 { font-size: 1em; font-weight: var(--aparte-font-weight-semibold); margin: var(--aparte-prose-h4-margin); }
+
+.aparte-content ul,
+.aparte-segment-content ul,
+.aparte-thinking-content ul {
+  list-style: disc;
+  padding-left: var(--aparte-prose-list-indent);
+  margin: var(--aparte-prose-list-margin);
+}
+
+.aparte-content ol,
+.aparte-segment-content ol,
+.aparte-thinking-content ol {
+  list-style: decimal;
+  padding-left: var(--aparte-prose-list-indent);
+  margin: var(--aparte-prose-list-margin);
+}
+
+.aparte-content li,
+.aparte-segment-content li,
+.aparte-thinking-content li {
+  margin: var(--aparte-prose-li-margin);
+}
+
+.aparte-content blockquote,
+.aparte-segment-content blockquote,
+.aparte-thinking-content blockquote {
+  border-left: var(--aparte-prose-blockquote-border-width) solid var(--aparte-prose-blockquote-border);
+  padding-left: var(--aparte-prose-blockquote-indent);
+  margin: var(--aparte-prose-blockquote-margin);
+  color: var(--aparte-text-muted);
+  font-style: italic;
+}
+
+.aparte-content strong,
+.aparte-segment-content strong,
+.aparte-thinking-content strong {
+  font-weight: var(--aparte-font-weight-semibold);
+}
+
+.aparte-content em,
+.aparte-segment-content em,
+.aparte-thinking-content em {
+  font-style: italic;
+}
+
+.aparte-content code,
+.aparte-segment-content code,
+.aparte-thinking-content code {
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-code-inline-font-size);
+  background: var(--aparte-prose-code-bg);
+  padding: var(--aparte-prose-code-padding);
+  border-radius: var(--aparte-radius-xs);
+}
+
+.aparte-content a,
+.aparte-segment-content a,
+.aparte-thinking-content a {
+  color: var(--aparte-primary);
+  text-decoration: underline;
+}
+
+.aparte-content hr,
+.aparte-segment-content hr,
+.aparte-thinking-content hr {
+  border: none;
+  border-top: var(--aparte-border-width) solid var(--aparte-border);
+  margin: var(--aparte-prose-hr-margin);
+}
+
+.aparte-thinking-content {
+  padding: var(--aparte-space-2) 0 var(--aparte-space-1) var(--aparte-space-5);
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-thinking-content-line-height);
+  color: var(--aparte-thinking-content);
+  background: transparent;
+  max-height: var(--aparte-thinking-content-max-height);
+  overflow-y: auto;
+}
+
+.aparte-code-content-wrapper pre {
+  margin: 0;
+  padding: var(--aparte-space-6);
+  /* Wrap long lines instead of a horizontal scrollbar. `pre-wrap` honours
+     newlines + indentation but soft-wraps overflowing lines; `overflow-wrap:
+     anywhere` breaks unbreakable tokens (long URLs, hashes). Applies to both
+     the plain <pre><code> initial render and the shiki <pre class="shiki">
+     replacement, since both sit inside .aparte-code-content-wrapper. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+  background: var(--aparte-code-bg);
+}
+.aparte-tool-part-body pre { margin: 0; }
+.aparte-art-card__pane[data-pane="code"] pre {
+    margin: 0; padding: var(--aparte-space-6);
+    font-size: var(--aparte-font-size-md);
+    background: var(--aparte-code-bg);
+}
+.aparte-art-file__code-pane pre {
+    margin: 0; padding: var(--aparte-space-6);
+    font-size: var(--aparte-font-size-md);
+    font-family: var(--aparte-code-font-family);
+}
+.aparte-art-file__preview-pane table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: var(--aparte-font-size-md);
+    font-family: inherit;
+}

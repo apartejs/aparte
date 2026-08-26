@@ -1,0 +1,292 @@
+/*
+ * aparté — A message: avatar, name, timestamp, body, action bar, branch picker.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+.aparte-messages-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-message-gap);
+  padding: var(--aparte-viewport-padding);
+}
+
+/* =========================================
+   aparte-chat-bubble
+   ========================================= */
+
+aparte-chat-bubble {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  /* Each bubble is its own layout/paint boundary, and bubbles scrolled out
+     of the viewport are skipped entirely (layout + paint) via
+     content-visibility. While a message streams the user is pinned to the
+     bottom, so every bubble above the live one stops costing a paint on each
+     token — that reclaimed GPU time goes back to the WebGPU decode.
+     contain-intrinsic-size keeps the scrollbar stable: the `auto` keyword
+     reuses a bubble's real height once it has been measured; the 320px is
+     only a fallback for bubbles that have never been rendered yet. */
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+.aparte-message {
+  display: flex;
+  gap: var(--aparte-message-gap);
+  padding: var(--aparte-message-padding);
+  width: 100%;
+  max-width: var(--aparte-message-max-width);
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.aparte-avatar {
+  flex-shrink: 0;
+  width: var(--aparte-avatar-size);
+  height: var(--aparte-avatar-size);
+  border-radius: var(--aparte-avatar-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--aparte-avatar-font-size);
+  font-weight: var(--aparte-font-weight-semibold);
+  font-family: var(--aparte-font-family);
+}
+
+/* No message avatar by default — the slot only shows once an AvatarProvider
+   (or a consumer) fills it. Role is carried by layout + colour instead. */
+.aparte-avatar:empty {
+  display: none;
+}
+
+.aparte-avatar[data-role="user"] {
+  background: var(--aparte-avatar-bg-user);
+  color: var(--aparte-avatar-text-user);
+  background-image: var(--aparte-avatar-image-user);
+  background-size: var(--aparte-avatar-image-size);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.aparte-avatar[data-role="assistant"] {
+  background: var(--aparte-avatar-bg-assistant);
+  color: var(--aparte-avatar-text-assistant);
+  background-image: var(--aparte-avatar-image-assistant);
+  background-size: var(--aparte-avatar-image-size);
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.aparte-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The message bubble — the surface fills ONLY the content (segments + text).
+   The sender name and attachment strip (above) and the action bar (below) are
+   siblings in .aparte-body, so they stay OUTSIDE the coloured surface. */
+.aparte-message-content {
+  border-radius: var(--aparte-message-content-radius);
+  max-width: 100%;
+}
+
+/* AI-chat convention (not messaging): the USER message is a subtle bubble that
+   hugs its text; the ASSISTANT message is plain full-width prose — no bubble,
+   like ChatGPT / Claude. */
+.aparte-message[data-role="user"] .aparte-message-content {
+  width: fit-content;
+  padding: var(--aparte-message-content-padding);
+  background: var(--aparte-message-content-bg-user);
+  color: var(--aparte-message-content-text-user);
+}
+
+.aparte-message[data-role="assistant"] .aparte-message-content {
+  background: var(--aparte-message-content-bg-assistant);
+  color: var(--aparte-message-content-text-assistant);
+}
+
+.aparte-name {
+  font-size: var(--aparte-name-font-size);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-name-color);
+  font-family: var(--aparte-font-family);
+}
+
+.aparte-timestamp {
+  font-size: var(--aparte-timestamp-font-size);
+  color: var(--aparte-timestamp-color);
+  font-family: var(--aparte-font-family);
+}
+
+.aparte-action-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-action-bar-gap);
+  opacity: 0;
+  transition: opacity var(--aparte-duration-base) var(--aparte-ease);
+  height: var(--aparte-action-bar-btn-size);
+}
+
+.aparte-message:hover .aparte-action-bar,
+.aparte-message:focus-within .aparte-action-bar {
+  opacity: 1;
+}
+
+/* Last assistant message: action bar always visible — but NOT while streaming */
+aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.aparte-message-streaming) .aparte-action-bar {
+  opacity: 1;
+}
+
+/* Hide footer (action bar + branch picker) entirely while streaming */
+.aparte-message-streaming .aparte-footer {
+  display: none;
+}
+
+.aparte-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aparte-action-bar-btn-size);
+  height: var(--aparte-action-bar-btn-size);
+  border: none;
+  border-radius: var(--aparte-radius-sm);
+  background: transparent;
+  color: var(--aparte-action-bar-btn-color);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--aparte-duration-base) var(--aparte-ease), color var(--aparte-duration-base) var(--aparte-ease);
+  flex-shrink: 0;
+}
+
+.aparte-action-btn:hover {
+  background: var(--aparte-action-bar-btn-hover-bg);
+  color: var(--aparte-action-bar-btn-hover-color);
+}
+
+.aparte-action-btn[data-copied] {
+  color: var(--aparte-success);
+}
+
+.aparte-action-btn[data-submitted] {
+  color: var(--aparte-primary);
+}
+
+/* =========================================
+   Branch Picker
+   ========================================= */
+
+.aparte-branch-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-branch-picker-gap);
+}
+
+/* [hidden] is overridden by display:flex — force it back. The bar and the footer
+   hide themselves when they hold nothing (see _syncFooterVisibility): an empty
+   toolbar is announced to screen readers and reserves height for nothing. */
+.aparte-action-bar[hidden],
+.aparte-footer[hidden] {
+  display: none;
+}
+
+.aparte-branch-picker[hidden] {
+  display: none;
+}
+
+.aparte-branch-prev,
+.aparte-branch-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aparte-branch-picker-btn-size);
+  height: var(--aparte-branch-picker-btn-size);
+  border: none;
+  border-radius: var(--aparte-radius-sm);
+  background: transparent;
+  color: var(--aparte-branch-picker-btn-color);
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--aparte-branch-picker-btn-icon-size);
+  line-height: var(--aparte-line-height-none);
+  transition: color var(--aparte-duration-base) var(--aparte-ease), background var(--aparte-duration-base) var(--aparte-ease);
+}
+
+.aparte-branch-prev:hover:not(:disabled),
+.aparte-branch-next:hover:not(:disabled) {
+  color: var(--aparte-branch-picker-btn-hover-color);
+  background: var(--aparte-action-bar-btn-hover-bg);
+}
+
+.aparte-branch-prev:disabled,
+.aparte-branch-next:disabled {
+  opacity: var(--aparte-disabled-opacity);
+  cursor: default;
+}
+
+.aparte-branch-label {
+  font-size: var(--aparte-branch-picker-label-size);
+  color: var(--aparte-branch-picker-label-color);
+  font-family: var(--aparte-font-family);
+  min-width: var(--aparte-branch-picker-label-min-width);
+  text-align: center;
+}
+
+/* Edit mode keeps the action bar (now ✓ / ✗) visible even when the editor
+   is not focused — otherwise the user can't reach the save button. */
+.aparte-message[data-editing] .aparte-action-bar {
+  opacity: 1;
+}
+
+.aparte-action-btn.aparte-action-edit-save {
+  color: var(--aparte-success);
+}
+.aparte-action-btn.aparte-action-edit-save:hover {
+  background: var(--aparte-success-surface);
+  color: var(--aparte-success);
+}
+.aparte-action-btn.aparte-action-edit-cancel {
+  color: var(--aparte-error);
+}
+.aparte-action-btn.aparte-action-edit-cancel:hover {
+  background: var(--aparte-error-surface);
+  color: var(--aparte-error);
+}
+
+/* Action Buttons in Input */
+.aparte-action-button {
+  background: transparent;
+  border: none;
+  color: var(--aparte-neutral);
+  padding: var(--aparte-space-4);
+  border-radius: var(--aparte-radius-action-btn);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--aparte-duration-base), background-color var(--aparte-duration-base);
+  width: var(--aparte-input-action-btn-size);
+  height: var(--aparte-input-action-btn-size);
+}
+
+.aparte-action-button:hover {
+  color: var(--aparte-primary);
+  /* Derive the hover tint from --aparte-primary instead of hardcoding indigo, so a
+     custom theme's action buttons tint with its own accent. */
+  background-color: color-mix(in srgb, var(--aparte-primary) 10%, transparent);
+}
+
+.aparte-action-button svg {
+  width: var(--aparte-input-action-btn-icon-size);
+  height: var(--aparte-input-action-btn-icon-size);
+}
+
+/* Errored bubble state — the whole message carries `data-error` while it holds
+   an error segment (set by the bubble in _reflectError). Kept subtle by default
+   since the error segment itself is already styled; this is a theming hook —
+   restyle `.aparte-message[data-error]` (or its parts) freely. */
+.aparte-message[data-error] .aparte-avatar {
+  box-shadow: var(--aparte-avatar-error-ring);
+}

@@ -14,7 +14,16 @@
  * @packageDocumentation
  */
 import './styles/theme.css';
-import './styles/aparte.css';
+import './styles/base.css';
+import './styles/shell.css';
+import './styles/bubble.css';
+import './styles/composer.css';
+import './styles/segment.css';
+import './styles/artifact.css';
+import './styles/elicitation.css';
+import './styles/conversation.css';
+import './styles/prose.css';
+import './styles/responsive.css';
 import './primitives/select/select.css';
 import './primitives/progress-spinner/progress-spinner.css';
 

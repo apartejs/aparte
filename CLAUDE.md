@@ -237,14 +237,21 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
   incomplete).
 - **A built-in's CSS goes in `packages/core/src/styles/`, never in a
-  `getStyles()` template literal.** Two sheets there, split by KIND: `theme.css` holds
-  every token — light palette, dark overrides, derived layer — and `aparte.css` holds the
-  rules. You open one to change a value and the other to change a look. `src/index.ts`
-  imports them in that order, and `check:derived-vars` reads them CONCATENATED in that
-  same order, the way a browser does — the anchored layer is in `theme.css` while its
-  responsive overrides are at the end of `aparte.css`, so a guard reading one file would
-  judge half a rule. The `getStyles()` seam exists for a *consumer's* renderer, which
-  cannot edit either sheet and has no other way onto the page. Two measured reasons, not
+  `getStyles()` template literal.** Eleven sheets there. `theme.css` holds every token —
+  light palette, dark overrides, derived layer — and ten more hold the rules, one per
+  family: `base`, `shell`, `bubble`, `composer`, `segment`, `artifact`,
+  `elicitation`, `conversation`, `prose`, `responsive`. You open one to change a value
+  and another to change a look, and `aparte.css` no longer exists.
+
+  **The import ORDER in `src/index.ts` is the cascade**, so a new sheet is not appended
+  casually: `responsive` stays last because it overrides, and everything that reads the
+  sheets reads them in that same order — `check:derived-vars`, `gen-css-vars` and the
+  test helper `src/__tests__/read-stylesheet.ts`. All three located their corpus by a
+  single PATH before the split and all three went blind on it the same hour: the
+  generator reported 6 declared tokens instead of 286, and three suites went red. Each
+  carries a floor now, because a corpus that silently shrinks is the failure worth
+  catching. The `getStyles()` seam exists for a *consumer's* renderer, which
+  cannot edit any of them and has no other way onto the page. Two measured reasons, not
   three: `check:derived-vars` reads only those sheets, so a derived declaration hidden in
   a renderer is unchecked; and CSS in a template literal is not read as CSS — a backtick
   closes the literal (it happened four times, once in the artifact card long before) and

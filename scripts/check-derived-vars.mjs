@@ -50,7 +50,16 @@ import { readFileSync } from 'node:fs';
  */
 const SHEETS = [
     'packages/core/src/styles/theme.css',
-    'packages/core/src/styles/aparte.css',
+    'packages/core/src/styles/base.css',
+    'packages/core/src/styles/shell.css',
+    'packages/core/src/styles/bubble.css',
+    'packages/core/src/styles/composer.css',
+    'packages/core/src/styles/segment.css',
+    'packages/core/src/styles/artifact.css',
+    'packages/core/src/styles/elicitation.css',
+    'packages/core/src/styles/conversation.css',
+    'packages/core/src/styles/prose.css',
+    'packages/core/src/styles/responsive.css',
     'packages/core/src/primitives/select/select.css',
     'packages/core/src/primitives/progress-spinner/progress-spinner.css',
 ];

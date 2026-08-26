@@ -6,6 +6,15 @@
  * `dist/index.css` (the export's `default`).
  */
 @import './theme.css';
-@import './aparte.css';
+@import './base.css';
+@import './shell.css';
+@import './bubble.css';
+@import './composer.css';
+@import './segment.css';
+@import './artifact.css';
+@import './elicitation.css';
+@import './conversation.css';
+@import './prose.css';
+@import './responsive.css';
 @import '../primitives/select/select.css';
 @import '../primitives/progress-spinner/progress-spinner.css';

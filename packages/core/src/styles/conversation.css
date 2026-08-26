@@ -1,0 +1,123 @@
+/*
+ * aparté — The conversation list.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+.aparte-conv-item {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-conv-item-gap);
+  padding: var(--aparte-conv-item-padding);
+  border-radius: var(--aparte-conv-item-radius);
+  cursor: pointer;
+  min-width: 0;
+  color: var(--aparte-conv-item-color);
+  font-size: var(--aparte-conv-item-font-size);
+  font-family: var(--aparte-font-family);
+  transition: background var(--aparte-duration-fast);
+  outline: none;
+}
+
+.aparte-conv-item:hover {
+  background: var(--aparte-conv-item-bg-hover);
+}
+
+.aparte-conv-item:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-conv-item:hover .aparte-conv-item__delete {
+  opacity: 1;
+}
+
+.aparte-conv-item:hover .aparte-conv-item__archive {
+  opacity: 1;
+}
+
+/* Keyboard access (WCAG 2.1.1): the archive/delete actions are opacity:0 until
+   hover, which would hide keyboard focus. Reveal + ring them on focus. */
+.aparte-conv-item:focus-within .aparte-conv-item__archive,
+.aparte-conv-item:focus-within .aparte-conv-item__delete {
+  opacity: 1;
+}
+
+.aparte-conv-item__archive:focus-visible,
+.aparte-conv-item__delete:focus-visible {
+  opacity: 1;
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-conv-item--active {
+  background: var(--aparte-conv-item-bg-active);
+  color: var(--aparte-conv-item-color-active);
+  font-weight: var(--aparte-conv-item-font-weight-active);
+}
+
+.aparte-conv-item--active .aparte-conv-item__delete {
+  opacity: 0;
+}
+
+.aparte-conv-item--active .aparte-conv-item__archive {
+  opacity: 0;
+}
+
+.aparte-conv-item__title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.aparte-conv-item__delete {
+  flex-shrink: 0;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aparte-conv-action-btn-size);
+  height: var(--aparte-conv-action-btn-size);
+  border: none;
+  background: none;
+  color: var(--aparte-conv-delete-color);
+  border-radius: var(--aparte-conv-delete-radius);
+  cursor: pointer;
+  padding: 0;
+  transition: opacity var(--aparte-duration-fast), background var(--aparte-duration-fast), color var(--aparte-duration-fast);
+}
+
+.aparte-conv-item__delete:hover {
+  background: var(--aparte-conv-delete-bg-hover);
+  color: var(--aparte-conv-delete-color-hover);
+}
+
+.aparte-conv-item__archive {
+  flex-shrink: 0;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--aparte-conv-action-btn-size);
+  height: var(--aparte-conv-action-btn-size);
+  border: none;
+  background: none;
+  color: var(--aparte-conv-archive-color, var(--aparte-text-muted));
+  border-radius: var(--aparte-conv-archive-radius, var(--aparte-radius-sm));
+  cursor: pointer;
+  padding: 0;
+  transition: opacity var(--aparte-duration-fast), background var(--aparte-duration-fast), color var(--aparte-duration-fast);
+}
+
+.aparte-conv-item__archive:hover {
+  background: var(--aparte-conv-archive-bg-hover, var(--aparte-surface-4, var(--aparte-surface-3)));
+  color: var(--aparte-conv-archive-color-hover, var(--aparte-text));
+}
+
+.aparte-conv-item--archived .aparte-conv-item__title {
+  font-style: italic;
+  opacity: 0.85;
+}

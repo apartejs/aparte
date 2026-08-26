@@ -1,0 +1,97 @@
+/*
+ * aparté — Shared odds and ends — the screen-reader helper, the dot, the spacers.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+/* ─── Bottom spacer ───────────────────────────────────────────────────────── */
+
+.aparte-bottom-spacer {
+  flex-shrink: 0;
+  height: 0px;
+}
+
+.aparte-header {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-4);
+  margin-bottom: var(--aparte-space-3);
+}
+
+/* =========================================
+   Action Bar
+   ========================================= */
+
+.aparte-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-action-bar-gap);
+  margin-top: var(--aparte-space-3);
+  min-height: var(--aparte-action-bar-btn-size);
+}
+
+/* Action slots */
+.aparte-actions-left,
+.aparte-actions-right {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  flex-shrink: 0;
+}
+
+.aparte-dots {
+  display: flex;
+  align-items: center;
+}
+
+/* Screen-reader-only text. Used by the bubble's waiting indicator, whose dots are
+   decorative: the state is conveyed by aria-busy + this localized label. */
+.aparte-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.aparte-dot {
+  width: var(--aparte-status-dot-size);
+  height: var(--aparte-status-dot-size);
+  background: var(--aparte-status-color);
+  border-radius: 50%;
+  animation: aparte-pulse var(--aparte-duration-pulse) infinite ease-in-out;
+}
+
+/* A panel is mounted INSIDE that row, so its own buttons inherited the 44x44 sizing
+   above and rendered as circles with their labels spilling out. The rule above means
+   "the composer's own controls"; anything inside a panel is CONTENT, and a panel is
+   free to contain a button — the approval options are the first that do, and they will
+   not be the last. */
+[data-aparte-panel] button {
+  width: auto;
+  height: auto;
+  flex-shrink: 1;
+  /* The row also makes its controls centred flex boxes, which beats `text-align` — so a
+     left-aligned label in a panel came out centred until this line existed. Undo the
+     whole treatment, not the half of it that was visible. */
+  display: block;
+  justify-content: initial;
+  align-items: initial;
+}
+
+/* =========================================
+   aparte-conversation-list
+   ========================================= */
+
+aparte-conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-conv-list-gap);
+  overflow-y: auto;
+  overflow-x: hidden;
+}

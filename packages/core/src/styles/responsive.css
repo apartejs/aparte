@@ -1,0 +1,132 @@
+/*
+ * aparté — Container-width and pointer-modality adjustments. LAST on purpose.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+@media (prefers-reduced-motion: reduce) {
+  /* Our own motion stops at the source: every transition and animation in this
+     sheet reads one of these, so overriding them reaches the elements the
+     descendant sweep below cannot match — which is why two hand-written patches
+     used to sit further down for exactly two of them. The sweep stays: it also
+     stops motion in CSS this sheet does not own. */
+  :root,
+  :host {
+    --aparte-duration-fast: 0.01ms;
+    --aparte-duration-base: 0.01ms;
+    --aparte-duration-slow: 0.01ms;
+    --aparte-duration-slower: 0.01ms;
+    --aparte-duration-pulse: 0.01ms;
+    --aparte-slide-distance: 0px;
+  }
+}
+
+/* Windows high contrast. In forced-colors mode the UA repaints colours and
+   drops box-shadow entirely — so the two focus indicators drawn with
+   --aparte-focus-ring, and the error ring on an avatar, do not merely change
+   colour, they VANISH. An outline is painted, and `Highlight` is the system's
+   own focus colour, so the indicator survives without fighting the user's
+   palette. Only the indicators that disappear are restated here: everything
+   whose affordance is text or a border already survives on its own. */
+@media (forced-colors: active) {
+  .aparte-thumb--image[role='button']:focus-visible,
+  .aparte-provider-select:focus,
+  .aparte-model-select:focus {
+    outline: var(--aparte-focus-outline-width) solid Highlight;
+  }
+
+  .aparte-message[data-error] .aparte-avatar {
+    outline: var(--aparte-focus-outline-width) solid CanvasText;
+  }
+}
+
+/* Respect prefers-reduced-motion. Scoped to Aparte's own custom elements (never
+   the consumer's page) — this covers every animated element the library renders
+   inside them: typing dots, spinners, pipeline/artifact pulses, segment
+   animations. Activity stays conveyed via aria-live / aria-busy. */
+@media (prefers-reduced-motion: reduce) {
+  aparte-chat-viewport *,
+  aparte-chat-bubble *,
+  aparte-composer *,
+  aparte-chat-status *,
+  aparte-conversation-list *,
+  aparte-select *,
+  aparte-progress-spinner * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes aparte-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes tool-spin { to { transform: rotate(360deg); } }
+@keyframes aparte-art-card-pulse {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50%      { opacity: 1;    transform: scale(1.1);  }
+}
+@keyframes pw-pulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
+    40%            { opacity: 1;   transform: scale(1.1);  }
+}
+
+/* =========================================
+   Adaptive layout (container width + input modality)
+   ========================================= */
+
+/* Narrow containers (embedded widgets, mobile) — tighter chrome. The theming
+   variables are defined at :root, so `var(x, fallback)` fallbacks can never
+   fire — instead each rule REASSIGNS the variable at the element, the same
+   per-context pattern .aparte-attachments already uses. To retheme the narrow
+   state, override these variables inside your own @container block. Browsers
+   without container-query support keep the wide defaults. */
+@container (max-width: 520px) {
+  .aparte-message {
+    --aparte-message-padding: var(--aparte-space-6) var(--aparte-space-4);
+    --aparte-message-gap: var(--aparte-space-4);
+  }
+
+  .aparte-avatar {
+    --aparte-avatar-size: 24px;
+  }
+
+  .aparte-messages-wrapper {
+    --aparte-viewport-padding: var(--aparte-space-6) var(--aparte-space-4);
+  }
+
+  .aparte-composer-row {
+    padding: var(--aparte-space-4);
+  }
+}
+
+/* Coarse pointers (touch) — comfortable hit areas. */
+@media (pointer: coarse) {
+  .aparte-scroll-btn {
+    --aparte-scroll-btn-size: var(--aparte-touch-target-size);
+  }
+
+  .aparte-send-button {
+    --aparte-send-btn-size: var(--aparte-touch-target-size);
+  }
+
+  .aparte-action-button {
+    --aparte-input-action-btn-size: var(--aparte-touch-target-size);
+  }
+
+  /* Hover cannot reveal these on touch — keep them visible and tappable. */
+  .aparte-conv-item__delete,
+  .aparte-conv-item__archive {
+    opacity: 1;
+    --aparte-conv-action-btn-size: 28px;
+  }
+}
+
