@@ -8,7 +8,11 @@ export const collections = {
   // The path is relative to THIS Starlight project, so two levels up is the repo root.
   changelogs: defineCollection({
     loader: changelogsLoader([
-      { provider: 'changeset', base: 'changelog', changelog: '../../CHANGELOG.md' },
+      // pageSize covers every version, so the list has ONE page. With the default 10 the
+      // list paginated to /changelog/2/, and a topic's sidebar replaces the one Starlight
+      // derives its pagination from — so that second page became a route nothing linked
+      // to. check-doc-links caught it; neither plugin did.
+      { provider: 'changeset', base: 'changelog', changelog: '../../CHANGELOG.md', pageSize: 50 },
     ]),
   }),
 };
