@@ -95,7 +95,7 @@ test('answering restores the composer and resumes the turn', async ({ page }) =>
     // asked or answered. Scroll back and the exchange was simply missing. Reported
     // from a real session, and the pieces were all there: `questionReceiptRenderer`
     // with its own markup, styles and tests, exported and registered by nobody.
-    const receipt = page.locator('.seg-qreceipt');
+    const receipt = page.locator('.aparte-question-receipt');
     await expect(receipt, 'the question and its answer stay in the thread').toHaveCount(1);
     await expect(receipt).toContainText(MOCK_ASK_QUESTION);
     await expect(receipt).toContainText(MOCK_ASK_OPTIONS[0]);

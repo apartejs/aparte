@@ -18,7 +18,7 @@ describe('the record a question leaves in the transcript', () => {
         // The live UI is the panel in the composer. A copy of the pending question in
         // the bubble would be two places to read the same thing.
         const el = buildReceipt({ input: { question: 'Colour?' } });
-        expect(el.querySelector('.seg-qreceipt')).toBeNull();
+        expect(el.querySelector('.aparte-question-receipt')).toBeNull();
     });
 
     it('pairs a single question with the answer', () => {
@@ -54,15 +54,15 @@ describe('the record a question leaves in the transcript', () => {
             result: '<b>Colour?</b> → <img src=x onerror=alert(1)>\nShape? → Round',
         });
 
-        const cards = el.querySelectorAll('.seg-qreceipt');
+        const cards = el.querySelectorAll('.aparte-question-receipt');
         expect(cards).toHaveLength(2);
         // Everything here is model-chosen or user-typed. The element arm of the tool
         // renderer has no innerHTML surface at all, which is why this is built with
         // `textContent` — the string arm's first natural line is a model-to-DOM XSS.
         expect(el.querySelector('img'), 'no live element from a hostile answer').toBeNull();
         expect(el.querySelector('b'), 'nor from a hostile question').toBeNull();
-        expect(cards[0]!.querySelector('.qr-question')!.textContent).toBe('<b>Colour?</b>');
-        expect(cards[0]!.querySelector('.qr-answer')!.textContent).toBe('<img src=x onerror=alert(1)>');
+        expect(cards[0]!.querySelector('.aparte-question-receipt__question')!.textContent).toBe('<b>Colour?</b>');
+        expect(cards[0]!.querySelector('.aparte-question-receipt__answer')!.textContent).toBe('<img src=x onerror=alert(1)>');
     });
 
     /**
@@ -93,10 +93,10 @@ describe('the record a question leaves in the transcript', () => {
             result: ASK_USER_DECLINED,
         });
 
-        expect(el.querySelectorAll('.seg-qreceipt')).toHaveLength(1);
-        expect(el.querySelector('.qr-question'), 'nothing to attribute').toBeNull();
-        expect(el.querySelector('.qr-sep'), 'nothing points at anything').toBeNull();
-        expect(el.querySelector('.qr-declined')!.textContent).toBe(ASK_USER_DECLINED);
+        expect(el.querySelectorAll('.aparte-question-receipt')).toHaveLength(1);
+        expect(el.querySelector('.aparte-question-receipt__question'), 'nothing to attribute').toBeNull();
+        expect(el.querySelector('.aparte-question-receipt__sep'), 'nothing points at anything').toBeNull();
+        expect(el.querySelector('.aparte-question-receipt__answer--declined')!.textContent).toBe(ASK_USER_DECLINED);
     });
 
     it('survives a result that has fewer lines than questions', () => {
