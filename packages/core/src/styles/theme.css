@@ -737,10 +737,6 @@ aparte-chat {
   --aparte-code-header-text: var(--aparte-text-muted);
 
   /* Scroll-to-bottom button */
-  --aparte-scroll-btn-bg: var(--aparte-surface-1);
-  --aparte-scroll-btn-color: var(--aparte-text);
-  --aparte-scroll-btn-border: var(--aparte-border);
-  --aparte-scroll-btn-hover-bg: var(--aparte-surface-2);
 
   /* Prose (aparte-segment-content) */
   --aparte-prose-blockquote-border: var(--aparte-border);

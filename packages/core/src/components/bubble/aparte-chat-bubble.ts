@@ -1158,7 +1158,7 @@ export class AparteChatBubble extends HTMLElement {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
       const btn = document.createElement('button');
-      btn.className = 'aparte-action-btn aparte-action-custom';
+      btn.className = 'aparte-btn aparte-btn--icon aparte-action-btn aparte-action-custom';
       btn.dataset['action'] = `custom:${a.id}`;
       // aria-label/title via setAttribute — safe for consumer-provided strings.
       btn.setAttribute('aria-label', a.label);

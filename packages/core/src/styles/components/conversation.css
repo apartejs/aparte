@@ -27,12 +27,10 @@
 }
 
 .aparte-conv-item:hover .aparte-conv-item__delete {
-  --aparte-icon-size: var(--aparte-icon-size-sm);
   opacity: 1;
 }
 
 .aparte-conv-item:hover .aparte-conv-item__archive {
-  --aparte-icon-size: var(--aparte-icon-size-sm);
   opacity: 1;
 }
 
@@ -73,6 +71,7 @@
 }
 
 .aparte-conv-item__delete {
+  --aparte-btn-radius: var(--aparte-conv-delete-radius);
   opacity: 0;
   width: var(--aparte-conv-action-btn-size);
   height: var(--aparte-conv-action-btn-size);
@@ -85,6 +84,7 @@
 }
 
 .aparte-conv-item__archive {
+  --aparte-btn-radius: var(--aparte-conv-archive-radius);
   opacity: 0;
   width: var(--aparte-conv-action-btn-size);
   height: var(--aparte-conv-action-btn-size);

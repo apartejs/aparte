@@ -24,11 +24,36 @@ import { dirname, join } from 'node:path';
  * assert that a rule EXISTS and names what it claims to style — the source-shape half.
  * The rendered half belongs to `pnpm e2e`.
  */
-const SHEETS = [
-    'theme', 'base', 'button', 'field',
-    'display/avatar', 'display/badge', 'display/tag', 'display/thumbnail', 'display/spinner', 'display/progress', 'display/skeleton', 'display/divider', 'display/alert', 'display/card', 'display/kbd', 'surface/tabs', 'surface/accordion', 'surface/menu', 'surface/popover', 'surface/tooltip', 'segment/thinking', 'segment/code', 'segment/tool-call', 'segment/error', 'segment/pipeline', 'segment/text',
-    'components/shell', 'components/bubble', 'components/composer',     'segment/artifact', 'components/elicitation', 'components/conversation', 'prose', 'responsive',
-];
+/**
+ * The sheets, DERIVED from `src/index.ts`'s import block rather than listed here.
+ *
+ * This was a hand-written list, and it had already fallen three sheets behind —
+ * `display/icon`, `primitives/select`, `primitives/progress-spinner` — which is 308
+ * lines of CSS these suites were silently blind to. Nothing went red, because a missing
+ * name is simply absent from the concatenation and the total stayed far above the
+ * floor: a future assertion about `.aparte-icon` would just have failed while the rule
+ * demonstrably existed.
+ *
+ * It was the last copy of a list `scripts/core-stylesheets.mjs` already derives for the
+ * guard and the docs generator, for exactly this reason. It is read here rather than
+ * imported because that helper resolves paths from its own location, and this file has
+ * to work from two different working directories (see below).
+ */
+const SHEET_FLOOR = 30;
+function sheetsFrom(coreSrc: string): string[] {
+    const entry = join(coreSrc, 'index.ts');
+    const names = [...readFileSync(entry, 'utf8').matchAll(/^import\s+'\.\/(styles\/[^']+)\.css';/gm)].map(
+        (m) => m[1].slice('styles/'.length),
+    );
+    if (names.length < SHEET_FLOOR) {
+        throw new Error(
+            `read-stylesheet: read only ${names.length} sheet imports from ${entry}, floor is ${SHEET_FLOOR}. ` +
+                'The imports moved or the matcher broke; either way every assertion below would be judging ' +
+                'a fraction of the CSS.',
+        );
+    }
+    return names;
+}
 /** Below this, the corpus has collapsed and every assertion below is vacuous. */
 const MIN_LINES = 2500;
 
@@ -37,9 +62,8 @@ export function readAparteStylesheet(): string {
         for (const root of ['packages/core/src/styles', 'src/styles']) {
             const base = join(dir, root);
             if (!existsSync(join(base, 'theme.css'))) continue;
-            const text = SHEETS
+            const text = sheetsFrom(dirname(base))
                 .map((name) => join(base, name + '.css'))
-                .filter((p) => existsSync(p))
                 .map((p) => readFileSync(p, 'utf8'))
                 .join('\n');
             const lines = text.split('\n').length;

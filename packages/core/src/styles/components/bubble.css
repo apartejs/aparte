@@ -137,6 +137,8 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 .aparte-action-btn {
+  color: var(--aparte-action-bar-btn-color);
+  --aparte-btn-radius: var(--aparte-radius-action-btn);
   /* The token, not the box: the recipe draws it, and its icon size moves with it.
      This used to set width/height directly while the element also carried
      `--sm` — two sources for one measure, and 28px is the `--md` default the
@@ -181,6 +183,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 
 .aparte-branch-prev,
 .aparte-branch-next {
+  color: var(--aparte-branch-picker-btn-color);
   width: var(--aparte-branch-picker-btn-size);
   height: var(--aparte-branch-picker-btn-size);
   font-size: var(--aparte-branch-picker-btn-icon-size);
@@ -223,6 +226,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 /* The composer row's size first, this button's own second — see `.aparte-composer-row`
    in composer.css. Undefined anywhere else, so only the second applies there. */
 .aparte-action-button {
+  --aparte-btn-radius: var(--aparte-radius-action-btn);
   width: var(--aparte-composer-row-control-size, var(--aparte-input-action-btn-size));
   height: var(--aparte-composer-row-control-size, var(--aparte-input-action-btn-size));
 }

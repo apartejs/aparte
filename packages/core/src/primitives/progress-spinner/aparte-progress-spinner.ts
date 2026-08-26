@@ -23,7 +23,7 @@
  * @element aparte-progress-spinner
  * @attr {number} value - Progress percentage 0–100 (omit for indeterminate)
  *
- * @cssprop [--aparte-spinner-size=14px] - Width and height of the element; the SVG fills it.
+ * @cssprop [--aparte-spinner-size=16px] - Width and height of the element; the SVG fills it.
  * @cssprop [--aparte-spinner-stroke=2.5] - Stroke width of both arcs, in the units of the 24×24 viewBox.
  * @cssprop [--aparte-spinner-color=currentColor] - Stroke of the filled (progress) arc.
  * @cssprop [--aparte-spinner-track=color-mix(in srgb, currentColor 15%, transparent)] - Stroke of the track arc behind it.

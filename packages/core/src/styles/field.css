@@ -44,6 +44,11 @@
   /* Padding recipe, declared here: nothing in the shared token file defines a field
      padding yet, so this file owns its own default and size variants. */
   --aparte-field-padding: var(--aparte-space-2) var(--aparte-space-3);
+  /* Same reason, and a gap the recipe had: every other recipe names its own radius
+     (`--aparte-btn-radius`, `--aparte-tag-radius`, `--aparte-field-choice-radius`) and
+     this one hardcoded the scale step, so a field could not be re-cornered from its
+     own element the way every sibling can. */
+  --aparte-field-radius: var(--aparte-radius-md);
 
   box-sizing: border-box;
   display: block;
@@ -54,7 +59,7 @@
   color: var(--aparte-text);
   background: var(--aparte-surface-1);
   border: var(--aparte-border-width) solid var(--aparte-border);
-  border-radius: var(--aparte-radius-md);
+  border-radius: var(--aparte-field-radius);
   padding: var(--aparte-field-padding);
   transition:
     border-color var(--aparte-duration-fast) var(--aparte-ease),
@@ -151,7 +156,7 @@
   align-items: stretch;
   background: var(--aparte-surface-1);
   border: var(--aparte-border-width) solid var(--aparte-border);
-  border-radius: var(--aparte-radius-md);
+  border-radius: var(--aparte-field-radius);
   transition:
     border-color var(--aparte-duration-fast) var(--aparte-ease),
     box-shadow var(--aparte-duration-fast) var(--aparte-ease);
@@ -642,7 +647,7 @@
   block-size: var(--aparte-color-size);
   padding: 0;
   border: var(--aparte-border-width) solid var(--aparte-border);
-  border-radius: var(--aparte-radius-md);
+  border-radius: var(--aparte-field-radius);
   background: none;
   cursor: pointer;
 }

@@ -106,25 +106,34 @@ aparte-chat-viewport {
 
 /* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
 
+/* The button wears `aparte-btn--lg aparte-btn--circle`, and that IS its shape: 36px is
+   exactly `--aparte-btn-size-lg`, and `--circle` is the round one. So the box, the
+   corner and the 20px glyph all come from the recipe, and what stays here is only what
+   is genuinely this button's — where it floats, and its own surface.
+
+   It used to redraw all three: its own width/height, its own `border-radius: 50%`, and
+   an icon-size override that existed only because the box was declared OUTSIDE the size
+   scale, so the glyph stayed at the medium default — a 16px arrow in a 36px circle, 44%
+   of its box where the rest of the library reads at ~57%. Naming the size instead makes
+   the ratio fall out for free, and the override disappears with it.
+
+   `--aparte-scroll-btn-size` stays the public knob, fed to the recipe. */
 .aparte-scroll-btn {
-  --aparte-icon-size: var(--aparte-icon-size-lg);
+  --aparte-btn-size: var(--aparte-scroll-btn-size);
   position: absolute;
   bottom: var(--aparte-space-8);
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--aparte-z-floating);
-  width: var(--aparte-scroll-btn-size);
-  height: var(--aparte-scroll-btn-size);
-  border-radius: 50%;
-  background: var(--aparte-scroll-btn-bg);
-  color: var(--aparte-scroll-btn-color);
-  border: var(--aparte-border-width) solid var(--aparte-scroll-btn-border);
+  /* The one thing the recipe has no word for: this button FLOATS over the transcript,
+     and nothing else in the library does. Everything else it used to declare here —
+     background, colour, border, and the hover ground — was `aparte-btn--surface`
+     written a second time through four aliases that resolved to the very same values
+     (`--aparte-scroll-btn-bg` WAS `var(--aparte-surface-1)`, and so on down the list).
+     Four names for one thing is the drift the recipes exist to end, so they are gone
+     and the fill is the fill. */
   box-shadow: var(--aparte-scroll-btn-shadow);
   pointer-events: auto;
-}
-
-.aparte-scroll-btn:hover {
-  background: var(--aparte-scroll-btn-hover-bg);
 }
 
 .aparte-scroll-btn--hidden {

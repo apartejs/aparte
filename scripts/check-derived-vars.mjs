@@ -39,7 +39,7 @@
  *
  * Run by `pnpm gate`.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { coreStylesheets } from './core-stylesheets.mjs';
 
 /**
@@ -334,6 +334,79 @@ if (anchored.length < ANCHORED_FLOOR) {
  * that the docs site — the sole consumer that reads CSS from source rather than from
  * `dist` — rendered without that sheet.
  */
+/*
+ * A documented `@cssprop` must actually be read by a stylesheet.
+ *
+ * This is the rule that would have caught the whole class of damage the recipe adoption
+ * did without anyone noticing. When a component stopped drawing its own border-radius
+ * and let `.aparte-btn` draw it instead, the component's own `--aparte-radius-send-btn`
+ * simply lost its last reader — and stayed in the JSDoc, so the generated page kept
+ * listing it: "`--aparte-radius-send-btn` | `6px` | Corner radius of the button." A
+ * consumer sets it and nothing happens, and nothing anywhere says why.
+ *
+ * Six of them had gone that way. The generated CSS-variable reference did label them
+ * `palette only`, which is honest but is not where anyone looks: a reader goes to the
+ * COMPONENT's page, where the token is presented as that component's knob.
+ *
+ * Read with a fallback counts as read — `var(--aparte-select-bg, …)` is the documented
+ * way a consumer-facing knob with a default is written, and 34 of them are shaped that
+ * way on purpose.
+ */
+const CSSPROP_SOURCES = [
+    'packages/core/src',
+    'packages/plugins',
+];
+const cssPropDeclared = new Map();
+{
+    const stack = [...CSSPROP_SOURCES];
+    const files = [];
+    while (stack.length) {
+        const p = stack.pop();
+        let st;
+        try { st = statSync(p); } catch { continue; }
+        if (st.isDirectory()) {
+            for (const e of readdirSync(p)) {
+                if (e === 'node_modules' || e === 'dist' || e === '__tests__') continue;
+                stack.push(p + '/' + e);
+            }
+        } else if (/[.]ts$/.test(p) && !/[.]test[.]ts$/.test(p)) {
+            files.push(p);
+        }
+    }
+    for (const f of files) {
+        for (const m of readFileSync(f, 'utf8').matchAll(/@cssprop\s+\[?(--aparte-[\w-]+)/g)) {
+            if (!cssPropDeclared.has(m[1])) cssPropDeclared.set(m[1], f);
+        }
+    }
+}
+/**
+ * Same floor reasoning as everywhere else: a matcher that reads nothing is not a pass.
+ * It is a COLLAPSE detector, not a count — deliberately deleting a knob is allowed and
+ * should not require touching this, so it sits well below the real total (149 at the
+ * time of writing). Raise it only if the total climbs far enough that this stops
+ * catching a broken matcher.
+ */
+const CSSPROP_FLOOR = 120;
+if (cssPropDeclared.size < CSSPROP_FLOOR) {
+    problems.push(
+        `[cssprop] read only ${cssPropDeclared.size} @cssprop tags, floor is ${CSSPROP_FLOOR}. `
+        + 'The matcher broke, so this rule is guarding nothing.',
+    );
+}
+{
+    const readAnywhere = new Set(
+        [...lines.join(String.fromCharCode(10)).matchAll(/var\((--aparte-[\w-]+)/g)].map((m) => m[1]),
+    );
+    for (const [token, file] of cssPropDeclared) {
+        if (!readAnywhere.has(token)) {
+            problems.push(
+                `\`${token}\` is documented as a @cssprop (${file}) but no stylesheet reads it. `
+                + 'The generated component page presents it as a working knob; setting it does nothing.',
+            );
+        }
+    }
+}
+
 const BUNDLE = 'packages/core/src/styles/bundle.css';
 const bundleImports = [...readFileSync(BUNDLE, 'utf8').matchAll(/@import\s+'([^']+)'/g)].map((m) =>
     m[1].replace(/^\.\//, 'packages/core/src/styles/').replace(/^\.\.\//, 'packages/core/src/'),

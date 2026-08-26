@@ -97,10 +97,6 @@ import {
  *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
  * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A
  *   coarse pointer raises it to `--aparte-touch-target-size`.
- * @cssprop [--aparte-scroll-btn-bg=var(--aparte-surface-1)] - Scroll-to-bottom button background.
- * @cssprop [--aparte-scroll-btn-hover-bg=var(--aparte-surface-2)] - Its background on hover.
- * @cssprop [--aparte-scroll-btn-color=var(--aparte-text)] - Its icon colour.
- * @cssprop [--aparte-scroll-btn-border=var(--aparte-border)] - Its border colour.
  * @cssprop [--aparte-scroll-btn-shadow=0 2px 8px rgba(0, 0, 0, 0.12)] - Its shadow; the dark
  *   theme sets a heavier one.
  *
@@ -1180,7 +1176,7 @@ export class AparteChatViewport extends HTMLElement {
 
             // Scroll-to-bottom button — absolutely positioned over the viewport
             this._scrollBtn = document.createElement('button');
-            this._scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-scroll-btn aparte-scroll-btn--hidden';
+            this._scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
             this._scrollBtn.setAttribute('type', 'button');
             this._scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
             const scrollIcon = resolveConfig(this).getIcon('scrollDown');
@@ -1216,7 +1212,7 @@ export class AparteChatViewport extends HTMLElement {
         this.classList.add('aparte-viewport--framework');
 
         const scrollBtn = document.createElement('button');
-        scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-scroll-btn aparte-scroll-btn--hidden';
+        scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
         scrollBtn.setAttribute('type', 'button');
         scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
         const scrollIcon = resolveConfig(this).getIcon('scrollDown');

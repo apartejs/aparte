@@ -126,6 +126,7 @@
    is a field someone composes an answer in. */
 .aparte-elic-other-input,
 .aparte-elic-text {
+  --aparte-field-radius: var(--aparte-elic-input-radius);
   margin-top: var(--aparte-space-2);
   background: var(--aparte-surface-2);
   font-size: var(--aparte-elic-option-title-size);
@@ -267,6 +268,8 @@ textarea.aparte-elic-text {
 }
 
 .aparte-elic-step {
+  /* The tab recipe draws the indicator; this is only how thick this panel wants it. */
+  border-block-end-width: var(--aparte-elic-step-underline);
   font-size: var(--aparte-elic-step-size);
   padding: var(--aparte-elic-step-padding);
   /* The underline sits ON the rail, not above it. */

@@ -138,7 +138,12 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 }
 
 .aparte-thumb__remove {
-  --aparte-icon-size: var(--aparte-icon-size-sm);
+  /* Icon size comes from `--sm` — see `--aparte-btn-icon-size` in button.css. */
+  /* A scrim, not a ghost. This button sits ON the picture: the recipe rests
+     transparent, which left a muted glyph directly on the image and made it vanish
+     over anything light. The recipe still draws the box, the hover and the focus. */
+  background: var(--aparte-thumb-remove-bg);
+  color: var(--aparte-thumb-remove-color);
   position: absolute;
   top: var(--aparte-thumb-remove-inset);
   right: var(--aparte-thumb-remove-inset);
@@ -232,7 +237,13 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    the row helper the two agree with the documented order; outside it, only the second
    is defined and a standalone send button keeps its own measure. */
 .aparte-send-button {
-  --aparte-icon-size: var(--aparte-icon-size-xl);
+  --aparte-btn-radius: var(--aparte-radius-send-btn);
+  /* `--aparte-btn-icon-size`, not `--aparte-icon-size`: an icon that is a direct child
+     of `.aparte-btn` is sized by the button rule, which out-specifies `.aparte-icon`.
+     Declaring the other one here did nothing, and the glyph stayed at the 16px default
+     inside a 36-44px button — 44% of its box, where every sized button in the library
+     reads at ~57%. */
+  --aparte-btn-icon-size: var(--aparte-icon-size-xl);
   width: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
   height: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
 }
@@ -554,22 +565,26 @@ aparte-composer-toolbar[data-empty],
   display: none;
 }
 
-/* Cancel/dictate button — same visual style as action buttons */
-aparte-composer-cancel .aparte-cc-button[hidden],
-aparte-composer-dictate .aparte-cd-button[hidden] {
+/* The cancel button.
+   It used to be "cancel/dictate", paired in every one of these selectors with
+   `aparte-composer-dictate .aparte-cd-button` — an element that does not exist and
+   never has. No file defines it, nothing emits it, and git history has never deleted
+   one: it was written for a component that was planned and never landed. An unknown
+   element name is a valid selector that matches nothing, so it broke nothing; it just
+   shipped three dead selectors to every consumer and told the next reader that a
+   dictate component was somewhere to be found. */
+aparte-composer-cancel .aparte-cc-button[hidden] {
   display: none !important;
 }
 
-/* The chrome is `.aparte-btn`. Only the padding stays: these two sit inside the
+/* The chrome is `.aparte-btn`. Only the padding stays: this one sits inside the
    composer row, tighter than a standalone icon button. */
-aparte-composer-cancel .aparte-cc-button,
-aparte-composer-dictate .aparte-cd-button {
-  --aparte-icon-size: var(--aparte-icon-size-lg);
+aparte-composer-cancel .aparte-cc-button {
+  --aparte-btn-radius: var(--aparte-radius-action-btn);
   padding: var(--aparte-space-3);
 }
 
-aparte-composer-cancel .aparte-cc-button:hover,
-aparte-composer-dictate .aparte-cd-button:hover {
+aparte-composer-cancel .aparte-cc-button:hover {
   color: var(--aparte-text);
   background: var(--aparte-surface-2);
 }
