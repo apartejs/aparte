@@ -8,8 +8,10 @@
  * Output (git-ignored, always regenerated):
  *   src/content/docs/reference/api.md
  *
- * If the manifest is missing (core not built yet), a placeholder is written and a
- * warning logged, so `astro dev` never crashes on a fresh checkout.
+ * If the manifest is missing (core not built yet) this FAILS, naming the command to
+ * run. A fresh checkout therefore has to build core once before the docs dev server
+ * starts — which the nx graph already does for every other entry point, since the
+ * `gen` target dependsOn `^build`.
  */
 import { readFileSync, mkdirSync, existsSync } from 'node:fs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
@@ -36,9 +38,16 @@ function write(body) {
 }
 
 if (!existsSync(CEM)) {
-  console.warn(`[gen-api-ref] ${CEM} not found — build @aparte/core first. Wrote a placeholder.`);
-  write(`\nThe element reference is generated from the custom-elements manifest, which is produced when \`@aparte/core\` is built. Run a full build to populate it.\n`);
-  process.exit(0);
+  console.error(
+    `[gen-api-ref] no manifest at ${CEM}\n` +
+      `  Build @aparte/core first: pnpm build (or npx nx build @aparte/core).\n` +
+      `  This used to write a placeholder page instead. It stopped being a kindness the day\n` +
+      `  an nx cache hit left the manifest out of a restored dist: the docs then BUILT, and\n` +
+      `  shipped an element reference reading "run a full build to populate it" — 18 elements\n` +
+      `  and 70 documented methods replaced by one sentence, with nothing failing. A missing\n` +
+      `  input is a stop, not a page.`,
+  );
+  process.exit(1);
 }
 
 const cem = JSON.parse(readFileSync(CEM, 'utf8'));

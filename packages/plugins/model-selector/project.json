@@ -4,14 +4,26 @@
     "sourceRoot": "packages/plugins/model-selector/src",
     "projectType": "library",
     "targets": {
+        "gen": {
+            "outputs": [
+                "{projectRoot}/src/generated",
+                "{projectRoot}/dist/custom-elements.json"
+            ]
+        },
         "build": {
             "executor": "nx:run-script",
-            "outputs": ["{projectRoot}/dist"],
-            "options": { "script": "build" }
+            "outputs": [
+                "{projectRoot}/dist"
+            ],
+            "options": {
+                "script": "build"
+            }
         },
         "test": {
             "executor": "@nx/vite:test",
-            "outputs": ["{options.reportsDirectory}"],
+            "outputs": [
+                "{options.reportsDirectory}"
+            ],
             "options": {
                 "reportsDirectory": "../../../coverage/packages/plugins/model-selector",
                 "cwd": "packages/plugins/model-selector"
