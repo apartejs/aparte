@@ -47,20 +47,20 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
+    gap: var(--aparte-space-2);
 }
 .aparte-question-receipt {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
+    gap: var(--aparte-space-4);
+    padding: var(--aparte-space-3) var(--aparte-space-6);
     border-radius: var(--aparte-radius-full);
     background: var(--aparte-surface-2);
-    border: 1px solid var(--aparte-border);
+    border: var(--aparte-border-width) solid var(--aparte-border);
     font-size: 0.8rem;
     max-width: 100%;
     overflow: hidden;
-    animation: aparte-question-receipt-appear 0.2s ease-out both;
+    animation: aparte-question-receipt-appear var(--aparte-duration-slow) ease-out both;
 }
 .aparte-question-receipt__question {
     color: var(--aparte-text-muted);
@@ -85,7 +85,7 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
     max-width: 55%;
 }
 @keyframes aparte-question-receipt-appear {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(var(--aparte-space-2)); }
     to   { opacity: 1; transform: translateY(0); }
 }
 `;
