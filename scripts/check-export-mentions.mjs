@@ -102,12 +102,17 @@ const MAX_UNMENTIONED = new Map([
     // interfaces were exported all along; nothing named them anywhere a reader looks.
     // Core lost 17, and each wrapper exactly 4 — the four conversation/optgroup/select
     // detail types they re-export from core.
-    ['@aparte/core', 80],       // of 172 type-only exports — 97 before the event details were typed, 103 before the lifecycle events were documented
+    // Ratcheted 80 → 76 when the guard was taught to read `.mdx`. It walked `.md`
+    // only, so the whole component catalogue — the pages that name every element class,
+    // every event-detail type and every segment interface — was invisible to it from
+    // the day those pages stopped being `reference/api.md`. The exports were documented;
+    // the guard could not see the documentation. Each wrapper drops for the same reason.
+    ['@aparte/core', 76],      // of 195 exports checked
+    ['@aparte/react', 6],
+    ['@aparte/vue', 2],
+    ['@aparte/svelte', 3],
+    ['@aparte/angular', 6],
     ['@aparte/engine', 0],      // of 39 — credited by the generated reference; see below
-    ['@aparte/react', 8],       // of 20, incl. AparteChatProps and the three use* hook types
-    ['@aparte/vue', 4],         // of 16
-    ['@aparte/svelte', 5],      // of 17, incl. AparteChatStore
-    ['@aparte/angular', 8],     // of 20, incl. APARTE_CONFIG_TOKEN and ProvideAparteOptions
     // First measurement of these nine. They are VALUE exports a consumer calls —
     // `setupShikiProvider`, `askUserTool`, `createAiSdkProvider` — so they matter
     // more than a type, and the ratchet is only the first step: it makes the number
@@ -194,7 +199,11 @@ function* walk(dir) {
     for (const name of readdirSync(dir)) {
         const path = join(dir, name);
         if (statSync(path).isDirectory()) yield* walk(path);
-        else if (path.endsWith('.md')) yield path;
+        // `.mdx` as well as `.md`. It was `.md` only, and that silently blinded the
+        // guard to the entire component catalogue the day those pages became `.mdx`:
+        // every element class, every event-detail type and every segment interface
+        // read as undocumented, while the pages naming them sat right there.
+        else if (path.endsWith('.md') || path.endsWith('.mdx')) yield path;
     }
 }
 
@@ -207,9 +216,9 @@ function* walk(dir) {
  * this guard forever while a reader had nowhere to learn what it does. Measured:
  * `AparteUiProps` and `AparteUiHandle` appear in the changelog and nowhere else.
  *
- * Only the changelog is dropped, not every generated page. `reference/api.md` and
- * `reference/engine.md` are generated too, but from the source's own hand-written
- * JSDoc — they are the reference a reader actually consults.
+ * Only the changelog is dropped, not every generated page. The component catalogue
+ * under `components/` and `reference/engine.md` are generated too, but from the
+ * source's own hand-written JSDoc — they are the reference a reader actually consults.
  */
 const NOT_DOCUMENTATION = ['changelog.md'];
 
