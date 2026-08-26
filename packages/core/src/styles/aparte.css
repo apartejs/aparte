@@ -80,15 +80,12 @@
   --aparte-touch-target-size: 44px;
 
   /* Messages */
-  --aparte-message-gap: 12px;
-  --aparte-message-padding: 16px 12px;
   --aparte-message-max-width: 800px;
 
   /* Bubbles — opt-in. By default both roles render as a transparent row with
      no bubble background; consumers can flip these to get a chat-app look. */
   --aparte-message-content-bg-user: #efe7f6;
   --aparte-message-content-bg-assistant: transparent;
-  --aparte-message-content-padding: 10px 14px;
   --aparte-message-content-radius: 14px;
 
   /* Aliases used by some segment renderers (artifact card, tool pill).
@@ -113,31 +110,22 @@
   --aparte-thumb-remove-color: #ffffff;
 
   /* Action Bar */
-  --aparte-action-bar-gap: 4px;
   --aparte-action-bar-btn-size: 28px;
 
   /* Branch Picker */
-  --aparte-branch-picker-gap: 4px;
   --aparte-branch-picker-btn-size: 20px;
   --aparte-branch-picker-btn-icon-size: 16px;
-  --aparte-branch-picker-label-size: 12px;
   --aparte-branch-picker-label-min-width: 32px;
 
   /* Avatars */
   --aparte-avatar-size: 32px;
-  --aparte-avatar-font-size: 14px;
   --aparte-avatar-image-user: none;
   --aparte-avatar-image-assistant: none;
   --aparte-avatar-image-size: 90%;
 
   /* Text Sizes */
-  --aparte-name-font-size: 14px;
-  --aparte-timestamp-font-size: 12px;
-  --aparte-content-font-size: 15px;
 
   /* Input */
-  --aparte-input-gap: 8px;
-  --aparte-input-editor-font-size: 15px;
   --aparte-input-editor-max-height: 200px;
 
   /* Send button + inline action buttons */
@@ -152,7 +140,6 @@
 
   /* Waiting Indicator (the bubble's own dots, before the first token) */
   --aparte-waiting-height: 1.5em;
-  --aparte-waiting-dot-gap: 4px;
 
   /* Thinking Segment */
   --aparte-thinking-content-max-height: 300px;
@@ -164,21 +151,13 @@
      These exist because the panel's CSS used to be a <style> injected from JS with
      every value hardcoded, so it was the one surface in the library that could not
      be themed and did not appear in the generated CSS reference. */
-  --aparte-elic-gap: 6px;
-  --aparte-elic-padding: 6px 4px;
   --aparte-elic-max-height: 50vh;
-  --aparte-elic-field-gap: 8px;
-  --aparte-elic-option-radius: 8px;
   --aparte-elic-control-size: 15px;
-  --aparte-elic-input-radius: 6px;
   /* The tool-call row's corner. Declared here rather than left as an inline
      fallback in the renderer: an undeclared custom property still WORKS, which is
      what makes it dangerous — it is absent from the generated CSS reference, so a
      consumer has no way to discover the knob exists. */
-  --aparte-tool-row-radius: 6px;
   --aparte-elic-textarea-min-height: 64px;
-  --aparte-elic-step-padding: 4px 2px;
-  --aparte-elic-step-gap: 14px;
   /* Tabs, not pills.
      Two passes to get here, both wrong for the same reason — decorating a control
      instead of choosing what it IS. First a fully-round pill filled with the primary
@@ -195,12 +174,9 @@
   --aparte-code-copy-icon-size: 14px;
   --aparte-code-inline-font-size: 0.875em;
 
-
-
   /* Scroll-to-bottom button */
   --aparte-scroll-btn-size: 36px;
   --aparte-scroll-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-
 
   /* Error segment */
   --aparte-error-bg: #fef2f2;
@@ -233,25 +209,17 @@
   --aparte-prose-blockquote-border-width: 3px;
 
   /* Viewport */
-  --aparte-viewport-padding: 16px;
   /* Breathing room UNDER the composer, so it does not sit flush against the bottom
      edge of a full-height chat. Same 16px the viewport already puts between the last
      bubble and the composer — this restores the symmetry rather than inventing a
      value. Set it to 0 for a flush composer (a full-bleed mobile shell with a docked
      keyboard is the legitimate case). */
 
-
   /* Status */
-  --aparte-status-font-size: 13px;
 
   /* Input (composer) */
-  --aparte-input-font-size: 14px;
-  --aparte-input-padding-x: 12px;
-  --aparte-input-padding-y: 10px;
 
   /* Conversation List */
-  --aparte-conv-list-gap: 2px;
-  --aparte-conv-item-gap: 6px;
   --aparte-conv-action-btn-size: 20px;
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather
@@ -441,6 +409,49 @@ aparte-chat {
      padding written twice — so two panels sat outside the type and spacing systems
      and neither followed --aparte-font-scale. Each lands on its nearest step; the
      largest move is under half a pixel. Derived, so they live here. */
+  /* The component tier, on the scales.
+
+     These were literals whose values already WERE steps — `--aparte-message-gap` was
+     12px, which is space-6 — so a master reached the scale and stopped there: a chat at
+     --aparte-space-unit:3px grew its gaps and kept its message padding at 16px.
+
+     The line drawn here, and it is a line: the spacing scale governs gutters, padding
+     and margin; the radius scale governs corners; the type scale governs text. None of
+     them governs a STROKE width or a CONTROL size. --aparte-thinking-rail-width stays
+     2px because loosening spacing must not thicken a rule, and --aparte-avatar-size
+     stays 32px because tightening it must not shrink an avatar.
+
+     The eight text sizes were px and are rem now, like the rest of the typography:
+     identical at a 16px root, and following the reader's setting elsewhere. */
+  --aparte-message-gap: var(--aparte-space-6);
+  --aparte-message-padding: var(--aparte-space-8) var(--aparte-space-6);
+  --aparte-message-content-padding: var(--aparte-space-5) var(--aparte-space-7);
+  --aparte-action-bar-gap: var(--aparte-space-2);
+  --aparte-branch-picker-gap: var(--aparte-space-2);
+  --aparte-input-gap: var(--aparte-space-4);
+  --aparte-waiting-dot-gap: var(--aparte-space-2);
+  --aparte-elic-gap: var(--aparte-space-3);
+  --aparte-elic-padding: var(--aparte-space-3) var(--aparte-space-2);
+  --aparte-elic-field-gap: var(--aparte-space-4);
+  --aparte-elic-step-padding: var(--aparte-space-2) var(--aparte-space-1);
+  --aparte-elic-step-gap: var(--aparte-space-7);
+  --aparte-viewport-padding: var(--aparte-space-8);
+  --aparte-input-padding-x: var(--aparte-space-6);
+  --aparte-input-padding-y: var(--aparte-space-5);
+  --aparte-conv-list-gap: var(--aparte-space-1);
+  --aparte-conv-item-gap: var(--aparte-space-3);
+  --aparte-elic-option-radius: var(--aparte-radius-lg);
+  --aparte-elic-input-radius: var(--aparte-radius-md);
+  --aparte-tool-row-radius: var(--aparte-radius-md);
+  --aparte-avatar-font-size: var(--aparte-font-size-lg);
+  --aparte-name-font-size: var(--aparte-font-size-lg);
+  --aparte-timestamp-font-size: var(--aparte-font-size-sm);
+  --aparte-branch-picker-label-size: var(--aparte-font-size-sm);
+  --aparte-input-font-size: var(--aparte-font-size-lg);
+  --aparte-content-font-size: var(--aparte-font-size-base);
+  --aparte-input-editor-font-size: var(--aparte-font-size-base);
+  --aparte-status-font-size: var(--aparte-font-size-md);
+
   --aparte-input-container-min-height: var(--aparte-touch-target-size);
   --aparte-elic-message-size: var(--aparte-font-size-md);
   --aparte-elic-title-size: var(--aparte-font-size-md);
@@ -540,7 +551,6 @@ aparte-chat {
   --aparte-code-header-bg: var(--aparte-surface-2);
   --aparte-code-border: var(--aparte-border);
   --aparte-code-header-text: var(--aparte-text-muted);
-
 
   /* Scroll-to-bottom button */
   --aparte-scroll-btn-bg: var(--aparte-surface-1);
@@ -945,7 +955,6 @@ textarea.aparte-elic-text {
   color: var(--aparte-text);
   border-bottom-color: var(--aparte-border);
 }
-
 
 aparte-composer {
   flex: 0 0 auto;
@@ -1546,7 +1555,6 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   color: var(--aparte-error);
 }
 
-
 /* =========================================
    Legacy composer input utility classes
    ========================================= */
@@ -1770,7 +1778,6 @@ aparte-model-selector[hidden],
   color: var(--aparte-text);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
-
 
 /* =========================================
    aparte-chat-status
@@ -2232,7 +2239,6 @@ details[open] .aparte-thinking-toggle {
   opacity: 0.9;
   white-space: pre-wrap;
 }
-
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Segment renderers — tool call · artifact card · pipeline waiting
