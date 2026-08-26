@@ -127,9 +127,15 @@ export default defineConfig({
             id: 'changelog',
             label: 'Changelog',
             link: '/changelog/',
+            // `latest` first, because the topic's landing page must be a RELEASE and not the
+            // list: the list renders every version's full body, so landing there is the
+            // 3087-line page again under a new URL. `recent` is set past the version count so
+            // the sidebar carries them all — the left column and the page then agree, which
+            // they did not when it showed five against fourteen.
             items: makeChangelogsSidebarLinks([
+              { type: 'latest', base: 'changelog', label: 'Latest release' },
               { type: 'all', base: 'changelog', label: 'All versions' },
-              { type: 'recent', base: 'changelog', count: 5 },
+              { type: 'recent', base: 'changelog', count: 50 },
             ]),
           },
         ], {
