@@ -61,10 +61,22 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE_SRC = resolve(here, '../../../packages/core/src');
-const CSS = resolve(here, '../../../packages/core/src/styles/aparte.css');
+/**
+ * BOTH theme sheets, in the order `src/index.ts` imports them. Reading one was enough
+ * until the tokens moved to `theme.css`: the generator kept pointing at `aparte.css`
+ * and reported 6 declared tokens instead of 286 — a corpus picked by path, silently
+ * shrinking, exactly the failure this file's own header describes.
+ */
+const CSS_SHEETS = [
+  resolve(here, '../../../packages/core/src/styles/theme.css'),
+  resolve(here, '../../../packages/core/src/styles/aparte.css'),
+];
 const OUT = resolve(here, '../src/content/docs/reference/css-variables.md');
 
-const css = readFileSync(CSS, 'utf8');
+const css = CSS_SHEETS.map((p) => readFileSync(p, 'utf8')).join(String.fromCharCode(10));
+/** A floor, not decoration: if the corpus collapses again, this says so instead of
+ *  quietly publishing a shorter page. */
+const DECLARED_FLOOR = 250;
 const lines = css.split(/\r?\n/);
 
 // Every top-level block whose selector list opens with `:root` — the literal palette
@@ -182,6 +194,12 @@ for (const file of walk(CORE_SRC)) {
 }
 
 const declaredNames = new Set(groups.flatMap((g) => g.tokens.map((t) => t.name)));
+if (declaredNames.size < DECLARED_FLOOR) {
+  console.error(`[gen-css-vars] only ${declaredNames.size} declared tokens found across ` +
+    `${CSS_SHEETS.length} sheet(s), floor is ${DECLARED_FLOOR}. The corpus shrank — a sheet` +
+    ' moved or was renamed, and the page would publish short.');
+  process.exit(1);
+}
 
 /** Read with a built-in default, never declared in `:root` — the missing half. */
 const componentTokens = [...reads.keys()]
@@ -201,7 +219,7 @@ sidebar:
   order: 2
 ---
 
-<!-- AUTO-GENERATED from packages/core/src/styles/aparte.css by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
+<!-- AUTO-GENERATED from packages/core/src/styles/{theme,aparte}.css by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
 
 Every \`--aparte-*\` variable aparté declares or reads — **${total + componentTokens.length}**
 in total: ${total} declared in the stylesheet's \`:root\` and ${componentTokens.length} read by a

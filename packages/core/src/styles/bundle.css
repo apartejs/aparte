@@ -5,6 +5,7 @@
  * HMR, matching what `src/index.ts` imports. Published builds still ship
  * `dist/index.css` (the export's `default`).
  */
+@import './theme.css';
 @import './aparte.css';
 @import '../primitives/select/select.css';
 @import '../primitives/progress-spinner/progress-spinner.css';

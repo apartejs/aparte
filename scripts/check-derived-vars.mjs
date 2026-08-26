@@ -41,19 +41,23 @@
  */
 import { readFileSync } from 'node:fs';
 
-const FILE = 'packages/core/src/styles/aparte.css';
 /**
- * Every sheet core ships. `src/index.ts` imports all three, so a token declared in
- * the theme sheet resolves inside the other two — which is what makes the
- * single-owner rule below apply across the set rather than file by file.
+ * The sheets core ships, in the order `src/index.ts` imports them — which is the order
+ * a browser sees, and therefore the only order in which the cascade can be reasoned
+ * about. They are analysed CONCATENATED for exactly that reason: the anchored layer
+ * lives in theme.css while its responsive overrides live at the end of aparte.css, so
+ * a guard reading one file would judge half a rule.
  */
 const SHEETS = [
-    FILE,
+    'packages/core/src/styles/theme.css',
+    'packages/core/src/styles/aparte.css',
     'packages/core/src/primitives/select/select.css',
     'packages/core/src/primitives/progress-spinner/progress-spinner.css',
 ];
 /** Same reasoning as ANCHORED_FLOOR: a collapsed reference count is a broken matcher. */
 const REF_FLOOR = 500;
+/** Global concatenated line index -> `sheet:line`, so a message still points somewhere real. */
+const origin = [];
 
 /** Every place a palette can change, and therefore every place the layer re-anchors. */
 const ANCHORS = [':root', ':host', '[data-aparte-theme]', '[data-aparte-host]', 'aparte-chat'];
@@ -74,8 +78,12 @@ const AT_RULE_CEILING = 6;
  */
 const ANCHORED_FLOOR = 70;
 
-const src = readFileSync(FILE, 'utf8');
-const lines = src.split('\n');
+const lines = [];
+for (const sheet of SHEETS) {
+    const own = readFileSync(sheet, 'utf8').split(String.fromCharCode(10));
+    for (let k = 0; k < own.length; k++) { lines.push(own[k]); origin.push(sheet + ":" + (k + 1)); }
+}
+const at = (n) => origin[n] ?? '?';
 
 const DECL = /^\s+(--aparte-[a-z0-9-]+)\s*:\s*(.+?);/;
 const isDerived = (value) => value.includes('var(--aparte-');
@@ -154,7 +162,7 @@ if (!literalSelectors) {
         + '      <aparte-chat> nested in a dark wrapper, and the chat goes light.',
     );
 }
-for (const s of stray) problems.push(`${FILE}:${s.line}  ${s.name} — ${s.why}`);
+for (const s of stray) problems.push(`${at(s.line - 1)}  ${s.name} — ${s.why}`);
 
 // One owner: a name in the derived block may not also be declared by a theme block.
 if (anchoredSelectors) {
@@ -255,7 +263,7 @@ if (refs < REF_FLOOR) {
 if (atRuleExempt.length > AT_RULE_CEILING) {
     problems.push(
         `${atRuleExempt.length} derived declarations inside an @media/@container, ceiling is ${AT_RULE_CEILING}:\n`
-        + atRuleExempt.map((e) => `      ${FILE}:${e.line}  ${e.name}  (${e.where})`).join('\n')
+        + atRuleExempt.map((e) => `      ${at(e.line - 1)}  ${e.name}  (${e.where})`).join('\n')
         + '\n      A responsive SIZE is fine — raise the ceiling. A value reading a palette\n'
         + '      master is not: it belongs in the anchored block.',
     );

@@ -236,11 +236,17 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 - Don't add `console.log` in `packages/core/` — now an eslint rule rather than a habit
   (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
   incomplete).
-- **A built-in's CSS goes in `packages/core/src/styles/aparte.css`, never in a
-  `getStyles()` template literal.** That seam exists for a *consumer's* renderer, which
-  cannot edit that file and has no other way onto the page. Two measured reasons, not
-  three: `check:derived-vars` reads only that path, so a derived declaration hidden in a
-  renderer is unchecked; and CSS in a template literal is not read as CSS — a backtick
+- **A built-in's CSS goes in `packages/core/src/styles/`, never in a
+  `getStyles()` template literal.** Two sheets there, split by KIND: `theme.css` holds
+  every token — light palette, dark overrides, derived layer — and `aparte.css` holds the
+  rules. You open one to change a value and the other to change a look. `src/index.ts`
+  imports them in that order, and `check:derived-vars` reads them CONCATENATED in that
+  same order, the way a browser does — the anchored layer is in `theme.css` while its
+  responsive overrides are at the end of `aparte.css`, so a guard reading one file would
+  judge half a rule. The `getStyles()` seam exists for a *consumer's* renderer, which
+  cannot edit either sheet and has no other way onto the page. Two measured reasons, not
+  three: `check:derived-vars` reads only those sheets, so a derived declaration hidden in
+  a renderer is unchecked; and CSS in a template literal is not read as CSS — a backtick
   closes the literal (it happened four times, once in the artifact card long before) and
   a `//` comment is just text, which is how a `safe-text` marker ended up rendered in an
   assistant's bubble. The reason that does *not* hold: reaching the generated CSS

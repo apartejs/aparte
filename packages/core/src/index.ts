@@ -13,6 +13,7 @@
  *
  * @packageDocumentation
  */
+import './styles/theme.css';
 import './styles/aparte.css';
 import './primitives/select/select.css';
 import './primitives/progress-spinner/progress-spinner.css';
