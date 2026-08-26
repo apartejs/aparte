@@ -61,7 +61,7 @@ if you mean to bring your own.
 
 ## Add the markup
 
-**`<aparte-chat>`** is the container. It lays out a message viewport and a composer
+**[`<aparte-chat>`](/components/conversation/aparte-chat/)** is the container. It lays out a message viewport and a composer
 as a flex column, and — with `center-empty` — keeps the composer centered as a
 welcome state until the first message, then slides to the normal layout. Size it
 (a height, or let it fill a parent) and you're done.
@@ -97,7 +97,7 @@ keep the behaviour without a hand-written container:
 start. The `.aparte-composer-shell` / `.aparte-composer-row` helpers give the
 bordered input-with-a-send-button look; the composer itself is headless.
 
-Add an `<aparte-composer-toolbar>` inside that shell and you get the bottom strip a
+Add an [`<aparte-composer-toolbar>`](/components/input/aparte-composer/) inside that shell and you get the bottom strip a
 model selector or a mode picker belongs in — the wrappers expose it as one `toolbar`
 slot. See [The composer toolbar](/guides/customization/#the-composer-toolbar).
 

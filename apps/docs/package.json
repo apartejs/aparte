@@ -5,10 +5,11 @@
   "private": true,
   "scripts": {
     "gen:css-vars": "node scripts/gen-css-vars.mjs",
-    "gen:api": "node scripts/gen-api-ref.mjs",
+    "gen:pages": "node scripts/gen-element-pages.mjs",
+    "gen:segments": "node scripts/gen-segment-pages.mjs",
     "gen:engine-api": "node scripts/gen-engine-api.mjs",
     "gen:wrapper-ref": "node scripts/gen-wrapper-ref.mjs",
-    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs",
+    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-element-pages.mjs && node scripts/gen-segment-pages.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs",
     "dev": "pnpm gen && astro dev",
     "build": "pnpm gen && astro build",
     "preview": "astro preview",

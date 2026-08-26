@@ -10,7 +10,7 @@ persistence subsystem closes that gap. A **`AparteConversationManager`** holds t
 conversations and notifies listeners on every change, but never touches storage directly —
 that's the job of an **`AparteStorageAdapter`** you implement against any backend
 (`localStorage`, IndexedDB, SQLite WASM, your own REST API). A `conversationId` binding
-loads/persists the *active* thread; `<aparte-conversation-list>` renders a sidebar to
+loads/persists the *active* thread; [`<aparte-conversation-list>`](/components/conversation/aparte-conversation-list/) renders a sidebar to
 switch between them.
 
 ## 1. Implement an `AparteStorageAdapter`
@@ -250,7 +250,7 @@ Read them back with `segmentDuration(segment)` rather than subtracting, so an ab
 gives you `undefined` instead of `NaN`.
 :::
 
-**A request that outlived its page is closed for you.** A `tool_call` persisted as
+**A request that outlived its page is closed for you.** A [`tool_call`](/segments/tool-call/) persisted as
 `awaiting-approval` comes back as `aborted`. The loop that awaited the decision went with
 the page, so nothing can answer it — and `aborted` rather than `rejected` because nobody
 refused anything. Every load path shares one normalisation, so this holds whichever of
@@ -262,7 +262,7 @@ gone. If your adapter can be interrupted mid-turn, normalise that status on save
 
 ---
 
-See the generated [Elements reference](/reference/api/) for `<aparte-conversation-list>`'s
-exact property/attribute signatures, and
+See its [element page](/components/conversation/aparte-conversation-list/) for the exact property and
+attribute signatures, and
 [Conversations & branching](/guides/conversations-branching/) for `exportTree()` /
 `importTree()`, which this subsystem persists as the `tree` field.

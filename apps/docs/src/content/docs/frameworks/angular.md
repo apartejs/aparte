@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-`@aparte/angular` wraps `@aparte/core` for Angular 19: an ergonomic `<aparte-chat>` standalone
+`@aparte/angular` wraps `@aparte/core` for Angular 19: an ergonomic [`<aparte-chat>`](/components/conversation/aparte-chat/) standalone
 component, services for the client and conversations, a typed directive for every element, and a
 generic `<aparte-ui>` escape hatch.
 

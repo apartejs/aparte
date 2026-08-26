@@ -2,6 +2,9 @@
 # from the packages (aparte.css / custom-elements.json / engine TS + JSDoc) by
 # the scripts in scripts/.
 src/content/docs/reference/css-variables.md
-src/content/docs/reference/api.md
 src/content/docs/reference/engine.md
 src/content/docs/reference/wrappers.md
+src/content/docs/primitives/
+src/content/docs/components/
+src/content/docs/segments/
+src/generated/

@@ -12,8 +12,8 @@ until you set it.
 
 Two elements make the UI:
 
-- **`<aparte-composer-add-attachment>`** — the picker button (opens the file dialog).
-- **`<aparte-composer-attachments>`** — the chips row showing the pending files.
+- **[`<aparte-composer-add-attachment>`](/components/input/aparte-composer/)** — the picker button (opens the file dialog).
+- **[`<aparte-composer-attachments>`](/components/input/aparte-composer/)** — the chips row showing the pending files.
 
 The default composer shell mounts **neither**. Add `attachments` and it mounts both, in their
 canonical positions:
@@ -67,7 +67,7 @@ The vanilla and React examples do exactly this in ~15 lines with a `<dialog>` �
 
 ## Programmatic API
 
-The `<aparte-composer>` element exposes attachments directly:
+The [`<aparte-composer>`](/components/input/aparte-composer/) element exposes attachments directly:
 
 ```ts
 composer.addAttachments(files);      // FileList | File[]
@@ -135,7 +135,7 @@ function dropConversation(messages: AparteMessage[]): void {
 ```
 
 Calling it twice is harmless, and the `blob` is left in place so a storage adapter can
-still rebuild the url. `<aparte-chat-viewport>`'s `clearAll()` already does this for the
+still rebuild the url. [`<aparte-chat-viewport>`](/components/conversation/aparte-chat-viewport/)'s `clearAll()` already does this for the
 messages it drops.
 
 ## What gets sent to the model

@@ -64,7 +64,7 @@ statement the client respects. A model that says nothing (which is what a
 act, and dropping it silently because a listing is terse would turn your registration
 into a no-op with nothing to read anywhere. When the model calls one:
 
-1. A **`tool_call`** segment is added (`status: 'pending'`) — the built-in renderer shows
+1. A **[`tool_call`](/segments/tool-call/)** segment is added (`status: 'pending'`) — the built-in renderer shows
    a row with the tool name and a spinner.
 2. The client resolves the handler via `aparteGlobalConfig.getToolHandler(name)`, runs it, and
    on resolve flips the segment to `status: 'resolved'`.

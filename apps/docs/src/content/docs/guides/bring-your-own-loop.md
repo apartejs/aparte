@@ -122,8 +122,8 @@ rather than one per token — you don't need your own batching layer.
 
 :::note[Segments and `content` don't mix]
 As soon as a message has segments, the bubble stops rendering its plain `content`. So a
-message you filled with `injectTokenStream` can't also show a `thinking` segment — give
-the answer its own `text` segment if you need both in one message.
+message you filled with `injectTokenStream` can't also show a [`thinking`](/segments/thinking/) segment — give
+the answer its own [`text`](/segments/text/) segment if you need both in one message.
 :::
 
 ## Push-based sources: the queue adapter
@@ -193,7 +193,7 @@ exported so you do not have to reimplement them:
 | `readableToAsyncIterable` | Wraps a `ReadableStream` so `for await` works, honouring an `AbortSignal` | You are consuming a provider's `parseStream` directly — Chromium does not async-iterate streams |
 | `registerAllComponents` | Touches every element class so a bundler cannot tree-shake the `customElements.define` side effects away | Your build is aggressive, or you load `@aparte/core` through a dynamic `import()` |
 | `AparteChatHost` | The streaming / branch / host-method orchestration the four wrappers all bind to — everything `AparteClient` does minus the transport | You are writing a fifth framework binding, or driving core from a framework we do not ship |
-| `populateBubbleFromMessage` | Fills an `<aparte-chat-bubble>` from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
+| `populateBubbleFromMessage` | Fills an [`<aparte-chat-bubble>`](/components/conversation/aparte-chat-bubble/) from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
 | `parseAparteEventStream` | Reads the SSE wire format `createAparteChatHandler` emits back into `AparteStreamEvent`s | You wrote your own client against an aparté backend endpoint |
 
 Wiring your own binding starts here — no `AparteClient`, so nothing is hostage to it:

@@ -6,6 +6,8 @@ sidebar:
   label: model-selector
 ---
 
+import AparteModelSelectorApi from '../../../generated/element-api/aparte-model-selector.mdx';
+
 A `<aparte-model-selector>` web component that lets the user pick an AI provider and model — a grouped
 dropdown built on core's `<aparte-select>`, for the BYOK (Bring Your Own Key) pattern.
 
@@ -113,3 +115,10 @@ aparteGlobalConfig.setRequireModelSelection(true);
 
 The composer re-enables automatically once `auto-select` (or the user) picks a model. Off by default, so
 single-model or backend-driven setups that never select a model are unaffected.
+
+## The `<aparte-model-selector>` element
+
+Generated from the plugin's own custom-elements manifest — the same file that feeds
+editor autocomplete when you install the package.
+
+<AparteModelSelectorApi />

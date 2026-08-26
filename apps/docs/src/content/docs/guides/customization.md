@@ -180,7 +180,7 @@ either — but that's the primary function, the failure is immediate and it's th
 not the user, who sees it.
 
 The **tool-approval gate** needs no declaration either, for a different reason: the
-`tool_call` row shows only that a tool is waiting, and the choices are raised at the
+[`tool_call`](/segments/tool-call/) row shows only that a tool is waiting, and the choices are raised at the
 composer by a loop that is actually waiting for the verdict. Nothing in the transcript is
 clickable, so there is no affordance there to declare — and a segment restored from
 storage cannot offer a button whose listener went with the page, which is what the old
@@ -200,7 +200,7 @@ exported from `@aparte/core`, so you never hard-code them.
 
 The composer has a **bottom row** — the strip a mode picker, a model selector or a token
 counter belongs in, rather than a bar of your own floating below the chat. It is an
-element, `<aparte-composer-toolbar>`, and it is the same name in vanilla and in every
+element, [`<aparte-composer-toolbar>`](/components/input/aparte-composer/), and it is the same name in vanilla and in every
 wrapper.
 
 **Placement is the DOM order.** There is no left/center/right slot: put your controls in
@@ -209,7 +209,7 @@ the order you want them, and push one — with everything after it — to the en
 right-to-left locale without you doing anything: the composer mirrors the locale's reading
 direction onto itself, and the push follows.
 
-The row is **not** part of the default `<aparte-chat>` shell. Nothing is drawn until you
+The row is **not** part of the default [`<aparte-chat>`](/components/conversation/aparte-chat/) shell. Nothing is drawn until you
 put something in it, and an empty row draws no separator either.
 
 ```html
@@ -300,7 +300,7 @@ markup.
 
 Replacing the whole bubble has two levels:
 
-- **`setBubbleShellRenderer`** (above) keeps the native `<aparte-chat-bubble>` and swaps
+- **`setBubbleShellRenderer`** (above) keeps the native [`<aparte-chat-bubble>`](/components/conversation/aparte-chat-bubble/) and swaps
   its inner structure. The machinery — action bar, streaming pushes, segments — keeps
   working, as long as your shell carries the region hooks.
 - **Your own element per message** (`renderBubble` in React, the `bubble` slot in

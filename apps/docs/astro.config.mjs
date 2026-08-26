@@ -54,7 +54,13 @@ export default defineConfig({
   site: 'https://apartejs.dev',
   // /changelog is the guessable URL; the first release of this page used
   // /reference/release-notes/, which is already in the sitemap. Keep it alive.
-  redirects: { '/reference/release-notes': '/changelog/' },
+  // Both are URLs that shipped and are in the sitemap. /reference/api was one 752-line
+  // page listing every element; it is now one page per element under /components/, so the
+  // old URL points at the catalogue rather than 404ing on a reader's bookmark.
+  redirects: {
+    '/reference/release-notes': '/changelog/',
+    '/reference/api': '/components/',
+  },
   integrations: [
     starlight({
       title: 'aparté',
@@ -101,6 +107,22 @@ export default defineConfig({
             ],
           },
           {
+            // The catalogue. Three families because the source tree draws them: generic
+            // primitives, the chat surface, and segments — which are data with no tag, so a
+            // different page shape entirely. Every page here is GENERATED from the manifest
+            // and from the segment union, so shipping an element ships its page.
+            label: 'Components',
+            link: '/components/',
+            items: [
+              { label: 'Overview', link: '/components/' },
+              // One autogenerate over `components/`, whose subdirectories ARE the groups —
+              // conversation, input, utility. Grouped by what a reader is looking for, which is
+              // what all six surveyed sites do; "primitives vs components" was our source tree.
+              { autogenerate: { directory: 'components' } },
+              { label: 'Segments', items: [{ autogenerate: { directory: 'segments' } }] },
+            ],
+          },
+          {
             label: 'Integrations',
             link: '/frameworks/',
             items: [
@@ -117,7 +139,10 @@ export default defineConfig({
           },
           {
             label: 'Reference',
-            link: '/reference/api/',
+            // Not /reference/api/: that page is now one page per element under /components/,
+            // and a topic whose landing URL redirects into ANOTHER topic is a navigation bug a
+            // link checker cannot see, since the redirect makes the URL resolve.
+            link: '/reference/config/',
             items: [{ autogenerate: { directory: 'reference' } }],
           },
           // Still its own topic, for the reason recorded when it was moved OUT of Reference:

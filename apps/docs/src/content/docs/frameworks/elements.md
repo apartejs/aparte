@@ -115,7 +115,7 @@ Declared through `SvelteHTMLElements`, so `svelte-check` covers them:
 
 Angular is the one wrapper that ships code for this, for two structural reasons: its template
 compiler rejects a tag nothing claims, and `[placeholder]="x"` writes a *property* — which on an
-attribute-driven element is a silent no-op, or a throw on one of `<aparte-composer>`'s eight
+attribute-driven element is a silent no-op, or a throw on one of [`<aparte-composer>`](/components/input/aparte-composer/)'s eight
 getter-only accessors.
 
 So each element has a **standalone directive** whose selector is the tag. Import the ones you use,
@@ -165,7 +165,7 @@ The directives are `AparteChatViewportDirective`, `AparteChatBubbleDirective`,
 `AparteOptgroupDirective`, `AparteConversationListDirective`, `AparteProgressSpinnerDirective`,
 and `AparteElicitationDirective`.
 
-`<aparte-chat>` has no directive on purpose: `AparteChatComponent` already claims that tag and
+[`<aparte-chat>`](/components/conversation/aparte-chat/) has no directive on purpose: `AparteChatComponent` already claims that tag and
 renders the whole turn.
 
 ## Your own element, or a plugin's
@@ -255,6 +255,6 @@ about types. `<aparte-ui>` earns its place when you want none of that ceremony f
 ## Where the facts come from
 
 The attribute and event surface of every element is in the generated
-[API reference](/reference/api/), including each event's detail type. Both are produced from the
+[element reference](/components/), including each event's detail type. Both are produced from the
 custom-elements manifest, which is built from the element source — so the reference, the types on
 this page and the elements themselves cannot drift apart.

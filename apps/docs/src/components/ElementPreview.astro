@@ -1,0 +1,64 @@
+---
+/**
+ * The preview frame on a generated element page — deliberately EMPTY for now.
+ *
+ * It is an `<iframe>` and not an inline container, and that is the decision this file
+ * exists to hold rather than a placeholder detail:
+ *
+ * - A responsive preview only works in a separate document. A div narrowed to 375px still
+ *   sees the page's viewport, so media queries do not fire and the preview would lie.
+ * - It isolates core's CSS from the docs site's own. Core is light DOM on purpose, and this
+ *   very site has already moved the artifact card's tabs with a bare `nav` rule.
+ * - A standalone preview route is also "open this demo in a tab" for free, and it is what a
+ *   screenshot tool would point at.
+ *
+ * `resize: horizontal` on the wrapper gives the drag handle with no JavaScript; the width
+ * presets and the framework-aware source pane belong to the later lot that fills this in.
+ */
+interface Props {
+    /** The custom element this frame will render, e.g. `aparte-composer`. */
+    tag: string;
+}
+
+const { tag } = Astro.props;
+---
+
+<figure class="aparte-preview" data-tag={tag}>
+    <div class="aparte-preview-frame">
+        <iframe title={`Live preview of <${tag}>`} loading="lazy" src="about:blank"></iframe>
+    </div>
+    <figcaption>
+        The live preview lands here. Until then, the example below is the real markup.
+    </figcaption>
+</figure>
+
+<style>
+    .aparte-preview {
+        margin: 1.5rem 0;
+    }
+
+    /* `resize: horizontal` needs a non-visible overflow to show the handle. The width is the
+       reader's to change, so it is not clamped beyond the column. */
+    .aparte-preview-frame {
+        overflow: hidden;
+        resize: horizontal;
+        min-width: 20rem;
+        max-width: 100%;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.5rem;
+        background: var(--sl-color-bg);
+    }
+
+    .aparte-preview-frame iframe {
+        display: block;
+        width: 100%;
+        height: 22rem;
+        border: 0;
+    }
+
+    .aparte-preview figcaption {
+        margin-top: 0.5rem;
+        font-size: var(--sl-text-xs);
+        color: var(--sl-color-gray-3);
+    }
+</style>

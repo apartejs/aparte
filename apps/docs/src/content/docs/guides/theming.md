@@ -190,7 +190,7 @@ Every composer control (input height + buttons) derives from a single token:
 ## Per-instance themes
 
 Overriding on `:root` rethemes every chat. To run several differently-themed chats on one
-page, set the variables (and `data-aparte-theme`) straight on each `<aparte-chat>` — they
+page, set the variables (and `data-aparte-theme`) straight on each [`<aparte-chat>`](/components/conversation/aparte-chat/) — they
 inherit down to its viewport, composer and bubbles:
 
 ```html

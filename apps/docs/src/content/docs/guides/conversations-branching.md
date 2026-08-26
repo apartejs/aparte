@@ -46,7 +46,7 @@ navigation yourself.
 ## Editing a user message
 
 The **edit** bubble action opens an inline editor in place of the message text. It's the
-**same input as the composer** (`<aparte-composer-input>`), so it behaves identically —
+**same input as the composer** ([`<aparte-composer-input>`](/components/input/aparte-composer/)), so it behaves identically —
 autosize, IME, paste, and the same keys:
 
 - **Enter** saves · **Shift+Enter** inserts a newline · **Esc** cancels.
@@ -182,6 +182,5 @@ The `‹ 1/2 ›` control is a render hook: swap it for your own markup with
 
 ---
 
-See the generated [Elements reference](/reference/api) for the exact signatures of
-`addSiblingOf`, `navigateBranch`, `exportTree` and `importTree` on
-`<aparte-chat-viewport>`.
+See the [`<aparte-chat-viewport>` page](/components/conversation/aparte-chat-viewport/) for the exact
+signatures of `addSiblingOf`, `navigateBranch`, `exportTree` and `importTree`.
