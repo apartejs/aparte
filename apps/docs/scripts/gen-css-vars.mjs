@@ -217,7 +217,7 @@ sidebar:
   order: 2
 ---
 
-<!-- AUTO-GENERATED from packages/core/src/styles/{theme,aparte}.css by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
+<!-- AUTO-GENERATED from packages/core/src/styles/ (every sheet src/index.ts imports) by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
 
 Every \`--aparte-*\` variable aparté declares or reads — **${total + componentTokens.length}**
 in total: ${total} declared in the stylesheet's \`:root\` and ${componentTokens.length} read by a
