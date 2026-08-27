@@ -21,6 +21,7 @@ import type { AparteMessage, AparteSegment } from '../../../types/index.js';
 
 type BubbleEl = HTMLElement & {
     setContent(content: string): void;
+    appendToken(chunk: string): void;
     getContent(): string;
     setSiblings(count: number, index: number): void;
     setSegments(segments: AparteSegment[]): void;
@@ -443,6 +444,86 @@ describe('AparteChatBubble', () => {
     });
 
     // ─── Segment renderer output — string | HTMLElement ───────────────────
+    /*
+     * `setStreamingMarkdownProvider`'s own docblock says "the chat bubble uses it to render
+     * the assistant message token-by-token ... instead of re-parsing the whole string on
+     * every token", and the plugin's page repeats it. Only the SEGMENT path honoured it —
+     * the plain-content path, which is the one getting-started teaches first, re-parsed the
+     * whole message per token. A cold audit found the gap; these pin the fix.
+     */
+    describe('plain-content streaming uses the incremental provider', () => {
+        afterEach(() => aparteGlobalConfig.reset());
+
+        it('writes only the delta while streaming, and never re-parses the whole string', () => {
+            const written: string[] = [];
+            let ended = 0;
+            aparteGlobalConfig.setStreamingMarkdownProvider(() => ({
+                write: (delta: string) => { written.push(delta); },
+                end: () => { ended++; },
+            }));
+            let oneShots = 0;
+            aparteGlobalConfig.setMarkdownProvider((md) => { oneShots++; return md; });
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'smd', streaming: '' });
+            bubble.appendToken('Hel');
+            bubble.appendToken('lo ');
+            bubble.appendToken('world');
+
+            expect(written).toEqual(['Hel', 'lo ', 'world']);
+            // The one-shot provider is the fallback, not the streaming path.
+            expect(oneShots).toBe(0);
+            expect(ended).toBe(0);
+        });
+
+        it('flushes the parser and re-renders once when the stream settles', () => {
+            const written: string[] = [];
+            let ended = 0;
+            aparteGlobalConfig.setStreamingMarkdownProvider(() => ({
+                write: (delta: string) => { written.push(delta); },
+                end: () => { ended++; },
+            }));
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'smd-end', streaming: '' });
+            bubble.appendToken('**hi**');
+            bubble.setAttribute('streaming', 'false');
+            bubble.appendToken('!');
+
+            expect(ended).toBe(1);
+        });
+
+        it('falls back to the one-shot render when no streaming provider is registered', () => {
+            let oneShots = 0;
+            aparteGlobalConfig.setMarkdownProvider((md) => { oneShots++; return md; });
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'no-smd', streaming: '' });
+            bubble.appendToken('a');
+            bubble.appendToken('b');
+
+            // Unchanged for a consumer who never installed the plugin.
+            expect(oneShots).toBeGreaterThanOrEqual(2);
+            expect(bubble.getContent()).toBe('ab');
+        });
+
+        /* A retry clears the bubble and re-streams. The parser tracks how many characters
+           it has written, so a stale cursor would slice the next delta out of the wrong
+           string — the content would come out truncated or doubled. */
+        it('drops the parser state when content is REPLACED rather than appended', () => {
+            const written: string[] = [];
+            aparteGlobalConfig.setStreamingMarkdownProvider(() => ({
+                write: (delta: string) => { written.push(delta); },
+                end: () => {},
+            }));
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'smd-reset', streaming: '' });
+            bubble.appendToken('first answer');
+            written.length = 0;
+            bubble.setContent('');
+            bubble.appendToken('second');
+
+            expect(written).toEqual(['second']);
+        });
+    });
+
     describe('segment renderer output', () => {
         afterEach(() => {
             unregisterSegmentRenderer('el-seg');
@@ -485,6 +566,47 @@ describe('AparteChatBubble', () => {
             const rendered = bubble.querySelector('.my-str-seg');
             expect(rendered).not.toBeNull();
             expect(rendered!.textContent).toBe('from string');
+        });
+
+        /*
+         * `AparteCustomSegment.fallback` is published as "Optional fallback text
+         * representation" and was read by nothing, so a custom segment arriving where its
+         * renderer is not registered — a conversation replayed elsewhere, a client that
+         * loads its views lazily — showed a debug string while carrying the sentence
+         * written for that exact moment.
+         */
+        it('draws a segment fallback when no renderer claims its type', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-fb' });
+            bubble.setSegments([
+                { id: 's3', type: 'custom', subType: 'weather', fallback: 'Lille — 11°C.' } as never,
+            ]);
+
+            const rendered = bubble.querySelector('.aparte-segment-fallback');
+            expect(rendered).not.toBeNull();
+            expect(rendered!.textContent).toBe('Lille — 11°C.');
+            expect(bubble.querySelector('.aparte-segment-unknown')).toBeNull();
+        });
+
+        it('still names the unknown type when there is no fallback to draw', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-unk' });
+            bubble.setSegments([{ id: 's4', type: 'nobody-renders-this' } as never]);
+
+            const rendered = bubble.querySelector('.aparte-segment-unknown');
+            expect(rendered).not.toBeNull();
+            expect(rendered!.textContent).toBe('[Unknown segment type: nobody-renders-this]');
+        });
+
+        /* Markup in a fallback is text: the field is filled by whoever produced the
+           segment, which can be a model. */
+        it('does not let a fallback carry markup', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-fb-xss' });
+            bubble.setSegments([
+                { id: 's5', type: 'custom', subType: 'x', fallback: '<img src=x onerror=alert(1)>' } as never,
+            ]);
+
+            const rendered = bubble.querySelector('.aparte-segment-fallback');
+            expect(rendered!.querySelector('img')).toBeNull();
+            expect(rendered!.textContent).toBe('<img src=x onerror=alert(1)>');
         });
     });
 

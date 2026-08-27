@@ -15,6 +15,13 @@ import type {
 import { uuid } from '../utils/uuid.js';
 import { contextConfig } from '../config/config-context.js';
 
+/**
+ * One per stepped panel built, so its tab ids are unique in the document. A counter
+ * rather than a random id: two panels can share a page (the workbench mounts two
+ * chats), and a test that asserts on an id should not have to guess it.
+ */
+let steppedPanelSeq = 0;
+
 export interface BuiltElicitationPanel {
     readonly el: HTMLElement;
     /**
@@ -42,19 +49,40 @@ export interface BuiltElicitationPanel {
     focus(): void;
     /**
      * What the composer's one button means on the question currently shown:
-     * `'advance'` while there are more questions ahead, `'submit'` on the last.
+     * `'advance'` while there are more questions ahead, `'submit'` on the last, and
+     * `'none'` when this panel has no act for it and it should not be drawn.
      *
      * The composer already has a button, in a place the user knows, and it already
      * changes meaning (send / stop / submit). Giving it a fourth — advance — is why
      * this panel needs no "Next" of its own: no second row, no height that changes,
      * and the tabs stay for jumping around. It also makes the button honest, which a
      * check on a form with three questions left was not.
+     *
+     * `'none'` is the same honesty one step further, for the shape where the button
+     * has no meaning at all: a single question whose options settle on the click.
+     * Assignable to the composer's `AparteComposerPanelMode` and deliberately spelled
+     * out rather than imported — this layer describes what the PANEL has, and knows
+     * nothing about the element that presents it.
      */
-    mode(): 'advance' | 'submit';
+    mode(): 'advance' | 'submit' | 'none';
     /** Whether that button is enabled: this question answered, or all of them. */
     canProceed(): boolean;
     /** Act on it. Advancing shows the next question; submitting is the presenter's. */
     proceed(): void;
+    /**
+     * Settled from INSIDE the panel: an option was clicked and that click is the
+     * whole answer. The value is the content, shaped like `getContent()`.
+     *
+     * The same contract `BuiltApprovalPanel.onSettle` already has, and presented by
+     * the same path — because it is the same act. A single-choice question is one
+     * gesture, not a value you pick and then submit: WCAG's SC 3.2.2 and its F36
+     * failure are about auto-submitting a form when an INPUT is set, which is why
+     * these options are buttons rather than radios that fire on change.
+     *
+     * Only ever called for that shape. A form, a multi-select and a text field all
+     * collect a value and resolve through the composer's button as before.
+     */
+    onSettle(cb: (content: unknown) => void): void;
     /**
      * Re-apply every string this panel took from the locale, in place.
      *
@@ -88,6 +116,18 @@ interface BuiltField {
     getValue(): unknown;
     isComplete(): boolean;
     focus(): void;
+    /**
+     * Whether this field has an act for the composer's button at all.
+     *
+     * Absent means yes, which is every field that collects a VALUE: you fill it in,
+     * then you submit. A field that SETTLES — a single choice, rendered as buttons —
+     * answers on the click and has nothing for that button until its free-text
+     * escape is opened, at which point there is text to submit and this turns true.
+     *
+     * Read only by the single-field shape. A form always submits, and the fields in
+     * one are built without a `settle` so this is never defined there.
+     */
+    offersSubmit?(): boolean;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -95,6 +135,31 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
     if (className) node.className = className;
     if (text != null) node.textContent = text;
     return node;
+}
+
+/** The label an option shows. Identical in both shapes; only what wraps it differs. */
+function optionBody(label: string, description?: string): HTMLElement {
+    const body = el('span', 'aparte-elic-option-body');
+    body.appendChild(el('span', 'aparte-elic-option-title', label));
+    if (description) body.appendChild(el('span', 'aparte-elic-option-desc', description));
+    return body;
+}
+
+/**
+ * An option that IS the answer: a button, settled on the first click.
+ *
+ * The approval panel's recipe, unchanged, because it is the same object — and its
+ * comment in `elicitation.css` carries the measurements behind it: no colour (a solid
+ * intent fill gives 2.19:1 against its own label on the dark palette), a column and
+ * not a row of pills (the composer is narrow enough to wrap a real option label), and
+ * read from the start rather than centred.
+ */
+function commandOption(label: string, description?: string, recommended?: boolean): HTMLButtonElement {
+    const button = el('button', 'aparte-btn aparte-btn--block aparte-btn--surface aparte-elic-option aparte-elic-option--command'
+        + (recommended ? ' aparte-elic-option--recommended' : ''));
+    button.type = 'button';
+    button.appendChild(optionBody(label, description));
+    return button;
 }
 
 /**
@@ -129,38 +194,81 @@ function fieldHeader(parent: HTMLElement, field: AparteElicitationField, skipTit
  * and otherwise from the panel's message — which IS the question in the
  * single-question form, and would otherwise leave the group unnamed.
  */
-function labelGroup(list: HTMLElement, opts: { multiple?: boolean; titleId?: string; fallbackLabel?: string }): void {
-    list.setAttribute('role', opts.multiple ? 'group' : 'radiogroup');
+function labelGroup(list: HTMLElement, opts: { multiple?: boolean; commands?: boolean; titleId?: string; fallbackLabel?: string }): void {
+    // `radiogroup` describes a set of INPUTS you choose among and then submit. When the
+    // options are buttons that settle on the click they are commands, so the group is a
+    // plain `group` — and there is no roving `tabindex` to add with it: that is required
+    // for `radiogroup`/`toolbar`/`listbox`/`menu`, not for command buttons, which are
+    // each their own tab stop the way a dialog's buttons are.
+    list.setAttribute('role', opts.multiple || opts.commands ? 'group' : 'radiogroup');
     if (opts.titleId) list.setAttribute('aria-labelledby', opts.titleId);
     else if (opts.fallbackLabel) list.setAttribute('aria-label', opts.fallbackLabel);
 }
 
 // ─── enum ────────────────────────────────────────────────────────────────────
 
-function buildEnumField(field: AparteElicitationEnumField, onChange: () => void, fallbackLabel?: string): BuiltField {
+function buildEnumField(
+    field: AparteElicitationEnumField,
+    onChange: () => void,
+    fallbackLabel?: string,
+    settle?: (value: unknown) => void,
+): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-enum');
     const titleId = fieldHeader(wrap, field, fallbackLabel);
     const list = el('div', 'aparte-elic-options');
-    labelGroup(list, { multiple: field.multiple, titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
     const type = field.multiple ? 'checkbox' : 'radio';
+    /*
+     * The recipe that matches the input's own type. These used to be native controls
+     * tinted with `accent-color`, which is the one part of a form the browser still
+     * draws itself — so the panel's controls were the only thing in the library whose
+     * look changed with the OS, and on the dark palette they came out of a light-mode
+     * UA as a pale box on a dark row.
+     */
+    const controlRecipe = type === 'checkbox' ? 'aparte-checkbox' : 'aparte-radio';
     // The field wins when it says something — that is the APP calling
     // `requestUserInput` directly. Otherwise it is the host's policy, not a
     // hardcoded `true` and no longer anything the model can decide.
     const allowOther = field.allowOther ?? contextConfig().getElicitationOptions().allowOther;
     const defaults = new Set(Array.isArray(field.default) ? field.default : field.default != null ? [field.default] : []);
 
+    /*
+     * ONE CHOICE IS ONE ACT, so the options are buttons and the click is the answer.
+     *
+     * Radios plus the composer's button spend two gestures on one decision, which is
+     * not how any chat asks a question — and the accessibility argument runs the same
+     * way, not against it. WCAG SC 3.2.2 ("On Input") and its F36 failure forbid
+     * submitting automatically when an INPUT is given a value; a radio that fires on
+     * change is exactly that. A button is an explicit activation, which is what F36
+     * says to rely on instead. Auto-advancing radios is separately a documented
+     * accessibility barrier (it removes the chance to review and change a selection);
+     * a command button has nothing to review.
+     *
+     * Three conditions, each load-bearing:
+     *  - `settle` is only passed by the SINGLE-field shape. A form collects values and
+     *    submits them together, and settling on its last question would be F36 word
+     *    for word.
+     *  - not `multiple`: a multi-select accumulates, so it needs a commit.
+     *  - no `default`: a button cannot be pre-selected. A requester that supplied one
+     *    asked for a pre-filled, reviewable answer — MCP's "SHOULD pre-populate" — and
+     *    gets the radios that can honour it.
+     */
+    const settling = settle != null && !field.multiple && defaults.size === 0;
+    labelGroup(list, { multiple: field.multiple, commands: settling, titleId, fallbackLabel });
+
     const buildOption = (value: string, label: string, description?: string, recommended?: boolean): HTMLElement => {
-        const row = el('label', 'aparte-elic-option' + (recommended ? ' aparte-elic-option--recommended' : ''));
-        const control = el('input', 'aparte-elic-control');
+        if (settling) {
+            const button = commandOption(label, description, recommended);
+            button.addEventListener('click', () => settle?.(value));
+            return button;
+        }
+        const row = el('label', 'aparte-field-choice aparte-elic-option' + (recommended ? ' aparte-elic-option--recommended' : ''));
+        const control = el('input', controlRecipe + ' aparte-elic-control');
         control.type = type;
         control.name = name;
         control.value = value;
         if (defaults.has(value)) control.checked = true;
-        const body = el('span', 'aparte-elic-option-body');
-        body.appendChild(el('span', 'aparte-elic-option-title', label));
-        if (description) body.appendChild(el('span', 'aparte-elic-option-desc', description));
-        row.append(control, body);
+        row.append(control, optionBody(label, description));
         return row;
     };
 
@@ -170,36 +278,73 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
 
     // Free-text "Other…" fallback.
     let otherText: HTMLInputElement | null = null;
+    /** Settling only: the escape has been opened, so there is now text to submit. */
+    let otherOpen = false;
     if (allowOther) {
-        const row = el('label', 'aparte-elic-option aparte-elic-option--other');
-        const control = el('input', 'aparte-elic-control');
-        control.type = type;
-        control.name = name;
-        control.value = '__other__';
-        const body = el('span', 'aparte-elic-option-body');
         // Localised, like every other string the user reads. These four were
         // hardcoded English, which showed as an English "Other…" and "Skip" above
         // questions in the user's own language — visible the first time a French
         // model asked something. The locale keys are OPTIONAL, so an existing
         // locale package keeps compiling and falls back to English per key.
         const t = contextConfig();
-        const otherTitle = el('span', 'aparte-elic-option-title', t.t('elicitationOther'));
-        body.appendChild(otherTitle);
-        otherText = el('input', 'aparte-elic-other-input');
+        otherText = el('input', 'aparte-field aparte-elic-other-input');
         otherText.type = 'text';
         otherText.placeholder = t.t('elicitationOtherPlaceholder');
         otherText.style.display = 'none';
         otherText.setAttribute('aria-label', t.t('elicitationOtherLabel'));
         const otherInput = otherText;
-        onRelabel(() => {
-            const now = contextConfig();
-            otherTitle.textContent = now.t('elicitationOther');
-            otherInput.placeholder = now.t('elicitationOtherPlaceholder');
-            otherInput.setAttribute('aria-label', now.t('elicitationOtherLabel'));
-        });
-        body.appendChild(otherText);
-        row.append(control, body);
-        list.appendChild(row);
+
+        /*
+         * The one option that does NOT settle, in either shape.
+         *
+         * Picking "Other…" is not an answer, it is a request to write one — so here it
+         * reveals the field and hands the composer's button back its meaning (the
+         * panel flips from `'none'` to `'submit'`). Structurally the approval panel's
+         * instruction field, and the same reason: submitting written text is exactly
+         * the act that button already means.
+         */
+        if (settling) {
+            const button = commandOption(t.t('elicitationOther'));
+            button.classList.add('aparte-elic-option--other');
+            button.setAttribute('aria-expanded', 'false');
+            button.addEventListener('click', () => {
+                otherOpen = true;
+                button.setAttribute('aria-expanded', 'true');
+                otherInput.style.display = '';
+                otherInput.focus();
+                onChange();
+            });
+            const otherTitle = button.querySelector('.aparte-elic-option-title') as HTMLElement;
+            onRelabel(() => {
+                const now = contextConfig();
+                otherTitle.textContent = now.t('elicitationOther');
+                otherInput.placeholder = now.t('elicitationOtherPlaceholder');
+                otherInput.setAttribute('aria-label', now.t('elicitationOtherLabel'));
+            });
+            list.append(button, otherInput);
+        } else {
+            // `aparte-field-choice` like every sibling row, which it was missing: with
+            // no recipe there is no `display: flex`, so the control stacked ABOVE its
+            // own label while the options above it sat inline. It also had no focus
+            // outline, for the same reason — the recipe carries that too.
+            const row = el('label', 'aparte-field-choice aparte-elic-option aparte-elic-option--other');
+            const control = el('input', controlRecipe + ' aparte-elic-control');
+            control.type = type;
+            control.name = name;
+            control.value = '__other__';
+            const body = el('span', 'aparte-elic-option-body');
+            const otherTitle = el('span', 'aparte-elic-option-title', t.t('elicitationOther'));
+            body.appendChild(otherTitle);
+            onRelabel(() => {
+                const now = contextConfig();
+                otherTitle.textContent = now.t('elicitationOther');
+                otherInput.placeholder = now.t('elicitationOtherPlaceholder');
+                otherInput.setAttribute('aria-label', now.t('elicitationOtherLabel'));
+            });
+            body.appendChild(otherText);
+            row.append(control, body);
+            list.appendChild(row);
+        }
     }
     wrap.appendChild(list);
 
@@ -215,8 +360,22 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
     });
     otherText?.addEventListener('input', onChange);
 
+    const typedOther = (): string => otherText?.value.trim() ?? '';
+
+    if (settling) {
+        // Every real option has already answered by the time anything reads this, so
+        // the only value this shape can still hold is the free text.
+        return {
+            el: wrap,
+            getValue: () => typedOther(),
+            isComplete: () => otherOpen && typedOther() !== '',
+            focus: () => list.querySelector<HTMLButtonElement>('.aparte-elic-option--command')?.focus(),
+            offersSubmit: () => otherOpen,
+        };
+    }
+
     const getValue = (): string | string[] => {
-        const otherVal = other()?.checked && otherText?.value.trim() ? otherText.value.trim() : '';
+        const otherVal = other()?.checked && typedOther() ? typedOther() : '';
         if (field.multiple) {
             const vals = controls().filter(c => c.checked && c.value !== '__other__').map(c => c.value);
             if (otherVal) vals.push(otherVal);
@@ -240,15 +399,50 @@ function buildEnumField(field: AparteElicitationEnumField, onChange: () => void,
 
 // ─── boolean ───────────────────────────────────────────────────────────────
 
-function buildBooleanField(field: AparteElicitationBooleanField, onChange: () => void, fallbackLabel?: string): BuiltField {
+function buildBooleanField(
+    field: AparteElicitationBooleanField,
+    onChange: () => void,
+    fallbackLabel?: string,
+    settle?: (value: unknown) => void,
+): BuiltField {
     const wrap = el('div', 'aparte-elic-field aparte-elic-boolean');
     const titleId = fieldHeader(wrap, field, fallbackLabel);
     const list = el('div', 'aparte-elic-options');
-    labelGroup(list, { titleId, fallbackLabel });
     const name = `elic-${uuid()}`;
+    // A yes/no asked on its own is the same act as any other single choice, so it
+    // follows the same rule — see `settling` in `buildEnumField` for why, and for why
+    // a supplied `default` keeps the radios that can honour it.
+    const settling = settle != null && field.default == null;
+    labelGroup(list, { commands: settling, titleId, fallbackLabel });
+
+    if (settling) {
+        const t = contextConfig();
+        const mkCommand = (val: boolean, label: string, defaulted?: 'elicitationYes' | 'elicitationNo'): void => {
+            const button = commandOption(label);
+            button.addEventListener('click', () => settle?.(val));
+            if (defaulted) {
+                const title = button.querySelector('.aparte-elic-option-title') as HTMLElement;
+                onRelabel(() => { title.textContent = contextConfig().t(defaulted); });
+            }
+            list.appendChild(button);
+        };
+        mkCommand(true, field.trueLabel ?? t.t('elicitationYes'), field.trueLabel ? undefined : 'elicitationYes');
+        mkCommand(false, field.falseLabel ?? t.t('elicitationNo'), field.falseLabel ? undefined : 'elicitationNo');
+        wrap.appendChild(list);
+        return {
+            el: wrap,
+            // Never read: the click settles, so nothing downstream asks this shape for
+            // a value. `false` rather than a throw keeps the field total.
+            getValue: () => false,
+            isComplete: () => false,
+            focus: () => list.querySelector<HTMLButtonElement>('.aparte-elic-option--command')?.focus(),
+            offersSubmit: () => false,
+        };
+    }
+
     const mk = (val: 'true' | 'false', label: string, defaulted?: 'elicitationYes' | 'elicitationNo'): void => {
-        const row = el('label', 'aparte-elic-option');
-        const control = el('input', 'aparte-elic-control');
+        const row = el('label', 'aparte-field-choice aparte-elic-option');
+        const control = el('input', 'aparte-radio aparte-elic-control');
         control.type = 'radio';
         control.name = name;
         control.value = val;
@@ -284,8 +478,8 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
     const wrap = el('div', 'aparte-elic-field aparte-elic-string');
     fieldHeader(wrap, field, fallbackLabel);
     const input = field.multiline
-        ? el('textarea', 'aparte-elic-text')
-        : el('input', 'aparte-elic-text');
+        ? el('textarea', 'aparte-field aparte-field--textarea aparte-elic-text')
+        : el('input', 'aparte-field aparte-elic-text');
     if (!field.multiline) (input as HTMLInputElement).type = 'text';
     if (field.placeholder) input.setAttribute('placeholder', field.placeholder);
     if (field.default) (input as HTMLInputElement | HTMLTextAreaElement).value = field.default;
@@ -326,8 +520,21 @@ function buildStringField(field: AparteElicitationStringField, onChange: () => v
  * `fallbackLabel` is the panel's message, passed down for the SINGLE-field shape
  * where the message is the question and the field itself carries no title — without
  * it, that field's group or input has no accessible name at all.
+ *
+ * `settle` is passed ONLY by that same single-field shape, and it is what lets a
+ * choice answer on the click instead of waiting for the composer's button. A form
+ * never passes it: its questions collect values that are submitted together.
+ *
+ * A consumer's field renderer gets no `settle` either, and that is the deliberate
+ * escape: an app that wants the pick-then-submit shape back registers one.
  */
-function buildField(field: AparteElicitationField, onChange: () => void, fallbackLabel?: string, key?: string): BuiltField {
+function buildField(
+    field: AparteElicitationField,
+    onChange: () => void,
+    fallbackLabel?: string,
+    key?: string,
+    settle?: (value: unknown) => void,
+): BuiltField {
     // A consumer's field wins, and `null` from it means "not this one" — which is
     // what lets an app replace only the choices and keep the built-in text input.
     const custom = contextConfig().getElicitationFieldRenderer()?.(field, { key, notifyChange: onChange });
@@ -340,8 +547,9 @@ function buildField(field: AparteElicitationField, onChange: () => void, fallbac
         };
     }
     switch (field.type) {
-        case 'enum': return buildEnumField(field, onChange, fallbackLabel);
-        case 'boolean': return buildBooleanField(field, onChange, fallbackLabel);
+        case 'enum': return buildEnumField(field, onChange, fallbackLabel, settle);
+        case 'boolean': return buildBooleanField(field, onChange, fallbackLabel, settle);
+        // No `settle`: text is written, not chosen, so it always needs a commit.
         case 'string': return buildStringField(field, onChange, fallbackLabel);
     }
 }
@@ -380,6 +588,24 @@ function buildPanel(
     // model-authored sentence on a language switch would mean nothing.
     const asked = typeof message === 'function' ? message() : message;
     if (asked) panel.appendChild(el('p', 'aparte-elic-message', asked));
+
+    /*
+     * The click that IS the answer, for the shapes that have one.
+     *
+     * An indirection because the presenter registers its callback AFTER this builder
+     * returns, exactly as `buildApprovalPanel` does. `settled` guards a double click
+     * on its own rather than trusting the presenter to: this builder is public
+     * (`buildElicitationPanel`), so someone writing their own presenter gets the
+     * guarantee too.
+     */
+    let settleCb: ((content: unknown) => void) | null = null;
+    let settled = false;
+    const settle = (content: unknown): void => {
+        if (settled) return;
+        settled = true;
+        settleCb?.(content);
+    };
+    const onSettle = (cb: (content: unknown) => void): void => { settleCb = cb; };
 
     /*
      * The QUESTIONS scroll; the actions do not.
@@ -433,6 +659,10 @@ function buildPanel(
             mode: () => 'submit',
             canProceed: isComplete,
             proceed: () => {},
+            // A form never settles from inside: its questions are collected and
+            // submitted together, and answering the last one on the click would be
+            // WCAG's F36 word for word. Registered so the shape is total; never fired.
+            onSettle,
         };
 
         // ONE QUESTION AT A TIME, past the first.
@@ -453,10 +683,17 @@ function buildPanel(
         panel.classList.add('aparte-elic-panel--stepped');
         let current = 0;
 
-        const steps = el('div', 'aparte-elic-steps');
+        /*
+         * A scope for the ids below. Two stepped panels can share a document (the
+         * workbench mounts two chats), and a duplicate id makes `aria-controls` point at
+         * whichever one parsed first — so the relationship the role promises would be
+         * wrong rather than merely missing.
+         */
+        const scope = `aparte-elic-${++steppedPanelSeq}`;
+        const steps = el('div', 'aparte-tabs aparte-tabs--underline aparte-elic-steps');
         steps.setAttribute('role', 'tablist');
         const chips = fields.map((f, i) => {
-            const chip = el('button', 'aparte-elic-step');
+            const chip = el('button', 'aparte-tabs__tab aparte-elic-step');
             chip.type = 'button';
             chip.setAttribute('role', 'tab');
             // The position when the model gave no short label: honest, and it never
@@ -467,6 +704,29 @@ function buildPanel(
             // revisit, and hunting for a Back button to do it is the frustrating
             // half of every stepped form.
             chip.addEventListener('click', () => { show(i); f.field.focus(); });
+            /*
+             * The pattern's obligations, which this had announced and not kept: a tab
+             * POINTS at its panel, the panel names the tab back, and a tablist is ONE tab
+             * stop with arrows inside it rather than one stop per chip. Without them the
+             * role told a screen-reader user to expect a relationship and a keyboard model
+             * that were not there — worse than the plain buttons the chips actually were.
+             */
+            chip.id = `${scope}-tab-${i}`;
+            f.field.el.id = `${scope}-panel-${i}`;
+            f.field.el.setAttribute('role', 'tabpanel');
+            f.field.el.setAttribute('aria-labelledby', chip.id);
+            chip.setAttribute('aria-controls', f.field.el.id);
+            chip.addEventListener('keydown', (e: KeyboardEvent) => {
+                const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                let next = -1;
+                if (step) next = (i + step + fields.length) % fields.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = fields.length - 1;
+                if (next < 0) return;
+                e.preventDefault();
+                show(next);
+                chips[next]?.focus();
+            });
             steps.appendChild(chip);
             return chip;
         });
@@ -496,6 +756,8 @@ function buildPanel(
         syncNav = (): void => {
             chips.forEach((chip, i) => {
                 chip.setAttribute('aria-selected', String(i === current));
+                // The roving tab stop: Tab reaches the tablist once, arrows move within it.
+                chip.tabIndex = i === current ? 0 : -1;
                 // Answered, so a reader sees at a glance what is left — and with no
                 // Next button this is the ONLY progress signal, along with the send
                 // button staying disabled until every question has an answer.
@@ -523,7 +785,12 @@ function buildPanel(
 
     // The single-field shape: the panel's message IS the question, so it names the
     // field. In the object shape each field carries its own title instead.
-    const field = buildField(schema, onChange, asked);
+    //
+    // The ONE place `settle` is handed out. A question asked on its own is one act,
+    // so a choice here answers on the click; everything that still collects a value —
+    // a multi-select, a text field, a choice carrying a `default` — ignores it and
+    // keeps the composer's button, which is what `offersSubmit` reports back.
+    const field = buildField(schema, onChange, asked, undefined, settle);
     body.appendChild(field.el);
     return {
         el: panel,
@@ -531,8 +798,9 @@ function buildPanel(
         getContent: () => field.getValue(),
         isComplete: () => field.isComplete(),
         focus: () => field.focus(),
-        mode: () => 'submit',
+        mode: () => ((field.offersSubmit?.() ?? true) ? 'submit' : 'none'),
         canProceed: () => field.isComplete(),
         proceed: () => {},
+        onSettle,
     };
 }

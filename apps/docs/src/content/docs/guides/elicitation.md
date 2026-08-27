@@ -243,9 +243,9 @@ what happened so it can say so, and a thrown error would surface as a failed tur
 
 ## Who renders it
 
-`<aparte-elicitation>` is the default presenter, and it **has to be in your markup**.
+[`<aparte-elicitation>`](/components/input/aparte-elicitation/) is the default presenter, and it **has to be in your markup**.
 It registers itself the moment it connects — but nothing creates it for you, so put it
-inside your `<aparte-chat>`:
+inside your [`<aparte-chat>`](/components/conversation/aparte-chat/):
 
 ```html
 <aparte-chat>
@@ -286,10 +286,28 @@ aparteGlobalConfig.setElicitationPresenter(
 ```
 
 `buildElicitationPanel` is also exported if you want the built-in panel's DOM without
-its placement. It returns `{ el, getContent, isComplete, focus }` — the element plus
-the three things a presenter needs from it. There is **no promise**: settling is the
-presenter's job, which is why the built-in one wires `getContent()` to the composer's
-send button and `isComplete()` to whether that button is enabled.
+its placement. It returns a `BuiltElicitationPanel` — the element plus everything a
+presenter needs to drive it:
+
+| Member | What it is for |
+| --- | --- |
+| `el` | the panel's root, for you to place |
+| `dismiss` | the corner control that declines the **whole** request, not the current question |
+| `getContent()` | the current response, shaped to the schema |
+| `isComplete()` | every required field has a usable value |
+| `focus()` | focus the first input, after you mount it |
+| `mode()` | what the composer's one button means here: `'advance'`, `'submit'`, or `'none'` when the panel has nothing for it to do |
+| `onSettle(cb)` | the answer arrived without the button — a single-choice question settles on the click, and this is the only path by which that reaches you |
+| `canProceed()` | whether that button is enabled |
+| `proceed()` | act on it — advancing shows the next question; submitting is yours |
+| `relabel()` | re-apply the locale's strings in place, without rebuilding a half-filled form |
+
+The last four are what make "one question at a time" work: the panel has no Next button
+of its own, because the composer's button already changes meaning and gains a fourth.
+
+There is **no promise**: settling is the presenter's job, which is why the built-in one
+wires `getContent()` to the composer's send button and `canProceed()` to whether that
+button is enabled.
 
 ## Replacing one field, not the whole panel
 

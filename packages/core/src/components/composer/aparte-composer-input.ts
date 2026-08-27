@@ -6,13 +6,33 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * Contenteditable text input primitive.
  *
+ * The element owns its subtree: on connect it writes one `.aparte-ci-editor`
+ * contenteditable and binds its listeners to that node, so children you place inside are
+ * replaced. There is nothing to project here — style the generated editor through the CSS
+ * variables below, or replace the whole primitive.
+ *
+ * Enter submits and Shift+Enter inserts a newline; `submit-on-enter="false"` on the
+ * composer inverts that mapping, and Enter never submits mid-IME-composition — the key
+ * that confirms a CJK candidate must not send the message. The editor auto-expands with
+ * its content up to `max-height`, then scrolls. Paste is intercepted: text lands as plain
+ * text with its markup stripped, and a pasted image goes to the composer's attachments.
+ *
+ * Without an `<aparte-composer>` ancestor it still works, and that is deliberate: a
+ * submitting Enter then dispatches `aparte-composer-submit` instead of calling
+ * `root.submit()`, which is how the bubble's inline editor reuses this primitive.
+ * Everything the root owns goes with it though — the mirrored value, the placeholder
+ * fallback, the disabled/streaming sync and image paste all need the composer.
+ *
+ * Not a `<textarea>` and not a stand-in for one: being a contenteditable it has no form
+ * value, no `name` and no native validation, and `getValue()` returns trimmed text with
+ * `<br>` serialized back to newlines. Use it for the chat draft, not as a form control.
+ *
  * @element aparte-composer-input
- * Must be a descendant of <aparte-composer>.
  *
- * @fires aparte-composer-submit - Enter was pressed with content. No detail; the composer reads its own value.
- *
- * Behaviour: Enter submits (calls root.submit()), Shift+Enter inserts newline.
- * Auto-expands up to max-height. Paste strips HTML, handles image paste.
+ * @fires aparte-composer-submit - A submitting Enter was pressed with no
+ *   `<aparte-composer>` ancestor to submit to; with one it calls `root.submit()` and
+ *   dispatches nothing. No detail — the host that placed this primitive reads
+ *   `getValue()`.
  *
  * @attr {boolean} disabled - Makes the field non-editable; the composer's own `disabled` also reaches it.
  * @attr {string} placeholder - Placeholder text (fallback: reads from aparte-composer)
@@ -21,6 +41,27 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *                      min-height governs (44px in aparte.css) — so themes can
  *                      resize the editor in pure CSS without being fought by
  *                      an inline height.
+ *
+ * @cssprop [--aparte-composer-control-size=44px] - Single-line min-height of the editor.
+ *          Inside the `.aparte-composer-row` layout helper the composer's buttons read
+ *          the same token, so one value resizes that whole control set and the row stays
+ *          aligned.
+ * @cssprop [--aparte-input-padding-y=10px] - Vertical padding inside the editor.
+ * @cssprop [--aparte-input-padding-x=12px] - Horizontal padding inside the editor.
+ * @cssprop [--aparte-input-font-size=14px] - Editor font size.
+ * @cssprop [--aparte-input-line-height=1.5] - Editor line height — also what the
+ *          auto-expand measures, so changing it changes the height the editor settles at
+ *          (until `max-height` clamps it).
+ * @cssprop --aparte-text - Text and caret colour of the editor.
+ * @cssprop --aparte-input-placeholder - Colour of the placeholder drawn by
+ *          `:empty::before` (falls back to `--aparte-text-muted`).
+ * @cssprop --aparte-input-bg - Field background, applied only when this input is the
+ *          bubble's inline editor (`.aparte-message[data-editing]`) — inside a composer
+ *          the shell paints the surface instead.
+ * @cssprop --aparte-input-border - Border colour of that same edit-mode box.
+ * @cssprop [--aparte-radius-input=8px] - Corner radius of the edit-mode box.
+ * @cssprop --aparte-input-focus-border - Border colour of the edit-mode box while it
+ *          holds focus (`:focus-within`).
   *
  * @example
  * <aparte-composer>
@@ -79,6 +120,10 @@ export class AparteComposerInput extends HTMLElement {
 
     // ── Public API ──────────────────────────────────────────────────────────
 
+    /**
+     * The editor's text, with `<br>` serialized back to newlines — `textContent`
+     * alone would collapse a multi-line draft onto a single line.
+     */
     getValue(): string {
         // `textContent` drops `<br>`, so multi-line content would collapse onto one
         // line. Serialize the editor ourselves: text nodes as-is, `<br>` → newline.
@@ -97,6 +142,7 @@ export class AparteComposerInput extends HTMLElement {
         return out.trim();
     }
 
+    /** Replace the editor's content and mirror the value onto the parent composer. */
     setValue(value: string): void {
         if (!this._editor) return;
         this._editor.textContent = value;
@@ -105,6 +151,7 @@ export class AparteComposerInput extends HTMLElement {
         this._getRoot()?.setValue(value);
     }
 
+    /** Empty the editor and mirror the empty value onto the parent composer. */
     clear(): void {
         if (!this._editor) return;
         this._editor.innerHTML = '';
@@ -113,7 +160,9 @@ export class AparteComposerInput extends HTMLElement {
         this._getRoot()?.setValue('');
     }
 
+    /** Focus the inner contenteditable rather than the host element. */
     override focus(): void { this._editor?.focus(); }
+    /** Blur the inner contenteditable rather than the host element. */
     override blur(): void { this._editor?.blur(); }
 
     /** Focus the editor and place the caret at the very end of its content. */
@@ -181,10 +230,23 @@ export class AparteComposerInput extends HTMLElement {
             root._on('disabled-change', ({ disabled }) => this._updateDisabled(disabled))
         );
 
-        // When root clears value (after submit), clear our editor
+        // The editor shows what the composer says.
+        //
+        // Compared, not special-cased. While the user types, `_handleInput` has just
+        // pushed this very value up, so the two sides are equal and nothing is
+        // rewritten — which is what keeps the caret where the user left it, and was the
+        // entire reason the old form acted on `''` alone. Any other value arrived from
+        // somewhere else: `setValue()` on the composer, or the `''` that `submit()`
+        // writes on its way out. Both now land, where only the second one used to.
+        //
+        // Compared against `value.trim()` because `getValue()` trims. A padded value
+        // would never look equal otherwise, and the mirror back through `setValue`
+        // would re-enter this callback forever.
         this._unsubscribes.push(
             root._on('value-change', ({ value }) => {
-                if (value === '' && this.getValue() !== '') this.clear();
+                if (this.getValue() === value.trim()) return;
+                if (value === '') this.clear();
+                else this.setValue(value);
             })
         );
 

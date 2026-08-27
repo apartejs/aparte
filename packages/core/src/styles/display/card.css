@@ -1,0 +1,42 @@
+/* =========================================
+   aparte-card — a surface with optional header/body/footer
+   =========================================
+
+       <div class="aparte-card">
+         <div class="aparte-card__header">Usage this month</div>
+         <div class="aparte-card__body">
+           <p>412 000 tokens across 38 conversations.</p>
+         </div>
+         <div class="aparte-card__footer">Resets on the 1st.</div>
+       </div>
+   */
+
+.aparte-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-card-radius);
+  background: var(--aparte-surface-1);
+  color: var(--aparte-text);
+}
+
+.aparte-card__header {
+  padding: var(--aparte-card-header-padding);
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+  font-weight: var(--aparte-font-weight-semibold);
+  font-size: var(--aparte-card-header-font-size);
+}
+
+.aparte-card__body {
+  flex: 1;
+  padding: var(--aparte-card-body-padding);
+}
+
+.aparte-card__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  padding: var(--aparte-card-footer-padding);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+}

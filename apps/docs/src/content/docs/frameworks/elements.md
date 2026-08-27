@@ -115,7 +115,7 @@ Declared through `SvelteHTMLElements`, so `svelte-check` covers them:
 
 Angular is the one wrapper that ships code for this, for two structural reasons: its template
 compiler rejects a tag nothing claims, and `[placeholder]="x"` writes a *property* — which on an
-attribute-driven element is a silent no-op, or a throw on one of `<aparte-composer>`'s eight
+attribute-driven element is a silent no-op, or a throw on one of [`<aparte-composer>`](/components/input/aparte-composer/)'s eight
 getter-only accessors.
 
 So each element has a **standalone directive** whose selector is the tag. Import the ones you use,
@@ -165,7 +165,7 @@ The directives are `AparteChatViewportDirective`, `AparteChatBubbleDirective`,
 `AparteOptgroupDirective`, `AparteConversationListDirective`, `AparteProgressSpinnerDirective`,
 and `AparteElicitationDirective`.
 
-`<aparte-chat>` has no directive on purpose: `AparteChatComponent` already claims that tag and
+[`<aparte-chat>`](/components/conversation/aparte-chat/) has no directive on purpose: `AparteChatComponent` already claims that tag and
 renders the whole turn.
 
 ## Your own element, or a plugin's
@@ -252,9 +252,50 @@ control flow or projection reaches it. For core's elements the typed surface abo
 better; for anything else, the two mechanisms in the previous section beat it as soon as you care
 about types. `<aparte-ui>` earns its place when you want none of that ceremony for a one-off.
 
+## On the server
+
+A custom element extends `HTMLElement`, so it cannot exist without a DOM — but importing
+`@aparte/core` on a server is fine, and that is the part worth stating plainly because the
+two facts sound contradictory.
+
+A `node` export condition resolves the same specifier to a **DOM-free entry**, so
+`import '@aparte/core'` works in Node, in an Electron *main* process, or during an SSR pass
+(Next, Nuxt, SvelteKit, Angular Universal) with no DOM shim:
+
+```ts
+// Same specifier. The `node` condition picks the DOM-free build.
+const { AparteClient, createAparteChatHandler, contentToText } = await import('@aparte/core');
+```
+
+**You keep** the client, the chat host, the transports and `createAparteChatHandler`, the
+conversation and message runtime, config, the parsers, and every type. **You lose** the
+custom elements themselves; `registerAllComponents()` is a safe no-op there.
+
+Reading `src/index.ts` is misleading on this point — that is the *browser* entry, the one
+that defines the elements, and the workspace resolves it first by design. The contract is
+enforced by `pnpm check:node-import`, which imports the built packages in real Node on every
+CI run, rather than being promised here.
+
+### What each wrapper does about it, which is not the same thing
+
+The core contract above is uniform. What the four wrappers do on top of it is not, and a
+page that implied otherwise would send a Nuxt reader looking for a bug that is a missing
+line:
+
+| Wrapper | On a server |
+| --- | --- |
+| React | `AparteChat.tsx` opens with `'use client'`, so the Next App Router keeps it out of the server pass for you. |
+| Angular | `provideAparte()` guards `autoConnect` with `typeof window !== 'undefined'`, so Angular Universal boots without touching the DOM. |
+| Vue | Nothing in the wrapper. Under Nuxt, import it in a client-only context yourself. |
+| Svelte | Nothing in the wrapper. Under SvelteKit, same — keep the import on the client. |
+
+Nothing here is a hard failure of the library: the elements are browser-only by nature, and
+the two wrappers with no guard simply leave that to you. It is written down so that leaving
+it to you is a decision you can see rather than one you discover.
+
 ## Where the facts come from
 
 The attribute and event surface of every element is in the generated
-[API reference](/reference/api/), including each event's detail type. Both are produced from the
+[element reference](/components/), including each event's detail type. Both are produced from the
 custom-elements manifest, which is built from the element source — so the reference, the types on
 this page and the elements themselves cannot drift apart.

@@ -2,18 +2,60 @@ import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 
 /**
- * A standalone status line — a light-DOM typing indicator the APP owns. Core never
- * turns it on by itself, so it can never compete with the bubble's own waiting state.
+ * A standalone status line — a light-DOM indicator the APP owns. Nothing in core turns
+ * it on: the framework host only ever flips it back OFF (on the first streamed token),
+ * and the four wrappers render one inside the viewport driven by their own `isTyping`
+ * prop.
  *
  * It dispatches nothing, deliberately: it reports, it does not ask.
  *
+ * Use it for a state only the app knows about — "Searching the docs…", "Uploading…",
+ * a queue position. It is NOT the indicator for the gap between a send and the first
+ * token: that one is built into the bubble (`.aparte-waiting`, shown while `streaming`
+ * is set on a non-user bubble that has nothing to display yet). Turning this element on
+ * for that gap is how a page ends up showing two indicators for one wait.
+ *
+ * It does not project children: `_render()` writes the subtree — a
+ * `.aparte-status-container` row holding an empty avatar div and an `.aparte-body` that
+ * wraps `.aparte-status-content` — so markup authored between the tags does not
+ * survive. That avatar div never gets contents here, and `.aparte-avatar:empty` is
+ * `display: none`, so it is not a spacer: the line sits flush with the row padding
+ * rather than indented under an assistant bubble's text column.
+ *
+ * The seam for custom contents is `setStatusRenderer`, scoped or global: the container
+ * keeps owning show/hide (`data-visible`), the accessible name (`aria-label`) and its
+ * `.aparte-message` row metrics whatever the renderer returns, but the pulsing dot and
+ * the text node belong to the default path only.
+ *
+ * A `text` attribute renders the visible label and feeds the accessible name; with no
+ * `text` the line is dots-only and the name falls back to the literal `Typing` — this
+ * element does not read the locale. Hiding happens twice over: the host element is
+ * `display: none` without `[visible]`, and `data-visible` drives the fade/translate on
+ * the container.
+ *
+ * The config is resolved live rather than cached, so a `setStatusRenderer` call that
+ * lands after this element has already upgraded still reaches it: the element
+ * re-renders on `aparte-config-change`, filtered to its own config.
+ *
+ * The two borrowed row variables below have one scope caveat: inside a viewport
+ * narrower than 520px core REASSIGNS `--aparte-message-padding` on `.aparte-message`
+ * itself, so a declaration on this host element loses to it there.
+ *
  * @element aparte-chat-status
  * @attr {boolean} visible - Shows or hides the indicator.
- * @attr {string} text - The line to show. Defaults to the locale's typing string.
+ * @attr {string} text - The line to show. Absent, the line is dots-only and the
+ *   accessible name falls back to the literal `Typing` (not the locale's string).
+ *
+ * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the label text and of the pulsing dot in the default line.
+ * @cssprop [--aparte-status-font-size=13px] - Size of the visible label (italic by default) in the default line.
+ * @cssprop [--aparte-status-dot-size=6px] - Diameter of the single pulsing dot in the default line.
+ * @cssprop [--aparte-message-padding=16px 12px] - Padding of the row, read because the container also carries `.aparte-message` — the status line borrows a bubble's row metrics so it lines up with the transcript.
+ * @cssprop [--aparte-message-max-width=800px] - Width cap of that same row.
  *
  * @example
- * <!-- The app owns this indicator: core never turns it on by itself, so there is
- *      never a second one competing with the bubble's built-in waiting state. -->
+ * <!-- The app owns this indicator: core turns it on for nobody, which is also why it
+ *      is the wrong tool for the wait before the first token — the bubble's built-in
+ *      waiting state already covers that one. -->
  * <aparte-chat-status visible text="Searching the docs…"></aparte-chat-status>
  */
 export class AparteChatStatus extends HTMLElement {

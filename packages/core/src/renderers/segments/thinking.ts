@@ -44,7 +44,21 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * new class of risk. With no Markdown provider registered it degrades to the
      * zero-dependency default (escape + `<br>`), which is what it used to be.
      */
-    render: (segment) => `<details class="aparte-segment aparte-segment-thinking" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="aparte-thinking-toggle"></span></summary><div class="aparte-thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    /*
+     * WEARS THE ACCORDION RECIPE. A reasoning block is a disclosure — `<details>`, a
+     * `<summary>` you press, a panel, a chevron that turns — which is exactly what
+     * `surface/accordion.css` already draws, and this renderer used to draw a second
+     * time under four classes of its own. Two costs, both visible: it looked unrelated
+     * to every other disclosure in the library, and its chevron was the CHARACTER `▼`,
+     * a fourth way to draw a chevron here and the only one that is not a glyph — so it
+     * could not take `--aparte-icon-size`, could not be replaced through the icon
+     * provider, and rendered in whatever the platform font felt like.
+     *
+     * What stays thinking's own is the left rail and the quieter tone, which is the
+     * only part that is genuinely about reasoning rather than about disclosure.
+     * `.aparte-thinking-label` stays too: `relabel` below queries it.
+     */
+    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span>${contextConfig().getIcon('expand')}</summary><div class="aparte-accordion__panel aparte-thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
     /**
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.

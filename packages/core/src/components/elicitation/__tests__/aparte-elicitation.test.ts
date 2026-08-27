@@ -35,6 +35,13 @@ function pick(value: string): void {
     input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** A single question's options are command buttons: the click is the whole answer. */
+function clickOption(label: string): void {
+    Array.from(document.querySelectorAll<HTMLButtonElement>('.aparte-elic-panel .aparte-elic-option--command'))
+        .find((b) => b.querySelector('.aparte-elic-option-title')?.textContent === label)!
+        .click();
+}
+
 describe('<aparte-elicitation> presenter', () => {
     afterEach(() => {
         aparteGlobalConfig.setElicitationPresenter(null);
@@ -46,7 +53,7 @@ describe('<aparte-elicitation> presenter', () => {
         expect(aparteGlobalConfig.getElicitationPresenter()).toBeTypeOf('function');
     });
 
-    it('presents an enum request and resolves accept on submit', async () => {
+    it('presents an enum request and resolves accept on the click', async () => {
         const { composer } = mountChat();
         const p = requestUserInput({
             message: 'Framework?',
@@ -54,19 +61,38 @@ describe('<aparte-elicitation> presenter', () => {
         });
         // Panel mounted synchronously into the composer.
         expect(document.querySelector('.aparte-elic-panel')).not.toBeNull();
-        pick('vue');
-        composer!.submit(); // send button → panel onSubmit
-        expect(await p).toEqual({ action: 'accept', content: 'vue' });
-        // Panel removed after settling.
+        // And the composer says it has no act for its own button, so it is not drawn.
+        expect(composer!.getAttribute('data-panel-mode')).toBe('none');
+
+        clickOption('react');
+        expect(await p).toEqual({ action: 'accept', content: 'react' });
+        // Panel removed after settling, and the composer restored.
         expect(document.querySelector('.aparte-elic-panel')).toBeNull();
+        expect(composer!.hasAttribute('data-panel-mode')).toBe(false);
     });
 
     it('resolves a boolean request', async () => {
-        const { composer } = mountChat();
+        mountChat();
         const p = requestUserInput({ message: 'Proceed?', schema: { type: 'boolean' } });
-        pick('true');
-        composer!.submit();
+        clickOption('Yes');
         expect(await p).toEqual({ action: 'accept', content: true });
+    });
+
+    /*
+     * A question that still COLLECTS keeps the button, and this is the test that says
+     * the two shapes are both live — otherwise "no submit" could quietly become "no
+     * submit anywhere" and only the browser run would notice.
+     */
+    it('a multi-select still resolves through the composer button', async () => {
+        const { composer } = mountChat();
+        const p = requestUserInput({
+            message: 'Which ones?',
+            schema: { type: 'enum', multiple: true, options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+        expect(composer!.getAttribute('data-panel-mode')).toBe('submit');
+        pick('vue');
+        composer!.submit();
+        expect(await p).toEqual({ action: 'accept', content: ['vue'] });
     });
 
     it('resolves decline via the Skip affordance', async () => {

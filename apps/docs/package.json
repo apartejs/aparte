@@ -1,39 +1,46 @@
 {
-  "name": "@aparte-workspace/docs",
-  "type": "module",
-  "version": "0.0.10",
-  "private": true,
-  "scripts": {
-    "gen:css-vars": "node scripts/gen-css-vars.mjs",
-    "gen:api": "node scripts/gen-api-ref.mjs",
-    "gen:engine-api": "node scripts/gen-engine-api.mjs",
-    "gen:release-notes": "node scripts/gen-release-notes.mjs",
-    "gen:wrapper-ref": "node scripts/gen-wrapper-ref.mjs",
-    "gen:llms": "node scripts/gen-llms-txt.mjs",
-    "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-api-ref.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-release-notes.mjs && node scripts/gen-wrapper-ref.mjs && node scripts/gen-llms-txt.mjs",
-    "dev": "pnpm gen && astro dev",
-    "build": "pnpm gen && astro build",
-    "preview": "astro preview",
-    "astro": "astro",
-    "typecheck": "astro check"
-  },
-  "dependencies": {
-    "@aparte/core": "workspace:*",
-    "@aparte/locale-fr": "workspace:*",
-    "@aparte/plugin-shiki": "workspace:*",
-    "@astrojs/starlight": "^0.37.1",
-    "@shikijs/langs": "^4.0.0",
-    "@shikijs/themes": "^4.0.0",
-    "astro": "^5.6.1",
-    "sharp": "^0.34.2",
-    "shiki": "^4.0.0"
-  },
-  "devDependencies": {
-    "@astrojs/check": "^0.9.10",
-    "astro-og-canvas": "^0.13.0",
-    "canvaskit-wasm": "^0.42.0",
-    "typedoc": "^0.28.20",
-    "typedoc-plugin-frontmatter": "^1.3.1",
-    "typedoc-plugin-markdown": "^4.12.0"
-  }
+    "name": "@aparte-workspace/docs",
+    "type": "module",
+    "version": "0.0.10",
+    "private": true,
+    "scripts": {
+        "gen:css-vars": "node scripts/gen-css-vars.mjs",
+        "gen:pages": "node scripts/gen-element-pages.mjs",
+        "gen:segments": "node scripts/gen-segment-pages.mjs",
+        "gen:engine-api": "node scripts/gen-engine-api.mjs",
+        "gen:wrapper-ref": "node scripts/gen-wrapper-ref.mjs",
+        "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-css-classes.mjs && node scripts/gen-icons.mjs && node scripts/gen-element-pages.mjs && node scripts/gen-segment-pages.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs && node scripts/gen-events-ref.mjs",
+        "dev": "pnpm gen && astro dev",
+        "build": "pnpm gen && astro build",
+        "preview": "astro preview",
+        "astro": "astro",
+        "typecheck": "astro check",
+        "gen:icons": "node scripts/gen-icons.mjs",
+        "gen:classes": "node scripts/gen-css-classes.mjs",
+        "gen:events": "node scripts/gen-events-ref.mjs"
+    },
+    "dependencies": {
+        "@aparte/core": "workspace:*",
+        "@aparte/locale-fr": "workspace:*",
+        "@aparte/plugin-shiki": "workspace:*",
+        "@astrojs/markdown-remark": "^7.2.4",
+        "@astrojs/starlight": "^0.41.9",
+        "@shikijs/langs": "^4.0.0",
+        "@shikijs/themes": "^4.0.0",
+        "astro": "^7.2.7",
+        "sharp": "^0.34.2",
+        "shiki": "^4.0.0",
+        "starlight-changelogs": "^0.6.0",
+        "starlight-links-validator": "^0.25.3",
+        "starlight-llms-txt": "^0.11.0",
+        "starlight-sidebar-topics": "^0.8.0"
+    },
+    "devDependencies": {
+        "@astrojs/check": "^0.9.10",
+        "astro-og-canvas": "^0.13.0",
+        "canvaskit-wasm": "^0.42.0",
+        "typedoc": "^0.28.20",
+        "typedoc-plugin-frontmatter": "^1.3.1",
+        "typedoc-plugin-markdown": "^4.12.0"
+    }
 }

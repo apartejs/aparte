@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-`@aparte/angular` wraps `@aparte/core` for Angular 19: an ergonomic `<aparte-chat>` standalone
+`@aparte/angular` wraps `@aparte/core` for Angular 19: an ergonomic [`<aparte-chat>`](/components/conversation/aparte-chat/) standalone
 component, services for the client and conversations, a typed directive for every element, and a
 generic `<aparte-ui>` escape hatch.
 
@@ -14,6 +14,11 @@ npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
 ```
 
 `@aparte/core`, `@angular/core`, `@angular/common` and `rxjs` are **peer dependencies**.
+
+:::note[On the server]
+`provideAparte()` guards `autoConnect` with `typeof window !== 'undefined'`, so Angular Universal boots without touching the DOM. `@aparte/core` itself imports cleanly on a server through its DOM-free entry — see [On the server](/frameworks/elements/#on-the-server).
+:::
+
 
 :::caution[Angular 19 only, deliberately]
 The peer range is `^19.2.0` because 19 is the only major this wrapper is built and
@@ -65,7 +70,9 @@ bubble, pass a template instead:
 ```
 
 Outputs: `messageSent`, `messagesChange`, `messageAppended`, `action`, `typingChange`,
-`conversationCreated`. The imperative API (streaming, branch/edit, `scrollToBottom`,
+`conversationCreated` — the same six on all four wrappers, with the payloads and the other
+three syntaxes side by side in the generated
+[Wrapper surface](/reference/wrappers/#callbacks). The imperative API (streaming, branch/edit, `scrollToBottom`,
 `getViewport`) is on the component instance — grab it with a `@ViewChild`. `injectTokenStream`
 takes the cross-wrapper `AsyncIterable<string>` — the exact call that works on React/Vue/Svelte —
 **or** an RxJS `Observable<string>` (the Angular-idiomatic shape); everything else mirrors the

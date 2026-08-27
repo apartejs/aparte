@@ -93,13 +93,6 @@ export interface StreamRunOptions {
     idGen?: (prefix: string) => string;
 }
 
-/**
- * Run the structured-stream agent loop. Resolves the last turn's usage (the
- * `done{usage}` last-write-wins, mirroring `_streamLoop`'s return), or
- * `undefined`. Throws on a stream `error` event or a non-abort tool failure —
- * the caller (adapter) routes that to its lifecycle-error handler, exactly as
- * `_handleSend`/`_handleRetry`/`_handleEdit` catch `_streamLoop`.
- */
 /** Warn once per event type for something this version does not map, then skip it. */
 const warnedUnknownEvents = new Set<string>();
 function warnUnknownStreamEvent(event: unknown): void {
@@ -113,6 +106,21 @@ function warnUnknownStreamEvent(event: unknown): void {
     );
 }
 
+/**
+ * Run the structured-stream agent loop. Resolves the last turn's usage (the
+ * `done{usage}` last-write-wins, mirroring `_streamLoop`'s return), or
+ * `undefined`. Throws on a stream `error` event or a non-abort tool failure —
+ * the caller (adapter) routes that to its lifecycle-error handler, exactly as
+ * `_handleSend`/`_handleRetry`/`_handleEdit` catch `_streamLoop`.
+ *
+ * This block has to stay ADJACENT to the function. It used to sit above
+ * `warnUnknownStreamEvent`, six lines and a docblock away from what it describes, and a
+ * docblock separated from its declaration is attached to nothing: TypeDoc took the
+ * helper's comment as the neighbouring one and `@aparte/engine`'s reference page carried
+ * the package's headline export with no description at all — the very export its own
+ * frontmatter names. Same trap the custom-elements analyser has with a class docblock
+ * pushed above an import.
+ */
 export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsage | undefined> {
     const {
         transportCall,

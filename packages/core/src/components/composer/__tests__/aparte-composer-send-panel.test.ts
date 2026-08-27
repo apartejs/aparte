@@ -99,4 +99,71 @@ describe('<aparte-composer-send> while a panel is open', () => {
         expect(button.innerHTML, 'the built-in, not the send icon').not.toContain('data-icon="send"');
         expect(button.getAttribute('aria-label')).toBe('Submit');
     });
+
+    /*
+     * A panel with NO act for this button.
+     *
+     * The composer's panel mode used to be one fixed policy — hide the input and the
+     * attachment picker, and always keep the send button — so a panel whose options
+     * settle on the first click (an approval, a single-choice question) left a
+     * permanently disabled button beside them, offering an act that did not exist.
+     * Ratified decision #8 one level further: an affordance nothing can honour is not
+     * rendered, and here the panel is the only thing that knows.
+     *
+     * The hiding itself is one CSS rule on `[data-panel-mode="none"]`, which jsdom
+     * does not apply — so these assert the ATTRIBUTE, which is the contract, plus the
+     * two things that stay wrong without JS: the button must not act, and must not be
+     * relabelled to a "Submit" that leads nowhere.
+     */
+    describe("mode 'none' — the panel has no act for this button", () => {
+        it('publishes the mode as an attribute, which is what the CSS reads', () => {
+            const { composer } = mount();
+            composer.showPanel(panel(), { mode: 'none' });
+            expect(composer.getAttribute('data-panel-mode')).toBe('none');
+        });
+
+        it('does not act, even when asked directly', () => {
+            const { composer } = mount();
+            let submits = 0;
+            // `submitEnabled: true` alongside `mode: 'none'` is incoherent on purpose:
+            // the two are set by the same caller and can disagree, and the MODE is the
+            // one that says whether an act exists at all.
+            composer.showPanel(panel(), { mode: 'none', submitEnabled: true, onSubmit: () => { submits += 1; } });
+            composer.submit();
+            expect(submits, 'Enter in the panel reaches this path too').toBe(0);
+        });
+
+        it('is not relabelled to an act it does not have', () => {
+            const { composer, button } = mount();
+            composer.showPanel(panel(), { mode: 'none' });
+            expect(button.getAttribute('aria-label')).not.toBe('Submit');
+        });
+
+        it('comes back the moment the panel grows an act', () => {
+            const { composer, button } = mount();
+            let submits = 0;
+            composer.showPanel(panel(), { mode: 'none', onSubmit: () => { submits += 1; } });
+
+            // What an "Other…" field or a written instruction does.
+            composer.setPanelSubmitEnabled(true, 'submit');
+            expect(composer.getAttribute('data-panel-mode')).toBe('submit');
+            expect(button.disabled).toBe(false);
+            expect(button.getAttribute('aria-label')).toBe('Submit');
+            composer.submit();
+            expect(submits).toBe(1);
+        });
+
+        it('is cleared with the panel', () => {
+            const { composer } = mount();
+            composer.showPanel(panel(), { mode: 'none' });
+            composer.hidePanel();
+            expect(composer.hasAttribute('data-panel-mode')).toBe(false);
+        });
+
+        it('defaults to submit, so an existing caller is untouched', () => {
+            const { composer } = mount();
+            composer.showPanel(panel(), { submitEnabled: true });
+            expect(composer.getAttribute('data-panel-mode')).toBe('submit');
+        });
+    });
 });

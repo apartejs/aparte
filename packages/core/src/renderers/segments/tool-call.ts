@@ -132,7 +132,7 @@ function pillMarkup(segment: AparteToolCallSegment, name: string, status: string
                     <span class="aparte-tool-icon">${contextConfig().getIcon('tool')}</span>
                     <span class="aparte-tool-name">${escapeHtml(name)}</span>
                 </span>
-                <span class="aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
+                <span class="aparte-spinner aparte-tool-spinner" aria-hidden="true"${status === 'pending' ? '' : ' hidden'}></span>
                 <span class="aparte-tool-state">${badge}</span>`;
 }
 
@@ -179,6 +179,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * status slot is one element whose CONTENT is the waiting label or the glyph.
          */
         const pill = pillMarkup(segment, name, status);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
+        const toggle = contextConfig().getIcon('expand');  // safe-text: the icon provider's SVG — the same contract as every other getIcon in this file, where escaping would print the source
 
         /*
          * What went IN and what came OUT, behind a disclosure.
@@ -210,7 +211,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const cfg = contextConfig();
         return `
             <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">
-                <summary class="aparte-tool-summary"><span class="aparte-tool-toggle"></span>${pill}</summary>
+                <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
                 <div class="aparte-tool-detail">
                     ${input ? `
                     <div class="aparte-tool-part" data-part="input">
@@ -322,7 +323,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
         customRenderer?.setup?.(element, segment);
     },
-    // CSS lives in styles/aparte.css — see its "Segment renderers" section for why a
+    // CSS lives in styles/segment/ — see that folder for why a
     // built-in's rules belong there. `getStyles` stays for a CONSUMER's renderer, which
     // has no other way onto the page.
     getStyles: () => ''

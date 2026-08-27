@@ -26,6 +26,8 @@ export default defineConfig({
             entry: {
                 index: resolve(__dirname, 'src/index.ts'),
                 'index.node': resolve(__dirname, 'src/index.node.ts'),
+                // The icon set, on its own so a consumer who never imports it pays nothing.
+                icons: resolve(__dirname, 'src/icons.ts'),
             },
             name: 'AparteCore',
             fileName: (_format, entryName) => `${entryName}.js`, // index.js / index.node.js

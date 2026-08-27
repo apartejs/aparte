@@ -12,6 +12,7 @@ import type {
   AparteMessage,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
+import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
@@ -28,6 +29,33 @@ function warnMissingRenderer(type: string): void {
     if (_warnedNoRenderer) return;
     _warnedNoRenderer = true;
     console.warn(`[aparte] No renderer for segment "${type}". Register one with registerSegmentRenderer({ type: '${type}', render }) from @aparte/core — see https://apartejs.dev/guides/customization/#custom-segment-types`);
+}
+
+/**
+ * What a segment renders as when no renderer claims its type.
+ *
+ * `AparteCustomSegment.fallback` is documented as "Optional fallback text
+ * representation" and was read by NOTHING — the field existed, the type published it,
+ * and a custom segment arriving where its renderer is not registered (a conversation
+ * replayed in another app, a client that loads its views lazily, an export) showed
+ * `[Unknown segment type: custom]` while carrying the sentence written for exactly that
+ * moment. Found while writing the segment's own `@example`, which is the kind of dead
+ * declaration documentation is good at surfacing.
+ *
+ * The developer warning is skipped when a fallback is present: an author who supplied
+ * one has already said this can happen, and warning then is crying wolf. Without one it
+ * still fires, because a missing renderer is otherwise silent.
+ *
+ * `textContent`, so a fallback is text and cannot carry markup — the same rule the rest
+ * of the library follows for anything a model or a host can produce.
+ */
+function unrenderedSegment(segment: { type: string; fallback?: unknown }): HTMLElement {
+  const fallback = typeof segment.fallback === 'string' && segment.fallback.trim() ? segment.fallback : null;
+  if (!fallback) warnMissingRenderer(segment.type);
+  const el = document.createElement('div');
+  el.className = fallback ? 'aparte-segment aparte-segment-fallback' : 'aparte-segment aparte-segment-unknown';
+  el.textContent = fallback ?? `[Unknown segment type: ${segment.type}]`;
+  return el;
 }
 
 /**
@@ -67,15 +95,42 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
     return wrapper.firstElementChild as HTMLElement | null;
 }
 
-/** Lucide "info" glyph — inline so the action bar needs no icon-provider key. */
-const INFO_ICON_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" ' +
-  'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
-  'stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/>' +
-  '<path d="M12 8h.01"/></svg>';
-
 /**
  * One message: plain content or a list of rich segments, in light DOM.
+ *
+ * Normally created for you by `<aparte-chat-viewport>`, one per message in the store;
+ * you write the tag by hand only when you drive the DOM yourself. It is ONE message
+ * with one role — a transcript is the viewport's job, and a bubble is not a
+ * general-purpose card.
+ *
+ * **Not a slot host.** `_render()` writes its own markup into the light DOM on
+ * connect, so children placed inside the tag are replaced rather than projected.
+ * Everything customizable is a registered hook instead of a child: the structural
+ * shell (`setBubbleShellRenderer` — it must root at `.aparte-message` and carry the
+ * region hooks, since every query here is null-guarded and a partial shell silently
+ * loses that region), the avatar (`setAvatarProvider`), the attachment chips
+ * (`setAttachmentRenderer`), the `‹1/2›` position indicator
+ * (`setSiblingNavRenderer`) and the body itself (`registerSegmentRenderer`).
+ *
+ * Two content paths, mutually exclusive: the `content` attribute (plain text run
+ * through the configured Markdown provider, then highlighted once — after streaming
+ * ends, not per token) and `setSegments()` / `addSegment()`. Segments win:
+ * `.aparte-content` stays hidden for as long as any exist. The painted
+ * `.aparte-message-content` box hides itself when there is nothing in it, so a
+ * message that is only attachments is not a coloured rectangle.
+ *
+ * The bubble owns no transport and no host behaviour. The action bar and the branch
+ * picker only dispatch the events below; nothing here retries a turn, persists an
+ * edit, opens a stats popover or switches a branch. Which buttons exist follows from
+ * that: `copy` is on by default, `edit` / `retry` / `feedback` need
+ * `setBubbleActions`, `info` needs both that flag and a prior `setUsage()` (a details
+ * button over no numbers is a dead button), and an image attachment becomes a preview
+ * button only once `setHostHandlers` declares a lightbox — undeclared it stays a
+ * picture, with no role, tab stop or pointer.
+ *
+ * The error state is derived from the segments (an `error` segment sets `data-error`
+ * on `.aparte-message`), never from a status attribute, so it behaves identically in
+ * vanilla and in every wrapper.
  *
  * All seven events are declared by hand rather than left to the analyser, which
  * found six. `aparte-branch-navigate` is dispatched from the `_onBranchPickerClick`
@@ -101,6 +156,65 @@ const INFO_ICON_SVG =
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
  *
+ * @cssprop [--aparte-message-gap=12px] - Gap between the avatar column and the body (the viewport reuses it between messages).
+ * @cssprop [--aparte-message-padding=16px 12px] - Padding around one message row.
+ * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
+ *
+ * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
+ * @cssprop [--aparte-message-content-padding=10px 14px] - Padding of the USER box only; the assistant's content is plain full-width prose.
+ * @cssprop [--aparte-message-content-bg-user=#efe7f6] - Background of the user box.
+ * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
+ * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
+ * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
+ *
+ * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
+ * @cssprop [--aparte-avatar-radius=var(--aparte-radius-avatar)] - Avatar corner radius.
+ * @cssprop [--aparte-avatar-font-size=14px] - Size of the initial, for a shell that renders one (the default shell leaves the slot empty, and `.aparte-avatar:empty` hides it).
+ * @cssprop [--aparte-avatar-bg-user=var(--aparte-primary)] - Avatar background, user role.
+ * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
+ * @cssprop [--aparte-avatar-bg-assistant=var(--aparte-surface-3)] - Avatar background, assistant role.
+ * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text-inverse)] - Avatar text colour, assistant role.
+ * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider and no JS.
+ * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
+ * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.
+ *
+ * @cssprop [--aparte-name-font-size=14px] - Sender name in the header.
+ * @cssprop [--aparte-name-color=var(--aparte-text)] - Sender name colour.
+ * @cssprop [--aparte-timestamp-font-size=12px] - Timestamp in the header.
+ * @cssprop [--aparte-timestamp-color=var(--aparte-text-muted)] - Timestamp colour.
+ * @cssprop [--aparte-content-font-size=15px] - Body type size, applied to both the plain-content and the segments container.
+ * @cssprop [--aparte-content-color=var(--aparte-text)] - Body text colour.
+ * @cssprop [--aparte-content-line-height=var(--aparte-line-height-loose)] - Body line height.
+ *
+ * @cssprop [--aparte-attachments-max-height=140px] - Cap on the sent-attachment strip; past it the strip scrolls instead of growing.
+ * @cssprop [--aparte-attachment-image-size=40px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation.
+ * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Attachment tile radius (shared with the composer's preview tiles).
+ * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename overlaid on a tile.
+ * @cssprop --aparte-thumb-name-scrim - Gradient behind that filename, so it stays legible over any image.
+ * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of the filename overlay.
+ *
+ * @cssprop [--aparte-action-bar-gap=4px] - Gap between action buttons (and between the footer's two regions).
+ * @cssprop [--aparte-action-bar-btn-size=28px] - Square size of an action button; also the footer's reserved height.
+ * @cssprop [--aparte-action-bar-btn-color=var(--aparte-text-muted)] - Action icon colour at rest.
+ * @cssprop [--aparte-action-bar-btn-hover-bg=var(--aparte-surface-2)] - Action button hover background (the branch arrows reuse it).
+ * @cssprop [--aparte-action-bar-btn-hover-color=var(--aparte-text)] - Action icon colour on hover.
+ *
+ * @cssprop [--aparte-branch-picker-gap=4px] - Gap between the arrows and the position label.
+ * @cssprop [--aparte-branch-picker-btn-size=20px] - Square size of each arrow.
+ * @cssprop [--aparte-branch-picker-btn-icon-size=16px] - Glyph size inside an arrow.
+ * @cssprop [--aparte-branch-picker-btn-color=var(--aparte-text-muted)] - Arrow colour at rest.
+ * @cssprop [--aparte-branch-picker-btn-hover-color=var(--aparte-text)] - Arrow colour on hover (a disabled arrow is dimmed instead).
+ * @cssprop [--aparte-branch-picker-label-size=12px] - Type size of the position label.
+ * @cssprop [--aparte-branch-picker-label-color=var(--aparte-text-muted)] - Colour of the position label.
+ * @cssprop [--aparte-branch-picker-label-min-width=32px] - Reserved label width, so `9 / 9` growing to `10 / 12` does not shift the arrows.
+ *
+ * @cssprop [--aparte-waiting-height=1.5em] - Min height of the waiting region, so the first token does not jump the layout.
+ * @cssprop [--aparte-waiting-dot-gap=4px] - Gap between the three waiting dots.
+ * @cssprop [--aparte-status-dot-size=6px] - Diameter of a waiting dot (shared with the status indicator).
+ * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the waiting dots (shared with the status indicator).
+ *
+ * @cssprop [--aparte-error-solid=#dc2626] - Ring drawn around the avatar while `data-error` is set. The error CARD itself belongs to the error segment renderer.
+ *
  * @example
  * <!-- Rendered for you by the viewport. Written by hand only when you drive the DOM
  *      yourself: `message-id` is what streaming and the action bar address it by. -->
@@ -113,6 +227,23 @@ const INFO_ICON_SVG =
  *
  * <!-- While a reply is in flight: `streaming` hides the action bar and shows the caret. -->
  * <aparte-chat-bubble message-id="a2" data-role="assistant" streaming></aparte-chat-bubble>
+ *
+ * <!-- One reply among several. `setSiblings(count, index)` is what draws the picker, and
+ *      it is a METHOD, not an attribute — so a branch cannot be shown by markup alone.
+ *      Retry forks a sibling instead of overwriting the reply, and this is the control
+ *      that walks them; each press dispatches `aparte-branch-navigate` for a host to
+ *      answer. Kept in the example because a guide that describes branching has no other
+ *      way to SHOW it. -->
+ * <aparte-chat-bubble
+ *   message-id="a3"
+ *   data-role="assistant"
+ *   name="Assistant"
+ *   content="A second take on the same question."
+ * ></aparte-chat-bubble>
+ *
+ * <script>
+ *   document.querySelector('aparte-chat-bubble[message-id="a3"]').setSiblings(2, 0);
+ * </script>
  */
 export class AparteChatBubble extends HTMLElement {
   private _contentEl: HTMLDivElement | null = null;
@@ -274,6 +405,8 @@ export class AparteChatBubble extends HTMLElement {
         break;
       case 'content':
         this._content = newValue || '';
+        // A replace, like setContent — see _resetMarkdownStream.
+        this._resetMarkdownStream();
         this._updateContent();
         break;
       case 'timestamp':
@@ -302,7 +435,23 @@ export class AparteChatBubble extends HTMLElement {
   setContent(content: string): void {
     this._content = content;
     this.setAttribute('content', content);
+    // A REPLACE, not an append: the incremental parser tracks how many characters it has
+    // already written, so leaving its state behind would make the next token's delta a
+    // slice of the wrong string. A retry does exactly this — clear, then re-stream.
+    this._resetMarkdownStream();
     this._updateContent();
+  }
+
+  /**
+   * Drop the incremental Markdown parser's state.
+   *
+   * Only needed where `_content` is REPLACED rather than grown. `appendToken` grows it, so
+   * the parser's cursor stays valid there — which is the whole point of the seam.
+   */
+  private _resetMarkdownStream(): void {
+    const host = this as AparteMarkdownStreamHost;
+    if (host._aparteSmd) host._aparteSmd.renderer.end();
+    host._aparteSmd = undefined;
   }
 
   /** Get current content */
@@ -477,11 +626,7 @@ export class AparteChatBubble extends HTMLElement {
         runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
       }
     } else {
-      warnMissingRenderer(segment.type);
-      const fallback = document.createElement('div');
-      fallback.className = 'aparte-segment aparte-segment-unknown';
-      fallback.textContent = `[Unknown segment type: ${segment.type}]`;
-      this._segmentsEl.appendChild(fallback);
+      this._segmentsEl.appendChild(unrenderedSegment(segment));
     }
     if (this._contentEl) this._contentEl.style.display = 'none';
     this._reflectError();
@@ -585,9 +730,16 @@ export class AparteChatBubble extends HTMLElement {
           </div>
           <div class="aparte-footer">
             <div class="aparte-branch-picker" hidden>
-              <button class="aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
+              <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
               <span class="aparte-branch-label">1 / 1</span>
-              <button class="aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
+              <!-- The move has to be ANNOUNCED. Pressing the arrows deliberately does not
+                   take focus, so without a live region a screen-reader user gets the new
+                   branch and no indication anything changed. The visible label cannot be
+                   the region itself: a custom sibling-nav renderer may replace it with
+                   dots, which reads as nothing. No new locale key — the position is
+                   digits, and the buttons beside it already carry translated labels. -->
+              <span class="aparte-sr-only aparte-branch-status" aria-live="polite"></span>
+              <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
             </div>
             <div class="aparte-action-bar" role="toolbar" aria-label="${escapeAttr(this._cfg.getLocale().messageActions ?? 'Message actions')}"></div>
           </div>
@@ -742,7 +894,27 @@ export class AparteChatBubble extends HTMLElement {
     }
 
     this._contentEl.style.display = '';
-    this._contentEl.innerHTML = this._cfg.renderMarkdown(this._content);
+    /*
+     * The SAME incremental seam the text and thinking segment renderers use.
+     *
+     * This line used to be `innerHTML = renderMarkdown(this._content)` — the whole message
+     * re-parsed, re-sanitised and re-inserted on every token. That is the hot path of the
+     * first thing getting-started teaches (`appendMessage` / `appendToken` /
+     * `completeMessage`), and it made a published promise false: `setStreamingMarkdownProvider`
+     * says "the chat bubble uses it to render the assistant message token-by-token
+     * instead of re-parsing the whole string on every token", and the plugin's own page
+     * repeats it. Only the segment path honoured it. Found by a cold audit.
+     *
+     * With no streaming provider registered, `writeStreamedMarkdown` falls through to the
+     * one-shot render — so a consumer who has not installed the plugin sees exactly what
+     * they saw before.
+     *
+     * `runWithConfig`, because the seam reads its provider from the ambient config and this
+     * bubble may be one of several with configs of their own.
+     */
+    runWithConfig(this._cfg, () =>
+      writeStreamedMarkdown(this as AparteMarkdownStreamHost, this._contentEl!, this._content, this._streaming),
+    );
     // The first token retires the waiting indicator (and a cleared content brings
     // it back, e.g. a retry that resets the bubble before re-streaming).
     this._updateWaiting();
@@ -794,12 +966,7 @@ export class AparteChatBubble extends HTMLElement {
           runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
         }
       } else {
-        // Fallback for unknown segment types
-        warnMissingRenderer(segment.type);
-        const fallback = document.createElement('div');
-        fallback.className = 'aparte-segment aparte-segment-unknown';
-        fallback.textContent = `[Unknown segment type: ${segment.type}]`;
-        this._segmentsEl.appendChild(fallback);
+        this._segmentsEl.appendChild(unrenderedSegment(segment));
       }
     }
 
@@ -985,6 +1152,12 @@ export class AparteChatBubble extends HTMLElement {
       }
     }
 
+    const status = this._branchPickerEl.querySelector('.aparte-branch-status');
+    if (status) {
+      const position = `${this._siblingIndex + 1} / ${this._siblingCount}`;
+      if (status.textContent !== position) status.textContent = position;
+    }
+
     const prevBtn = this._branchPickerEl.querySelector('.aparte-branch-prev') as HTMLButtonElement | null;
     const nextBtn = this._branchPickerEl.querySelector('.aparte-branch-next') as HTMLButtonElement | null;
     if (prevBtn) prevBtn.disabled = this._siblingIndex === 0;
@@ -1072,7 +1245,7 @@ export class AparteChatBubble extends HTMLElement {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
       const btn = document.createElement('button');
-      btn.className = 'aparte-action-btn aparte-action-custom';
+      btn.className = 'aparte-btn aparte-btn--icon aparte-action-btn aparte-action-custom';
       btn.dataset['action'] = `custom:${a.id}`;
       // aria-label/title via setAttribute — safe for consumer-provided strings.
       btn.setAttribute('aria-label', a.label);
@@ -1095,30 +1268,30 @@ export class AparteChatBubble extends HTMLElement {
     switch (action) {
       case 'copy': {
         const l = locale.copy ?? 'Copy';
-        return `<button class="aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
       }
       case 'edit': {
         const l = locale.edit ?? 'Edit message';
-        return `<button class="aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
       }
       case 'retry': {
         const l = locale.retry ?? 'Retry';
-        return `<button class="aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
       }
       case 'thumbUp': {
         const l = locale.feedbackPositive ?? 'Good response';
-        return `<button class="aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
       }
       case 'thumbDown': {
         const l = locale.feedbackNegative ?? 'Bad response';
-        return `<button class="aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
       }
       case 'info': {
         // Only when there are numbers to show: a details button over nothing is a
         // dead button. The popover itself is the app's (see `aparte-message-info`).
         if (!this._usage) return '';
         const l = locale.messageInfo ?? 'Details';
-        return `<button class="aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${INFO_ICON_SVG}</button>`;
+        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${this._cfg.getIcon('info')}</button>`;
       }
       default:
         return '';
@@ -1132,9 +1305,9 @@ export class AparteChatBubble extends HTMLElement {
     const saveLabel = locale.editConfirm ?? 'Save';
     const cancelLabel = locale.editCancel ?? 'Cancel';
     this._actionBarEl.innerHTML =
-      `<button class="aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
+      `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--success aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
       `aria-label="${escapeAttr(saveLabel)}" title="${escapeAttr(saveLabel)}">${this._cfg.getIcon('check')}</button>` +
-      `<button class="aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
+      `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--danger aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
       `aria-label="${escapeAttr(cancelLabel)}" title="${escapeAttr(cancelLabel)}">${this._cfg.getIcon('close')}</button>`;
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));

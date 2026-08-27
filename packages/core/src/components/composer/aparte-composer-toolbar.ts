@@ -3,18 +3,29 @@
  * counter belongs in, rather than a bar of your own floating below the chat. Purely
  * structural: it lays its children out in a row and gets out of the way.
  *
- * @element aparte-composer-toolbar
- *
  * **Position is the DOM order.** `margin-inline-start: auto` on a child pushes it (and
  * everything after it) to the end of the row. That is the whole placement API on
  * purpose: there is no `left`/`right` to be wrong about, so the row reads correctly in a
  * right-to-left locale without the author thinking about it.
  *
+ * The controls the row is made of can be any element, or plain text. Nothing is wrapped or
+ * reordered — the children ARE the row, laid out by flex in DOM order, and they may arrive
+ * after connection (a framework commits children in its own order). Non-whitespace TEXT
+ * counts as content too, so a hand-written row holding a bare token count stays visible
+ * instead of tripping the `data-empty` hide.
+ *
  * The row is not part of the default `<aparte-chat>` shell — nothing is drawn until you
  * put something in it.
  *
- * @attr {boolean} data-empty - Reflected BY the element while it holds no element child; the
- *                    stylesheet hides it then. Read-only, do not set it yourself.
+ * It declares no custom property of its own: the gap, the padding and the top separator
+ * come from the global `--aparte-space-*` and `--aparte-border*` tokens, so it inherits a
+ * theme rather than exposing knobs to re-set.
+ *
+ * @element aparte-composer-toolbar
+ *
+ * @attr {boolean} data-empty - Reflected BY the element while it holds neither an element
+ *                    child nor non-whitespace text; the stylesheet hides it then.
+ *                    Read-only, do not set it yourself.
  *
  * @example
  * <aparte-composer>

@@ -1,0 +1,250 @@
+/*
+ * aparté — The artifact card and the artifact file preview.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+/* Artifact card */
+/* The shell is `.aparte-card`; what stays here is what a card in a TRANSCRIPT needs
+   and a card in general does not — the vertical rhythm between messages, and `font:
+   inherit` so a segment never picks up a host's form-control font. */
+.aparte-segment-artifact-card,
+.aparte-segment-artifact-file {
+    margin: var(--aparte-space-4) 0;
+    font: inherit;
+}
+.aparte-art-card__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--aparte-space-4) var(--aparte-space-5);
+    border-bottom: var(--aparte-border-width) solid var(--aparte-border);
+    background: var(--aparte-surface-2);
+    min-height: var(--aparte-art-card-header-min-height);
+}
+.aparte-art-card__title-block { display: flex; align-items: center; gap: var(--aparte-space-4); min-width: 0; }
+/* An outline `.aparte-badge`. What stays is the lettering: a language tag reads as a
+   code marker, so it is upper-cased and tracked out — which a badge in general is not. */
+.aparte-art-card__kind {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    --aparte-badge-font-size: var(--aparte-font-size-xs);
+    --aparte-badge-radius: var(--aparte-radius-sm);
+}
+.aparte-art-card__title {
+    font-size: var(--aparte-font-size-lg); font-weight: var(--aparte-font-weight-medium);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The geometry is `.aparte-dot`; a streaming card breathes on the accent rather than
+   the status colour, and larger, because it marks a whole card and not a line. */
+.aparte-art-card__pulse {
+    --aparte-status-dot-size: var(--aparte-art-card-pulse-size);
+    --aparte-status-color: var(--aparte-accent);
+}
+.aparte-art-card__actions { display: flex; gap: var(--aparte-space-2); }
+.aparte-art-card__btn {
+  /* Same as .aparte-action-btn: declare the size, let the recipe draw. */
+  --aparte-btn-size: var(--aparte-art-card-btn-size);
+}
+.aparte-art-card__btn:hover:not(:disabled) {
+    background: var(--aparte-surface-hover);
+    border-color: var(--aparte-border);
+    color: var(--aparte-text);
+}
+.aparte-art-card__btn:disabled { opacity: var(--aparte-disabled-opacity); cursor: not-allowed; }
+.aparte-art-card__tabs {
+    /* justify-content and the padding are DECLARED, not left to a default.
+       Core is light DOM on purpose - no shadow root, no ::part(), any selector
+       reaches in - and the corollary is that a component must state what its
+       layout depends on, because an undeclared property has nothing to override
+       a host rule with. A consuming page with a bare nav selector setting
+       justify-content: space-between and padding-top (this library's own docs
+       site had exactly that) otherwise pushes these two tabs to opposite ends of
+       the card and pads the row out.
+
+       flex-end, and Code first in the DOM. The card OPENS on Code - mounting the
+       preview would execute model-authored code with no gesture (ratified
+       decision #8) - and a selected tab sitting second reads backwards. Right,
+       because the header above puts the artifact's identity on the left and its
+       copy/download buttons on the right, so this keeps every control in one
+       column. DOM order is also keyboard order, so the tab a reader lands on
+       first is the one already showing. */
+    display: flex; justify-content: flex-end; align-items: stretch; gap: var(--aparte-space-1);
+    padding: var(--aparte-space-2) var(--aparte-space-4) 0;
+    border-bottom: var(--aparte-border-width) solid var(--aparte-border);
+    background: var(--aparte-surface-2);
+}
+/* The tabs are `.aparte-tabs--underline`, like the elicitation panel's steps — one
+   tab in this library, not one per component. Only the row's own business stays. */
+.aparte-art-card__tabs button { font-size: var(--aparte-font-size-sm); }
+/* The card's heights, as variables with ONE owner each.
+   They were four hardcoded numbers in the only part of this card that did not
+   use a variable - everything else here already reads var(--aparte-code-bg) and
+   friends - and two of them had to agree while a third contradicted a fourth:
+   the code pane repeated the body's 600px, and the "press Preview" placeholder
+   was 120px tall inside a body whose min-height said 80, so that minimum applied
+   to nothing.
+   The frame stays a FIXED height rather than an aspect ratio, which is what
+   embeds of arbitrary HTML actually do - CodeSandbox documents 500px, StackBlitz
+   takes a height parameter - because a frame with an opaque origin cannot be
+   measured and a 16/10 ratio on a wide card is enormous. The vh cap is the part
+   that was missing: a fixed 480px should not own a phone screen.
+   Each default lives in its read, as var(--x, literal), the way every other
+   value in this file already does - not in a declaration block on top of the
+   fallbacks, which would be two owners of one number again. It also means the
+   docs' CSS-variable generator finds them: its sweep looks for reads that
+   carry a fallback, so a read without one is a public knob nobody documents. */
+.aparte-art-card__body {
+    position: relative;
+    /* The placeholder is the tallest thing this box can hold while empty, so it
+       IS the minimum - one number instead of two that disagreed. */
+    min-height: var(--aparte-artifact-pending-height, 120px);
+    max-height: var(--aparte-artifact-body-max, 600px);
+    overflow: hidden;
+}
+.aparte-art-card__pane { display: none; height: 100%; }
+.aparte-segment-artifact-card[data-tab="code"]    .aparte-art-card__pane[data-pane="code"]    { display: block; }
+.aparte-segment-artifact-card[data-tab="preview"] .aparte-art-card__pane[data-pane="preview"] { display: block; }
+.aparte-art-card__pane[data-pane="code"] {
+    /* The body already caps this; repeating the number was the second owner. */
+    max-height: var(--aparte-artifact-body-max, 600px); overflow: auto;
+}
+.aparte-art-card__frame {
+    display: block;
+    width: 100%;
+    height: min(var(--aparte-artifact-frame-height, 480px), var(--aparte-artifact-frame-max, 70vh));
+    border: 0;
+    background: var(--aparte-art-paper-bg);
+}
+.aparte-art-card__pending {
+    display: flex; align-items: center; justify-content: center;
+    height: var(--aparte-artifact-pending-height, 120px);
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-lg);
+    font-style: italic;
+}
+/* ── Binary file artifact (xlsx/pdf/docx) ──────────────────── */
+.aparte-art-file__card {
+    display: flex; align-items: center; gap: var(--aparte-space-6);
+    padding: var(--aparte-space-6) var(--aparte-space-7);
+    background: var(--aparte-surface-2);
+    border-bottom: var(--aparte-border-width) solid var(--aparte-border);
+}
+.aparte-art-file__body {
+    position: relative;
+}
+.aparte-art-file__code-pane {
+    max-height: var(--aparte-artifact-file-code-max, 360px); overflow: auto;
+    background: var(--aparte-code-bg);
+}
+.aparte-art-file__preview-pane {
+    max-height: var(--aparte-artifact-file-preview-max, 460px);
+    overflow: auto;
+    background: var(--aparte-art-paper-bg);
+    /* Preview is a document view — force light scheme regardless of
+       the app theme, with a dark text colour so cells stay readable. */
+    color: var(--aparte-art-paper-text);
+}
+.aparte-art-file__icon {
+    width: var(--aparte-art-file-icon-size); height: var(--aparte-art-file-icon-size);
+    border-radius: var(--aparte-radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--aparte-art-file-icon-bg);
+    color: var(--aparte-art-file-icon-color);
+    font-weight: var(--aparte-font-weight-bold);
+    font-size: var(--aparte-font-size-sm);
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+.aparte-art-file__icon[data-kind="pdf"]  { background: var(--aparte-art-file-icon-bg-pdf); }
+.aparte-art-file__icon[data-kind="docx"] { background: var(--aparte-art-file-icon-bg-docx); }
+.aparte-art-file__meta { flex: 1 1 auto; min-width: 0; }
+.aparte-art-file__meta-name {
+    font-weight: var(--aparte-font-weight-semibold); font-size: var(--aparte-font-size-base);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.aparte-art-file__meta-sub {
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+}
+.aparte-art-file__actions { display: flex; gap: var(--aparte-space-3); flex-shrink: 0; }
+/* The chrome is `.aparte-btn`; every one of these is a `--primary --solid`, so the
+   fill comes from the recipe. Its own measurements stay: a labelled button in a card
+   is roomier than an icon in a row. */
+.aparte-art-file__btn {
+    padding: var(--aparte-space-3) var(--aparte-space-5);
+    font-size: var(--aparte-font-size-md);
+}
+/* NOTHING here repaints the button, and the comment above is why. These seven lines
+   re-declared `background`, `color`, `border-color` and a hover the recipe already
+   paints — a migration leftover that contradicted the sentence directly above it.
+
+   Five of them were inert duplicates. The sixth was not: `color: var(--aparte-text-inverse)`
+   overrode `--aparte-btn-on-intent`, which the recipe derives from the fill. Measured in a
+   browser on the built stylesheet: 3.54:1 in the light theme against the recipe's 5.27 —
+   an AA failure on a visible button label, in the default theme. It was also the last
+   place in `styles/` forcing `--aparte-text-inverse` as ink on a coloured fill; badge and
+   field had already stopped.
+
+   The consumer cost was the sharper one: the one-attribute rebrand this library documents
+   re-derives the ink on every other solid-primary button and, here alone, kept a token
+   bound to core's own palette. `.aparte-art-file__btn:hover` went with them — at 0,2,0 it
+   was always beaten by `.aparte-btn--solid:hover:not(:disabled)` at 0,3,0, so it never
+   applied either. */
+/* Hide the download button until the sandbox has produced the buffer.
+   Avoids confusing the user with a disabled-but-styled-primary button
+   during streaming / compiling. */
+.aparte-segment-artifact-file:not([data-state="ready"]) .aparte-art-file__btn[data-action="download"] {
+    display: none;
+}
+.aparte-art-file__preview-pane th,
+.aparte-art-file__preview-pane td {
+    border: var(--aparte-border-width) solid var(--aparte-art-paper-border);
+    padding: var(--aparte-space-3) var(--aparte-space-5);
+    text-align: left;
+    white-space: nowrap;
+    color: var(--aparte-art-paper-text);
+    background: var(--aparte-art-paper-bg);
+}
+.aparte-art-file__preview-pane tr:nth-child(odd) td { background: var(--aparte-art-paper-row-alt); }
+.aparte-art-file__preview-pane tr:first-child td {
+    background: var(--aparte-art-paper-head-bg);
+    font-weight: var(--aparte-font-weight-semibold);
+    position: sticky; top: 0;
+    color: var(--aparte-art-paper-head-text);
+}
+.aparte-art-file__preview-empty {
+    padding: var(--aparte-art-file-preview-padding); text-align: center;
+    color: var(--aparte-text-muted);
+    font-size: var(--aparte-font-size-lg); font-style: italic;
+}
+.aparte-segment-artifact-file[data-state="error"] .aparte-art-file__icon {
+    background: var(--aparte-art-file-icon-bg-pdf);
+}
+.aparte-art-file__error {
+    padding: var(--aparte-space-8) var(--aparte-art-file-error-padding-inline);
+    background: var(--aparte-error-bg);
+    border-top: var(--aparte-border-width) solid var(--aparte-error-border);
+    color: var(--aparte-text);
+}
+.aparte-art-file__error-title {
+    font-weight: var(--aparte-font-weight-semibold);
+    font-size: var(--aparte-font-size-lg);
+    margin-bottom: var(--aparte-space-3);
+    color: var(--aparte-error-title);
+}
+/* A computed value shown back, which is `.aparte-output`. What stays is that this
+   one is an ERROR — tinted text on its own quiet ground — and that a raw message has
+   no spaces to wrap on, so it must be allowed to break mid-word. */
+.aparte-art-file__error-msg {
+    display: block;
+    padding: var(--aparte-space-3) var(--aparte-space-5);
+    margin-bottom: var(--aparte-space-4);
+    background: var(--aparte-art-file-error-msg-bg);
+    color: var(--aparte-error-text);
+    word-break: break-word;
+}
+.aparte-art-file__error-hint {
+    font-size: var(--aparte-font-size-sm);
+    color: var(--aparte-text-muted);
+    font-style: italic;
+}

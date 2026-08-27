@@ -22,9 +22,33 @@
  * escaper rather than importing the shared one.
  */
 export const ESCAPER_NAMES = new Set([
-    'escapeHtml', 'escapeAttr', 'cssEscape', 'esc', '_esc', '_escape',
-    'escapeClosingScriptTag',
+    'escapeHtml', 'escapeAttr', 'esc', '_esc', '_escape',
 ]);
+
+/**
+ * Escapers that are only correct in ONE position, and are therefore NOT escapers to
+ * either guard's shared question.
+ *
+ * The distinction is the same one `TRUSTED_MARKUP_CALLS` below already makes, and it was
+ * simply never applied to these two. Both used to sit in the set above, so both guards
+ * accepted them anywhere — and they certify positions neither can make safe:
+ *
+ *   • `cssEscape` backslash-escapes `"` and `\` for a selector. HTML has no backslash
+ *     escape, so in an attribute the value terminates at the first quote
+ *     (`data-role="user\" onload=\"alert(1)"` — a live handler), and in text position it
+ *     is a total pass-through: it does not touch `<` at all.
+ *   • `escapeClosingScriptTag` neutralises a literal `</script` prefix and nothing else.
+ *     Inside a `<script>` body that is exactly right; anywhere else it escapes nothing.
+ *
+ * Measured, not reasoned: a sabotage pass swapped `escapeAttr(role)` for `cssEscape(role)`
+ * twenty lines from its real use in the same file — a plausible copy-paste, since the
+ * bubble uses both — and BOTH guards printed OK on markup that renders a live `onload`.
+ * The repo was correct throughout; what was missing was the protection.
+ *
+ * The selector position is unaffected: `check-attr-escaping` requires `cssEscape(` there
+ * by name and rejects `escapeAttr`, which is this same rule in the other direction.
+ */
+export const POSITIONAL_ESCAPERS = new Set(['cssEscape', 'escapeClosingScriptTag']);
 
 /**
  * Calls whose RETURN VALUE is markup by contract, so interpolating it between tags

@@ -24,7 +24,7 @@
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import type { AparteConfig } from '../../config/aparte-config.js';
-import type { AparteComposer } from '../composer/aparte-composer.js';
+import type { AparteComposer, AparteComposerPanelMode } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import { buildApprovalPanel } from '../../elicitation/approval-panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
@@ -67,7 +67,52 @@ interface Pending {
  * existed only because the buttons used to live in a segment renderer with no reference
  * to the client.
  *
+ * It has no children to project: `connectedCallback` sets
+ * `display: none`, and the composer it presents in is found by walking UP from
+ * `this.parentElement` — anything placed inside this element is only hidden with it.
+ * So its position matters but its content does not: mount it anywhere inside the
+ * `<aparte-chat>` whose questions it should answer.
+ *
+ * Not the element to reach for when you want a question UI of your own shape. It is
+ * one caller of `setElicitationPresenter`, and among presenters registered for the
+ * same chat the most recent one wins — so an app with a framework-native presenter
+ * registers that and does not mount this, and a second `<aparte-elicitation>` in one
+ * chat is redundant rather than additive. It is also not usable outside a chat that
+ * has an `<aparte-composer>`: with nowhere to mount a panel the request is REJECTED,
+ * on purpose, rather than borrowed into another chat's composer.
+ *
+ * The panel it mounts is styled by `@aparte/core/styles.css` — the `--aparte-elic-*`
+ * and `--aparte-approval-*` knobs below theme it. They are declared here rather than
+ * on the composer because this presenter is what builds the panel; the composer only
+ * lends it the slot.
+ *
  * @element aparte-elicitation
+ *
+ * @cssprop [--aparte-elic-gap=6px] - Vertical gap between the panel's rows (message, body, tabs).
+ * @cssprop [--aparte-elic-padding=6px 4px] - Padding inside the panel.
+ * @cssprop [--aparte-elic-max-height=50vh] - Cap on the panel's height; its body scrolls, the panel does not.
+ * @cssprop [--aparte-elic-field-gap=8px] - Space and separator padding between two fields of an object schema.
+ * @cssprop [--aparte-elic-message-size=0.82rem] - Font size of the question text at the top of the panel.
+ * @cssprop [--aparte-elic-title-size=0.8rem] - Font size of a field's title.
+ * @cssprop [--aparte-elic-desc-size=0.76rem] - Font size of a field's description.
+ * @cssprop [--aparte-elic-option-padding=7px 10px] - Padding of one enum/boolean option row.
+ * @cssprop [--aparte-elic-option-radius=8px] - Corner radius of an option row.
+ * @cssprop [--aparte-elic-option-title-size=0.875rem] - Font size of an option's label, and of the text inputs.
+ * @cssprop [--aparte-elic-option-desc-size=0.78rem] - Font size of an option's secondary line.
+ * @cssprop [--aparte-elic-control-size=15px] - Size of the radio/checkbox control in an option row.
+ * @cssprop [--aparte-elic-input-radius=6px] - Corner radius of the text inputs and of the Skip button.
+ * @cssprop [--aparte-elic-textarea-min-height=64px] - Minimum height of a multi-line string field.
+ * @cssprop [--aparte-elic-input-size=0.85rem] - Font size of the approval panel's instruction field (the free-text note the user writes).
+ * @cssprop [--aparte-elic-skip-size=0.8rem] - Font size of the corner "Skip" affordance (the decline).
+ * @cssprop [--aparte-elic-step-size=0.78rem] - Font size of a step tab, when the schema is asked one field at a time.
+ * @cssprop [--aparte-elic-step-padding=4px 2px] - Padding of a step tab.
+ * @cssprop [--aparte-elic-step-gap=14px] - Gap between step tabs.
+ * @cssprop [--aparte-elic-step-underline=2px] - Thickness of the current step's underline (a tab, not a pill).
+ * @cssprop [--aparte-elic-dismiss-room=72px] - Space kept clear at the end of the tab rail for the corner escape.
+ * @cssprop [--aparte-approval-gap=4px] - Gap between the stacked options of an approval request.
+ * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
+ * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
+ * @cssprop [--aparte-approval-option-radius=8px] - Corner radius of an approval option button.
  *
  * @example
  * <!-- Renders nothing by itself: it registers as the presenter for its subtree, so a
@@ -252,18 +297,25 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * question the escape is the corner, for an approval it is a refusal.
              */
             if (request.kind === 'approval') {
+                /*
+                 * The button exists only once an INSTRUCTION has been written.
+                 *
+                 * The options never route through it — a decision is its own click —
+                 * so with `mode: 'submit'` from the start it sat there permanently
+                 * disabled beside them, offering an act that did not exist. It is the
+                 * written text, and only that, which is the act this button already
+                 * means; until there is some, the panel has none for it.
+                 */
+                const approvalMode = (): AparteComposerPanelMode => (panel.isComplete() ? 'submit' : 'none');
                 const panel = runWithConfig(cfg, () =>
                     buildApprovalPanel(request.message, request.options ?? [], () => {
-                        composer.setPanelSubmitEnabled(panel.isComplete(), 'submit');
+                        composer.setPanelSubmitEnabled(panel.isComplete(), approvalMode());
                     }));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
                 this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
                 slot.token = composer.showPanel(panel.el, {
                     submitEnabled: panel.isComplete(),
-                    mode: 'submit',
-                    // The composer's button carries the INSTRUCTION, which is written
-                    // text — exactly the act that button already means. The options
-                    // never route through it: a decision is its own click.
+                    mode: approvalMode(),
                     onSubmit: () => { if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() }); },
                     onEvict: () => fail(),
                 });
@@ -285,10 +337,18 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             // whole request — see `dismiss` on BuiltElicitationPanel.
             const skip = document.createElement('button');
             skip.type = 'button';
-            skip.className = 'aparte-elic-skip';
+            skip.className = 'aparte-btn aparte-elic-skip';
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
+
+            /*
+             * The click that IS the answer — a single question whose options are
+             * buttons. Same wiring as the approval panel's, because it is the same
+             * act; the panel decides which of its shapes has it, and reports through
+             * `mode()` that the composer's button has nothing to do.
+             */
+            panel.onSettle((content) => settle({ action: 'accept', content }));
 
             this._pending = {
                 abort: () => fail(),

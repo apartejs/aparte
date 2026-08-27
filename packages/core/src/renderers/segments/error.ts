@@ -28,7 +28,7 @@ export const errorRenderer: AparteSegmentRenderer<AparteErrorSegment> = {
             return out;
         }
         return `
-        <div class="aparte-segment aparte-segment-error" data-segment-id="${escapeHtml(segment.id)}">
+        <div class="aparte-segment aparte-alert aparte-alert--danger aparte-segment-error" data-segment-id="${escapeHtml(segment.id)}">
             <div class="aparte-error-icon-wrapper">
                 ${contextConfig().getIcon('error') || '⚠'}
             </div>

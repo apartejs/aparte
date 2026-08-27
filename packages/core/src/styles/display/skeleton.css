@@ -1,0 +1,78 @@
+/* =========================================
+   aparte-skeleton — a loading placeholder
+   =========================================
+   Decorative: give the element aria-hidden="true" (or wrap the group behind a
+   single aria-busy region) so a screen reader does not read out an empty box.
+
+       <span class="aparte-skeleton aparte-skeleton--circle"></span>
+       <span class="aparte-skeleton aparte-skeleton--text"></span>
+       <span class="aparte-skeleton aparte-skeleton--text" style="inline-size: 60%"></span>
+       <span class="aparte-skeleton aparte-skeleton--rect" style="block-size: 64px"></span>
+   */
+
+.aparte-skeleton {
+  display: block;
+  background-color: var(--aparte-skeleton-base);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--aparte-skeleton-shine),
+    transparent
+  );
+  background-repeat: no-repeat;
+  background-size: 200% 100%;
+  animation: aparte-skeleton-shimmer var(--aparte-duration-pulse) linear infinite;
+}
+
+.aparte-skeleton--text {
+  width: 100%;
+  height: var(--aparte-skeleton-text-height);
+  border-radius: var(--aparte-radius-sm);
+}
+.aparte-skeleton--text + .aparte-skeleton--text { margin-block-start: var(--aparte-skeleton-text-gap); }
+/* The ragged last line reads as "text", where a full-width block reads as a bar. */
+.aparte-skeleton--text:last-child { width: var(--aparte-skeleton-text-last-width); }
+
+.aparte-skeleton--circle {
+  width: var(--aparte-skeleton-circle-size);
+  height: var(--aparte-skeleton-circle-size);
+  border-radius: var(--aparte-radius-full);
+}
+
+.aparte-skeleton--rect {
+  width: 100%;
+  height: var(--aparte-skeleton-rect-height);
+  border-radius: var(--aparte-radius-md);
+}
+
+/* A translucent white sweep lightens whatever sits under it in EITHER theme,
+   which a second named surface colour cannot promise — this repo's own surface
+   steps are not consistently ordered light-to-dark across the two palettes, so
+   picking two of them for base/shine would read backwards in one of the themes. */
+@keyframes aparte-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── The zero-dependency fallbacks ────────────────────────────────────────────
+   What `getSkeleton()` returns when no skeleton provider is registered. They used
+   to carry their look in a `style=""` attribute — six inline declarations of
+   Tailwind-slate hex (`#9ca3af`, `#1e293b`, `#64748b`), the exact palette this
+   theme replaced. Three consequences, and the first is the one that matters: an
+   inline style cannot be overridden by a consumer's stylesheet, so a dark-theme
+   host got a light-grey label it had no way to reach. The second: hex in a `.ts`
+   is invisible to `check:derived-vars`, which reads only `styles/`. The third:
+   they had drifted from the recipe above, which already reads tokens.
+
+   Structure only, still — no shimmer, no animation. That is what makes them the
+   fallback rather than a second skeleton implementation. */
+.aparte-skeleton-fallback {
+  padding: var(--aparte-space-4);
+  color: var(--aparte-text-muted);
+}
+.aparte-skeleton-fallback--snug { padding: var(--aparte-space-3); }
+.aparte-skeleton-fallback--tight { padding: var(--aparte-space-2); }
+.aparte-skeleton-fallback--code {
+  background: var(--aparte-surface-2);
+  border-radius: var(--aparte-radius-md);
+}

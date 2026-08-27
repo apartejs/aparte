@@ -33,6 +33,16 @@ interface AparteChatTargetElement extends HTMLElement {
     updateSegment?(segmentId: string, updates: Partial<AparteSegment>): void;
     removeSegment?(segmentId: string): void;
     getMessages?(): AparteMessage[];
+    /**
+     * One message by id, from the whole TREE — unlike `getMessages()`, which returns only
+     * the currently active path.
+     *
+     * The distinction is load-bearing rather than a convenience: a retry or an edit moves
+     * the superseded reply off the active path while leaving it in the tree, so anything
+     * that looks a message up by id through `getMessages()` silently fails to find one that
+     * still exists. `_handleLifecycleError` did exactly that and destroyed it.
+     */
+    getMessage?(id: string): AparteMessage | undefined;
     addSiblingOf?(existingId: string, newMessage: AparteMessage): string | null;
     truncateFrom?(id: string): void;
     truncateResponsesAfter?(userMessageId: string): void;
@@ -388,6 +398,28 @@ export class AparteClient {
     }
 
     /**
+     * What every fresh user action does before it starts a turn.
+     *
+     * Clearing the abort flag has to happen at the START of the action rather than inside
+     * `_streamTurn`, which runs after the auth and file-reading awaits — a reset there
+     * erased an abort that arrived while the user was still waiting for a large attachment
+     * to be read.
+     *
+     * Cancelling the previous turn's tool controllers used to happen only on `aparte-send`.
+     * Retry and edit reset the flag and left them running, so a tool handler from the turn
+     * being superseded stayed alive — with its timeout still counting — while its reply was
+     * already off the active path. A cold audit found the asymmetry; three callers, one
+     * rule, no third copy to fall out of step.
+     */
+    private _beginUserTurn(): void {
+        this._isAborted = false;
+        for (const controller of this._activeToolControllers) {
+            controller.abort();
+        }
+        this._activeToolControllers.clear();
+    }
+
+    /**
      * Sets up the event listeners.
      * This is called once in the constructor.
      */
@@ -399,12 +431,7 @@ export class AparteClient {
             if (event.type !== 'aparte-send') return;
             // Scope guard: ignore events not for this instance
             if (!this._isForThisInstance(event)) return;
-            // Reset abort flag and cancel any tool calls from a previous turn
-            this._isAborted = false;
-            for (const controller of this._activeToolControllers) {
-                controller.abort();
-            }
-            this._activeToolControllers.clear();
+            this._beginUserTurn();
 
             void this._handleSend(event);
         };
@@ -717,7 +744,16 @@ export class AparteClient {
             return;
         }
 
-        // 3. Dispatch start so host can show loading state
+        /**
+         * Compaction began — the point for a host to show a spinner, since summarising a
+         * long conversation is a model call and takes as long as one.
+         *
+         * On `window` rather than on the chat, because compaction is a page-level operation
+         * a host triggers; and with no detail, because everything worth knowing arrives on
+         * the three events that follow it.
+         *
+         * @event aparte-compact-start
+         */
         window.dispatchEvent(new CustomEvent('aparte-compact-start'));
 
         try {
@@ -793,6 +829,16 @@ export class AparteClient {
             // the fallback for a host whose target exposes no clearAll.
             const clearAll = (target as { clearAll?: () => void }).clearAll;
             if (typeof clearAll === 'function') clearAll.call(target);
+            /**
+             * Empty every mounted transcript. A BROADCAST, and that is why it is the
+             * fallback rather than the path: every viewport on the page listens, so a
+             * host with two chats loses both. It goes out only when the target exposes
+             * no `clearAll()` of its own.
+             *
+             * No detail — there is nothing to say beyond "clear".
+             *
+             * @event aparte-reset
+             */
             else window.dispatchEvent(new CustomEvent('aparte-reset'));
 
             // Small delay to let clearAll() finish DOM cleanup
@@ -862,12 +908,8 @@ export class AparteClient {
 
     private async _handleRetry(event: CustomEvent): Promise<void> {
         const { messageId, targetId } = event.detail ?? {};
-        // A fresh user action clears a previous turn's abort, the same way the
-        // `aparte-send` handler does. It has to happen HERE, at the start of the
-        // action, rather than inside `_streamTurn` — which runs after the auth and
-        // file-reading awaits, so a reset there erased an abort that arrived while
-        // the user was still waiting for a large attachment to be read.
-        this._isAborted = false;
+        // The same opening every user action gets — see _beginUserTurn.
+        this._beginUserTurn();
 
         if (!messageId) return;
 
@@ -910,10 +952,7 @@ export class AparteClient {
 
         const chatMessages = this._messagesToChatMessages(historyMessages);
 
-        // Add system prompts
-        const systemMessages: import('../types/chat.js').AparteChatMessage[] = [];
-        const userSystemPrompt = this._config.resolveSystemPrompt();
-        if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
+        const systemMessages = this._systemMessages();
 
         // Retry must produce a DIFFERENT answer than the greedy (byte-identical)
         // re-run: temperature > 0 opts into sampling (the worker turns on
@@ -926,17 +965,31 @@ export class AparteClient {
     }
 
     /**
+     * The system messages a turn opens with: the app's own template, then the registered
+     * tools' `systemPrompt`s.
+     *
+     * A helper rather than three copies. The two lines it replaces were written out at each
+     * of the three turn entry points (send, retry, edit), which is exactly how the tool half
+     * would have been added to two of them and forgotten in the third — the same shape as
+     * the abort-flag asymmetry `_beginUserTurn` exists to prevent.
+     */
+    private _systemMessages(): AparteChatMessage[] {
+        const messages: AparteChatMessage[] = [];
+        const appPrompt = this._config.resolveSystemPrompt();
+        if (appPrompt) messages.push({ role: 'system', content: appPrompt });
+        const toolPrompts = this._config.resolveToolSystemPrompts();
+        if (toolPrompts) messages.push({ role: 'system', content: toolPrompts });
+        return messages;
+    }
+
+    /**
      * Handle aparte-edit — update the user message in place, truncate all subsequent
      * messages, then re-stream a fresh assistant response.
      */
     private async _handleEdit(event: CustomEvent): Promise<void> {
         const { messageId, content: newContent, targetId } = event.detail ?? {};
-        // A fresh user action clears a previous turn's abort, the same way the
-        // `aparte-send` handler does. It has to happen HERE, at the start of the
-        // action, rather than inside `_streamTurn` — which runs after the auth and
-        // file-reading awaits, so a reset there erased an abort that arrived while
-        // the user was still waiting for a large attachment to be read.
-        this._isAborted = false;
+        // The same opening every user action gets — see _beginUserTurn.
+        this._beginUserTurn();
 
         if (!messageId || newContent === undefined) return;
 
@@ -972,9 +1025,7 @@ export class AparteClient {
         const historyMessages = editIdx >= 0 ? allMessages.slice(0, editIdx + 1) : allMessages;
         const chatMessages = this._messagesToChatMessages(historyMessages);
 
-        const systemMessages: import('../types/chat.js').AparteChatMessage[] = [];
-        const userSystemPrompt = this._config.resolveSystemPrompt();
-        if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
+        const systemMessages = this._systemMessages();
 
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
@@ -1215,13 +1266,8 @@ export class AparteClient {
      * Build the initial messages array, prepending system prompts and conversation history.
      */
     private _buildMessages(userContent: string, target?: AparteChatTargetElement, parts?: AparteContentPart[]): AparteChatMessage[] {
-        const messages: AparteChatMessage[] = [];
-
-        // 1. User-defined system prompt (with resolved variables)
-        const userSystemPrompt = this._config.resolveSystemPrompt();
-        if (userSystemPrompt) {
-            messages.push({ role: 'system', content: userSystemPrompt });
-        }
+        // 1. The app's system prompt, then the tools' own — see `_systemMessages`.
+        const messages: AparteChatMessage[] = this._systemMessages();
 
         const historyOption = this.options.history ?? 'viewport';
         const viewportMessages: AparteMessage[] = target?.getMessages?.() ?? [];
@@ -1866,6 +1912,32 @@ export class AparteClient {
                     ...wholeParser.parse(response).segments,
                     ...wholeParser.finalize(),
                 ];
+                /*
+                 * And PROMOTED, for the same reason it is parsed.
+                 *
+                 * The streaming path below applies this twice — once as the fence closes,
+                 * once at finalize — and this branch applied it never. So a caller who set
+                 * `_meta.artifactHint` got an artifact from a streaming backend and a bare
+                 * code fence from a non-streaming one: one response, two products,
+                 * decided by which transport happens to be wired. That is precisely the
+                 * class of defect the engine parity suite exists to prevent, and it missed
+                 * this one because it never pairs a hint with a plain-string reply.
+                 */
+                const stringHint = baseRequest._meta?.artifactHint;
+                if (stringHint) {
+                    const codeIdx = parsed.findIndex((s) => s.type === 'code');
+                    if (codeIdx !== -1) {
+                        const codeSeg = parsed[codeIdx] as import('../types/segments.js').AparteCodeSegment;
+                        parsed[codeIdx] = {
+                            id: codeSeg.id,
+                            type: 'artifact',
+                            mimeType: stringHint.mimeType,
+                            artifactType: stringHint.kind,
+                            title: codeSeg.filename ?? stringHint.kind,
+                            content: codeSeg.content,
+                        } as import('../types/segments.js').AparteArtifactSegment;
+                    }
+                }
                 if (parsed.length > 0) {
                     for (const segment of parsed) targetElement.addSegment?.(segment);
                     this._updateMessage(targetElement, messageId, { status: 'completed' });
@@ -2355,7 +2427,25 @@ export class AparteClient {
              * partial answer plus an error is the truth; an empty bubble with an
              * error in it is a lie about what the model said.
              */
-            const rendered = target.getMessages?.()?.find(m => m.id === messageId)?.segments ?? [];
+            /*
+             * TREE-WIDE first, active path second.
+             *
+             * The append-not-replace rule above was implemented with `getMessages()`, which
+             * returns only the ACTIVE path — so it held for the message being streamed and
+             * silently became a full replace for any message that had left that path. A
+             * retry or an edit on an earlier bubble does precisely that to a reply still in
+             * flight: the reply stays in the tree, drops off the path, and the error handler
+             * then found no segments, passed `[errorSegment]`, and `updateMessage` —
+             * which resolves ids tree-wide — overwrote every token it had actually streamed.
+             *
+             * The bug was invisible because both halves were individually correct. Found by
+             * a cold audit; deterministic on `AparteBackendTransport`, whose parser turns a
+             * cut connection into a thrown error rather than a quiet close.
+             */
+            const rendered =
+                target.getMessage?.(messageId)?.segments
+                ?? target.getMessages?.()?.find(m => m.id === messageId)?.segments
+                ?? [];
             target.updateMessage(messageId, {
                 status: 'error',
                 segments: [...rendered, errorSegment],

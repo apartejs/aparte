@@ -2,10 +2,10 @@
 title: aparteGlobalConfig & core API
 description: The core JS API in one place — the aparteGlobalConfig singleton, AparteClient, and the transports — signatures straight from packages/core/src.
 sidebar:
-  order: 4
+  order: 1
 ---
 
-The [Elements](/reference/api/), [CSS variables](/reference/css-variables/) and
+The [Components](/components/), [CSS variables](/reference/css-variables/) and
 [`@aparte/engine`](/reference/engine/) pages are generated references for those surfaces.
 This page is the companion for the single biggest surface that has none: the **core JS
 API** — `aparteGlobalConfig`, `AparteClient`, and the transports. Every signature below is
@@ -100,6 +100,7 @@ HTML before it is injected via `innerHTML`.
 - `getSystemPromptTemplate(): string | undefined` — the raw template, unresolved.
 - `setSystemPromptVarsProvider(fn: AparteSystemPromptVarsProvider): void` — a function returning the `{{key}}` → value map, called at request time.
 - `resolveSystemPrompt(): string | null` — the template with all placeholders substituted, or `null` if none is set.
+- `resolveToolSystemPrompts(): string | null` — the registered tools' own `systemPrompt`s, joined in registration order, or `null` if none set one. `AparteClient` sends this as a system message of its **own**, after the app's template. Assembling a request by hand? Read it, or every registered tool's instructions are silently dropped.
 
 ### Locale
 
@@ -110,13 +111,14 @@ English ships in core as `APARTE_DEFAULT_LOCALE`; other languages are injected.
 - `getLocale(): AparteLocale` — the active locale.
 - `extendLocale(translations: Partial<AparteLocale>): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
 - `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `APARTE_DEFAULT_LOCALE`.
+- `resetLocale(): void` — go back to `APARTE_DEFAULT_LOCALE`, dropping anything `setLocale`/`extendLocale` put there.
 
 See the [Localization](/guides/localization/) guide.
 
 ### Icons & skeleton
 
 - `setIconProvider(provider: AparteIconProvider): void` — a set of icon functions (`() => string` HTML each), e.g. a FontAwesome bridge.
-- `getIconProvider(): AparteIconProvider` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`.
+- `getIconProvider(): Required<AparteIconProvider>` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`. `Required<>` is the point: every key resolves, so a caller never null-checks a glyph.
 - `getIcon(name: AparteIconName): string` — HTML for one icon by name, falling back to the built-in default.
 - `setSkeletonProvider(provider: AparteSkeletonProvider): void` — a custom loading-state generator (`getSkeleton(type) => string`).
 - `getSkeleton(type: AparteSkeletonType): string` — skeleton HTML for a type (`message` / `code` / `thinking` / `input` / `list` / `text`), via the provider or a minimal built-in fallback.
@@ -139,13 +141,13 @@ merged registry, a `zones` parameter picks where each appears.
 The affordances core renders but cannot complete — it only asks, through a DOM event, and
 your app does the work. Declare what you handle; the rest isn't offered.
 
-- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **four**:
+- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **three**:
   - `attachmentPreview` — image tiles ask for a lightbox via `aparte-attachment-preview`.
   - `artifactRedownload` — the download button on a **binary** artifact → `aparte-artifact-redownload`.
   - `artifactRehydrate` — re-generating a **persisted** binary artifact when a saved conversation is re-opened → `aparte-artifact-ready`, dispatched on mount rather than at the end of a stream. Off by default for a stronger reason than the others: it is an automatic dispatch nobody asked for, carrying model-authored content the receiving app is expected to run. Reloading a conversation would otherwise re-execute whatever a prompt injection had persuaded the model to persist, on every reload.
 
-  All four default to `false`.
-- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all four fields present. `Required<…>` on purpose: adding a fifth handler then fails to compile until every reader handles it, which is how the fourth came to be added at all.
+  All three default to `false`.
+- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all three fields present. `Required<…>` on purpose: adding a fourth handler then fails to compile until every reader handles it, which is how the third came to be added at all.
 - `APARTE_DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.
@@ -231,7 +233,22 @@ See the [Conversation persistence](/guides/conversation-persistence/) guide.
 
 - `setElicitationPresenter(presenter: AparteElicitationPresenter | null): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default.
 - `getElicitationPresenter(): AparteElicitationPresenter | undefined` — the registered presenter, if any.
+- `removeElicitationPresenter(presenter: AparteElicitationPresenter): void` — withdraw ONE presenter by identity, leaving the others registered. This is what an unmounting `<aparte-elicitation>` needs: `setElicitationPresenter(null)` clears the slot and takes every other mounted chat's presenter with it. Removing one that is not registered is a no-op.
+- `setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked' }): void` — how the built-in panel presents a request: whether a free-text "other" answer is offered alongside the choices, and whether questions come one at a time or all at once.
+- `getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' }` — the options in force, both resolved.
+- `setElicitationFieldRenderer(fn: AparteElicitationFieldRenderer | null): void` — draw one field of the panel yourself; `null` restores the built-in.
+- `getElicitationFieldRenderer(): AparteElicitationFieldRenderer | undefined` — the registered field renderer, if any.
 - `requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult>` — ask the user for typed input mid-run; resolves `{ action: 'accept' | 'decline', ... }`, or **rejects** with `AparteElicitationAbortError` when the request ends without an answer (a stopped turn, a fired signal, the question taken away, or no presenter mounted — `err.reason` tells the last one apart from the others). One request reaches the presenter at a time; a second one waits.
+
+### Segment defaults
+
+Values baked into a segment as it is inserted, so a renderer does not have to be told the
+same thing on every message. They are read at insertion and not re-read afterwards, so
+setting them later does not change segments already on screen.
+
+- `setSegmentDefaults(type: string, defaults: AparteSegmentDefaults): void` — defaults for a segment type, core's own or one of yours.
+- `getSegmentDefaults(type: string): AparteSegmentDefaults | undefined` — what is registered for a type.
+- `clearSegmentDefaults(type: string): void` — drop them for a type.
 
 ### Subscribe & reset
 
@@ -263,6 +280,7 @@ Constructor options (all optional):
 | `keyResolver` | `(providerId: string) => string \| Record<string,string> \| Promise<... \| undefined \| null> \| undefined \| null` | Resolve the API key/config for a provider. |
 | `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`. |
 | `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: drop everything. |
+| `fileInjectFilter` | `(file: File) => boolean` | Decide which attached files are read and sent to the model. Return `false` to keep one out of the request — e.g. `(f) => !/(^\|\.)env$\|\.(pem\|key)$/i.test(f.name)`. Without one, every attachment is sent. |
 | `streamRunner` | `AparteStreamRunner` | Delegate the agentic loop to a headless runner (e.g. `@aparte/engine`'s `runStreamAgent`) instead of the built-in inline loop. |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |
 | `autoRegister` | `boolean` (default `true`) | Register core's default segment renderers. Rarely needed either way — the built-ins install themselves on first use; set `false` (at startup) to keep them out and register your own. |
@@ -280,7 +298,7 @@ Constructor options (all optional):
 - `start(): void` — attach the `aparte-send` / `aparte-abort` / `aparte-compact` / `aparte-retry` / `aparte-edit` listeners on `window`. Nothing streams before this is called.
 - `stop(): void` — remove all listeners.
 - `abort(): void` — abort the current streaming response and all active tool calls; dispatches `aparte-message-aborted` on the target element.
-- `compact(): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
+- `compact(targetId?: string): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary. The `targetId` compacts ONE chat when several share a client, which is what `scopeToTargetId` exists for (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
 
 ### The turn lifecycle events
 
@@ -289,15 +307,11 @@ host's `targetId` so several chats on one page stay isolated. All four are in th
 typed event map, so `e.detail` is typed on an `<aparte-chat>` or a viewport — and,
 since 0.8.0, under the `node` export condition too.
 
-| Event | Detail | Fired when |
-|---|---|---|
-| `aparte-message-start` | `AparteMessageStartEventDetail` — `{ targetId?, messageId }` | the assistant turn begins, before the first token |
-| `aparte-message-done` | `AparteMessageDoneEventDetail` — `{ targetId?, messageId, usage? }` | the turn completed normally. `usage` carries the token counts when the provider reported them |
-| `aparte-message-aborted` | `AparteMessageAbortedEventDetail` | the user pressed Stop, or `abort()` was called |
-| `aparte-message-error` | `AparteMessageErrorEventDetail` | the turn failed. What already streamed stays rendered |
-| `aparte-artifact-start` | `AparteArtifactStartEventDetail` | an `<artifact>` block opened mid-stream |
-| `aparte-artifact-delta` | `AparteArtifactDeltaEventDetail` — carries a byte progress count | more of that artifact arrived |
-| `aparte-artifact-ready` | `AparteArtifactReadyEventDetail` | the artifact is complete. For a binary kind this is also the app's cue to generate the file — see the handshake above |
+The seven are `aparte-message-start`, `-done`, `-aborted` and `-error`, plus
+`aparte-artifact-start`, `-delta` and `-ready`. Their detail types and what each one
+means are in the [events reference](/reference/events/#on-the-chat-host), which is
+generated from the source — this page used to repeat them in a table of its own, and a
+second copy of a list is a second copy to keep in step.
 
 Use them for what the chat itself does not do: a progress bar, a token-cost meter,
 analytics, or disabling an unrelated control while a turn is in flight.

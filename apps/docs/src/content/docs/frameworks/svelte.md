@@ -14,6 +14,12 @@ npm install @aparte/svelte @aparte/core svelte
 
 `@aparte/core` and `svelte` are **peer dependencies**.
 
+:::caution[On the server]
+This wrapper carries **no** server guard. Under SvelteKit, keep the import on the client — a custom element extends `HTMLElement` and cannot be constructed during an SSR pass. `@aparte/core` itself imports cleanly on a server through its DOM-free entry: see [On the server](/frameworks/elements/#on-the-server).
+:::
+
+
+
 ## `<AparteChat>` + `createAparteChat`
 
 The `createAparteChat` store factory owns the `messages` store and mirrors the imperative API, so you
@@ -51,6 +57,8 @@ Slots are named slots: `empty-state`, `composer`, `above-composer`,
 the `bubble` slot (`<div slot="bubble" let:message>`) for a fully custom bubble. Every imperative
 method (streaming, branch/edit, `scrollToBottom`) is mirrored on the `chat` store and reachable via
 `bind:this`.
+
+The other five are `on:action`, `on:messagesChange`, `on:messageAppended`, `on:typingChange` and `on:conversationCreated`. Svelte re-wraps every payload in a `CustomEvent`, so read it from `event.detail` — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 
 ## Wiring a real model
 

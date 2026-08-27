@@ -177,7 +177,7 @@ and Angular an unknown slot name renders **nothing, silently**, which is why thi
 exists. Pass one `toolbar` and order your controls yourself — see
 [The composer toolbar](/guides/customization/#the-composer-toolbar).
 
-**The row is empty.** `<aparte-composer-toolbar>` reflects `data-empty` while it holds no
+**The row is empty.** [`<aparte-composer-toolbar>`](/components/input/aparte-composer/) reflects `data-empty` while it holds no
 content, and the stylesheet hides it then — an empty row must not draw its separator. Text
 counts as content, so a bare token count is fine; whitespace and comments do not. If you
 expected something in it and see nothing, inspect the element: `data-empty` present means
@@ -231,7 +231,7 @@ declare class AparteError extends Error {
 **How it surfaces:** `AparteClient` catches whatever the transport/provider throws, wraps
 it with `AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR)` (vendor errors don't
 already arrive pre-classified, so most surface as `UNKNOWN_ERROR` unless a provider adapter
-throws a more specific one), renders it as the message's `error` segment
+throws a more specific one), renders it as the message's [`error` segment](/segments/error/)
 (`content` = `error.message`, `details` = `error.code`), and dispatches an
 `aparte-message-error` `CustomEvent` on the target element with
 `{ messageId, error }` — `error` is the full `AparteError`, so `error.code`,

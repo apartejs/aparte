@@ -1,0 +1,66 @@
+/*
+ * aparté — the thumbnail. A media tile: a fixed square that clips whatever is dropped
+ * into it, with room for a control in a corner.
+ *
+ *     <span class="aparte-thumbnail aparte-thumbnail--lg"><img class="aparte-thumbnail__image"
+ *           src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 3'%3E%3Crect width='2' height='3' fill='%23b07d33'/%3E%3C/svg%3E"
+ *           alt="A screenshot"></span>
+ *     <span class="aparte-thumbnail"><span class="aparte-thumbnail__ext">PDF</span></span>
+ *     <span class="aparte-thumbnail aparte-thumbnail--sm"><span class="aparte-thumbnail__ext">MD</span></span>
+ *
+ * Distinct from `.aparte-avatar`, which is the same shape for a different reason: an
+ * avatar stands for a PERSON and falls back to initials, so it carries type styling and
+ * a text colour. A thumbnail stands for a FILE and falls back to an icon or a label, so
+ * it carries none of that — and it is `position: relative` because a remove button or a
+ * badge sits on it, which an avatar never has.
+ */
+
+.aparte-thumbnail {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Tiles of different sizes in one row line up by their TOP edge. As inline boxes
+     they aligned on the baseline instead, which is the bottom edge here — so a large
+     tile beside two small ones pushed the small ones down and the row read as three
+     unrelated things rather than one strip. An attachment strip mixes sizes by nature
+     (a wide screenshot next to a file chip), so this is the common case, not the
+     exception. Same family as the `vertical-align: middle` the form controls needed,
+     opposite value: a control belongs ON its line of text, a tile starts a row. */
+  vertical-align: top;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  inline-size: var(--aparte-thumbnail-size);
+  block-size: var(--aparte-thumbnail-size);
+  border: var(--aparte-border-width) solid var(--aparte-thumbnail-border);
+  border-radius: var(--aparte-thumbnail-radius);
+  background: var(--aparte-thumbnail-bg);
+  /* The tile is the frame: anything larger is cropped by it rather than allowed to
+     push the row it sits in. */
+  overflow: hidden;
+}
+
+.aparte-thumbnail--sm { --aparte-thumbnail-size: var(--aparte-thumbnail-size-sm); }
+.aparte-thumbnail--lg { --aparte-thumbnail-size: var(--aparte-thumbnail-size-lg); }
+
+/* `cover` rather than `contain`: a tile of mixed aspect ratios reads as a grid only if
+   every one of them fills its frame. */
+.aparte-thumbnail__image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* A label instead of an image — a file extension, a page count. */
+.aparte-thumbnail__label {
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (forced-colors: active) {
+  .aparte-thumbnail { border-color: currentColor; }
+}

@@ -12,7 +12,7 @@ import { AparteIconProvider, AparteIconName, APARTE_DEFAULT_ICON_FALLBACKS } fro
 import { AparteAvatarProvider } from './avatar-provider.js';
 import { AparteLocale, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
-import { AparteSkeletonProvider, AparteSkeletonType } from './skeleton-provider.js';
+import { AparteSkeletonProvider, AparteSkeletonType, APARTE_DEFAULT_SKELETON_FALLBACKS } from './skeleton-provider.js';
 import type { AparteStatusRenderer } from './status-renderer.js';
 import type { AparteErrorRenderer } from './error-renderer.js';
 import type { AparteAttachmentRenderer } from './attachment-renderer.js';
@@ -1035,6 +1035,27 @@ export class AparteConfig {
         return Array.from(this._tools.values()).map(e => e.tool);
     }
 
+    /**
+     * The registered tools' own `systemPrompt`s, joined, or `null` if none set one.
+     *
+     * `AparteTool.systemPrompt` has always been documented as "injected automatically when
+     * this tool is registered", on the type and in the tools guide — and nothing read it.
+     * A field that is documented and dead is worse than one that does not exist: a caller
+     * writes it, sees the tool work (the model has the schema either way), and never learns
+     * that the sentence explaining WHEN to reach for it was dropped. `@aparte/plugin-ask-user`
+     * sets one, so a shipped plugin was losing its instructions.
+     *
+     * Registration order, blank line between, because two tools' instructions are two
+     * paragraphs and not one run-on sentence. The app's own template stays a separate
+     * message — see `resolveSystemPrompt`, which is about the app and not about the tools.
+     */
+    resolveToolSystemPrompts(): string | null {
+        const prompts = Array.from(this._tools.values())
+            .map((entry) => entry.tool.systemPrompt?.trim())
+            .filter((prompt): prompt is string => Boolean(prompt));
+        return prompts.length ? prompts.join('\n\n') : null;
+    }
+
     /** Get the handler for a tool by name */
     getToolHandler(name: string): AparteToolHandler | undefined {
         return this._tools.get(name)?.handler;
@@ -1342,18 +1363,15 @@ export class AparteConfig {
         return `<pre><code>${escapeHtml(code)}</code></pre>`;
     }
 
+    /**
+     * ONE owner. This used to hold a second, hand-written copy of
+     * `APARTE_DEFAULT_SKELETON_FALLBACKS`, and the two had already drifted — `message`
+     * said "Loading message…" here and "Loading…" there, `text` the reverse. A duplicate
+     * that disagrees with its original is worse than either: whichever one you read, you
+     * cannot tell which one ships.
+     */
     private _defaultSkeletonRenderer(type: AparteSkeletonType): string {
-        // Minimal fallback - no CSS animations, no heavy styling
-        // Register a richer skeleton via setSkeletonProvider for shimmer effects
-        const fallbacks: Record<AparteSkeletonType, string> = {
-            message: '<div class="aparte-skeleton-fallback" style="padding:16px;color:#9ca3af;">Loading message...</div>',
-            code: '<div class="aparte-skeleton-fallback" style="padding:16px;background:#1e293b;color:#64748b;border-radius:8px;">Loading code...</div>',
-            text: '<div class="aparte-skeleton-fallback" style="padding:8px;color:#9ca3af;">Loading...</div>',
-            thinking: '<div class="aparte-skeleton-fallback" style="padding:8px;color:#9ca3af;">Thinking...</div>',
-            input: '<div class="aparte-skeleton-fallback" style="padding:12px;color:#9ca3af;">...</div>',
-            list: '<div class="aparte-skeleton-fallback" style="padding:16px;color:#9ca3af;">Loading items...</div>',
-        };
-        return fallbacks[type] || fallbacks.text;
+        return APARTE_DEFAULT_SKELETON_FALLBACKS[type] ?? APARTE_DEFAULT_SKELETON_FALLBACKS.text;
     }
 
 }

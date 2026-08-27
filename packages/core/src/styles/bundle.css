@@ -1,10 +1,51 @@
 /*
  * Source aggregate of every stylesheet the built `dist/index.css` bundles.
- * Exposed as the `@aparte-workspace/source` variant of the `./styles.css` export
- * so dev consumers (the docs) get theme + component CSS straight from source with
- * HMR, matching what `src/index.ts` imports. Published builds still ship
- * `dist/index.css` (the export's `default`).
+ * Exposed as the `@aparte-workspace/source` variant of the `./styles.css` export so dev
+ * consumers (the docs) get theme + component CSS straight from source with HMR,
+ * matching what `src/index.ts` imports. Published builds still ship `dist/index.css`
+ * (the export's `default`).
+ *
+ * THE ORDER HERE MUST EQUAL src/index.ts, import for import — it is the same cascade,
+ * and `check:derived-vars` asserts it. The assertion exists because the failure is
+ * silent in a way nobody would look for: this file had fallen one sheet behind
+ * (`display/icon.css`), and the only symptom was that the docs site — the one consumer
+ * that reads CSS from source — rendered without it, on a machine where everything
+ * built and every test passed.
  */
-@import './aparte.css';
-@import '../primitives/select/select.css';
-@import '../primitives/progress-spinner/progress-spinner.css';
+@import './theme.css';
+@import './base.css';
+@import './button.css';
+@import './field.css';
+@import './display/avatar.css';
+@import './display/icon.css';
+@import './display/badge.css';
+@import './display/tag.css';
+@import './display/thumbnail.css';
+@import './display/spinner.css';
+@import './display/progress.css';
+@import './display/skeleton.css';
+@import './display/divider.css';
+@import './display/alert.css';
+@import './display/card.css';
+@import './display/kbd.css';
+@import './surface/tabs.css';
+@import './surface/accordion.css';
+@import './surface/menu.css';
+@import './surface/popover.css';
+@import './surface/tooltip.css';
+@import './primitives/select.css';
+@import './primitives/progress-spinner.css';
+@import './components/shell.css';
+@import './components/bubble.css';
+@import './components/composer.css';
+@import './segment/thinking.css';
+@import './segment/code.css';
+@import './segment/tool-call.css';
+@import './segment/error.css';
+@import './segment/pipeline.css';
+@import './segment/text.css';
+@import './segment/artifact.css';
+@import './components/elicitation.css';
+@import './components/conversation.css';
+@import './prose.css';
+@import './responsive.css';

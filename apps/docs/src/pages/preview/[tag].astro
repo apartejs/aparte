@@ -1,0 +1,27 @@
+---
+/**
+ * One standalone document per element, for `ElementPreview` to load in its frame.
+ *
+ * The markup is the element's own `@example` from its class JSDoc, verbatim, which is the
+ * same string the page prints as code directly underneath. One source, so the demo cannot
+ * drift from the example it illustrates.
+ *
+ * The example's own `<script>` is split out and handed to `PreviewDocument`, which runs it
+ * after the library has loaded — the order a real app has, and the reason a script calling
+ * a method on the element works here at all. See that file for the failure that taught it.
+ */
+import { ELEMENT_PREVIEWS } from '../../generated/element-previews';
+import PreviewDocument from '../../components/PreviewDocument.astro';
+
+export function getStaticPaths() {
+    return ELEMENT_PREVIEWS.map((preview) => ({ params: { tag: preview.tag }, props: preview }));
+}
+
+const { tag, name, html } = Astro.props;
+
+const SCRIPT = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+const scripts = [...html.matchAll(SCRIPT)].map((match) => match[1] ?? '');
+const markup = html.replace(SCRIPT, '').trim();
+---
+
+<PreviewDocument title={`${name} (<${tag}>) — live preview`} markup={markup} scripts={scripts} />

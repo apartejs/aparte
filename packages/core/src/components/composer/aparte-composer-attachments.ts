@@ -2,24 +2,51 @@ import type { AparteComposer } from './aparte-composer.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { escapeAttr } from '../../utils/escape.js';
 
-/** ✗ glyph for the hover remove button. */
-const REMOVE_ICON =
-    '<svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">' +
-    '<path d="M9.5 3.205 8.795 2.5 6 5.295 3.205 2.5 2.5 3.205 5.295 6 2.5 8.795l.705.705' +
-    'L6 6.705l2.795 2.795.705-.705L6.705 6z"/></svg>';
 
 /**
  * Renders a square thumbnail tile for each file attached to the root composer.
  *
- * @element aparte-composer-attachments
  * Image files show the actual picture; other files show an extension badge.
  * The filename and a remove (✗) button surface on hover. Clicking an image asks
  * the app to open it full-size (`aparte-attachment-preview`) — only when the app
  * declared `attachmentPreview` via `aparteGlobalConfig.setHostHandlers()`.
- * Automatically hidden when there are no attachments.
- * Must be a descendant of <aparte-composer>.
+ * Automatically hidden when there are no attachments. It reads the nearest
+ * <aparte-composer> ancestor; without one it renders nothing and stays hidden.
+ *
+ * This is the PENDING strip: what the user has attached and not yet sent. It mirrors
+ * `composer.attachments` and rewrites itself on every `attachments-change` — it is not the
+ * strip under a sent message, which the bubble draws with the same `.aparte-thumb` tile
+ * rules (minus the remove button), so a tile variable set at the theme root reaches both
+ * strips, while one set on this element reaches only this one. It owns its `innerHTML` and
+ * therefore projects nothing:
+ * children written inside it are discarded on the first render. Removing a tile calls
+ * `root.removeAttachment()` rather than mutating a list of its own, and the image previews
+ * are blob URLs minted per render and revoked on the next one and on disconnect.
+ *
+ * @element aparte-composer-attachments
  *
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked; the app opens it full-size, and only if it declared `attachmentPreview`.
+ *
+ * @cssprop [--aparte-attachments-max-height=140px] - Height cap on the strip; past it the
+ *   tiles scroll instead of pushing the composer up.
+ * @cssprop [--aparte-attachment-image-size=56px] - Tile edge. The stylesheet sets 56px on
+ *   this element (the `:root` default is 72px, and the sent-message strip re-sets 40px on
+ *   itself), so a theme-level value reaches neither strip — target
+ *   `aparte-composer-attachments` to resize these tiles.
+ * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Tile corner radius.
+ * @cssprop [--aparte-attachment-chip-bg=var(--aparte-surface-2)] - Tile background, seen
+ *   behind a non-image file.
+ * @cssprop [--aparte-attachment-chip-border=var(--aparte-border)] - Tile border colour.
+ * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename colour on the hover overlay.
+ * @cssprop [--aparte-thumb-name-scrim=linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0))] - Background behind the filename; a bottom-up black
+ *   gradient by default, so the name stays legible over any picture.
+ * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of that overlay.
+ * @cssprop [--aparte-thumb-remove-size=18px] - Diameter of the ✗ button.
+ * @cssprop [--aparte-thumb-remove-inset=3px] - Its inset from the tile's top and right
+ *   edges (physical `right`, so it does not flip in a right-to-left locale).
+ * @cssprop [--aparte-thumb-remove-bg=rgba(0, 0, 0, 0.6)] - Its background.
+ * @cssprop [--aparte-thumb-remove-bg-hover=rgba(0, 0, 0, 0.85)] - Its hover background.
+ * @cssprop [--aparte-thumb-remove-color=#ffffff] - Its glyph colour.
  *
  * @example
  * <!-- The strip hides itself while nothing is attached. Pair it with the picker, and
@@ -83,17 +110,17 @@ export class AparteComposerAttachments extends HTMLElement {
         this.innerHTML = files.map((file) => {
             const name = this._escape(file.name);
             const remove =
-                `<button class="aparte-thumb__remove" type="button" ` +
-                `aria-label="Remove ${name}">${REMOVE_ICON}</button>`;
+                `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-thumb__remove" type="button" ` +
+                `aria-label="Remove ${name}">${resolveConfig(this).getIcon('close')}</button>`;
 
             if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);
                 this._objectUrls.push(url);
-                return `<div class="aparte-thumb aparte-thumb--image" title="${escapeAttr(name)}">` +
+                return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${escapeAttr(name)}">` +
                     `<img class="aparte-thumb__img" src="${escapeAttr(url)}" alt="${escapeAttr(name)}" />` +
                     `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
             }
-            return `<div class="aparte-thumb aparte-thumb--file" title="${escapeAttr(name)}">` +
+            return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${escapeAttr(name)}">` +
                 `<span class="aparte-thumb__ext">${this._escape(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');

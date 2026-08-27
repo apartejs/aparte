@@ -1,0 +1,36 @@
+/* =========================================
+   aparte-kbd — a keyboard key
+   =========================================
+   The monospace stack is --aparte-code-font-family, reused rather than declared
+   again: it is already the library's one answer to "what font is code", and a
+   key label is exactly that question asked a second time.
+
+       Press <kbd class="aparte-kbd">Ctrl</kbd> + <kbd class="aparte-kbd">K</kbd> to search,
+       or <kbd class="aparte-kbd">Esc</kbd> to close.
+   */
+
+.aparte-kbd {
+  display: inline-flex;
+  /* A key chip sits IN a sentence, so it aligns to that sentence. As an `inline-flex`
+     box its baseline is its bottom margin edge, which pushed it above the text it was
+     printed among — "Press Ctrl + K to search" read as if the keys were superscript.
+     Third instance of the same defect today: the form controls needed `middle`, the
+     thumbnail row needed `top`, and this needs `middle` too, for the same reason each
+     time — an inline box with no text of its own has no baseline worth aligning to. */
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--aparte-kbd-min-width);
+  padding: var(--aparte-kbd-padding);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  /* A thicker bottom edge is the whole bevel — a raised key, with no shadow to
+     go blank under forced-colors or a reduced-transparency setting. */
+  border-block-end-width: var(--aparte-kbd-border-bottom-width);
+  border-radius: var(--aparte-kbd-radius);
+  background: var(--aparte-kbd-bg);
+  color: var(--aparte-text-secondary);
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-kbd-font-size);
+  line-height: var(--aparte-line-height-none);
+}
+

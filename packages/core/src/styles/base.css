@@ -1,0 +1,131 @@
+/*
+ * aparté — Shared odds and ends — the screen-reader helper, the dot, the spacers.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+/* ─── Bottom spacer ───────────────────────────────────────────────────────── */
+
+.aparte-bottom-spacer {
+  flex-shrink: 0;
+  height: 0px;
+}
+
+.aparte-header {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-4);
+  margin-bottom: var(--aparte-space-3);
+}
+
+/* =========================================
+   Action Bar
+   ========================================= */
+
+.aparte-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-action-bar-gap);
+  margin-top: var(--aparte-space-3);
+  min-height: var(--aparte-action-bar-btn-size);
+}
+
+/* Action slots */
+.aparte-actions-left,
+.aparte-actions-right {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  flex-shrink: 0;
+}
+
+.aparte-dots {
+  display: flex;
+  align-items: center;
+}
+
+/* Screen-reader-only text. Used by the bubble's waiting indicator, whose dots are
+   decorative: the state is conveyed by aria-busy + this localized label. */
+.aparte-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.aparte-dot {
+  width: var(--aparte-status-dot-size);
+  height: var(--aparte-status-dot-size);
+  background: var(--aparte-status-color);
+  border-radius: 50%;
+  animation: aparte-pulse var(--aparte-duration-pulse) infinite ease-in-out;
+}
+
+/* =========================================
+   aparte-conversation-list
+   ========================================= */
+
+aparte-conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-conv-list-gap);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Link ────────────────────────────────────────────────────────────────────
+   A standalone link. Prose already styles the links a model writes; this is the one
+   an application places itself, in a toolbar or an empty state, where no prose
+   context applies.
+
+   The underline is offset and thinned rather than removed: an underline is the only
+   affordance a link has that survives both colour blindness and forced-colors, so
+   dropping it on a text link removes the only cue some readers get. */
+.aparte-link {
+  color: var(--aparte-link-color);
+  text-decoration: underline;
+  text-decoration-thickness: var(--aparte-link-underline-thickness);
+  text-underline-offset: var(--aparte-link-underline-offset);
+  border-radius: var(--aparte-radius-xs);
+  transition: color var(--aparte-duration-fast) var(--aparte-ease);
+}
+.aparte-link:hover { color: var(--aparte-link-color-hover); }
+.aparte-link:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-btn-focus-offset);
+}
+/* Quiet — for a link inside a dense row, where a coloured one would shout. It keeps
+   the underline, which is the part that carries the meaning. */
+.aparte-link--muted { color: var(--aparte-text-muted); }
+.aparte-link--muted:hover { color: var(--aparte-text); }
+
+/* ─── The library's shared motion ─────────────────────────────────────────────
+   Two keyframes for everything that moves on its own, declared HERE because this is
+   where the first of them is used and because a keyframe that lives far from its
+   consumer is a keyframe that gets re-declared: there were three identical rotations
+   under three names (`aparte-spinner-spin`, `aparte-spin`, `aparte-icon-spin`) and a
+   fourth, `tool-spin`, that nothing used at all — and which, being unprefixed, would
+   have shadowed a rule of the same name on the consumer's own page.
+
+   `aparte-spinner-rotate` in the progress spinner is deliberately NOT folded in: it
+   starts at -90deg because an SVG arc's zero is at three o'clock, so it is a different
+   curve, not a differently-named copy of this one. */
+
+/* One pulse for every dot the library shows. There were three keyframes doing the
+   same thing at slightly different rhythms; the pipeline's travelling wave comes from
+   the animation-delay on its second and third dot, not from a skewed curve. */
+@keyframes aparte-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50%      { opacity: 1;   transform: scale(1.1);  }
+}
+
+/* One rotation, for every spinner and every spinning glyph. */
+@keyframes aparte-spin {
+  to { transform: rotate(360deg); }
+}

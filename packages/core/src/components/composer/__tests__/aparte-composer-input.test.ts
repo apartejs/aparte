@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import '../aparte-composer.js';
 import '../aparte-composer-input.js';
 import type { AparteComposerInput } from '../aparte-composer-input.js';
+import type { AparteSendEventDetail } from '../../../types/events.js';
 
 function mount() {
     const composer = document.createElement('aparte-composer');
@@ -60,6 +61,54 @@ describe('aparte-composer-input — getValue preserves newlines', () => {
         const { input } = mount();
         input.setValue('a\nb');
         expect(input.getValue()).toBe('a\nb');
+    });
+});
+
+describe('aparte-composer-input — the editor shows what the composer says', () => {
+    it('renders a value set programmatically on the composer', () => {
+        const { composer, input } = mount();
+        (composer as unknown as { setValue(v: string): void }).setValue('prefilled');
+        expect(input.getValue()).toBe('prefilled');
+    });
+
+    it('does NOT rewrite the editor while the user types', () => {
+        // The reason the old guard existed. `_handleInput` pushes every keystroke up
+        // to the composer, which announces it back; an unconditional write would
+        // reassign `textContent` on each character and send the caret to the start.
+        // Asserted mechanically rather than on the caret: a write goes through
+        // `textContent`, which can never produce a `<br>`, so a surviving `<br>`
+        // proves the editor was left alone.
+        const { input, editor } = mount();
+        editor.innerHTML = 'a<br>b';
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(editor.querySelector('br')).not.toBeNull();
+        expect(input.getValue()).toBe('a\nb');
+    });
+
+    it('still empties the editor after a submit', () => {
+        // `mount()` stubs submit so the Enter tests can observe the call; here the
+        // real one has to run, because the clear is its last statement.
+        const { composer, input, editor, submit } = mount();
+        submit.mockRestore();
+        editor.textContent = 'hi';
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        (composer as unknown as { submit(): void }).submit();
+        expect(input.getValue()).toBe('');
+    });
+
+    it('submits attachments with no text, and leaves the empty editor alone', () => {
+        const { composer, input, submit } = mount();
+        submit.mockRestore();
+        const sends: AparteSendEventDetail[] = [];
+        composer.addEventListener('aparte-send', (e) => sends.push((e as CustomEvent<AparteSendEventDetail>).detail));
+        (composer as unknown as { addAttachments(f: File[]): void }).addAttachments([new File(['x'], 'a.txt')]);
+
+        (composer as unknown as { submit(): void }).submit();
+
+        expect(sends).toHaveLength(1);
+        expect(sends[0]?.content).toBe('');
+        expect(sends[0]?.files).toHaveLength(1);
+        expect(input.getValue()).toBe('');
     });
 });
 

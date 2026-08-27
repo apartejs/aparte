@@ -1,0 +1,37 @@
+/* =========================================
+   aparte-popover — a floating box, and nothing else
+   =========================================
+   Deliberately just a box. A popover's content is arbitrary — a form, a colour picker, a
+   card of details — so this supplies the surface, border and elevation that say "this is
+   floating above the page" and leaves the layout of what is inside, and where the box
+   itself sits, entirely to the caller.
+
+       <div class="aparte-popover" role="dialog" aria-label="Filters">
+         <label class="aparte-field-label" for="q">Search</label>
+         <input class="aparte-field" id="q" />
+         <button class="aparte-btn aparte-btn--primary aparte-btn--solid">Apply</button>
+       </div>
+
+   `--aparte-popover-max-width` is the one cap it imposes, so arbitrary content cannot
+   grow the box unbounded. */
+.aparte-popover {
+  /* Component-local tokens, same reasoning as the menu's above: a cap that
+     keeps arbitrary caller content (a form, a colour picker) from growing
+     unbounded, and the same elevation recipe as every other dropdown-class
+     surface in the library. */
+  --aparte-popover-max-width: 320px;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-3);
+  max-width: var(--aparte-popover-max-width);
+  padding: var(--aparte-space-5);
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-lg);
+  box-shadow: var(--aparte-popover-shadow);
+  color: var(--aparte-text);
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-line-height-normal);
+  z-index: var(--aparte-z-dropdown);
+}

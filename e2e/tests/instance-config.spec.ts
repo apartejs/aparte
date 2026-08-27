@@ -147,10 +147,11 @@ test('answering the panel resumes the turn and the answer reaches the model', as
     const panel = page.locator(`${LEFT} ${PANEL}`);
     await expect(panel).toBeVisible();
 
-    // Pick the first option, then submit through the composer's send button —
-    // which the panel takes over while it is open.
+    // ONE gesture: the click IS the answer. A single-choice question renders command
+    // buttons, not radios waiting on a submit, so the composer's send button never enters
+    // this flow — it is disabled again the moment the panel closes. Same gesture as
+    // elicitation.spec.ts, which is where the behaviour itself is asserted.
     await panel.getByText(MOCK_ASK_OPTIONS[0], { exact: false }).first().click();
-    await left.sendButton.click();
 
     // The panel closes and the turn continues: the mock answers the SECOND request
     // with plain text, which is the reply that lands.

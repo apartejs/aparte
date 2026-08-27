@@ -11,6 +11,17 @@ function select(panel: HTMLElement, value: string): void {
     input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** The options of a single question, which are buttons and not inputs. */
+const commands = (panel: HTMLElement): HTMLButtonElement[] =>
+    Array.from(panel.querySelectorAll<HTMLButtonElement>('.aparte-elic-option--command'));
+
+const commandLabels = (panel: HTMLElement): (string | null | undefined)[] =>
+    commands(panel).map((b) => b.querySelector('.aparte-elic-option-title')?.textContent);
+
+function clickOption(panel: HTMLElement, label: string): void {
+    commands(panel).find((b) => b.querySelector('.aparte-elic-option-title')?.textContent === label)!.click();
+}
+
 describe('buildElicitationPanel', () => {
     it('renders the message', () => {
         const p = buildElicitationPanel('Pick one', { type: 'enum', options: [{ value: 'a' }] }, noop);
@@ -197,11 +208,15 @@ describe('buildElicitationPanel', () => {
             expect(p.isComplete()).toBe(true);
         });
 
-        it('a single question only ever submits', () => {
-            const p = buildElicitationPanel('?', { type: 'enum', options: [{ value: 'a' }] }, noop);
-            expect(p.mode()).toBe('submit');
-            p.proceed();   // a no-op, and must not throw
-            expect(p.mode()).toBe('submit');
+        it('a single question never advances — there is no next', () => {
+            // A single CHOICE has no button at all: the click is the answer.
+            const choice = buildElicitationPanel('?', { type: 'enum', options: [{ value: 'a' }] }, noop);
+            expect(choice.mode()).toBe('none');
+            choice.proceed();   // a no-op, and must not throw
+            expect(choice.mode()).toBe('none');
+            // A single question that COLLECTS still commits through the button.
+            expect(buildElicitationPanel('?', { type: 'string' }, noop).mode()).toBe('submit');
+            expect(buildElicitationPanel('?', { type: 'enum', multiple: true, options: [{ value: 'a' }] }, noop).mode()).toBe('submit');
         });
 
         it('a single question is never stepped', () => {
@@ -317,7 +332,11 @@ describe('buildElicitationPanel', () => {
         it('names a single question group from the panel message', () => {
             const p = buildElicitationPanel('Which engine?', { type: 'enum', options: [{ value: 'a' }] }, noop);
             const list = p.el.querySelector('.aparte-elic-options')!;
-            expect(list.getAttribute('role')).toBe('radiogroup');
+            // `group`, not `radiogroup`: these options are command buttons that settle
+            // on the click, and `radiogroup` describes inputs you choose among and then
+            // submit. The NAMING is the half that must survive either way — without it
+            // a reader hears "React, 1 of 2" and never the question it answers.
+            expect(list.getAttribute('role')).toBe('group');
             // No field title in this shape — the message IS the question.
             expect(list.getAttribute('aria-label')).toBe('Which engine?');
         });
@@ -345,11 +364,22 @@ describe('buildElicitationPanel', () => {
             expect(p.el.querySelector('.aparte-elic-options')!.getAttribute('role')).toBe('group');
         });
 
-        it('a yes/no question is a named radiogroup too', () => {
+        it('a yes/no question is a named group too', () => {
             const p = buildElicitationPanel('Proceed?', { type: 'boolean' }, noop);
             const list = p.el.querySelector('.aparte-elic-options')!;
-            expect(list.getAttribute('role')).toBe('radiogroup');
+            expect(list.getAttribute('role')).toBe('group');
             expect(list.getAttribute('aria-label')).toBe('Proceed?');
+        });
+
+        it('a question that keeps its radios is still a radiogroup', () => {
+            // The `default` is what keeps them — a button cannot be pre-selected — so
+            // this is the shape where `radiogroup` remains the truthful role.
+            const p = buildElicitationPanel('Which engine?', {
+                type: 'enum', options: [{ value: 'a' }, { value: 'b' }], default: 'a',
+            }, noop);
+            const list = p.el.querySelector('.aparte-elic-options')!;
+            expect(list.getAttribute('role')).toBe('radiogroup');
+            expect(list.getAttribute('aria-label')).toBe('Which engine?');
         });
 
         it('a free-text field takes its accessible name from the question', () => {
@@ -391,12 +421,22 @@ describe('buildElicitationPanel', () => {
             options: [{ value: 'react', label: 'React' }, { value: 'vue', label: 'Vue' }],
             allowOther: false,
         };
-        it('is incomplete until a choice is made, then returns the value', () => {
+        it('settles on the click, and the click IS the answer', () => {
             const p = buildElicitationPanel('?', schema, noop);
-            expect(p.isComplete()).toBe(false);
-            select(p.el, 'vue');
-            expect(p.isComplete()).toBe(true);
-            expect(p.getContent()).toBe('vue');
+            let answered: unknown;
+            p.onSettle((content) => { answered = content; });
+            expect(commandLabels(p.el)).toEqual(['React', 'Vue']);
+            clickOption(p.el, 'Vue');
+            expect(answered).toBe('vue');
+        });
+
+        it('settles once, however many times it is clicked', () => {
+            const p = buildElicitationPanel('?', schema, noop);
+            let settles = 0;
+            p.onSettle(() => { settles += 1; });
+            clickOption(p.el, 'React');
+            clickOption(p.el, 'Vue');
+            expect(settles).toBe(1);
         });
 
         it('multiple returns an array of checked values', () => {
@@ -406,9 +446,20 @@ describe('buildElicitationPanel', () => {
             expect(p.getContent()).toEqual(['react', 'vue']);
         });
 
-        it('honours the free-text "Other…" option', () => {
+        /*
+         * "Other…" is the one option that does NOT settle: picking it is a request to
+         * write an answer, not an answer. So it hands the composer's button back its
+         * meaning — which is what `mode()` reports, and the whole reason `'none'` is a
+         * state the panel can leave.
+         */
+        it('the free-text escape opens a field and gives the button back', () => {
             const p = buildElicitationPanel('?', { type: 'enum', options: [{ value: 'a' }], allowOther: true }, noop);
-            select(p.el, '__other__');
+            expect(p.mode()).toBe('none');
+
+            clickOption(p.el, 'Other…');
+            expect(p.mode()).toBe('submit');
+            expect(p.isComplete(), 'opened, but nothing written yet').toBe(false);
+
             const other = p.el.querySelector<HTMLInputElement>('.aparte-elic-other-input')!;
             other.value = 'svelte';
             other.dispatchEvent(new Event('input', { bubbles: true }));
@@ -416,21 +467,40 @@ describe('buildElicitationPanel', () => {
             expect(p.isComplete()).toBe(true);
         });
 
-        it('pre-selects the default', () => {
+        /*
+         * A `default` keeps the radios, and that is the rule rather than an oversight:
+         * a button cannot be pre-selected, and a requester that supplied one asked for
+         * a pre-filled answer it can review before sending (MCP's "SHOULD
+         * pre-populate"). So this shape keeps pick-then-submit whole.
+         */
+        it('a default keeps the radios, and pre-selects', () => {
             const p = buildElicitationPanel('?', { ...schema, default: 'vue' } as AparteElicitationSchema, noop);
+            expect(commands(p.el), 'no command buttons in this shape').toHaveLength(0);
+            expect(p.mode()).toBe('submit');
             expect(p.getContent()).toBe('vue');
         });
     });
 
     describe('boolean', () => {
-        it('returns true/false and gates on selection', () => {
-            const p = buildElicitationPanel('OK?', { type: 'boolean' }, noop);
-            expect(p.isComplete()).toBe(false);
-            select(p.el, 'true');
+        it('settles true or false on the click', () => {
+            const yes = buildElicitationPanel('OK?', { type: 'boolean' }, noop);
+            let answered: unknown;
+            yes.onSettle((content) => { answered = content; });
+            expect(yes.mode()).toBe('none');
+            clickOption(yes.el, 'Yes');
+            expect(answered).toBe(true);
+
+            const no = buildElicitationPanel('OK?', { type: 'boolean' }, noop);
+            no.onSettle((content) => { answered = content; });
+            clickOption(no.el, 'No');
+            expect(answered).toBe(false);
+        });
+
+        it('a default keeps the radios here too', () => {
+            const p = buildElicitationPanel('OK?', { type: 'boolean', default: true }, noop);
+            expect(commands(p.el)).toHaveLength(0);
+            expect(p.mode()).toBe('submit');
             expect(p.getContent()).toBe(true);
-            select(p.el, 'false');
-            expect(p.getContent()).toBe(false);
-            expect(p.isComplete()).toBe(true);
         });
 
         it('uses custom labels', () => {
@@ -489,8 +559,17 @@ describe('buildElicitationPanel', () => {
 
     it('fires onChange on input so the presenter can gate submit', () => {
         let changes = 0;
-        const p = buildElicitationPanel('?', { type: 'enum', options: [{ value: 'a' }], allowOther: false }, () => { changes++; });
+        // A shape that still COLLECTS: a settling choice answers on the click and never
+        // needs the button gated at all.
+        const p = buildElicitationPanel('?', { type: 'enum', multiple: true, options: [{ value: 'a' }], allowOther: false }, () => { changes++; });
         select(p.el, 'a');
         expect(changes).toBeGreaterThan(0);
+    });
+
+    it('fires onChange when the free-text escape opens, so the button can come back', () => {
+        let changes = 0;
+        const p = buildElicitationPanel('?', { type: 'enum', options: [{ value: 'a' }], allowOther: true }, () => { changes++; });
+        clickOption(p.el, 'Other…');
+        expect(changes, 'without this the panel flips to submit and nobody re-reads mode()').toBeGreaterThan(0);
     });
 });

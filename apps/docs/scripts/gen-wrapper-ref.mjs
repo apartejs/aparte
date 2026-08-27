@@ -15,21 +15,25 @@
  *   src/content/docs/reference/wrappers.md
  */
 import { mkdirSync } from 'node:fs';
+import { referenceOrder } from './reference-order.mjs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { IMPLEMENTATIONS, readWrapperSlots } from '../../../scripts/wrapper-surface.mjs';
+import { IMPLEMENTATIONS, readWrapperSlots, readWrapperCallbacks } from '../../../scripts/wrapper-surface.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../src/content/docs/reference/wrappers.md');
 
 const slots = readWrapperSlots();
+const callbacks = readWrapperCallbacks();
 const frameworks = Object.values(IMPLEMENTATIONS);
 const esc = (s) => String(s ?? '').replace(/\|/g, '\\|');
 
 let md = `---
-title: Wrapper slots
-description: Every slot the React, Vue, Svelte and Angular wrappers expose, generated from the wrapper source.
+title: Wrapper surface
+description: Every slot and every callback the React, Vue, Svelte and Angular wrappers expose, generated from the wrapper source.
+sidebar:
+  order: ${referenceOrder("wrappers.md")}
 ---
 
 <!-- AUTO-GENERATED from packages/wrappers/react/src/components/AparteChat.tsx by apps/docs/scripts/gen-wrapper-ref.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen\` to refresh. -->
@@ -66,6 +70,34 @@ for (const slot of slots) {
     }
 }
 
+/*
+ * The callbacks, for the same reason and against the same defect one column over: four of
+ * the six were named in prose on the ANGULAR page alone, so three framework pages
+ * documented a third of the surface and nothing could notice. Generated from the same
+ * interface as the slots, so the spellings cannot drift from the props.
+ */
+md += `
+## Callbacks
+
+The same six events on all four wrappers, each in its own idiom. React, Vue and Angular
+hand you the payload directly; Svelte re-wraps it in a \`CustomEvent\`, so read it from
+\`event.detail\` there.
+
+| Payload | ${frameworks.map((f) => f.label).join(' | ')} |
+| --- | ${frameworks.map(() => '---').join(' | ')} |
+`;
+
+for (const cb of callbacks) {
+    md += `| \`${esc(cb.payload)}\` | ${[cb.react, cb.vue, cb.svelte, cb.angular]
+        .map((usage) => `\`${esc(usage)}\``)
+        .join(' | ')} |\n`;
+}
+
+md += `\n## What each callback is for\n`;
+for (const cb of callbacks) {
+    md += `\n### \`${cb.name}\`\n\n${cb.summary || '_(undocumented — add a JSDoc comment to the React prop.)_'}\n`;
+}
+
 md += `
 ## Two things this table does not cover
 
@@ -82,4 +114,4 @@ property, so it follows the reading direction. The worked example is in
 
 mkdirSync(dirname(OUT), { recursive: true });
 const wrote = writeIfChanged(OUT, md);
-console.log(`[gen-wrapper-ref] ${wroteOrNot(wrote)} ${slots.length} slots → ${OUT}`);
+console.log(`[gen-wrapper-ref] ${wroteOrNot(wrote)} ${slots.length} slots + ${callbacks.length} callbacks → ${OUT}`);

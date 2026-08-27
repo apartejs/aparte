@@ -1,0 +1,53 @@
+/* =========================================
+   aparte-divider — horizontal, vertical, optionally labelled
+   =========================================
+   The line is a BORDER, not a background — see the progress bar's comment above
+   for why: a background disappears under forced-colors, a border does not.
+
+       <hr class="aparte-divider">
+       <div class="aparte-divider aparte-divider--label">
+         <span class="aparte-divider__label">or</span>
+       </div>
+   */
+
+.aparte-divider {
+  border: 0;
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+  inline-size: 100%;
+  block-size: 0;
+  margin-block: var(--aparte-divider-margin);
+}
+
+.aparte-divider--vertical {
+  border-block-end: 0;
+  border-inline-end: var(--aparte-border-width) solid var(--aparte-border);
+  inline-size: 0;
+  block-size: auto;
+  align-self: stretch;
+  margin-block: 0;
+  margin-inline: var(--aparte-divider-margin);
+}
+
+/* A labelled divider is a row: [line][label][line]. Meant for a <div
+   role="separator">, not an <hr> — generated content on a replaced-ish void
+   element is not worth the fragility when a div does the job plainly. */
+.aparte-divider--label {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-divider-label-gap);
+  border-block-end: 0;
+  inline-size: 100%;
+  block-size: auto;
+}
+.aparte-divider--label::before,
+.aparte-divider--label::after {
+  content: '';
+  flex: 1;
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+.aparte-divider__label {
+  flex-shrink: 0;
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-divider-label-font-size);
+  white-space: nowrap;
+}

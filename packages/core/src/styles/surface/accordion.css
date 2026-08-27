@@ -1,0 +1,118 @@
+/* =========================================
+   aparte-accordion — stacked disclosures
+   =========================================
+   A column of items, each a header you press and a panel it reveals. The header works
+   as a native `<summary>` inside `<details>` OR as a `<div role="button" aria-expanded>`
+   — that choice decides whether the open state is the browser's or yours, and the CSS
+   does not care either way. It is the whole clickable row, so it takes the same reset a
+   button does.
+
+       <div class="aparte-accordion">
+         <details class="aparte-accordion__item" open>
+           <summary class="aparte-accordion__header">
+             Shipping
+             <aparte-icon name="expand"></aparte-icon>
+           </summary>
+           <div class="aparte-accordion__panel">Free above 50 €.</div>
+         </details>
+       </div>
+
+   The chevron turns 180° when the item is open, and there are two selectors for it
+   because there are two ways to be open: `aria-expanded` on the header for the ARIA
+   pattern, `details[open]` on the ancestor for the native one. Nothing here opens or
+   closes anything — this is a stylesheet, and the disclosure is the element's job or
+   yours. */
+.aparte-accordion {
+  display: flex;
+  flex-direction: column;
+}
+
+.aparte-accordion__item {
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-accordion__item:last-child {
+  border-block-end: none;
+}
+
+/* Works as a <summary> (native <details> disclosure) or as a <div role="button"
+   aria-expanded>. Either way it is the whole clickable row, so it gets the same
+   reset a button does: no native chrome, full width, cursor and text alignment
+   fixed for a header that reads left-to-right of its own toggle icon. */
+.aparte-accordion__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aparte-space-3);
+  width: 100%;
+  padding: var(--aparte-space-5) var(--aparte-space-2);
+  border: none;
+  background: transparent;
+  color: var(--aparte-text);
+  font: inherit;
+  font-size: var(--aparte-font-size-md);
+  font-weight: var(--aparte-font-weight-medium);
+  text-align: start;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  /* Removes the native disclosure triangle when this sits on a <summary>. Firefox
+     and current Chrome/Safari honour `list-style`; the pseudo-elements below catch
+     the two engines that don't. Harmless, and a no-op, on a plain <div>. */
+  list-style: none;
+  transition: background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-accordion__header::-webkit-details-marker {
+  display: none;
+}
+
+.aparte-accordion__header::marker {
+  display: none;
+}
+
+.aparte-accordion__header:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-2);
+}
+
+.aparte-accordion__header:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-3);
+}
+
+.aparte-accordion__header:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-accordion__header:disabled,
+.aparte-accordion__header[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+}
+
+.aparte-accordion__icon {
+  flex-shrink: 0;
+  /* Sized off the same step the button recipe already uses for an icon glyph
+     (`--aparte-btn-icon-size: var(--aparte-space-8)`), so a disclosure chevron
+     reads as the same weight of icon as everywhere else in the library. */
+  width: var(--aparte-space-8);
+  height: var(--aparte-space-8);
+  color: var(--aparte-text-muted);
+  transition: transform var(--aparte-duration-slow) var(--aparte-ease);
+}
+
+/* Two selectors for two ways an item can be open: the ARIA disclosure pattern
+   puts aria-expanded on the header itself; native <details> puts `open` on the
+   ancestor and gives the browser no attribute to select on at all. */
+.aparte-accordion__header[aria-expanded='true'] .aparte-accordion__icon,
+details[open] > .aparte-accordion__header .aparte-accordion__icon {
+  transform: rotate(180deg);
+}
+
+.aparte-accordion__panel {
+  padding-inline: var(--aparte-space-2);
+  padding-block-end: var(--aparte-space-5);
+  color: var(--aparte-text-secondary);
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-line-height-relaxed);
+}

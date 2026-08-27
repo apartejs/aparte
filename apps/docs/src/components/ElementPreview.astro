@@ -1,0 +1,35 @@
+---
+/**
+ * The live preview on a generated element page.
+ *
+ * What the frame shows is the element's own `@example`, verbatim — the same string the page
+ * prints as code right underneath, emitted once by `gen-element-pages.mjs`. The demo cannot
+ * drift from the example it illustrates, because there is only one of them.
+ *
+ * An element with no HTML example gets no entry in `ELEMENT_PREVIEWS` and this renders
+ * NOTHING. That is the point: the frame shipped for months as `src="about:blank"` under a
+ * caption promising a preview, and no demo at all is honest where an empty box is not.
+ *
+ * See `PreviewFrame.astro` for the box and `PreviewDocument.astro` for why it is an iframe.
+ */
+import { ELEMENT_PREVIEWS } from '../generated/element-previews';
+import PreviewFrame from './PreviewFrame.astro';
+
+interface Props {
+    /** The custom element this frame renders, e.g. `aparte-composer`. */
+    tag: string;
+}
+
+const { tag } = Astro.props;
+const preview = ELEMENT_PREVIEWS.find((entry) => entry.tag === tag);
+---
+
+{
+    preview && (
+        <PreviewFrame
+            src={`/preview/${tag}/`}
+            label={`Live preview of <${tag}>`}
+            caption="The real element, in its own document so this site's CSS cannot reach it. It renders the same example printed below — every framework mounts this same element, so the rendering is what you get in all five; the code is what changes."
+        />
+    )
+}

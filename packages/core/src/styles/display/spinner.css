@@ -1,0 +1,27 @@
+/* =========================================
+   aparte-spinner — a rotating indicator
+   =========================================
+
+       <span class="aparte-spinner aparte-spinner--sm" role="status" aria-label="Loading"></span>
+       <span class="aparte-spinner" role="status" aria-label="Loading"></span>
+       <span class="aparte-spinner aparte-spinner--lg" role="status" aria-label="Loading"></span>
+   */
+
+.aparte-spinner {
+
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--aparte-spinner-size);
+  height: var(--aparte-spinner-size);
+  border: var(--aparte-spinner-thickness) solid currentColor;
+  /* The one open side that makes rotation read as motion. Any logical side works
+     here — the animation is symmetric, so nothing about it needs to differ
+     between LTR and RTL; it is a logical property purely to stay off left/right. */
+  border-inline-end-color: transparent;
+  border-radius: var(--aparte-radius-full);
+  color: var(--aparte-text-muted);
+  animation: aparte-spin var(--aparte-duration-spin) linear infinite;
+}
+
+.aparte-spinner--sm { --aparte-spinner-size: var(--aparte-spinner-size-sm); }
+.aparte-spinner--lg { --aparte-spinner-size: var(--aparte-spinner-size-lg); }

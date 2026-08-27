@@ -2,6 +2,26 @@ import type { AparteSendEventDetail } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 
+/**
+ * What the composer's one button means while a panel is up — and whether it is
+ * there at all.
+ *
+ * `'submit'` answers, `'advance'` moves to the next question of a form, and
+ * `'none'` says this panel has NO act left for that button, so it is not drawn.
+ *
+ * `'none'` exists because a panel could not previously say it. The composer's panel
+ * mode was one fixed policy — hide the input and the attachment picker, keep the
+ * strip and the toolbar, and ALWAYS keep the send button — and the approval panel
+ * showed what that costs: its options settle on the first click by design, so the
+ * button beside them sat permanently disabled, meaning nothing, until the optional
+ * instruction field was opened. A control that is never the way forward is not
+ * disabled, it is absent (ratified decision #8).
+ *
+ * Named rather than inlined at each of its six readers: this union is exactly the
+ * kind of list this repo has watched drift when every reader kept its own copy.
+ */
+export type AparteComposerPanelMode = 'advance' | 'submit' | 'none';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Event map for internal pub/sub between primitives
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +32,7 @@ export interface AparteComposerEventMap {
     'attachments-change': { attachments: File[] };
     'submit': { value: string; attachments: File[] };
     'cancel': Record<string, never>;
-    'panel-change': { active: boolean; submitEnabled: boolean; mode: 'advance' | 'submit' };
+    'panel-change': { active: boolean; submitEnabled: boolean; mode: AparteComposerPanelMode };
 }
 
 export type AparteComposerEventType = keyof AparteComposerEventMap;
@@ -48,7 +68,46 @@ export interface AparteComposerChangeEventDetail {
 /**
  * The root context for every `aparte-composer-*` primitive. It imposes no visual
  * layout — the consumer owns the structure — and holds the shared state the parts
- * read: the value, the streaming flag, pending attachments, the panel slot.
+ * read: the value, the streaming flag, pending attachments, whether a panel is up.
+ *
+ * It renders nothing of its own — no shadow root, no markup, no default children — so
+ * an `<aparte-composer>` with nothing inside is an empty block. The parts that need
+ * that state locate it with `closest('aparte-composer')`, which is why they may sit at
+ * any depth and why the opt-in `.aparte-composer-shell` / `.aparte-composer-row`
+ * wrappers can exist without this element knowing about them.
+ * Not every part looks it up, though: `<aparte-composer-toolbar>` is purely structural
+ * — it lays its children out and never resolves this element at all.
+ *
+ * WHAT GOES INSIDE — ordinary light-DOM children. Core has no shadow root and no
+ * `<slot>`, so there is no slot name to write: drop in `<aparte-composer-input>`,
+ * `<aparte-composer-send>`, `<aparte-composer-cancel>`,
+ * `<aparte-composer-attachments>`, `<aparte-composer-add-attachment>`,
+ * `<aparte-composer-action>`, `<aparte-composer-toolbar>`, plus whatever markup you
+ * wrap them in. Order and nesting are yours. Two behaviours read the tree rather than a
+ * flag, so they depend on what you put in: `focus()` forwards to the first
+ * `<aparte-composer-input>` descendant, and `showPanel()` inserts the panel right after
+ * it (appending to the host when there is none).
+ *
+ * A PANEL is neither markup you write nor a named slot: `showPanel()` takes the element,
+ * stamps it `data-aparte-panel` and inserts it, `hidePanel()` removes it. One at a time
+ * — a second `showPanel()` evicts the first and calls its `onEvict`. While one is up the
+ * host carries `[data-panel-active]`, which hides `<aparte-composer-input>` and
+ * `<aparte-composer-add-attachment>` and leaves the attachments strip and the toolbar in
+ * place.
+ *
+ * It is not a transport either. `submit()` trims, checks the gates (disabled, empty,
+ * no model selected), dispatches `aparte-send` and clears — nothing here talks to a
+ * model, so without `AparteClient` or a listener of your own a send is a dispatched
+ * event and no answer. With no panel up it doubles as the stop button: while `streaming`
+ * it routes to `cancel()`, which is why the `getState` example below keeps a custom send
+ * button clickable rather than disabling it mid-stream. With a panel up it means "answer
+ * the question" instead — it calls the panel's `onSubmit` and returns, so neither the
+ * stop branch nor a send is reached.
+ *
+ * The streaming flag comes from WINDOW lifecycle events, filtered by target. On a page
+ * with two chats, give the composer a `target` — or put it under a chat host that has
+ * an `id` — otherwise it answers to every chat's events, and one chat's Stop resets the
+ * other's composer and evicts its open panel.
  *
  * Prose first, on purpose: when `@element` opens a docblock there is no free text
  * left for the analyser to use, and this component's description came out empty in
@@ -60,8 +119,12 @@ export interface AparteComposerChangeEventDetail {
  *
  * @element aparte-composer
  *
- * @attr {string} placeholder - Forwarded to `<aparte-composer-input>` through the internal bus.
- * @attr {boolean} disabled - Disables the whole composer, every part included.
+ * @attr {string} placeholder - Fallback placeholder for `<aparte-composer-input>`, which
+ *   reads it off this element when it carries none of its own. Read when that input
+ *   renders, not pushed: changing it here leaves an input already on the page as it was.
+ * @attr {boolean} disabled - Disables the composer's own controls — the input, send,
+ *   add-attachment and `<aparte-composer-action>` buttons each read it. What you put in
+ *   the toolbar is yours to disable.
  * @attr {string} target - The id of the `<aparte-chat>` this composer drives.
  * @attr {boolean} submit-on-enter - Enter sends and Shift+Enter breaks the line (the
  *   default); set it to the string `"false"` to swap them. Read lazily by the
@@ -71,8 +134,42 @@ export interface AparteComposerChangeEventDetail {
  * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was submitted: the text, its attachments and the target.
  * @fires aparte-cancel - The stop button was pressed. No detail; the two window events below carry the target.
  * @fires {CustomEvent<AparteAbortEventDetail>} aparte-abort - Dispatched on `window`: stop the run for this target.
- * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - Dispatched on `window`: the run for this target ended early.
+ * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - The run for this target ended early — the user pressed Stop, or `abort()` was called. This element dispatches it on `window`; `AparteClient` also dispatches it on the chat host, so it is listenable on either.
  * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - Any of value / streaming / disabled / attachments / panel changed, folded into one event.
+ *
+ * @cssprop [--aparte-composer-control-size=44px] - Width and height of the composer's
+ *   own control buttons (each is an `.aparte-btn--icon`, so it needs the opt-in
+ *   `.aparte-composer-row` wrapper, which is what carries the size down) and the
+ *   minimum height of the input's editor, which needs no wrapper. One knob for the
+ *   whole control set, so buttons stay aligned with a single line of text and anchored
+ *   to the bottom once the input grows. It reaches the buttons by declaration, not by
+ *   out-specifying them, so a panel mounted in the row keeps its own content's sizing.
+ * @cssprop [--aparte-input-bg=var(--aparte-surface-1)] - Background of the opt-in
+ *   `.aparte-composer-shell` wrapper.
+ * @cssprop [--aparte-input-border=var(--aparte-border)] - Border colour of that shell.
+ *   Its `:focus-within` colour is `--aparte-primary`, a global token rather than a
+ *   composer one.
+ * @cssprop [--aparte-radius-input=var(--aparte-radius-lg)] - Corner radius of the shell,
+ *   and of the dashed outline drawn while files are dragged over the composer.
+ * @cssprop [--aparte-message-max-width=800px] - Max width of the shell, which is
+ *   `margin: 0 auto` at this width — the same width `.aparte-message` uses, so the
+ *   composer keeps the transcript's column. Set on THIS element it moves the shell only:
+ *   custom properties inherit downward and the transcript is a sibling subtree, so set
+ *   it on a shared ancestor (the chat host, `:root`) to move both.
+ *
+ * @example
+ * <!-- It renders nothing of its own — no shadow root, no default children — so this
+ *      markup IS the component. The shell draws the border; the row keeps the controls
+ *      on the bottom edge of the text as it grows. Both are opt-in classes: drop them
+ *      and the parts still work, they just sit wherever your own layout puts them. -->
+ * <aparte-composer placeholder="Ask anything…">
+ *   <div class="aparte-composer-shell">
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </div>
+ * </aparte-composer>
  */
 export class AparteComposer extends HTMLElement {
     private _value = '';
@@ -81,7 +178,7 @@ export class AparteComposer extends HTMLElement {
     private _listeners = new Map<string, Set<(payload: unknown) => void>>();
     private _panelActive = false;
     /** What the send button means while a panel is up — see `showPanel`. */
-    private _panelMode: 'advance' | 'submit' = 'submit';
+    private _panelMode: AparteComposerPanelMode = 'submit';
     private _panelSubmitEnabled = false;
     private _panelOnSubmit: (() => void) | null = null;
     /**
@@ -231,21 +328,34 @@ export class AparteComposer extends HTMLElement {
         };
     }
 
+    /**
+     * Set the composer's value — both what a send will submit and what the editor
+     * shows. `<aparte-composer-input>` writes through any value it does not already
+     * hold, so this prefills the visible field (a template button, a restored draft)
+     * as readily as it stages text for an immediate `submit()`.
+     */
     setValue(value: string): void {
         this._value = value;
         this._emit('value-change', { value });
     }
 
+    /** Append files to the pending attachments and notify. Does not de-duplicate. */
     addAttachments(files: FileList | File[]): void {
         this._attachments = [...this._attachments, ...Array.from(files)];
         this._emit('attachments-change', { attachments: this._attachments });
     }
 
+    /**
+     * Drop one pending attachment and notify. Matched by IDENTITY — pass the same
+     * `File` object the composer handed you, not an equal one; two picks of the same
+     * file on disk are two distinct objects.
+     */
     removeAttachment(file: File): void {
         this._attachments = this._attachments.filter(f => f !== file);
         this._emit('attachments-change', { attachments: this._attachments });
     }
 
+    /** Drop every pending attachment and notify. */
     clearAttachments(): void {
         this._attachments = [];
         this._emit('attachments-change', { attachments: [] });
@@ -265,6 +375,15 @@ export class AparteComposer extends HTMLElement {
      * are the user's state and not an action to offer — hiding them would look like
      * losing them; and the toolbar, because switching model still does something.
      *
+     * The send button is the part the PANEL decides, through `mode`. `'submit'` and
+     * `'advance'` keep it; `'none'` says this panel has no act for it and it is not
+     * drawn. That third value is what a panel whose options settle on the first click
+     * needs — a single-choice question, an approval — and until it existed such a
+     * panel left a permanently disabled button beside options that never routed
+     * through it. Flip between them at any time with {@link setPanelSubmitEnabled},
+     * which is how a panel that grows an act (an "Other…" field, a written
+     * instruction) turns the button back on.
+     *
      * Declared with an attribute + CSS rather than the inline `style.display` this
      * used to set on a child: an attribute is themeable, is visible to a consumer's
      * own rules, and does not clobber a `display` the consumer had set (the restore
@@ -280,7 +399,12 @@ export class AparteComposer extends HTMLElement {
         options?: {
             submitEnabled?: boolean;
             onSubmit?: () => void;
-            mode?: 'advance' | 'submit';
+            /**
+             * What the send button means for this panel — `'none'` if it has no act
+             * for it, in which case the button is not drawn. See
+             * {@link AparteComposerPanelMode}.
+             */
+            mode?: AparteComposerPanelMode;
             /** Called when something other than this owner closes the panel. */
             onEvict?: () => void;
         },
@@ -299,6 +423,7 @@ export class AparteComposer extends HTMLElement {
         this._panelActive = true;
         this._panelSubmitEnabled = options?.submitEnabled ?? false;
         this._panelMode = options?.mode ?? 'submit';
+        this._reflectPanelMode();
         this._panelOnSubmit = options?.onSubmit ?? null;
         this._panelOnEvict = options?.onEvict ?? null;
         const token = Symbol('aparte-composer-panel');
@@ -363,6 +488,7 @@ export class AparteComposer extends HTMLElement {
         this._panelActive = false;
         this._panelSubmitEnabled = false;
         this._panelMode = 'submit';
+        this._reflectPanelMode();
         this._panelOnSubmit = null;
         this._panelOnEvict = null;
         this._panelToken = null;
@@ -378,11 +504,25 @@ export class AparteComposer extends HTMLElement {
      * "submit" (when it was the last one), and two separate calls would flash a
      * wrong icon between them.
      */
-    setPanelSubmitEnabled(enabled: boolean, mode?: 'advance' | 'submit'): void {
+    setPanelSubmitEnabled(enabled: boolean, mode?: AparteComposerPanelMode): void {
         if (!this._panelActive) return;
         this._panelSubmitEnabled = enabled;
         if (mode) this._panelMode = mode;
+        this._reflectPanelMode();
         this._emit('panel-change', { active: true, submitEnabled: enabled, mode: this._panelMode });
+    }
+
+    /**
+     * Publish the panel mode as an attribute, so CSS can act on it.
+     *
+     * The same reasoning `data-panel-active` is set for and the same one that took
+     * the old `style.display` off a child: an attribute is themeable, is visible to
+     * a consumer's own rules, and does not clobber what the consumer set. It is what
+     * lets `'none'` remove the send button without this component reaching into it.
+     */
+    private _reflectPanelMode(): void {
+        if (this._panelActive) this.setAttribute('data-panel-mode', this._panelMode);
+        else this.removeAttribute('data-panel-mode');
     }
 
     get panelActive(): boolean { return this._panelActive; }
@@ -403,7 +543,12 @@ export class AparteComposer extends HTMLElement {
     /** Submit the current value. Called by aparte-composer-send or programmatically. */
     submit(): void {
         if (this._panelActive) {
-            if (this._panelSubmitEnabled) this._panelOnSubmit?.();
+            // `'none'` is authoritative over `submitEnabled`, and deliberately so: the
+            // two are set by the same caller and can disagree, and the mode is the one
+            // that says whether an act exists at all. Reached by Enter inside the panel
+            // and by a consumer calling `submit()` directly — the button itself is not
+            // drawn in this mode.
+            if (this._panelMode !== 'none' && this._panelSubmitEnabled) this._panelOnSubmit?.();
             return;
         }
         if (this._streaming) {

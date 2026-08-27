@@ -35,6 +35,11 @@
   --sl-color-accent-low: #f3e8d2;
   --sl-color-accent: var(--brand-brass);
   --sl-color-accent-high: #5c3f10;    /* accent text on light — kept dark for AA contrast */
+  /* Starlight's LIGHT theme points its link colour at `--sl-color-accent`, and its
+     own default there is a blue that clears AA on white. Our brass does not: 3.2:1.
+     The same token is also the BACKGROUND of the current sidebar item, so this one
+     line fixes the link text and the chip together. */
+  --sl-color-text-accent: var(--brand-brass-text);
 
   --sl-color-white: var(--brand-text); /* darkest text */
   --sl-color-gray-1: #2c2733;
@@ -122,3 +127,36 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
   background: var(--brand-line); border-radius: 999px; border: 2px solid var(--brand-ground);
 }
 :root:not([data-theme='light']) ::-webkit-scrollbar-thumb:hover { background: #463a54; }
+
+/* starlight-sidebar-topics draws the CURRENT topic ("Learn", "Reference") with a
+   light-mode-only rule of its own — `[data-theme='light'] a.…-current { color:
+   var(--sl-color-accent) }` — which reaches past `--sl-color-text-accent` and
+   lands back on the fill brass at 3.2:1. Its assumption holds for Starlight's
+   own blue accent and not for ours, so the topic label needs the text brass
+   named explicitly. `:root` outranks the plugin's bare attribute selector. */
+:root[data-theme='light'] a.starlight-sidebar-topics-current {
+  color: var(--brand-brass-text);
+}
+
+/* A reference table is DATA, not prose. Starlight lets it shrink to the column, which on
+   a phone crushed `aparte-archive-conversation` onto three lines AND still clipped the
+   second column — the type name simply could not be read, and nothing scrolled. Below the
+   content breakpoint the table becomes its own scroll container and its cells claim a
+   floor, so the columns keep their shape and the reader drags to the rest. Desktop is
+   untouched: outside this query the table stays a plain table. */
+@media (max-width: 50rem) {
+    .sl-markdown-content table {
+        display: block;
+        overflow-x: auto;
+        max-width: 100%;
+    }
+
+    .sl-markdown-content table :is(th, td) {
+        min-width: 7.5rem;
+    }
+
+    /* An identifier reads worse hyphenated across three lines than scrolled to. */
+    .sl-markdown-content table :is(th, td) > code {
+        white-space: nowrap;
+    }
+}

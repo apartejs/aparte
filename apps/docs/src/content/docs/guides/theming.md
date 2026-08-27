@@ -72,10 +72,42 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **79 of core's variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **217 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
-`--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those eight bases above are read
-directly in 27 places *and* feed the rest, which is why a rebrand is eight lines.
+`--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
+places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
+
+`--aparte-bg` is the one exception in that list: core paints no page background, so nothing
+in the library reads it. It is declared for *your* CSS to reference.
+:::
+
+:::note[The ink on a fill is worked out for you]
+Nothing above says what colour a label should be *on top of* `--aparte-primary`. That is
+deliberate: change the fill and core recomputes the ink, so a solid button, badge or
+checkbox stays readable whatever brand colour you set. It derives a light or dark ink from
+the fill's own lightness — the same idea as Bootstrap's `color-contrast()`.
+
+Say so yourself when you have an opinion. Every intent has a partner name, and declaring
+one overrides the computed value for every control using that intent:
+
+```css
+:root {
+  --aparte-primary: #1a1a2e;
+  --aparte-on-primary: #f8fafc;   /* optional — omit it and core works it out */
+}
+```
+
+The seven pairs are `--aparte-primary` / `--aparte-secondary` / `--aparte-neutral` /
+`--aparte-info` / `--aparte-success` / `--aparte-warning` / `--aparte-error`, each with an
+`--aparte-on-*` twin. Two numbers tune the computed default when you keep it:
+`--aparte-ink-flip` (the fill lightness where the ink flips, `0.57`) and
+`--aparte-ink-dark` (how dark the dark end goes, `0.176` — not `0`, so the ink keeps a
+trace of the fill's own hue).
+
+This used to be one fixed colour measured against *this* palette, which meant a dark brand
+primary got near-black text on it and nothing said so. If you pinned `--aparte-on-primary`
+or `--aparte-btn-ink` to work around that, you can drop it.
+:::
 
 The part worth knowing: it works **wherever you set the base**, not only on `:root` —
 a themed subtree, a `[data-aparte-host]` boundary, or one element:
@@ -190,7 +222,7 @@ Every composer control (input height + buttons) derives from a single token:
 ## Per-instance themes
 
 Overriding on `:root` rethemes every chat. To run several differently-themed chats on one
-page, set the variables (and `data-aparte-theme`) straight on each `<aparte-chat>` — they
+page, set the variables (and `data-aparte-theme`) straight on each [`<aparte-chat>`](/components/conversation/aparte-chat/) — they
 inherit down to its viewport, composer and bubbles:
 
 ```html

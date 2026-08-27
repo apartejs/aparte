@@ -435,10 +435,15 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                 }, 0);
             }
         } else {
-            // Full initial render
+            // Full initial render.
+            //
+            // The select carries no class of ours: this element is already addressable
+            // as `aparte-model-selector aparte-select`, which is what a consumer
+            // restyling it writes. The `aparte-model-selector-select` that used to be
+            // here carried no CSS and was queried by nothing — it named the element a
+            // second time, and a class that neither styles nor selects is not a hook.
             this.innerHTML = `
                 <aparte-select
-                    class="aparte-model-selector-select"
                     placeholder="${esc(placeholder)}"
                     ${currentValue ? `value="${esc(currentValue)}"` : ''}
                     ${searchable ? 'searchable' : ''}

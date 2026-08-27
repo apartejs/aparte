@@ -14,6 +14,11 @@ npm install @aparte/react @aparte/core react react-dom
 
 `@aparte/core`, `react` and `react-dom` are **peer dependencies**.
 
+:::note[On the server]
+`AparteChat.tsx` opens with `'use client'`, so the Next App Router keeps the component out of the server pass for you. `@aparte/core` itself imports cleanly on a server through its DOM-free entry — see [On the server](/frameworks/elements/#on-the-server).
+:::
+
+
 ## `<AparteChat>` + `useAparteChat`
 
 The `useAparteChat` hook owns the message state and the component ref, so you just spread them:
@@ -46,6 +51,9 @@ Slots are plain props: `emptyState`, `composer`, `aboveComposer`,
 `renderBubble` for a fully custom bubble — driven by the reactive `messages` list, so re-render
 from `message.content` / `message.segments` and it streams live ([details](/guides/customization/#custom-bubbles)).
 The imperative handle (`chat.ref`) exposes streaming, branch/edit and `scrollToBottom`.
+
+The other five callbacks — `onAction`, `onMessagesChange`, `onMessageAppended`, `onTypingChange`, `onConversationCreated` — take the same payloads as everywhere else; the table with all four frameworks side by side is generated from this wrapper's own props: [Wrapper surface](/reference/wrappers/#callbacks).
+
 
 ## Wiring a real model
 

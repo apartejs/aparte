@@ -1,0 +1,190 @@
+---
+/**
+ * The frame itself: the box, its width presets, and the three things an iframe cannot do
+ * on its own. `ElementPreview` and `SegmentPreview` are the two lookups that point it at a
+ * document; everything visible lives here so the two cannot drift apart.
+ *
+ * ONE RENDER, FIVE FRAMEWORKS, and it is deliberate. Every wrapper mounts the same custom
+ * elements, so five frames would render five identical documents and prove the same thing
+ * five times; claiming the rendering differs is the lie worth avoiding. The code below the
+ * frame is per-framework and derived from the wrappers' own binding rules — the frame shows
+ * WHAT you get, the tabs show how YOUR framework asks for it. Each caption says so, because
+ * a reader should not have to infer it.
+ */
+interface Props {
+    /** The preview document to load. */
+    src: string;
+    /** What the frame is announced as to a screen reader. */
+    label: string;
+    /** One sentence under the frame saying what is being shown. */
+    caption: string;
+}
+
+const { src, label, caption } = Astro.props;
+---
+
+{/* `not-content` is Starlight's own opt-out of the prose flow, and this figure is not
+    prose: it is a control bar and a frame. Without it Starlight's `* + *` rule — whose
+    exclusion list covers a, strong, em, del, span, input, code and br, but not button —
+    gave every button after the first a `margin-top: 1rem`, so "375" sat 8px above "768"
+    and "Full" in a row that had asked for `align-items: center`. */}
+<figure class="aparte-preview not-content">
+    <div class="aparte-preview-bar">
+        {/* Presets over a free drag handle: the point is to reach the breakpoints core
+            actually declares, and 375 is the one a reader cannot hit by dragging inside a
+            documentation column. The handle stays for everything in between. */}
+        <span class="aparte-preview-label">Width</span>
+        <button type="button" data-width="375">375</button>
+        <button type="button" data-width="768">768</button>
+        <button type="button" data-width="0" aria-pressed="true">Full</button>
+        <a href={src} target="_blank" rel="noopener">Open in a tab</a>
+    </div>
+    <div class="aparte-preview-frame">
+        <iframe title={label} loading="lazy" src={src}></iframe>
+    </div>
+    <figcaption>{caption}</figcaption>
+</figure>
+
+<style>
+    .aparte-preview {
+        margin: 1.5rem 0;
+    }
+
+    .aparte-preview-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.4rem;
+        font-size: var(--sl-text-xs);
+    }
+
+    .aparte-preview-label {
+        color: var(--sl-color-gray-3);
+        margin-inline-end: 0.1rem;
+    }
+
+    .aparte-preview-bar button {
+        font: inherit;
+        color: var(--sl-color-gray-2);
+        background: none;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.25rem;
+        padding: 0.1rem 0.45rem;
+        cursor: pointer;
+    }
+
+    .aparte-preview-bar button[aria-pressed='true'] {
+        color: var(--sl-color-text-accent);
+        border-color: var(--sl-color-text-accent);
+    }
+
+    .aparte-preview-bar a {
+        margin-inline-start: auto;
+        color: var(--sl-color-gray-3);
+    }
+
+    /* `resize: horizontal` needs a non-visible overflow to show the handle. The width is the
+       reader's to change, so it is not clamped beyond the column. */
+    .aparte-preview-frame {
+        overflow: hidden;
+        resize: horizontal;
+        min-width: 20rem;
+        max-width: 100%;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.5rem;
+        background: var(--sl-color-bg);
+    }
+
+    .aparte-preview-frame iframe {
+        display: block;
+        width: 100%;
+        /* A floor until the frame reports its own height, so the box never collapses to
+           nothing on a slow load. The cap is applied in script, not here: it has to beat the
+           height the frame asks for. */
+        height: 22rem;
+        border: 0;
+        /*
+         * NO transition on the height. It used to animate over 0.2s, to make the correction
+         * from the placeholder "a settle rather than a jump" — and it bought that at the
+         * cost of the frame being the WRONG height for 200ms after every change.
+         *
+         * Two symptoms, one line. Dragging the resize handle reflows the document
+         * continuously, and the frame trailed it: measured at 9px behind mid-drag on the
+         * artifact preview. Trailing SHORT means the document is taller than its frame, so
+         * the reader gets a scrollbar for as long as the drag lasts. And on the artifact,
+         * where switching Code/Preview moves the height by hundreds of pixels, the same
+         * 200ms reads as the frame slowly growing rather than showing the tab.
+         *
+         * A frame that lands on its content's height does not read as a jump — nothing else
+         * on the page moved, only the empty space below the demo. The placeholder above is
+         * what keeps the load from collapsing.
+         */
+    }
+
+    .aparte-preview figcaption {
+        margin-top: 0.5rem;
+        font-size: var(--sl-text-xs);
+        color: var(--sl-color-gray-3);
+    }
+</style>
+
+<script>
+    /*
+     * Three jobs, none of which an iframe does on its own.
+     *
+     * The height, because the frame is the only one that knows it and a fixed height either
+     * crops the demo or leaves a band of empty stage under it.
+     *
+     * The theme, because the frame is a separate document: it reads the stored choice itself
+     * before paint, but a reader who toggles WHILE it is open would otherwise be looking at a
+     * light demo inside a dark page.
+     *
+     * The width presets, because core declares breakpoints and a preview that cannot reach
+     * them does not demonstrate them.
+     */
+    const MIN_HEIGHT = 96;
+    const MAX_HEIGHT = 640;
+
+    addEventListener('message', (event: MessageEvent) => {
+        const height = (event.data as { apartePreviewHeight?: number })?.apartePreviewHeight;
+        if (typeof height !== 'number') return;
+        for (const frame of document.querySelectorAll('.aparte-preview iframe')) {
+            if (frame instanceof HTMLIFrameElement && frame.contentWindow === event.source) {
+                frame.style.height = `${Math.min(Math.max(height, MIN_HEIGHT), MAX_HEIGHT)}px`;
+            }
+        }
+    });
+
+    /* Ask, rather than wait to be told. This script is a module and therefore deferred,
+       while a frame above the fold starts loading during parse — so its first height
+       message can be sent before the listener above exists, and the box keeps its
+       placeholder for good. Asking on load covers the frames that beat us to it; asking
+       again immediately covers the ones that had already finished. */
+    for (const frame of document.querySelectorAll<HTMLIFrameElement>('.aparte-preview iframe')) {
+        const ask = () => frame.contentWindow?.postMessage({ aparteWantHeight: true }, '*');
+        frame.addEventListener('load', ask);
+        ask();
+    }
+
+    /* Starlight writes the reader's choice to `data-theme` on the root; core reads
+       `data-aparte-theme`. Watching the attribute rather than the toggle's click keeps this
+       working whatever Starlight's own control turns out to be. */
+    new MutationObserver(() => {
+        const theme = document.documentElement.dataset.theme ?? 'auto';
+        for (const frame of document.querySelectorAll<HTMLIFrameElement>('.aparte-preview iframe')) {
+            frame.contentWindow?.postMessage({ aparteTheme: theme }, '*');
+        }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    for (const figure of document.querySelectorAll<HTMLElement>('.aparte-preview')) {
+        const box = figure.querySelector<HTMLElement>('.aparte-preview-frame');
+        const buttons = figure.querySelectorAll<HTMLButtonElement>('.aparte-preview-bar button');
+        for (const button of buttons) {
+            button.addEventListener('click', () => {
+                const width = Number(button.dataset.width);
+                if (box) box.style.width = width ? `${width}px` : '';
+                for (const other of buttons) other.setAttribute('aria-pressed', String(other === button));
+            });
+        }
+    }
+</script>

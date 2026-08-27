@@ -6,16 +6,37 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * Generic action button primitive for <aparte-composer>.
  *
- * @element aparte-composer-action
  * The consumer declares it directly in markup — no global registration needed.
+ *
+ * It is the escape hatch for a button core has no opinion about: it renders one icon
+ * button wearing `.aparte-action-button` (the shared icon-button look — colour from
+ * `--aparte-neutral`, hover tint derived from `--aparte-primary`) and emits
+ * `aparte-action-click`. It carries no behaviour of its own and nothing in core listens
+ * for that event, so the app is the only thing that can make it do something. Prefer the
+ * dedicated element wherever one exists — `<aparte-composer-send>`,
+ * `<aparte-composer-cancel>`, `<aparte-composer-add-attachment>` — since those already
+ * talk to the composer.
+ *
+ * The host is `display: contents`, so the `<button>` rather than this element is the flex
+ * child of the surrounding `.aparte-composer-row`. It subscribes to the nearest composer's
+ * `disabled` and `streaming` changes, so it greys out while a turn is running without the
+ * app tracking that. Used outside a composer it still mounts and still fires, with
+ * `composer: null` in the detail.
+ *
+ * A child already carrying `class="aparte-cact-button"` suppresses core's own render — and
+ * core then wires nothing to it: no click listener (so no `aparte-action-click`), no
+ * `label` → `aria-label`/`title` write, no `icon` write, no disabled/streaming sync. Take
+ * that path only for a button your own code drives end to end. Any other child is replaced
+ * on the first render.
+ *
+ * @element aparte-composer-action
  *
  * @attr {string} icon - Icon key for aparteGlobalConfig.getIcon(), or raw SVG/HTML starting with `<`
  * @attr {string} label - Accessible label (also used as tooltip)
  * @attr {boolean} disabled - Disables the button
  * @attr {string} action-id - Identifies WHICH button fired; carried as
  *   `AparteActionClickEventDetail.actionId`. Read lazily at dispatch time rather than
- *   observed, so the manifest never recorded it — leaving the only way to tell two
- *   custom composer buttons apart absent from the typed surface.
+ *   observed, so changing it takes effect on the next click.
  *
  * @fires {CustomEvent<AparteActionClickEventDetail>} aparte-action-click - Bubbles up when
  *   the button is clicked, carrying which button it was and the composer it belongs to.
@@ -25,12 +46,32 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *   could not tell which one fired.
  *                            detail: { actionId: string, composer: AparteComposer | null }
  *
- * @slot default - Optional: override button content entirely
+ * @cssprop [--aparte-input-action-btn-size=36px] - Square size of the button. On a coarse
+ *   pointer the stylesheet re-sets it to `--aparte-touch-target-size` (44px) on
+ *   `.aparte-action-button` itself, which wins over a value inherited from your theme.
+ * @cssprop [--aparte-input-action-btn-icon-size=20px] - Size of the `<svg>` inside it.
+ * @cssprop [--aparte-radius-action-btn=var(--aparte-radius-sm)] - Corner radius.
  *
  * @example
- * <aparte-composer-action icon="star" label="Favourite"
- *   (click)="onFavourite()">
- * </aparte-composer-action>
+ * <!-- Inside a composer, because that is what it resolves with `closest()`. `action-id`
+ *      is what tells two custom buttons apart: it comes back on the event's detail, and
+ *      a second button without one is indistinguishable from the first. -->
+ * <aparte-composer>
+ *   <div class="aparte-composer-shell">
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-action icon="star" label="Favourite" action-id="favourite"></aparte-composer-action>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </div>
+ * </aparte-composer>
+ *
+ * <script>
+ *   // The event bubbles, so one listener above the composer serves every action.
+ *   document.addEventListener('aparte-action-click', (event) => {
+ *     if (event.detail.actionId === 'favourite') console.log('starred');
+ *   });
+ * </script>
  */
 export class AparteComposerAction extends HTMLElement {
     private _button: HTMLButtonElement | null = null;
@@ -93,7 +134,7 @@ export class AparteComposerAction extends HTMLElement {
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
         this.innerHTML = `<button
-            class="aparte-cact-button aparte-action-button"
+            class="aparte-btn aparte-btn--icon aparte-cact-button aparte-action-button"
             aria-label="${label}"
             title="${label}"
             type="button"
@@ -133,8 +174,6 @@ export class AparteComposerAction extends HTMLElement {
         if (icon.trimStart().startsWith('<')) return icon;
         return resolveConfig(this).getIcon(icon as AparteIconName) ?? icon;
     }
-
-    /** Escape a value before it lands in a double-quoted HTML attribute. */
 }
 
 if (!customElements.get('aparte-composer-action')) {

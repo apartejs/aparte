@@ -81,6 +81,54 @@ export function readWrapperSlots() {
 }
 
 /**
+ * Every CALLBACK React exposes, read the same mechanical way the slots are.
+ *
+ * The same defect the slot table was built to end had grown back one column over: four
+ * of the six callbacks — `onAction`, `onMessageAppended`, `onTypingChange`,
+ * `onConversationCreated` — existed in all four wrappers and were named in prose on the
+ * ANGULAR page alone. Three of four framework pages therefore documented a third of the
+ * surface, and nothing could notice, because prose is not a signal.
+ *
+ * A prop typed `(…) => void` is a signal. The per-framework spelling is mechanical from
+ * the React name: `onMessageSent` → `messageSent` → `@message-sent` in a Vue template,
+ * `on:messageSent` in Svelte, `(messageSent)` in Angular. Those spellings are checked
+ * against all four sources by `check-wrapper-slots` through {@link CALLBACK_PROOFS}, so a
+ * wrapper that renames or drops one fails the gate rather than being documented wrong.
+ *
+ * That sentence used to be here and be FALSE — the guard imported only the slot half. A
+ * cold audit caught it. Parity held at the time, so nothing shipped was wrong; the claim
+ * was, which is the more dangerous of the two because it stops anyone looking.
+ */
+export function readWrapperCallbacks() {
+    const src = readFileSync(SOURCES.react, 'utf8');
+    const iface = src.match(/interface AparteChatProps[^{]*\{([\s\S]*?)\n\}/);
+    if (!iface) throw new Error(`could not find "interface AparteChatProps" in ${SOURCES.react}`);
+
+    const callbacks = [];
+    const re = /(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)?\s*(on[A-Z]\w*)\?:\s*\(([^)]*)\)\s*=>\s*void\s*;/g;
+    for (const [, doc, name, params] of iface[1].matchAll(re)) {
+        const base = name.slice(2, 3).toLowerCase() + name.slice(3);
+        callbacks.push({
+            react: name,
+            name: base,
+            vue: `@${kebab(base)}`,
+            svelte: `on:${base}`,
+            angular: `(${base})`,
+            payload: params.trim() ? params.split(':').slice(1).join(':').trim() : 'nothing',
+            summary: doc ? summarise(doc) : '',
+        });
+    }
+
+    if (!callbacks.length) {
+        throw new Error(
+            `no \`on…?: (…) => void\` prop found in AparteChatProps (${SOURCES.react}). ` +
+            'Either the callbacks are gone, or this parser stopped matching — both need a human.',
+        );
+    }
+    return callbacks;
+}
+
+/**
  * Comments out, before any `includes()` decides anything.
  *
  * The proofs below are substring matches, and a substring match cannot tell a
@@ -104,6 +152,38 @@ function stripComments(src) {
  * How each wrapper declares one slot, and how to prove it does. Kept next to the parser
  * because these four lines ARE the convention the reference page documents.
  */
+/**
+ * How each wrapper DECLARES a callback, so parity can be proved rather than asserted.
+ *
+ * The comment above `readWrapperCallbacks` claimed this was already checked. It was not:
+ * `check-wrapper-slots` imported only the slot half, so the callback spellings were spun
+ * from the React name and verified against nothing. A cold audit caught the false claim —
+ * parity happened to hold, so nothing shipped was wrong, but the sentence was.
+ *
+ * Making the claim true rather than deleting it: the guard exists, the four sources exist,
+ * and a wrapper that renames or drops a callback should fail here rather than be documented
+ * wrong on four pages.
+ */
+export const CALLBACK_PROOFS = {
+    react: { label: 'React', usage: (c) => c.react, proves: () => true },
+    vue: {
+        label: 'Vue',
+        usage: (c) => c.vue,
+        // `defineEmits<{ messageSent: [...] }>` — the name as a key in the emits type.
+        proves: (src, c) => new RegExp(`\\b${c.name}\\s*:`).test(stripComments(src)),
+    },
+    svelte: {
+        label: 'Svelte',
+        usage: (c) => c.svelte,
+        proves: (src, c) => stripComments(src).includes(`dispatch('${c.name}'`),
+    },
+    angular: {
+        label: 'Angular',
+        usage: (c) => c.angular,
+        proves: (src, c) => new RegExp(`\\b${c.name}\\s*=\\s*output<`).test(stripComments(src)),
+    },
+};
+
 export const IMPLEMENTATIONS = {
     react: {
         label: 'React',

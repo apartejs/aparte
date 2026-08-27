@@ -90,7 +90,7 @@ test('a system prompt typed in the settings reaches the next request', async ({ 
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
-test('an empty system prompt sends no system turn at all', async ({ page }) => {
+test('clearing the system prompt sends no system turn of its own', async ({ page }) => {
     const mock = await installLlmMock(page);
 
     await page.goto('/?view=settings');
@@ -105,6 +105,25 @@ test('an empty system prompt sends no system turn at all', async ({ page }) => {
     await chat.sendButton.click();
     await expect(chat.lastReply).toContainText(MOCK_REPLY_MARK);
 
-    const messages = (mock.lastChatRequest()?.['messages'] ?? []) as Array<{ role: string }>;
-    expect(messages.map((m) => m.role), 'no system turn').not.toContain('system');
+    const messages = (mock.lastChatRequest()?.['messages'] ?? []) as Array<{ role: string; content: unknown }>;
+    const system = messages.filter((m) => m.role === 'system');
+
+    /*
+     * WHATEVER system turns exist, none of them is the form's.
+     *
+     * This used to assert no 'system' role at all, which conflated two sources: the app's
+     * own template, and a registered tool's `AparteTool.systemPrompt`, which core now
+     * honours. The vanilla example registers `ask_user`, so a tool turn is present there
+     * regardless of the form; the react example registers none, so there is none. Counting
+     * them would assert which example this is, not what the setting does — the first fix
+     * here did exactly that and went red on react.
+     *
+     * The bug this has always guarded is narrow and named in the comment above: the setter
+     * treats '' as a template, so a cleared field could ship an EMPTY system turn. A blank
+     * turn is therefore the thing to forbid, and it is forbidden wherever it appears.
+     */
+    for (const m of system) {
+        expect(String(m.content).trim(), 'no blank system turn is ever shipped').not.toBe('');
+    }
+    expect(JSON.stringify(system), 'the cleared text never reaches the request').not.toContain(PROMPT);
 });

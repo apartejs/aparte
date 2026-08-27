@@ -1,0 +1,282 @@
+/*
+ * aparté — aparte-chat, the viewport, the scroll button, the status line.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+/* =========================================
+   aparte-chat  (the drop-in shell)
+   Composes a viewport + composer as a flex column. Size the element yourself
+   (a height, or let it fill a sized parent); the viewport grows and scrolls and
+   the composer sits below it. Mirrors the framework auto-center layout for the
+   vanilla viewport, which otherwise has no flex sizing of its own.
+   ========================================= */
+
+/* Both host shapes core recognises get the same layout: the vanilla
+   <aparte-chat> element AND a framework wrapper's `[data-aparte-chat]` root
+   (React/Vue/Svelte/Angular render `<div data-aparte-chat>`). `[data-aparte-chat]`
+   is the SAME selector core uses to resolve the host (see aparte-client /
+   aparte-chat-bubble), so one rule covers both — no wrapper-specific class. */
+aparte-chat,
+[data-aparte-chat] {
+  display: flex;
+  flex-direction: column;
+  /* Fill the parent by default so the height:100% chain the inner scroll container
+     relies on has a definite anchor. Size the element yourself — a height on it, or
+     a sized parent. */
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  /* The composer used to touch the bottom edge as soon as a conversation started: the
+     viewport gives 16px above the composer and there was nothing below it. An app
+     cannot fix this from outside without padding the container, which also shrinks the
+     scroll area — so the transcript would stop before the edge instead of scrolling to
+     it. That makes the gap ours. */
+  padding-block-end: var(--aparte-chat-bottom-gap);
+}
+
+/* The viewport takes the space left by the composer; the standalone height:100%
+   default resolves against the shell's definite height above, and the inner
+   .aparte-viewport-container keeps doing the scrolling (styled scrollbar, wheel,
+   auto-scroll, scroll button all stay wired to it). */
+aparte-chat > aparte-chat-viewport,
+[data-aparte-chat] > aparte-chat-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* center-empty: the shell centers the composer as a welcome state until the first
+   message, then slides to the normal layout. The component toggles [data-empty]
+   on itself by watching its viewport — only `flex-grow` animates, so the composer
+   glides to the bottom instead of snapping. */
+aparte-chat[center-empty] > aparte-chat-viewport {
+  transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease);
+}
+
+aparte-chat[center-empty][data-empty] {
+  justify-content: center;
+}
+
+aparte-chat[center-empty][data-empty] > aparte-chat-viewport {
+  flex-grow: 0;
+  /* Release the standalone `height: 100%` (set on the viewport element for the
+     scroll chain): an explicit height ignores `flex-grow: 0`, so the empty viewport
+     would still fill the shell and leave `justify-content: center` no room to center
+     the composer. Empty = nothing to scroll, so auto height is safe here; the moment
+     a message lands, [data-empty] drops and height: 100% (scroll chain) is back. */
+  height: auto;
+}
+
+/* =========================================
+   aparte-chat-viewport
+   ========================================= */
+
+aparte-chat-viewport {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  contain: layout style;
+  /* Container-query root: children adapt to the WIDGET's width, not the
+     viewport's — an embedded chat can be narrow inside a wide page. */
+  container-type: inline-size;
+  text-align: left;
+}
+
+.aparte-viewport-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-neutral) transparent;
+}
+
+.aparte-viewport-container::-webkit-scrollbar {
+  width: var(--aparte-scrollbar-width);
+}
+
+.aparte-viewport-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
+
+/* The button wears `aparte-btn--lg aparte-btn--circle`, and that IS its shape: 36px is
+   exactly `--aparte-btn-size-lg`, and `--circle` is the round one. So the box, the
+   corner and the 20px glyph all come from the recipe, and what stays here is only what
+   is genuinely this button's — where it floats, and its own surface.
+
+   It used to redraw all three: its own width/height, its own `border-radius: 50%`, and
+   an icon-size override that existed only because the box was declared OUTSIDE the size
+   scale, so the glyph stayed at the medium default — a 16px arrow in a 36px circle, 44%
+   of its box where the rest of the library reads at ~57%. Naming the size instead makes
+   the ratio fall out for free, and the override disappears with it.
+
+   `--aparte-scroll-btn-size` stays the public knob, fed to the recipe. */
+.aparte-scroll-btn {
+  --aparte-btn-size: var(--aparte-scroll-btn-size);
+  position: absolute;
+  bottom: var(--aparte-space-8);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--aparte-z-floating);
+  /* The one thing the recipe has no word for: this button FLOATS over the transcript,
+     and nothing else in the library does. Everything else it used to declare here —
+     background, colour, border, and the hover ground — was `aparte-btn--surface`
+     written a second time through four aliases that resolved to the very same values
+     (`--aparte-scroll-btn-bg` WAS `var(--aparte-surface-1)`, and so on down the list).
+     Four names for one thing is the drift the recipes exist to end, so they are gone
+     and the fill is the fill. */
+  box-shadow: var(--aparte-scroll-btn-shadow);
+  pointer-events: auto;
+}
+
+.aparte-scroll-btn--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(var(--aparte-slide-distance));
+}
+
+/* ─── Framework-managed viewport ──────────────────────────────────────────────
+   When a framework wrapper (React/Vue/Svelte/Angular) owns the bubble elements,
+   the viewport does NOT relocate them into an internal wrapper (that would break
+   the framework's DOM reconciliation). Instead the HOST itself is the scroll
+   surface — these rules mirror .aparte-viewport-container + .aparte-messages-wrapper
+   onto the host, and the bottom spacer becomes an additive padding (no element,
+   so it can't collide with the framework's children). */
+aparte-chat-viewport.aparte-viewport--framework,
+aparte-chat-viewport[framework-managed] {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-message-gap);
+  padding: var(--aparte-viewport-padding);
+  padding-bottom: calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px));
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-neutral) transparent;
+}
+
+/* The framework wrapper renders bubbles as DIRECT flex children of the viewport
+   (no inner wrapper, unlike the vanilla path). With the viewport as a fixed-height
+   flex column, those children would `flex-shrink` to fit — compressing content
+   instead of overflowing, so nothing scrolls. Pin their size so the content grows
+   past the viewport and the scroll surface actually scrolls. */
+aparte-chat-viewport.aparte-viewport--framework > *,
+aparte-chat-viewport[framework-managed] > * {
+  flex-shrink: 0;
+}
+
+aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
+  width: var(--aparte-scrollbar-width);
+}
+
+aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The scroll button lives INSIDE the scrolling host here (last child), so it
+   floats with `position: sticky` instead of the `absolute` used in core mode
+   (where it sits outside the scroll container). */
+aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
+  position: sticky;
+  bottom: var(--aparte-space-8);
+  left: auto;
+  align-self: center;
+  transform: none;
+  flex-shrink: 0;
+}
+
+aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn.aparte-scroll-btn--hidden {
+  transform: translateY(var(--aparte-slide-distance));
+}
+
+/* =========================================
+   aparte-chat-status
+   ========================================= */
+
+aparte-chat-status {
+  display: block;
+  width: 100%;
+  contain: layout style paint;
+}
+
+/* No layout footprint until the typing indicator is actually shown — otherwise the
+   always-present element reserves height (visible via flex-shrink:0 in the
+   framework-managed viewport) even on the empty/welcome screen. */
+aparte-chat-status:not([visible]) {
+  display: none;
+}
+
+.aparte-status-container {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(var(--aparte-slide-distance));
+  transition: opacity var(--aparte-duration-slow) var(--aparte-ease), transform var(--aparte-duration-slow) var(--aparte-ease);
+  pointer-events: none;
+}
+
+.aparte-status-content {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-4);
+}
+
+.aparte-status-container[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.aparte-status-text {
+  font-size: var(--aparte-status-font-size);
+  font-family: var(--aparte-font-family);
+  color: var(--aparte-status-color);
+  font-style: italic;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Opt-in "centered composer when empty" — add the `--auto-center` modifier
+   (the wrappers do this from their `centerWhenEmpty` prop). Consumers that never
+   opt in keep just the base layout above.
+
+   Empty  → the [welcome + composer] group sits vertically centered.
+   Active → on the first message the list grows and the composer slides to the
+            bottom (~0.3s). Only `flex-grow` toggles between the two states
+            (flex-basis/height stay constant) so the transition slides instead
+            of snapping. Scoped to `.aparte-viewport--framework` so the native
+            (vanilla) viewport is never touched.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.aparte-chat-container--auto-center {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.aparte-chat-container--auto-center aparte-chat-viewport.aparte-viewport--framework {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  transition: flex-grow var(--aparte-duration-slower) var(--aparte-ease); /* the "slide to bottom" on first message */
+}
+
+/* Empty delta — a wrapper sets [data-aparte-empty] only while centerWhenEmpty is
+   on AND the message list is empty. `justify-content` flips instantly (not an
+   animatable property) — fine, it only differs between the two steady states. */
+.aparte-chat-container--auto-center[data-aparte-empty] {
+  justify-content: center;
+}
+
+.aparte-chat-container--auto-center[data-aparte-empty]
+  aparte-chat-viewport.aparte-viewport--framework {
+  flex-grow: 0;
+}

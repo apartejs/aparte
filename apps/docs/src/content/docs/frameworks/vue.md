@@ -14,6 +14,12 @@ npm install @aparte/vue @aparte/core vue
 
 `@aparte/core` and `vue` are **peer dependencies**.
 
+:::caution[On the server]
+This wrapper carries **no** server guard. Under Nuxt, import it in a client-only context yourself — a custom element extends `HTMLElement` and cannot be constructed during an SSR pass. `@aparte/core` itself imports cleanly on a server through its DOM-free entry: see [On the server](/frameworks/elements/#on-the-server).
+:::
+
+
+
 ## `<AparteChat>` + `useAparteChat`
 
 The `useAparteChat` composable owns the `messages` ref and the component ref, so you bind them and
@@ -49,6 +55,8 @@ Slots are named slots: `empty-state`, `composer`, `above-composer`,
 the scoped `bubble` slot (`#bubble="{ message }"`) for a fully custom bubble. The imperative handle
 (`chat.chatRef`) exposes streaming, branch/edit and `scrollToBottom` — also available as plain
 methods straight off the `chat` object.
+
+The six callbacks are `@message-sent`, `@action`, `@messages-change`, `@message-appended`, `@typing-change` and `@conversation-created`. Vue hands you the payload directly — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 
 ## Wiring a real model
 

@@ -11,7 +11,7 @@ Run models **100% in the browser** via [Transformers.js](https://huggingface.co/
 Web Worker; weights download once and persist in the Cache API.
 
 ```bash
-npm install @aparte/provider-transformers @huggingface/transformers
+npm install @aparte/provider-transformers @aparte/core @huggingface/transformers
 ```
 
 `@huggingface/transformers` is a **peer dependency** — it's heavy and ships its own onnxruntime, so

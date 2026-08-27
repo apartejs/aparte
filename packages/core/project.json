@@ -4,6 +4,10 @@
     "sourceRoot": "packages/core/src",
     "projectType": "library",
     "targets": {
+        "gen": {
+            "//": "`gen` must not declare a path inside `build`'s output directory. It did (`dist/custom-elements.json`), which nx's own guidance forbids: two targets owning overlapping paths makes a restore of one able to disturb the other. `build` owns `dist`; `gen` owns `src/generated`. Nothing needs `gen` to restore the manifest — the `gen` default already `dependsOn: [\"^gen\", \"^build\"]`, so whoever reads it has built first. HONEST LIMIT: this is a correctness fix, not a proven cure. `packages/core/dist` emptied three times in one day, always with `build` reporting `[existing outputs match the cache, left as is]` against the emptiness and so never re-running — which breaks every downstream typecheck with `Cannot find module '@aparte/core'`. Only the two packages carrying this overlap were ever hit, which is why it is gone. But replaying gen/build in sequence, and two nx invocations concurrently, did NOT reproduce the emptying — so the trigger is still unidentified. If it recurs: `npx nx reset` + delete `tsconfig.tsbuildinfo` + rebuild.",
+            "outputs": ["{projectRoot}/src/generated"]
+        },
         "build": {
             "executor": "nx:run-script",
             "outputs": [

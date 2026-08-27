@@ -1,0 +1,59 @@
+/* =========================================
+   aparte-progress — determinate bar + indeterminate variant
+   =========================================
+   The consumer owns the ARIA: role="progressbar" plus aria-valuenow/min/max on
+   the determinate form, and aria-valuetext (or nothing, per platform convention)
+   on the indeterminate one — this file only paints what those attributes mean.
+
+       <div class="aparte-progress" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
+            style="--aparte-progress-value: 60">
+         <div class="aparte-progress__bar"></div>
+       </div>
+       <div class="aparte-progress aparte-progress--indeterminate" role="progressbar" aria-label="Working">
+         <div class="aparte-progress__bar"></div>
+       </div>
+   */
+
+.aparte-progress {
+  --aparte-progress-value: 0;
+
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: var(--aparte-progress-height);
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-surface-3);
+}
+
+.aparte-progress__bar {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: clamp(0%, calc(var(--aparte-progress-value) * 1%), 100%);
+  border-radius: inherit;
+  background: var(--aparte-progress-fill);
+  transition: width var(--aparte-duration-slow) var(--aparte-ease);
+}
+
+.aparte-progress--indeterminate .aparte-progress__bar {
+  width: var(--aparte-progress-indeterminate-width);
+  animation: aparte-progress-slide var(--aparte-duration-pulse) var(--aparte-ease) infinite;
+}
+
+/* inset-inline-start, not transform: translateX — a transform has no logical
+   axis, so an RTL page would slide the indeterminate segment backwards. Animating
+   a logical inset instead makes the sweep follow reading direction automatically. */
+@keyframes aparte-progress-slide {
+  0%   { inset-inline-start: -40%; }
+  100% { inset-inline-start: 100%; }
+}
+
+/* The fill's BACKGROUND is the only thing that says how much is done — no text,
+   no border marks its edge — so forced-colors, which drops backgrounds, would
+   erase the value entirely. Highlight is a system colour forced-colors is
+   required to honour when an author asks for it explicitly, the same escape
+   button.css's own focus ring already uses. */
+@media (forced-colors: active) {
+  .aparte-progress { border: var(--aparte-border-width) solid CanvasText; }
+  .aparte-progress__bar { background: Highlight; }
+}

@@ -12,11 +12,11 @@
  * share the same picture, which is the failure this is meant to fix.
  */
 import Default from '@astrojs/starlight/components/Head.astro';
-import type { Props } from '@astrojs/starlight/props';
+import type { StarlightRouteData } from '@astrojs/starlight/route-data';
 import { ogSlug } from '../lib/og-slug';
 import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 
-const { entry } = Astro.locals.starlightRoute as Props;
+const { entry } = Astro.locals.starlightRoute as StarlightRouteData;
 
 // The same rule the generating route uses — see src/lib/og-slug.ts for why it is shared.
 const image = new URL(`/og/${ogSlug(entry.id)}.png`, Astro.site).href;

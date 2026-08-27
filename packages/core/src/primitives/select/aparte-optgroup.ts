@@ -1,16 +1,41 @@
+import { resolveConfig } from '../../config/config-context.js';
+
 /**
  * AparteOptgroup
  * 
  * Option group element for aparte-select dropdown.
- * 
+ *
+ * A labelled band of options inside `<aparte-select>`. Presentational only: the group
+ * holds no value, and collapsing it just sets `display: none` on its `<aparte-option>`
+ * descendants — they stay in the DOM, which is what keeps the select's keyboard walk
+ * skipping them, since it works off `display`. The label header is inserted before the
+ * children and the loading row appended after them, so both live inside the group, and
+ * neither is hidden when it collapses: only the options are.
+ *
+ * Two consequences of that worth knowing before you reach for it. The select's search
+ * writes that same `display` property on every option in the select, so filtering can
+ * reveal matches inside a collapsed group. And the header is built once, on the first
+ * render that finds a `label`: changing `label` afterwards does not rewrite it — set the
+ * label before inserting the group, or replace the group.
+ *
+ * `loading` is a display state, not a fetch. It appends a spinner row to the group and
+ * nothing else happens — the host still owns the request. "Fetch on expand" is driven by
+ * `aparte-optgroup-toggle`, whose `detail.collapsed` says which way the group just went;
+ * the attribute and the options' `display` are already updated when it fires, since
+ * setting the attribute runs `attributeChangedCallback` synchronously.
+ *
  * @element aparte-optgroup
  * @attr {string} label - Group label
- * @attr {boolean} collapsible - Allow collapse/expand
+ * @attr {boolean} collapsible - Adds the chevron and the click handler to the header — so it needs a `label`, and it is read only when that header is first built.
  * @attr {boolean} collapsed - Collapsed state
- * @attr {boolean} loading - Shows a spinner in place of the group's options.
+ * @attr {boolean} loading - Appends a spinner row to the group; the options stay visible.
  *
  * @fires {CustomEvent<AparteOptgroupToggleEventDetail>} aparte-optgroup-toggle - The group was collapsed or expanded.
-  *
+ *
+ * @cssprop --aparte-text-muted - Colour of the group header label and of the loading row.
+ * The shared theme token: there is no optgroup-specific override, so restyling one group's
+ * header means setting this on that element.
+ *
  * @example
  * <!-- Collapsed groups keep a long list readable; the label is the group's header. -->
  * <aparte-select grouped placeholder="Pick a model">
@@ -106,6 +131,12 @@ export class AparteOptgroup extends HTMLElement {
                 if (this.collapsible) {
                     const chevron = document.createElement('span');
                     chevron.className = 'aparte-optgroup-chevron';
+                    // The library's own `expand`, not a shape drawn here. This span was
+                    // painted as a CSS border-triangle — the second hand-drawn chevron in
+                    // core, built from PHYSICAL border sides where the tool row's used
+                    // logical ones: two markers, two constructions, which is the divergence
+                    // the icons rule was written after.
+                    chevron.innerHTML = resolveConfig(this).getIcon('expand');
                     header.appendChild(chevron);
                     header.style.cursor = 'pointer';
                     header.addEventListener('click', (e) => {
@@ -171,10 +202,10 @@ if (!customElements.get('aparte-optgroup')) {
 /**
  * Detail payload for `aparte-optgroup-toggle`.
  *
- * Named in `types/event-map.ts` as an internal primitive event "carrying no
- * cross-package detail contract". `@aparte/plugin-model-selector` reads both of
- * its fields, from another package, through an untyped cast — and the event is
- * published in the generated CEM event table. It is a contract.
+ * `types/event-map.ts` types `aparte-optgroup-toggle` with this detail, and
+ * `@aparte/plugin-model-selector` reads both of its fields, from another package,
+ * through an untyped cast — while the event is published in the generated CEM event
+ * table. It is a contract.
  *
  * @event aparte-optgroup-toggle
  */

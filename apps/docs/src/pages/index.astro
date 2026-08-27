@@ -1,8 +1,12 @@
 ---
 import { readFileSync, readdirSync } from 'node:fs';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LANDING_TITLE, LANDING_DESCRIPTION, LANDING_IMAGE_ALT } from '../data/landing-meta';
 import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import { SEGMENT_KINDS } from '../data/segment-kinds';
+// The same list `check:derived-vars` and the CSS-variables reference read, so this page
+// cannot count a corpus the rest of the repo has stopped using.
+import { coreStylesheets } from '../../../../scripts/core-stylesheets.mjs';
 import '../styles/palette.css';
 import '../styles/landing.css';
 
@@ -24,10 +28,34 @@ import '../styles/landing.css';
  * the wrappers' slots are equivalent but not identical, so the page does not claim
  * they are. When in doubt the sentence says what is opt-in.
  */
+/**
+ * Everything below is read from the repo at build time, so the anchor has to survive
+ * BUNDLING. It used to count `../` from `import.meta.url`, which worked only while that
+ * URL was this source file: Astro 7 prerenders from bundled chunks in
+ * `dist/.prerender/chunks/`, so the same four levels landed on `apps/packages/core` and
+ * the landing page failed to render at all.
+ *
+ * `process.cwd()` is the Astro project root (`apps/docs`) for every way this builds —
+ * `pnpm --filter`, `nx run`, or `astro build` by hand — and it is not rewritten by the
+ * bundler, so two levels up is the repo root wherever the code ends up.
+ */
+// `.href` rather than the URL object: `pathToFileURL` is typed against @types/node's
+// own `URL`, which no longer matches the global one (the iterator-helper methods on
+// `searchParams`), and a string base sidesteps the clash without a cast.
+const REPO = new URL('../../', pathToFileURL(`${process.cwd()}/`).href);
+const at = (p: string) => new URL(p, REPO);
+
 /** The shipped version, read at build time so the nav chip cannot go stale. */
-const CORE_VERSION: string = JSON.parse(
-    readFileSync(new URL('../../../../packages/core/package.json', import.meta.url), 'utf8'),
-).version;
+const CORE_VERSION: string = JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')).version;
+
+/**
+ * The chip SAYS a version, so it goes to that version's release notes rather than to the
+ * list. Derived from the same string it displays — starlight-changelogs slugs a version by
+ * replacing dots with dashes — so it cannot point at a release the chip is not showing.
+ * `pnpm version-packages` bumps package.json and writes the CHANGELOG section in one step,
+ * and check:doc-links fails the gate if the two ever disagree.
+ */
+const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
 
 /**
  * The numbers this page quotes, MEASURED at build time.
@@ -38,8 +66,6 @@ const CORE_VERSION: string = JSON.parse(
  * from the repo — and anything that could only be counted approximately was
  * dropped rather than printed as if it were exact.
  */
-const REPO = new URL('../../../../', import.meta.url);
-const at = (p: string) => new URL(p, REPO);
 
 /** Gate steps and how many of them are `check:*` guards. */
 const gate: string = JSON.parse(readFileSync(at('package.json'), 'utf8')).scripts.gate;
@@ -122,10 +148,52 @@ const LOCALE_KEYS = (readFileSync(at('packages/core/src/config/locale.ts'), 'utf
  */
 const LOGO_SVG = readFileSync(at('apps/docs/public/favicon.svg'), 'utf8').trim();
 
+/** Every knob core exposes, counted from the sheet that owns them. Read rather than
+ *  hardcoded, for the same reason as the logo above — and behind a floor, because this
+ *  page located the stylesheet by PATH and went down the day the sheets were split by
+ *  family. It was the fourth reader to do exactly that. */
 const CSS_VARS = new Set(
-    (readFileSync(at('packages/core/src/styles/aparte.css'), 'utf8')
+    (readFileSync(at('packages/core/src/styles/theme.css'), 'utf8')
         .match(/^\s*--aparte-[a-z0-9-]+(?=\s*:)/gm) ?? []).map((s) => s.trim()),
 ).size;
+if (CSS_VARS < 250) {
+    throw new Error(
+        `The landing page counted only ${CSS_VARS} CSS variables in theme.css. A sheet moved `
+        + 'and this number is now wrong — fix the path rather than publishing a short count.',
+    );
+}
+
+/**
+ * How far `--aparte-primary` actually reaches, across EVERY sheet rather than one.
+ *
+ * This bullet used to say "ninety-five of them derive from it" — the one hand-written
+ * number on a page whose own header promises every figure was verified against the
+ * source. Measured: twelve variables derive from it and forty-nine places read it. The
+ * claim was wrong on both readings, on the page most people see first.
+ *
+ * Counted here rather than guarded elsewhere, for the reason the rest of this file
+ * already follows: a number computed at build time cannot drift from the thing it
+ * describes.
+ */
+const PRIMARY = (() => {
+    // The shared list gives the RULE — the import order of `index.ts` — and this page gives
+    // the ROOT, because `coreStylesheets()` derives its own from `import.meta.url`, which
+    // points inside `dist/.prerender` once Astro has bundled this frontmatter.
+    const css = coreStylesheets(true, fileURLToPath(REPO))
+        .map((p: string) => readFileSync(p, 'utf8'))
+        .join('\n');
+    const reads = (css.match(/var\(--aparte-primary[,)]/g) ?? []).length;
+    const derived = (css.match(/^\s+--aparte-[\w-]+\s*:[^;]*var\(--aparte-primary[,)]/gm) ?? []).length;
+    if (!reads || !derived) {
+        throw new Error(
+            'The landing page found no reader of --aparte-primary. The matcher broke or the '
+            + 'token was renamed — either way this bullet would publish a zero.',
+        );
+    }
+    return { reads, derived };
+})();
+const PRIMARY_READS = PRIMARY.reads;
+const PRIMARY_DERIVED = PRIMARY.derived;
 
 /** The page already numbers its facts row in serif italic roman; the segment
  *  cards echo it, which is what makes ten boxes read as one enumeration. */
@@ -275,7 +343,7 @@ const FAMILIES = [
       <nav class="site-nav">
         <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
         <div class="nav-links">
-          <a class="ver" href="/changelog/" title="What changed in each release">
+          <a class="ver" href={CORE_VERSION_HREF} title={`What changed in ${CORE_VERSION}`}>
             <b>v{CORE_VERSION}</b><span class="alpha">alpha</span>
           </a>
           <a href="/why/" class="hide-sm">Why apart&eacute;</a>
@@ -599,7 +667,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         <div class="split">
           <div class="prose">
             <ul>
-              <li><b>Variables.</b> Colours, spacing, radii, font sizes, border widths &#8212; and one master, <code>--aparte-primary</code>, that ninety-five of them derive from. Set it on <code>:root</code> and the whole palette follows.</li>
+              <li><b>Variables.</b> Colours, spacing, radii, font sizes, border widths &#8212; and one master, <code>--aparte-primary</code>, read in {PRIMARY_READS} places across the stylesheets: {PRIMARY_DERIVED} other variables derive from it, and the rest of the library reads it directly. Set it on <code>:root</code> and the whole accent follows.</li>
               <li><b>Icons.</b> An icon provider, not a hardcoded set: <code>setIconProvider()</code> takes yours and re-renders what is already on screen, so a set can be swapped live.</li>
               <li><b>Language.</b> A locale is a plain object of {LOCALE_KEYS} strings handed to <code>setLocale()</code>. Your own language needs no package and no pull request here.</li>
               <li><b>Renderers.</b> When a variable is not enough &#8212; a reasoning block you want as one line rather than an accordion &#8212; replace the renderer. Structure is not hostage to a stylesheet.</li>
@@ -687,7 +755,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         <p class="sec-note">
           The API reference on this site is generated from the components themselves at build
           time, so it cannot drift from the code.
-          <a href="/reference/api/">Read the reference &#8594;</a>
+          <a href="/components/">Read the reference &#8594;</a>
         </p>
       </section>
 

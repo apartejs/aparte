@@ -1,20 +1,63 @@
 import { resolveConfig } from '../../config/index.js';
-import type { AparteComposer } from './aparte-composer.js';
+import type { AparteComposer, AparteComposerPanelMode } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
 /**
  * Submit button primitive for <aparte-composer>.
  *
- * @element aparte-composer-send
- * Must be a descendant of <aparte-composer>.
+ * One control, four meanings: **send**, **stop** while the root is streaming, and — when
+ * an elicitation panel is open — **submit** this answer or **advance** to the next
+ * question. The panel outranks streaming: while one is open the button stays the answer
+ * control and a streaming change is ignored. The icon moves with the meaning (paper
+ * plane, square, check, chevron), because a check on a form with three questions left is
+ * as wrong as a paper plane that means "answer". All four are decided by the root's state
+ * — its `value`, `attachments`, `disabled`, `streaming` and the panel payload it
+ * broadcasts — not by anything this element owns, which is why it recomputes its chrome
+ * rather than re-rendering: a rebuild would put a paper plane back mid-stream, drop out
+ * of answer mode, and take the focus off the control most likely to be holding it.
  *
- * - Disabled when composer value is empty, composer is disabled, or streaming
- * - While streaming: shows stop icon and acts as cancel button
+ * "Empty" counts attachments: a pending attachment with no text still enables the
+ * button, because that is a message the composer can send.
+ *
+ * It owns its subtree — the button is generated on connect and children placed inside
+ * are replaced, so there is nothing to project. The host element itself is
+ * `display: contents`, so it adds no box: the layout comes from whatever flex row you put
+ * it in, and the CSS variables below style the inner button.
+ *
+ * It needs an `<aparte-composer>` ancestor: without one the button renders disabled, no
+ * root event ever reaches it, and a click has nothing to submit to.
+ *
+ * It is not the place to gate on model selection: the opt-in
+ * `aparteGlobalConfig.setRequireModelSelection()` gate already blocks this element's
+ * pointer events through `aparte-composer[data-model-gated]`.
+ *
+ * @element aparte-composer-send
+ *
+ * @cssprop [--aparte-composer-control-size=44px] - Width/height of the button inside the
+ *          `.aparte-composer-row` layout helper, shared with the input's single-line
+ *          height so the row stays aligned. It wins over `--aparte-send-btn-size` there.
+ * @cssprop [--aparte-send-btn-size=36px] - Width/height of the button outside that row
+ *          helper. On coarse pointers it is raised to `--aparte-touch-target-size`.
+ * @cssprop [--aparte-touch-target-size=44px] - Hit-area floor applied to the button
+ *          under `@media (pointer: coarse)`.
+ * @cssprop [--aparte-radius-send-btn=6px] - Corner radius of the button.
+ * @cssprop --aparte-primary - Button background.
+ * @cssprop --aparte-primary-hover - Button background on hover, while enabled.
+ * @cssprop --aparte-on-primary - The glyph's colour. Undeclared by default, which means
+ *          the recipe derives it from `--aparte-primary` itself, so a theme that changes
+ *          the fill gets a readable glyph with no second edit. Declare it to choose one
+ *          — it then applies to every primary control, which is the honest scope.
+ * @cssprop [--aparte-ink-flip=0.57] - Fill lightness at which the derived ink flips from
+ *          dark to light, for every solid control.
+ * @cssprop [--aparte-ink-dark=0.176] - How dark that derived ink goes. Not 0: at zero
+ *          lightness OKLCH drops the chroma, and the ink loses the fill's own hue.
+ * @cssprop --aparte-send-disabled-bg - Background while disabled (falls back to
+ *          `--aparte-primary`, which is then dimmed by opacity).
   *
  * @example
  * <!-- One button for both halves of the turn: it submits, and while a reply streams it
- *      becomes the stop button. Do not disable it on `streaming` or stop is unreachable. -->
+ *      becomes the stop button. -->
  * <aparte-composer>
  *   <div class="aparte-composer-row">
  *     <aparte-composer-input style="flex: 1"></aparte-composer-input>
@@ -34,7 +77,7 @@ export class AparteComposerSend extends HTMLElement {
      * arguments and thrown away, so nothing could recompute the button's chrome
      * afterwards; a config change had no way to know which of the four to write.
      */
-    private _panel: { active: boolean; submitEnabled: boolean; mode: 'advance' | 'submit' } | null = null;
+    private _panel: { active: boolean; submitEnabled: boolean; mode: AparteComposerPanelMode } | null = null;
 
     // Bound handler
     private _onClick = this._handleClick.bind(this);
@@ -65,7 +108,7 @@ export class AparteComposerSend extends HTMLElement {
         const disabled = !root || root.disabled || root.value.trim() === '';
 
         this.innerHTML = `<button
-            class="aparte-cs-button aparte-send-button"
+            class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--icon aparte-cs-button aparte-send-button"
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
             ${disabled ? 'disabled' : ''}
@@ -138,6 +181,16 @@ export class AparteComposerSend extends HTMLElement {
         const panel = this._panel;
         if (!this._button || !panel?.active) return;
         const cfg = resolveConfig(this);
+        // No act for this button on this panel: its options settle themselves. The
+        // composer's `[data-panel-mode="none"]` rule takes it out of the layout — and
+        // `display: none` takes it out of the accessibility tree with it, so there is
+        // no `aria-hidden` or `tabindex` to set here and none to restore when the mode
+        // flips back. What this branch does is refuse to RELABEL it: leaving it
+        // announced as a disabled "Submit" is the lie, not the button.
+        if (panel.mode === 'none') {
+            this._button.disabled = true;
+            return;
+        }
         const advancing = panel.mode === 'advance';
         this._button.disabled = !panel.submitEnabled;
         this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();

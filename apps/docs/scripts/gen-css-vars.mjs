@@ -58,13 +58,24 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, relative, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coreStylesheets } from '../../../scripts/core-stylesheets.mjs';
+import { referenceOrder } from './reference-order.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE_SRC = resolve(here, '../../../packages/core/src');
-const CSS = resolve(here, '../../../packages/core/src/styles/aparte.css');
+/**
+ * BOTH theme sheets, in the order `src/index.ts` imports them. Reading one was enough
+ * until the tokens moved to `theme.css`: the generator kept pointing at `aparte.css`
+ * and reported 6 declared tokens instead of 286 — a corpus picked by path, silently
+ * shrinking, exactly the failure this file's own header describes.
+ */
+const CSS_SHEETS = coreStylesheets();
 const OUT = resolve(here, '../src/content/docs/reference/css-variables.md');
 
-const css = readFileSync(CSS, 'utf8');
+const css = CSS_SHEETS.map((p) => readFileSync(p, 'utf8')).join(String.fromCharCode(10));
+/** A floor, not decoration: if the corpus collapses again, this says so instead of
+ *  quietly publishing a shorter page. */
+const DECLARED_FLOOR = 250;
 const lines = css.split(/\r?\n/);
 
 // Every top-level block whose selector list opens with `:root` — the literal palette
@@ -73,7 +84,15 @@ const lines = css.split(/\r?\n/);
 // tokens off this page; see the header.
 const body = [];
 for (let i = 0; i < lines.length; i++) {
-  if (!/^\s*:root\b/.test(lines[i])) continue;
+  // Column ZERO, and that word is the fix. The pattern used to allow leading
+  // whitespace, so the `:root` nested inside `responsive.css`'s
+  // `@media (prefers-reduced-motion: reduce)` was read as another declaration block —
+  // and its six overrides were published as ordinary DEFAULTS. Every duration appeared
+  // twice on the reference page, the second time claiming a default of `0.01ms`, under
+  // a heading that had nothing to do with motion. A nested block is an override; the
+  // dark theme's is skipped for exactly this reason, and this one slipped through only
+  // because it happens to start with the same selector.
+  if (!/^:root\b/.test(lines[i])) continue;
   let j = i;
   while (j < lines.length && !lines[j].includes('{')) j++;
   j++; // step past the opening `{`
@@ -82,48 +101,162 @@ for (let i = 0; i < lines.length; i++) {
 }
 
 const TOKEN = /^\s*(--aparte-[\w-]+)\s*:\s*(.+?);\s*(?:\/\*\s*(.*?)\s*\*\/)?\s*$/;
-const COMMENT = /^\s*\/\*\s*(.*?)\s*\*\/\s*$/;
 
-/** @type {{title: string, tokens: {name: string, value: string, note: string}[]}[]} */
+/**
+ * ## How a comment finds the variable it is about
+ *
+ * A comment introduces the declarations that FOLLOW it, up to the next comment. That
+ * is not a convention this file invents — it is how `theme.css` is already written,
+ * everywhere, and it is how anyone writes CSS. The generator used to read the
+ * opposite ("a comment right after a token annotates that token") and the page paid
+ * for it three ways, all measured before this was rewritten:
+ *
+ *   - seven notes landed on the variable ABOVE the one they described, so
+ *     `--aparte-on-primary` published "Outline width for keyboard focus + drag-over
+ *     indicators" and `--aparte-focus-outline-width` published the scrollbar's;
+ *   - ten of thirty-five section headings were a sentence about a single variable
+ *     ("Not a step of the radius scale: a pill is a shape, not a size."), which then
+ *     went into the page's table of contents;
+ *   - thirty-one MULTI-LINE comments — 125 lines, the prose that says why bubbles are
+ *     opt-in and why the tool-call corner is declared here — matched neither pattern
+ *     and were dropped without a trace.
+ *
+ * Deliberately NOT the alternative fix: a marker in the CSS (`@group`) telling the
+ * generator which comments are headings. That is a convention every future
+ * contributor has to know about a file that is otherwise plain CSS, and the one who
+ * does not know it gets the silent failure back.
+ *
+ * So heading-or-note is decided by what the comment INTRODUCES, which the source
+ * already says:
+ *
+ *   - exactly one declaration  → the comment is that variable's note;
+ *   - none, or several         → it opens a section (first sentence as the heading,
+ *                                the rest as the section's prose).
+ *
+ * A trailing comment on the declaration's own line still wins, since it can only mean
+ * one thing. Nothing in core uses that form today (0 of 391) — it stays because it
+ * costs a capture group and it is the other way people write a note.
+ *
+ * Known cost, stated rather than hidden: a comment that is a group LABEL over a
+ * single declaration ("Typography", over `--aparte-font-family`) becomes that
+ * variable's note and the variable stays in the preceding section. Two of 391 land
+ * that way. Both read correctly — a heading demoted to a label is not a false
+ * statement, which is what all three old failures were.
+ */
+
+/** One comment and the declarations it introduces — the unit the source is written in. */
+const entries = [];
+let entry = { comment: '', tokens: [] };
+entries.push(entry);
+let total = 0;
+
+for (let i = 0; i < body.length; i++) {
+  const line = body[i];
+  const tok = line.match(TOKEN);
+  if (tok) {
+    entry.tokens.push({ name: tok[1], value: tok[2].trim(), note: (tok[3] || '').trim() });
+    total++;
+    continue;
+  }
+  if (!/^\s*\/\*/.test(line)) continue;
+  // Single- or multi-line: walk to the closing `*/` and flatten it to one string.
+  let end = i;
+  while (end < body.length && !body[end].includes('*/')) end++;
+  const text = body
+    .slice(i, end + 1)
+    .map((l) => l.trim().replace(/^\/\*+/, '').replace(/\*+\/\s*$/, '').replace(/^\*+ ?/, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  i = end;
+  entry = { comment: text, tokens: [] };
+  entries.push(entry);
+}
+
+/**
+ * A comment that opens a group names it and then explains it, so the name is the head of
+ * the comment — the first SENTENCE if that reads as a name, the first CLAUSE otherwise,
+ * the whole comment when it has no punctuation at all ("Base Colors").
+ *
+ * The order matters and both attempts shipped before it was right. Clause-first cut
+ * "Display primitives — sizes. Literal like every other control size…" at the dash,
+ * which is an apposition and not a boundary: the page got a section called "Display
+ * primitives" that swallowed the sibling group of the same name, and a paragraph
+ * starting "sizes." Sentence-first keeps the name whole and falls back to the clause
+ * exactly where the sentence is too long to be a heading — which is the case `Icons —
+ * one knob, inherited: a container declares it, every glyph below follows.` needs.
+ *
+ * A candidate is kept only if it reads as a name, and each bound earns its keep on the
+ * corpus rather than in the abstract:
+ *   - it has to be capitalised, because a name is: "rem, so the reader's browser font
+ *     size is honoured; times the scale, …" opens with a unit, not with a heading;
+ *   - under 4 characters it is a word the sentence happened to start with;
+ *   - over 72 it is a sentence ("Breathing room UNDER the composer, so it does not sit
+ *     flush against the bottom edge of a full-height chat.").
+ * With no name the comment stays prose and the open section stays open — the safe
+ * direction: a paragraph in the body says the same thing as a paragraph under a
+ * heading, where a sentence in the sidebar says the page is generated badly.
+ */
+const SENTENCE = /^(.*?[.!?])(?:\s|$)/;
+const CLAUSE = /^(.*?)(?:[:;]|\s—)(?:\s|$)/;
+const TITLE_MIN = 4;
+const TITLE_MAX = 72;
+const readsAsName = (s) => /^[A-Z]/.test(s) && s.length >= TITLE_MIN && s.length <= TITLE_MAX;
+
+function nameOf(comment) {
+  const sentence = (comment.match(SENTENCE)?.[1] ?? '').replace(/[.!?]+$/, '').trim();
+  if (readsAsName(sentence)) return sentence;
+  const clause = (comment.match(CLAUSE)?.[1] ?? '').trim();
+  if (readsAsName(clause)) return clause;
+  return readsAsName(comment) ? comment : '';
+}
+
+/** @type {{title: string, prose: string, tokens: {name: string, value: string, note: string}[]}[]} */
 const groups = [];
-let current = { title: 'General', tokens: [] };
+let current = { title: 'General', prose: '', tokens: [] };
 groups.push(current);
 /** Sections by heading, so a heading repeated across the two blocks reopens one. */
 const byTitle = new Map([[current.title, current]]);
-let lastWasToken = false;
-let total = 0;
 
-for (const line of body) {
-  if (/^\s*$/.test(line)) {
-    lastWasToken = false;
+for (const e of entries) {
+  const name = e.comment ? nameOf(e.comment) : '';
+  // A name already used as a section is a section, whatever it introduces this time.
+  // The two `:root` blocks split several groups down the middle — `/* Viewport */`
+  // labels an empty run in the literal block and a single declaration in the derived
+  // one — and reading that second occurrence as a note left the section with no rows,
+  // so the render skipped it and took its paragraph with it.
+  if (e.comment && e.tokens.length === 1 && !byTitle.has(name)) {
+    e.tokens[0].note ||= e.comment;
+    current.tokens.push(e.tokens[0]);
     continue;
   }
-  const tok = line.match(TOKEN);
-  if (tok) {
-    current.tokens.push({ name: tok[1], value: tok[2].trim(), note: (tok[3] || '').trim() });
-    total++;
-    lastWasToken = true;
-    continue;
-  }
-  const com = line.match(COMMENT);
-  if (com) {
-    const text = com[1].trim();
-    if (lastWasToken && current.tokens.length) {
-      // A comment right after a token annotates that token.
-      current.tokens[current.tokens.length - 1].note ||= text;
-    } else if (byTitle.has(text)) {
+  if (e.comment) {
+    const title = name;
+    // Cutting at a clause leaves the remainder mid-sentence ("Icons" / "one knob,
+    // inherited: …"), so it opens in lower case. One character makes it a sentence
+    // again; a fragment that opens with code (`--aparte-x`, a backticked name) is left
+    // exactly as written.
+    const prose = (title ? e.comment.slice(title.length).replace(/^[\s.!?:;—]+/, '').trim() : e.comment)
+      .replace(/^[a-z]/, (c) => c.toUpperCase());
+    if (!title) {
+      // Prose, not a name. It annotates the run that follows it, inside whatever
+      // section is open — promoting it would put a paragraph in the sidebar.
+      current.prose = [current.prose, prose].filter(Boolean).join(' ');
+    } else if (byTitle.has(title)) {
       // A heading seen before: the two `:root` blocks repeat the same group comments,
       // because the derived half was split out of the literal one group by group. So
       // "Messages" must REJOIN the Messages section rather than open a second one —
       // the page then reads exactly as it did when the palette was a single block.
-      current = byTitle.get(text);
+      current = byTitle.get(title);
+      if (prose && !current.prose.includes(prose)) current.prose = [current.prose, prose].filter(Boolean).join(' ');
     } else {
-      current = { title: text, tokens: [] };
-      byTitle.set(text, current);
+      current = { title, prose, tokens: [] };
+      byTitle.set(title, current);
       groups.push(current);
     }
-    lastWasToken = false;
   }
+  current.tokens.push(...e.tokens);
 }
 
 // ── Pass 2: what the component styles actually read ─────────────────────────
@@ -182,6 +315,12 @@ for (const file of walk(CORE_SRC)) {
 }
 
 const declaredNames = new Set(groups.flatMap((g) => g.tokens.map((t) => t.name)));
+if (declaredNames.size < DECLARED_FLOOR) {
+  console.error(`[gen-css-vars] only ${declaredNames.size} declared tokens found across ` +
+    `${CSS_SHEETS.length} sheet(s), floor is ${DECLARED_FLOOR}. The corpus shrank — a sheet` +
+    ' moved or was renamed, and the page would publish short.');
+  process.exit(1);
+}
 
 /** Read with a built-in default, never declared in `:root` — the missing half. */
 const componentTokens = [...reads.keys()]
@@ -192,16 +331,21 @@ const componentTokens = [...reads.keys()]
 /** Declared in `:root`, read by nothing in core — the reverse defect. */
 const unread = new Set([...declaredNames].filter((n) => !reads.has(n)));
 
-const esc = (s) => s.replace(/\|/g, '\\|');
+/**
+ * `|` ends a table cell, and `<` opens an HTML tag in Markdown — the prose now
+ * reaching this page really does contain one (`the panel's CSS used to be a <style>
+ * block`), and it would render as an empty element rather than as the sentence.
+ */
+const esc = (s) => s.replace(/\|/g, '\\|').replace(/</g, '&lt;');
 
 let md = `---
 title: CSS variables
 description: The complete, generated reference of every --aparte-* theme variable.
 sidebar:
-  order: 2
+  order: ${referenceOrder("css-variables.md")}
 ---
 
-<!-- AUTO-GENERATED from packages/core/src/styles/aparte.css by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
+<!-- AUTO-GENERATED from packages/core/src/styles/ (every sheet src/index.ts imports) by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
 
 Every \`--aparte-*\` variable aparté declares or reads — **${total + componentTokens.length}**
 in total: ${total} declared in the stylesheet's \`:root\` and ${componentTokens.length} read by a
@@ -214,9 +358,19 @@ paints — core deliberately leaves the chat transparent), or it is a step of a 
 nothing happens to use yet. Setting one changes nothing on its own.
 `;
 
+// A section with prose and no rows still renders. Seven comments in `theme.css` label a
+// REGION rather than the run under them — the lists grew and pushed the label up, so
+// `/* Select. Its dropdown shadow used to live as a fallback inside select.css … */`
+// now sits 46 lines above `--aparte-select-shadow`. That is source drift and it belongs
+// to a stylesheet lot, not to this one; what this file must not do is answer it by
+// dropping the paragraph, which is the failure its own header is about. An empty
+// section with nothing to say is still skipped.
 for (const g of groups) {
+  if (!g.tokens.length && !g.prose) continue;
+  md += `\n## ${esc(g.title)}\n\n`;
+  if (g.prose) md += `${esc(g.prose)}\n\n`;
   if (!g.tokens.length) continue;
-  md += `\n## ${g.title}\n\n| Variable | Default | Notes |\n| --- | --- | --- |\n`;
+  md += `| Variable | Default | Notes |\n| --- | --- | --- |\n`;
   for (const t of g.tokens) {
     const note = unread.has(t.name)
       ? [t.note, '**palette only**'].filter(Boolean).join(' — ')
@@ -262,6 +416,33 @@ if (undocumented.length) {
     + undocumented.map((n) => `  ${n}`).join('\n')
     + '\n\nThe parse missed them — check that every `:root`-anchored block is being read'
     + '\n(the palette is split: literals in one block, the derived layer in another).\n',
+  );
+  process.exit(1);
+}
+
+// The same assertion for the other half of the input. The token check above would have
+// stayed green through the bug this parse was rewritten to fix: every variable was on
+// the page, while thirty-one multi-line comments — 125 lines of the reasoning that makes
+// the reference worth reading — matched no pattern and were dropped in silence.
+//
+// Only comments long enough to be prose are checked, and on their last 40 characters,
+// which is the part that survives a title/prose split. A short label ("Text", "Motion")
+// is exempt for a stated reason rather than by oversight: its text is a substring of
+// half the page, so asserting it would pass whether or not it was placed.
+const PROSE = 40;
+const lost = entries
+  // Trailing sentence punctuation is dropped when a comment becomes a heading, so the
+  // comparison drops it too — the first version of this check reported two headings as
+  // lost for the sake of a full stop.
+  .map((e) => e.comment.replace(/[.!?]+$/, ''))
+  .filter((c) => c.length > PROSE && !md.includes(esc(c.slice(-PROSE))));
+if (lost.length) {
+  console.error(
+    `\n[gen-css-vars] ${lost.length} comment(s) in a \`:root\` block reach no reader:\n`
+    + lost.map((c) => `  ${c.slice(0, 90)}…`).join('\n')
+    + '\n\nA comment introduces the declarations that follow it. One that introduces none'
+    + '\nopens a section with no rows, and a section with neither rows nor prose is'
+    + '\nskipped — so check where the comment sits relative to what it describes.\n',
   );
   process.exit(1);
 }

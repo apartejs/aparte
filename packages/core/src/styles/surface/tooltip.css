@@ -1,0 +1,106 @@
+/* =========================================
+   aparte-tooltip — a short label, with an arrow
+   =========================================
+   A tooltip has to be legible against whatever it happens to sit on top of — a bright
+   image, a dark code block, either app theme — so its colours are fixed literals rather
+   than the themed surface/text tokens. This box does NOT follow the palette, on purpose,
+   and skips the dark-theme override block for that reason; the artifact "paper" tokens
+   are the same decision made for the same reason.
+
+       <span style="position: relative; display: inline-block; margin-block-start: 2.5rem">
+         <div class="aparte-tooltip" role="tooltip"
+              style="position: absolute; bottom: calc(100% + 8px); left: 50%; translate: -50% 0">
+           Copy to clipboard
+           <span class="aparte-tooltip__arrow"></span>
+         </div>
+         <button class="aparte-btn aparte-btn--icon" aria-label="Copy"><aparte-icon name="copy"></aparte-icon></button>
+       </span>
+
+   The two inline styles are the caller's half, shown rather than described: this file
+   draws the box and the arrow, and NOTHING here positions either. An example that
+   omitted them rendered as a black label with an arrow pointing at empty space, which
+   is what the preview frame beside it showed.
+
+   The arrow points DOWN by default — the common case, a tooltip above the thing it
+   labels — and `data-side="bottom"` flips it. Placing the box is yours, as with the
+   popover; only the arrow's two positions are here.
+
+   `pointer-events: none` is not a detail: a tooltip describes what the pointer is over,
+   so it must never itself become that thing, or hovering it re-triggers the hover that
+   produced it. */
+.aparte-tooltip {
+  /* Component-local tokens: `bg`/`color` are fixed literals on purpose (see the
+     comment above) rather than the themed surface/text tokens, so they cannot
+     come from the shared set — the dark chip literal already used for
+     `--aparte-art-paper-text`, and the off-white already used for the light
+     theme's `--aparte-text-inverse`, both reused rather than inventing new
+     colours. `shadow` reuses the same elevation recipe as `--aparte-scroll-btn-shadow`.
+     `max-width` keeps a tooltip a short label, not a paragraph. */
+  --aparte-tooltip-max-width: 240px;
+
+  position: relative;
+  display: inline-block;
+  max-width: var(--aparte-tooltip-max-width);
+  padding: var(--aparte-space-2) var(--aparte-space-4);
+  background: var(--aparte-tooltip-bg);
+  color: var(--aparte-tooltip-color);
+  border-radius: var(--aparte-radius-sm);
+  box-shadow: var(--aparte-tooltip-shadow);
+  font-size: var(--aparte-font-size-sm);
+  line-height: var(--aparte-line-height-snug);
+  text-align: start;
+  z-index: var(--aparte-z-dropdown);
+  /* A tooltip describes the element under the pointer; it must never itself be
+     what the pointer is over, or hovering the tooltip re-triggers the hover that
+     produced it. */
+  pointer-events: none;
+}
+
+/* Points down by default — the common case of a tooltip sitting above the thing
+   it labels. `[data-side="bottom"]` flips it for a tooltip placed below instead.
+   Horizontal centring uses inline-start + a negative inline-start margin rather
+   than a transform, so it re-centres correctly under `direction: rtl` without a
+   second rule. Placement to either side is the caller's own transform math, the
+   same "position is the caller's job" split as the popover above. */
+.aparte-tooltip__arrow {
+  position: absolute;
+  inset-inline-start: 50%;
+  /* `--aparte-space-4` doubles as the arrow's size — an allowed token that
+     already lands at a size an arrow reads at against the box it points from. */
+  inset-block-end: calc(var(--aparte-space-4) * -0.5);
+  margin-inline-start: calc(var(--aparte-space-4) * -0.5);
+  width: var(--aparte-space-4);
+  height: var(--aparte-space-4);
+  background: var(--aparte-tooltip-bg);
+  transform: rotate(45deg);
+}
+
+.aparte-tooltip[data-side='bottom'] .aparte-tooltip__arrow {
+  inset-block-end: auto;
+  inset-block-start: calc(var(--aparte-space-4) * -0.5);
+}
+
+/* ── Forced colors ───────────────────────────────────────────────────────────────
+   The menu and the popover already carry a real border by default, so those two
+   boxes survive forced-colors mode once background and box-shadow are both
+   dropped — nothing more is needed there. The two states below are the ones that
+   relied on a fill with NO border to carry them: the segmented tab's active pill
+   (a background swap, nothing else) and the tooltip (deliberately borderless, so
+   its whole silhouette is its background colour). Each gets the border the
+   shadow can no longer give it. The tooltip's arrow is dropped rather than
+   patched: under forced colors it would be an unlabelled bordered diamond, and
+   the bordered tooltip body alone already reads as a floating panel. */
+@media (forced-colors: active) {
+  .aparte-tabs--segmented .aparte-tabs__tab[aria-selected='true'] {
+    border: var(--aparte-border-width) solid currentColor;
+  }
+
+  .aparte-tooltip {
+    border: var(--aparte-border-width) solid currentColor;
+  }
+
+  .aparte-tooltip__arrow {
+    display: none;
+  }
+}
+

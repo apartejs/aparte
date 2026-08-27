@@ -1,0 +1,70 @@
+/*
+ * aparté — Segment renderers: thinking, code, tool call, error, pipeline.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+.aparte-segments {
+  font-size: var(--aparte-content-font-size);
+  line-height: var(--aparte-content-line-height);
+  color: var(--aparte-content-color);
+  font-family: var(--aparte-font-family);
+}
+
+.aparte-segments:empty {
+  display: none;
+}
+
+/* The waiting indicator: between "user sends" and the first token. Built into the
+   bubble, so it needs no wiring and behaves the same in core and every wrapper.
+   Sits in the content region and disappears as soon as there is anything to show. */
+.aparte-waiting {
+  display: flex;
+  align-items: center;
+  min-height: var(--aparte-waiting-height);
+}
+
+.aparte-waiting[hidden] {
+  display: none;
+}
+
+.aparte-waiting .aparte-dots {
+  gap: var(--aparte-waiting-dot-gap);
+}
+
+/* Staggered so it reads as "working", not as three synchronized blobs. Scoped to
+   the waiting region — the status element keeps its single-dot pulse. */
+.aparte-waiting .aparte-dot:nth-child(2) {
+  animation-delay: var(--aparte-duration-base);
+}
+
+.aparte-waiting .aparte-dot:nth-child(3) {
+  animation-delay: var(--aparte-duration-slower);
+}
+
+/* =========================================
+   Segment Renderers (Global Defaults)
+   ========================================= */
+
+/* Text */
+.aparte-segment-thinking {
+  /* Understated disclosure: a muted left rail, not a filled card. */
+  border-left: var(--aparte-thinking-rail-width) solid var(--aparte-thinking-border);
+  margin: var(--aparte-space-5) 0;
+  background: transparent;
+}
+
+/* WHAT IS LEFT is only what belongs to REASONING, not to disclosure.
+   The flex row, the `list-style`/`::-webkit-details-marker` reset, the chevron and its
+   180° turn were all redrawn here under four private classes while
+   `surface/accordion.css` already had every one of them. The block now wears
+   `.aparte-accordion__header` / `__item` / `__panel` and adds these two lines: a
+   quieter face than a real accordion header, and the padding the left rail needs. */
+.aparte-thinking-header {
+  padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-5);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-thinking-text);
+}
+
+/* Code */

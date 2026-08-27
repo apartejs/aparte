@@ -1,0 +1,305 @@
+/*
+ * aparté — The elicitation panel and the approval gate.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ */
+/* ─────────────────────────────────────────────────────────────────────────────
+   The elicitation panel — a tool asking the user something, inside the composer.
+
+   This lived in a template string injected as a <style> from
+   `aparte-elicitation.ts`, with every size and radius hardcoded. Three costs, all
+   paid: it was the one surface in the library that could not be themed, its
+   variables were absent from the generated CSS reference, and the injection was a
+   document singleton that was never re-created if anything removed it — the exact
+   latent defect `injectRendererStyles` had until this release.
+   ───────────────────────────────────────────────────────────────────────────── */
+.aparte-elic-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-elic-gap);
+  padding: var(--aparte-elic-padding);
+  width: 100%;
+  box-sizing: border-box;
+  max-height: var(--aparte-elic-max-height);
+  /* The panel itself does not scroll: its BODY does, so the tabs stay at the top and
+     the corner escape stays put instead of sliding under the fold. */
+  overflow: hidden;
+  /* The dismiss corner positions against this. */
+  position: relative;
+}
+
+.aparte-elic-body {
+  flex: 1 1 auto;
+  /* Without this a flex child refuses to shrink below its content and the scroll
+     never engages — the classic flexbox min-height trap. */
+  min-height: 0;
+  overflow-y: auto;
+  /* A thin, themed scrollbar: the native one is a grey slab across a soft card. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-border) transparent;
+}
+
+.aparte-elic-message {
+  margin: 0 var(--aparte-space-3) var(--aparte-space-3);
+  font-size: var(--aparte-elic-message-size);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-text);
+  line-height: var(--aparte-line-height-snug);
+}
+
+/* One question per field, separated so a form of several reads as several. */
+.aparte-elic-field + .aparte-elic-field {
+  margin-top: var(--aparte-elic-field-gap);
+  padding-top: var(--aparte-elic-field-gap);
+  border-top: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-elic-title {
+  margin: 0 var(--aparte-space-3) var(--aparte-space-2);
+  font-size: var(--aparte-elic-title-size);
+  font-weight: var(--aparte-font-weight-semibold);
+  color: var(--aparte-text);
+}
+
+.aparte-elic-desc {
+  margin: 0 var(--aparte-space-3) var(--aparte-space-3);
+  font-size: var(--aparte-elic-desc-size);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-elic-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+}
+
+/* The row is `.aparte-field-choice`; the panel only tightens its padding, because a
+   question's options sit inside an already-padded panel.
+
+   Scoped away from `--command`, which is a BUTTON and wears the button recipe —
+   hover included. Out-specifying that recipe from here is the mistake
+   `.aparte-composer-row button` made and paid for twice; a declaration only the
+   intended reader can see needs no antidote. */
+.aparte-elic-option:not(.aparte-elic-option--command) {
+  --aparte-field-choice-padding: var(--aparte-elic-option-padding);
+  --aparte-field-choice-radius: var(--aparte-elic-option-radius);
+}
+
+.aparte-elic-option:not(.aparte-elic-option--command):hover {
+  background: var(--aparte-surface-2);
+  border-color: var(--aparte-border);
+}
+
+/* The control is `.aparte-checkbox` or `.aparte-radio` — whichever matches its own
+   type. What stays here is what belongs to a control IN THIS ROW rather than to
+   controls in general: the nudge that lines it up with the first line of a label that
+   may run to two, and this panel's own measure fed into whichever recipe drew it. */
+.aparte-elic-control {
+  margin-top: var(--aparte-space-2);
+  --aparte-checkbox-size: var(--aparte-elic-control-size);
+  --aparte-radio-size: var(--aparte-elic-control-size);
+  /* Keep the dot proportional to the box: the recipe's default is drawn for its own
+     18px, and this panel's control is smaller. */
+  --aparte-radio-dot-size: calc(var(--aparte-elic-control-size) * 0.45);
+}
+
+.aparte-elic-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-1);
+  flex: 1;
+}
+
+.aparte-elic-option-title {
+  font-size: var(--aparte-elic-option-title-size);
+  font-weight: var(--aparte-font-weight-medium);
+  color: var(--aparte-text);
+  line-height: var(--aparte-line-height-snug);
+}
+
+.aparte-elic-option-desc {
+  font-size: var(--aparte-elic-option-desc-size);
+  color: var(--aparte-text-muted);
+  line-height: var(--aparte-line-height-snug);
+}
+
+/* The box is `.aparte-field`. What stays is what belongs to a field IN THIS PANEL
+   rather than to fields in general: the gap above it, the quieter ground it sits on
+   inside an already-raised panel, and a larger face than a filter input because this
+   is a field someone composes an answer in. */
+.aparte-elic-other-input,
+.aparte-elic-text {
+  --aparte-field-radius: var(--aparte-elic-input-radius);
+  margin-top: var(--aparte-space-2);
+  background: var(--aparte-surface-2);
+  font-size: var(--aparte-elic-option-title-size);
+}
+
+textarea.aparte-elic-text {
+  min-height: var(--aparte-elic-textarea-min-height);
+}
+
+.aparte-elic-other-input:focus,
+.aparte-elic-text:focus {
+  border-color: var(--aparte-primary);
+}
+
+.aparte-elic-option--recommended {
+  border-color: var(--aparte-primary);
+  background: color-mix(in srgb, var(--aparte-primary) 6%, transparent);
+}
+
+/* The whole-request escape, in the corner and out of the way of anything that
+   answers a question. It used to be a row at the bottom beside the button that
+   advances through the form, and that adjacency promised "skip this question" while
+   it declines the lot. */
+.aparte-elic-dismiss {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  z-index: var(--aparte-z-raised);
+}
+
+/* ── An approval: a decision, not a value ───────────────────────────────────
+   The options are buttons, not radios, because a decision has two primary actions
+   of opposite polarity and the composer's one button cannot carry both. So they
+   settle on the first click, and approving costs one gesture rather than two.
+
+   The colours are the ones the inline Approve / Reject pair used, moved here from
+   the runtime-injected `getStyles()` string in the tool_call renderer. That move is
+   the point: injected CSS is invisible to a consumer's own rules, absent from the
+   generated CSS reference, and unreachable by `check:derived-vars`. The elicitation
+   panel made the same move for the same reason. */
+/* A COLUMN, not a row of pills.
+   The panel lives in a composer, which is narrow — two or three labels side by side
+   either wrap into an unreadable jumble or get squeezed. And the labels are not short:
+   a scope option reads "Approve, and always for this tool". A stacked list is also what
+   every reference implementation of this shows, for the same reason: one target per
+   line, full width, so the choice is read rather than aimed at. */
+.aparte-approval-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-approval-gap, 4px);
+  margin: 0 var(--aparte-space-3);
+}
+
+/* ONE recipe: a full-width surface button. It used to carry the button recipe AND a
+   boxed `.aparte-field-choice`, and that was wrong twice over. By meaning — an approval
+   is a DECISION that settles on the click, not a value you pick and then submit, which
+   is what a choice row is for. And by mechanics — both are single-class selectors, so
+   the two sets of `display`/`padding`/`border`/`radius` were separated by nothing but
+   the order of two imports.
+
+   What the option adds is the reading direction: left-aligned and flush, because the eye
+   reads DOWN a list and a centred label in a wide target is harder to scan. The measures
+   are re-expressed as the button's own tokens, so they land on the recipe rather than
+   beside it. `--surface` already carries the box and the hover.
+
+   ONE rule for both, because they are the same object. A single-choice QUESTION settles
+   on the click for the same reason an approval does — one act, one gesture — and giving
+   it a second, identical set of declarations is how the two would drift apart. The two
+   names stay because the meanings differ, and a consumer restyling one should not have
+   to accept the other. */
+.aparte-approval-option,
+.aparte-elic-option--command {
+  justify-content: flex-start;
+  text-align: start;
+  /* The recipe keeps a label on one line, which is right for a control in a row and
+     wrong here: an option reads "Approve, and always for this tool" inside a composer
+     narrow enough to make that two lines. */
+  white-space: normal;
+  font-size: var(--aparte-approval-option-size, 0.85rem);
+  font-weight: var(--aparte-font-weight-medium);
+  line-height: var(--aparte-line-height-snug);
+  --aparte-btn-padding: var(--aparte-approval-option-padding, 8px 10px);
+  --aparte-btn-radius: var(--aparte-approval-option-radius, 8px);
+}
+
+/* `.aparte-approval-option--affirm` and `--deny` deliberately have NO rule here, and no
+   colour is applied to an option anywhere. They name the MEANING of an option, which is
+   what a consumer restyling this panel selects on; the appearance is the plain button
+   recipe. See `buildApprovalPanel` for why colour lost: an alert's vocabulary on a
+   control, and 2.19:1 on the dark palette when it was tried as a fill instead. */
+
+/* The refusal's reason, in the user's words. Quiet by default and one line tall: it is
+   the exception, not the expected act, and a box sized for a paragraph invites one. */
+.aparte-approval-instruction {
+  font: inherit;
+  font-size: var(--aparte-elic-input-size, 0.85rem);
+  color: var(--aparte-text);
+  background: transparent;
+  border: none;
+  border-top: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: 0;
+  padding: var(--aparte-space-4) var(--aparte-space-5) var(--aparte-space-1);
+  margin: var(--aparte-space-2) var(--aparte-space-3) 0;
+  resize: none;
+  overflow: hidden;
+  min-height: 1.6em;
+}
+
+.aparte-approval-instruction:focus {
+  outline: none;
+  border-top-color: var(--aparte-accent);
+}
+
+.aparte-approval-instruction::placeholder {
+  color: var(--aparte-text-muted);
+}
+
+/* A ghost `.aparte-btn`; only its type size is the panel's business. */
+.aparte-elic-skip {
+  font-size: var(--aparte-elic-skip-size);
+}
+
+.aparte-elic-skip:hover {
+  background: var(--aparte-surface-2);
+  color: var(--aparte-text);
+}
+
+/* One question at a time: a chip per question, and the chip is also how you go
+   back. In this layout the fields are siblings with only one shown, so the
+   separator between them would draw a border above whichever one is visible. */
+.aparte-elic-panel--stepped .aparte-elic-field + .aparte-elic-field {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* The tab rail: a hairline the tabs sit on, so the active underline reads as a tab
+   rather than as a dash floating under a word. */
+/* The row and the tabs are `.aparte-tabs--underline`. What stays is what belongs to
+   a panel rather than to tabs in general: room for the corner escape, the rail the
+   underline sits on, and a step's smaller type. */
+.aparte-elic-steps {
+  gap: var(--aparte-elic-step-gap);
+  margin: 0 var(--aparte-elic-dismiss-room) var(--aparte-space-4) var(--aparte-space-3);
+  border-bottom: var(--aparte-border-width) solid var(--aparte-border);
+}
+
+.aparte-elic-step {
+  /* The tab recipe draws the indicator; this is only how thick this panel wants it. */
+  border-block-end-width: var(--aparte-elic-step-underline);
+  font-size: var(--aparte-elic-step-size);
+  padding: var(--aparte-elic-step-padding);
+  /* The underline sits ON the rail, not above it. */
+  margin-bottom: calc(-1 * var(--aparte-border-width));
+}
+
+/* Answered: readable, but it is not where you are. */
+.aparte-elic-step[data-answered] {
+  color: var(--aparte-text);
+}
+
+.aparte-elic-step[aria-selected='true'] {
+  color: var(--aparte-text);
+  font-weight: var(--aparte-font-weight-semibold);
+  border-bottom-color: var(--aparte-primary);
+}
+
+.aparte-elic-step:hover:not([aria-selected='true']) {
+  color: var(--aparte-text);
+  border-bottom-color: var(--aparte-border);
+}

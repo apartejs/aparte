@@ -30,11 +30,51 @@ import {
  * The transcript surface: a light-DOM container with sticky scrolling, token
  * streaming and segment-aware rendering.
  *
+ * Features:
+ * - Smart Scroll: Sticks to bottom when user is at bottom, stops on manual scroll up
+ * - appendToken(): For simple content streaming
+ * - appendToSegment(): For segment-aware streaming (thinking, code, etc.)
+ *
+ * Two DOM modes. By default the element builds its own scroll surface
+ * (`.aparte-viewport-container`) around a `.aparte-messages-wrapper`, and creates the
+ * `<aparte-chat-bubble>` elements itself (the last `max-rendered-bubbles` of the active
+ * path). With `framework-managed` set it builds neither wrapper: the HOST is the scroll
+ * surface, the framework owns the bubble elements, and the bottom spacer becomes additive
+ * host padding instead of an element — a relocated or removed child is what desynchronises
+ * a framework's view tree from the live DOM, so this mode touches neither. The one child
+ * it appends in both modes is the scroll-to-bottom button, kept trailing.
+ *
+ * Children you write inside the element are just children: there is no shadow root and no
+ * slot to target. In the default mode they are MOVED into the internal
+ * `.aparte-messages-wrapper` at first render, ahead of the bottom spacer, so pre-rendered
+ * `<aparte-chat-bubble>` elements land in the transcript flow. A custom element of your own
+ * is relocated the same way, and if it carries `data-aparte-bubble` plus a matching
+ * `message-id` it also receives the live token and segment pushes, not just a restyle.
+ * Do not expect such a child to outlive the transcript, though: anything that re-renders the
+ * active path (`addBranch`, `addSiblingOf`, `navigateBranch`, `importTree`) empties the
+ * wrapper and rebuilds it from the repository, so only what the repository holds comes back —
+ * and `clearAll()` removes `<aparte-chat-bubble>` nodes only, so a `[data-aparte-bubble]`
+ * element of your own is left behind with nothing left to render. With `framework-managed`
+ * set children are not relocated: they stay direct children of the host, which is itself the
+ * scroll surface.
+ *
+ * Messages are held as a TREE (siblings, branches, an active path), which is what lets
+ * a retry fork and a bubble's sibling picker navigate with no host object involved.
+ *
+ * What it is NOT is storage. `max-rendered-bubbles` is a DOM ceiling and never evicts
+ * from the repository — the full tree and its snapshot stay complete, `exportTree()` /
+ * `importTree()` hand that snapshot to whoever owns persistence, and real history
+ * retention is configured on the conversation manager instead. It is not a chat either:
+ * a bare viewport IS a valid `AparteClient` target, but the composer, the transport and
+ * the shell layout are other elements.
+ *
  * @element aparte-chat-viewport
  *
  * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
- *   element composes none of its own children, because the framework owns them. All four
- *   wrappers set it; it was read by this element and declared by nothing until now.
+ *   element builds no wrapper of its own and relocates none of the nodes the FRAMEWORK renders
+ *   into it, because the framework owns them. Not "none of its children": core's own
+ *   scroll-to-bottom button is re-appended whenever it stops being last, and that path runs in
+ *   this mode only. All four wrappers set it.
  * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
  * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
  * @attr {number} max-messages - DEPRECATED. It used to evict messages from the model; it now
@@ -45,12 +85,37 @@ import {
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
  * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch path changed, after a retry fork or a navigation.
  *
- * Features:
- * - Smart Scroll: Sticks to bottom when user is at bottom, stops on manual scroll up
- * - appendToken(): For simple content streaming
- * - appendToSegment(): For segment-aware streaming (thinking, code, etc.)
- * - Internal message registry for memory management
-  *
+ * @cssprop [--aparte-viewport-padding=16px] - Padding around the transcript — on
+ *   `.aparte-messages-wrapper`, or on the host itself in framework-managed mode, where the
+ *   auto-scroll spacer is added on top of it. A container narrower than 520px tightens it in
+ *   the default mode only: that rule reassigns the variable on `.aparte-messages-wrapper`,
+ *   which framework-managed mode never builds.
+ * @cssprop [--aparte-message-gap=12px] - Gap between consecutive bubbles in the transcript
+ *   column (both DOM modes). Shared: it is also the avatar-to-content gap inside a bubble.
+ * @cssprop [--aparte-scrollbar-width=6px] - Width of the WebKit scrollbar on the scroll
+ *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
+ * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A
+ *   coarse pointer raises it to `--aparte-touch-target-size`.
+ * @cssprop [--aparte-scroll-btn-shadow=0 2px 8px rgba(0, 0, 0, 0.12)] - Its shadow; the dark
+ *   theme sets a heavier one.
+ *
+ * @example
+ * <!-- On its own, outside `<aparte-chat>`. Give it a height: it fills what it is given
+ *      and owns the scrolling inside that box, so a viewport in an auto-height parent
+ *      grows forever instead of scrolling. Messages are pushed in — it fetches nothing. -->
+ * <aparte-chat-viewport style="height: 320px"></aparte-chat-viewport>
+ *
+ * <script>
+ *   const viewport = document.querySelector('aparte-chat-viewport');
+ *   viewport.appendMessage({ id: 'u1', role: 'user', content: 'What is a transport?', timestamp: Date.now() });
+ *   viewport.appendMessage({
+ *     id: 'a1',
+ *     role: 'assistant',
+ *     content: 'The object that talks to the model. Swap it and the UI does not change.',
+ *     timestamp: Date.now(),
+ *   });
+ * </script>
+ *
  * @example
  * // Three calls are a whole streamed turn.
  * const viewport = document.querySelector('aparte-chat-viewport')!;
@@ -749,6 +814,11 @@ export class AparteChatViewport extends HTMLElement {
         return this._repo.getMessageById(messageId);
     }
 
+    /**
+     * The messages on the currently ACTIVE path, root → head — not the whole tree.
+     * A message that was retried contributes only the branch currently selected;
+     * `exportTree()` is what returns every sibling.
+     */
     getMessages(): AparteMessage[] {
         return this._repo.getMessages();
     }
@@ -1122,12 +1192,11 @@ export class AparteChatViewport extends HTMLElement {
 
             // Scroll-to-bottom button — absolutely positioned over the viewport
             this._scrollBtn = document.createElement('button');
-            this._scrollBtn.className = 'aparte-scroll-btn aparte-scroll-btn--hidden';
+            this._scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
             this._scrollBtn.setAttribute('type', 'button');
             this._scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
             const scrollIcon = resolveConfig(this).getIcon('scrollDown');
-            this._scrollBtn.innerHTML = scrollIcon
-                || `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
+            this._scrollBtn.innerHTML = scrollIcon;
             this.appendChild(this._scrollBtn);
         } else {
             this._container = this.querySelector('.aparte-viewport-container');
@@ -1158,12 +1227,11 @@ export class AparteChatViewport extends HTMLElement {
         this.classList.add('aparte-viewport--framework');
 
         const scrollBtn = document.createElement('button');
-        scrollBtn.className = 'aparte-scroll-btn aparte-scroll-btn--hidden';
+        scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
         scrollBtn.setAttribute('type', 'button');
         scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
         const scrollIcon = resolveConfig(this).getIcon('scrollDown');
-        scrollBtn.innerHTML = scrollIcon
-            || `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
+        scrollBtn.innerHTML = scrollIcon;
         this.appendChild(scrollBtn);
         this._scrollBtn = scrollBtn;
     }

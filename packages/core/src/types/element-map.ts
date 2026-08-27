@@ -44,6 +44,7 @@ import type { AparteSelect } from '../primitives/select/aparte-select.js';
 import type { AparteOption } from '../primitives/select/aparte-option.js';
 import type { AparteOptgroup } from '../primitives/select/aparte-optgroup.js';
 import type { AparteProgressSpinner } from '../primitives/progress-spinner/aparte-progress-spinner.js';
+import type { AparteIcon } from '../primitives/icon/aparte-icon.js';
 
 declare global {
     interface HTMLElementTagNameMap {
@@ -72,6 +73,7 @@ declare global {
         'aparte-option': AparteOption;
         'aparte-optgroup': AparteOptgroup;
         'aparte-progress-spinner': AparteProgressSpinner;
+        'aparte-icon': AparteIcon;
     }
 }
 

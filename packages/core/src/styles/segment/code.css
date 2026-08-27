@@ -1,0 +1,39 @@
+.aparte-code-header {
+  display: flex;
+  align-items: center;
+  padding: var(--aparte-space-4) var(--aparte-space-6);
+  background: var(--aparte-code-header-bg);
+  border-bottom: var(--aparte-border-width) solid var(--aparte-code-border);
+  font-size: var(--aparte-font-size-sm);
+  color: var(--aparte-code-header-text);
+}
+
+.aparte-code-filename {
+  font-weight: var(--aparte-font-weight-semibold);
+  margin-inline-end: auto;
+  /* Logical property: pushes language + copy to the right when filename is present */
+}
+
+.aparte-code-header-filler {
+  flex: 1;
+  /* No-filename placeholder — keeps language + copy right-aligned */
+}
+
+.aparte-code-language {
+  margin-inline-end: var(--aparte-space-4);
+  /* Logical property */
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+
+.aparte-code-copy:hover {
+  background: var(--aparte-code-copy-hover-bg);
+}
+
+.aparte-code-copy svg {
+  width: var(--aparte-code-copy-icon-size);
+  height: var(--aparte-code-copy-icon-size);
+}
+
+/* Error */

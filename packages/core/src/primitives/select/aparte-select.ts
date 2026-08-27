@@ -1,5 +1,6 @@
 import './aparte-option.js';
 import './aparte-optgroup.js';
+import { resolveConfig } from '../../config/config-context.js';
 
 export interface AparteSelectChangeDetail {
     value: string;
@@ -11,24 +12,50 @@ export interface AparteSelectChangeDetail {
  * Dropdown select for aparté — a vanilla web component with optional grouping, a
  * search filter and a keyboard-driven listbox.
  *
- * The tags above used to live in a docblock at the top of this file, separated from
- * the class by these imports and the interface. TypeScript associates only the
- * comment PHYSICALLY ADJACENT to a declaration, so the analyser never saw them: the
- * manifest still listed six attributes and three events (it reads
- * `observedAttributes` and `this.dispatchEvent` structurally) but with every
- * description dropped, and the generated CSS-of-record for this element read blank.
+ * The element is light DOM and takes `<aparte-option>` / `<aparte-optgroup>` children, in
+ * the order they should appear. On its first render it captures its children, keeps those
+ * two kinds and moves them into the `role="listbox"` container it builds, then rewrites
+ * its own `innerHTML` — so any other child is dropped, and a wrapper element around your
+ * options takes the options down with it: only DIRECT children are captured.
+ *
+ * Children written later are picked up by a `subtree` MutationObserver and moved into that
+ * same container, and the keyboard highlight is re-asserted on the new elements. The move
+ * EMPTIES the container first, so a later write replaces the list instead of adding to it:
+ * write the whole list, not one option. Writing straight into `.aparte-select-options`
+ * skips the move (the observer then only re-asserts the highlight), and that is the path
+ * `@aparte/plugin-model-selector` takes to refresh a live list in place.
+ *
+ * It is not a form control: no `name`, no `multiple`, no participation in form submission.
+ * It holds exactly one value and reports it through `aparte-select-change`.
+ *
+ * The dropdown is `position: fixed` and placed from script so it escapes an
+ * `overflow: hidden` ancestor — which is why its stacking order is a variable
+ * (`--aparte-select-z`) rather than a fixed rule, and why an `open` dropdown does not
+ * scroll with the trigger.
  *
  * @element aparte-select
  * @attr {string} value - The selected option's value.
  * @attr {string} placeholder - Shown while nothing is selected.
- * @attr {boolean} disabled - Blocks opening and selection.
- * @attr {boolean} grouped - Renders `<aparte-optgroup>` children as collapsible groups.
- * @attr {boolean} searchable - Adds a filter field above the options.
+ * @attr {boolean} disabled - Blocks opening the dropdown.
+ * @attr {boolean} grouped - Observed, never read: `<aparte-optgroup>` children render as groups without it.
+ * @attr {boolean} searchable - Adds a filter field above the options. Read on the first render only.
  * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
  *
  * @fires {CustomEvent<AparteSelectChangeDetail>} aparte-select-change - The selection changed; carries the new value, its label and the previous value.
  * @fires aparte-select-open - The dropdown opened. No detail.
  * @fires aparte-select-close - The dropdown closed. No detail.
+ *
+ * @cssprop [--aparte-select-bg=var(--aparte-surface-1, #fff)] - Trigger background — and, under `[data-aparte-theme="dark"]`, the dropdown panel's too.
+ * @cssprop [--aparte-select-border=var(--aparte-border, #e2e8f0)] - Border of the trigger and of the dropdown.
+ * @cssprop [--aparte-select-border-hover=var(--aparte-primary, #3b82f6)] - Trigger border on hover.
+ * @cssprop [--aparte-select-border-focus=var(--aparte-primary, #3b82f6)] - Trigger border while focused.
+ * @cssprop [--aparte-select-ring=rgba(59, 130, 246, 0.2)] - Colour of the 2px focus ring around the trigger.
+ * @cssprop [--aparte-select-radius=0.5rem] - Corner radius of the trigger and the dropdown.
+ * @cssprop [--aparte-select-text=var(--aparte-text, #1e293b)] - Colour of the trigger label (and of the options).
+ * @cssprop [--aparte-select-chevron=var(--aparte-text-muted, #94a3b8)] - Colour of the chevron, which rotates 180° while open.
+ * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1, #fff)] - Dropdown panel background in the light theme only; the `[data-aparte-theme="dark"]` rule is more specific and reads `--aparte-select-bg` instead.
+ * @cssprop [--aparte-select-shadow=0 4px 12px rgba(0, 0, 0, 0.1)] - Dropdown panel shadow.
+ * @cssprop [--aparte-select-z=1000] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
  *
  * @example
  * <aparte-select placeholder="Pick a model" searchable value="gpt-4o-mini">
@@ -68,8 +95,7 @@ export class AparteSelect extends HTMLElement {
      * document-level handlers and could not touch this one.
      *
      * This is verbatim the bug class `aparte-chat-viewport` documents having fixed
-     * for its own listeners; a repo sweep found this as the last inline-arrow
-     * listener on a persistent node.
+     * for its own listeners.
      */
     private _boundHandleOptionClick = this._handleOptionClick.bind(this);
     private _boundHandleDocumentClick = this._handleDocumentClick.bind(this);
@@ -177,7 +203,7 @@ export class AparteSelect extends HTMLElement {
         labelSpan.textContent = placeholder;
         const chevronSpan = document.createElement('span');
         chevronSpan.className = 'aparte-select-chevron';
-        chevronSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`;
+        chevronSpan.innerHTML = resolveConfig(this).getIcon('expand');
         trigger.append(labelSpan, chevronSpan);
 
         // The dropdown is a plain shell: it also holds the search field, and a

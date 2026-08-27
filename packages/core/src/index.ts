@@ -13,9 +13,43 @@
  *
  * @packageDocumentation
  */
-import './styles/aparte.css';
-import './primitives/select/select.css';
-import './primitives/progress-spinner/progress-spinner.css';
+import './styles/theme.css';
+import './styles/base.css';
+import './styles/button.css';
+import './styles/field.css';
+import './styles/display/avatar.css';
+import './styles/display/icon.css';
+import './styles/display/badge.css';
+import './styles/display/tag.css';
+import './styles/display/thumbnail.css';
+import './styles/display/spinner.css';
+import './styles/display/progress.css';
+import './styles/display/skeleton.css';
+import './styles/display/divider.css';
+import './styles/display/alert.css';
+import './styles/display/card.css';
+import './styles/display/kbd.css';
+import './styles/surface/tabs.css';
+import './styles/surface/accordion.css';
+import './styles/surface/menu.css';
+import './styles/surface/popover.css';
+import './styles/surface/tooltip.css';
+import './styles/primitives/select.css';
+import './styles/primitives/progress-spinner.css';
+import './styles/components/shell.css';
+import './styles/components/bubble.css';
+import './styles/components/composer.css';
+import './styles/segment/thinking.css';
+import './styles/segment/code.css';
+import './styles/segment/tool-call.css';
+import './styles/segment/error.css';
+import './styles/segment/pipeline.css';
+import './styles/segment/text.css';
+import './styles/segment/artifact.css';
+import './styles/components/elicitation.css';
+import './styles/components/conversation.css';
+import './styles/prose.css';
+import './styles/responsive.css';
 
 // Global HTMLElementEventMap augmentation — typed `e.detail` for aparté events.
 import './types/event-map.js';
@@ -24,7 +58,7 @@ import './types/event-map.js';
 import './types/element-map.js';
 
 // Export primitives
-export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner } from './primitives/index.js';
+export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner, AparteIcon } from './primitives/index.js';
 
 // Export types
 export type {
@@ -49,6 +83,19 @@ export type {
     AparteCustomSegment,
     AparteToolCallSegment,
     AparteArtifactSegment,
+    // Five shapes that were public in everything but name. `AparteSegment` is exported
+    // and its union names all eight members, yet two of them — the error segment and the
+    // pipeline indicator — could not be written down: narrowing on `type: 'error'` gave a
+    // consumer the shape and no way to declare a variable of it. `AparteSegmentBase` is
+    // worse than an omission: it is the CONSTRAINT on the exported
+    // `AparteSegmentRenderer<T>`, so writing a renderer for a segment type of your own
+    // required naming a type the package does not export. `AparteSegmentTiming` types
+    // `meta.aparte`, and `AparteSegmentDefaults` types what `setSegmentDefaults` takes.
+    AparteSegmentBase,
+    AparteSegmentDefaults,
+    AparteSegmentTiming,
+    AparteErrorSegment,
+    ApartePipelineWaitingSegment,
     // The detail of the `aparte-segment-update` event. It reached types/index.ts and
     // stopped there — and types/index.ts is not an entry point, so a consumer could
     // bind the event (it is in the published event table) and never name its detail.
@@ -159,7 +206,7 @@ export { AparteChatViewport } from './components/index.js';
 
 // Export composer primitives
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './components/index.js';
-export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
+export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';

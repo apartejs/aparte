@@ -4,7 +4,7 @@
  * One thing, at length — and it used to be twice this size, half of it a `getStyles()`
  * block, which is why it kept `segment-renderers.ts` at 1900 lines while that file's own
  * banners described it as a renderer registry plus nine small renderers. It is that now,
- * and the CSS has since gone to `styles/aparte.css` with every other built-in's.
+ * and the CSS has since gone to `styles/segment/artifact.css` with every other built-in's.
  *
  * The card owns the previewable path. When a segment's kind is binary (pdf/xlsx/docx)
  * it DELEGATES to `./binary-file.ts` — which is why `BINARY_FILE_KINDS` lives
@@ -65,6 +65,25 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         const codeLabel = cfg.t('code');
         const isBinary = BINARY_FILE_KINDS.has(kind);
         const cleanContent = stripCodeFences(segment.content || '');
+        /*
+         * Ids, so the tabs can POINT at their panels.
+         *
+         * The card announced `role="tablist"` with `role="tab"` buttons and shipped none
+         * of the pattern's obligations: no `aria-controls`, no `role="tabpanel"`, no ids
+         * and no arrow keys. A role is a promise about behaviour — declaring tablist and
+         * then behaving like two ordinary buttons tells a screen-reader user to expect a
+         * relationship and a keyboard model that are not there, which is worse than the
+         * plain buttons it actually was.
+         *
+         * Scoped to the segment id because a transcript holds many cards, and duplicate
+         * ids would make `aria-controls` point at whichever one parsed first.
+         *
+         * Escaped HERE rather than inside an id-building helper: `check:attr-escaping`
+         * follows a local produced by an escaper and cannot see through a function, and
+         * teaching it to trust the helper's NAME is precisely the hole that guard was
+         * just tightened to close.
+         */
+        const cardId = escapeAttr(segment.id);
         // The card ALWAYS opens on the code tab, and the preview frame is not built
         // here at all — it is mounted only when the user presses Preview
         // (`mountPreviewFrame`, called from the tab handler).
@@ -79,7 +98,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
         // did not produce does not get to act on its own.
 
         return `
-            <div class="aparte-segment aparte-segment-artifact-card"
+            <div class="aparte-segment aparte-card aparte-segment-artifact-card"
                  data-segment-id="${escapeHtml(segment.id)}"
                  data-artifact-type="${escapeHtml(kind)}"
                  data-streaming="${isStreaming ? 'true' : 'false'}"
@@ -88,31 +107,31 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                  data-binary="${isBinary ? 'true' : 'false'}">
                 <header class="aparte-art-card__header">
                     <div class="aparte-art-card__title-block">
-                        <span class="aparte-art-card__kind" data-kind="${escapeHtml(kind)}">${escapeHtml(displayLang)}</span>
+                        <span class="aparte-badge aparte-badge--outline aparte-art-card__kind" data-kind="${escapeHtml(kind)}">${escapeHtml(displayLang)}</span>
                         <span class="aparte-art-card__title">${escapeHtml(title)}</span>
-                        ${isStreaming ? '<span class="aparte-art-card__pulse" aria-label="Streaming"></span>' : ''}
+                        ${isStreaming ? `<span class="aparte-dot aparte-art-card__pulse" role="img" aria-label="${escapeAttr(cfg.t('generating'))}"></span>` : ''}
                     </div>
                     <div class="aparte-art-card__actions">
-                        <button type="button" class="aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">
+                        <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">
                             ${contextConfig().getIcon('copy')}
                         </button>
-                        <button type="button" class="aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 13h12"/></svg>
+                        <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="download" title="${escapeAttr(downloadLabel)}" aria-label="${escapeAttr(downloadLabel)}" ${isStreaming ? 'disabled' : ''}>
+                            ${contextConfig().getIcon('download')}
                         </button>
                     </div>
                 </header>
-                <nav class="aparte-art-card__tabs" role="tablist">
-                    <button type="button" role="tab" data-tab-target="code" aria-selected="true">${escapeHtml(codeLabel)}</button>
-                    ${previewable ? `<button type="button" role="tab" data-tab-target="preview" aria-selected="false" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
+                <nav class="aparte-tabs aparte-tabs--underline aparte-art-card__tabs" role="tablist">
+                    <button type="button" class="aparte-tabs__tab" role="tab" id="aparte-art-${cardId}-tab-code" aria-controls="aparte-art-${cardId}-pane-code" aria-selected="true" tabindex="0" data-tab-target="code">${escapeHtml(codeLabel)}</button>
+                    ${previewable ? `<button type="button" class="aparte-tabs__tab" role="tab" id="aparte-art-${cardId}-tab-preview" aria-controls="aparte-art-${cardId}-pane-preview" aria-selected="false" tabindex="-1" data-tab-target="preview" ${isStreaming ? 'disabled' : ''}>${escapeHtml(previewLabel)}</button>` : ''}
                 </nav>
                 <div class="aparte-art-card__body">
-                    <div class="aparte-art-card__pane" data-pane="code">
+                    <div class="aparte-art-card__pane" role="tabpanel" id="aparte-art-${cardId}-pane-code" aria-labelledby="aparte-art-${cardId}-tab-code" tabindex="0" data-pane="code">
                         <div class="aparte-code-content-wrapper">
                             <pre><code class="language-${escapeHtml(displayLang)}">${escapeHtml(cleanContent)}</code></pre>
                         </div>
                     </div>
                     ${previewable ? `
-                        <div class="aparte-art-card__pane" data-pane="preview">
+                        <div class="aparte-art-card__pane" role="tabpanel" id="aparte-art-${cardId}-pane-preview" aria-labelledby="aparte-art-${cardId}-tab-preview" tabindex="0" data-pane="preview">
                             <div class="aparte-art-card__pending">${escapeHtml(cfg.t('previewPending'))}</div>
                         </div>
                     ` : ''}
@@ -171,18 +190,48 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             }).catch(() => { /* best-effort: a failed highlight degrades silently */ });
         }
 
-        // Tab switching — and, for Preview, the one place the frame is created.
-        element.querySelectorAll<HTMLButtonElement>('[data-tab-target]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const target = btn.getAttribute('data-tab-target');
-                if (!target) return;
-                if (target === 'preview') mountPreviewFrame(element, segment);
-                element.setAttribute('data-tab', target);
-                element.querySelectorAll<HTMLButtonElement>('[data-tab-target]').forEach(b => {
-                    b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
-                });
+        /*
+         * Tab switching — and, for Preview, the one place the frame is created.
+         *
+         * A `tablist` is a SINGLE tab stop with arrow keys inside it, not N tab stops.
+         * This shipped as two ordinary buttons under a tablist role: Tab landed on each
+         * in turn and the arrows did nothing, so the role promised a keyboard model the
+         * card did not have. The roving `tabindex` and the arrow handling below are that
+         * model; `aria-controls` / `role="tabpanel"` in the markup are the other half.
+         */
+        const tabs = [...element.querySelectorAll<HTMLButtonElement>('[data-tab-target]')];
+        const select = (btn: HTMLButtonElement, focus: boolean): void => {
+            const target = btn.getAttribute('data-tab-target');
+            if (!target || btn.disabled) return;
+            if (target === 'preview') mountPreviewFrame(element, segment);
+            element.setAttribute('data-tab', target);
+            for (const b of tabs) {
+                const on = b === btn;
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+                b.tabIndex = on ? 0 : -1;
+            }
+            if (focus) btn.focus();
+        };
+        for (const [i, btn] of tabs.entries()) {
+            btn.addEventListener('click', () => select(btn, false));
+            btn.addEventListener('keydown', (e) => {
+                // Home/End as well as the arrows: both are in the pattern, and on a
+                // two-tab list they are the fastest way to the one you are not on.
+                const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                let next = -1;
+                if (step) next = (i + step + tabs.length) % tabs.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = tabs.length - 1;
+                if (next < 0) return;
+                e.preventDefault();
+                // Skip a disabled tab rather than trapping focus on it: Preview is
+                // disabled while the artifact still streams.
+                for (let n = 0; n < tabs.length; n++) {
+                    const candidate = tabs[(next + n * (step || 1) + tabs.length) % tabs.length];
+                    if (candidate && !candidate.disabled) { select(candidate, true); return; }
+                }
             });
-        });
+        }
 
         // Copy
         const copyBtn = element.querySelector<HTMLButtonElement>('[data-action="copy"]');
@@ -297,7 +346,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             // a real user press — see the note at `initialTab`.
         }
     },
-    // CSS lives in styles/aparte.css — see its "Segment renderers" section for why a
+    // CSS lives in styles/segment/ — see that folder for why a
     // built-in's rules belong there. `getStyles` stays for a CONSUMER's renderer, which
     // has no other way onto the page.
     getStyles: () => '',

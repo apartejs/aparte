@@ -39,6 +39,17 @@ export type {
     AparteCustomSegment,
     AparteToolCallSegment,
     AparteArtifactSegment,
+    // The same five the browser barrel gained, and they belong here for the same reason:
+    // a type has no DOM. `AparteSegmentBase` is the constraint on the exported
+    // `AparteSegmentRenderer<T>`, so an SSR consumer writing a renderer for a segment type
+    // of its own could not name what it extends. `check:node-barrel-types` is what caught
+    // the omission — the browser barrel alone would have compiled fine and failed on the
+    // `node` condition only.
+    AparteSegmentBase,
+    AparteSegmentDefaults,
+    AparteSegmentTiming,
+    AparteErrorSegment,
+    ApartePipelineWaitingSegment,
     // The detail of the `aparte-segment-update` event. It reached types/index.ts and
     // stopped there — and types/index.ts is not an entry point, so a consumer could
     // bind the event (it is in the published event table) and never name its detail.
@@ -116,7 +127,7 @@ export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
 // Custom-element TYPES (erased) — keep server consumers fully typed.
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
-export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
+export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────

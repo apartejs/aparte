@@ -6,10 +6,33 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * Cancel/stop streaming button primitive for <aparte-composer>.
  *
- * @element aparte-composer-cancel
- * Must be a descendant of <aparte-composer>.
+ * Most composers should not use this element. `<aparte-composer-send>` already becomes
+ * the stop button while a reply streams, so adding this one gives you a second, equally
+ * working way to stop; reach for it only when you want stop to live somewhere the send
+ * button is not.
  *
- * Hidden when not streaming. Visible only during active streaming.
+ * It renders hidden, and only the root reveals it — the `root.streaming` check on connect,
+ * then each `streaming-change` — so it needs an `<aparte-composer>` ancestor to be
+ * reachable at all: standalone, nothing flips `hidden` and the click has no `cancel()` to
+ * call. A locale or icon-set change is re-read in place rather than re-rendered, for the
+ * same reason: a rebuild renders it hidden again, making the stop button vanish mid-turn.
+ *
+ * It owns its subtree — the button is generated on connect and children placed inside
+ * are replaced, so there is nothing to project. The host element is `display: contents`
+ * and adds no box of its own; the row you put it in provides the layout, and the CSS
+ * variables below style the inner button, which is deliberately a quiet action button
+ * rather than a filled one.
+ *
+ * @element aparte-composer-cancel
+ *
+ * @cssprop [--aparte-composer-control-size=44px] - Width/height of the button inside the
+ *          `.aparte-composer-row` layout helper, shared with the composer's other
+ *          controls so the row stays aligned.
+ * @cssprop [--aparte-radius-action-btn=4px] - Corner radius of the button.
+ * @cssprop --aparte-neutral - Icon colour at rest (the button's background is
+ *          transparent).
+ * @cssprop --aparte-text - Icon colour on hover.
+ * @cssprop --aparte-surface-2 - Button background on hover.
   *
  * @example
  * <!-- Only needed when you want a SEPARATE stop button: <aparte-composer-send> already
@@ -54,7 +77,7 @@ export class AparteComposerCancel extends HTMLElement {
         const icon = this._getStopIcon();
 
         this.innerHTML = `<button
-            class="aparte-cc-button"
+            class="aparte-btn aparte-btn--icon aparte-cc-button"
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"
             hidden

@@ -94,7 +94,12 @@ export interface AparteSegmentTiming {
     endedAt?: number;
 }
 
-/** Text segment - plain text content */
+/**
+ * Text segment - plain text content
+ *
+ * @example
+ * { id: 's1', type: 'text', content: 'A transport is the object that talks to the model.' }
+ */
 export interface AparteTextSegment extends AparteSegmentBase {
     type: 'text';
     content: string;
@@ -111,7 +116,18 @@ export interface AparteTextSegment extends AparteSegmentBase {
  */
 export type AparteSegmentDefaults = Readonly<Record<string, unknown>>;
 
-/** Thinking/reasoning segment - collapsible */
+/**
+ * Thinking/reasoning segment - collapsible
+ *
+ * @example
+ * // No `collapsed` key, so it renders CLOSED — see the field's own note below.
+ * {
+ *   id: 's1',
+ *   type: 'thinking',
+ *   label: 'Reasoning',
+ *   content: 'The question is about transports, so name the two and say where the key lives.',
+ * }
+ */
 export interface AparteThinkingSegment extends AparteSegmentBase {
     type: 'thinking';
     content: string;
@@ -131,7 +147,21 @@ export interface AparteThinkingSegment extends AparteSegmentBase {
     label?: string; // e.g., "Reasoning", "Analysis"
 }
 
-/** Code segment - syntax highlighted code block */
+/**
+ * Code segment - syntax highlighted code block
+ *
+ * Highlighting is a plugin you opt into; with none installed the block renders plain,
+ * which is what core's zero-dependency promise costs here.
+ *
+ * @example
+ * {
+ *   id: 's1',
+ *   type: 'code',
+ *   language: 'ts',
+ *   filename: 'transport.ts',
+ *   content: "const transport = new AparteBackendTransport({ endpoint: '/api/chat' });",
+ * }
+ */
 export interface AparteCodeSegment extends AparteSegmentBase {
     type: 'code';
     content: string;
@@ -140,7 +170,20 @@ export interface AparteCodeSegment extends AparteSegmentBase {
     showLineNumbers?: boolean;
 }
 
-/** Error segment */
+/**
+ * Error segment
+ *
+ * A failure card inside the turn that produced it, rather than a toast somewhere else on
+ * the page — so the reader can see which question failed.
+ *
+ * @example
+ * {
+ *   id: 's1',
+ *   type: 'error',
+ *   content: 'The model did not answer.',
+ *   details: 'HTTP 429 — rate limited. Retrying in 20s.',
+ * }
+ */
 export interface AparteErrorSegment extends AparteSegmentBase {
     type: 'error';
     content: string; // Renamed from message for consistency
@@ -148,7 +191,18 @@ export interface AparteErrorSegment extends AparteSegmentBase {
     stack?: string;
 }
 
-/** Tool call segment - rendered while waiting for a tool handler to resolve */
+/**
+ * Tool call segment - rendered while waiting for a tool handler to resolve
+ *
+ * @example
+ * {
+ *   id: 's1',
+ *   type: 'tool_call',
+ *   status: 'resolved',
+ *   toolCall: { id: 'call_1', name: 'get_weather', input: { city: 'Lille' } },
+ *   result: '11°C, overcast.',
+ * }
+ */
 export interface AparteToolCallSegment extends AparteSegmentBase {
     type: 'tool_call';
     toolCall: import('./tools.js').AparteToolCall;
@@ -160,7 +214,20 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
     result?: string;
 }
 
-/** Custom segment - for framework-specific views (Onboarding, Tools, etc.) */
+/**
+ * Custom segment - for framework-specific views (Onboarding, Tools, etc.)
+ *
+ * @example
+ * // With no renderer registered for `subType`, core draws `fallback` — which is why the
+ * // field exists: an unknown view degrades to a sentence instead of to nothing.
+ * {
+ *   id: 's1',
+ *   type: 'custom',
+ *   subType: 'weather-widget',
+ *   data: { city: 'Lille', celsius: 11 },
+ *   fallback: 'Lille — 11°C, overcast.',
+ * }
+ */
 export interface AparteCustomSegment extends AparteSegmentBase {
     type: 'custom';
     /** Unique string structure to identify the view (e.g. 'onboarding', 'webcontainer', 'weather-widget') */
@@ -183,6 +250,16 @@ export interface AparteCustomSegment extends AparteSegmentBase {
  *   - `application/vnd.ant.react` (or `application/vnd.ant.html`, etc.)
  *   - `text/html`, `text/css`, `application/javascript`
  *   - `image/svg+xml`
+ *
+ * @example
+ * {
+ *   id: 's1',
+ *   type: 'artifact',
+ *   mimeType: 'image/svg+xml',
+ *   artifactType: 'svg',
+ *   title: 'Brass mark',
+ *   content: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="18" fill="#d9a24b"/></svg>',
+ * }
  */
 export interface AparteArtifactSegment extends AparteSegmentBase {
     type: 'artifact';
@@ -210,7 +287,15 @@ export interface AparteArtifactSegment extends AparteSegmentBase {
 // Union Type
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Transient waiting indicator shown between pipeline phases */
+/**
+ * Transient waiting indicator shown between pipeline phases
+ *
+ * It carries no content of its own — the type IS the message — so the gap between two
+ * phases of a multi-step turn never reads as a hang.
+ *
+ * @example
+ * { id: 's1', type: 'pipeline-waiting' }
+ */
 export interface ApartePipelineWaitingSegment extends AparteSegmentBase {
     type: 'pipeline-waiting';
 }

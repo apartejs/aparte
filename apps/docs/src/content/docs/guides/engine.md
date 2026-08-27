@@ -95,6 +95,10 @@ write: the providers that do it target message-based APIs.
 
 The two paths aren't "meant" to match — it's tested. The engine's **`stream-parity`** suite drives
 core's real inline loop and `runStreamAgent` (through the real `createStreamAdapter`) against the
-same scripted transport and asserts an identical call sequence and usage across nine scenarios
-(plain text, thinking, human-in-the-loop tool approve/reject, streamed and one-shot artifacts,
-multi-phase pipelines, forced tool calls). So the seam is a drop-in, not an approximation.
+same scripted transport and asserts an identical call sequence and usage across 26 scenarios in
+nine groups — the happy paths (plain text, thinking, human-in-the-loop approve and reject,
+streamed and one-shot artifacts, multi-phase pipelines, forced tool calls), and then the ones
+that matter more: the paths that STOP (a provider error, a tool with no handler, both turn
+ceilings, a tool that never resolves), walking away from a live stream mid-token, a withheld
+prefix never reaching `content`, events and tags neither loop used to handle, a non-streaming
+response, and three artifact-framing edge cases. So the seam is a drop-in, not an approximation.

@@ -1,0 +1,127 @@
+/* =========================================
+   aparte-menu — a floating list of commands
+   =========================================
+   The surface a dropdown, a context menu or an overflow menu is drawn on: a bordered,
+   elevated column of rows. Items are the pressable ones, a label groups them, a
+   separator divides them.
+
+       <div class="aparte-menu" role="menu">
+         <span class="aparte-menu__label">Message</span>
+         <button class="aparte-menu__item" role="menuitem">Copy</button>
+         <button class="aparte-menu__item" role="menuitem">Retry</button>
+         <div class="aparte-menu__separator" role="separator"></div>
+         <button class="aparte-menu__item" role="menuitem" disabled>Delete</button>
+       </div>
+
+   WHERE it sits is yours. There is no positioning here and no anchoring logic —
+   floating a box next to a trigger needs collision detection and a scroll listener,
+   which is an interaction library's job, not a stylesheet's. Same split as the popover
+   and the tooltip below it.
+
+   The roles above are not decoration either: this draws a menu, it does not announce
+   one. `role="menu"` / `role="menuitem"` and the arrow-key handling that pattern
+   requires are yours to add. */
+.aparte-menu {
+  /* Component-local tokens: no shared knob in the token set covers a dropdown's
+     own width and elevation, so they live here — same width as the select's
+     own dropdown (`--aparte-select-min-width`) and the same elevation recipe
+     as `--aparte-select-shadow`, since both are the identical "floating list"
+     surface. */
+  --aparte-menu-min-width: 200px;
+  /* And a CAP, which this recipe was missing while `.aparte-popover` — the file calls
+     the two "the identical floating list surface" — has carried one all along. With
+     only a minimum, a menu placed as a block child stretched to its container: a
+     dropdown spanning the full width of whatever held it, which is not a dropdown.
+     `width: max-content` is what makes it hug its longest item between the two bounds,
+     the way a menu sizes itself to "Include metadata" and stops. */
+  --aparte-menu-max-width: 320px;
+
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: var(--aparte-menu-min-width);
+  max-width: var(--aparte-menu-max-width);
+  padding: var(--aparte-space-2);
+  background: var(--aparte-surface-1);
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  border-radius: var(--aparte-radius-lg);
+  box-shadow: var(--aparte-menu-shadow);
+  color: var(--aparte-text);
+  z-index: var(--aparte-z-dropdown);
+}
+
+.aparte-menu__item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  width: 100%;
+  padding: var(--aparte-space-3) var(--aparte-space-4);
+  border: none;
+  border-radius: var(--aparte-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--aparte-font-size-md);
+  line-height: var(--aparte-line-height-snug);
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-menu__item:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-2);
+}
+
+.aparte-menu__item:active:not(:disabled):not([aria-disabled='true']) {
+  background: var(--aparte-surface-3);
+}
+
+.aparte-menu__item:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+.aparte-menu__item:disabled,
+.aparte-menu__item[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: var(--aparte-disabled-opacity);
+  /* A disabled row must stay inert, not merely look it — otherwise it still opens
+     a submenu on hover or fires on click via a wrapper listener upstream. */
+  pointer-events: none;
+}
+
+/* The check mark for menuitemcheckbox / menuitemradio. Reserved as an invisible
+   glyph on every checkable item (matched by the presence of aria-checked, true or
+   false) so labels in a mixed checked/unchecked list stay aligned to one gutter;
+   a plain role="menuitem" without aria-checked gets no gutter at all. Text colour
+   rather than a fill or a box-shadow is deliberate: a glyph inherits `color`,
+   which forced-colors mode preserves, so the checked state survives that mode
+   with no separate override. */
+.aparte-menu__item[aria-checked]::before {
+  content: '✓';
+  flex-shrink: 0;
+  visibility: hidden;
+}
+
+.aparte-menu__item[aria-checked='true']::before {
+  visibility: visible;
+}
+
+.aparte-menu__separator {
+  height: var(--aparte-border-width);
+  margin-block: var(--aparte-space-2);
+  margin-inline: var(--aparte-space-2);
+  background: var(--aparte-border);
+}
+
+.aparte-menu__label {
+  padding: var(--aparte-space-2) var(--aparte-space-4);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-2xs);
+  font-weight: var(--aparte-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
