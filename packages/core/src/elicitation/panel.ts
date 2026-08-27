@@ -15,6 +15,13 @@ import type {
 import { uuid } from '../utils/uuid.js';
 import { contextConfig } from '../config/config-context.js';
 
+/**
+ * One per stepped panel built, so its tab ids are unique in the document. A counter
+ * rather than a random id: two panels can share a page (the workbench mounts two
+ * chats), and a test that asserts on an id should not have to guess it.
+ */
+let steppedPanelSeq = 0;
+
 export interface BuiltElicitationPanel {
     readonly el: HTMLElement;
     /**
@@ -676,6 +683,13 @@ function buildPanel(
         panel.classList.add('aparte-elic-panel--stepped');
         let current = 0;
 
+        /*
+         * A scope for the ids below. Two stepped panels can share a document (the
+         * workbench mounts two chats), and a duplicate id makes `aria-controls` point at
+         * whichever one parsed first — so the relationship the role promises would be
+         * wrong rather than merely missing.
+         */
+        const scope = `aparte-elic-${++steppedPanelSeq}`;
         const steps = el('div', 'aparte-tabs aparte-tabs--underline aparte-elic-steps');
         steps.setAttribute('role', 'tablist');
         const chips = fields.map((f, i) => {
@@ -690,6 +704,29 @@ function buildPanel(
             // revisit, and hunting for a Back button to do it is the frustrating
             // half of every stepped form.
             chip.addEventListener('click', () => { show(i); f.field.focus(); });
+            /*
+             * The pattern's obligations, which this had announced and not kept: a tab
+             * POINTS at its panel, the panel names the tab back, and a tablist is ONE tab
+             * stop with arrows inside it rather than one stop per chip. Without them the
+             * role told a screen-reader user to expect a relationship and a keyboard model
+             * that were not there — worse than the plain buttons the chips actually were.
+             */
+            chip.id = `${scope}-tab-${i}`;
+            f.field.el.id = `${scope}-panel-${i}`;
+            f.field.el.setAttribute('role', 'tabpanel');
+            f.field.el.setAttribute('aria-labelledby', chip.id);
+            chip.setAttribute('aria-controls', f.field.el.id);
+            chip.addEventListener('keydown', (e: KeyboardEvent) => {
+                const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                let next = -1;
+                if (step) next = (i + step + fields.length) % fields.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = fields.length - 1;
+                if (next < 0) return;
+                e.preventDefault();
+                show(next);
+                chips[next]?.focus();
+            });
             steps.appendChild(chip);
             return chip;
         });
@@ -719,6 +756,8 @@ function buildPanel(
         syncNav = (): void => {
             chips.forEach((chip, i) => {
                 chip.setAttribute('aria-selected', String(i === current));
+                // The roving tab stop: Tab reaches the tablist once, arrows move within it.
+                chip.tabIndex = i === current ? 0 : -1;
                 // Answered, so a reader sees at a glance what is left — and with no
                 // Next button this is the ONLY progress signal, along with the send
                 // button staying disabled until every question has an answer.
