@@ -251,11 +251,24 @@ export class AparteConversationList extends HTMLElement {
 
     private _onKeydown = (e: KeyboardEvent): void => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
-        const item = (e.target as HTMLElement).closest('[data-conv-id]') as HTMLElement | null;
-        if (item) {
-            e.preventDefault();
-            item.click();
-        }
+        const target = e.target as HTMLElement;
+        /*
+         * ONLY the row, and that word is the whole fix.
+         *
+         * The row is a `role="button"` div, so Enter and Space do nothing on their own and
+         * this handler supplies them. The archive and delete controls inside it are real
+         * `<button>`s, which already activate on both keys — but this used to reach for
+         * `closest('[data-conv-id]')` from whatever was focused, so pressing Enter on
+         * Delete found the ROW, called preventDefault() (cancelling the button's own
+         * activation) and clicked the row instead. Keyboard users could not archive or
+         * delete a conversation at all: both keys selected it.
+         *
+         * Matching instead of climbing keeps the synthetic activation on the one element
+         * that lacks a native one, and leaves every real control alone.
+         */
+        if (!target.matches('[data-conv-id]')) return;
+        e.preventDefault();
+        target.click();
     };
 
     /** Update active class without full re-render (perf optimisation). */
