@@ -60,10 +60,21 @@
   }
   $: if (el && props) applyProps();
 
-  export function getElement() { return el; }
-  export function callMethod(methodName: string, ...args: unknown[]) {
+  /*
+   * Generic, to honour `AparteUiHandle` — which this package exports with a docblock
+   * promising "the same contract on all four wrappers", and which React and Angular both
+   * honour. These two used to return `HTMLElement | null` and `unknown`, so a consumer
+   * following the documented `bind:this` pattern got a type error here and none there.
+   * A cold audit compiled it and produced the real TS2322 rather than reporting a doubt.
+   */
+  export function getElement<T extends HTMLElement = HTMLElement>(): T | null {
+    return el as T | null;
+  }
+  export function callMethod<T = unknown>(methodName: string, ...args: unknown[]): T | undefined {
     const fn = (el as unknown as Record<string, unknown>)?.[methodName];
-    return typeof fn === 'function' ? (fn as (...a: unknown[]) => unknown).apply(el, args) : undefined;
+    return (typeof fn === 'function' ? (fn as (...a: unknown[]) => unknown).apply(el, args) : undefined) as
+      | T
+      | undefined;
   }
 </script>
 

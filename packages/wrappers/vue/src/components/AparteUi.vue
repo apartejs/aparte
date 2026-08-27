@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, toRaw } from 'vue';
 import { applyElementProps, APARTE_DEFAULT_UI_EVENTS } from '@aparte/core';
+import type { AparteUiHandle } from '../types.js';
 
 const p = defineProps<{
   /** The custom element tag name (e.g. 'aparte-model-selector'). */
@@ -56,11 +57,24 @@ watch(() => p.name, () => { destroy(); create(); });
 watch(evtsKey, () => { destroy(); create(); });
 watch(() => p.props, applyProps, { deep: true });
 
-defineExpose({
-  getElement: () => el,
+/*
+ * Typed as `AparteUiHandle`, the way React's `useImperativeHandle` already is.
+ *
+ * It used to be a bare object literal, so the exposed `getElement` returned
+ * `HTMLElement | null` instead of the interface's `<T extends HTMLElement>() => T | null`
+ * — and the barrel exports that interface with a docblock promising "the same contract on
+ * all four wrappers". A consumer following the documented `ref` pattern got a type error
+ * on Vue and Svelte and none on React or Angular. Found by a cold audit that compiled it
+ * rather than read it.
+ *
+ * `as never` is the same bridge React uses at AparteUi.tsx:85: the value really is the
+ * element, and only the caller knows which subtype it asked for.
+ */
+defineExpose<AparteUiHandle>({
+  getElement: () => el as never,
   callMethod: (methodName: string, ...args: unknown[]) => {
     const fn = (el as unknown as Record<string, unknown>)?.[methodName];
-    return typeof fn === 'function' ? (fn as (...a: unknown[]) => unknown).apply(el, args) : undefined;
+    return (typeof fn === 'function' ? (fn as (...a: unknown[]) => unknown).apply(el, args) : undefined) as never;
   },
 });
 </script>
