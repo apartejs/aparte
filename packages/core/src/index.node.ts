@@ -127,7 +127,7 @@ export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
 // Custom-element TYPES (erased) — keep server consumers fully typed.
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
-export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
+export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
