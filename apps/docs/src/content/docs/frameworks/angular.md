@@ -65,7 +65,9 @@ bubble, pass a template instead:
 ```
 
 Outputs: `messageSent`, `messagesChange`, `messageAppended`, `action`, `typingChange`,
-`conversationCreated`. The imperative API (streaming, branch/edit, `scrollToBottom`,
+`conversationCreated` — the same six on all four wrappers, with the payloads and the other
+three syntaxes side by side in the generated
+[Wrapper surface](/reference/wrappers/#callbacks). The imperative API (streaming, branch/edit, `scrollToBottom`,
 `getViewport`) is on the component instance — grab it with a `@ViewChild`. `injectTokenStream`
 takes the cross-wrapper `AsyncIterable<string>` — the exact call that works on React/Vue/Svelte —
 **or** an RxJS `Observable<string>` (the Angular-idiomatic shape); everything else mirrors the

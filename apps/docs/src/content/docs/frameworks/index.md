@@ -32,9 +32,11 @@ provider (or none) in the [config](/providers/); the wrapper streams whatever's 
 
 - **[React](/frameworks/react/)** — `@aparte/react` (React 18/19).
 - **[Vue](/frameworks/vue/)** — `@aparte/vue` (Vue 3.5+).
-- **[Svelte](/frameworks/svelte/)** — `@aparte/svelte` (Svelte 4).
+- **[Svelte](/frameworks/svelte/)** — `@aparte/svelte` (Svelte 4 and 5).
 - **[Angular](/frameworks/angular/)** — `@aparte/angular` (Angular 19, standalone).
 
-All four expose the **same slots** — that is checked mechanically, not promised — each in
-its own idiom. The table of every slot with its four syntaxes side by side is generated from
-the wrapper source: [Wrapper slots](/reference/wrappers/).
+All four expose the **same slots and the same six callbacks** — `messageSent`, `action`,
+`messagesChange`, `messageAppended`, `typingChange`, `conversationCreated` — each in its own
+idiom, and that is checked mechanically rather than promised. Both tables, with the four
+syntaxes side by side, are generated from the wrapper source:
+[Wrapper surface](/reference/wrappers/).

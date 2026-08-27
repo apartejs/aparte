@@ -47,6 +47,9 @@ Slots are plain props: `emptyState`, `composer`, `aboveComposer`,
 from `message.content` / `message.segments` and it streams live ([details](/guides/customization/#custom-bubbles)).
 The imperative handle (`chat.ref`) exposes streaming, branch/edit and `scrollToBottom`.
 
+The other five callbacks — `onAction`, `onMessagesChange`, `onMessageAppended`, `onTypingChange`, `onConversationCreated` — take the same payloads as everywhere else; the table with all four frameworks side by side is generated from this wrapper's own props: [Wrapper surface](/reference/wrappers/#callbacks).
+
+
 ## Wiring a real model
 
 The wrapper is **provider-agnostic**. Register a provider + transport once (see

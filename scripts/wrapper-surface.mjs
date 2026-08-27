@@ -81,6 +81,50 @@ export function readWrapperSlots() {
 }
 
 /**
+ * Every CALLBACK React exposes, read the same mechanical way the slots are.
+ *
+ * The same defect the slot table was built to end had grown back one column over: four
+ * of the six callbacks — `onAction`, `onMessageAppended`, `onTypingChange`,
+ * `onConversationCreated` — existed in all four wrappers and were named in prose on the
+ * ANGULAR page alone. Three of four framework pages therefore documented a third of the
+ * surface, and nothing could notice, because prose is not a signal.
+ *
+ * A prop typed `(…) => void` is a signal. The per-framework spelling is mechanical from
+ * the React name: `onMessageSent` → `messageSent` → `@message-sent` in a Vue template,
+ * `on:messageSent` in Svelte, `(messageSent)` in Angular. Verified against all four
+ * sources by check-wrapper-slots, so a wrapper that renames one is caught rather than
+ * silently documented wrong.
+ */
+export function readWrapperCallbacks() {
+    const src = readFileSync(SOURCES.react, 'utf8');
+    const iface = src.match(/interface AparteChatProps[^{]*\{([\s\S]*?)\n\}/);
+    if (!iface) throw new Error(`could not find "interface AparteChatProps" in ${SOURCES.react}`);
+
+    const callbacks = [];
+    const re = /(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)?\s*(on[A-Z]\w*)\?:\s*\(([^)]*)\)\s*=>\s*void\s*;/g;
+    for (const [, doc, name, params] of iface[1].matchAll(re)) {
+        const base = name.slice(2, 3).toLowerCase() + name.slice(3);
+        callbacks.push({
+            react: name,
+            name: base,
+            vue: `@${kebab(base)}`,
+            svelte: `on:${base}`,
+            angular: `(${base})`,
+            payload: params.trim() ? params.split(':').slice(1).join(':').trim() : 'nothing',
+            summary: doc ? summarise(doc) : '',
+        });
+    }
+
+    if (!callbacks.length) {
+        throw new Error(
+            `no \`on…?: (…) => void\` prop found in AparteChatProps (${SOURCES.react}). ` +
+            'Either the callbacks are gone, or this parser stopped matching — both need a human.',
+        );
+    }
+    return callbacks;
+}
+
+/**
  * Comments out, before any `includes()` decides anything.
  *
  * The proofs below are substring matches, and a substring match cannot tell a

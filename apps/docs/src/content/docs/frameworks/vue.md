@@ -14,6 +14,7 @@ npm install @aparte/vue @aparte/core vue
 
 `@aparte/core` and `vue` are **peer dependencies**.
 
+
 ## `<AparteChat>` + `useAparteChat`
 
 The `useAparteChat` composable owns the `messages` ref and the component ref, so you bind them and
@@ -49,6 +50,8 @@ Slots are named slots: `empty-state`, `composer`, `above-composer`,
 the scoped `bubble` slot (`#bubble="{ message }"`) for a fully custom bubble. The imperative handle
 (`chat.chatRef`) exposes streaming, branch/edit and `scrollToBottom` — also available as plain
 methods straight off the `chat` object.
+
+The six callbacks are `@message-sent`, `@action`, `@messages-change`, `@message-appended`, `@typing-change` and `@conversation-created`. Vue hands you the payload directly — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 
 ## Wiring a real model
 
