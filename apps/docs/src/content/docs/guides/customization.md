@@ -518,6 +518,12 @@ One call keyed by type rather than one function per field — a `setThinkingOpen
 need a sibling the next time any type wanted a default, and the type key is a string, so
 a type core has never heard of is covered by the same call.
 
+The second argument is an `AparteSegmentDefaults`: a read-only record, deliberately not a
+`Partial<AparteSegment>`, because your own segment type is as valid a key as a built-in one
+and its fields cannot be known in core. What it refuses is identity — `id`, `type`,
+`messageId`, `index` and the timing pair — since a default `id` would give every segment in
+a conversation the same one.
+
 What to expect:
 
 - **A field the producer set always wins.** A segment carrying `collapsed: true` keeps it,

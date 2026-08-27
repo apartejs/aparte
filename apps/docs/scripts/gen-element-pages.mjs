@@ -227,9 +227,48 @@ function cssTable(decl, h) {
  * The tag is IDENTICAL in all five — that is the library's thesis, and showing it five times is
  * what makes the claim checkable rather than asserted.
  */
-const pascal = (s) => s.replace(/^aparte-/, '').replace(/(^|-)([a-z])/g, (_m, _d, c) => c.toUpperCase());
 const camel = (s) => s.replace(/-([a-z])/g, (_m, c) => c.toUpperCase());
 const outputName = (event) => camel(event.replace(/^aparte-/, ''));
+
+/**
+ * `tag -> the class `@aparte/angular` actually exports for it`.
+ *
+ * Read from the wrapper rather than derived from the tag, because the derivation was
+ * WRONG and shipped: the Angular tab imported `Aparte${Pascal}Directive` for every
+ * element, and `<aparte-chat>` — the first page anyone opens — has a hand-written
+ * `AparteChatComponent`, not a directive. `AparteChatDirective` has never existed. The
+ * documentation site's own snippet check found it the day it could see MDX pages.
+ *
+ * A selector plus the class under it, intersected with the barrel: a class that exists but
+ * is not re-exported is an import that fails just the same.
+ */
+function angularSymbols() {
+  const root = resolve(here, '../../../packages/wrappers/angular/src');
+  const barrel = readFileSync(join(root, 'index.ts'), 'utf8');
+  const files = [];
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === '__tests__') continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(path);
+      else if (entry.name.endsWith('.ts')) files.push(path);
+    }
+  }
+  const byTag = new Map();
+  for (const file of files) {
+    const src = readFileSync(file, 'utf8');
+    for (const [, selector, symbol] of src.matchAll(/selector:\s*'([^']+)'[\s\S]*?export class (\w+)/g)) {
+      if (!selector.startsWith('aparte-') || byTag.has(selector)) continue;
+      if (!new RegExp(`\\b${symbol}\\b`).test(barrel)) continue;
+      byTag.set(selector, symbol);
+    }
+  }
+  return byTag;
+}
+
+const ANGULAR = angularSymbols();
 
 function frameworkTabs(decl) {
   const tag = decl.tagName;
@@ -259,7 +298,17 @@ function frameworkTabs(decl) {
 
   md += `<TabItem label="Svelte">\n\n\`\`\`svelte\n${openTag(ev ? `${plain}\n  on:${ev.name}={${detail ? '(e) => use(e.detail)' : '() => onIt()'}}\n` : plain)}\n\`\`\`\n\nDeclared through \`SvelteHTMLElements\`, so \`svelte-check\` covers the attributes and the \`on:\` handlers.${bool ? ` A presence attribute takes \`''\`, never \`false\`.` : ''}\n\n</TabItem>\n`;
 
-  md += `<TabItem label="Angular">\n\n\`\`\`ts\nimport { Aparte${pascal(tag)}Directive } from '@aparte/angular';\n\`\`\`\n\n\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ev ? `\n  (${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"` : ''}></${tag}>\n\`\`\`\n\nA standalone directive whose selector IS the tag, so the real element sits in the template — \`@if\`, \`@for\` and content projection all reach it — and no \`CUSTOM_ELEMENTS_SCHEMA\` is needed.\n\n</TabItem>\n`;
+  const ngSymbol = ANGULAR.get(tag);
+  const ngKind = ngSymbol?.endsWith('Component') ? 'component' : 'directive';
+  md += `<TabItem label="Angular">\n\n${
+    ngSymbol
+      ? `\`\`\`ts\nimport { ${ngSymbol} } from '@aparte/angular';\n\`\`\`\n\n`
+      : `\`@aparte/angular\` declares nothing for this tag, so an Angular template needs \`CUSTOM_ELEMENTS_SCHEMA\` to accept it — and \`[x]="v"\` will write a PROPERTY, which is a silent no-op on a read-only accessor.\n\n`
+  }\`\`\`html\n<${tag}${attr ? ` ${bool ? `[${camel(attr.name)}]="true"` : `${attr.name}="…"`}` : ''}${ev ? `\n  (${outputName(ev.name)})="${detail ? 'use($event)' : 'onIt()'}"` : ''}></${tag}>\n\`\`\`\n\n${
+    ngSymbol
+      ? `A standalone ${ngKind} whose selector IS the tag, so the real element sits in the template — \`@if\`, \`@for\` and content projection all reach it — and no \`CUSTOM_ELEMENTS_SCHEMA\` is needed.`
+      : `Written as a plain custom element.`
+  }\n\n</TabItem>\n`;
 
   md += `</Tabs>\n\nInstallation and the framework-specific traps: [React](/frameworks/react/) · [Vue](/frameworks/vue/) · [Svelte](/frameworks/svelte/) · [Angular](/frameworks/angular/).\n`;
   return md;

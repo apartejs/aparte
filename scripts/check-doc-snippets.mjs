@@ -59,7 +59,13 @@ function* walk(dir) {
     for (const name of readdirSync(dir)) {
         const path = join(dir, name);
         if (statSync(path).isDirectory()) yield* walk(path);
-        else if (path.endsWith('.md')) yield path;
+        // `.mdx` too, and the omission was not cosmetic: 20 of the 53 documentation pages
+        // carry that extension — every generated component and segment page, plus two
+        // plugin pages — and their 220 fences were outside this check entirely. A corpus
+        // picked by file extension shrinks in silence the day a generator changes format,
+        // which is exactly what happened here; hence the floor below, which fails when the
+        // corpus collapses instead of publishing a shorter guarantee.
+        else if (path.endsWith('.md') || path.endsWith('.mdx')) yield path;
     }
 }
 

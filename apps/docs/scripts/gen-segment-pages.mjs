@@ -184,7 +184,10 @@ import SegmentPreview from '../../../components/SegmentPreview.astro';
   md += `\n## Shape\n\nDiscriminated by \`type: '${kind}'\`.\n${table(own)}`;
 
   if (inherited.length) {
-    md += `\n### Shared by every segment\n${table(inherited)}`;
+    // The interface is named, not just its fields: it is the constraint on the exported
+    // `AparteSegmentRenderer<T>`, so anyone writing a renderer for a type of their own has
+    // to be able to write it down.
+    md += `\n### Shared by every segment\n\nFrom \`AparteSegmentBase\`, which is also what a segment type of your own extends.\n${table(inherited)}`;
   }
 
   md += fieldNotes([...own, ...inherited]);
@@ -193,6 +196,29 @@ import SegmentPreview from '../../../components/SegmentPreview.astro';
 reply streams. Core stamps its identity and timing on insert, so an emitted segment does not
 have to carry them.\n`;
 
+  /*
+   * ONE snippet, and it takes an OBJECT.
+   *
+   * Both branches published `registerSegmentRenderer('kind', fn)` — a two-argument form
+   * the function has never had; it takes `{ type, render }`. Eight pages, twice each,
+   * wrong since they were generated, and invisible because this check could not read
+   * `.mdx` at all. That is why it is one template now: the two copies would have had to
+   * be fixed twice.
+   */
+  const snippet = `\`\`\`ts
+import { registerSegmentRenderer } from '@aparte/core';
+import type { ${name} } from '@aparte/core';
+
+registerSegmentRenderer({
+    type: '${kind}',
+    render: (segment: ${name}) => {
+        const el = document.createElement('div');
+        el.textContent = JSON.stringify(segment);
+        return el;
+    },
+});
+\`\`\``;
+
   md += `\n## Who draws it\n\n`;
   md += renderer
     ? `A built-in renderer draws this one, from \`${renderer}\`. It installs itself the first time a
@@ -200,28 +226,13 @@ segment of this type needs it, so a chat renders it with no setup.
 
 Replace it with your own for this config only:
 
-\`\`\`ts
-import { registerSegmentRenderer } from '@aparte/core';
-
-registerSegmentRenderer('${kind}', (segment) => {
-    const el = document.createElement('div');
-    el.textContent = JSON.stringify(segment);
-    return el;
-});
-\`\`\`
+${snippet}
 `
     : `**Nothing in core draws this one** — it is the escape hatch, and the renderer is yours. Without
-one registered, a segment of this type renders nothing at all:
+one registered, core falls back: it draws the segment's \`fallback\` string when there is one, and
+otherwise a \`[Unknown segment type: ${kind}]\` placeholder with a console warning naming the type.
 
-\`\`\`ts
-import { registerSegmentRenderer } from '@aparte/core';
-
-registerSegmentRenderer('${kind}', (segment) => {
-    const el = document.createElement('div');
-    el.textContent = JSON.stringify(segment);
-    return el;
-});
-\`\`\`
+${snippet}
 `;
 
   md += `\nSee [Customization](/guides/customization/) for the whole renderer seam, and
