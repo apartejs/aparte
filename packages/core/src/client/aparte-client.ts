@@ -952,10 +952,7 @@ export class AparteClient {
 
         const chatMessages = this._messagesToChatMessages(historyMessages);
 
-        // Add system prompts
-        const systemMessages: import('../types/chat.js').AparteChatMessage[] = [];
-        const userSystemPrompt = this._config.resolveSystemPrompt();
-        if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
+        const systemMessages = this._systemMessages();
 
         // Retry must produce a DIFFERENT answer than the greedy (byte-identical)
         // re-run: temperature > 0 opts into sampling (the worker turns on
@@ -965,6 +962,24 @@ export class AparteClient {
             [...systemMessages, ...chatMessages], config.defaultModel || '',
             authConfig, { temperature: 0.4 },
         );
+    }
+
+    /**
+     * The system messages a turn opens with: the app's own template, then the registered
+     * tools' `systemPrompt`s.
+     *
+     * A helper rather than three copies. The two lines it replaces were written out at each
+     * of the three turn entry points (send, retry, edit), which is exactly how the tool half
+     * would have been added to two of them and forgotten in the third — the same shape as
+     * the abort-flag asymmetry `_beginUserTurn` exists to prevent.
+     */
+    private _systemMessages(): AparteChatMessage[] {
+        const messages: AparteChatMessage[] = [];
+        const appPrompt = this._config.resolveSystemPrompt();
+        if (appPrompt) messages.push({ role: 'system', content: appPrompt });
+        const toolPrompts = this._config.resolveToolSystemPrompts();
+        if (toolPrompts) messages.push({ role: 'system', content: toolPrompts });
+        return messages;
     }
 
     /**
@@ -1010,9 +1025,7 @@ export class AparteClient {
         const historyMessages = editIdx >= 0 ? allMessages.slice(0, editIdx + 1) : allMessages;
         const chatMessages = this._messagesToChatMessages(historyMessages);
 
-        const systemMessages: import('../types/chat.js').AparteChatMessage[] = [];
-        const userSystemPrompt = this._config.resolveSystemPrompt();
-        if (userSystemPrompt) systemMessages.push({ role: 'system', content: userSystemPrompt });
+        const systemMessages = this._systemMessages();
 
         const config = this._config.getModelConfig();
         const providerId = config.defaultProvider;
@@ -1253,13 +1266,8 @@ export class AparteClient {
      * Build the initial messages array, prepending system prompts and conversation history.
      */
     private _buildMessages(userContent: string, target?: AparteChatTargetElement, parts?: AparteContentPart[]): AparteChatMessage[] {
-        const messages: AparteChatMessage[] = [];
-
-        // 1. User-defined system prompt (with resolved variables)
-        const userSystemPrompt = this._config.resolveSystemPrompt();
-        if (userSystemPrompt) {
-            messages.push({ role: 'system', content: userSystemPrompt });
-        }
+        // 1. The app's system prompt, then the tools' own — see `_systemMessages`.
+        const messages: AparteChatMessage[] = this._systemMessages();
 
         const historyOption = this.options.history ?? 'viewport';
         const viewportMessages: AparteMessage[] = target?.getMessages?.() ?? [];

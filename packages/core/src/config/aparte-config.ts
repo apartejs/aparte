@@ -1035,6 +1035,27 @@ export class AparteConfig {
         return Array.from(this._tools.values()).map(e => e.tool);
     }
 
+    /**
+     * The registered tools' own `systemPrompt`s, joined, or `null` if none set one.
+     *
+     * `AparteTool.systemPrompt` has always been documented as "injected automatically when
+     * this tool is registered", on the type and in the tools guide — and nothing read it.
+     * A field that is documented and dead is worse than one that does not exist: a caller
+     * writes it, sees the tool work (the model has the schema either way), and never learns
+     * that the sentence explaining WHEN to reach for it was dropped. `@aparte/plugin-ask-user`
+     * sets one, so a shipped plugin was losing its instructions.
+     *
+     * Registration order, blank line between, because two tools' instructions are two
+     * paragraphs and not one run-on sentence. The app's own template stays a separate
+     * message — see `resolveSystemPrompt`, which is about the app and not about the tools.
+     */
+    resolveToolSystemPrompts(): string | null {
+        const prompts = Array.from(this._tools.values())
+            .map((entry) => entry.tool.systemPrompt?.trim())
+            .filter((prompt): prompt is string => Boolean(prompt));
+        return prompts.length ? prompts.join('\n\n') : null;
+    }
+
     /** Get the handler for a tool by name */
     getToolHandler(name: string): AparteToolHandler | undefined {
         return this._tools.get(name)?.handler;
