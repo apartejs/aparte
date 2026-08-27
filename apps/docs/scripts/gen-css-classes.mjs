@@ -29,7 +29,7 @@
  */
 import { readFileSync, mkdirSync } from 'node:fs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
-import { dirname, resolve, join } from 'node:path';
+import { dirname, resolve, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { coreStylesheets } from '../../../scripts/core-stylesheets.mjs';
 import { mdxSafe } from './mdx-safe.mjs';
@@ -37,7 +37,6 @@ import { mdxSafe } from './mdx-safe.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../src/content/docs/reference/classes.mdx');
 const GENERATED = resolve(here, '../src/generated');
-const SEP = String.fromCharCode(92);
 
 /**
  * A floor, not decoration. This page's whole value is that it is complete; a matcher that
@@ -183,7 +182,7 @@ function split(lines) {
  */
 const sheets = coreStylesheets().map((path) => {
     const src = readFileSync(path, 'utf8');
-    const rel = path.split(SEP).slice(-2).join('/');
+    const rel = path.split(sep).slice(-2).join('/');
     const banners = bannersIn(src);
     const own = banners.find((b) => b.kind === 'family') ?? banners.find((b) => b.kind === 'lead');
     return {
@@ -208,6 +207,30 @@ if (total < CLASS_FLOOR) {
     console.error(
         `[gen-css-classes] only ${total} classes found across ${sheets.length} sheet(s), floor is ${CLASS_FLOOR}. ` +
             'The matcher broke or the corpus moved — either way this page would publish a fraction of the surface.',
+    );
+    process.exit(1);
+}
+
+/*
+ * And every group has to MATCH something.
+ *
+ * The class floor counts CLASSES, and it stayed green right through the defect that made
+ * this second floor necessary. `rel` was built by splitting each path on a hardcoded
+ * backslash, so on any POSIX machine nothing split, every `match` returned false, and all
+ * 37 sheets fell into the ungrouped tail — carrying all 323 classes with them. The floor
+ * saw its number and said nothing. CI is ubuntu-latest and the docs `build` runs `gen`
+ * first, so every Linux build published the page with its three groups empty and their
+ * intros gone, while the copy committed from Windows looked correct.
+ *
+ * The lesson is the one the class floor already half-learned: assert what a matcher
+ * MATCHED, not only what it found.
+ */
+const unmatched = GROUPS.filter((group) => !sheets.some((sheet) => group.match(sheet.rel)));
+if (unmatched.length) {
+    console.error(
+        `[gen-css-classes] ${unmatched.length} of ${GROUPS.length} group(s) matched no sheet: `
+            + `${unmatched.map((g) => g.title).join(', ')}. Each group owns sheets that exist on disk, `
+            + 'so a group matching nothing is a broken matcher, not an empty group.',
     );
     process.exit(1);
 }
