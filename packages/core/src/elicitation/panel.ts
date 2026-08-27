@@ -316,7 +316,11 @@ function buildEnumField(
             });
             list.append(button, otherInput);
         } else {
-            const row = el('label', 'aparte-elic-option aparte-elic-option--other');
+            // `aparte-field-choice` like every sibling row, which it was missing: with
+            // no recipe there is no `display: flex`, so the control stacked ABOVE its
+            // own label while the options above it sat inline. It also had no focus
+            // outline, for the same reason — the recipe carries that too.
+            const row = el('label', 'aparte-field-choice aparte-elic-option aparte-elic-option--other');
             const control = el('input', controlRecipe + ' aparte-elic-control');
             control.type = type;
             control.name = name;
