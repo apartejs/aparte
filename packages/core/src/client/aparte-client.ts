@@ -17,6 +17,7 @@ import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, A
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { uuid } from '../utils/uuid.js';
 import { requestUserInput } from '../elicitation/index.js';
+import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -1598,19 +1599,7 @@ export class AparteClient {
         // Check for a per-tool renderer override
         const toolRenderer = this._config.getToolRenderer(event.name);
         if (toolRenderer) {
-            // Inject per-tool styles once
-            if (toolRenderer.getStyles) {
-                const styles = toolRenderer.getStyles();
-                if (styles) {
-                    const styleId = `aparte-tool-renderer-${event.name}`;
-                    if (!document.getElementById(styleId)) {
-                        const el = document.createElement('style');
-                        el.id = styleId;
-                        el.textContent = styles;
-                        document.head.appendChild(el);
-                    }
-                }
-            }
+            injectToolRendererStyles(event.name, toolRenderer);
             const html = toolRenderer.render(toolSeg);
             // Only add segment if the renderer produces visible output
             if (html) {

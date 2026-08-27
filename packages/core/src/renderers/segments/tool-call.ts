@@ -11,6 +11,7 @@ import type {
     AparteSegmentRenderer,
     AparteToolCallSegment,
 } from '../../types/index.js';
+import { injectToolRendererStyles } from '../segment-renderers.js';
 
 /**
  * The arguments as text, or `''` when there are none worth showing.
@@ -164,6 +165,10 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          */
         const customRenderer = contextConfig().getToolRenderer(segment.toolCall?.name);
         if (customRenderer) {
+            // Its stylesheet, here as well as on the live path: this is what runs when a
+            // stored conversation is re-rendered, and nothing replays `tool-start` for
+            // history. Idempotent, keyed by tool name.
+            injectToolRendererStyles(segment.toolCall?.name ?? '', customRenderer);
             const out = customRenderer.render(segment);
             if (out) return out;
         }
