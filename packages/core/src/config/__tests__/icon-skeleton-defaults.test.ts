@@ -85,17 +85,26 @@ describe('APARTE_DEFAULT_SKELETON_FALLBACKS', () => {
 
     const allTypes: AparteSkeletonType[] = ['message', 'code', 'thinking', 'input', 'list', 'text'];
 
-    it('has an entry for every skeleton type and each is a div with the fallback class', () => {
+    it('has an entry for every skeleton type and each wears the fallback class', () => {
         for (const type of allTypes) {
             const html = APARTE_DEFAULT_SKELETON_FALLBACKS[type];
             expect(html, `skeleton "${type}"`).toBeTruthy();
-            expect(html).toContain('class="aparte-skeleton-fallback"');
+            expect(html).toContain('class="aparte-skeleton-fallback');
+            expect(html, 'the look belongs in styles/, never in a style attribute').not.toContain('style=');
         }
     });
 
-    it('code skeleton carries the dark code-block background, unlike the plain types', () => {
-        expect(APARTE_DEFAULT_SKELETON_FALLBACKS.code).toContain('background:#1e293b');
-        expect(APARTE_DEFAULT_SKELETON_FALLBACKS.message).not.toContain('#1e293b');
+    /*
+     * This used to assert `background:#1e293b` — the literal Tailwind-slate hex, in a
+     * test. So the defect had a guard of its own: the fallback carried its look in a
+     * `style=""` attribute, which no consumer stylesheet can override and which
+     * `check:derived-vars` cannot see, because it reads only `styles/`. What the test
+     * MEANT is that a code skeleton is distinguishable from a plain one; it says that
+     * now, and `styles/display/skeleton.css` decides what the difference looks like.
+     */
+    it('the code skeleton is distinguishable from the plain ones', () => {
+        expect(APARTE_DEFAULT_SKELETON_FALLBACKS.code).toContain('aparte-skeleton-fallback--code');
+        expect(APARTE_DEFAULT_SKELETON_FALLBACKS.message).not.toContain('--code');
     });
 
     it('each type has distinct copy (message/code/thinking/list are not interchangeable)', () => {
@@ -105,16 +114,19 @@ describe('APARTE_DEFAULT_SKELETON_FALLBACKS', () => {
         expect(APARTE_DEFAULT_SKELETON_FALLBACKS.code).toContain('Loading code...');
     });
 
-    it('aparteGlobalConfig.getSkeleton() returns the internal default per type when no provider is registered', () => {
-        // Note: AparteConfig keeps its own private `_defaultSkeletonRenderer`
-        // fallback table (same content, separate copy) rather than importing
-        // APARTE_DEFAULT_SKELETON_FALLBACKS — assert the *content*, not object identity.
+    it('aparteGlobalConfig.getSkeleton() returns the exported default, not a copy of it', () => {
+        /*
+         * This used to say: "AparteConfig keeps its own private `_defaultSkeletonRenderer`
+         * fallback table (same content, separate copy) — assert the *content*, not object
+         * identity." The two had already drifted: `message` read "Loading message..." in
+         * the private table and "Loading..." in the exported one, and `text` the reverse.
+         * A duplicate that disagrees with its original is worse than either, because
+         * whichever you read you cannot tell which one ships. There is one table now, so
+         * this asserts identity — the check the old note explained why it could not make.
+         */
         for (const type of allTypes) {
-            const html = aparteGlobalConfig.getSkeleton(type);
-            expect(html).toContain('class="aparte-skeleton-fallback"');
+            expect(aparteGlobalConfig.getSkeleton(type)).toBe(APARTE_DEFAULT_SKELETON_FALLBACKS[type]);
         }
-        expect(aparteGlobalConfig.getSkeleton('code')).toContain('Loading code...');
-        expect(aparteGlobalConfig.getSkeleton('thinking')).toContain('Thinking...');
     });
 
     it('getSkeleton() defers entirely to a registered provider, bypassing the default', () => {

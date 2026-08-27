@@ -53,3 +53,26 @@
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ── The zero-dependency fallbacks ────────────────────────────────────────────
+   What `getSkeleton()` returns when no skeleton provider is registered. They used
+   to carry their look in a `style=""` attribute — six inline declarations of
+   Tailwind-slate hex (`#9ca3af`, `#1e293b`, `#64748b`), the exact palette this
+   theme replaced. Three consequences, and the first is the one that matters: an
+   inline style cannot be overridden by a consumer's stylesheet, so a dark-theme
+   host got a light-grey label it had no way to reach. The second: hex in a `.ts`
+   is invisible to `check:derived-vars`, which reads only `styles/`. The third:
+   they had drifted from the recipe above, which already reads tokens.
+
+   Structure only, still — no shimmer, no animation. That is what makes them the
+   fallback rather than a second skeleton implementation. */
+.aparte-skeleton-fallback {
+  padding: var(--aparte-space-4);
+  color: var(--aparte-text-muted);
+}
+.aparte-skeleton-fallback--snug { padding: var(--aparte-space-3); }
+.aparte-skeleton-fallback--tight { padding: var(--aparte-space-2); }
+.aparte-skeleton-fallback--code {
+  background: var(--aparte-surface-2);
+  border-radius: var(--aparte-radius-md);
+}

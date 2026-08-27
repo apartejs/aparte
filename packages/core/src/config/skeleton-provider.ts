@@ -32,10 +32,10 @@ export interface AparteSkeletonProvider {
  * Used when no skeleton plugin is installed
  */
 export const APARTE_DEFAULT_SKELETON_FALLBACKS: Record<AparteSkeletonType, string> = {
-    message: '<div class="aparte-skeleton-fallback" style="padding:16px;color:#9ca3af;">Loading...</div>',
-    code: '<div class="aparte-skeleton-fallback" style="padding:16px;background:#1e293b;color:#64748b;border-radius:8px;">Loading code...</div>',
-    thinking: '<div class="aparte-skeleton-fallback" style="padding:8px;color:#9ca3af;">Thinking...</div>',
-    input: '<div class="aparte-skeleton-fallback" style="padding:12px;color:#9ca3af;">...</div>',
-    list: '<div class="aparte-skeleton-fallback" style="padding:16px;color:#9ca3af;">Loading items...</div>',
-    text: '<div class="aparte-skeleton-fallback" style="padding:8px;color:#9ca3af;">...</div>',
+    message: '<div class="aparte-skeleton-fallback">Loading...</div>',
+    code: '<div class="aparte-skeleton-fallback aparte-skeleton-fallback--code">Loading code...</div>',
+    thinking: '<div class="aparte-skeleton-fallback aparte-skeleton-fallback--tight">Thinking...</div>',
+    input: '<div class="aparte-skeleton-fallback aparte-skeleton-fallback--snug">...</div>',
+    list: '<div class="aparte-skeleton-fallback">Loading items...</div>',
+    text: '<div class="aparte-skeleton-fallback aparte-skeleton-fallback--tight">...</div>',
 };
