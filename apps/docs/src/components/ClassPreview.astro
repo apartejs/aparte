@@ -1,0 +1,35 @@
+---
+/**
+ * The live preview on the CSS-classes reference.
+ *
+ * What it renders is the example from the stylesheet's own header comment, verbatim —
+ * the same string printed as code right underneath. A recipe you cannot see is a list of
+ * names, which is what this page replaced.
+ *
+ * The frame matters more here than anywhere else on the site: these classes are the ones
+ * a reader is about to put on their own markup, and the docs site's CSS reaches into
+ * anything rendered in the page (`:not(pre) > code`, a bare `nav` rule once). Shown in
+ * this document, a button would be wearing two stylesheets and the reader could not tell
+ * which one drew it.
+ */
+import { CLASS_PREVIEWS } from '../generated/class-previews';
+import PreviewFrame from './PreviewFrame.astro';
+
+interface Props {
+    /** The stylesheet's slug, e.g. `display-tag`. */
+    slug: string;
+}
+
+const { slug } = Astro.props;
+const preview = CLASS_PREVIEWS.find((entry) => entry.slug === slug);
+---
+
+{
+    preview && (
+        <PreviewFrame
+            src={`/preview/class/${slug}/`}
+            label={`Live preview of the ${preview.name} classes`}
+            caption="The classes below, on plain markup, in their own document — so what you are looking at is core's stylesheet and nothing else."
+        />
+    )
+}

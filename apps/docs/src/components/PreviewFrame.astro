@@ -143,6 +143,17 @@ const { src, label, caption } = Astro.props;
         }
     });
 
+    /* Ask, rather than wait to be told. This script is a module and therefore deferred,
+       while a frame above the fold starts loading during parse — so its first height
+       message can be sent before the listener above exists, and the box keeps its
+       placeholder for good. Asking on load covers the frames that beat us to it; asking
+       again immediately covers the ones that had already finished. */
+    for (const frame of document.querySelectorAll<HTMLIFrameElement>('.aparte-preview iframe')) {
+        const ask = () => frame.contentWindow?.postMessage({ aparteWantHeight: true }, '*');
+        frame.addEventListener('load', ask);
+        ask();
+    }
+
     /* Starlight writes the reader's choice to `data-theme` on the root; core reads
        `data-aparte-theme`. Watching the attribute rather than the toggle's click keeps this
        working whatever Starlight's own control turns out to be. */

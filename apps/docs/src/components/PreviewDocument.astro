@@ -75,11 +75,14 @@ const { title, markup, scripts } = Astro.props;
                 background: var(--aparte-bg, transparent);
                 color: var(--aparte-text);
                 font-family: var(--aparte-font-family);
-                /* Examples that show two variants need air between them; `<aparte-chat>` sets
-                   its own height, so this is a gap and never a size. */
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
+            }
+
+            /* Normal flow, deliberately. A flex column was the first attempt and it stretched
+               every child to full width, so `<span class="aparte-badge">Live</span>` rendered
+               as a 1000px green bar — the opposite of what a badge is. An example has to lay
+               out the way it will lay out on the reader's own page, and that is block flow. */
+            body > * + * {
+                margin-block-start: 1rem;
             }
         </style>
     </head>
@@ -138,6 +141,17 @@ const { title, markup, scripts } = Astro.props;
                 );
             new ResizeObserver(post).observe(document.body);
             addEventListener('load', post);
+
+            /*
+             * And on demand, because the first post can arrive before anyone is listening.
+             * The page's own script is a module and therefore deferred, while a frame above
+             * the fold starts loading during parse — so three of six frames on the classes
+             * reference kept their placeholder height, measured, not guessed. The parent
+             * asks once it is ready; this answers.
+             */
+            addEventListener('message', (event) => {
+                if (event.data?.aparteWantHeight) post();
+            });
         </script>
     </body>
 </html>

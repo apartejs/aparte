@@ -1,0 +1,19 @@
+---
+/**
+ * One standalone document per class family, for `ClassPreview` to load in its frame.
+ *
+ * The markup is the example from the stylesheet's own header comment, verbatim — the same
+ * string the reference prints as code. There is no script: these are classes, not
+ * components, and that is the point the frame makes better than a sentence could.
+ */
+import { CLASS_PREVIEWS } from '../../../generated/class-previews';
+import PreviewDocument from '../../../components/PreviewDocument.astro';
+
+export function getStaticPaths() {
+    return CLASS_PREVIEWS.map((preview) => ({ params: { slug: preview.slug }, props: preview }));
+}
+
+const { name, markup } = Astro.props;
+---
+
+<PreviewDocument title={`${name} classes — live preview`} markup={markup} scripts={[]} />
