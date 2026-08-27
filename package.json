@@ -44,7 +44,7 @@
     "lint": "eslint . --max-warnings 0",
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-peer-ranges.mjs && node scripts/gen-root-changelog.mjs",
-    "release": "pnpm prerelease-checks && pnpm gate:full && pnpm -r --filter \"./packages/**\" run build && changeset publish --tag alpha && node scripts/align-dist-tags.mjs && node scripts/tag-release.mjs",
+    "release": "pnpm prerelease-checks && pnpm -r --filter \"./packages/**\" run build && changeset publish --tag alpha && node scripts/align-dist-tags.mjs && node scripts/tag-release.mjs",
     "prerelease-checks": "node scripts/prerelease-checks.mjs",
     "check:node-barrel-types": "node scripts/check-node-barrel-types.mjs",
     "check:bundle-entries": "node scripts/check-bundle-entries.mjs",

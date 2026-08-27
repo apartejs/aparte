@@ -169,9 +169,15 @@ The flow:
    >
    > Leaving pre mode also restored `changeset publish --tag alpha`, which pre mode refuses.
 2. **Merge it.**
-3. **`pnpm release`** locally — builds every package, `changeset publish` (npm + one git tag
-   per package), **`scripts/align-dist-tags.mjs`**, then `scripts/tag-release.mjs` creates the
-   umbrella tag `v<version>`.
+3. **`pnpm release`** locally — `prerelease-checks` first, then it builds every package,
+   `changeset publish` (npm + one git tag per package), **`scripts/align-dist-tags.mjs`**,
+   then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.
+   > It does **not** re-run `gate:full`. It used to, and that was a third full validation of
+   > one commit — CI had just judged the identical tree on the version PR, and judged it
+   > again on `main`. `prerelease-checks` asks GitHub for the `ci` verdict on `HEAD`'s exact
+   > SHA instead, and refuses if it is red, still running, or absent. Better evidence as well
+   > as faster: CI runs on `ubuntu-latest`, and 0.13.0 shipped a defect only a POSIX build
+   > could expose. It was published at 22:52 from a commit whose CI failed at 22:58.
 4. **`git push origin v<version>`** — that tag, **alone** → `release-notes.yml` creates the
    **one** GitHub Release for that version, with the matching root-changelog section as its
    body.

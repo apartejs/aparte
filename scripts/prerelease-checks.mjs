@@ -8,8 +8,14 @@
  * `align-dist-tags.mjs` would point BOTH `alpha` and `latest` at them. There was
  * nothing between a broken tree and `npm i @aparte/core`.
  *
- * The full gate now runs first (see the `release` script); this covers what a gate
- * cannot see: the state of the working tree and where it came from.
+ * This covers what a gate cannot see: the state of the working tree, where it came
+ * from, and whether CI agreed.
+ *
+ * These four checks ARE the gate now. `release` used to re-run `gate:full` here, on a
+ * workstation, minutes after CI had validated the identical tree — a third full run of
+ * one commit, for about twenty minutes. Check 4 asks GitHub for the verdict instead,
+ * which is both faster and better evidence: CI runs on `ubuntu-latest`, and 0.13.0
+ * shipped a defect only a POSIX build could expose.
  */
 import { execFileSync } from 'node:child_process';
 
@@ -52,6 +58,55 @@ try {
     }
 } catch {
     problems.push(`no \`origin/${branch}\` to compare against — is the branch pushed?`);
+}
+
+/*
+ * 4. And CI actually PASSED on that commit.
+ *
+ * Check 3 above says the tag should point "at a commit CI has seen" — seen, never
+ * judged. This is the judgement, and adding it is what lets `release` stop re-running
+ * `gate:full` on a tree the CI validated minutes earlier. It is not a weaker guard, it
+ * is a better-sited one: the gate re-run happens on a maintainer's workstation, and CI
+ * runs on `ubuntu-latest`. The 0.13.0 release shipped a bug that only a POSIX build
+ * could expose — a path split on a hardcoded backslash that blanked a whole reference
+ * page — and no number of Windows gate runs would ever have seen it.
+ *
+ * Only the `ci` workflow counts. `release` FAILS on every push to main by design (the
+ * org forbids Actions from opening the Version PR, documented in `release.yml`), so a
+ * guard demanding every workflow be green would refuse every release forever.
+ */
+const CI_WORKFLOW = 'ci';
+try {
+    const sha = git('rev-parse', 'HEAD');
+    const raw = execFileSync(
+        'gh',
+        ['run', 'list', '--commit', sha, '--json', 'name,status,conclusion', '--limit', '20'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    const runs = JSON.parse(raw).filter((r) => r.name === CI_WORKFLOW);
+    if (runs.length === 0) {
+        problems.push(
+            `no \`${CI_WORKFLOW}\` run for ${sha.slice(0, 7)} — CI has not judged this commit.\n`
+            + '    Wait for it, or push the commit if it is not on the remote yet.',
+        );
+    } else if (runs.some((r) => r.status !== 'completed')) {
+        problems.push(`the \`${CI_WORKFLOW}\` run for ${sha.slice(0, 7)} is still running — wait for it.`);
+    } else if (runs.some((r) => r.conclusion !== 'success')) {
+        const bad = runs.filter((r) => r.conclusion !== 'success').map((r) => r.conclusion).join(', ');
+        problems.push(
+            `the \`${CI_WORKFLOW}\` run for ${sha.slice(0, 7)} concluded \`${bad}\`.\n`
+            + '    Fifteen packages are about to be published from it. Fix it first.',
+        );
+    }
+} catch (error) {
+    // A missing or unauthenticated `gh` REFUSES rather than waves through: this check
+    // replaced a full gate run, so its silence would be the release's only blind spot.
+    problems.push(
+        'could not ask GitHub whether CI passed on this commit '
+        + `(${String(error.message ?? error).split('\n')[0]}).\n`
+        + '    `gh auth status` should work here — this check is what stands in for the\n'
+        + '    gate run that `release` no longer does itself.',
+    );
 }
 
 if (problems.length) {
