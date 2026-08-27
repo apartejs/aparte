@@ -137,7 +137,18 @@ function split(lines) {
             continue;
         }
         if (!line.trim()) inExample = false;
-        if (!example.length || line.trim()) prose.push(line);
+        /*
+         * Blank lines go through, INCLUDING after an example. This used to read
+         * `if (!example.length || line.trim())`, which dropped every blank line once an
+         * example had been seen — so each paragraph after the example fused into the one
+         * before it, and the two families with the richest banners, Button and Field, read
+         * as the two longest walls of text on the page (99 and 168 words from four
+         * paragraphs). The pile-up that guard was aimed at is already handled: the
+         * `
+{3,}` collapse below turns the gap the extracted example leaves into one
+         * blank line, and `.trim()` removes it at either end.
+         */
+        prose.push(line);
     }
     /*
      * The headline is its own paragraph. A banner writes it on the first line and the
