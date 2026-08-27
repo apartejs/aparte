@@ -1,9 +1,8 @@
 ---
 /**
- * The preview frame on a generated element page — deliberately EMPTY for now.
+ * The live preview on a generated element page.
  *
- * It is an `<iframe>` and not an inline container, and that is the decision this file
- * exists to hold rather than a placeholder detail:
+ * It is an `<iframe>`, and that is the decision this file holds rather than a detail:
  *
  * - A responsive preview only works in a separate document. A div narrowed to 375px still
  *   sees the page's viewport, so media queries do not fire and the preview would lie.
@@ -12,29 +11,101 @@
  * - A standalone preview route is also "open this demo in a tab" for free, and it is what a
  *   screenshot tool would point at.
  *
- * `resize: horizontal` on the wrapper gives the drag handle with no JavaScript; the width
- * presets and the framework-aware source pane belong to the later lot that fills this in.
+ * What the frame shows is the element's own `@example`, verbatim — the same string the page
+ * prints as code right underneath, emitted once by `gen-element-pages.mjs`. The demo cannot
+ * drift from the example it illustrates, because there is only one of them.
+ *
+ * ONE RENDER, FIVE FRAMEWORKS, and it is deliberate. Every wrapper mounts the same custom
+ * element, so five frames would render five identical documents and prove the same thing
+ * five times; claiming the rendering differs is the lie worth avoiding. The code below the
+ * frame is per-framework and derived from the wrappers' own binding rules — the frame shows
+ * WHAT you get, the tabs show how YOUR framework asks for it. The caption says so, because
+ * a reader should not have to infer it.
+ *
+ * An element with no HTML example gets no entry in `ELEMENT_PREVIEWS` and this renders
+ * NOTHING. That is the point: the frame shipped for months as `src="about:blank"` under a
+ * caption promising a preview, and no demo at all is honest where an empty box is not.
  */
+import { ELEMENT_PREVIEWS } from '../generated/element-previews';
+
 interface Props {
-    /** The custom element this frame will render, e.g. `aparte-composer`. */
+    /** The custom element this frame renders, e.g. `aparte-composer`. */
     tag: string;
 }
 
 const { tag } = Astro.props;
+const preview = ELEMENT_PREVIEWS.find((entry) => entry.tag === tag);
 ---
 
-<figure class="aparte-preview" data-tag={tag}>
-    <div class="aparte-preview-frame">
-        <iframe title={`Live preview of <${tag}>`} loading="lazy" src="about:blank"></iframe>
-    </div>
-    <figcaption>
-        The live preview lands here. Until then, the example below is the real markup.
-    </figcaption>
-</figure>
+{
+    preview && (
+        <figure class="aparte-preview" data-tag={tag}>
+            <div class="aparte-preview-bar">
+                {/* Presets over a free drag handle: the point is to reach the breakpoints core
+                    actually declares, and 375 is the one a reader cannot hit by dragging inside
+                    a documentation column. The handle stays for everything in between. */}
+                <span class="aparte-preview-label">Width</span>
+                <button type="button" data-width="375">
+                    375
+                </button>
+                <button type="button" data-width="768">
+                    768
+                </button>
+                <button type="button" data-width="0" aria-pressed="true">
+                    Full
+                </button>
+                <a href={`/preview/${tag}/`} target="_blank" rel="noopener">
+                    Open in a tab
+                </a>
+            </div>
+            <div class="aparte-preview-frame">
+                <iframe title={`Live preview of <${tag}>`} loading="lazy" src={`/preview/${tag}/`} />
+            </div>
+            <figcaption>
+                The real element, in its own document so this site's CSS cannot reach it. It renders
+                the same example printed below — every framework mounts this same element, so the
+                rendering is what you get in all five; the code is what changes.
+            </figcaption>
+        </figure>
+    )
+}
 
 <style>
     .aparte-preview {
         margin: 1.5rem 0;
+    }
+
+    .aparte-preview-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.4rem;
+        font-size: var(--sl-text-xs);
+    }
+
+    .aparte-preview-label {
+        color: var(--sl-color-gray-3);
+        margin-inline-end: 0.1rem;
+    }
+
+    .aparte-preview-bar button {
+        font: inherit;
+        color: var(--sl-color-gray-2);
+        background: none;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.25rem;
+        padding: 0.1rem 0.45rem;
+        cursor: pointer;
+    }
+
+    .aparte-preview-bar button[aria-pressed='true'] {
+        color: var(--sl-color-text-accent);
+        border-color: var(--sl-color-text-accent);
+    }
+
+    .aparte-preview-bar a {
+        margin-inline-start: auto;
+        color: var(--sl-color-gray-3);
     }
 
     /* `resize: horizontal` needs a non-visible overflow to show the handle. The width is the
@@ -52,8 +123,20 @@ const { tag } = Astro.props;
     .aparte-preview-frame iframe {
         display: block;
         width: 100%;
+        /* A floor until the frame reports its own height, so the box never collapses to
+           nothing on a slow load. Capped in script, not here: the cap has to beat the
+           inline height the frame asks for. */
         height: 22rem;
         border: 0;
+        /* The frame reports its real height once it has rendered, so this value is always
+           corrected. The transition is what makes that a settle rather than a jump. */
+        transition: height 0.2s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .aparte-preview-frame iframe {
+            transition: none;
+        }
     }
 
     .aparte-preview figcaption {
@@ -62,3 +145,61 @@ const { tag } = Astro.props;
         color: var(--sl-color-gray-3);
     }
 </style>
+
+<script>
+    /*
+     * Three jobs, none of which an iframe does on its own.
+     *
+     * The height, because the frame is the only one that knows it and a fixed height either
+     * crops the demo or leaves a band of empty stage under it. Capped, since `<aparte-chat>`'s
+     * example asks for 600px twice and a 1200px frame in a documentation column is a wall.
+     *
+     * The theme, because the frame is a separate document: it reads the stored choice itself
+     * before paint, but a reader who toggles WHILE it is open would otherwise be looking at a
+     * light demo inside a dark page.
+     *
+     * The width presets, because core declares breakpoints and a preview that cannot reach
+     * them does not demonstrate them.
+     */
+    /* Floor so a one-line element is not a sliver; ceiling because `<aparte-chat>`'s example
+       asks for 600px twice and a 1200px frame in a documentation column is a wall. */
+    const MIN_HEIGHT = 96;
+    const MAX_HEIGHT = 640;
+
+    addEventListener('message', (event: MessageEvent) => {
+        const height = (event.data as { apartePreviewHeight?: number })?.apartePreviewHeight;
+        if (typeof height !== 'number') return;
+        for (const frame of document.querySelectorAll('.aparte-preview iframe')) {
+            if (frame instanceof HTMLIFrameElement && frame.contentWindow === event.source) {
+                frame.style.height = `${Math.min(Math.max(height, MIN_HEIGHT), MAX_HEIGHT)}px`;
+            }
+        }
+    });
+
+    const frames = () =>
+        [...document.querySelectorAll<HTMLIFrameElement>('.aparte-preview iframe')].filter(
+            (frame) => frame.contentWindow,
+        );
+
+    /* Starlight writes the reader's choice to `data-theme` on the root; core reads
+       `data-aparte-theme`. Watching the attribute rather than the toggle's click keeps this
+       working whatever Starlight's own control turns out to be. */
+    const currentTheme = () => document.documentElement.dataset.theme ?? 'auto';
+    new MutationObserver(() => {
+        for (const frame of frames()) {
+            frame.contentWindow?.postMessage({ aparteTheme: currentTheme() }, '*');
+        }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    for (const figure of document.querySelectorAll<HTMLElement>('.aparte-preview')) {
+        const box = figure.querySelector<HTMLElement>('.aparte-preview-frame');
+        const buttons = figure.querySelectorAll<HTMLButtonElement>('.aparte-preview-bar button');
+        for (const button of buttons) {
+            button.addEventListener('click', () => {
+                const width = Number(button.dataset.width);
+                if (box) box.style.width = width ? `${width}px` : '';
+                for (const other of buttons) other.setAttribute('aria-pressed', String(other === button));
+            });
+        }
+    }
+</script>

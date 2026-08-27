@@ -40,6 +40,7 @@ const CEM = resolve(here, '../../../packages/core/dist/custom-elements.json');
 const CONTENT = resolve(here, '../src/content/docs/components');
 const PLUGIN_DIR = resolve(here, '../../../packages/plugins');
 const PARTIALS = resolve(here, '../src/generated/element-api');
+const GENERATED = resolve(here, '../src/generated');
 
 if (!existsSync(CEM)) {
   console.error(
@@ -401,6 +402,53 @@ for (const [group, tags] of Object.entries(pagesByGroup)) {
 }
 mkdirSync(CONTENT, { recursive: true });
 writeIfChanged(join(CONTENT, 'index.mdx'), indexPage(pagesByGroup));
+
+/*
+ * The live preview's data, written HERE — beside the page that shows the same example as
+ * code — because the frame and the code block have to be the same string.
+ *
+ * The frame shipped empty for months (`src="about:blank"`) under a caption promising a
+ * preview, which is the loudest thing the site got wrong. Filling it from a SECOND source
+ * would have swapped that for a quieter version of the same failure: a demo that drifts
+ * from the example above it and no way to notice. So the preview renders the element's own
+ * `@example`, verbatim — the JSDoc is the single source, and an example that stops working
+ * becomes a visibly broken preview instead of prose nobody re-reads.
+ *
+ * Only the element's OWN examples, not its parts'. A part's example is a fragment shown
+ * under its own heading; running all seven of the composer's would stack seven composers
+ * in one frame and illustrate nothing.
+ *
+ * An element with no HTML example gets NO entry, and `ElementPreview` then renders nothing
+ * at all rather than an empty box. Absence of a demo is honest; a frame that promises one
+ * and shows a void is not.
+ */
+const previews = Object.values(pagesByGroup)
+  .flat()
+  .map((tag) => ({
+    tag,
+    name: humanName(tag),
+    html: (byTag.get(tag).decl.examples ?? [])
+      .map((ex) => String(ex).trim())
+      .filter((ex) => ex.startsWith('<'))
+      .join('\n\n'),
+  }))
+  .filter((p) => p.html);
+
+mkdirSync(GENERATED, { recursive: true });
+writeIfChanged(
+  join(GENERATED, 'element-previews.ts'),
+  `/* Generated from packages/core/dist/custom-elements.json by apps/docs/scripts/gen-element-pages.mjs\n` +
+    ` — edit the element's class JSDoc @example, not this file. */\n\n` +
+    `export interface ElementPreview {\n` +
+    `    /** The custom element's tag, which is also the route segment. */\n` +
+    `    tag: string;\n` +
+    `    /** Its human name, for the document title. */\n` +
+    `    name: string;\n` +
+    `    /** The element's own \`@example\`s, verbatim — the same text the page shows as code. */\n` +
+    `    html: string;\n` +
+    `}\n\n` +
+    `export const ELEMENT_PREVIEWS: ElementPreview[] = ${JSON.stringify(previews, null, 4)};\n`,
+);
 
 /*
  * A plugin's element gets a PARTIAL rather than a page. Its own page is the plugin's, where the
