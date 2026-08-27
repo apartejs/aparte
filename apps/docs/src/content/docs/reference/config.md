@@ -110,13 +110,14 @@ English ships in core as `APARTE_DEFAULT_LOCALE`; other languages are injected.
 - `getLocale(): AparteLocale` — the active locale.
 - `extendLocale(translations: Partial<AparteLocale>): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
 - `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `APARTE_DEFAULT_LOCALE`.
+- `resetLocale(): void` — go back to `APARTE_DEFAULT_LOCALE`, dropping anything `setLocale`/`extendLocale` put there.
 
 See the [Localization](/guides/localization/) guide.
 
 ### Icons & skeleton
 
 - `setIconProvider(provider: AparteIconProvider): void` — a set of icon functions (`() => string` HTML each), e.g. a FontAwesome bridge.
-- `getIconProvider(): AparteIconProvider` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`.
+- `getIconProvider(): Required<AparteIconProvider>` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`. `Required<>` is the point: every key resolves, so a caller never null-checks a glyph.
 - `getIcon(name: AparteIconName): string` — HTML for one icon by name, falling back to the built-in default.
 - `setSkeletonProvider(provider: AparteSkeletonProvider): void` — a custom loading-state generator (`getSkeleton(type) => string`).
 - `getSkeleton(type: AparteSkeletonType): string` — skeleton HTML for a type (`message` / `code` / `thinking` / `input` / `list` / `text`), via the provider or a minimal built-in fallback.
@@ -231,7 +232,22 @@ See the [Conversation persistence](/guides/conversation-persistence/) guide.
 
 - `setElicitationPresenter(presenter: AparteElicitationPresenter | null): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default.
 - `getElicitationPresenter(): AparteElicitationPresenter | undefined` — the registered presenter, if any.
+- `removeElicitationPresenter(presenter: AparteElicitationPresenter): void` — withdraw ONE presenter by identity, leaving the others registered. This is what an unmounting `<aparte-elicitation>` needs: `setElicitationPresenter(null)` clears the slot and takes every other mounted chat's presenter with it. Removing one that is not registered is a no-op.
+- `setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked' }): void` — how the built-in panel presents a request: whether a free-text "other" answer is offered alongside the choices, and whether questions come one at a time or all at once.
+- `getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' }` — the options in force, both resolved.
+- `setElicitationFieldRenderer(fn: AparteElicitationFieldRenderer | null): void` — draw one field of the panel yourself; `null` restores the built-in.
+- `getElicitationFieldRenderer(): AparteElicitationFieldRenderer | undefined` — the registered field renderer, if any.
 - `requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult>` — ask the user for typed input mid-run; resolves `{ action: 'accept' | 'decline', ... }`, or **rejects** with `AparteElicitationAbortError` when the request ends without an answer (a stopped turn, a fired signal, the question taken away, or no presenter mounted — `err.reason` tells the last one apart from the others). One request reaches the presenter at a time; a second one waits.
+
+### Segment defaults
+
+Values baked into a segment as it is inserted, so a renderer does not have to be told the
+same thing on every message. They are read at insertion and not re-read afterwards, so
+setting them later does not change segments already on screen.
+
+- `setSegmentDefaults(type: string, defaults: AparteSegmentDefaults): void` — defaults for a segment type, core's own or one of yours.
+- `getSegmentDefaults(type: string): AparteSegmentDefaults | undefined` — what is registered for a type.
+- `clearSegmentDefaults(type: string): void` — drop them for a type.
 
 ### Subscribe & reset
 
@@ -263,6 +279,7 @@ Constructor options (all optional):
 | `keyResolver` | `(providerId: string) => string \| Record<string,string> \| Promise<... \| undefined \| null> \| undefined \| null` | Resolve the API key/config for a provider. |
 | `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`. |
 | `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: drop everything. |
+| `fileInjectFilter` | `(file: File) => boolean` | Decide which attached files are read and sent to the model. Return `false` to keep one out of the request — e.g. `(f) => !/(^\|\.)env$\|\.(pem\|key)$/i.test(f.name)`. Without one, every attachment is sent. |
 | `streamRunner` | `AparteStreamRunner` | Delegate the agentic loop to a headless runner (e.g. `@aparte/engine`'s `runStreamAgent`) instead of the built-in inline loop. |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |
 | `autoRegister` | `boolean` (default `true`) | Register core's default segment renderers. Rarely needed either way — the built-ins install themselves on first use; set `false` (at startup) to keep them out and register your own. |
@@ -280,7 +297,7 @@ Constructor options (all optional):
 - `start(): void` — attach the `aparte-send` / `aparte-abort` / `aparte-compact` / `aparte-retry` / `aparte-edit` listeners on `window`. Nothing streams before this is called.
 - `stop(): void` — remove all listeners.
 - `abort(): void` — abort the current streaming response and all active tool calls; dispatches `aparte-message-aborted` on the target element.
-- `compact(): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
+- `compact(targetId?: string): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary. The `targetId` compacts ONE chat when several share a client, which is what `scopeToTargetId` exists for (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
 
 ### The turn lifecycle events
 

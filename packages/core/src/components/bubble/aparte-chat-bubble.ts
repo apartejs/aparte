@@ -732,6 +732,13 @@ export class AparteChatBubble extends HTMLElement {
             <div class="aparte-branch-picker" hidden>
               <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
               <span class="aparte-branch-label">1 / 1</span>
+              <!-- The move has to be ANNOUNCED. Pressing the arrows deliberately does not
+                   take focus, so without a live region a screen-reader user gets the new
+                   branch and no indication anything changed. The visible label cannot be
+                   the region itself: a custom sibling-nav renderer may replace it with
+                   dots, which reads as nothing. No new locale key — the position is
+                   digits, and the buttons beside it already carry translated labels. -->
+              <span class="aparte-sr-only aparte-branch-status" aria-live="polite"></span>
               <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
             </div>
             <div class="aparte-action-bar" role="toolbar" aria-label="${escapeAttr(this._cfg.getLocale().messageActions ?? 'Message actions')}"></div>
@@ -1143,6 +1150,12 @@ export class AparteChatBubble extends HTMLElement {
       } else {
         label.textContent = `${this._siblingIndex + 1} / ${this._siblingCount}`;
       }
+    }
+
+    const status = this._branchPickerEl.querySelector('.aparte-branch-status');
+    if (status) {
+      const position = `${this._siblingIndex + 1} / ${this._siblingCount}`;
+      if (status.textContent !== position) status.textContent = position;
     }
 
     const prevBtn = this._branchPickerEl.querySelector('.aparte-branch-prev') as HTMLButtonElement | null;
