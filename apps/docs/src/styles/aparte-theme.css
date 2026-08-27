@@ -137,3 +137,26 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
 :root[data-theme='light'] a.starlight-sidebar-topics-current {
   color: var(--brand-brass-text);
 }
+
+/* A reference table is DATA, not prose. Starlight lets it shrink to the column, which on
+   a phone crushed `aparte-archive-conversation` onto three lines AND still clipped the
+   second column — the type name simply could not be read, and nothing scrolled. Below the
+   content breakpoint the table becomes its own scroll container and its cells claim a
+   floor, so the columns keep their shape and the reader drags to the rest. Desktop is
+   untouched: outside this query the table stays a plain table. */
+@media (max-width: 50rem) {
+    .sl-markdown-content table {
+        display: block;
+        overflow-x: auto;
+        max-width: 100%;
+    }
+
+    .sl-markdown-content table :is(th, td) {
+        min-width: 7.5rem;
+    }
+
+    /* An identifier reads worse hyphenated across three lines than scrolled to. */
+    .sl-markdown-content table :is(th, td) > code {
+        white-space: nowrap;
+    }
+}

@@ -23,7 +23,12 @@ interface Props {
 const { src, label, caption } = Astro.props;
 ---
 
-<figure class="aparte-preview">
+{/* `not-content` is Starlight's own opt-out of the prose flow, and this figure is not
+    prose: it is a control bar and a frame. Without it Starlight's `* + *` rule — whose
+    exclusion list covers a, strong, em, del, span, input, code and br, but not button —
+    gave every button after the first a `margin-top: 1rem`, so "375" sat 8px above "768"
+    and "Full" in a row that had asked for `align-items: center`. */}
+<figure class="aparte-preview not-content">
     <div class="aparte-preview-bar">
         {/* Presets over a free drag handle: the point is to reach the breakpoints core
             actually declares, and 375 is the one a reader cannot hit by dragging inside a
