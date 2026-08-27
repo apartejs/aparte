@@ -45,6 +45,21 @@ function rehypeExternalLinksInOwnTab() {
 
 // https://astro.build/config
 export default defineConfig({
+    /*
+     * Astro's HTML compressor is on by default, and it strips the whitespace
+     * BETWEEN a text node and an inline element — where that whitespace is the
+     * word gap. The landing lost three of them: "7 kinds of content,human-in-the-
+     * loop tools", "renders none of it.Register your own kind", and "...cannot
+     * drift from the code.Read the reference". The markup was correct in all
+     * three; a newline before an `<a>` or a `<b>` is a space in HTML, and the
+     * compressor removed it.
+     *
+     * Measured before turning it off: 8.1 MB of HTML becomes 8.3 MB, and gzipped
+     * the two are the same 1.8 MB — which is what actually crosses the wire. The
+     * alternative was asking every future author to remember never to break a
+     * line before an inline tag, for no measurable gain.
+     */
+    compressHTML: false,
   // Astro 7 deprecated `markdown.remarkPlugins` / `rehypePlugins` / `remarkRehype` in
   // favour of naming the processor: the pipeline is now an object you build, not a set of
   // loose keys Astro assembles. Warned only at build time, not by `astro check`.
