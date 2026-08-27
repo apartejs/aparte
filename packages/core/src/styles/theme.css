@@ -53,21 +53,29 @@
   --aparte-warning: #f59e0b;
   --aparte-error: #ef4444;
 
-  /* The same five, as TEXT on the page background — a different job, and on a
-     light ground a different colour. The five above are FILLS: a solid button,
-     a badge, a wash. Read as text on `--aparte-bg` they measure 3.23 (primary),
-     3.29 (info), 2.27 (success), 1.92 (warning) and 3.37 (error) against the
-     4.5:1 WCAG AA asks of body text — and every ghost, outline and soft button,
-     the tool-call status, the form error and every link core renders was reading
-     the fill. An accent gains contrast by moving AWAY from its background, so
-     light goes DOWN and dark (below) goes UP; that is why one value cannot serve
-     both themes, and why `button.css` measured only the SOLID case and concluded
-     the palette was at fault. Measured on `--aparte-bg` and `--aparte-surface-1`. */
-  --aparte-primary-ink: #8f6529;   /* 4.63 / 5.09 */
-  --aparte-info-ink:    #0b63f2;   /* 4.61 / 5.06 */
-  --aparte-success-ink: #0b7d57;   /* 4.60 / 5.06 */
-  --aparte-warning-ink: #986206;   /* 4.60 / 5.06 */
-  --aparte-error-ink:   #da1313;   /* 4.61 / 5.06 */
+  /* THE SAME FIVE, AS TEXT ON THE PAGE — and DERIVED, not written down.
+     The five fills above are for a solid button, a badge, a wash. Read as text on
+     `--aparte-bg` they measured 3.23 (primary), 3.29 (info), 2.27 (success), 1.92
+     (warning) and 3.37 (error) against the 4.5:1 AA asks of body text, and every ghost,
+     outline and soft button, the tool-call status, the form error and every link core
+     renders was reading the fill.
+
+     These used to be ten hand-picked hexes — five here, five in the dark block — each
+     measured against THIS repo's `--aparte-bg`. Same defect the solid ink had: a
+     consumer's palette got a colour computed for someone else's page. Each is now the
+     accent with its own hue and chroma kept and its LIGHTNESS forced to
+     `--aparte-ink-l`, which is the one value that has to flip with the theme.
+
+     Why forced rather than mixed: pulling the accent toward `--aparte-text` reads well
+     and fails on an accent already close to the background — measured 3.41 on a navy
+     brand primary, which cannot be rescued by moving toward the text since it has to move
+     PAST it. Setting the lightness outright has no such blind spot.
+
+     Measured across 80 combinations — 5 intents x 4 palettes (ours light, ours dark, and
+     two invented) x 4 grounds (bg, surface-1/2/3) — the worst case is 4.80. */
+  /* The target lightness itself is a literal and stays here; the five inks that read
+     it are derived, so they live on the anchored layer below. */
+  --aparte-ink-l: 0.40;
 
   /* Masters — one knob each. Every step of every scale is COMPUTED from these
      (see the anchored block below), so moving one moves the whole family. That
@@ -485,11 +493,9 @@
      clears AA there; error and info do not — 4.46 and 4.56 on `--aparte-surface-1`
      and 3.60 / 3.68 on `--aparte-surface-3` — so they take the lighter tone the
      alert family already ships. */
-  --aparte-primary-ink: #d9a24b;
-  --aparte-info-ink:    #60a5fa;
-  --aparte-success-ink: #10b981;
-  --aparte-warning-ink: #f59e0b;
-  --aparte-error-ink:   #f87171;
+  /* Only the target lightness flips. The five inks derive from it and from each
+     accent's own hue — see the note in the light block. */
+  --aparte-ink-l: 0.85;
 
   --aparte-error-bg: #2d1b1b;
   --aparte-error-border: #7f1d1d;
@@ -524,6 +530,16 @@
 [data-aparte-theme],
 [data-aparte-host],
 aparte-chat {
+  /* The five accents AS TEXT, each derived from its own fill — see the long note in
+     the literal block. Anchored, not declared once on `:root`, for the reason this
+     whole layer exists: an <aparte-chat> that sets its own `--aparte-primary` only
+     gets a matching ink if the ink is declared on that element too. */
+  --aparte-primary-ink: oklch(from var(--aparte-primary) var(--aparte-ink-l) c h);
+  --aparte-info-ink: oklch(from var(--aparte-info) var(--aparte-ink-l) c h);
+  --aparte-success-ink: oklch(from var(--aparte-success) var(--aparte-ink-l) c h);
+  --aparte-warning-ink: oklch(from var(--aparte-warning) var(--aparte-ink-l) c h);
+  --aparte-error-ink: oklch(from var(--aparte-error) var(--aparte-ink-l) c h);
+
   /* The scales, computed from the masters above.
 
      They live in the ANCHORED block and not with the literals because a value
