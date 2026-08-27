@@ -100,6 +100,7 @@ HTML before it is injected via `innerHTML`.
 - `getSystemPromptTemplate(): string | undefined` — the raw template, unresolved.
 - `setSystemPromptVarsProvider(fn: AparteSystemPromptVarsProvider): void` — a function returning the `{{key}}` → value map, called at request time.
 - `resolveSystemPrompt(): string | null` — the template with all placeholders substituted, or `null` if none is set.
+- `resolveToolSystemPrompts(): string | null` — the registered tools' own `systemPrompt`s, joined in registration order, or `null` if none set one. `AparteClient` sends this as a system message of its **own**, after the app's template. Assembling a request by hand? Read it, or every registered tool's instructions are silently dropped.
 
 ### Locale
 

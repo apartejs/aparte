@@ -1,5 +1,6 @@
 ---
 '@aparte/core': patch
+'@aparte-workspace/docs': patch
 ---
 
 `AparteTool.systemPrompt` is now actually sent to the model.
