@@ -41,6 +41,18 @@
   --aparte-badge-intent: var(--aparte-neutral);
   /* Fallback only — the `@supports` block below derives this from the fill. */
   --aparte-badge-on-intent: var(--aparte-on-intent);
+
+  /* The intent AS TEXT, which is a different question from the ink ON a solid fill.
+     `--aparte-badge-on-intent` answers the second; this answers the first, and the
+     badge had no answer at all — base, `--soft` and `--outline` painted the label with
+     the raw FILL. On the light theme a soft warning badge measured 1.75:1. A fill is
+     chosen to be seen as an area; the same value as 12px text on the page background is
+     a different requirement, which is why `theme.css` derives five accent inks for it.
+     `button.css` was given this in a574dfa and the badge was not; same name, same
+     defaulting, so a custom intent still resolves to its own fill rather than to
+     nothing. `--secondary` and `--neutral` set no ink here either — their fills are
+     already muted enough to read, exactly as in `button.css`. */
+  --aparte-badge-intent-ink: var(--aparte-badge-intent);
   /* The derived ink, as a named value so each intent can offer it as the fallback
      behind the theme's own `--aparte-on-*`. Declared here too, un-derived, because a
      `var()` whose target is undefined outside `@supports` would take the whole chain
@@ -64,7 +76,7 @@
      sits inline in a row of text. Named anyway, so a badge that must be soft can
      say so rather than merely omit. */
   background: color-mix(in srgb, var(--aparte-badge-intent) 14%, transparent);
-  color: var(--aparte-badge-intent);
+  color: var(--aparte-badge-intent-ink);
 }
 
 /* The ink follows the fill — see the long note in `button.css` for why a library
@@ -86,19 +98,19 @@
    instead of being pinned against one of its two values. The old line forced white,
    which measured 5.60 on the light fill and 2.62 on the dark one — illegible in dark
    out of the box. See the long note in `button.css`, which this file mirrors. */
-.aparte-badge--primary   { --aparte-badge-intent: var(--aparte-primary); --aparte-badge-on-intent: var(--aparte-on-primary, var(--aparte-derived-ink)); }
+.aparte-badge--primary   { --aparte-badge-intent: var(--aparte-primary); --aparte-badge-on-intent: var(--aparte-on-primary, var(--aparte-derived-ink)); --aparte-badge-intent-ink: var(--aparte-primary-ink); }
 .aparte-badge--secondary { --aparte-badge-intent: var(--aparte-secondary); --aparte-badge-on-intent: var(--aparte-on-secondary, var(--aparte-derived-ink)); }
 .aparte-badge--neutral   { --aparte-badge-intent: var(--aparte-neutral); --aparte-badge-on-intent: var(--aparte-on-neutral, var(--aparte-derived-ink)); }
-.aparte-badge--info      { --aparte-badge-intent: var(--aparte-info); --aparte-badge-on-intent: var(--aparte-on-info, var(--aparte-derived-ink)); }
-.aparte-badge--success   { --aparte-badge-intent: var(--aparte-success); --aparte-badge-on-intent: var(--aparte-on-success, var(--aparte-derived-ink)); }
-.aparte-badge--warning   { --aparte-badge-intent: var(--aparte-warning); --aparte-badge-on-intent: var(--aparte-on-warning, var(--aparte-derived-ink)); }
-.aparte-badge--danger    { --aparte-badge-intent: var(--aparte-error); --aparte-badge-on-intent: var(--aparte-on-error, var(--aparte-derived-ink)); }
+.aparte-badge--info      { --aparte-badge-intent: var(--aparte-info); --aparte-badge-on-intent: var(--aparte-on-info, var(--aparte-derived-ink)); --aparte-badge-intent-ink: var(--aparte-info-ink); }
+.aparte-badge--success   { --aparte-badge-intent: var(--aparte-success); --aparte-badge-on-intent: var(--aparte-on-success, var(--aparte-derived-ink)); --aparte-badge-intent-ink: var(--aparte-success-ink); }
+.aparte-badge--warning   { --aparte-badge-intent: var(--aparte-warning); --aparte-badge-on-intent: var(--aparte-on-warning, var(--aparte-derived-ink)); --aparte-badge-intent-ink: var(--aparte-warning-ink); }
+.aparte-badge--danger    { --aparte-badge-intent: var(--aparte-error); --aparte-badge-on-intent: var(--aparte-on-error, var(--aparte-derived-ink)); --aparte-badge-intent-ink: var(--aparte-error-ink); }
 
 /* ── Axis 2 — FILL. ──────────────────────────────────────────────────────────── */
 .aparte-badge--soft {
   background: color-mix(in srgb, var(--aparte-badge-intent) 14%, transparent);
   border-color: transparent;
-  color: var(--aparte-badge-intent);
+  color: var(--aparte-badge-intent-ink);
 }
 .aparte-badge--solid {
   background: var(--aparte-badge-intent);
@@ -108,7 +120,7 @@
 .aparte-badge--outline {
   background: transparent;
   border-color: var(--aparte-badge-intent);
-  color: var(--aparte-badge-intent);
+  color: var(--aparte-badge-intent-ink);
 }
 
 /* A bare notification dot: no label, so it has no OTHER way to carry the intent —
