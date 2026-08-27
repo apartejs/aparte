@@ -296,7 +296,8 @@ presenter needs to drive it:
 | `getContent()` | the current response, shaped to the schema |
 | `isComplete()` | every required field has a usable value |
 | `focus()` | focus the first input, after you mount it |
-| `mode()` | what the composer's one button means here: `'advance'` or `'submit'` |
+| `mode()` | what the composer's one button means here: `'advance'`, `'submit'`, or `'none'` when the panel has nothing for it to do |
+| `onSettle(cb)` | the answer arrived without the button — a single-choice question settles on the click, and this is the only path by which that reaches you |
 | `canProceed()` | whether that button is enabled |
 | `proceed()` | act on it — advancing shows the next question; submitting is yours |
 | `relabel()` | re-apply the locale's strings in place, without rebuilding a half-filled form |

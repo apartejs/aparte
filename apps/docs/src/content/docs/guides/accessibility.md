@@ -103,8 +103,12 @@ core renders one region of your app and has no view on the rest of it.
 
 Two mechanisms, neither of them this page:
 
-**axe, in a real browser, on every run.** Six specs run against all five example apps in
-Chromium, Firefox and WebKit, and they fail on any *critical* or *serious* violation:
+**axe, in a real browser, on every run.** Six checks, and they fail on any *critical* or
+*serious* violation. The engine coverage is deliberately uneven, and this page would
+rather say so than round it up: all **seven** example apps in Chromium, **five** of them
+under WebKit (`vanilla`, `vanilla-dist`, `react`, `vue`, `svelte4`) and **two** under
+Firefox (`vanilla`, `react`) — the lists are `WEBKIT_APPS` and `FIREFOX_APPS` in
+`e2e/playwright.config.ts`. The checks are:
 
 - an idle chat,
 - a streamed exchange,

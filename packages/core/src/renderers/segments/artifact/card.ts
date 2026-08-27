@@ -109,7 +109,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
                     <div class="aparte-art-card__title-block">
                         <span class="aparte-badge aparte-badge--outline aparte-art-card__kind" data-kind="${escapeHtml(kind)}">${escapeHtml(displayLang)}</span>
                         <span class="aparte-art-card__title">${escapeHtml(title)}</span>
-                        ${isStreaming ? '<span class="aparte-dot aparte-art-card__pulse" aria-label="Streaming"></span>' : ''}
+                        ${isStreaming ? `<span class="aparte-dot aparte-art-card__pulse" role="img" aria-label="${escapeAttr(cfg.t('generating'))}"></span>` : ''}
                     </div>
                     <div class="aparte-art-card__actions">
                         <button type="button" class="aparte-btn aparte-btn--icon aparte-art-card__btn" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}" aria-label="${escapeAttr(contextConfig().t('copy'))}">

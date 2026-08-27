@@ -83,7 +83,15 @@ const lines = css.split(/\r?\n/);
 // tokens off this page; see the header.
 const body = [];
 for (let i = 0; i < lines.length; i++) {
-  if (!/^\s*:root\b/.test(lines[i])) continue;
+  // Column ZERO, and that word is the fix. The pattern used to allow leading
+  // whitespace, so the `:root` nested inside `responsive.css`'s
+  // `@media (prefers-reduced-motion: reduce)` was read as another declaration block —
+  // and its six overrides were published as ordinary DEFAULTS. Every duration appeared
+  // twice on the reference page, the second time claiming a default of `0.01ms`, under
+  // a heading that had nothing to do with motion. A nested block is an override; the
+  // dark theme's is skipped for exactly this reason, and this one slipped through only
+  // because it happens to start with the same selector.
+  if (!/^:root\b/.test(lines[i])) continue;
   let j = i;
   while (j < lines.length && !lines[j].includes('{')) j++;
   j++; // step past the opening `{`

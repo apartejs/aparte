@@ -39,7 +39,11 @@ aparte-progress-spinner svg {
 
 /* Indeterminate: rotate the whole SVG continuously */
 aparte-progress-spinner:not([value]) svg {
-    animation: aparte-spinner-rotate 0.9s linear infinite;
+    /* The shared duration, not a number of its own: this was 0.9s in hard code, so it
+       ignored --aparte-duration-spin like every other spinner reads it — and therefore
+       ignored the prefers-reduced-motion reset that overrides that token. It turns very
+       slightly faster now (0.7s), which is the price of stopping when asked. */
+    animation: aparte-spinner-rotate var(--aparte-duration-spin) linear infinite;
 }
 
 @keyframes aparte-spinner-rotate {
