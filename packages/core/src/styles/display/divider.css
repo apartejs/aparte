@@ -1,3 +1,9 @@
+/* =========================================
+   aparte-divider — horizontal, vertical, optionally labelled
+   =========================================
+   The line is a BORDER, not a background — see the progress bar's comment above
+   for why: a background disappears under forced-colors, a border does not. */
+
 .aparte-divider {
   border: 0;
   border-block-end: var(--aparte-border-width) solid var(--aparte-border);
@@ -39,8 +45,3 @@
   font-size: var(--aparte-divider-label-font-size);
   white-space: nowrap;
 }
-
-/* =========================================
-   aparte-alert — a callout
-   ========================================= */
-

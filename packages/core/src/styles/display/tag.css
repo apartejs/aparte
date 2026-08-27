@@ -1,3 +1,7 @@
+/* =========================================
+   aparte-tag — a removable chip
+   ========================================= */
+
 .aparte-tag {
   display: inline-flex;
   align-items: center;
@@ -50,14 +54,3 @@
 .aparte-tag__remove:disabled { opacity: var(--aparte-disabled-opacity); cursor: not-allowed; pointer-events: none; }
 
 .aparte-tag--sm { gap: var(--aparte-space-1); padding: var(--aparte-space-1) var(--aparte-space-2); font-size: var(--aparte-font-size-2xs); }
-
-/* =========================================
-   aparte-avatar — sizes, shape, image + initials fallback
-   =========================================
-   --aparte-avatar-size, --aparte-avatar-radius and --aparte-avatar-font-size are
-   NOT invented here: they already exist centrally for the message avatar
-   (bubble.css), and this component deliberately reads the same three rather than
-   declare its own — a generic avatar and a chat-message avatar are the same
-   object, and a size or shape modifier applied here resizes a role-coloured
-   message avatar too, for free, instead of only a second, disconnected one. */
-

@@ -1,3 +1,13 @@
+/* =========================================
+   aparte-avatar — sizes, shape, image + initials fallback
+   =========================================
+   --aparte-avatar-size, --aparte-avatar-radius and --aparte-avatar-font-size are
+   NOT invented here: they already exist centrally for the message avatar
+   (bubble.css), and this component deliberately reads the same three rather than
+   declare its own — a generic avatar and a chat-message avatar are the same
+   object, and a size or shape modifier applied here resizes a role-coloured
+   message avatar too, for free, instead of only a second, disconnected one. */
+
 .aparte-avatar {
   position: relative;
   display: inline-flex;
@@ -59,8 +69,3 @@
 .aparte-avatar-group > .aparte-avatar:hover {
   z-index: var(--aparte-z-raised);
 }
-
-/* =========================================
-   aparte-spinner — a rotating indicator
-   ========================================= */
-

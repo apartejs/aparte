@@ -1,3 +1,7 @@
+/* =========================================
+   aparte-card — a surface with optional header/body/footer
+   ========================================= */
+
 .aparte-card {
   display: flex;
   flex-direction: column;
@@ -27,11 +31,3 @@
   padding: var(--aparte-card-footer-padding);
   border-block-start: var(--aparte-border-width) solid var(--aparte-border);
 }
-
-/* =========================================
-   aparte-kbd — a keyboard key
-   =========================================
-   The monospace stack is --aparte-code-font-family, reused rather than declared
-   again: it is already the library's one answer to "what font is code", and a
-   key label is exactly that question asked a second time. */
-

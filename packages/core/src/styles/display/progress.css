@@ -1,3 +1,10 @@
+/* =========================================
+   aparte-progress — determinate bar + indeterminate variant
+   =========================================
+   The consumer owns the ARIA: role="progressbar" plus aria-valuenow/min/max on
+   the determinate form, and aria-valuetext (or nothing, per platform convention)
+   on the indeterminate one — this file only paints what those attributes mean. */
+
 .aparte-progress {
   --aparte-progress-value: 0;
 
@@ -41,10 +48,3 @@
   .aparte-progress { border: var(--aparte-border-width) solid CanvasText; }
   .aparte-progress__bar { background: Highlight; }
 }
-
-/* =========================================
-   aparte-skeleton — a loading placeholder
-   =========================================
-   Decorative: give the element aria-hidden="true" (or wrap the group behind a
-   single aria-busy region) so a screen reader does not read out an empty box. */
-

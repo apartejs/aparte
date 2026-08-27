@@ -1,3 +1,7 @@
+/* =========================================
+   aparte-spinner — a rotating indicator
+   ========================================= */
+
 .aparte-spinner {
 
   display: inline-block;
@@ -16,11 +20,3 @@
 
 .aparte-spinner--sm { --aparte-spinner-size: var(--aparte-spinner-size-sm); }
 .aparte-spinner--lg { --aparte-spinner-size: var(--aparte-spinner-size-lg); }
-
-/* =========================================
-   aparte-progress — determinate bar + indeterminate variant
-   =========================================
-   The consumer owns the ARIA: role="progressbar" plus aria-valuenow/min/max on
-   the determinate form, and aria-valuetext (or nothing, per platform convention)
-   on the indeterminate one — this file only paints what those attributes mean. */
-

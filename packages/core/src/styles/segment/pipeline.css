@@ -19,7 +19,3 @@
 /* =========================================
    Provider-HTML overflow guards
    ========================================= */
-
-/* Markdown providers inject arbitrary HTML into .aparte-segment-text, and the bubble
-   clips overflow (`aparte-chat-bubble { overflow: hidden }`) — without these
-   guards a wide image or table is silently cut at the bubble edge. */

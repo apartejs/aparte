@@ -1,3 +1,7 @@
+/* =========================================
+   aparte-alert — a callout
+   ========================================= */
+
 .aparte-alert {
   --aparte-alert-intent: var(--aparte-info);
 
@@ -86,8 +90,3 @@
   outline-offset: var(--aparte-focus-outline-offset);
 }
 .aparte-alert__dismiss:disabled { opacity: var(--aparte-disabled-opacity); cursor: not-allowed; pointer-events: none; }
-
-/* =========================================
-   aparte-card — a surface with optional header/body/footer
-   ========================================= */
-

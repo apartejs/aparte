@@ -1,3 +1,9 @@
+/* =========================================
+   aparte-skeleton — a loading placeholder
+   =========================================
+   Decorative: give the element aria-hidden="true" (or wrap the group behind a
+   single aria-busy region) so a screen reader does not read out an empty box. */
+
 .aparte-skeleton {
   display: block;
   background-color: var(--aparte-skeleton-base);
@@ -41,10 +47,3 @@
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
-
-/* =========================================
-   aparte-divider — horizontal, vertical, optionally labelled
-   =========================================
-   The line is a BORDER, not a background — see the progress bar's comment above
-   for why: a background disappears under forced-colors, a border does not. */
-
