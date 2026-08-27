@@ -102,6 +102,28 @@ invalidates everything, deliberately.
   ```
 - Never commit `dist/`, `*.tsbuildinfo`, or `.claude/` — they're gitignored; stage explicit files.
 
+### How a changeset reads
+
+A changeset becomes a CHANGELOG entry, which becomes the GitHub Release body. Its reader
+is evaluating the library with ten seconds to spare, and their question is always the
+same: **do I have to touch my code?** Answer that first.
+
+- **The first line is the change, for the caller, at the top.** Plain, imperative, no
+  metaphor, and short enough to scan in one pass. It is a summary line, not an opening
+  sentence — the paragraph that follows may repeat it at length.
+- **Everything else goes below it**: the reasoning, the measurement, the WCAG clause, the
+  history. None of it is cut — this repo's changelogs say *why*, and they should. It is
+  ordered, so the reader who needs only the first line never pays for the rest.
+- **A fix says what was broken from the outside**, not which function was wrong. "The
+  keyboard could not archive a conversation" beats "the row's keydown handler climbed to
+  closest()". The mechanism belongs on line three.
+
+The failure mode is not vagueness, it is elegance. `A panel says whether the composer's
+button has an act, and a single choice settles on the click` is accurate, compact and
+has to be read twice — while `Single-choice questions now answer on the click; there is no
+submit button to press` says the same thing to someone who is skimming. The rigour that
+makes the work good is what makes it hard to scan, and only the ORDER fixes that.
+
 ## Releasing
 
 Every `@aparte/*` package moves **together, at one version** (`fixed` in
