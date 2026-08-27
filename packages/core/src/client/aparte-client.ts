@@ -1912,6 +1912,32 @@ export class AparteClient {
                     ...wholeParser.parse(response).segments,
                     ...wholeParser.finalize(),
                 ];
+                /*
+                 * And PROMOTED, for the same reason it is parsed.
+                 *
+                 * The streaming path below applies this twice — once as the fence closes,
+                 * once at finalize — and this branch applied it never. So a caller who set
+                 * `_meta.artifactHint` got an artifact from a streaming backend and a bare
+                 * code fence from a non-streaming one: one response, two products,
+                 * decided by which transport happens to be wired. That is precisely the
+                 * class of defect the engine parity suite exists to prevent, and it missed
+                 * this one because it never pairs a hint with a plain-string reply.
+                 */
+                const stringHint = baseRequest._meta?.artifactHint;
+                if (stringHint) {
+                    const codeIdx = parsed.findIndex((s) => s.type === 'code');
+                    if (codeIdx !== -1) {
+                        const codeSeg = parsed[codeIdx] as import('../types/segments.js').AparteCodeSegment;
+                        parsed[codeIdx] = {
+                            id: codeSeg.id,
+                            type: 'artifact',
+                            mimeType: stringHint.mimeType,
+                            artifactType: stringHint.kind,
+                            title: codeSeg.filename ?? stringHint.kind,
+                            content: codeSeg.content,
+                        } as import('../types/segments.js').AparteArtifactSegment;
+                    }
+                }
                 if (parsed.length > 0) {
                     for (const segment of parsed) targetElement.addSegment?.(segment);
                     this._updateMessage(targetElement, messageId, { status: 'completed' });
