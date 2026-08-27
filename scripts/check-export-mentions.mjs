@@ -107,7 +107,10 @@ const MAX_UNMENTIONED = new Map([
     // every event-detail type and every segment interface — was invisible to it from
     // the day those pages stopped being `reference/api.md`. The exports were documented;
     // the guard could not see the documentation. Each wrapper drops for the same reason.
-    ['@aparte/core', 76],      // of 195 exports checked
+    // Ratcheted 76 → 66 by the generated events reference. It names every event-detail
+    // interface in one place, which is ten types that were exported, typed in the event
+    // map, and named on no page a reader opens.
+    ['@aparte/core', 66],      // of 200 exports checked
     ['@aparte/react', 6],
     ['@aparte/vue', 2],
     ['@aparte/svelte', 3],
