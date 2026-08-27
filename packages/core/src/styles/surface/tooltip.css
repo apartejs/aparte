@@ -1,3 +1,24 @@
+/* =========================================
+   aparte-tooltip — a short label, with an arrow
+   =========================================
+   A tooltip has to be legible against whatever it happens to sit on top of — a bright
+   image, a dark code block, either app theme — so its colours are fixed literals rather
+   than the themed surface/text tokens. This box does NOT follow the palette, on purpose,
+   and skips the dark-theme override block for that reason; the artifact "paper" tokens
+   are the same decision made for the same reason.
+
+       <div class="aparte-tooltip" role="tooltip">
+         Copy to clipboard
+         <span class="aparte-tooltip__arrow"></span>
+       </div>
+
+   The arrow points DOWN by default — the common case, a tooltip above the thing it
+   labels — and `data-side="bottom"` flips it. Placing the box is yours, as with the
+   popover; only the arrow's two positions are here.
+
+   `pointer-events: none` is not a detail: a tooltip describes what the pointer is over,
+   so it must never itself become that thing, or hovering it re-triggers the hover that
+   produced it. */
 .aparte-tooltip {
   /* Component-local tokens: `bg`/`color` are fixed literals on purpose (see the
      comment above) rather than the themed surface/text tokens, so they cannot

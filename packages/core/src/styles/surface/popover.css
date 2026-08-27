@@ -1,3 +1,19 @@
+/* =========================================
+   aparte-popover — a floating box, and nothing else
+   =========================================
+   Deliberately just a box. A popover's content is arbitrary — a form, a colour picker, a
+   card of details — so this supplies the surface, border and elevation that say "this is
+   floating above the page" and leaves the layout of what is inside, and where the box
+   itself sits, entirely to the caller.
+
+       <div class="aparte-popover" role="dialog" aria-label="Filters">
+         <label class="aparte-field-label" for="q">Search</label>
+         <input class="aparte-field" id="q" />
+         <button class="aparte-btn aparte-btn--primary aparte-btn--solid">Apply</button>
+       </div>
+
+   `--aparte-popover-max-width` is the one cap it imposes, so arbitrary content cannot
+   grow the box unbounded. */
 .aparte-popover {
   /* Component-local tokens, same reasoning as the menu's above: a cap that
      keeps arbitrary caller content (a form, a colour picker) from growing
@@ -19,11 +35,3 @@
   line-height: var(--aparte-line-height-normal);
   z-index: var(--aparte-z-dropdown);
 }
-
-/* ── Tooltip ─────────────────────────────────────────────────────────────────── */
-
-/* A tooltip's job is to be legible against whatever it happens to sit on top of —
-   a bright image, a dark code block, either app theme — so its colours are fixed
-   literals rather than the themed text/surface tokens, the same reasoning already
-   applied to the artifact "paper" tokens: this box does not follow the palette on
-   purpose, and skips the dark-theme override block for that reason. */

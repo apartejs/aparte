@@ -1,3 +1,27 @@
+/* =========================================
+   aparte-accordion — stacked disclosures
+   =========================================
+   A column of items, each a header you press and a panel it reveals. The header works
+   as a native `<summary>` inside `<details>` OR as a `<div role="button" aria-expanded>`
+   — that choice decides whether the open state is the browser's or yours, and the CSS
+   does not care either way. It is the whole clickable row, so it takes the same reset a
+   button does.
+
+       <div class="aparte-accordion">
+         <details class="aparte-accordion__item">
+           <summary class="aparte-accordion__header">
+             Shipping
+             <svg class="aparte-accordion__icon aparte-icon" viewBox="0 0 24 24">…</svg>
+           </summary>
+           <div class="aparte-accordion__panel">Free above 50 €.</div>
+         </details>
+       </div>
+
+   The chevron turns 180° when the item is open, and there are two selectors for it
+   because there are two ways to be open: `aria-expanded` on the header for the ARIA
+   pattern, `details[open]` on the ancestor for the native one. Nothing here opens or
+   closes anything — this is a stylesheet, and the disclosure is the element's job or
+   yours. */
 .aparte-accordion {
   display: flex;
   flex-direction: column;
@@ -92,6 +116,3 @@ details[open] > .aparte-accordion__header .aparte-accordion__icon {
   font-size: var(--aparte-font-size-md);
   line-height: var(--aparte-line-height-relaxed);
 }
-
-/* ── Menu ────────────────────────────────────────────────────────────────────── */
-

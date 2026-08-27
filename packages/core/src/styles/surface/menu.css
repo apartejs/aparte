@@ -1,3 +1,26 @@
+/* =========================================
+   aparte-menu — a floating list of commands
+   =========================================
+   The surface a dropdown, a context menu or an overflow menu is drawn on: a bordered,
+   elevated column of rows. Items are the pressable ones, a label groups them, a
+   separator divides them.
+
+       <div class="aparte-menu" role="menu">
+         <span class="aparte-menu__label">Message</span>
+         <button class="aparte-menu__item" role="menuitem">Copy</button>
+         <button class="aparte-menu__item" role="menuitem">Retry</button>
+         <div class="aparte-menu__separator" role="separator"></div>
+         <button class="aparte-menu__item" role="menuitem" disabled>Delete</button>
+       </div>
+
+   WHERE it sits is yours. There is no positioning here and no anchoring logic —
+   floating a box next to a trigger needs collision detection and a scroll listener,
+   which is an interaction library's job, not a stylesheet's. Same split as the popover
+   and the tooltip below it.
+
+   The roles above are not decoration either: this draws a menu, it does not announce
+   one. `role="menu"` / `role="menuitem"` and the arrow-key handling that pattern
+   requires are yours to add. */
 .aparte-menu {
   /* Component-local tokens: no shared knob in the token set covers a dropdown's
      own width and elevation, so they live here — same width as the select's
@@ -93,10 +116,3 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-
-/* ── Popover ─────────────────────────────────────────────────────────────────── */
-
-/* Deliberately just a box. A popover's content is arbitrary — a form, a colour
-   picker, a card of details — so this supplies the surface, border and elevation
-   that say "this is floating above the page" and leaves layout of what's inside,
-   and where the box itself sits, entirely to the caller. */
