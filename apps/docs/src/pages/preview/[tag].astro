@@ -29,6 +29,24 @@ export function getStaticPaths() {
 }
 
 const { tag, name, html } = Astro.props;
+
+/*
+ * The example's own `<script>` is held back and run after the library has loaded.
+ *
+ * Not a nicety — the first version of this page ran them where they sit, and the frame
+ * reported `viewport.appendMessage is not a function`. A classic inline script runs at
+ * parse time while `import '@aparte/core'` is a module and therefore deferred, so the
+ * element it queries has not been upgraded yet and is still a bare `HTMLElement`. That is
+ * the same ordering a consumer faces, and it is why these run last here: an app imports
+ * the library and THEN runs its own code, which is what this reproduces.
+ *
+ * `addEventListener` survives the un-upgraded state, which is why `<aparte-select>`'s
+ * example worked and the viewport's did not — the failure was one example away from
+ * shipping unnoticed.
+ */
+const SCRIPT = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+const deferred = [...html.matchAll(SCRIPT)].map((match) => match[1] ?? '');
+const markup = html.replace(SCRIPT, '').trim();
 ---
 
 <html lang="en">
@@ -38,7 +56,7 @@ const { tag, name, html } = Astro.props;
         <!-- A frame's document is not a page of the site: it would otherwise compete with the
              element's real page in search results and say much less. -->
         <meta name="robots" content="noindex, nofollow" />
-        <title>{`${name} — live preview`}</title>
+        <title>{`${name} (<${tag}>) — live preview`}</title>
         <script is:inline>
             /*
              * Before paint, so the frame never flashes light inside a dark page.
@@ -87,12 +105,30 @@ const { tag, name, html } = Astro.props;
         </style>
     </head>
     <body>
-        <Fragment set:html={html} />
+        <Fragment set:html={markup} />
+        {/* Inert until the script below revives them — a `<template>`'s content is parsed
+            but never executed, which is exactly the holding pen this needs. */}
+        {deferred.map((source) => <template class="aparte-deferred">{source}</template>)}
         <script>
             // The real package, resolved exactly as a consumer's bundler resolves it: source in
             // `pnpm run docs`, the published `dist` in a build.
             import '@aparte/core';
             import '@aparte/core/styles.css';
+
+            /*
+             * The import above has already run, so every element core defines is defined and
+             * the ones already in this document have been upgraded. Only now can an example
+             * call a method on one.
+             *
+             * A real `<script>` element rather than `eval`: it executes under the document's
+             * own rules, so a Content-Security-Policy added to this site later governs it the
+             * way it governs any other inline script.
+             */
+            for (const held of document.querySelectorAll<HTMLTemplateElement>('template.aparte-deferred')) {
+                const script = document.createElement('script');
+                script.textContent = held.content.textContent ?? '';
+                document.body.appendChild(script);
+            }
 
             /*
              * Tell the parent how tall this turned out. The frame has no way to know what an

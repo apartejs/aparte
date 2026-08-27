@@ -74,6 +74,18 @@ export interface AparteConversationArchiveDetail {
  * @cssprop [--aparte-conv-archive-radius=var(--aparte-radius-sm)] - Corner radius of the archive button.
  *
  * @example
+ * <!-- It stores nothing and fetches nothing: an empty tag renders the empty state, and
+ *      the list appears when the host assigns `conversations`. -->
+ * <aparte-conversation-list active-id="c1" style="max-width: 20rem"></aparte-conversation-list>
+ *
+ * <script>
+ *   document.querySelector('aparte-conversation-list').conversations = [
+ *     { id: 'c1', title: 'Deploy checklist', updatedAt: Date.now() },
+ *     { id: 'c2', title: 'Rename the segment types', updatedAt: Date.now() - 864e5 },
+ *   ];
+ * </script>
+ *
+ * @example
  * // The host owns the data: set the `conversations` property, listen for the intent.
  * const list = document.querySelector('aparte-conversation-list')!;
  * list.conversations = [

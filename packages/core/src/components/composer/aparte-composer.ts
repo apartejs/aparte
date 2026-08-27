@@ -136,6 +136,20 @@ export interface AparteComposerChangeEventDetail {
  *   composer keeps the transcript's column. Set on THIS element it moves the shell only:
  *   custom properties inherit downward and the transcript is a sibling subtree, so set
  *   it on a shared ancestor (the chat host, `:root`) to move both.
+ *
+ * @example
+ * <!-- It renders nothing of its own — no shadow root, no default children — so this
+ *      markup IS the component. The shell draws the border; the row keeps the controls
+ *      on the bottom edge of the text as it grows. Both are opt-in classes: drop them
+ *      and the parts still work, they just sit wherever your own layout puts them. -->
+ * <aparte-composer placeholder="Ask anything…">
+ *   <div class="aparte-composer-shell">
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </div>
+ * </aparte-composer>
  */
 export class AparteComposer extends HTMLElement {
     private _value = '';

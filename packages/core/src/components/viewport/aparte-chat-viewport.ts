@@ -101,6 +101,23 @@ import {
  *   theme sets a heavier one.
  *
  * @example
+ * <!-- On its own, outside `<aparte-chat>`. Give it a height: it fills what it is given
+ *      and owns the scrolling inside that box, so a viewport in an auto-height parent
+ *      grows forever instead of scrolling. Messages are pushed in — it fetches nothing. -->
+ * <aparte-chat-viewport style="height: 320px"></aparte-chat-viewport>
+ *
+ * <script>
+ *   const viewport = document.querySelector('aparte-chat-viewport');
+ *   viewport.appendMessage({ id: 'u1', role: 'user', content: 'What is a transport?', timestamp: Date.now() });
+ *   viewport.appendMessage({
+ *     id: 'a1',
+ *     role: 'assistant',
+ *     content: 'The object that talks to the model. Swap it and the UI does not change.',
+ *     timestamp: Date.now(),
+ *   });
+ * </script>
+ *
+ * @example
  * // Three calls are a whole streamed turn.
  * const viewport = document.querySelector('aparte-chat-viewport')!;
  *

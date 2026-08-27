@@ -53,9 +53,25 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * @cssprop [--aparte-radius-action-btn=var(--aparte-radius-sm)] - Corner radius.
  *
  * @example
- * <aparte-composer-action icon="star" label="Favourite"
- *   (click)="onFavourite()">
- * </aparte-composer-action>
+ * <!-- Inside a composer, because that is what it resolves with `closest()`. `action-id`
+ *      is what tells two custom buttons apart: it comes back on the event's detail, and
+ *      a second button without one is indistinguishable from the first. -->
+ * <aparte-composer>
+ *   <div class="aparte-composer-shell">
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-action icon="star" label="Favourite" action-id="favourite"></aparte-composer-action>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </div>
+ * </aparte-composer>
+ *
+ * <script>
+ *   // The event bubbles, so one listener above the composer serves every action.
+ *   document.addEventListener('aparte-action-click', (event) => {
+ *     if (event.detail.actionId === 'favourite') console.log('starred');
+ *   });
+ * </script>
  */
 export class AparteComposerAction extends HTMLElement {
     private _button: HTMLButtonElement | null = null;
