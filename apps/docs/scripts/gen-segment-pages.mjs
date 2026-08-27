@@ -113,7 +113,13 @@ const inherited = (() => {
 
 const rendererFiles = existsSync(RENDERERS) ? readdirSync(RENDERERS) : [];
 function rendererFor(kind) {
-  const hit = rendererFiles.find((f) => f === `${kind}.ts` || f === kind);
+  // A segment kind is snake_case (`tool_call`) and its file is kebab (`tool-call.ts`), so
+  // matching the kind verbatim found every renderer EXCEPT the one whose name has two
+  // words. The page then printed "Nothing in core draws this one" directly above a live
+  // preview showing core drawing it — the contradiction was on screen and still took an
+  // audit to notice, because the sentence only appears when the lookup fails.
+  const names = [`${kind}.ts`, kind, `${kind.replace(/_/g, '-')}.ts`, kind.replace(/_/g, '-')];
+  const hit = rendererFiles.find((f) => names.includes(f));
   return hit ? `packages/core/src/renderers/segments/${hit}` : null;
 }
 

@@ -319,7 +319,7 @@ exported so you do not have to reimplement them:
 | `registerAllComponents` | Touches every element class so a bundler cannot tree-shake the `customElements.define` side effects away | Your build is aggressive, or you load `@aparte/core` through a dynamic `import()` |
 | `AparteChatHost` | The streaming / branch / host-method orchestration the four wrappers all bind to — everything `AparteClient` does minus the transport | You are writing a fifth framework binding, or driving core from a framework we do not ship |
 | `populateBubbleFromMessage` | Fills an [`<aparte-chat-bubble>`](/components/conversation/aparte-chat-bubble/) from an `AparteMessage` — segments, attachments, sibling nav, action bar | You render bubbles yourself instead of letting the viewport own them |
-| `parseAparteEventStream` | Reads the SSE wire format `createAparteChatHandler` emits back into `AparteStreamEvent`s | You wrote your own client against an aparté backend endpoint |
+| `parseAparteEventStream` | Reads the NDJSON wire format `createAparteChatHandler` emits back into `AparteStreamEvent`s | You wrote your own client against an aparté backend endpoint |
 
 Wiring your own binding starts here — no `AparteClient`, so nothing is hostage to it:
 
@@ -357,7 +357,7 @@ const release = host.bind();                   // returns its own unbind
 const bubble = document.createElement('aparte-chat-bubble');
 populateBubbleFromMessage(bubble, { id: 'a1', role: 'assistant', content: 'hi', timestamp: Date.now() });
 
-// Reading an aparté backend's SSE stream without AparteClient. Note the wrapper:
+// Reading an aparté backend's NDJSON stream without AparteClient. Note the wrapper:
 // parseAparteEventStream returns a ReadableStream, and Chromium does not
 // async-iterate those — the signal is how a user's "stop" cuts the read.
 async function consume(body: ReadableStream<Uint8Array>, signal: AbortSignal) {

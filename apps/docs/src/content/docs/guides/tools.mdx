@@ -243,7 +243,7 @@ aparteGlobalConfig.registerToolRenderer('web_search', webSearchRenderer);
 
 :::danger[The segment carries model-chosen data]
 `segment.toolCall.input` is whatever the **model** decided to pass, and
-`segment.toolCall.result` is whatever the tool returned. Both are untrusted. The
+`segment.result` is whatever the tool returned. Both are untrusted. The
 obvious first thing to write is the one that breaks:
 
 ```ts
