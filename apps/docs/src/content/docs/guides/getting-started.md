@@ -5,8 +5,6 @@ sidebar:
   order: 1
 ---
 
-import ElementPreview from '../../../components/ElementPreview.astro';
-
 `@aparte/core` is a set of **framework-agnostic web components** for AI chat. You
 drop `<aparte-*>` elements onto a page, stream tokens into them, and style
 everything with CSS variables — no framework, and zero runtime dependencies.
@@ -20,10 +18,6 @@ stable cut. A rename lands as a rename rather than behind a deprecated alias, so
 can ask you to change a line — pin an exact version if that matters to you, and read
 [where it is in its life](/why/#where-it-is-in-its-life) before you commit to it.
 :::
-
-What the next few minutes produce, running here in its own document.
-
-<ElementPreview tag="aparte-chat" />
 
 ## Install
 
