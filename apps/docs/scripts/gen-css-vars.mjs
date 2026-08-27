@@ -92,48 +92,141 @@ for (let i = 0; i < lines.length; i++) {
 }
 
 const TOKEN = /^\s*(--aparte-[\w-]+)\s*:\s*(.+?);\s*(?:\/\*\s*(.*?)\s*\*\/)?\s*$/;
-const COMMENT = /^\s*\/\*\s*(.*?)\s*\*\/\s*$/;
 
-/** @type {{title: string, tokens: {name: string, value: string, note: string}[]}[]} */
+/**
+ * ## How a comment finds the variable it is about
+ *
+ * A comment introduces the declarations that FOLLOW it, up to the next comment. That
+ * is not a convention this file invents — it is how `theme.css` is already written,
+ * everywhere, and it is how anyone writes CSS. The generator used to read the
+ * opposite ("a comment right after a token annotates that token") and the page paid
+ * for it three ways, all measured before this was rewritten:
+ *
+ *   - seven notes landed on the variable ABOVE the one they described, so
+ *     `--aparte-on-primary` published "Outline width for keyboard focus + drag-over
+ *     indicators" and `--aparte-focus-outline-width` published the scrollbar's;
+ *   - ten of thirty-five section headings were a sentence about a single variable
+ *     ("Not a step of the radius scale: a pill is a shape, not a size."), which then
+ *     went into the page's table of contents;
+ *   - thirty-one MULTI-LINE comments — 125 lines, the prose that says why bubbles are
+ *     opt-in and why the tool-call corner is declared here — matched neither pattern
+ *     and were dropped without a trace.
+ *
+ * Deliberately NOT the alternative fix: a marker in the CSS (`@group`) telling the
+ * generator which comments are headings. That is a convention every future
+ * contributor has to know about a file that is otherwise plain CSS, and the one who
+ * does not know it gets the silent failure back.
+ *
+ * So heading-or-note is decided by what the comment INTRODUCES, which the source
+ * already says:
+ *
+ *   - exactly one declaration  → the comment is that variable's note;
+ *   - none, or several         → it opens a section (first sentence as the heading,
+ *                                the rest as the section's prose).
+ *
+ * A trailing comment on the declaration's own line still wins, since it can only mean
+ * one thing. Nothing in core uses that form today (0 of 391) — it stays because it
+ * costs a capture group and it is the other way people write a note.
+ *
+ * Known cost, stated rather than hidden: a comment that is a group LABEL over a
+ * single declaration ("Typography", over `--aparte-font-family`) becomes that
+ * variable's note and the variable stays in the preceding section. Two of 391 land
+ * that way. Both read correctly — a heading demoted to a label is not a false
+ * statement, which is what all three old failures were.
+ */
+
+/** One comment and the declarations it introduces — the unit the source is written in. */
+const entries = [];
+let entry = { comment: '', tokens: [] };
+entries.push(entry);
+let total = 0;
+
+for (let i = 0; i < body.length; i++) {
+  const line = body[i];
+  const tok = line.match(TOKEN);
+  if (tok) {
+    entry.tokens.push({ name: tok[1], value: tok[2].trim(), note: (tok[3] || '').trim() });
+    total++;
+    continue;
+  }
+  if (!/^\s*\/\*/.test(line)) continue;
+  // Single- or multi-line: walk to the closing `*/` and flatten it to one string.
+  let end = i;
+  while (end < body.length && !body[end].includes('*/')) end++;
+  const text = body
+    .slice(i, end + 1)
+    .map((l) => l.trim().replace(/^\/\*+/, '').replace(/\*+\/\s*$/, '').replace(/^\*+ ?/, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  i = end;
+  entry = { comment: text, tokens: [] };
+  entries.push(entry);
+}
+
+/**
+ * A comment that opens a group names it and then explains it, and the name ends at the
+ * first clause boundary — `Icons — one knob, inherited: a container declares it` is a
+ * section called "Icons". Cutting at the first SENTENCE instead was the first attempt
+ * and it merged three groups into one, because two of the three names carry a clause.
+ *
+ * The name is then kept only if it reads as one. Both bounds earn their keep on the
+ * corpus rather than in the abstract:
+ *   - it has to be capitalised, because a name is: "rem, so the reader's browser font
+ *     size is honoured; times the scale, …" opens with a unit, not with a heading;
+ *   - under 4 characters it is a word the sentence happened to start with;
+ *   - over 72 it is a sentence ("Breathing room UNDER the composer, so it does not sit
+ *     flush against the bottom edge of a full-height chat.").
+ * Either way the comment stays prose and the open section stays open — which is the
+ * safe direction: a paragraph in the body says the same thing as a paragraph under a
+ * heading, where a sentence in the sidebar says the page is generated badly.
+ */
+const TITLE = /^(.*?)(?:[.!?:;]|\s—)(?:\s|$)/;
+const TITLE_MIN = 4;
+const TITLE_MAX = 72;
+
+/** @type {{title: string, prose: string, tokens: {name: string, value: string, note: string}[]}[]} */
 const groups = [];
-let current = { title: 'General', tokens: [] };
+let current = { title: 'General', prose: '', tokens: [] };
 groups.push(current);
 /** Sections by heading, so a heading repeated across the two blocks reopens one. */
 const byTitle = new Map([[current.title, current]]);
-let lastWasToken = false;
-let total = 0;
 
-for (const line of body) {
-  if (/^\s*$/.test(line)) {
-    lastWasToken = false;
+for (const e of entries) {
+  const name = e.comment ? (e.comment.match(TITLE)?.[1] ?? e.comment).trim() : '';
+  // A name already used as a section is a section, whatever it introduces this time.
+  // The two `:root` blocks split several groups down the middle — `/* Viewport */`
+  // labels an empty run in the literal block and a single declaration in the derived
+  // one — and reading that second occurrence as a note left the section with no rows,
+  // so the render skipped it and took its paragraph with it.
+  if (e.comment && e.tokens.length === 1 && !byTitle.has(name)) {
+    e.tokens[0].note ||= e.comment;
+    current.tokens.push(e.tokens[0]);
     continue;
   }
-  const tok = line.match(TOKEN);
-  if (tok) {
-    current.tokens.push({ name: tok[1], value: tok[2].trim(), note: (tok[3] || '').trim() });
-    total++;
-    lastWasToken = true;
-    continue;
-  }
-  const com = line.match(COMMENT);
-  if (com) {
-    const text = com[1].trim();
-    if (lastWasToken && current.tokens.length) {
-      // A comment right after a token annotates that token.
-      current.tokens[current.tokens.length - 1].note ||= text;
-    } else if (byTitle.has(text)) {
+  if (e.comment) {
+    const title = name;
+    const named = /^[A-Z]/.test(title) && title.length >= TITLE_MIN && title.length <= TITLE_MAX;
+    const prose = named ? e.comment.slice(title.length).replace(/^[\s.!?:;—]+/, '').trim() : e.comment;
+    if (!named) {
+      // Prose, not a name. It annotates the run that follows it, inside whatever
+      // section is open — promoting it would put a paragraph in the sidebar.
+      current.prose = [current.prose, prose].filter(Boolean).join(' ');
+    } else if (byTitle.has(title)) {
       // A heading seen before: the two `:root` blocks repeat the same group comments,
       // because the derived half was split out of the literal one group by group. So
       // "Messages" must REJOIN the Messages section rather than open a second one —
       // the page then reads exactly as it did when the palette was a single block.
-      current = byTitle.get(text);
+      current = byTitle.get(title);
+      if (prose && !current.prose.includes(prose)) current.prose = [current.prose, prose].filter(Boolean).join(' ');
     } else {
-      current = { title: text, tokens: [] };
-      byTitle.set(text, current);
+      current = { title, prose, tokens: [] };
+      byTitle.set(title, current);
       groups.push(current);
     }
-    lastWasToken = false;
   }
+  current.tokens.push(...e.tokens);
 }
 
 // ── Pass 2: what the component styles actually read ─────────────────────────
@@ -208,7 +301,12 @@ const componentTokens = [...reads.keys()]
 /** Declared in `:root`, read by nothing in core — the reverse defect. */
 const unread = new Set([...declaredNames].filter((n) => !reads.has(n)));
 
-const esc = (s) => s.replace(/\|/g, '\\|');
+/**
+ * `|` ends a table cell, and `<` opens an HTML tag in Markdown — the prose now
+ * reaching this page really does contain one (`the panel's CSS used to be a <style>
+ * block`), and it would render as an empty element rather than as the sentence.
+ */
+const esc = (s) => s.replace(/\|/g, '\\|').replace(/</g, '&lt;');
 
 let md = `---
 title: CSS variables
@@ -232,7 +330,9 @@ nothing happens to use yet. Setting one changes nothing on its own.
 
 for (const g of groups) {
   if (!g.tokens.length) continue;
-  md += `\n## ${g.title}\n\n| Variable | Default | Notes |\n| --- | --- | --- |\n`;
+  md += `\n## ${esc(g.title)}\n\n`;
+  if (g.prose) md += `${esc(g.prose)}\n\n`;
+  md += `| Variable | Default | Notes |\n| --- | --- | --- |\n`;
   for (const t of g.tokens) {
     const note = unread.has(t.name)
       ? [t.note, '**palette only**'].filter(Boolean).join(' — ')
