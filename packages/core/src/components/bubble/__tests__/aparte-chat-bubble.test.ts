@@ -486,6 +486,47 @@ describe('AparteChatBubble', () => {
             expect(rendered).not.toBeNull();
             expect(rendered!.textContent).toBe('from string');
         });
+
+        /*
+         * `AparteCustomSegment.fallback` is published as "Optional fallback text
+         * representation" and was read by nothing, so a custom segment arriving where its
+         * renderer is not registered — a conversation replayed elsewhere, a client that
+         * loads its views lazily — showed a debug string while carrying the sentence
+         * written for that exact moment.
+         */
+        it('draws a segment fallback when no renderer claims its type', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-fb' });
+            bubble.setSegments([
+                { id: 's3', type: 'custom', subType: 'weather', fallback: 'Lille — 11°C.' } as never,
+            ]);
+
+            const rendered = bubble.querySelector('.aparte-segment-fallback');
+            expect(rendered).not.toBeNull();
+            expect(rendered!.textContent).toBe('Lille — 11°C.');
+            expect(bubble.querySelector('.aparte-segment-unknown')).toBeNull();
+        });
+
+        it('still names the unknown type when there is no fallback to draw', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-unk' });
+            bubble.setSegments([{ id: 's4', type: 'nobody-renders-this' } as never]);
+
+            const rendered = bubble.querySelector('.aparte-segment-unknown');
+            expect(rendered).not.toBeNull();
+            expect(rendered!.textContent).toBe('[Unknown segment type: nobody-renders-this]');
+        });
+
+        /* Markup in a fallback is text: the field is filled by whoever produced the
+           segment, which can be a model. */
+        it('does not let a fallback carry markup', () => {
+            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-fb-xss' });
+            bubble.setSegments([
+                { id: 's5', type: 'custom', subType: 'x', fallback: '<img src=x onerror=alert(1)>' } as never,
+            ]);
+
+            const rendered = bubble.querySelector('.aparte-segment-fallback');
+            expect(rendered!.querySelector('img')).toBeNull();
+            expect(rendered!.textContent).toBe('<img src=x onerror=alert(1)>');
+        });
     });
 
     // ─── Custom bubble toolbar actions (registerAction, zones: ['bubble']) ─

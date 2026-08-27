@@ -31,6 +31,33 @@ function warnMissingRenderer(type: string): void {
 }
 
 /**
+ * What a segment renders as when no renderer claims its type.
+ *
+ * `AparteCustomSegment.fallback` is documented as "Optional fallback text
+ * representation" and was read by NOTHING — the field existed, the type published it,
+ * and a custom segment arriving where its renderer is not registered (a conversation
+ * replayed in another app, a client that loads its views lazily, an export) showed
+ * `[Unknown segment type: custom]` while carrying the sentence written for exactly that
+ * moment. Found while writing the segment's own `@example`, which is the kind of dead
+ * declaration documentation is good at surfacing.
+ *
+ * The developer warning is skipped when a fallback is present: an author who supplied
+ * one has already said this can happen, and warning then is crying wolf. Without one it
+ * still fires, because a missing renderer is otherwise silent.
+ *
+ * `textContent`, so a fallback is text and cannot carry markup — the same rule the rest
+ * of the library follows for anything a model or a host can produce.
+ */
+function unrenderedSegment(segment: { type: string; fallback?: unknown }): HTMLElement {
+  const fallback = typeof segment.fallback === 'string' && segment.fallback.trim() ? segment.fallback : null;
+  if (!fallback) warnMissingRenderer(segment.type);
+  const el = document.createElement('div');
+  el.className = fallback ? 'aparte-segment aparte-segment-fallback' : 'aparte-segment aparte-segment-unknown';
+  el.textContent = fallback ?? `[Unknown segment type: ${segment.type}]`;
+  return el;
+}
+
+/**
  * The renderer for `type`, installing core's built-ins the first time a segment
  * finds the registry empty of its type. `registerDefaultRenderers()` therefore
  * becomes optional rather than a call you discover by seeing
@@ -563,11 +590,7 @@ export class AparteChatBubble extends HTMLElement {
         runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
       }
     } else {
-      warnMissingRenderer(segment.type);
-      const fallback = document.createElement('div');
-      fallback.className = 'aparte-segment aparte-segment-unknown';
-      fallback.textContent = `[Unknown segment type: ${segment.type}]`;
-      this._segmentsEl.appendChild(fallback);
+      this._segmentsEl.appendChild(unrenderedSegment(segment));
     }
     if (this._contentEl) this._contentEl.style.display = 'none';
     this._reflectError();
@@ -880,12 +903,7 @@ export class AparteChatBubble extends HTMLElement {
           runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
         }
       } else {
-        // Fallback for unknown segment types
-        warnMissingRenderer(segment.type);
-        const fallback = document.createElement('div');
-        fallback.className = 'aparte-segment aparte-segment-unknown';
-        fallback.textContent = `[Unknown segment type: ${segment.type}]`;
-        this._segmentsEl.appendChild(fallback);
+        this._segmentsEl.appendChild(unrenderedSegment(segment));
       }
     }
 
