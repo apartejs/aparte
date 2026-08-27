@@ -15,6 +15,7 @@
  *   src/content/docs/reference/wrappers.md
  */
 import { mkdirSync } from 'node:fs';
+import { referenceOrder } from './reference-order.mjs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,8 @@ const esc = (s) => String(s ?? '').replace(/\|/g, '\\|');
 let md = `---
 title: Wrapper surface
 description: Every slot and every callback the React, Vue, Svelte and Angular wrappers expose, generated from the wrapper source.
+sidebar:
+  order: ${referenceOrder("wrappers.md")}
 ---
 
 <!-- AUTO-GENERATED from packages/wrappers/react/src/components/AparteChat.tsx by apps/docs/scripts/gen-wrapper-ref.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen\` to refresh. -->

@@ -59,6 +59,7 @@ import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, relative, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { coreStylesheets } from '../../../scripts/core-stylesheets.mjs';
+import { referenceOrder } from './reference-order.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE_SRC = resolve(here, '../../../packages/core/src');
@@ -341,7 +342,7 @@ let md = `---
 title: CSS variables
 description: The complete, generated reference of every --aparte-* theme variable.
 sidebar:
-  order: 2
+  order: ${referenceOrder("css-variables.md")}
 ---
 
 <!-- AUTO-GENERATED from packages/core/src/styles/ (every sheet src/index.ts imports) by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->

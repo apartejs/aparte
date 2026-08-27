@@ -10,6 +10,7 @@ import { readFileSync, rmSync, existsSync, mkdirSync } from 'node:fs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { referenceOrder } from './reference-order.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docsRoot = resolve(here, '..');
@@ -45,7 +46,7 @@ const front = `---
 title: "@aparte/engine — API reference"
 description: Generated reference for @aparte/engine — runStreamAgent, its stream events, the artifact-XML parser, and the conversation compactor.
 sidebar:
-  order: 3
+  order: ${referenceOrder("engine.md")}
 ---
 
 <!-- AUTO-GENERATED from packages/engine/src (TypeDoc) by apps/docs/scripts/gen-engine-api.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:engine-api\` to refresh. -->\n

@@ -30,6 +30,7 @@ import { readFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'node
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { referenceOrder } from './reference-order.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CORE = resolve(here, '../../../packages/core');
@@ -240,7 +241,7 @@ let md = `---
 title: Events
 description: Every aparte-* event, its detail type and the node it is dispatched on — generated from the event map, the element manifests and the source.
 sidebar:
-  order: 5
+  order: ${referenceOrder("events.md")}
 ---
 
 <!-- AUTO-GENERATED from packages/core by apps/docs/scripts/gen-events-ref.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen\` to refresh. -->

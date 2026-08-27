@@ -28,6 +28,7 @@
  *   src/generated/class-previews.ts
  */
 import { readFileSync, mkdirSync } from 'node:fs';
+import { referenceOrder } from './reference-order.mjs';
 import { writeIfChanged, wroteOrNot } from './write-if-changed.mjs';
 import { dirname, resolve, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -248,7 +249,7 @@ let md = `---
 title: CSS classes
 description: Every ready-made class aparté ships — buttons, fields, tags, icons, alerts and the rest — generated from the stylesheets that define them.
 sidebar:
-  order: 4
+  order: ${referenceOrder("classes.mdx")}
 ---
 
 import ClassPreview from '../../../components/ClassPreview.astro';

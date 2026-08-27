@@ -10,6 +10,7 @@
  * name that is guaranteed to resolve.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { referenceOrder } from './reference-order.mjs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -96,7 +97,7 @@ const page = `---
 title: Icons
 description: Every glyph aparté draws, plus an extended set behind its own entry point.
 sidebar:
-  order: 3
+  order: ${referenceOrder("icons.md")}
 ---
 
 <!-- AUTO-GENERATED from packages/core/src/icons/*.ts by apps/docs/scripts/gen-icons.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:icons\` to refresh. -->
