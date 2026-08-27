@@ -2,7 +2,13 @@
    aparte-skeleton — a loading placeholder
    =========================================
    Decorative: give the element aria-hidden="true" (or wrap the group behind a
-   single aria-busy region) so a screen reader does not read out an empty box. */
+   single aria-busy region) so a screen reader does not read out an empty box.
+
+       <span class="aparte-skeleton aparte-skeleton--circle"></span>
+       <span class="aparte-skeleton aparte-skeleton--text"></span>
+       <span class="aparte-skeleton aparte-skeleton--text" style="inline-size: 60%"></span>
+       <span class="aparte-skeleton aparte-skeleton--rect" style="block-size: 64px"></span>
+   */
 
 .aparte-skeleton {
   display: block;

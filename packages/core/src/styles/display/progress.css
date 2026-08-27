@@ -3,7 +3,16 @@
    =========================================
    The consumer owns the ARIA: role="progressbar" plus aria-valuenow/min/max on
    the determinate form, and aria-valuetext (or nothing, per platform convention)
-   on the indeterminate one — this file only paints what those attributes mean. */
+   on the indeterminate one — this file only paints what those attributes mean.
+
+       <div class="aparte-progress" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"
+            style="--aparte-progress-value: 60">
+         <div class="aparte-progress__bar"></div>
+       </div>
+       <div class="aparte-progress aparte-progress--indeterminate" role="progressbar" aria-label="Working">
+         <div class="aparte-progress__bar"></div>
+       </div>
+   */
 
 .aparte-progress {
   --aparte-progress-value: 0;

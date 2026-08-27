@@ -3,7 +3,11 @@
    =========================================
    The monospace stack is --aparte-code-font-family, reused rather than declared
    again: it is already the library's one answer to "what font is code", and a
-   key label is exactly that question asked a second time. */
+   key label is exactly that question asked a second time.
+
+       Press <kbd class="aparte-kbd">Ctrl</kbd> + <kbd class="aparte-kbd">K</kbd> to search,
+       or <kbd class="aparte-kbd">Esc</kbd> to close.
+   */
 
 .aparte-kbd {
   display: inline-flex;

@@ -2,7 +2,13 @@
    aparte-divider — horizontal, vertical, optionally labelled
    =========================================
    The line is a BORDER, not a background — see the progress bar's comment above
-   for why: a background disappears under forced-colors, a border does not. */
+   for why: a background disappears under forced-colors, a border does not.
+
+       <hr class="aparte-divider">
+       <div class="aparte-divider aparte-divider--label">
+         <span class="aparte-divider__label">or</span>
+       </div>
+   */
 
 .aparte-divider {
   border: 0;

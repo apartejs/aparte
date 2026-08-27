@@ -1,6 +1,11 @@
 /* =========================================
    aparte-spinner — a rotating indicator
-   ========================================= */
+   =========================================
+
+       <span class="aparte-spinner aparte-spinner--sm" role="status" aria-label="Loading"></span>
+       <span class="aparte-spinner" role="status" aria-label="Loading"></span>
+       <span class="aparte-spinner aparte-spinner--lg" role="status" aria-label="Loading"></span>
+   */
 
 .aparte-spinner {
 

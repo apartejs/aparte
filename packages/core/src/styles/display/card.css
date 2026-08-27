@@ -1,6 +1,15 @@
 /* =========================================
    aparte-card — a surface with optional header/body/footer
-   ========================================= */
+   =========================================
+
+       <div class="aparte-card">
+         <div class="aparte-card__header">Usage this month</div>
+         <div class="aparte-card__body">
+           <p>412 000 tokens across 38 conversations.</p>
+         </div>
+         <div class="aparte-card__footer">Resets on the 1st.</div>
+       </div>
+   */
 
 .aparte-card {
   display: flex;

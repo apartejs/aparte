@@ -20,6 +20,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Tiles of different sizes in one row line up by their TOP edge. As inline boxes
+     they aligned on the baseline instead, which is the bottom edge here — so a large
+     tile beside two small ones pushed the small ones down and the row read as three
+     unrelated things rather than one strip. An attachment strip mixes sizes by nature
+     (a wide screenshot next to a file chip), so this is the common case, not the
+     exception. Same family as the `vertical-align: middle` the form controls needed,
+     opposite value: a control belongs ON its line of text, a tile starts a row. */
+  vertical-align: top;
   flex-shrink: 0;
   box-sizing: border-box;
   inline-size: var(--aparte-thumbnail-size);
