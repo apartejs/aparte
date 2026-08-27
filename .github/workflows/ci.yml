@@ -306,29 +306,78 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # Enough history to diff against the base — see the scope step below.
+          fetch-depth: 0
+
+      # Is there anything here a browser could notice?
+      #
+      # A release's Version PR is 113 files and NOT ONE of them is source: package
+      # versions, CHANGELOGs, and the changesets they consumed. It still ran the whole
+      # suite — a build, 370 browser tests across seven example apps, ten minutes — to
+      # prove that a version number does not break a chat. The 0.13.0 release paid that
+      # twice, on the Version PR and again on `main` after the merge.
+      #
+      # The job still RUNS and still reports: `e2e` is a required check in main's
+      # ruleset, and a skipped job never reports at all, which would block every release
+      # PR forever. Only the expensive steps are conditional.
+      #
+      # It fails OPEN. No base, a first push, a shallow fetch, an unreadable diff — any
+      # doubt and the suite runs. The cost of a needless run is ten minutes; the cost of
+      # a wrongly skipped one is a regression reaching `main`.
+      - name: Does this diff touch anything a browser could notice?
+        id: scope
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "no base to compare against — running the suite"
+            echo "source=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Everything except changesets, changelogs and manifests.
+          other=$(git diff --name-only "$base"...HEAD \
+            | grep -vE '^\.changeset/|(^|/)CHANGELOG\.md$|(^|/)package\.json$' || true)
+          # A manifest can carry a real change too — a dependency, an exports map. Only
+          # a version bump and the internal peer floors `sync-peer-ranges` moves are
+          # inert, so anything else in a package.json counts as source.
+          manifest=$(git diff -U0 "$base"...HEAD -- '**/package.json' 'package.json' \
+            | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
+            | grep -vE '"version":|"@aparte/[^"]+": ">=' || true)
+          if [ -n "$other" ] || [ -n "$manifest" ]; then
+            echo "source=true" >> "$GITHUB_OUTPUT"
+            echo "source files changed — running the suite"
+          else
+            echo "source=false" >> "$GITHUB_OUTPUT"
+            echo "versions, changelogs and changesets only — the browser suite has nothing new to see"
+          fi
 
       - name: Install pnpm
+        if: steps.scope.outputs.source == 'true'
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
       - name: Use Node.js
+        if: steps.scope.outputs.source == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '24'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: steps.scope.outputs.source == 'true'
         run: pnpm install --frozen-lockfile
 
       # vanilla-dist consumes @aparte/core from its dist, so the packages must be
       # built before the E2E dev servers boot.
       - name: Build
+        if: steps.scope.outputs.source == 'true'
         run: pnpm build
 
       - name: Browser smoke E2E
+        if: steps.scope.outputs.source == 'true'
         run: pnpm e2e
 
       - name: Upload Playwright report
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report

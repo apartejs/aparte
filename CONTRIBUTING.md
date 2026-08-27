@@ -93,6 +93,19 @@ invalidates everything, deliberately.
 > carry a GitHub ruleset (Settings → Rules → Rulesets): require a PR, require the `ci`,
 > `test-matrix` and `e2e` checks, block force-pushes.
 
+A **Version PR skips the browser suite**, and only that: `e2e` stays a required check, so
+the job still runs and still reports — a skipped job never reports at all, and main's
+ruleset would block every release PR forever. What is conditional is the install, the
+build and the suite itself.
+
+The rule is "does this diff touch anything a browser could notice": everything except
+`.changeset/*`, `CHANGELOG.md` and the version-and-peer-floor lines of a `package.json`.
+A manifest that changes for a real reason — a dependency, an exports map — still counts.
+It fails OPEN: no base, a first push, an unreadable diff, and the suite runs. Ten wasted
+minutes is cheaper than a regression reaching `main`.
+
+0.13.0's Version PR was 113 files and not one of them was source.
+
 ## Commits & changesets
 
 - **Conventional commits** (`feat:`, `fix:`, `docs:`, `chore:` …), one concern each.
