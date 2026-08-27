@@ -17,13 +17,25 @@ const SEGMENT = {
     title: 'demo', content: '<p>hi</p>',
 } as AparteArtifactSegment;
 
+/**
+ * `render()` returns `HTMLElement | string` — the generalised render-hook contract, not
+ * an implementation detail to cast away. This card returns markup, and saying so once
+ * here keeps the assertion honest if that ever changes.
+ */
+function mount(segment: AparteArtifactSegment): HTMLElement {
+    const host = document.createElement('div');
+    const out = artifactRenderer.render(segment);
+    if (typeof out === 'string') host.innerHTML = out;
+    else host.appendChild(out);
+    document.body.appendChild(host);
+    return host;
+}
+
 let host: HTMLElement;
 
 beforeEach(() => {
     document.body.innerHTML = '';
-    host = document.createElement('div');
-    host.innerHTML = artifactRenderer.render(SEGMENT);
-    document.body.appendChild(host);
+    host = mount(SEGMENT);
     artifactRenderer.setup?.(host, SEGMENT);
 });
 
@@ -60,9 +72,7 @@ describe('artifact card — the tablist pattern', () => {
     });
 
     it('ids are scoped to the segment, so two cards do not collide', () => {
-        const other = document.createElement('div');
-        other.innerHTML = artifactRenderer.render({ ...SEGMENT, id: 'seg-2' } as AparteArtifactSegment);
-        document.body.appendChild(other);
+        const other = mount({ ...SEGMENT, id: 'seg-2' } as AparteArtifactSegment);
 
         const a = host.querySelector('[role="tab"]')!.id;
         const b = other.querySelector('[role="tab"]')!.id;
