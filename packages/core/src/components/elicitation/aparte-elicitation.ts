@@ -247,13 +247,52 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * "not handed over yet" more plainly than an unassigned binding.
              */
             const slot: { token?: symbol } = {};
+            /**
+             * Who had the focus before the panel took it.
+             *
+             * The panel focuses itself on open (`panel.focus()`, both branches below)
+             * and nothing gave it back: a keyboard user who approved a tool call landed
+             * at the top of the document and had to tab through the whole page to write
+             * their next message. That is SC 2.4.3, level A, on the one flow the library
+             * puts forward — and the ARIA Authoring Practices Guide requires it of every
+             * dialogue-shaped pattern.
+             *
+             * Captured HERE rather than beside `panel.focus()` because there are two
+             * branches that open a panel and one `close()` that ends both; a value read
+             * once, before either, cannot disagree with itself.
+             */
+            const focusedBefore = document.activeElement;
             const close = (): boolean => {
                 if (done) return false;
                 done = true;
                 this._pending = null;
+                /*
+                 * Read BEFORE `hidePanel`, because that removes the focused element and
+                 * the browser then drops focus to `<body>` — after which there is no
+                 * way to tell whether the user was still in the panel or had moved on.
+                 *
+                 * And only if they were still in it. A request can settle late — an
+                 * abort, or a model that answered while the reader clicked elsewhere —
+                 * and pulling the focus back from wherever they went would be the same
+                 * theft in the other direction.
+                 */
+                const active = document.activeElement;
+                const focusWasInPanel = active instanceof Node && composer.contains(active);
+
                 // Scoped to our own panel: finishing late must not tear down the panel
                 // that replaced ours.
                 composer.hidePanel(slot.token);
+
+                /*
+                 * `isConnected` because the element that had the focus may itself have
+                 * been inside what just closed. Nothing further if it is gone: inventing
+                 * a destination — the editor, the send button — would be a policy this
+                 * component has no standing to set, and `<body>` is where the browser
+                 * puts it anyway.
+                 */
+                if (focusWasInPanel && focusedBefore instanceof HTMLElement && focusedBefore.isConnected) {
+                    focusedBefore.focus();
+                }
                 return true;
             };
             const settle = (result: AparteElicitationResult): void => {
