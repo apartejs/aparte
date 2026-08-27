@@ -18,17 +18,22 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const ENTRY = resolve(ROOT, 'packages/core/src/index.ts');
 
 /** A floor, not decoration: a corpus that silently shrinks is the failure worth catching. */
 const SHEET_FLOOR = 30;
 
 /**
  * @param {boolean} [absolute] - absolute paths (default), or repo-relative for messages.
+ * @param {string} [root] - the repo root, when the caller's is not this file's.
+ *   Astro bundles a page's frontmatter into `dist/.prerender`, so a landing page importing
+ *   this module resolves `import.meta.url` to a directory where `packages/` does not exist.
+ *   It still wants the RULE — the import order of `index.ts` — so it passes its own root
+ *   rather than re-implementing the parse. That re-implementation is the failure this
+ *   module exists to prevent: five readers each kept their own list and every one drifted.
  * @returns {string[]} every `.css` `index.ts` imports, in import order.
  */
-export function coreStylesheets(absolute = true) {
-    const entry = readFileSync(ENTRY, 'utf8');
+export function coreStylesheets(absolute = true, root = ROOT) {
+    const entry = readFileSync(resolve(root, 'packages/core/src/index.ts'), 'utf8');
     const rel = [...entry.matchAll(/^import\s+'(\.\/[^']+\.css)';/gm)].map((m) => m[1]);
     if (rel.length < SHEET_FLOOR) {
         throw new Error(
@@ -38,7 +43,7 @@ export function coreStylesheets(absolute = true) {
         );
     }
     return rel.map((p) => {
-        const full = resolve(ROOT, 'packages/core/src', p.slice(2));
+        const full = resolve(root, 'packages/core/src', p.slice(2));
         return absolute ? full : 'packages/core/src/' + p.slice(2);
     });
 }

@@ -1,9 +1,12 @@
 ---
 import { readFileSync, readdirSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LANDING_TITLE, LANDING_DESCRIPTION, LANDING_IMAGE_ALT } from '../data/landing-meta';
 import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
 import { SEGMENT_KINDS } from '../data/segment-kinds';
+// The same list `check:derived-vars` and the CSS-variables reference read, so this page
+// cannot count a corpus the rest of the repo has stopped using.
+import { coreStylesheets } from '../../../../scripts/core-stylesheets.mjs';
 import '../styles/palette.css';
 import '../styles/landing.css';
 
@@ -159,6 +162,38 @@ if (CSS_VARS < 250) {
         + 'and this number is now wrong — fix the path rather than publishing a short count.',
     );
 }
+
+/**
+ * How far `--aparte-primary` actually reaches, across EVERY sheet rather than one.
+ *
+ * This bullet used to say "ninety-five of them derive from it" — the one hand-written
+ * number on a page whose own header promises every figure was verified against the
+ * source. Measured: twelve variables derive from it and forty-nine places read it. The
+ * claim was wrong on both readings, on the page most people see first.
+ *
+ * Counted here rather than guarded elsewhere, for the reason the rest of this file
+ * already follows: a number computed at build time cannot drift from the thing it
+ * describes.
+ */
+const PRIMARY = (() => {
+    // The shared list gives the RULE — the import order of `index.ts` — and this page gives
+    // the ROOT, because `coreStylesheets()` derives its own from `import.meta.url`, which
+    // points inside `dist/.prerender` once Astro has bundled this frontmatter.
+    const css = coreStylesheets(true, fileURLToPath(REPO))
+        .map((p: string) => readFileSync(p, 'utf8'))
+        .join('\n');
+    const reads = (css.match(/var\(--aparte-primary[,)]/g) ?? []).length;
+    const derived = (css.match(/^\s+--aparte-[\w-]+\s*:[^;]*var\(--aparte-primary[,)]/gm) ?? []).length;
+    if (!reads || !derived) {
+        throw new Error(
+            'The landing page found no reader of --aparte-primary. The matcher broke or the '
+            + 'token was renamed — either way this bullet would publish a zero.',
+        );
+    }
+    return { reads, derived };
+})();
+const PRIMARY_READS = PRIMARY.reads;
+const PRIMARY_DERIVED = PRIMARY.derived;
 
 /** The page already numbers its facts row in serif italic roman; the segment
  *  cards echo it, which is what makes ten boxes read as one enumeration. */
@@ -632,7 +667,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         <div class="split">
           <div class="prose">
             <ul>
-              <li><b>Variables.</b> Colours, spacing, radii, font sizes, border widths &#8212; and one master, <code>--aparte-primary</code>, that ninety-five of them derive from. Set it on <code>:root</code> and the whole palette follows.</li>
+              <li><b>Variables.</b> Colours, spacing, radii, font sizes, border widths &#8212; and one master, <code>--aparte-primary</code>, read in {PRIMARY_READS} places across the stylesheets: {PRIMARY_DERIVED} other variables derive from it, and the rest of the library reads it directly. Set it on <code>:root</code> and the whole accent follows.</li>
               <li><b>Icons.</b> An icon provider, not a hardcoded set: <code>setIconProvider()</code> takes yours and re-renders what is already on screen, so a set can be swapped live.</li>
               <li><b>Language.</b> A locale is a plain object of {LOCALE_KEYS} strings handed to <code>setLocale()</code>. Your own language needs no package and no pull request here.</li>
               <li><b>Renderers.</b> When a variable is not enough &#8212; a reasoning block you want as one line rather than an accordion &#8212; replace the renderer. Structure is not hostage to a stylesheet.</li>
