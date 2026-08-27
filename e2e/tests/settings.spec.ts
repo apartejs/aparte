@@ -90,7 +90,7 @@ test('a system prompt typed in the settings reaches the next request', async ({ 
     expect(errors, 'no uncaught page errors').toEqual([]);
 });
 
-test('an empty system prompt sends no system turn at all', async ({ page }) => {
+test('clearing the system prompt sends no system turn of its own', async ({ page }) => {
     const mock = await installLlmMock(page);
 
     await page.goto('/?view=settings');
@@ -105,6 +105,22 @@ test('an empty system prompt sends no system turn at all', async ({ page }) => {
     await chat.sendButton.click();
     await expect(chat.lastReply).toContainText(MOCK_REPLY_MARK);
 
-    const messages = (mock.lastChatRequest()?.['messages'] ?? []) as Array<{ role: string }>;
-    expect(messages.map((m) => m.role), 'no system turn').not.toContain('system');
+    const messages = (mock.lastChatRequest()?.['messages'] ?? []) as Array<{ role: string; content: unknown }>;
+    const system = messages.filter((m) => m.role === 'system');
+
+    /*
+     * ONE system turn survives, and it is not the form's.
+     *
+     * The vanilla example registers `ask_user` (main.ts), whose `AparteTool.systemPrompt`
+     * core injects — however many tools set one, they are JOINED into a single message, so
+     * this count does not drift as tools are added. What must not be here is a turn from
+     * the SETTINGS form, which is what this test has always been about.
+     *
+     * This used to assert no 'system' role at all, which conflated the two sources. It
+     * passed only because the tool prompt was documented and dead; honouring it made the
+     * old assertion false without making the behaviour wrong.
+     */
+    expect(system, 'the cleared form contributes no system turn').toHaveLength(1);
+    expect(String(system[0]?.content).trim(), 'and no blank turn is ever shipped').not.toBe('');
+    expect(JSON.stringify(system), 'the cleared text never reaches the request').not.toContain(PROMPT);
 });
