@@ -5,6 +5,8 @@ sidebar:
   order: 3
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 [Theming](/guides/theming) covers the *look* through CSS variables. This page is the
 *structure and behaviour*: when a colour isn't enough — a custom typing indicator,
 your own attachment chip, an avatar, extra buttons, a brand-new block type — you reach
@@ -238,6 +240,22 @@ as well.)
 
 The wrappers render the element for you as soon as you fill their **one** `toolbar` slot:
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+No slot to fill: core has no shadow root, so the toolbar is an ordinary child you write
+where you want it.
+
+```html
+<aparte-composer-toolbar>
+  <my-mode-picker></my-mode-picker>
+  <aparte-model-selector style="margin-inline-start: auto"></aparte-model-selector>
+</aparte-composer-toolbar>
+```
+
+</TabItem>
+<TabItem label="React">
+
 ```tsx
 <AparteChat
   messages={chat.messages}
@@ -249,12 +267,47 @@ The wrappers render the element for you as soon as you fill their **one** `toolb
 />
 ```
 
-| Wrapper | How you fill it |
-| --- | --- |
-| React | `toolbar={…}` |
-| Vue | `<template #toolbar>` |
-| Svelte | `<svelte:fragment slot="toolbar">` — a fragment projects several nodes with no wrapper element |
-| Angular | `slot="toolbar"` on each projected node |
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat :messages="chat.messages.value" @messages-change="chat.onMessagesChange">
+  <template #toolbar>
+    <ModePicker v-model="mode" />
+    <ModelSelector style="margin-inline-start: auto" />
+  </template>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+A fragment, so several nodes project without a wrapper element around them.
+
+```svelte
+<AparteChat messages={$messages} on:messagesChange={handleMessagesChange}>
+  <svelte:fragment slot="toolbar">
+    <ModePicker bind:value={mode} />
+    <ModelSelector style="margin-inline-start: auto" />
+  </svelte:fragment>
+</AparteChat>
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+`slot="toolbar"` on each projected node — Angular projects by selector, so the attribute
+goes on the node itself rather than on a wrapper.
+
+```html
+<aparte-chat [messages]="messages" (messagesChange)="messages = $event">
+  <app-mode-picker slot="toolbar"></app-mode-picker>
+  <aparte-model-selector slot="toolbar" style="margin-inline-start: auto"></aparte-model-selector>
+</aparte-chat>
+```
+
+</TabItem>
+</Tabs>
 
 A second slot sits **between the transcript and the composer** — `aboveComposer` in React,
 `above-composer` elsewhere — for a banner, a suggestion row or a disclaimer. Same rule:
@@ -315,7 +368,7 @@ viewport will call `appendToken` / `appendToSegment` / `updateMessage` on it exa
 does on the native bubble.
 
 ```html
-<!-- raw core: a custom element that still receives live streaming -->
+{/* raw core: a custom element that still receives live streaming */}
 <my-bubble data-aparte-bubble message-id="m-42"></my-bubble>
 ```
 

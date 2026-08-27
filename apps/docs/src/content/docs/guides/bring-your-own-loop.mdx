@@ -5,6 +5,8 @@ sidebar:
   order: 12
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 Everything so far assumed `AparteClient` runs the agent loop in the page. But sometimes the loop
 lives **somewhere else**: a backend you fully own, a worker, or an Electron main process talking to
 a local model. The chat component then becomes **display-only** — your code pushes messages and
@@ -47,7 +49,32 @@ what nobody claimed. See [Custom segment types](/guides/customization/#custom-se
 2. When your loop starts answering, `appendMessage` an **empty assistant message** with a fresh id.
 3. `injectTokenStream(id, tokens)` with your token source.
 
-<!-- doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page -->
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+`injectTokenStream` is something the **wrappers** add: it is built on the chat host, not on
+any element. Driving the raw elements, the three steps are three viewport calls — which is
+the same loop, written out.
+
+{/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page */}
+```ts
+const viewport = document.querySelector('aparte-chat-viewport')!;
+
+document.addEventListener('aparte-send', async (event) => {
+  const id = crypto.randomUUID();
+  // Explicit append BEFORE streaming — see the caveat below.
+  viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+  for await (const token of myAgentLoop(event.detail.content)) {
+    viewport.appendToken(id, token);
+  }
+  viewport.completeMessage(id);   // stops the streaming caret
+});
+```
+
+</TabItem>
+<TabItem label="React">
+
+{/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page */}
 ```tsx
 import { useCallback } from 'react';
 import { AparteChat, useAparteChat } from '@aparte/react';
@@ -75,6 +102,104 @@ export function Chat() {
   );
 }
 ```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<script setup lang="ts">
+import { AparteChat, useAparteChat } from '@aparte/vue';
+import '@aparte/core/styles.css';
+
+const chat = useAparteChat();
+
+async function onMessageSent(event: { content: string }) {
+  const id = crypto.randomUUID();
+  // Explicit append BEFORE injecting — see the caveat below.
+  chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+  await chat.injectTokenStream(id, myAgentLoop(event.content));
+}
+</script>
+
+<template>
+  <AparteChat
+    :ref="chat.chatRef"
+    :messages="chat.messages.value"
+    @messages-change="chat.onMessagesChange"
+    @message-sent="onMessageSent"
+  />
+</template>
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<script lang="ts">
+  import { AparteChat, createAparteChat } from '@aparte/svelte';
+  import '@aparte/core/styles.css';
+
+  const chat = createAparteChat();
+  const { messages } = chat;
+  let comp: AparteChat | null = null;
+  $: chat.connect(comp);
+
+  async function onMessageSent(event: CustomEvent<{ content: string }>) {
+    const id = crypto.randomUUID();
+    // Explicit append BEFORE injecting — see the caveat below.
+    chat.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+    await chat.injectTokenStream(id, myAgentLoop(event.detail.content));
+  }
+</script>
+
+<AparteChat
+  bind:this={comp}
+  messages={$messages}
+  on:messagesChange={(e) => chat.onMessagesChange(e.detail)}
+  on:messageSent={onMessageSent}
+/>
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+The imperative API lives on the component instance, so it is reached with a `viewChild`
+rather than through a helper. `injectTokenStream` also accepts an RxJS `Observable<string>`
+here — the same call, in the shape Angular already speaks.
+
+{/* doc-check: skip excerpt — `myAgentLoop` is the reader's own loop, which is the whole subject of the page */}
+```ts
+import { Component, viewChild } from '@angular/core';
+import { AparteChatComponent } from '@aparte/angular';
+import type { AparteMessage, AparteSendEventDetail } from '@aparte/core';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [AparteChatComponent],
+  template: `
+    <aparte-chat
+      [messages]="messages"
+      (messagesChange)="messages = $event"
+      (messageSent)="onMessageSent($event)"
+    ></aparte-chat>
+  `,
+})
+export class ChatComponent {
+  readonly chat = viewChild.required(AparteChatComponent);
+  messages: AparteMessage[] = [];
+
+  async onMessageSent(event: AparteSendEventDetail) {
+    const id = crypto.randomUUID();
+    // Explicit append BEFORE injecting — see the caveat below.
+    this.chat().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+    await this.chat().injectTokenStream(id, myAgentLoop(event.content));
+  }
+}
+```
+
+</TabItem>
+</Tabs>
 
 `myAgentLoop` is any `AsyncIterable<string>` — an async generator over a fetch stream, a model
 SDK, whatever produces tokens.

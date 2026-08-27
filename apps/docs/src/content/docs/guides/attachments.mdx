@@ -5,6 +5,8 @@ sidebar:
   order: 6
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 The composer handles **file attachments** with one flag — and nothing shows the user a paperclip
 until you set it.
 
@@ -18,14 +20,43 @@ Two elements make the UI:
 The default composer shell mounts **neither**. Add `attachments` and it mounts both, in their
 canonical positions:
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
 ```html
 <aparte-chat attachments></aparte-chat>
 ```
 
+</TabItem>
+<TabItem label="React">
+
 ```tsx
-<AparteChat attachments />           {/* React · Svelte · Vue */}
-<aparte-chat attachments>            <!-- Angular -->
+<AparteChat attachments />
 ```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat attachments />
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<AparteChat attachments />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<aparte-chat attachments></aparte-chat>
+```
+
+</TabItem>
+</Tabs>
 
 Composing your own composer? The flag doesn't apply — drop the two elements in wherever you
 want them, as with any other primitive.
@@ -78,7 +109,11 @@ composer.attachments;                // File[] (current selection)
 
 ## Getting the files on send
 
-When the user submits, the pending files ride along on the **`aparte-send`** event detail:
+When the user submits, the pending files ride along on the **`aparte-send`** event detail.
+Each wrapper surfaces that same detail under its own convention — one event, five spellings.
+
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
 
 ```ts
 composer.addEventListener('aparte-send', (e) => {
@@ -86,11 +121,40 @@ composer.addEventListener('aparte-send', (e) => {
 });
 ```
 
-In React that's just the `onMessageSent` prop:
+</TabItem>
+<TabItem label="React">
 
 ```tsx
 <AparteChat onMessageSent={(e) => { if (e.files) upload(e.files); }} />
 ```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat @message-sent="(e) => { if (e.files) upload(e.files); }" />
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<AparteChat on:messageSent={(e) => { if (e.detail.files) upload(e.detail.files); }} />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<aparte-chat (messageSent)="onSent($event)"></aparte-chat>
+```
+
+</TabItem>
+</Tabs>
+
+One difference worth keeping straight: React, Vue and Angular hand you the **detail**
+directly, while Svelte re-wraps it in a `CustomEvent` the way the DOM event itself is —
+so it is `e.detail.files` in the Vanilla and Svelte tabs and `e.files` in the other three.
 
 To observe the pending selection live (e.g. to enable a send button), listen for
 **`aparte-composer-change`** — its `detail.state.attachments` is the current `File[]`.
@@ -99,7 +163,7 @@ Driving your own loop? `filesToAttachments(files)` converts that `File[]` into t
 `attachments` an `AparteChatMessage` renders — the same conversion the built-in send path
 does, so your user bubble shows the chips instead of a bare line of text:
 
-<!-- doc-check: skip excerpt — `id`, `content` and `files` come from the surrounding send handler -->
+{/* doc-check: skip excerpt — `id`, `content` and `files` come from the surrounding send handler */}
 ```ts
 import { filesToAttachments } from '@aparte/core';
 

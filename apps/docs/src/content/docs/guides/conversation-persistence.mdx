@@ -5,6 +5,8 @@ sidebar:
   order: 10
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 Everything so far lives in memory — reload the page and the thread is gone. aparté's
 persistence subsystem closes that gap. A **`AparteConversationManager`** holds the list of
 conversations and notifies listeners on every change, but never touches storage directly —
@@ -91,7 +93,7 @@ present.
 `AparteConversationManager` owns the in-memory list, mutates it, and calls your adapter — your
 app never calls the adapter directly.
 
-<!-- doc-check: skip excerpt — imports the adapter the reader writes in the fence above -->
+{/* doc-check: skip excerpt — imports the adapter the reader writes in the fence above */}
 ```ts
 import { aparteGlobalConfig, AparteConversationManager } from '@aparte/core';
 import { LocalStorageAdapter } from './local-storage-adapter';
@@ -122,15 +124,52 @@ conversation's messages (and branch tree, if any) via the registered manager; se
 `null` deselects. Sending the first message while `conversationId` is unset lazily creates a
 conversation and reports the new id back, so you can sync a URL/router.
 
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+There is no binding without a wrapper — the pair is a wrapper convenience over
+`AparteConversationController`, which is the next section on this page.
+
+```ts
+controller.bind();
+void controller.setConversationId('abc-123'); // or null to deselect
+```
+
+</TabItem>
+<TabItem label="React">
+
 ```tsx
-// React — Vue/Svelte/Angular expose the same pair under their idiomatic names:
-//   Vue      :conversation-id / @conversation-created
-//   Svelte   conversationId  / on:conversationCreated
-//   Angular  [conversationId] / (conversationCreated)
 const [conversationId, setConversationId] = useState<string | null>(null);
 
 <AparteChat conversationId={conversationId} onConversationCreated={setConversationId} />
 ```
+
+</TabItem>
+<TabItem label="Vue">
+
+```vue
+<AparteChat :conversation-id="conversationId" @conversation-created="conversationId = $event" />
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```svelte
+<AparteChat {conversationId} on:conversationCreated={(e) => (conversationId = e.detail)} />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+```html
+<aparte-chat
+  [conversationId]="conversationId"
+  (conversationCreated)="conversationId = $event"
+></aparte-chat>
+```
+
+</TabItem>
+</Tabs>
 
 Without a wrapper, drive the same lifecycle yourself with `AparteConversationController` —
 it's exactly what the wrappers use internally:

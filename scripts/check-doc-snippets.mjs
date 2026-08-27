@@ -128,7 +128,10 @@ for (const file of files) {
         let end = start;
         while (end < lines.length && !/^```\s*$/.test(lines[end] ?? '')) end++;
         const body = lines.slice(start, end).join('\n');
-        const skipMarker = /<!--\s*doc-check:\s*skip/.test(lines[i - 1] ?? '');
+        // Both comment syntaxes, because both file types are in the corpus now: MDX does
+        // not accept `<!-- -->` at all — it fails the build with "Unexpected character `!`"
+        // — so a page that gains a `<Tabs>` and becomes `.mdx` has to rewrite its markers.
+        const skipMarker = /(?:<!--|\{\/\*)\s*doc-check:\s*skip/.test(lines[i - 1] ?? '');
         i = end + 1;
         n++;
 

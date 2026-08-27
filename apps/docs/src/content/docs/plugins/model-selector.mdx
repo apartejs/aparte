@@ -6,6 +6,8 @@ sidebar:
   label: model-selector
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 import AparteModelSelectorApi from '../../../generated/element-api/aparte-model-selector.mdx';
 
 A `<aparte-model-selector>` web component that lets the user pick an AI provider and model — a grouped
@@ -57,26 +59,57 @@ at the start. In the four wrappers the same thing goes through one `toolbar` slo
 ## Typed in your framework
 
 The element is typed by **this package**, not by the framework wrappers, through one
-subpath per framework. Import it once, anywhere:
+subpath per framework. Import that subpath once, anywhere in your app, and the tag is
+checked like any other: an unknown attribute or a wrong value type is a compile error.
 
-```ts
-import '@aparte/plugin-model-selector/react';   // or /vue, or /svelte
+<Tabs syncKey="framework">
+<TabItem label="Vanilla">
+
+Nothing to import for types — the tag is in `HTMLElementTagNameMap` as soon as the plugin
+itself is imported, and its event is typed through `HTMLElementEventMap`.
+
+```html
+<aparte-model-selector persist searchable placeholder="Pick a model"></aparte-model-selector>
 ```
 
-After that the tag is checked like any other: a typo, a wrong value type, or an
-wrong value type is a compile error.
+</TabItem>
+<TabItem label="React">
+
+```ts
+import '@aparte/plugin-model-selector/react';
+```
 
 ```tsx
 <aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
 ```
 
-A presence attribute is `''` to set and `null` to remove, never `false` — see
-[the rule](/frameworks/elements/#the-one-thing-to-know-about-presence-attributes).
-Events are typed through the DOM, because `@aparte/core` augments `HTMLElementEventMap`
-with `aparte-model-change`.
+</TabItem>
+<TabItem label="Vue">
 
-Angular gets a **directive** rather than a type, because its template compiler needs a
-class claiming the selector:
+```ts
+import '@aparte/plugin-model-selector/vue';
+```
+
+```vue
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+```
+
+</TabItem>
+<TabItem label="Svelte">
+
+```ts
+import '@aparte/plugin-model-selector/svelte';
+```
+
+```svelte
+<aparte-model-selector persist="" searchable="" placeholder="Pick a model" />
+```
+
+</TabItem>
+<TabItem label="Angular">
+
+A **directive** rather than a type, because Angular's template compiler needs a class
+claiming the selector — and the directive is what turns `[persist]` into a real binding.
 
 ```ts
 import { AparteModelSelectorDirective } from '@aparte/plugin-model-selector/angular';
@@ -86,6 +119,14 @@ import { AparteModelSelectorDirective } from '@aparte/plugin-model-selector/angu
 ```html
 <aparte-model-selector [persist]="true" [searchable]="true" (modelChange)="use($event.modelId)" />
 ```
+
+</TabItem>
+</Tabs>
+
+Outside Angular a presence attribute is `''` to set and `null` to remove, never `false` —
+see [the rule](/frameworks/elements/#the-one-thing-to-know-about-presence-attributes).
+Events are typed through the DOM, because `@aparte/core` augments `HTMLElementEventMap`
+with `aparte-model-change`.
 
 `react`, `vue`, `svelte` and `@angular/core` are all **optional** peer dependencies, so
 you carry only the one you use — and the three template bindings ship no runtime at all.
