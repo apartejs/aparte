@@ -18,8 +18,8 @@
  *       <input class="aparte-field" placeholder="example.com" />
  *     </div>
  *
- *     <label class="aparte-field-choice"><input type="checkbox" class="aparte-checkbox aparte-checkbox--danger" /> Delete my account</label>
- *     <label class="aparte-field-choice"><input type="checkbox" role="switch" class="aparte-switch aparte-switch--success" checked /> Email notifications</label>
+ *     <p><label><input type="checkbox" class="aparte-checkbox aparte-checkbox--danger" /> Delete my account</label></p>
+ *     <p><label><input type="checkbox" role="switch" class="aparte-switch aparte-switch--success" checked /> Email notifications</label></p>
  *
  * `.aparte-field` is ONE shared recipe — border, background, radius, padding, focus
  * ring, placeholder — applied to <input>, <textarea> and <select> alike, so a form
@@ -211,6 +211,12 @@
 /* ── Checkbox ────────────────────────────────────────────────────────────────── */
 
 .aparte-checkbox {
+  /* A control on a line of text sits ON that line. Without this its baseline is the
+     bottom margin edge (these are `inline-grid` / `inline-flex` boxes with no text
+     inside), so the box rode above the label it belongs to — visible the moment the
+     class examples put one next to a word, which is the commonest way any of these is
+     used. `middle` and not `text-bottom`: the label may wrap. */
+  vertical-align: middle;
   /* Same two-part axis as the button: INTENT is the colour, ON-INTENT is what sits
      on top of it. On-intent is DERIVED from the fill (see the note in button.css);
      this line is only the fallback for a browser without relative colour syntax. */
@@ -256,10 +262,22 @@
 }
 
 /* The checkmark: a rotated corner of a box, drawn from two borders rather than an
-   image, so it inherits `on-intent` instead of shipping its own fixed colour. */
+   image, so it inherits `on-intent` instead of shipping its own fixed colour.
+
+   SIZED FROM THE TOKEN, not in percent, and that is the fix rather than a preference.
+   These were `inline-size: 30%` / `block-size: 55%`, and a percentage on a grid ITEM
+   resolves against its track — which `place-content: center` on the box collapses to
+   the content's own size. The content is an empty `::after`, so the track was zero and
+   the mark computed to 0.59 x 1.09px: not a check, just the 2px corner where its two
+   borders meet. That is the "dot" it drew in every checked checkbox the library has
+   ever rendered. The indeterminate dash had it worse — 55% of zero is zero, so it drew
+   nothing at all.
+
+   Measured, not read: `getComputedStyle(el, '::after')` reported the 0.59px. The rule
+   looks correct in the file, which is why four passes over this sheet never caught it. */
 .aparte-checkbox:checked::after {
-  inline-size: 30%;
-  block-size: 55%;
+  inline-size: calc(var(--aparte-checkbox-size) * 0.3);
+  block-size: calc(var(--aparte-checkbox-size) * 0.55);
   border-inline-end: calc(var(--aparte-checkbox-size) * 0.12) solid var(--aparte-checkbox-on-intent);
   border-block-end: calc(var(--aparte-checkbox-size) * 0.12) solid var(--aparte-checkbox-on-intent);
   transform: rotate(45deg) translateY(-10%);
@@ -267,7 +285,7 @@
 }
 
 .aparte-checkbox:indeterminate::after {
-  inline-size: 55%;
+  inline-size: calc(var(--aparte-checkbox-size) * 0.55);
   block-size: 0;
   border-block-end: calc(var(--aparte-checkbox-size) * 0.16) solid var(--aparte-checkbox-on-intent);
   opacity: 1;
@@ -330,6 +348,12 @@
 /* ── Radio ───────────────────────────────────────────────────────────────────── */
 
 .aparte-radio {
+  /* A control on a line of text sits ON that line. Without this its baseline is the
+     bottom margin edge (these are `inline-grid` / `inline-flex` boxes with no text
+     inside), so the box rode above the label it belongs to — visible the moment the
+     class examples put one next to a word, which is the commonest way any of these is
+     used. `middle` and not `text-bottom`: the label may wrap. */
+  vertical-align: middle;
   --aparte-radio-intent: var(--aparte-primary);
   --aparte-radio-size: 18px;
   --aparte-radio-dot-size: 8px;
@@ -404,6 +428,12 @@
 /* ── Switch — a track and a thumb, not a checkbox pretending to be one ─────────── */
 
 .aparte-switch {
+  /* A control on a line of text sits ON that line. Without this its baseline is the
+     bottom margin edge (these are `inline-grid` / `inline-flex` boxes with no text
+     inside), so the box rode above the label it belongs to — visible the moment the
+     class examples put one next to a word, which is the commonest way any of these is
+     used. `middle` and not `text-bottom`: the label may wrap. */
+  vertical-align: middle;
   --aparte-switch-intent: var(--aparte-primary);
   /* Unlike the plain intent alias above, the track's colour is a STATE (it moves from
      neutral to `--aparte-switch-intent` on check), not a fixed structural value, so it
