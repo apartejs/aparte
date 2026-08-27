@@ -10,10 +10,30 @@
  * Namespaced `--brand-*` on purpose: distinct from the core component's own
  * `--aparte-*` theme tokens (which live in @aparte/core) and from Starlight's
  * `--sl-*`, so nothing collides on a page that loads all three.
+ *
+ * THREE brass tokens, because one colour cannot do three jobs.
+ *
+ * `--brand-brass` is the FILL — a primary button, the current sidebar chip — and
+ * on the dark theme it is the text colour too, where it measures 8:1.
+ *
+ * `--brand-brass-text` is the accent when it is TEXT. On dark that is the same
+ * colour; on LIGHT the spotlight brass measures 3.2:1 against the cream ground,
+ * under the 4.5:1 WCAG AA asks of body text, so light goes DEEPER rather than
+ * paler. The inversion is the whole point: an accent gains contrast by moving
+ * AWAY from its background — up on a dark stage, down on a light one. Measured:
+ * 4.87:1 on `--brand-ground`, 5.35:1 on `--brand-surface`, and the same 4.87:1
+ * for ground-coloured text sitting ON the token, which is how Starlight draws
+ * the current sidebar item.
+ *
+ * `--brand-brass-soft` is the second accent tone (a string in a code sample, the
+ * primary button's hover). Light used to make it PALER than the brass — 2.4:1,
+ * the worst contrast on the site — for the same reason: paler reads as softer on
+ * a dark stage and as unreadable on a light one.
  */
 :root {
-  --brand-brass: #d9a24b;        /* the spotlight */
-  --brand-brass-soft: #e7c588;
+  --brand-brass: #d9a24b;        /* the spotlight — a fill, and text on a dark ground */
+  --brand-brass-soft: #e7c588;   /* the second accent tone */
+  --brand-brass-text: #d9a24b;   /* the accent as TEXT — see the note above */
   --brand-ground: #17141c;       /* page background */
   --brand-surface: #211b28;
   --brand-surface-2: #2a2333;
@@ -26,7 +46,8 @@
 
 :root[data-theme="light"] {
   --brand-brass: #b07d33;
-  --brand-brass-soft: #caa15a;
+  --brand-brass-soft: #7d6440;
+  --brand-brass-text: #8a6228;
   --brand-ground: #f6f2ea;
   --brand-surface: #fffdf8;
   --brand-surface-2: #f1ebdf;
@@ -42,7 +63,8 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --brand-brass: #b07d33;
-    --brand-brass-soft: #caa15a;
+    --brand-brass-soft: #7d6440;
+    --brand-brass-text: #8a6228;
     --brand-ground: #f6f2ea;
     --brand-surface: #fffdf8;
     --brand-surface-2: #f1ebdf;
