@@ -18,4 +18,8 @@ package did not export the name.
 described as "still typed" while it was unnameable; `AparteSegmentDefaults` types what
 `setSegmentDefaults()` takes, and both are exported too.
 
-No shape changed. This is the barrel catching up with what the types already said.
+All five are exported from the SSR barrel too — a type has no DOM, and TypeScript resolves
+`types` under the `node` condition, so exporting them from the browser barrel alone would
+have compiled for everyone except an SSR consumer.
+
+No shape changed. This is the barrels catching up with what the types already said.
