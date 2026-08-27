@@ -21,6 +21,7 @@ import type { AparteMessage, AparteSegment } from '../../../types/index.js';
 
 type BubbleEl = HTMLElement & {
     setContent(content: string): void;
+    appendToken(chunk: string): void;
     getContent(): string;
     setSiblings(count: number, index: number): void;
     setSegments(segments: AparteSegment[]): void;
