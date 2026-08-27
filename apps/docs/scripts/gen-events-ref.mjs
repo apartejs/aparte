@@ -76,8 +76,26 @@ const declared = new Map();
 const manifests = [join(CORE, 'dist/custom-elements.json')];
 if (existsSync(PLUGINS)) {
     for (const plugin of readdirSync(PLUGINS)) {
-        const file = join(PLUGINS, plugin, 'dist/custom-elements.json');
-        if (existsSync(file)) manifests.push(file);
+        const dir = join(PLUGINS, plugin);
+        const file = join(dir, 'dist/custom-elements.json');
+        /*
+         * `customElements` in package.json is what separates "this plugin ships no
+         * element" from "this plugin was not built".
+         *
+         * Three of the five plugins (marked, shiki, streaming-markdown) define no
+         * element and correctly have no manifest, so a bare `existsSync` skip looked
+         * right — and it silently swallowed the other case too. When
+         * `plugin-model-selector`'s manifest was missing, the only symptom was
+         * `aparte-model-change` losing its `@fires` evidence and coming out of the
+         * grouping pass as an orphan: `pnpm run docs` died on "1 event(s) match no
+         * group", which names neither the package nor the build. The guard below could
+         * not help — the old loop only ever pushed files it had just seen exist, so its
+         * "build the packages first" branch was unreachable.
+         */
+        const pkg = join(dir, 'package.json');
+        const shipsElements = existsSync(pkg)
+            && Object.hasOwn(JSON.parse(readFileSync(pkg, 'utf8')), 'customElements');
+        if (shipsElements || existsSync(file)) manifests.push(file);
     }
 }
 for (const file of manifests) {
