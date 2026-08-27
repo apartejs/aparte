@@ -28,6 +28,7 @@ const CORE = resolve(here, '../../../packages/core');
 const SRC = join(CORE, 'src/types/segments.ts');
 const RENDERERS = join(CORE, 'src/renderers/segments');
 const OUT = resolve(here, '../src/content/docs/segments');
+const GENERATED = resolve(here, '../src/generated');
 
 if (!existsSync(SRC)) {
   console.error(`[gen-segment-pages] no source at ${SRC}`);
@@ -43,6 +44,26 @@ function docOf(node) {
     typeof b.comment === 'string' ? b.comment : (b.comment ?? []).map((c) => c.text ?? '').join(''),
   );
   return parts.join('\n\n').trim();
+}
+
+/**
+ * The `@example` tag's text — a literal of the segment, which the page prints as code AND
+ * the live preview renders. One string for both, so a demo cannot drift from the shape it
+ * is meant to illustrate.
+ *
+ * Read from the tags rather than the free text, so it never leaks into `docOf`'s
+ * description: the analyser splits a JSDoc block at its first tag and this relies on it.
+ */
+function exampleOf(node) {
+  for (const block of node.jsDoc ?? []) {
+    for (const tag of block.tags ?? []) {
+      if (tag.tagName?.text !== 'example') continue;
+      const text =
+        typeof tag.comment === 'string' ? tag.comment : (tag.comment ?? []).map((c) => c.text ?? '').join('');
+      if (text.trim()) return text.trim();
+    }
+  }
+  return '';
 }
 
 const interfaces = new Map();
@@ -136,13 +157,14 @@ function page({ name, kind, decl }) {
   const doc = docOf(decl);
   const own = fieldsOf(decl).filter((f) => f.name !== 'type');
   const renderer = rendererFor(kind);
+  const example = exampleOf(decl);
 
   let md = `---
 title: ${yaml(kind)}
 description: ${yaml(firstSentence(doc) || `The \`${kind}\` segment: ${name}.`)}
 ---
 
-import ElementPreview from '../../../components/ElementPreview.astro';
+import SegmentPreview from '../../../components/SegmentPreview.astro';
 
 `;
 
@@ -151,8 +173,13 @@ import ElementPreview from '../../../components/ElementPreview.astro';
   md += `A segment is data, not an element — it has no tag and dispatches nothing. This one is
 \`${name}\`, and it is the object you push into a bubble; something else draws it.
 
-<ElementPreview tag="${kind}-segment" />
+<SegmentPreview kind="${kind}" />
 `;
+
+  // The literal a developer would write, next to the frame that renders exactly it. The
+  // shape table below says what the fields ARE; this says what one looks like, which is the
+  // question anyone emitting a segment actually has.
+  if (example) md += `\n### Example\n\n\`\`\`ts\n${example}\n\`\`\`\n`;
 
   md += `\n## Shape\n\nDiscriminated by \`type: '${kind}'\`.\n${table(own)}`;
 
@@ -220,6 +247,37 @@ for (const name of unionMembers) {
   }
   segments.push({ name, kind, decl });
 }
+
+/*
+ * The live preview's data. A segment has no tag, so it cannot be previewed the way an
+ * element is: the frame mounts a viewport and pushes this literal into it, which is the
+ * only honest way to show one — a segment is drawn by whatever renders it, never by itself.
+ *
+ * The pages used to carry `<ElementPreview tag="thinking-segment" />`, one line under a
+ * sentence saying a segment "has no tag". That frame was empty, so the contradiction cost
+ * nothing; filling it made the tag a lie worth removing.
+ *
+ * A segment with no `@example` gets no entry and `SegmentPreview` renders nothing.
+ */
+const previews = segments
+  .map((s) => ({ kind: s.kind, name: s.name, example: exampleOf(s.decl) }))
+  .filter((p) => p.example);
+
+mkdirSync(GENERATED, { recursive: true });
+writeIfChanged(
+  join(GENERATED, 'segment-previews.ts'),
+  `/* Generated from packages/core/src/types/segments.ts by apps/docs/scripts/gen-segment-pages.mjs\n` +
+    ` — edit the interface's JSDoc @example, not this file. */\n\n` +
+    `export interface SegmentPreview {\n` +
+    `    /** The discriminant, which is also the route segment. */\n` +
+    `    kind: string;\n` +
+    `    /** The interface's name, for the document title. */\n` +
+    `    name: string;\n` +
+    `    /** Its \`@example\` literal, verbatim — the same text the page shows as code. */\n` +
+    `    example: string;\n` +
+    `}\n\n` +
+    `export const SEGMENT_PREVIEWS: SegmentPreview[] = ${JSON.stringify(previews, null, 4)};\n`,
+);
 
 mkdirSync(OUT, { recursive: true });
 const keep = new Set();

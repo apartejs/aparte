@@ -2,27 +2,16 @@
 /**
  * One standalone document per element, for `ElementPreview` to load in its frame.
  *
- * A SEPARATE DOCUMENT, and that is the whole point rather than an implementation detail:
- *
- * - It isolates core from the docs site. Core is light DOM by design, so the site's own
- *   rules reach inside anything rendered in the page — `:not(pre) > code` in
- *   `src/styles/aparte-theme.css` repaints the `<code>` inside a bubble, and a bare `nav`
- *   rule once moved the artifact card's tabs. A preview that the surrounding site restyles
- *   is not a preview of the library.
- * - A responsive preview only works here. Narrow a `<div>` to 375px and it still sees the
- *   page's viewport, so core's media queries never fire and the frame lies about small
- *   screens. An iframe has a viewport of its own.
- * - It is "open this demo in its own tab" for free, and it is what a screenshot would point
- *   at.
- *
  * The markup is the element's own `@example` from its class JSDoc, verbatim, which is the
  * same string the page prints as code directly underneath. One source, so the demo cannot
  * drift from the example it illustrates.
  *
- * `set:html` here is a BUILD-TIME write into the emitted HTML, not `innerHTML` at runtime,
- * so an example carrying its own `<script>` (as `aparte-select`'s does) keeps working.
+ * The example's own `<script>` is split out and handed to `PreviewDocument`, which runs it
+ * after the library has loaded — the order a real app has, and the reason a script calling
+ * a method on the element works here at all. See that file for the failure that taught it.
  */
 import { ELEMENT_PREVIEWS } from '../../generated/element-previews';
+import PreviewDocument from '../../components/PreviewDocument.astro';
 
 export function getStaticPaths() {
     return ELEMENT_PREVIEWS.map((preview) => ({ params: { tag: preview.tag }, props: preview }));
@@ -30,126 +19,9 @@ export function getStaticPaths() {
 
 const { tag, name, html } = Astro.props;
 
-/*
- * The example's own `<script>` is held back and run after the library has loaded.
- *
- * Not a nicety — the first version of this page ran them where they sit, and the frame
- * reported `viewport.appendMessage is not a function`. A classic inline script runs at
- * parse time while `import '@aparte/core'` is a module and therefore deferred, so the
- * element it queries has not been upgraded yet and is still a bare `HTMLElement`. That is
- * the same ordering a consumer faces, and it is why these run last here: an app imports
- * the library and THEN runs its own code, which is what this reproduces.
- *
- * `addEventListener` survives the un-upgraded state, which is why `<aparte-select>`'s
- * example worked and the viewport's did not — the failure was one example away from
- * shipping unnoticed.
- */
 const SCRIPT = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
-const deferred = [...html.matchAll(SCRIPT)].map((match) => match[1] ?? '');
+const scripts = [...html.matchAll(SCRIPT)].map((match) => match[1] ?? '');
 const markup = html.replace(SCRIPT, '').trim();
 ---
 
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <!-- A frame's document is not a page of the site: it would otherwise compete with the
-             element's real page in search results and say much less. -->
-        <meta name="robots" content="noindex, nofollow" />
-        <title>{`${name} (<${tag}>) — live preview`}</title>
-        <script is:inline>
-            /*
-             * Before paint, so the frame never flashes light inside a dark page.
-             *
-             * Two vocabularies meet here and neither is negotiable: the site stores the
-             * reader's choice under Starlight's `starlight-theme` key, and core switches on
-             * `data-aparte-theme`. Same origin, so the frame reads the key directly rather
-             * than waiting for the parent to tell it — a message would arrive after first
-             * paint, which is exactly the flash this avoids.
-             */
-            const apply = (choice) => {
-                const dark =
-                    choice === 'dark' ||
-                    (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-                document.documentElement.setAttribute('data-aparte-theme', dark ? 'dark' : 'light');
-            };
-            try {
-                apply(localStorage.getItem('starlight-theme') ?? 'auto');
-            } catch {
-                // A browser refusing storage is not a reason to render nothing.
-                apply('auto');
-            }
-            // The reader can toggle while the frame is open; the parent posts the new choice.
-            addEventListener('message', (event) => {
-                if (event.source === parent && event.data?.aparteTheme) apply(event.data.aparteTheme);
-            });
-        </script>
-        <style>
-            /* The frame is a stage, not a page: no chrome of its own, and the padding is the
-               only thing here that is not the library's. */
-            html,
-            body {
-                margin: 0;
-            }
-            body {
-                padding: 1rem;
-                background: var(--aparte-bg, transparent);
-                color: var(--aparte-text);
-                font-family: var(--aparte-font-family);
-                /* Examples that show two variants need air between them; `<aparte-chat>` sets
-                   its own height, so this is a gap and never a size. */
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-            }
-        </style>
-    </head>
-    <body>
-        <Fragment set:html={markup} />
-        {/* Inert until the script below revives them — a `<template>`'s content is parsed
-            but never executed, which is exactly the holding pen this needs. */}
-        {deferred.map((source) => <template class="aparte-deferred">{source}</template>)}
-        <script>
-            // The real package, resolved exactly as a consumer's bundler resolves it: source in
-            // `pnpm run docs`, the published `dist` in a build.
-            import '@aparte/core';
-            import '@aparte/core/styles.css';
-
-            /*
-             * The import above has already run, so every element core defines is defined and
-             * the ones already in this document have been upgraded. Only now can an example
-             * call a method on one.
-             *
-             * A real `<script>` element rather than `eval`: it executes under the document's
-             * own rules, so a Content-Security-Policy added to this site later governs it the
-             * way it governs any other inline script.
-             */
-            for (const held of document.querySelectorAll<HTMLTemplateElement>('template.aparte-deferred')) {
-                const script = document.createElement('script');
-                script.textContent = held.content.textContent ?? '';
-                document.body.appendChild(script);
-            }
-
-            /*
-             * Tell the parent how tall this turned out. The frame has no way to know what an
-             * example needs — `<aparte-chat>`'s asks for 600px twice — and a fixed height would
-             * either crop the demo or leave a band of empty stage under it.
-             *
-             * `ResizeObserver` and not a one-shot measurement on load: a preview is live, so a
-             * reply that streams in or a disclosure the reader opens changes the height after
-             * the fact.
-             */
-            const post = () =>
-                parent.postMessage(
-                    // The BODY's box, not the document element's: `scrollHeight` on the root
-                    // returns max(viewport, content), so a one-line example reported 900px and
-                    // the frame kept a screen of empty stage under it. Measured, not reasoned —
-                    // the first version of this line shipped that 900.
-                    { apartePreviewHeight: Math.ceil(document.body.getBoundingClientRect().height) },
-                    '*',
-                );
-            new ResizeObserver(post).observe(document.body);
-            addEventListener('load', post);
-        </script>
-    </body>
-</html>
+<PreviewDocument title={`${name} (<${tag}>) — live preview`} markup={markup} scripts={scripts} />

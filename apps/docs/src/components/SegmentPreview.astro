@@ -1,0 +1,36 @@
+---
+/**
+ * The live preview on a generated segment page.
+ *
+ * A segment has no tag, so this is not an element preview with a different name: the frame
+ * mounts a real `<aparte-chat-viewport>` and pushes the segment's `@example` literal into it
+ * through the same `appendMessage` a host would call. What you see is core's own renderer
+ * drawing it, which is the only honest way to show a thing that never draws itself.
+ *
+ * The pages used to carry `<ElementPreview tag="thinking-segment" />` one line under a
+ * sentence saying a segment "has no tag and dispatches nothing". That frame was empty, so
+ * the contradiction cost nothing; filling it made the invented tag worth removing.
+ *
+ * A segment with no `@example` gets no entry and this renders nothing.
+ */
+import { SEGMENT_PREVIEWS } from '../generated/segment-previews';
+import PreviewFrame from './PreviewFrame.astro';
+
+interface Props {
+    /** The discriminant, e.g. `tool_call`. */
+    kind: string;
+}
+
+const { kind } = Astro.props;
+const preview = SEGMENT_PREVIEWS.find((entry) => entry.kind === kind);
+---
+
+{
+    preview && (
+        <PreviewFrame
+            src={`/preview/segment/${kind.replace(/_/g, '-')}/`}
+            label={`Live preview of a ${kind} segment`}
+            caption="Core's own renderer, drawing the example printed below inside a real viewport. A segment is data — this is what the library makes of it, and it looks the same in every framework."
+        />
+    )
+}

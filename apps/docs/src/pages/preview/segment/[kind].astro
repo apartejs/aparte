@@ -1,0 +1,54 @@
+---
+/**
+ * One standalone document per segment, for `SegmentPreview` to load in its frame.
+ *
+ * A segment has no tag, so it cannot be shown the way an element is: it is DATA, and what
+ * a reader wants to see is what the library draws when that data arrives. So the frame
+ * mounts a real `<aparte-chat-viewport>` and pushes the segment into it through the same
+ * `appendMessage` a host would call — the renderer that draws it is core's own, installed
+ * on first use, with nothing stubbed.
+ *
+ * The literal pushed in is the interface's `@example`, verbatim: the same text the page
+ * prints as code a few lines above the frame. One string, so the demo cannot drift from
+ * the shape it illustrates — and an example that stops being a valid segment becomes a
+ * visibly broken preview instead of prose nobody re-reads.
+ */
+import { SEGMENT_PREVIEWS } from '../../../generated/segment-previews';
+import PreviewDocument from '../../../components/PreviewDocument.astro';
+
+export function getStaticPaths() {
+    // Hyphens in the URL, underscores in the data: `tool_call` is what a developer writes,
+    // `tool-call` is what a search engine reads as two words. The segment pages already
+    // split them this way, and a preview must live at the matching address.
+    return SEGMENT_PREVIEWS.map((preview) => ({
+        params: { kind: preview.kind.replace(/_/g, '-') },
+        props: preview,
+    }));
+}
+
+const { kind, name, example } = Astro.props;
+
+/*
+ * `role: 'assistant'` because that is who emits segments; a user message is plain text.
+ * The timestamp is stamped at run time rather than baked in, so the frame never shows a
+ * build date as if it were now.
+ */
+const seed = `const viewport = document.querySelector('aparte-chat-viewport');
+viewport.appendMessage({
+  id: 'preview',
+  role: 'assistant',
+  timestamp: Date.now(),
+  segments: [
+${example
+    .split('\n')
+    .map((line) => `    ${line}`)
+    .join('\n')},
+  ],
+});`;
+---
+
+<PreviewDocument
+    title={`${name} (${kind}) — live preview`}
+    markup='<aparte-chat-viewport style="min-height: 3rem"></aparte-chat-viewport>'
+    scripts={[seed]}
+/>
