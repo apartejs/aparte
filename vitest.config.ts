@@ -133,7 +133,13 @@ export default defineConfig({
         // clock tests reached the artifact card's save path and the bubble's
         // timestamp. Measured 71.75%. Functions and branches stay where they are —
         // 81.69% and 72.61%, both inside the three-point band already.
-        'packages/core/src/renderers/**': { lines: 73, statements: 73, functions: 83, branches: 72 },
+        // Raised 73 -> 75 lines/statements by the incremental-streaming lot: the four
+        // bubble tests for the plain-content path and the three for a custom segment's
+        // fallback reach the write-side of the markdown seam and the unrendered-segment
+        // branch, measured 76.35%. The ratchet asked for it — 3.3 points of slack is a
+        // floor that cannot fail. Functions and branches stay: 85.53% and 74.93%, both
+        // already inside the band.
+        'packages/core/src/renderers/**': { lines: 75, statements: 75, functions: 83, branches: 72 },
       },
     },
   },
