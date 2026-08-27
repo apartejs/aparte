@@ -52,6 +52,8 @@ export interface AparteTool {
  * it shipped with no presenter and no `approvalResolver`, and every `needsApproval` call
  * aborted with nothing clickable on screen. The sibling docblock on `needsApproval`
  * records the same correction; this one was missed in the same file.
+ *
+ * @event aparte-tool-approval-request
  */
 export interface AparteToolApprovalRequestDetail {
     toolCallId: string;

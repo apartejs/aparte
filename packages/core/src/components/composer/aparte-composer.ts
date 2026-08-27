@@ -114,7 +114,7 @@ export interface AparteComposerChangeEventDetail {
  * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was submitted: the text, its attachments and the target.
  * @fires aparte-cancel - The stop button was pressed. No detail; the two window events below carry the target.
  * @fires {CustomEvent<AparteAbortEventDetail>} aparte-abort - Dispatched on `window`: stop the run for this target.
- * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - Dispatched on `window`: the run for this target ended early.
+ * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - The run for this target ended early — the user pressed Stop, or `abort()` was called. This element dispatches it on `window`; `AparteClient` also dispatches it on the chat host, so it is listenable on either.
  * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - Any of value / streaming / disabled / attachments / panel changed, folded into one event.
  *
  * @cssprop [--aparte-composer-control-size=44px] - Width and height of the composer's

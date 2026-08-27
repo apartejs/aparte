@@ -9,14 +9,15 @@
         "gen:segments": "node scripts/gen-segment-pages.mjs",
         "gen:engine-api": "node scripts/gen-engine-api.mjs",
         "gen:wrapper-ref": "node scripts/gen-wrapper-ref.mjs",
-        "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-css-classes.mjs && node scripts/gen-icons.mjs && node scripts/gen-element-pages.mjs && node scripts/gen-segment-pages.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs",
+        "gen": "node scripts/gen-css-vars.mjs && node scripts/gen-css-classes.mjs && node scripts/gen-icons.mjs && node scripts/gen-element-pages.mjs && node scripts/gen-segment-pages.mjs && node scripts/gen-engine-api.mjs && node scripts/gen-wrapper-ref.mjs && node scripts/gen-events-ref.mjs",
         "dev": "pnpm gen && astro dev",
         "build": "pnpm gen && astro build",
         "preview": "astro preview",
         "astro": "astro",
         "typecheck": "astro check",
         "gen:icons": "node scripts/gen-icons.mjs",
-        "gen:classes": "node scripts/gen-css-classes.mjs"
+        "gen:classes": "node scripts/gen-css-classes.mjs",
+        "gen:events": "node scripts/gen-events-ref.mjs"
     },
     "dependencies": {
         "@aparte/core": "workspace:*",

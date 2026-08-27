@@ -289,15 +289,11 @@ host's `targetId` so several chats on one page stay isolated. All four are in th
 typed event map, so `e.detail` is typed on an `<aparte-chat>` or a viewport — and,
 since 0.8.0, under the `node` export condition too.
 
-| Event | Detail | Fired when |
-|---|---|---|
-| `aparte-message-start` | `AparteMessageStartEventDetail` — `{ targetId?, messageId }` | the assistant turn begins, before the first token |
-| `aparte-message-done` | `AparteMessageDoneEventDetail` — `{ targetId?, messageId, usage? }` | the turn completed normally. `usage` carries the token counts when the provider reported them |
-| `aparte-message-aborted` | `AparteMessageAbortedEventDetail` | the user pressed Stop, or `abort()` was called |
-| `aparte-message-error` | `AparteMessageErrorEventDetail` | the turn failed. What already streamed stays rendered |
-| `aparte-artifact-start` | `AparteArtifactStartEventDetail` | an `<artifact>` block opened mid-stream |
-| `aparte-artifact-delta` | `AparteArtifactDeltaEventDetail` — carries a byte progress count | more of that artifact arrived |
-| `aparte-artifact-ready` | `AparteArtifactReadyEventDetail` | the artifact is complete. For a binary kind this is also the app's cue to generate the file — see the handshake above |
+The seven are `aparte-message-start`, `-done`, `-aborted` and `-error`, plus
+`aparte-artifact-start`, `-delta` and `-ready`. Their detail types and what each one
+means are in the [events reference](/reference/events/#on-the-chat-host), which is
+generated from the source — this page used to repeat them in a table of its own, and a
+second copy of a list is a second copy to keep in step.
 
 Use them for what the chat itself does not do: a progress bar, a token-cost meter,
 analytics, or disabling an unrelated control while a turn is in flight.

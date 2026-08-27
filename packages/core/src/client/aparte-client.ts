@@ -717,7 +717,16 @@ export class AparteClient {
             return;
         }
 
-        // 3. Dispatch start so host can show loading state
+        /**
+         * Compaction began — the point for a host to show a spinner, since summarising a
+         * long conversation is a model call and takes as long as one.
+         *
+         * On `window` rather than on the chat, because compaction is a page-level operation
+         * a host triggers; and with no detail, because everything worth knowing arrives on
+         * the three events that follow it.
+         *
+         * @event aparte-compact-start
+         */
         window.dispatchEvent(new CustomEvent('aparte-compact-start'));
 
         try {
@@ -793,6 +802,16 @@ export class AparteClient {
             // the fallback for a host whose target exposes no clearAll.
             const clearAll = (target as { clearAll?: () => void }).clearAll;
             if (typeof clearAll === 'function') clearAll.call(target);
+            /**
+             * Empty every mounted transcript. A BROADCAST, and that is why it is the
+             * fallback rather than the path: every viewport on the page listens, so a
+             * host with two chats loses both. It goes out only when the target exposes
+             * no `clearAll()` of its own.
+             *
+             * No detail — there is nothing to say beyond "clear".
+             *
+             * @event aparte-reset
+             */
             else window.dispatchEvent(new CustomEvent('aparte-reset'));
 
             // Small delay to let clearAll() finish DOM cleanup
