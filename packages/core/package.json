@@ -1,6 +1,6 @@
 {
     "name": "@aparte/core",
-    "version": "0.12.1",
+    "version": "0.13.0",
     "description": "High-performance AI conversation engine - Zero-dependency Web Components",
     "type": "module",
     "//sideEffects": "The BROWSER entry defines the custom elements and imports CSS at module scope, so it must never be tree-shaken; the Node entry (`index.node`) and every other module are pure. Listing them explicitly is what lets a bundler drop the rest — the whole package was implicitly side-effectful before, the only one of the 14 without this field.",

@@ -1,5 +1,215 @@
 # @aparte-workspace/docs
 
+## 0.0.11
+
+### Patch Changes
+
+- e06d254: The tail of the cold audit: four smaller things, each verified before it was touched.
+
+  **The streaming dot announced nothing.** The artifact card's pulse was a `<span>` with
+  `aria-label="Streaming"` — an ARIA-prohibited attribute on an implicit `generic` role,
+  dropped by Chromium and Firefox, and hardcoded English in a card whose own comment claims
+  every string was given a locale key. It is `role="img"` with `t('generating')` now, the
+  key whose documentation already says it names the waiting state.
+
+  **The reference published six overrides as defaults.** `gen-css-vars` matched `:root` with
+  leading whitespace, so the block nested inside `responsive.css`'s
+  `@media (prefers-reduced-motion: reduce)` was read as another declaration block: every
+  duration appeared twice, the second time claiming a default of `0.01ms`, under an
+  unrelated heading. Top-level only now — a nested block is an override, which is why the
+  dark theme's is skipped.
+
+  **`<aparte-progress-spinner>` could not be stopped.** Its rotation hardcoded `0.9s`
+  instead of reading `--aparte-duration-spin`, so it ignored the reduced-motion reset that
+  overrides that token. It turns very slightly faster now (0.7s), which is the price of
+  stopping when asked.
+
+  **Two guides contradicted the code.** The elicitation guide's presenter table omitted
+  `onSettle` — the only path by which a single-choice answer reaches you — and gave
+  `mode()` two values out of three, missing `'none'`. The accessibility guide, on a page
+  that states "where a number appears, it was counted", claimed the axe suite runs against
+  "all five example apps in Chromium, Firefox and WebKit"; there are seven apps, WebKit
+  covers five and Firefox two.
+
+- df29881: Fixed: the CSS-classes reference lost all three of its groups on every Linux build.
+
+  `gen-css-classes.mjs` computed each sheet's `rel` by splitting its absolute path on a
+  hardcoded backslash. On POSIX nothing split, so every `match(rel)` returned false and all
+  37 sheets fell into the ungrouped tail — the Controls, Display and Surfaces sections and
+  their intros simply absent. CI is `ubuntu-latest` and the docs `build` runs `gen` first,
+  so every build there published the page that way while the copy committed from Windows
+  looked correct. It now splits on `path.sep`; simulated on both separators, the grouping is
+  identical (2 / 12 / 5).
+
+  The class floor could not see it: it counts CLASSES, all 323 were still present, and it
+  stayed green throughout. A second floor now asserts that every group matched a sheet —
+  count what a matcher matched, not only what it found.
+
+- 22d5a4d: The Reference section leads with the core JS API.
+
+  `reference/config.md` and `reference/classes.mdx` both claimed `sidebar.order: 4`, so
+  which came first was Starlight's alphabetical tiebreak rather than a decision. The core
+  API page is the one a reader arrives for; it takes slot 1.
+
+- 9122983: Every live preview frame shows what it promises.
+
+  An audit photographed all 29 `/preview/*` routes and looked at them. Nine defects, in two
+  layers.
+
+  **The frame's own stylesheet (one word, every frame).**
+  `PreviewDocument.astro`'s `<style>` was not `is:global`, so Astro scoped it — and the
+  markup it styles is injected with `<Fragment set:html>`, which carries no scope class. So
+  `body > * + *` compiled to `body > :where(.astro-xxxx) + :where(.astro-xxxx)` and matched
+  nothing: the 1rem stacking margin had never applied, in any preview, since the file was
+  written. That is the badge, the progress track and the alert flush against each other, and
+  three unrelated surfaces touching in the overview.
+
+  **The examples (eight, one root cause).**
+  A literal `…` used as documentary shorthand for "your content here". It reads perfectly in
+  a code block and draws nothing in an iframe: `/preview/class/icon/` was a blank page, the
+  thumbnail preview an empty box beside a box holding three dots, `.aparte-btn--icon` an
+  invisible ghost square containing an ellipsis. Two more went with it — a `<details>` with no
+  `open`, so the accordion preview showed the single word "Shipping" and no affordance at
+  all; and a `<switch>` with no label pressed against its neighbour's text.
+
+  Every replacement glyph is core's own, verbatim from `src/icons/glyphs.ts` (and
+  `alertTriangleIcon` from `extended.ts` for the warning alert). Drawing them by hand would
+  have made a fourth `copy` and a third `check` — the drift that file exists to end.
+
+  The invariant that produced all of this stays, because it is right: the frame and the code
+  block read the same string, so a demo can never drift from the example above it. What
+  changes is that the examples are written for both readers.
+
+  Not covered, and worth knowing: only the `/preview/*` routes were photographed, in the
+  light theme, at one width, with nothing clicked.
+
+- 9a4fa03: The Reference sidebar's order has one owner instead of six.
+
+  Five of the seven Reference pages are generated, and each generator carried its own
+  hardcoded `sidebar.order`. Nobody could see two of them at once, so `engine.md` and
+  `icons.md` both claimed 3 and `wrappers.md` claimed nothing — a third of the section was
+  arranged by Starlight's alphabetical tiebreak rather than by a decision. The generated
+  pages are gitignored, so editing them was never an option either: the `gen` step runs
+  inside `typecheck`, which rewrites them before a commit can be made.
+
+  `apps/docs/scripts/reference-order.mjs` is now the only place that decides, and it throws
+  on a page it does not know rather than letting one fall back to alphabetical. The order
+  reads as the JS API (`config`, `events`), then the styling surface (`css-variables`,
+  `classes`, `icons`), then the adjacent packages (`engine`, `wrappers`).
+
+- b12e089: Tabs gets its own entry, the class lists stop claiming classes they do not define, and a menu is menu-width.
+
+  **Tabs had no text and no preview.** `surface/tabs.css` carries the banner that opens the
+  whole Surfaces group (`aparté — layered surfaces`), and the generator consumes that as the
+  group's intro. A family takes its prose and its live example from a banner named after it
+  (`aparte-tabs — …`) — and there was none, so the Tabs family reached the reference page as a
+  bare list of class names while its own content was shown as the Surfaces overview. It now
+  carries both banners, and the family one demonstrates the two looks (`--underline`,
+  `--segmented`) with the panel under them. 19 → 20 live examples.
+
+  **The class lists were not the sheets' own.** The collector matched `.aparte-*` across the
+  whole source, comments included, so a class merely NAMED in prose was attributed to the
+  sheet that mentioned it: Tabs listed `.aparte-popover`, `.aparte-tooltip` and
+  `.aparte-btn--ghost`, none of which it defines. Block comments are now stripped first —
+  327 → **325**, and the two that went were phantoms.
+
+  **`.aparte-menu` had a floor and no ceiling**, while `.aparte-popover` — which the same file
+  calls "the identical floating list surface" — has carried `max-width: 320px` all along. With
+  only a `min-width`, a menu placed as a block child stretched to its container: a dropdown
+  spanning the full width of whatever held it. It now has the matching cap and
+  `width: max-content`, so it hugs its longest item and stops.
+
+  Also: preview frames get real padding (1rem → 2rem 2.25rem) — every example was pressed
+  into the top-left corner, which made a two-tile row read as debris rather than a specimen.
+  Left-aligned still, because an example has to lay out the way it will on the reader's page.
+  And the tooltip example's anchor gets room above it, so the tooltip is no longer clipped by
+  the top of its frame.
+
+- a453df1: `AparteTool.systemPrompt` is now actually sent to the model.
+
+  The field is documented on the type as "System prompt injected automatically when this
+  tool is registered — tells the AI when and why to use it", and the tools guide repeats
+  it. Nothing anywhere read it: a grep across core, engine and every provider finds only
+  the conversation-level `_systemPromptTemplate`, which is a different field.
+
+  The failure was silent in the worst way. The tool still worked — the model receives its
+  name and JSON schema either way — so all that went missing was the sentence explaining
+  WHEN to reach for it, which is the whole reason the field exists.
+  `@aparte/plugin-ask-user` sets one, so a shipped plugin was losing its instructions and
+  no test could see it.
+
+  `AparteConfig.resolveToolSystemPrompts()` joins the prompts of every registered tool, in
+  registration order, and the client sends them as a system message of their own — after
+  the app's template, which stays separate because one is about the app and the other about
+  the tools. A tool that sets none contributes nothing, and with no tool setting one there
+  is no extra message at all.
+
+  The three turn entry points (send, retry, edit) were each writing the same two lines of
+  system-message assembly, so they now share one `_systemMessages()` helper — the shape
+  that would otherwise have got the tool half in two of the three.
+
+  Found by a documentation audit. Four tests pin it; reverting the wiring fails three.
+
+- Updated dependencies [e50ca32]
+- Updated dependencies [ca49417]
+- Updated dependencies [1dff98c]
+- Updated dependencies [b011416]
+- Updated dependencies [7d11d0b]
+- Updated dependencies [e06d254]
+- Updated dependencies [67d8e6b]
+- Updated dependencies [94b87b7]
+- Updated dependencies [705e847]
+- Updated dependencies [682a837]
+- Updated dependencies [82b842e]
+- Updated dependencies [ec309ab]
+- Updated dependencies [1d336d1]
+- Updated dependencies [7713818]
+- Updated dependencies [f0b9141]
+- Updated dependencies [1dff98c]
+- Updated dependencies [466b849]
+- Updated dependencies [96c23c3]
+- Updated dependencies [3889d8f]
+- Updated dependencies [cbfc72e]
+- Updated dependencies [13ec8ca]
+- Updated dependencies [4b80eab]
+- Updated dependencies [0d68e65]
+- Updated dependencies [2bf55e1]
+- Updated dependencies [2ed3bc8]
+- Updated dependencies [14a55b0]
+- Updated dependencies [95de449]
+- Updated dependencies [3e2afee]
+- Updated dependencies [53d99d8]
+- Updated dependencies [a2274be]
+- Updated dependencies [a574dfa]
+- Updated dependencies [7f4e396]
+- Updated dependencies [9a1471e]
+- Updated dependencies [61e40da]
+- Updated dependencies [aaf8d5c]
+- Updated dependencies [b7f5bab]
+- Updated dependencies [5cfb818]
+- Updated dependencies [e50ca32]
+- Updated dependencies [c236992]
+- Updated dependencies [8fe68de]
+- Updated dependencies [9122983]
+- Updated dependencies [9a1471e]
+- Updated dependencies [bde11bb]
+- Updated dependencies [a8804ee]
+- Updated dependencies [b9e1b1b]
+- Updated dependencies [8678eaf]
+- Updated dependencies [3e2afee]
+- Updated dependencies [7f89fc8]
+- Updated dependencies [7471fb0]
+- Updated dependencies [b12e089]
+- Updated dependencies [a8ce9de]
+- Updated dependencies [e8506a5]
+- Updated dependencies [bc86198]
+- Updated dependencies [a453df1]
+- Updated dependencies [45a1083]
+- Updated dependencies [95fadcc]
+  - @aparte/core@0.13.0
+  - @aparte/plugin-shiki@0.13.0
+  - @aparte/locale-fr@0.13.0
+
 ## 0.0.10
 
 ### Patch Changes

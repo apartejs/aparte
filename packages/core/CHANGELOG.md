@@ -1,5 +1,1454 @@
 # @aparte/core
 
+## 0.13.0
+
+### Minor Changes
+
+- e50ca32: A panel says whether the composer's button has an act, and a single choice settles on the click.
+
+  `showPanel({ mode })` takes a third value, `'none'`: this panel has nothing for the send
+  button, so it is not drawn. Flip to `'submit'` with `setPanelSubmitEnabled` the moment the
+  panel grows an act. The type is exported as `AparteComposerPanelMode`.
+
+  **Why it was missing.** The composer's panel mode was ONE fixed policy — hide the text
+  input and the attachment picker, keep the strip and the toolbar, and always keep the send
+  button. A panel could supply DOM, two callbacks and an enabled flag; it could not say "my
+  options settle themselves". So the approval panel, whose options have settled on the first
+  click since they became buttons, sat next to a permanently disabled button offering an act
+  that did not exist. Ratified decision #8, one control further along.
+
+  **What changes for a user.** A question asked on its own — one choice, or one yes/no — is
+  now a column of buttons, and the click is the answer. One gesture where there were two,
+  and no submit beside options that already are the answer.
+
+  This is the accessible reading, not a trade against it. WCAG SC 3.2.2 ("On Input") and its
+  F36 failure forbid submitting automatically when an _input_ is given a value: a radio that
+  fires on change is exactly that, which is why these options are buttons — an explicit
+  activation is what F36 says to rely on instead. Auto-advancing radios is separately a
+  documented barrier, because it removes the chance to review a selection; a command button
+  has nothing to review. The group's role moves from `radiogroup` to `group` to match, and
+  keeps its accessible name.
+
+  **What deliberately does not change**, each for a measured reason:
+
+  - **A form of several questions.** Settling on its last question would be F36 word for
+    word, and auto-advancing between them is the barrier above. Chips, advance and submit
+    are untouched.
+  - **A multi-select and a free-text question.** Both accumulate, so both need a commit.
+  - **A choice carrying a `default`.** A button cannot be pre-selected, and a requester that
+    supplied one asked for a pre-filled answer it can review before sending — MCP's "clients
+    SHOULD pre-populate". That shape keeps its radios and its submit.
+  - **"Other…"**, which is not an answer but a request to write one: it opens the field and
+    hands the button back its meaning.
+
+  A consumer who wants pick-then-submit for a single choice registers an
+  `AparteElicitationFieldRenderer` for `enum`; a field renderer never settles.
+
+  `buildElicitationPanel` gains `onSettle`, the contract `buildApprovalPanel` already had.
+
+- ca49417: The five accents-as-text derive from their own fill; ten hexes become one number per theme.
+
+  `--aparte-primary-ink` and its four siblings were hand-picked hexes — five in the light
+  block, five in the dark — each measured against THIS repo's `--aparte-bg`. They paint every
+  ghost, outline and soft button's label, links, the selected tab, the tool-call status and
+  the form error marker, so a consumer's palette got accent colours computed for someone
+  else's page. Same defect as the solid ink, one layer over.
+
+  Each is now the accent with its own hue and chroma kept, and its lightness forced to
+  `--aparte-ink-l` — the one value that has to flip with the theme (`0.40` light, `0.85`
+  dark). The five derivations live on the anchored layer, so an `<aparte-chat>` that sets its
+  own `--aparte-primary` gets a matching ink rather than the root's.
+
+  **Why forced lightness and not a mix.** Pulling the accent toward `--aparte-text` reads
+  well and was measured first: it holds on our palette and fails at 3.41 on a brand primary
+  that is already near the background, because such an accent has to move PAST the text
+  colour, not toward it. Setting the lightness outright has no such blind spot.
+
+  Measured across 80 combinations — 5 intents x 4 palettes (ours light, ours dark, two
+  invented) x 4 grounds (bg, surface-1/2/3) — the worst case is 4.80. On our own palette the
+  inks land between 7.12 and 12.24, against 4.60–4.63 for the hexes they replace, and each
+  accent keeps its character on screen: brass reads brass, danger reads red.
+
+- 82b842e: Ready-made button classes. Put `aparte-btn` on a `<button>` and it looks like every
+  other control in the library.
+
+  ```html
+  <button class="aparte-btn aparte-btn--primary my-send">Send</button>
+  <button class="aparte-btn aparte-btn--icon" aria-label="Copy">…</button>
+  ```
+
+  Your own class stays on the element — for events, and so a consumer can target that
+  one button. It just stops carrying the look.
+
+  **Nothing existing changed.** This is a new sheet and twelve new tokens; no rule was
+  touched, so no pixel moved. Adopting it in the library's own 27 controls is the next
+  step, not this one.
+
+  ### Measured, not invented
+
+  The 33 control rules already in this library were read, and the base is what they
+  agree on: flex-centred, transparent, borderless, `cursor: pointer`, `flex-shrink: 0`.
+  What they did **not** agree on is why the file exists — `transition` appeared in 13 of
+  them with 12 different values, `border-radius` in 12 with 11. Nobody decided; everyone
+  filled in.
+
+  The variants come from the same reading, and the set is short on purpose:
+
+  | class                 | what it is                            | controls already like this |
+  | --------------------- | ------------------------------------- | -------------------------- |
+  | `aparte-btn`          | ghost — transparent, muted            | 33                         |
+  | `aparte-btn--surface` | raised: has its own ground and border | 3                          |
+  | `aparte-btn--primary` | filled with the accent                | 2                          |
+  | `aparte-btn--success` | tinted, not filled                    | 2                          |
+  | `aparte-btn--danger`  | tinted, not filled                    | 1                          |
+
+  There is no `--secondary`: nothing in this library is secondary, and a variant nobody
+  wears is a contract maintained for nobody. `--success` and `--danger` tint rather than
+  fill because that is what the existing controls do.
+
+  Shape and size: `--icon` (square, sized by the modifier) and `--sm` / `--lg` around a
+  default `--md` — 20px, 28px, 36px, the three sizes this library already uses.
+
+  `:disabled` lives here once. It was six rules saying the same two declarations.
+
+  ### Verified in a browser
+
+  Every variant rendered and its computed style read: the accent fill resolves to the
+  brass `rgb(176,125,51)`, the icon sizes to exactly 28/20/36px, disabled to opacity 0.5
+  and `not-allowed`. And a single `<aparte-chat>` at `--aparte-font-scale: 1.25` gives a
+  29px button against the default's 22px — the recipe follows the masters, per instance.
+
+- 7713818: The masters now reach the component tier, which is what makes them masters.
+
+  `--aparte-space-unit` moved the scale and stopped there: 28 component tokens were
+  literals whose values already WERE steps — `--aparte-message-gap` was `12px`, which is
+  `space-6` — so a chat at `--aparte-space-unit: 3px` grew its gutters and kept its
+  message padding at 16px. It scaled crooked. They derive now.
+
+  Proven in a browser, side by side: at `--aparte-space-unit: 3px`,
+  `--aparte-radius-unit: 4px`, `--aparte-font-scale: 1.25` on ONE `<aparte-chat>`, its
+  message padding goes 16/12px → 24/18px, its viewport padding 16 → 24px, its option
+  radius 8 → 16px and its content text 15 → 18.75px, while the sibling chat at the
+  defaults does not move.
+
+  And measured the other way: of 317 pre-existing tokens resolved on a real property in
+  both themes, **not one changes value**. This is a pure refactor.
+
+  ### The line, because there is one
+
+  The spacing scale governs gutters, padding and margin. The radius scale governs
+  corners. The type scale governs text. **None of them governs a stroke width or a
+  control's size.** `--aparte-thinking-rail-width` stays `2px` because loosening spacing
+  must not thicken a rule, and `--aparte-avatar-size` stays `32px` because tightening it
+  must not shrink an avatar. Both verified to stay put under a moved master.
+
+  Eight text sizes were px and are rem now (`--aparte-content-font-size`,
+  `--aparte-input-font-size`, `--aparte-avatar-font-size`, `--aparte-name-font-size`,
+  `--aparte-timestamp-font-size`, `--aparte-branch-picker-label-size`,
+  `--aparte-input-editor-font-size`, `--aparte-status-font-size`) — identical at a 16px
+  root, and following the reader's browser setting elsewhere, like the rest of the
+  typography.
+
+- 466b849: The rest of the stylesheet joins the token system — and the artifact panel starts
+  working in dark mode.
+
+  The previous pass tokenised spacing, radius, hairlines and motion. It left everything
+  else, which turned out to be **101 declarations writing a raw value on a property that
+  already had a family of tokens**. 75 of them are gone.
+
+  **Weights and type.** 11 raw `font-weight`s (500/600/700) where
+  `--aparte-font-weight-*` existed — the file's own comment claimed "no raw weights".
+  22 `font-size`s, all in the artifact and tool components, which had never joined the
+  type scale at all: nine values between `0.7rem` and `0.92rem`, none of them a step.
+  Each moves to its nearest step, and the largest move is **0.48px**. Four
+  `line-height`s land on a new `--aparte-line-height-snug` (one of them was `1.35`, so
+  it moves 0.8px).
+
+  **A second owner for "the code font".** Two rules carried their own monospace stack
+  (`'JetBrains Mono', 'Fira Code', …`) instead of `--aparte-code-font-family`, so the
+  artifact's code pane rendered in a different font from every other code block.
+
+  **The error panel was unreadable in dark mode.** `.aparte-art-file__error*` hardcoded
+  `#b91c1c` and `#7f1d1d` — dark reds — on a panel that goes dark with the theme, while
+  `--aparte-error-title` / `-text` / `-bg` / `-border` existed and flip correctly. They
+  are used now.
+
+  **Paper is named, not hardcoded.** A file preview is a document shown inside the chat,
+  so it stays light whatever the theme is — an intent that was already written in a
+  comment beside a literal `#fff`. `--aparte-art-paper-bg|text|row-alt|head-bg|head-text|border`
+  express it and are deliberately absent from the dark block. The file-type tiles keep
+  their brand gradients, now as `--aparte-art-file-icon-bg[-pdf|-docx]`.
+
+  **The prose family was half-tokenised**: sizes and weights named, margins written out.
+  Eight tokens complete it (`--aparte-prose-h1..h4-margin`, `-blockquote-margin`,
+  `-blockquote-indent`, `-hr-margin`, `-code-padding`), in `em` on purpose — the one
+  place where relative beats the px scale, because a heading's margin should follow its
+  own size.
+
+  **`select.css` was the only sheet spacing in `rem`** (`0.5rem`, `0.75rem`, `0.25rem`)
+  while the rest of core used the px scale. Nine declarations now use the scale;
+  identical at a 16px root.
+
+  Two things this pass caught in its own work. Routing a fixed-background tile to
+  `--aparte-text-inverse` would have put near-black lettering on a dark green tile in
+  dark mode, because "inverse" follows the theme and that tile does not — it has
+  `--aparte-art-file-icon-color` instead. And `--aparte-select-radius` ended up with two
+  different fallbacks, one per reference, which is a third way to own a value twice; the
+  guard now refuses that too, alongside the fallback-on-a-declared-token and
+  declared-twice rules. All three are proven by sabotage.
+
+  ### Still raw, on purpose
+
+  `opacity`. Ten of its uses are `0` (show/hide), which is not a token. The rest are
+  seven **disabled** states carrying **five different values** — 0.3, 0.45, 0.5, 0.5,
+  0.55, 0.6, 0.6. That is real drift, but collapsing it is visible (a disabled branch
+  arrow at 0.3 nearly doubles in weight at 0.5), so it stays a design decision rather
+  than a sweep. `margin: 0 auto`, a `-1px` caret nudge and one `font-size: 1em` stay
+  literal: they are geometry and relative sizing, not design values.
+
+- 96c23c3: The stylesheet becomes a token system: one owner per value, and three masters that
+  actually move the whole scale.
+
+  **The scale now derives.** `--aparte-space-unit`, `--aparte-radius-unit` and
+  `--aparte-font-scale` are new, and every step is computed from one of them
+  (`--aparte-space-4` is `calc(var(--aparte-space-unit) * 4)`). Before, each step was a
+  literal, so there was no single value to move. Measured after the change: of 265
+  pre-existing tokens, resolved on a real property in a browser, in both themes,
+  exactly one resolves differently — the deliberate rename below. The rest land on the
+  same pixel.
+
+  **Type is in `rem`.** The font-size scale was px, so it ignored the reader's browser
+  font size — the one accessibility setting a chat has to honour. At the default 16px
+  root nothing changes; at any other setting the chat now scales with the page.
+  `--aparte-font-scale` multiplies the whole ramp for an app that wants it smaller or
+  larger without restating six values.
+
+  **One owner per value.** 471 `var(--x, fallback)` fallbacks were removed, of 521. A fallback
+  only applies when the token is undeclared, and `src/index.ts` imports every stylesheet
+  core ships — so those fallbacks never applied. They only drifted: in the theme sheet alone, **155 of them
+  contradicted the declared value**, `--aparte-border` carrying eleven different
+  fallbacks and `--aparte-primary` falling back to an indigo the palette had left. The
+  worst were nested inside `select.css`, where dark literals (`#1e293b`, `#334155`) sat
+  on the light path. The 18 tokens core never declares keep their fallback: there the
+  fallback IS the owner, which is the "unset by default" knob.
+
+  **Motion is tokenised.** `--aparte-duration-fast|base|slow|slower|spin|pulse`,
+  `--aparte-ease` and `--aparte-slide-distance`. 48 hardcoded durations across 27 rules
+  read them now. `prefers-reduced-motion` overrides the tokens rather than sweeping
+  selectors, which closes a real hole: two hand-written patches existed because the old
+  sweep matched only DESCENDANTS of core's elements, never the elements themselves.
+
+  **Windows high contrast.** In `forced-colors` mode the UA drops `box-shadow`, so the
+  two focus indicators built on `--aparte-focus-ring`, and the error ring on an avatar,
+  did not change colour — they vanished. They are restated as outlines.
+
+  New tokens: `--aparte-z-raised`, `--aparte-z-dropdown`, `--aparte-z-floating` (a host
+  can now lift its own modal over the scroll button), `--aparte-focus-outline-offset`,
+  `--aparte-avatar-error-ring`, `--aparte-select-shadow`, and twelve component sizes that
+  were magic numbers in a rule.
+
+  ### Breaking for themes
+
+  | before                                                             | after                              |
+  | ------------------------------------------------------------------ | ---------------------------------- |
+  | `--aparte-select-min-width` (120px, styled `.aparte-model-select`) | `--aparte-model-select-min-width`  |
+  | `--aparte-select-min-width`                                        | now means `<aparte-select>`, 200px |
+
+  The name pointed at the wrong widget, next to a `<aparte-select>` it did not control.
+
+  ### Visible changes, on purpose
+  - **The `<aparte-select>` focus ring follows the theme.** It was a second, diverged
+    implementation hardcoded to Tailwind blue `rgba(59,130,246,.2)`; it now uses
+    `--aparte-focus-ring` like every other focus ring, so it is brass in the default
+    theme instead of blue.
+  - **The select dropdown has a shadow in dark mode.** Its shadow lived as a fallback,
+    so it had no dark value at all, and `rgba(0,0,0,.1)` over a dark surface is no
+    shadow.
+  - **Six off-scale values moved by 1px** to land on the spacing scale (a 7px gap to
+    8px, a 3px padding to 4px, and so on).
+  - **The select spinner turns at 0.7s instead of 0.6s**, joining the one rotation speed
+    the sheet already named.
+
+- 3889d8f: One value for "this control is disabled": `--aparte-disabled-opacity`, default `0.5`.
+
+  Seven disabled states carried five different opacities — `0.3`, `0.45`, `0.5`, `0.5`,
+  `0.55`, `0.6`, `0.6` — and not one of them had a comment saying why, so there was
+  nothing to preserve in keeping them apart. They all read the token now.
+
+  Deliberately ONE knob rather than Material 3's `content` / `container` pair: that
+  split exists to tint a container's background separately from its text, and every
+  case here is a whole control fading. And not Bootstrap's per-component variable
+  (`--bs-btn-disabled-opacity`) either — a variable per family is the drift this
+  removes, with names on it.
+
+  ### Visible
+
+  |                                           | before | after |
+  | ----------------------------------------- | ------ | ----- |
+  | `.aparte-branch-prev\|next:disabled`      | 0.3    | 0.5   |
+  | `.aparte-editor[contenteditable="false"]` | 0.6    | 0.5   |
+  | `.aparte-ci-editor[aria-disabled="true"]` | 0.6    | 0.5   |
+  | `aparte-composer[data-model-gated]`       | 0.55   | 0.5   |
+  | `.aparte-send-button:disabled`            | 0.45   | 0.5   |
+
+  The branch arrows are the one real change: at `0.3` they were the faintest disabled
+  thing in the library, and they now match everything else.
+
+  Untouched, because they are not the same thing: 21 `opacity: 0|1` (that is show/hide,
+  not a design value) and 8 decorative fades on states that are not disabled — a muted
+  label, a hovered icon, an archived conversation.
+
+  ### Still open, and separate
+
+  `aparte-composer[data-model-gated]` puts the opacity on a CONTAINER, and core renders
+  into the light DOM — so it also fades whatever the consumer slotted into
+  `above-composer` and the toolbar. That is precisely why Carbon, Ant Design and Fluent
+  use dedicated disabled _colours_ rather than opacity. Whether a gated composer should
+  fade at all, or change colour, is a design question this token does not settle.
+
+- 13ec8ca: Every element now carries its own documentation, and the docs site is generated from it.
+
+  `package.json` points `customElements` at `dist/custom-elements.json` and `files` ships `dist`,
+  so this file is what feeds a consumer's editor autocomplete — not only apartejs.dev. It was
+  thin, wrong in five places, and in one package it did not exist at all.
+
+  ## The manifest, measured across core's 18 elements
+
+  |                                        | before  | after       |
+  | -------------------------------------- | ------- | ----------- |
+  | descriptions under 200 characters      | 10 / 18 | **0 / 18**  |
+  | elements declaring their CSS variables | 0 / 18  | **17 / 18** |
+  | declared slots                         | 1       | **0**       |
+  | elements carrying a worked example     | 18 / 18 | 18 / 18     |
+
+  **The CSS variables are the substantial half.** 263 exist and not one was attached to the
+  element it styles, so they were reachable only through a single flat 263-row reference — present
+  and unfindable, which is the failure this repo keeps rediscovering. **177 are now declared on
+  their own element**, with the default the stylesheet actually sets. The eighteenth, the composer
+  toolbar, correctly declares none: it is styled entirely by global spacing tokens and has no knob
+  of its own.
+
+  **The slot count going to zero is the fix, not a regression.** Core has no shadow DOM — no
+  `attachShadow`, no `<slot>` element anywhere — so it has no slots. A `@slot` in a manifest
+  declares a real slot NAME a consumer can write and tooling will offer; one had shipped for a
+  `panel` region that is a plain child stamped `data-aparte-panel`, so an editor would have
+  completed a name that does nothing. Ratified decision #4: a name a context contradicts is a name
+  that will lie. What an element accepts as children, and where those children land, is now prose.
+
+  ## Five published claims were false, and are corrected rather than softened
+  - `<aparte-chat-viewport>`'s `framework-managed` said it "relocates none of its children". It
+    re-appends core's own scroll-to-bottom button whenever that stops being last, and that path
+    runs in framework-managed mode only. The guarantee is about the nodes the FRAMEWORK renders.
+  - `<aparte-chat>` described its composition test as looking for a viewport CHILD. It is a
+    descendant query, so a viewport nested inside a wrapper of your own counts — and the
+    difference decides whether your markup survives or is overwritten by the default composition.
+    Only the centering CSS is direct-child, and only that sentence now says so.
+  - `<aparte-chat>` said "a framework wrapper sets `framework-managed`". Only Angular's does: its
+    component selector IS `aparte-chat`, while React, Vue and Svelte render a `[data-aparte-chat]`
+    div and never create the element.
+  - `--aparte-viewport-padding` promised that a narrow container reduces it. That rule targets a
+    wrapper the framework-managed path never builds — and it cannot be repaired by adding the
+    host, because `container-type` is declared on the viewport itself and a container query never
+    matches its own container.
+  - `<aparte-composer>`'s `--aparte-message-max-width` said overriding it "moves both". Custom
+    properties inherit downward and `.aparte-message` is a sibling subtree, so set on the composer
+    it moves only the composer.
+
+  Each was found by an adversarial pass that was told to refute, not to confirm.
+
+  ## `@aparte/plugin-ask-user` ships a manifest for the first time
+
+  It defines a custom element with `customElements.define` and shipped nothing machine-readable
+  about it: no `customElements` field, no `analyze` step, no manifest — while its sibling
+  `@aparte/plugin-model-selector` has had all three since it shipped. So no editor completed
+  `<aparte-ask-user>`'s surface, and no page could be generated from it. It has one now.
+
+  The analyzer plugin that lifts `@example` blocks into a manifest lived inline in core's config,
+  so neither plugin element had an example in its own manifest. It is now shared by all three
+  configs, and all three report every element carrying one.
+
+  ## Why minor rather than patch
+
+  Nothing's runtime behaviour changed in this entry, but the manifest is a PUBLISHED description
+  of the API: a declared slot disappears, 177 CSS custom properties appear, and a package gains a
+  `customElements` pointer where it had none. Tooling reads all of that. Calling metadata that
+  consumers' editors consume a patch would understate it.
+
+- 14a55b0: New entry point: `@aparte/core/icons`, with 41 glyphs core itself never draws.
+
+  ```ts
+  import { searchIcon, trashIcon } from "@aparte/core/icons";
+  button.innerHTML = searchIcon;
+  ```
+
+  They cover the vocabulary around a chat rather than inside one — search, filter, folder,
+  code, trash, settings, user, bot, database, globe, key, mic, eye, clock, history, star,
+  share, sun/moon, and the arrows and chevrons.
+
+  **A separate entry point, not an addition to the built-in set**, and the reason is
+  mechanical: `getIcon(name)` reads `APARTE_DEFAULT_ICON_FALLBACKS` by a computed key, so
+  a bundler cannot tell which entries a build reaches and keeps the object whole. Anything
+  added there ships to everyone, used or not. These are individual exports instead —
+  import three, pay for three, and nothing at all if you never open the module. Measured
+  on the built output: `@aparte/core` grows 554 bytes (a chunk boundary) and contains none
+  of them; `@aparte/core/icons` is 21.6 kB and shares the built-in glyph chunk, so a
+  consumer of both never pays for a drawing twice.
+
+  Every glyph carries `class="aparte-icon"`, so `--aparte-icon-size` sizes it wherever it
+  lands. Shapes and names follow Lucide, so swapping in the real thing changes the import
+  and nothing else; nothing is imported from it.
+
+  The full set is on the generated **Icons** reference page, each glyph shown at its
+  export name.
+
+- 3e2afee: Every glyph the library draws now lives in one place, `src/icons/glyphs.ts`, and each is
+  an individual export.
+
+  Scattering them had not merely spread the source around — it had let them DRIFT. There
+  were three different ✕ (a filled one on a 12 grid, a stroked one at 2.5, and `close`),
+  two different chevrons, and `paperclip` and `scrollDown` each existed twice, byte for
+  byte, inside a component that could have asked for them. Three stroke widths, three
+  grids.
+
+  Four names are new, so a consumer's icon pack can now replace them: `info`, `archive`,
+  `unarchive`, `download`. The bubble's info glyph in particular was inline precisely so
+  that it needed no key, which meant nobody could change it.
+
+  A glyph no longer carries its own size — that is what kept the same drawing from being
+  shared. `--aparte-icon-size` is the one knob and it inherits, so a container declares it
+  and every glyph below follows; `.aparte-btn > svg` and the other rules that already
+  expressed size in CSS still win and are untouched. Measured in a browser: no icon
+  changes size.
+
+  Fixed: core's `loading` icon did not spin. It carried `aparte-icon-spin` and nothing
+  declared it.
+
+  `@aparte/core`'s JS bundle drops 2.1 kB.
+
+- 53d99d8: `<aparte-icon>` — the icon set, reachable from markup.
+
+  Core ships 25 glyphs and sells `setIconProvider` as the lever that swaps them, and the only
+  door in was `getIcon(name)`: JavaScript. So a consumer writing plain HTML could not place
+  one, and the provider they registered could not reach a single icon in their own templates.
+  `<aparte-composer-action>`'s own documentation tells you to put an `<svg>` inside it, which
+  is that gap written down as an instruction.
+
+  It is why every example on the CSS-classes reference carried 265 characters of path data to
+  demonstrate a 60-character class — there was no shorter way to say "an icon goes here" that
+  actually drew one. Those examples now read `<aparte-icon name="copy">`, and SVG is **0%** of
+  the markup that page publishes, against 22% before.
+
+  ```html
+  <button class="aparte-btn aparte-btn--icon" aria-label="Copy">
+    <aparte-icon name="copy"></aparte-icon>
+  </button>
+  ```
+
+  It routes through `getIcon`, so it is not a second icon mechanism — it is a markup entrance
+  to the one that exists. Register a provider and every `<aparte-icon>` follows, including
+  ones mounted before the provider was set.
+
+  **Why an element and not CSS classes.** A `mask-image` class would need no JavaScript, and
+  that is genuinely attractive — but it cannot consult the icon provider, so a consumer who
+  swapped the set would get theirs where core draws and ours where they wrote a class: the
+  exact inconsistency this closes, moved elsewhere. A masked icon is also painted by a
+  `background`, which forced-colors mode drops, while an inline SVG on `currentColor`
+  survives — the same argument `menu.css` already makes for its checkmark. Weight was not the
+  deciding factor: 25 encoded glyphs are ~7 kB against the stylesheet's 263 kB.
+
+  **The cost, stated:** the 25 glyph names become public API. `expand`, `copy`, `nextBranch`
+  were internal identifiers; renaming one now breaks a consumer's markup.
+
+  An unknown name draws nothing rather than printing `undefined`, and the glyph is
+  `aria-hidden` — when the icon is a button's only content, name the button.
+
+- a2274be: Every intent has a named ink, and core works it out when you do not.
+
+  **What was wrong.** `--aparte-on-intent: #14100a` was a hex chosen by measuring against
+  THIS repo's own intent fills, and every solid button, badge and checkbox took its label
+  colour from it. That made core's rendering depend on core's palette, in a library whose
+  premise is that consumers bring their own. The theming guide teaches an eight-line
+  rebrand and `<aparte-chat style="--aparte-primary: …">` and named that token in neither,
+  so a dark brand colour got near-black on it and no signal — **1.11:1** measured on a navy
+  `#1a1a2e`, **1.83:1** on slate `#334155`.
+
+  It was broken on the stock palette too. Escaping the constant needed a per-intent
+  exception and `--neutral` had one, a hardcoded white copied into three sheets. It was
+  pinned while the fill flips with the theme (`#6d6479` → `#a89bb6`), so in dark mode the
+  neutral solid button's label, the neutral badge's text and the neutral checkbox's
+  checkmark all shipped at **2.62:1**. Nothing measured it.
+
+  **The contract is now a pair per intent**, and a theme declares whichever half it has an
+  opinion about:
+
+  ```
+  --aparte-primary / --aparte-on-primary        --aparte-info    / --aparte-on-info
+  --aparte-secondary / --aparte-on-secondary    --aparte-success / --aparte-on-success
+  --aparte-neutral / --aparte-on-neutral        --aparte-warning / --aparte-on-warning
+  --aparte-error / --aparte-on-error
+  ```
+
+  None of the seven `--aparte-on-*` ships declared. An undeclared partner means "work it
+  out", and each recipe derives the ink from its own fill — keep the hue, drop the chroma
+  to a trace, pick lightness either side of `--aparte-ink-flip`. Declare one and it wins
+  for every control using that intent. The shape shadcn uses, with Bootstrap's computed
+  default behind it; this repo had borrowed Material's `on-*` naming and backed it with a
+  constant.
+
+  Measured in a browser on the built stylesheet: **42 of 42** control/intent/theme
+  combinations clear AA, where `neutral` in dark read 2.62. The derivation also matches or
+  beats the old hand-picked value on every fill this palette declares.
+
+  - **Removed:** `--aparte-on-primary`'s hardcoded `#ffffff`. The name stays as the pair
+    partner — undeclared, so it derives. Its only readers were the three `--neutral` rules,
+    and it was separately documented on `<aparte-composer-send>` as the send icon's colour,
+    which that button never read.
+  - **Added:** `--aparte-ink-flip` (0.57) and `--aparte-ink-dark` (0.176) — how the computed
+    default behaves, one knob each for every solid control. `--aparte-derived-ink` exposes
+    the computed value itself.
+  - **Kept:** `--aparte-on-intent`, now only the fallback for a browser without relative
+    colour syntax (Firefox before 128), reached through `@supports` — a custom property does
+    not fall back on an unparsable value the way a real property does.
+
+  The theming guide now documents the pairs, which is the half that made the original defect
+  invisible: the mechanism existed and nothing told a consumer it was theirs to set.
+
+- aaf8d5c: A neutral UI layer: ready-made classes for every native HTML control, plus the display
+  and surface primitives a UI library is expected to have.
+
+  The layer is NEUTRAL on purpose — it is what a UI library offers, not a summary of what
+  this repo uses. A variant nothing wears still ships, because the plugin that needs it is
+  not written yet, and its absence is what makes an author invent a seventh shade of
+  orange.
+
+  ### The button, rebuilt on two axes
+
+  An **intent** says which colour a button means; a **fill** says what to do with that
+  colour. Seven intents (primary, secondary, neutral, info, success, warning, danger)
+  times five fills (ghost, solid, outline, soft, surface) is thirty-five buttons out of
+  twelve classes, and every combination works because neither axis knows about the other.
+
+  ```html
+  <button class="aparte-btn aparte-btn--primary aparte-btn--solid">Send</button>
+  <button class="aparte-btn aparte-btn--danger aparte-btn--outline">
+    Delete
+  </button>
+  ```
+
+  Plus `--icon`, `--pill`, `--circle`, `--block`, three sizes, six states (hover, active,
+  focus-visible, disabled, toggled via `aria-expanded`/`aria-pressed`, busy via
+  `aria-busy`), and `.aparte-btn-group` with logical joined corners.
+
+  Text on a solid fill is INK, not white — measured on every intent this palette declares:
+  ink wins on six of seven (warning 7.49 against 2.15, success 6.34 against 2.54), white
+  only on neutral. Three intents reach neither 4.5 with either colour (primary 4.46, info
+  4.37, danger 4.27); that is the palette's mid-luminance, and it is worth knowing before
+  you put a normal-size label on a solid button.
+
+  ### Three new sheets
+
+  `field.css` — the shared text-entry recipe on `<input>`, `<textarea>` and `<select>`,
+  with sizes, a prefix/suffix group, and invalid via `aria-invalid` rather than `:invalid`
+  alone (which fires before the user has typed). Checkbox, radio, switch and range, each
+  carrying the intent axis. Label, hint, error, required marker, fieldset. And the five
+  native controls that were missing: colour, the date and time family, `<meter>` (its
+  three bands take the three status colours), `<output>`, and a standalone `.aparte-link`.
+
+  `display.css` — badge (intents × solid/soft/outline, plus `--dot`), removable tag,
+  avatar and avatar group, spinner, progress, skeleton, divider, alert, card, `<kbd>`.
+
+  `surface.css` — tabs, accordion, menu, popover, tooltip. No dialog, drawer or toast:
+  those need a portal and a stack manager, and belong to the consuming application.
+
+  ### Two things the guard learned
+
+  **A component may parameterise itself.** `.aparte-btn` declaring `--aparte-btn-intent`
+  is not the failure the guard watches for — that failure is a theme token derived once on
+  `:root`, which then cannot follow a palette a subtree overrides. The exemption is narrow:
+  the name must be prefixed by the component the selector names.
+
+  **A component-scoped declaration is not a default.** `--aparte-spinner-size` was declared
+  on `.aparte-spinner` alone, and the single-owner rule then flagged the fallback that
+  `<aparte-progress-spinner>` — which does not wear that class — was relying on. Removing
+  it collapsed the element to `auto`. The rule now only forbids a fallback on a token
+  declared where every element can resolve it.
+
+  ### Measured
+
+  391 tokens declared and no dangling reference; the fifteen sheets balanced; 22 rendered
+  families all styled; the tooltip and the layered shadows verified to flip with the dark
+  theme. `dist/index.css` goes from 135 kB to 219 kB — the new layer is 84 kB, which is
+  worth knowing for a consumer who only wants the chat.
+
+- 9a1471e: The scroll-to-bottom button is `aparte-btn--lg aparte-btn--circle` and stops redrawing
+  what that already means.
+
+  Its 36px box is exactly `--aparte-btn-size-lg`, so naming the size gives it the box, the
+  round corner and a 20px glyph for free — the arrow was 16px in a 36px circle, 44% of its
+  box where the rest of the library reads at ~57%.
+
+  **Removed:** `--aparte-scroll-btn-bg`, `--aparte-scroll-btn-hover-bg`,
+  `--aparte-scroll-btn-color` and `--aparte-scroll-btn-border`. Each resolved to exactly
+  what `aparte-btn--surface` already applies (`var(--aparte-surface-1)`,
+  `var(--aparte-surface-2)`, `var(--aparte-text)`, `var(--aparte-border)`) — four names
+  for one thing. Rendering is byte-identical in both themes; measured. To restyle the
+  button, target `.aparte-scroll-btn` directly, which light DOM has always allowed.
+  `--aparte-scroll-btn-size` and `--aparte-scroll-btn-shadow` stay: they are the two
+  things the recipe has no word for.
+
+  Also fixed: a consumer's custom bubble action button rendered without the button recipe,
+  so it had no focus ring, no hover and no padding reset. Three dead CSS rules for
+  `aparte-composer-dictate` — an element that has never existed — are gone. And
+  `<aparte-progress-spinner>`'s `--aparte-spinner-size` was documented as 14px when it has
+  always been 16.
+
+- a8804ee: Five segment types that were public in everything but name are now exported.
+
+  `AparteSegment` is exported and its union names all eight members, yet two of them could
+  not be written down: narrowing on `type: 'error'` gave a consumer the shape and no way to
+  declare a variable of it. `AparteErrorSegment` and `ApartePipelineWaitingSegment` are
+  exported now — the second was reachable from no barrel at all, not even the internal one.
+
+  `AparteSegmentBase` is the worse omission, because it is not an omission from a list: it
+  is the CONSTRAINT on the exported `AparteSegmentRenderer<T>`. Writing a renderer for a
+  segment type of your own means declaring `MyType extends AparteSegmentBase`, and the
+  package did not export the name.
+
+  `AparteSegmentTiming` types `meta.aparte`, which the customization guide already
+  described as "still typed" while it was unnameable; `AparteSegmentDefaults` types what
+  `setSegmentDefaults()` takes, and both are exported too.
+
+  All five are exported from the SSR barrel too — a type has no DOM, and TypeScript resolves
+  `types` under the `node` condition, so exporting them from the browser barrel alone would
+  have compiled for everyone except an SSR consumer.
+
+  No shape changed. This is the barrels catching up with what the types already said.
+
+- 45a1083: Three pairs of tokens holding one value, and two rules written twice.
+
+  **The elicitation panel and the conversation item were outside the systems.** Their
+  sizes were literals off every step — `0.76`, `0.78`, `0.8`, `0.82rem` — and the same
+  `7px 10px` padding was written under two names. Eleven tokens now derive: sizes land on
+  the type scale, the padding on the spacing scale. Measured in a browser across both
+  themes: six values move, the largest by **0.48px**. The point is not the pixels — it is
+  that these two panels now follow `--aparte-font-scale` and `--aparte-space-unit`, which
+  they did not.
+
+  `--aparte-input-container-min-height` was `44px` beside `--aparte-touch-target-size:
+44px`. The input's minimum height IS the touch target, so it reads it now.
+
+  **Two artifact segments shared one card shell, written twice** — nine identical
+  declarations on `.aparte-segment-artifact-card` and `.aparte-segment-artifact-file`.
+  One rule, two selectors. Checked before merging: nothing between the two positions
+  targets either, so the cascade is unchanged.
+
+  **`aparte-model-selector` and `.aparte-model-selector`** declared the same three
+  properties in two rules. The class is the hook for an app that lays out its own
+  selector, and it had drifted in one respect already: `[hidden]` covered the element
+  only, so a hidden wrapper carrying the class stayed laid out. Both are grouped, and
+  `[hidden]` now covers both.
+
+  ### Looked at and deliberately left
+
+  `cursor: not-allowed; opacity: var(--aparte-disabled-opacity)` appears on six
+  selectors across two files. The value that could drift is already a token; what
+  repeats is `cursor: not-allowed`, which cannot. Grouping six selectors across two
+  files would move rules through the cascade for no protection.
+
+  Three token pairs that look like duplicates and are not, measured rather than assumed:
+  `--aparte-neutral` and `--aparte-text-muted` are equal in light and **diverge in dark**
+  (`#6d6479` vs `#a89bb6`), so merging them would break the dark theme;
+  `--aparte-text-inverse` equals the lightest surface in light and the darkest ground in
+  dark, which is one coherent idea — "the opposite pole" — not a copy; and
+  `--aparte-surface-3` equals `--aparte-border` in dark, which paints nothing wrong
+  because no element with a `surface-3` background carries a border.
+
+### Patch Changes
+
+- 1dff98c: The approval panel's options and the elicitation panel's checkboxes and radios now use
+  core's own recipes instead of styling themselves.
+
+  An approval option is `aparte-btn aparte-btn--block aparte-btn--surface`. It used to
+  carry the button recipe AND a boxed `.aparte-field-choice`, which is a different thing
+  — a choice row is a value you pick and then submit, an approval settles on the click —
+  and, being two single-class selectors, the two sets of padding/border/radius were
+  separated only by import order. Long labels now wrap instead of being held on one line.
+
+  The 2px coloured edge on `--affirm` / `--deny` is gone, along with
+  `--aparte-approval-accent-width`. A coloured rule is an alert's vocabulary, not a
+  control's. Colouring the fills instead was measured and is worse: solid success gives
+  2.19:1 on the dark palette. The two classes stay on the element and carry no CSS —
+  they name the meaning for anyone restyling the panel.
+
+  The option controls are `.aparte-checkbox` / `.aparte-radio`. They were native inputs
+  tinted with `accent-color`, so they were the one part of the library the browser drew
+  itself — a light-mode UA put a pale box on a dark row. `--aparte-elic-control-size`
+  still sizes them.
+
+- b011416: Fixed: `_meta.artifactHint` did nothing on a non-streaming reply.
+
+  The hint promotes a reply's first code fence to an artifact. The streaming path applies it
+  twice — as the fence closes, and again at finalize — and the path for a transport whose
+  `chat()` resolves a plain string applied it never. The same reply therefore rendered
+  `text | code | text` through core's inline loop and `text | artifact | text` through the
+  engine seam: one response, two products, decided by which transport happened to be wired.
+
+  That is the class of defect the engine parity suite exists to prevent, and it missed this
+  one because it never pairs a hint with a plain-string reply. Two tests now do.
+
+- 7d11d0b: Fixed: the artifact card's primary button failed WCAG AA on its own label.
+
+  `.aparte-art-file__btn--primary` re-declared the fill, the border and the ink that
+  `aparte-btn--primary aparte-btn--solid` already paints. Five of those declarations were
+  inert duplicates; the sixth was not. `color: var(--aparte-text-inverse)` overrode
+  `--aparte-btn-on-intent`, which the recipe derives from the fill — measured in a browser
+  on the built stylesheet, 3.54:1 against the recipe's 5.27:1 in the light theme. It was
+  also the last rule in `styles/` forcing `--aparte-text-inverse` as ink on a coloured
+  fill, so a one-attribute rebrand re-derived the ink on every other solid-primary button
+  and, here alone, kept core's own palette.
+
+- e06d254: The tail of the cold audit: four smaller things, each verified before it was touched.
+
+  **The streaming dot announced nothing.** The artifact card's pulse was a `<span>` with
+  `aria-label="Streaming"` — an ARIA-prohibited attribute on an implicit `generic` role,
+  dropped by Chromium and Firefox, and hardcoded English in a card whose own comment claims
+  every string was given a locale key. It is `role="img"` with `t('generating')` now, the
+  key whose documentation already says it names the waiting state.
+
+  **The reference published six overrides as defaults.** `gen-css-vars` matched `:root` with
+  leading whitespace, so the block nested inside `responsive.css`'s
+  `@media (prefers-reduced-motion: reduce)` was read as another declaration block: every
+  duration appeared twice, the second time claiming a default of `0.01ms`, under an
+  unrelated heading. Top-level only now — a nested block is an override, which is why the
+  dark theme's is skipped.
+
+  **`<aparte-progress-spinner>` could not be stopped.** Its rotation hardcoded `0.9s`
+  instead of reading `--aparte-duration-spin`, so it ignored the reduced-motion reset that
+  overrides that token. It turns very slightly faster now (0.7s), which is the price of
+  stopping when asked.
+
+  **Two guides contradicted the code.** The elicitation guide's presenter table omitted
+  `onSettle` — the only path by which a single-choice answer reaches you — and gave
+  `mode()` two values out of three, missing `'none'`. The accessibility guide, on a page
+  that states "where a number appears, it was counted", claimed the axe suite runs against
+  "all five example apps in Chromium, Firefox and WebKit"; there are seven apps, WebKit
+  covers five and Firefox two.
+
+- 67d8e6b: Two the recipe sweeps missed.
+
+  **The badge's label was the fill.** `--aparte-badge-on-intent` answers what ink sits ON a
+  solid fill, and it is derived correctly — but base, `--soft` and `--outline` paint the
+  label with the raw `--aparte-badge-intent` on the PAGE background, which is a different
+  question. A fill is chosen to be seen as an area; the same value as 12px text is not the
+  same requirement, and on the light theme a soft warning badge came out at 1.75:1.
+  `button.css` was given `--aparte-btn-intent-ink` for exactly this and the badge was not.
+  Same name, same defaulting to the fill, so a custom `--aparte-badge-intent` still works;
+  the five accent inks `theme.css` already derives now carry the label. `--secondary` and
+  `--neutral` set no ink here either, as in `button.css`.
+
+  **The spinner ignored `prefers-reduced-motion`.** `--aparte-duration-spin` was the one
+  duration missing from the reduced-motion reset, so `.aparte-spinner`, the loading glyph
+  and the select's spinner kept turning. The block's own comment says it stops motion at
+  the source for the elements the descendant sweep cannot reach; it now includes the
+  duration all three of them read.
+
+- 94b87b7: The branch picker announces its move to a screen reader.
+
+  The arrows deliberately do not take focus — pressing `›` should not steal the caret from
+  wherever the reader was — so a live region is the only thing left to signal the change.
+  There wasn't one. `.aparte-sr-only` existed in the bubble, but inside the WAITING
+  indicator, written only with the locale's "typing" label, so a screen-reader user pressing
+  next got a different answer with no indication that anything had happened.
+
+  `.aparte-branch-status` is a polite live region carrying the position. It is separate from
+  the visible `.aparte-branch-label` on purpose: a custom `setSiblingNavRenderer` may replace
+  that label with dots, which reads as nothing. No new locale key — the position is digits,
+  and the two buttons beside it already carry translated labels.
+
+  Found by a documentation audit, and the way it survived is worth recording: the
+  accessibility guide described this behaviour as if it shipped. The sentence was true of the
+  design and false of the code, which is the one kind of claim no test and no guard was ever
+  going to catch.
+
+- 705e847: `<aparte-chat-bubble>`'s example now shows a branch.
+
+  The element's `@example` had a plain bubble and a streaming one, and nothing with
+  siblings — so the `‹ 1 / 2 ›` picker, which is what retry-forks-a-sibling produces and
+  the whole subject of the branching guide, was never rendered anywhere on the docs site.
+  `setSiblings(count, index)` is a METHOD, not an attribute, so no amount of markup could
+  show it; the example needed the same small `<script>` the viewport, select and
+  conversation-list examples already use.
+
+  This is the source the docs read: the element page prints the example and its live
+  preview runs that same string, so one addition gives both a picture of a branch.
+
+- 682a837: A button's size modifier now moves its icon with it. `--aparte-btn-icon-size` was a
+  fixed 16px, so the same glyph filled 80% of a `--sm` button and 44% of a `--lg` one —
+  which is no longer the same icon. `--sm` and `--lg` now set it too, from the icon scale,
+  keeping every size at the `--md` ratio. The comment above that rule already claimed this
+  ("sized with the button so the two axes stay in step"); it now does it.
+
+  `.aparte-action-btn` and `.aparte-art-card__btn` carried `aparte-btn--sm` AND a
+  width/height of their own of 28px — which is the `--md` default the modifier was
+  contradicting. They declare `--aparte-btn-size` instead and drop the modifier, so their
+  icons are unchanged at 16px. Genuinely small buttons (conversation actions, the
+  attachment remove) go from a cramped 16px glyph to 12px.
+
+  Note the limit: the icon follows the size MODIFIER, not the button's pixel size. A
+  component that sets `--aparte-btn-size` on its own — the send button and the
+  scroll-to-bottom button, both 36px — still gets the default 16px icon.
+
+- ec309ab: The checkbox draws a checkmark, and a control sits on the line of text it labels.
+
+  **The checkmark was a dot.** `.aparte-checkbox:checked::after` sized itself
+  `inline-size: 30%; block-size: 55%` — and a percentage on a grid ITEM resolves against
+  its track, which `place-content: center` on the box collapses to the content's own size.
+  The content is an empty `::after`, so the track was zero and the mark computed to
+  **0.59 × 1.09px**: not a check, just the 2px corner where its two borders meet. Every
+  checked checkbox the library has ever rendered showed that dot. The indeterminate dash
+  had it worse — 55% of zero is zero, so it drew nothing at all. Both are now `calc()` of
+  `--aparte-checkbox-size` (measured back: 5.39 × 9.89px).
+
+  **And they rode above their labels.** Checkbox, radio and switch are `inline-grid` /
+  `inline-flex` boxes with no text inside, so their baseline is the bottom margin edge and
+  a control next to a word sat high. `vertical-align: middle` on all three — the commonest
+  way any of them is used, and it was never right.
+
+  Found by looking at a rendered preview at 4×, then reading `getComputedStyle(el,
+'::after')`. The rule reads correctly in the file, which is why passes over this sheet
+  never caught it.
+
+  Also in the class examples, which are rendered live on the reference page: the thumbnail
+  row now runs large → base → small (it ran small → large), its image is a 2:3 portrait so
+  `object-fit: cover` is actually demonstrated, and the two choice controls sit one per
+  line instead of colliding — with no `.aparte-field-choice` wrapper, which drew a
+  full-width brass box around each row when checked.
+
+- 1d336d1: The two disclosure chevrons are the icon set's glyph instead of a hand-drawn CSS triangle.
+
+  The tool-call summary and `<aparte-optgroup>` each drew their arrow with a zero-size box
+  and four borders. That is not a style choice, it is a second icon mechanism: `expand`
+  already exists in `glyphs.ts`, and a consumer who registers an icon provider replaced
+  every other arrow in the library while these two stayed put. They now render
+  `getIcon('expand')` like the rest, so the provider reaches them, and the open state
+  rotates 180° rather than 90° because a chevron and a triangle do not turn the same way.
+
+- f0b9141: `<aparte-composer>`'s `setValue()` now reaches the editor, so it prefills the visible
+  field instead of only staging what a send would submit.
+
+  It used to do half of what its name says. `<aparte-composer-input>` listened for the
+  composer's value but acted on the empty string alone — `if (value === '' && …)` — so
+  `composer.setValue('draft')` changed what `submit()` would send while the field went on
+  showing whatever was there. Worse, the value then vanished at the first keystroke,
+  because every keystroke pushes the editor's real content back up. The failure was silent
+  and deferred: nothing appeared, nothing threw, and the staged text was gone by the time
+  anyone noticed.
+
+  Nothing in this repo relied on it — all five examples pair `setValue(text)` with an
+  immediate `submit()`, and that path is unchanged. The consumer it hurt is the one doing
+  the obvious thing: a "reply with this template" button, a restored draft, a quoted
+  citation.
+
+  **The `''` special case is gone rather than widened.** The listener now compares instead:
+  a value the editor already holds is not written, which is why typing does not rewrite the
+  DOM under the caret — the keystroke that just travelled up comes straight back equal.
+  Everything else is applied, and the post-submit clear is simply the case where that value
+  is `''`. Sending attachments with no text still writes nothing, since there was nothing
+  to clear.
+
+  The comparison is against `value.trim()` because `getValue()` trims. Without that, a
+  padded value never looks equal and the mirror back through `setValue` re-enters forever —
+  removing the comparison in a sabotage run raises `Maximum call stack size exceeded`, and
+  the test that pins the caret behaviour fails on a destroyed `<br>`.
+
+- 1dff98c: Fixed: the approval panel's options rendered as 44x44 squares with their labels
+  spilling out of them.
+
+  The composer's row sized its controls with `.aparte-composer-row button` — a type
+  selector, so it reached every `<button>` in the row, and a panel mounts inside that
+  row. An undo rule in `base.css` used to cancel it for panel content, but both had the
+  same specificity, so which one won came down to the order of two imports — and
+  splitting the stylesheet into families flipped that order.
+
+  The row now DECLARES `--aparte-btn-size` instead of restyling anything. A custom
+  property inherits, so each of the composer's own controls (all icon buttons) picks the
+  size up, and content that is not an icon button never sees it. Both the type selector
+  and its undo are gone. `.aparte-btn` gained `box-sizing: border-box`, which the type
+  selector used to supply.
+
+  If you set `--aparte-composer-control-size`, it still wins over `--aparte-send-btn-size`
+  inside the row exactly as documented — the send and action buttons read the row's value
+  first and their own second, rather than being out-specified.
+
+- cbfc72e: Nine more class families show themselves, and tiles in a row line up.
+
+  The CSS classes reference had **10 live examples across 37 sheets**. Nine of the ten
+  Display families — avatar, tag, spinner, progress, skeleton, divider, alert, card, kbd —
+  reached the page as a list of class names and nothing else: a reader could learn that
+  `.aparte-skeleton--text` exists and never see what it looks like. Each now carries a
+  markup example in its sheet header, which is what the generator lifts into both the live
+  frame and the code block beside it. **10 → 19.**
+
+  The examples are written to exercise the thing the family is for: the avatar at three
+  sizes plus a group, the progress bar determinate _and_ indeterminate, the skeleton as a
+  real loading block (circle, two lines, a rect), the alert with and without a title and
+  dismiss. Every glyph is core's own, verbatim from `src/icons/glyphs.ts`.
+
+  Twenty-seven sheets still have no example and that is correct: `theme.css` declares
+  tokens, `base.css` holds keyframes, `responsive.css` holds media queries, and the
+  segment / component / primitive sheets style elements that already have their own
+  generated preview pages. The classes page covers three groups — Controls, Display,
+  Surfaces — and those are now complete.
+
+  Also: `.aparte-thumbnail` gains `vertical-align: top`. Tiles of different sizes in one
+  row aligned on the baseline, so a large tile beside two small ones pushed the small ones
+  down and the row read as three unrelated things. An attachment strip mixes sizes by
+  nature, so it is the common case.
+
+- 4b80eab: Fixed: `setIconProvider` did not reach six of the glyphs core draws.
+
+  The conversation row's archive tray and delete cross, the select's chevron, the attachment
+  thumbnail's remove button and the artifact card's download arrow imported their glyph
+  straight from `icons/glyphs.js`. A consumer who registered a provider got most of the
+  library restyled and those left behind — and `archive`, `unarchive` and `download` were
+  keys the provider type has always offered with no reader anywhere in the repo. In
+  `artifact/card.ts` the two sat one line apart: `getIcon('copy')` above, a hardcoded glyph
+  below.
+
+  `icons/glyphs.js` is now imported by exactly one file, `config/icon-provider.ts`, which is
+  what keeps this true rather than a promise to remember.
+
+  Two dead fallbacks went with them: `getIcon()` returns the built-in glyph for any known
+  key, so `getIcon('paperclip') || this._defaultIcon()` and `scrollIcon || scrollDownIcon`
+  could never take their right-hand side. They read as a safety net that was not there.
+
+- 0d68e65: The examples in the docs' live frames render something.
+
+  Nine previews on the generated reference pages were empty, half-empty or nonsense, and
+  they were all the same defect: an example written to be READ, rendered as a DEMO.
+
+  Eight of them contained a literal `…` as placeholder prose — `<svg class="aparte-icon"
+viewBox="0 0 24 24">…</svg>`, `<button class="aparte-btn aparte-btn--icon">…</button>`,
+  and six more. That reads perfectly as "your content here" in a code block. Lifted verbatim
+  into the live iframe beside it, it draws nothing: `/preview/class/icon/` was a completely
+  blank frame, the thumbnail preview an empty box next to a box containing three dots.
+
+  The ninth was `<aparte-chat>`, whose `@example` showed the element's two forms — default
+  and hand-composed — one after the other, each at `height: 600px`. Every element-own example
+  is concatenated into ONE frame, so the flagship element's page rendered two empty chats
+  with 600px of nothing between them. It is now one chat, 320px, seeded with a real exchange;
+  the hand-composed form moved into the class prose as a fenced block, where it is read and
+  not mounted.
+
+  The invariant that caused this is deliberate and stays: the frame and the code block read
+  the same string, so a demo can never drift from the example above it. What changes is that
+  the examples are now written for both readers at once.
+
+  Found by photographing all 29 `/preview/*` routes and looking at them.
+
+- 2bf55e1: Three elements now document themselves with markup that runs, and one no longer shows
+  Angular syntax in an HTML block.
+
+  `<aparte-composer>` had no `@example` at all — the only element of the eighteen without
+  one — so its reference page opened on an element that "renders nothing of its own, no
+  default children" and never showed the markup that makes it a composer. It has the
+  canonical shell/row/input/send now.
+
+  `<aparte-chat-viewport>` and `<aparte-conversation-list>` documented themselves only
+  through an imperative TypeScript example. Both are elements you place in markup and then
+  drive, so each gains an HTML example that does both: the tag, then a short script that
+  seeds it. The TypeScript examples stay — they were not the problem, they were half the
+  answer.
+
+  `<aparte-composer-action>`'s example was `(click)="onFavourite()"` inside a block the
+  reference renders as HTML. That is Angular's binding syntax, valid in exactly one of the
+  five framework targets and invalid HTML in all of them; the element's real event is
+  `aparte-action-click`, and it bubbles, so the example now listens for it the way any
+  framework-free page would. It also sits inside an `<aparte-composer>` now, because the
+  element resolves its context with `closest('aparte-composer')` and does nothing outside
+  one.
+
+  These examples are what the documentation site's live preview renders, so an example
+  that stops working is now a visibly broken demo rather than prose no one re-reads. That
+  caught one on the way in: a script calling `viewport.appendMessage()` immediately after
+  the tag runs before the element is upgraded, and threw.
+
+- 2ed3bc8: Fixed: a conversation row's label fell below WCAG AA the moment you hovered it.
+
+  The row rests at `--aparte-text-muted`, which is right on the shell's ground. Hover moves
+  the ground up to `--aparte-surface-3` and the muted ink stayed where it was: 4.23:1 in the
+  light theme, computed from the two hexes — an AA failure on body text, on the one row the
+  pointer is over. It takes the active colour on hover now, the same value the selected row
+  already uses, which measures 12.13 light and 11.71 dark.
+
+- 95de449: Fixed: `@aparte/core/icons` shipped without types for consumers whose TypeScript
+  resolves the classic way.
+
+  `tsc` mirrors the source tree, so a nested entry emitted `dist/icons/index.d.ts` while
+  Vite emitted `dist/icons.js` beside it. The package's `exports` pointed `types` at the
+  nested path and both `publint` and `attw` passed on that — but a resolver that looks for
+  a declaration file NEXT TO the JavaScript found none and fell back to `any`. The entry
+  is flat now, so `dist/icons.js` and `dist/icons.d.ts` are siblings and every resolution
+  mode agrees.
+
+  Caught by the docs' own snippet check, which typechecks every code fence: it is such a
+  consumer.
+
+- a574dfa: The light theme's status colours failed WCAG AA wherever they were TEXT, and the dark
+  theme's solid buttons failed worse.
+
+  Two defects, one cause: a colour was doing two jobs.
+
+  **The intent as text.** `--aparte-primary`, `--aparte-info`, `--aparte-success`,
+  `--aparte-warning` and `--aparte-error` were both the FILL of a solid button or a badge
+  and the TEXT colour of every ghost, outline and soft button, the tool-call status, the
+  field error, and `--aparte-link-color` — so every link core renders. Read as text on
+  `--aparte-bg` in the light theme they measure 3.23, 3.29, 2.27, 1.92 and 3.37 against the
+  4.5:1 AA asks of body text.
+
+  An accent gains contrast by moving AWAY from its background — down on a light ground, up
+  on a dark one — so one value cannot serve both themes. Five `--aparte-*-ink` tokens now
+  carry the text role, per theme, and the recipes read them: the button's new
+  `--aparte-btn-intent-ink` defaults to the fill, so a consumer who sets only
+  `--aparte-btn-intent` is unaffected. Outline keeps the FILL on its border, which is not
+  text and clears the 3:1 it has to.
+
+  **The ink on a fill.** `--aparte-btn-ink` was `var(--aparte-text)`, which is near-black on
+  light and near-WHITE on dark. `button.css` had measured white against every intent and
+  rejected it in a comment — and the dark theme was silently getting it anyway. The solid
+  primary button read at 1.96:1, a success badge at 2.19, and the checkbox's checkmark the
+  same. `--aparte-on-intent: #14100a` is now fixed rather than theme-flipped, because the
+  fills are mid-to-bright in BOTH themes; it measures 5.04 to 8.82 across the five.
+  `--aparte-on-primary` stays white for `neutral`, the one intent dark enough to want it.
+
+  Found by running axe over the docs site's live component previews. Verified the same way:
+  17 page/theme pairs, from 63 contrast violations to zero. `--aparte-primary` itself is
+  unchanged — it is the brand colour, and the icon tints that read it clear the 3:1 a
+  graphic has to.
+
+- 7f4e396: Fixed: the keyboard could not archive or delete a conversation — both keys selected it.
+
+  `<aparte-conversation-list>`'s row is a `role="button"` div, so the component supplies
+  Enter and Space for it. That handler climbed to `closest('[data-conv-id]')` from whatever
+  was focused, so a press on the Archive or Delete button inside the row found the ROW,
+  called `preventDefault()` — cancelling the button's own activation — and clicked the row.
+  Both controls were reachable by Tab and neither could be operated: WCAG 2.1.1, on the two
+  destructive actions in the list.
+
+  The synthetic activation now stays on the one element that has no native one. An earlier
+  fix had given both buttons `tabindex="0"` and a test asserting it; focusable is not
+  operable, and that test only ever proved the first half. It proves both now.
+
+- 9a1471e: Fixed: ten documented `@cssprop` knobs did nothing.
+
+  When a component stopped drawing its own radius or colour and let `.aparte-btn` /
+  `.aparte-field` draw it, the component's own token lost its last reader — and stayed in
+  the JSDoc, so each component's generated page kept listing it. Setting
+  `--aparte-radius-send-btn`, `--aparte-radius-action-btn`, `--aparte-conv-delete-radius`,
+  `--aparte-conv-archive-radius`, `--aparte-elic-input-radius`,
+  `--aparte-elic-step-underline`, `--aparte-action-bar-btn-color`,
+  `--aparte-branch-picker-btn-color`, `--aparte-thumb-remove-bg` or
+  `--aparte-thumb-remove-color` had no effect. Each now feeds the recipe that draws it, so
+  all ten work again and the values they name are back — the conversation and composer
+  action buttons return to their documented 4px corner.
+
+  One of them was a visible regression, not just a dead knob: the attachment remove button
+  had lost its dark scrim and its white glyph, leaving a muted ✕ directly on the picture,
+  invisible over anything light.
+
+  `.aparte-field` gained `--aparte-field-radius`. It was the only recipe that hardcoded
+  its corner while every sibling names it, so a field could not be re-cornered from its
+  own element the way a button or a tag can.
+
+  `check:derived-vars` now refuses a `@cssprop` that no stylesheet reads. That is the rule
+  that would have caught all ten the day they broke.
+
+- 61e40da: The custom-elements manifest now describes every public method, and stops describing
+  three that do not exist.
+
+  `package.json` points `customElements` at `dist/custom-elements.json` and `files` ships
+  `dist`, so this file is not a docs-site input — it is what feeds editor autocomplete in
+  a consumer's project. Two defects were measured in it, and both reached everyone:
+
+  - **16 of 73 public methods carried no description at all** — the whole imperative
+    surface of `<aparte-composer>` (`setValue`, `addAttachments`, `removeAttachment`,
+    `clearAttachments`), all five public methods of `<aparte-composer-input>`, and
+    `<aparte-chat-viewport>`'s `getMessages`. They are now documented; the count is zero.
+
+  - **Overloaded methods shipped their implementation signature as if it were API.** A
+    TypeScript overload is N declarations plus one implementation, and the analyzer emitted
+    all of them: `addSegment` appeared three times, the third being
+    `addSegment(messageIdOrSegment: string | AparteSegment, maybeSegment?: AparteSegment)`
+    — a form no consumer may call, since its only job is to accept the other two. A new
+    analyzer plugin drops the implementation and copies the docblock (which TypeScript
+    accepts only on the overload declarations) onto the sibling forms, so both real calling
+    conventions are documented instead of one documented and one blank.
+
+  One behaviour is written down for the first time rather than changed: `getMessages()`
+  returns the messages on the **active path**, root → head — not the whole tree, which is
+  what `exportTree()` returns.
+
+  No runtime code changed by this entry.
+
+- b7f5bab: Three leftovers in `segment/tool-call.css` and `components/composer.css`: a
+  `font-size` on `.aparte-tool-state` declared a second time thirty lines below the first,
+  a comment pasted twice verbatim, a reference to a rule that had moved to another sheet,
+  and `aparte-composer-attachments` declared as two rules fifteen lines apart repeating
+  `display` / `flex-wrap` / `gap` at identical values. Nothing rendered differently — the
+  later block simply owned those properties, so editing the earlier one changed nothing.
+  One rule each now.
+- 5cfb818: One rotation, and every stylesheet in one place.
+
+  The library had four keyframes for a 360° turn: `aparte-spinner-spin`,
+  `aparte-spin` and `aparte-icon-spin` were byte-identical, and `tool-spin` was used by
+  nothing at all — and, being unprefixed, could have shadowed a rule of the same name on
+  your own page. There is one now, `aparte-spin`, next to `aparte-pulse` in `base.css`
+  where they are used. `aparte-spinner-rotate` stays separate on purpose: it starts at
+  -90° because an SVG arc's zero is at three o'clock, so it is a different curve rather
+  than a differently-named copy.
+
+  `select.css` and `progress-spinner.css` move from `src/primitives/*/` into
+  `src/styles/primitives/`, where every other sheet lives. No selector they carry appears
+  in any other sheet, and their rendering is unchanged — measured before and after.
+
+  `check:derived-vars` gained two rules, both sabotage-verified: every `animation` names
+  a keyframe that exists (nothing declared `aparte-icon-spin`, so core's loading icon
+  simply sat still, with no error anywhere), none is declared twice, none is dead, and all
+  are prefixed. And `styles/bundle.css` — the source variant of the `./styles.css` export,
+  the one list that cannot derive itself because a bundler reads it — must match
+  `src/index.ts` import for import. It had already fallen a sheet behind.
+
+- e50ca32: The elicitation panel's "Other…" row lines up with the options above it.
+
+  It is a choice row and was missing `aparte-field-choice`, the recipe every sibling row
+  carries — so it had no `display: flex` and its control stacked ABOVE its own label while
+  the options above it sat inline. It had no focus outline either, for the same reason: the
+  recipe carries that too.
+
+  Visible in a question with the free-text escape enabled, which is the default. Found by
+  looking at a screenshot of the running panel, not by reading the code.
+
+- c236992: Fixed: every package accepted a `@aparte/core` it cannot actually work with.
+
+  All fourteen declared `"@aparte/core": ">=0.7.0 <1.0.0"` while sitting at 0.12.1 and
+  importing symbols core does not export before 0.11.0 (`AparteElementAttributes`,
+  `AparteTemplateAttrs`, `AparteElementTagName`) or before 0.12.0 (`AparteUiEventName`) —
+  read from `src/index.ts` at each release tag, not inferred. npm and pnpm both ACCEPT
+  `@aparte/react@0.12.1` beside `@aparte/core@0.7.0`, say nothing, and hand you a tree
+  whose types cannot compile.
+
+  These packages are published in lockstep and are never tested apart, so the floor is the
+  release. It now says so, and `pnpm version-packages` moves it with every bump — the floor
+  went stale because the bump was the one place nothing updated it.
+
+- 8fe68de: A streaming assistant message now renders incrementally on the plain-content path too, not
+  only inside segments.
+
+  `setStreamingMarkdownProvider`'s own documentation says the chat bubble uses it "to render
+  the assistant message token-by-token (incremental parse + DOM append, O(n)), instead of
+  re-parsing the whole string on every token", and `@aparte/plugin-streaming-markdown`'s page
+  repeats it. Only the segment renderers honoured it. `<aparte-chat-bubble>`'s simple-content
+  path — the one `getting-started` teaches first, through `appendMessage` / `appendToken` /
+  `completeMessage` — re-parsed, re-sanitised and re-inserted the WHOLE message on every
+  token.
+
+  It uses `writeStreamedMarkdown` now, the same seam the text and thinking renderers use, so
+  the promise holds on both paths. With no streaming provider registered nothing changes: the
+  seam falls through to the one-shot render, which is exactly what ran before.
+
+  The parser's cursor is dropped whenever content is REPLACED rather than appended
+  (`setContent`, or the `content` attribute changing) — a retry clears the bubble and
+  re-streams, and a stale cursor would slice the next delta out of the wrong string.
+
+  Found by a cold audit. Four tests pin it, and reverting the fix fails three of them.
+
+- 9122983: Every live preview frame shows what it promises.
+
+  An audit photographed all 29 `/preview/*` routes and looked at them. Nine defects, in two
+  layers.
+
+  **The frame's own stylesheet (one word, every frame).**
+  `PreviewDocument.astro`'s `<style>` was not `is:global`, so Astro scoped it — and the
+  markup it styles is injected with `<Fragment set:html>`, which carries no scope class. So
+  `body > * + *` compiled to `body > :where(.astro-xxxx) + :where(.astro-xxxx)` and matched
+  nothing: the 1rem stacking margin had never applied, in any preview, since the file was
+  written. That is the badge, the progress track and the alert flush against each other, and
+  three unrelated surfaces touching in the overview.
+
+  **The examples (eight, one root cause).**
+  A literal `…` used as documentary shorthand for "your content here". It reads perfectly in
+  a code block and draws nothing in an iframe: `/preview/class/icon/` was a blank page, the
+  thumbnail preview an empty box beside a box holding three dots, `.aparte-btn--icon` an
+  invisible ghost square containing an ellipsis. Two more went with it — a `<details>` with no
+  `open`, so the accordion preview showed the single word "Shipping" and no affordance at
+  all; and a `<switch>` with no label pressed against its neighbour's text.
+
+  Every replacement glyph is core's own, verbatim from `src/icons/glyphs.ts` (and
+  `alertTriangleIcon` from `extended.ts` for the warning alert). Drawing them by hand would
+  have made a fourth `copy` and a third `check` — the drift that file exists to end.
+
+  The invariant that produced all of this stays, because it is right: the frame and the code
+  block read the same string, so a demo can never drift from the example above it. What
+  changes is that the examples are written for both readers.
+
+  Not covered, and worth knowing: only the `/preview/*` routes were photographed, in the
+  light theme, at one width, with nothing clicked.
+
+- bde11bb: A custom segment's `fallback` is drawn when no renderer claims its type.
+
+  `AparteCustomSegment.fallback` has been published since the type existed, documented as
+  "Optional fallback text representation", and read by nothing — the only two mentions in
+  core were its declaration and its doc comment. A custom segment arriving somewhere its
+  renderer is not registered (a conversation replayed in another app, a client that loads
+  its views lazily, an exported transcript) rendered `[Unknown segment type: custom]` while
+  carrying the sentence written for exactly that moment.
+
+  It renders the fallback now, in a `.aparte-segment.aparte-segment-fallback`, as
+  `textContent` — the field is filled by whoever produced the segment, which can be a
+  model, so it is text and cannot carry markup. Without a fallback nothing changes: the
+  same `.aparte-segment-unknown` with the same `[Unknown segment type: …]`.
+
+  The developer warning is skipped when a fallback is present. An author who supplied one
+  has already said this can happen; warning then is crying wolf. Without one it still
+  fires, because a missing renderer is otherwise silent.
+
+  Found while writing the segment's own `@example` — the documentation asked what the
+  field does and the answer was nothing. The two identical unknown-segment blocks in the
+  bubble are now one function.
+
+- b9e1b1b: Every segment interface now carries an `@example`: the literal a developer would write.
+
+  The eight interfaces in `types/segments.ts` documented their fields — some to several
+  paragraphs — and never once showed a whole segment. The field table answers "what is
+  `collapsed`"; it does not answer "what does one of these look like", which is the question
+  anyone emitting a segment actually has.
+
+  Each example is a valid segment of that type, so the documentation site can print it as
+  code AND render it: the segment pages now show core's own renderer drawing that exact
+  literal inside a real viewport. An example that stops being a valid segment becomes a
+  visibly broken preview rather than prose no one re-reads.
+
+  The `thinking` example deliberately omits `collapsed`, because absent means CLOSED and the
+  example should show what a reader gets rather than the flattering case.
+
+- 8678eaf: Fixed: the default skeletons were painted with a palette core no longer uses, and a
+  consumer could not override them.
+
+  `APARTE_DEFAULT_SKELETON_FALLBACKS` carried its look in a `style=""` attribute — six
+  inline declarations of Tailwind-slate hex (`#9ca3af`, `#1e293b`, `#64748b`), the exact
+  palette this theme replaced. An inline style is the one thing a consumer's stylesheet
+  cannot reach, so a dark-theme host got a light-grey label with no way to change it, and
+  hex inside a `.ts` is invisible to `check:derived-vars`, which reads only `styles/`. The
+  look now lives in `styles/display/skeleton.css` on the tokens every other recipe reads.
+
+  They also had a second owner. `AparteConfig._defaultSkeletonRenderer` held a hand-written
+  copy of the same table and the two had already drifted — `message` said "Loading
+  message..." in one and "Loading..." in the other. There is one table now, and the test
+  that used to explain why it could only compare content asserts identity instead.
+
+  New classes: `aparte-skeleton-fallback`, with `--code`, `--snug` and `--tight`.
+
+- 3e2afee: The readers of core's CSS derive the sheet list from `src/index.ts` instead of keeping a
+  copy of it.
+
+  That import block IS the cascade, and two readers kept a hand-written duplicate of it.
+  Both had already drifted: the derived-variable guard listed the two primitive sheets but
+  would not have seen a newly added one, and the docs' CSS-variable generator had neither
+  — so 269 lines of declarations were absent from the published reference with nothing to
+  say so. A list that has to be kept equal to an import block is a list that will not be.
+
+  `scripts/core-stylesheets.mjs` reads the block, in order, behind a floor.
+
+- 7f89fc8: `aparte.css` is gone. Its 2573 lines of rules are ten sheets, one per family — `base`,
+  `shell`, `bubble`, `composer`, `segment`, `artifact`, `elicitation`, `conversation`,
+  `prose`, `responsive` — beside the `theme.css` that already held the tokens. The largest
+  is now 584 lines instead of 3160, and you open the one named after what you are changing.
+
+  The published `dist/index.css` bundles all eleven, so nothing changes for a consumer.
+
+  **The import order in `src/index.ts` is the cascade**, which is the one thing to know
+  before adding a sheet: `responsive` stays last because it overrides. Everything that
+  reads the sheets reads them in that same order.
+
+  ### What was verified, and how
+
+  The families were interleaved — the composer alone sat in seven separate runs — so
+  unlike the token extraction this could not be proved by concatenation: rules genuinely
+  changed order relative to other families. A static proof turned out to have no clean
+  answer (a loose collision test flags 3630 pairs, a tight one 106, and reading those 106
+  shows every one impossible). So it was proved where it actually matters:
+
+  - **the full browser suite**, 364 tests across six frameworks and three engines, passes;
+  - the rule content is **identical** — 2296 significant lines, none lost, none duplicated;
+  - `check:derived-vars` reports the same 135 derived declarations, 6 exemptions and 982
+    references as before the split;
+  - `gen-css-vars` reports the same 321 variables, 286 of them declared.
+
+  ### Three readers went blind at once
+
+  `check:derived-vars`, `gen-css-vars` and the test helper `read-stylesheet.ts` each
+  located their corpus by a single **path**. The generator reported 6 declared tokens
+  instead of 286; three unit suites went red. All three read the whole set now, in import
+  order, and each carries a floor so a corpus that shrinks fails loudly instead of
+  quietly publishing short.
+
+  One more check earned its place: every sheet is asserted to have balanced comment
+  markers and braces. The split cut a multi-line comment in half — its opening left in
+  `segment.css`, its closing landing in `prose.css` — and that check is what finds it.
+
+- 7471fb0: An error on a reply that left the active path no longer destroys what it streamed.
+
+  `_handleLifecycleError` follows an "append the error, never replace the reply" rule — and
+  implemented it with `getMessages()`, which returns only the currently ACTIVE path. So the
+  rule held for the reply being streamed and silently became a full replace for any message
+  that had left that path.
+
+  A retry or an edit on an earlier bubble does exactly that to a reply still in flight: it
+  stays in the tree, drops off the active path, the lookup then finds nothing, and
+  `updateMessage` — which resolves ids tree-wide — overwrites every token, thinking block and
+  resolved tool call with a single error segment. Nothing is visible at the time; the loss
+  shows up later, when the reader opens that branch in the sibling picker and finds a bare
+  error where a complete answer used to be.
+
+  It now prefers the tree-wide `getMessage(id)`, which the viewport already exposed and the
+  client's target interface simply did not declare.
+
+  The same commit closes the asymmetry that made the race reachable: `aparte-retry` and
+  `aparte-edit` reset the abort flag but, unlike `aparte-send`, never cancelled the previous
+  turn's tool controllers — so a handler from the superseded turn kept running with its
+  timeout counting. All three now share one `_beginUserTurn()`.
+
+  Found by a cold audit. It survived adversarial review with one correction worth recording:
+  the two shipped providers swallow `AbortError` and close quietly, so the loss is not
+  reachable through them — it is deterministic on `AparteBackendTransport`, whose parser
+  turns a cut connection into a thrown error.
+
+- b12e089: Tabs gets its own entry, the class lists stop claiming classes they do not define, and a menu is menu-width.
+
+  **Tabs had no text and no preview.** `surface/tabs.css` carries the banner that opens the
+  whole Surfaces group (`aparté — layered surfaces`), and the generator consumes that as the
+  group's intro. A family takes its prose and its live example from a banner named after it
+  (`aparte-tabs — …`) — and there was none, so the Tabs family reached the reference page as a
+  bare list of class names while its own content was shown as the Surfaces overview. It now
+  carries both banners, and the family one demonstrates the two looks (`--underline`,
+  `--segmented`) with the panel under them. 19 → 20 live examples.
+
+  **The class lists were not the sheets' own.** The collector matched `.aparte-*` across the
+  whole source, comments included, so a class merely NAMED in prose was attributed to the
+  sheet that mentioned it: Tabs listed `.aparte-popover`, `.aparte-tooltip` and
+  `.aparte-btn--ghost`, none of which it defines. Block comments are now stripped first —
+  327 → **325**, and the two that went were phantoms.
+
+  **`.aparte-menu` had a floor and no ceiling**, while `.aparte-popover` — which the same file
+  calls "the identical floating list surface" — has carried `max-width: 320px` all along. With
+  only a `min-width`, a menu placed as a block child stretched to its container: a dropdown
+  spanning the full width of whatever held it. It now has the matching cap and
+  `width: max-content`, so it hugs its longest item and stops.
+
+  Also: preview frames get real padding (1rem → 2rem 2.25rem) — every example was pressed
+  into the top-left corner, which made a two-tile row read as debris rather than a specimen.
+  Left-aligned still, because an example has to lay out the way it will on the reader's page.
+  And the tooltip example's anchor gets room above it, so the tooltip is no longer clipped by
+  the top of its frame.
+
+- a8ce9de: Fixed: two `role="tablist"` that announced a pattern and shipped none of it.
+
+  The artifact card's Code/Preview tabs and the stepped elicitation panel's step chips both
+  carried `role="tablist"` with `role="tab"` children and no `aria-controls`, no
+  `role="tabpanel"`, no ids to point at and no arrow keys — two sets of ordinary buttons
+  wearing a role that tells a screen-reader user to expect a relationship and a keyboard
+  model that were not there. A role that lies is worse than no role: as plain buttons they
+  at least behaved as announced.
+
+  Both now do what they say. Each tab points at its panel and the panel names the tab back;
+  the tablist is ONE tab stop with ArrowLeft/ArrowRight/Home/End inside it, and the artifact
+  card skips the Preview tab while it is disabled mid-stream rather than trapping focus on
+  it. Ids are scoped — to the segment id on the card, to a per-panel counter in the
+  elicitation panel — because a transcript holds many cards and a workbench holds two chats.
+
+- e8506a5: The tokens move to their own sheet: `styles/theme.css` holds the light palette, the
+  dark overrides and the derived layer; `styles/aparte.css` keeps the rules. You open one
+  to change a value and the other to change a look.
+
+  The cut is a **contiguous prefix** of the old file and the new sheet is imported
+  immediately before it, so the cascade cannot have moved — verified by concatenating the
+  two and comparing to the original **byte for byte**. The published `dist/index.css`
+  bundles both, so nothing changes for a consumer.
+
+  Two readers had to follow, and one of them was already broken by the move:
+
+  - `check:derived-vars` now reads every sheet **concatenated in import order**, the way a
+    browser does. It had to: the anchored layer is in `theme.css` while its responsive
+    overrides sit at the end of `aparte.css`, so a guard reading one file would judge half
+    a rule. Its messages name the sheet and line they actually found.
+  - `gen-css-vars` pointed at `aparte.css` by path and went blind — it reported **6**
+    declared tokens instead of 286 and would have published a page missing 24 variables.
+    It reads both sheets now, and carries a floor that fails the build if the corpus ever
+    collapses again rather than quietly publishing short. That is the failure mode this
+    repo has already met once, on a guard that selected its corpus by file extension.
+
+- bc86198: The reasoning block wears the accordion recipe instead of redrawing it.
+
+  A thinking segment is a disclosure — `<details>`, a `<summary>` you press, a panel, a
+  chevron that turns — which is exactly what `surface/accordion.css` draws. The renderer
+  drew a second one under four private classes, and it showed: the block looked unrelated
+  to every other disclosure in the library.
+
+  Worse, its chevron was the **character `▼`**. Not a glyph — a character, so it could not
+  take `--aparte-icon-size`, could not be replaced through the icon provider, and rendered
+  in whatever the platform font supplied. Core has had `expandIcon` in `src/icons/glyphs.ts`
+  the whole time, and the accordion uses it. It is now the same glyph.
+
+  `thinking.css` loses 33 lines of duplicated flex/reset/rotation and keeps four: the left
+  rail's padding and the quieter tone, which is the only part that is about _reasoning_
+  rather than about disclosure. The rendered element gains
+  `.aparte-accordion__item` / `__header` / `__panel` alongside its own classes, so a
+  consumer restyling either name still reaches it.
+
+  Found by Paul asking why the thinking block did not look like the accordion. A sweep for
+  the same defect elsewhere turned up one candidate — `menu.css`'s `content: '✓'` — and it
+  is **kept**: it reserves an alignment gutter on every checkable item and inherits `color`,
+  which forced-colors mode preserves. `▼` had neither reason and duplicated an existing
+  glyph; the two are not the same case.
+
+- a453df1: `AparteTool.systemPrompt` is now actually sent to the model.
+
+  The field is documented on the type as "System prompt injected automatically when this
+  tool is registered — tells the AI when and why to use it", and the tools guide repeats
+  it. Nothing anywhere read it: a grep across core, engine and every provider finds only
+  the conversation-level `_systemPromptTemplate`, which is a different field.
+
+  The failure was silent in the worst way. The tool still worked — the model receives its
+  name and JSON schema either way — so all that went missing was the sentence explaining
+  WHEN to reach for it, which is the whole reason the field exists.
+  `@aparte/plugin-ask-user` sets one, so a shipped plugin was losing its instructions and
+  no test could see it.
+
+  `AparteConfig.resolveToolSystemPrompts()` joins the prompts of every registered tool, in
+  registration order, and the client sends them as a system message of their own — after
+  the app's template, which stays separate because one is about the app and the other about
+  the tools. A tool that sets none contributes nothing, and with no tool setting one there
+  is no extra message at all.
+
+  The three turn entry points (send, retry, edit) were each writing the same two lines of
+  system-message assembly, so they now share one `_systemMessages()` helper — the shape
+  that would otherwise have got the tool half in two of the three.
+
+  Found by a documentation audit. Four tests pin it; reverting the wiring fails three.
+
+- 95fadcc: Two artifact-card buttons and one transition were missed by the sweeps that tokenised
+  the rest.
+
+  `.aparte-art-card__btn:disabled` and `.aparte-art-card__tabs button:disabled` were
+  still at a literal `0.4` rather than `--aparte-disabled-opacity`, so they stayed the
+  two odd ones out of the unification. They were written as one-line rules
+  (`{ opacity: 0.4; cursor: not-allowed; }`), and the sweep's pattern anchored `opacity`
+  to the start of a line — so it never saw a declaration sitting right after the brace.
+  `transition: transform 0.2s` was missed the same way and now reads
+  `--aparte-duration-slow`.
+
+  They move from 0.4 to 0.5, in line with every other disabled control.
+
 ## 0.12.1
 
 ### Patch Changes

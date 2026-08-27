@@ -1,5 +1,72 @@
 # @aparte-workspace/playground-angular
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [e50ca32]
+- Updated dependencies [ca49417]
+- Updated dependencies [1dff98c]
+- Updated dependencies [b011416]
+- Updated dependencies [7d11d0b]
+- Updated dependencies [e06d254]
+- Updated dependencies [67d8e6b]
+- Updated dependencies [94b87b7]
+- Updated dependencies [705e847]
+- Updated dependencies [682a837]
+- Updated dependencies [82b842e]
+- Updated dependencies [ec309ab]
+- Updated dependencies [1d336d1]
+- Updated dependencies [7713818]
+- Updated dependencies [f0b9141]
+- Updated dependencies [1dff98c]
+- Updated dependencies [466b849]
+- Updated dependencies [96c23c3]
+- Updated dependencies [3889d8f]
+- Updated dependencies [cbfc72e]
+- Updated dependencies [13ec8ca]
+- Updated dependencies [4b80eab]
+- Updated dependencies [0d68e65]
+- Updated dependencies [2bf55e1]
+- Updated dependencies [2ed3bc8]
+- Updated dependencies [14a55b0]
+- Updated dependencies [95de449]
+- Updated dependencies [3e2afee]
+- Updated dependencies [53d99d8]
+- Updated dependencies [a2274be]
+- Updated dependencies [a574dfa]
+- Updated dependencies [7f4e396]
+- Updated dependencies [9a1471e]
+- Updated dependencies [61e40da]
+- Updated dependencies [aaf8d5c]
+- Updated dependencies [b7f5bab]
+- Updated dependencies [5cfb818]
+- Updated dependencies [e50ca32]
+- Updated dependencies [c236992]
+- Updated dependencies [8fe68de]
+- Updated dependencies [0632dd9]
+- Updated dependencies [9122983]
+- Updated dependencies [9a1471e]
+- Updated dependencies [bde11bb]
+- Updated dependencies [a8804ee]
+- Updated dependencies [b9e1b1b]
+- Updated dependencies [8678eaf]
+- Updated dependencies [3e2afee]
+- Updated dependencies [7f89fc8]
+- Updated dependencies [7471fb0]
+- Updated dependencies [b12e089]
+- Updated dependencies [a8ce9de]
+- Updated dependencies [e8506a5]
+- Updated dependencies [bc86198]
+- Updated dependencies [a453df1]
+- Updated dependencies [45a1083]
+- Updated dependencies [95fadcc]
+  - @aparte/core@0.13.0
+  - @aparte/angular@0.13.0
+  - @aparte/plugin-marked@0.13.0
+  - @aparte/plugin-model-selector@0.13.0
+  - @aparte/provider-openai-compat@0.13.0
+
 ## 0.0.10
 
 ### Patch Changes

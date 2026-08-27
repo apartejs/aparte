@@ -1,5 +1,149 @@
 # @aparte/plugin-ask-question
 
+## 0.13.0
+
+### Minor Changes
+
+- 73238ac: The question-receipt's classes stop leaking onto your page.
+
+  **BREAKING for themes of this plugin**: eight names change.
+
+  The plugin styled and emitted seven UNPREFIXED classes. Core renders into the light DOM —
+  no shadow root, no `::part()` — so an unprefixed rule in a package a consumer imports is a
+  **global** rule on their page.
+
+  `.segment` is the worst of them: it is Semantic UI's own base class, and CLAUDE.md already
+  names it as a known collision. The same package's other renderer was writing
+  `aparte-segment` correctly, so the two disagreed with each other.
+
+  | before                    | after                                        |
+  | ------------------------- | -------------------------------------------- |
+  | `.segment`                | `.aparte-segment`                            |
+  | `.seg-qreceipt`           | `.aparte-question-receipt`                   |
+  | `.seg-qreceipt-group`     | `.aparte-question-receipt__group`            |
+  | `.seg-qreceipt--declined` | `.aparte-question-receipt--declined`         |
+  | `.qr-question`            | `.aparte-question-receipt__question`         |
+  | `.qr-answer`              | `.aparte-question-receipt__answer`           |
+  | `.qr-sep`                 | `.aparte-question-receipt__sep`              |
+  | `.qr-declined`            | `.aparte-question-receipt__answer--declined` |
+  | `@keyframes qr-appear`    | `@keyframes aparte-question-receipt-appear`  |
+
+  The keyframes name is in the table for the same reason as the classes: animation names live
+  in one global namespace too, so `qr-appear` was one `@keyframes` away from a consumer's own.
+
+- 13ec8ca: Every element now carries its own documentation, and the docs site is generated from it.
+
+  `package.json` points `customElements` at `dist/custom-elements.json` and `files` ships `dist`,
+  so this file is what feeds a consumer's editor autocomplete — not only apartejs.dev. It was
+  thin, wrong in five places, and in one package it did not exist at all.
+
+  ## The manifest, measured across core's 18 elements
+
+  |                                        | before  | after       |
+  | -------------------------------------- | ------- | ----------- |
+  | descriptions under 200 characters      | 10 / 18 | **0 / 18**  |
+  | elements declaring their CSS variables | 0 / 18  | **17 / 18** |
+  | declared slots                         | 1       | **0**       |
+  | elements carrying a worked example     | 18 / 18 | 18 / 18     |
+
+  **The CSS variables are the substantial half.** 263 exist and not one was attached to the
+  element it styles, so they were reachable only through a single flat 263-row reference — present
+  and unfindable, which is the failure this repo keeps rediscovering. **177 are now declared on
+  their own element**, with the default the stylesheet actually sets. The eighteenth, the composer
+  toolbar, correctly declares none: it is styled entirely by global spacing tokens and has no knob
+  of its own.
+
+  **The slot count going to zero is the fix, not a regression.** Core has no shadow DOM — no
+  `attachShadow`, no `<slot>` element anywhere — so it has no slots. A `@slot` in a manifest
+  declares a real slot NAME a consumer can write and tooling will offer; one had shipped for a
+  `panel` region that is a plain child stamped `data-aparte-panel`, so an editor would have
+  completed a name that does nothing. Ratified decision #4: a name a context contradicts is a name
+  that will lie. What an element accepts as children, and where those children land, is now prose.
+
+  ## Five published claims were false, and are corrected rather than softened
+  - `<aparte-chat-viewport>`'s `framework-managed` said it "relocates none of its children". It
+    re-appends core's own scroll-to-bottom button whenever that stops being last, and that path
+    runs in framework-managed mode only. The guarantee is about the nodes the FRAMEWORK renders.
+  - `<aparte-chat>` described its composition test as looking for a viewport CHILD. It is a
+    descendant query, so a viewport nested inside a wrapper of your own counts — and the
+    difference decides whether your markup survives or is overwritten by the default composition.
+    Only the centering CSS is direct-child, and only that sentence now says so.
+  - `<aparte-chat>` said "a framework wrapper sets `framework-managed`". Only Angular's does: its
+    component selector IS `aparte-chat`, while React, Vue and Svelte render a `[data-aparte-chat]`
+    div and never create the element.
+  - `--aparte-viewport-padding` promised that a narrow container reduces it. That rule targets a
+    wrapper the framework-managed path never builds — and it cannot be repaired by adding the
+    host, because `container-type` is declared on the viewport itself and a container query never
+    matches its own container.
+  - `<aparte-composer>`'s `--aparte-message-max-width` said overriding it "moves both". Custom
+    properties inherit downward and `.aparte-message` is a sibling subtree, so set on the composer
+    it moves only the composer.
+
+  Each was found by an adversarial pass that was told to refute, not to confirm.
+
+  ## `@aparte/plugin-ask-user` ships a manifest for the first time
+
+  It defines a custom element with `customElements.define` and shipped nothing machine-readable
+  about it: no `customElements` field, no `analyze` step, no manifest — while its sibling
+  `@aparte/plugin-model-selector` has had all three since it shipped. So no editor completed
+  `<aparte-ask-user>`'s surface, and no page could be generated from it. It has one now.
+
+  The analyzer plugin that lifts `@example` blocks into a manifest lived inline in core's config,
+  so neither plugin element had an example in its own manifest. It is now shared by all three
+  configs, and all three report every element carrying one.
+
+  ## Why minor rather than patch
+
+  Nothing's runtime behaviour changed in this entry, but the manifest is a PUBLISHED description
+  of the API: a declared slot disappears, 177 CSS custom properties appear, and a package gains a
+  `customElements` pointer where it had none. Tooling reads all of that. Calling metadata that
+  consumers' editors consume a patch would understate it.
+
+### Patch Changes
+
+- 4b598f7: The question receipt's stylesheet reads core's tokens instead of its own magic
+  numbers: spacing on `--aparte-space-*`, its hairline on `--aparte-border-width`, and
+  its appear animation on `--aparte-duration-slow`.
+
+  A plugin's CSS lives in a template literal because it cannot edit core's stylesheet —
+  but that is a reason to reference the theme's tokens, not to restate their values. The
+  receipt now follows a consumer who moves `--aparte-space-unit`, and stops at
+  `prefers-reduced-motion` because the duration it reads is overridden there. No API
+  change.
+
+- 8759de6: The receipt's last two raw values read the scale: `font-weight: 600` becomes
+  `--aparte-font-weight-semibold` and `font-size: 0.8rem` becomes
+  `--aparte-font-size-md` (13px against 12.8px, so it moves 0.2px and now sits on a
+  step). The previous pass tokenised the receipt's spacing and duration but not its
+  type — the weight was still written out, which is how a plugin quietly stops
+  following a consumer who restyles the chat.
+- c236992: Fixed: every package accepted a `@aparte/core` it cannot actually work with.
+
+  All fourteen declared `"@aparte/core": ">=0.7.0 <1.0.0"` while sitting at 0.12.1 and
+  importing symbols core does not export before 0.11.0 (`AparteElementAttributes`,
+  `AparteTemplateAttrs`, `AparteElementTagName`) or before 0.12.0 (`AparteUiEventName`) —
+  read from `src/index.ts` at each release tag, not inferred. npm and pnpm both ACCEPT
+  `@aparte/react@0.12.1` beside `@aparte/core@0.7.0`, say nothing, and hand you a tree
+  whose types cannot compile.
+
+  These packages are published in lockstep and are never tested apart, so the floor is the
+  release. It now says so, and `pnpm version-packages` moves it with every bump — the floor
+  went stale because the bump was the one place nothing updated it.
+
+- 0632dd9: `ask-user`'s question receipt is an `.aparte-tag`. It is a pill holding a truncating
+  label, which is what that recipe is, and it used to redeclare the whole thing. Its own
+  CSS drops from 33 declarations to 22; the card's rule goes from 11 to 6, four of them
+  now setting the tag's tokens rather than restating its properties. Nothing moves on
+  screen.
+
+  This is also the first place in the repo where a plugin reaches core's recipes, which
+  is the point: they are plain classes on a stylesheet core already ships, so a plugin
+  needs no import, no client and no build step to use them.
+
+  `model-selector` no longer puts `aparte-model-selector-select` on its `<aparte-select>`.
+  It carried no CSS and was queried by nothing. The element is addressable as
+  `aparte-model-selector aparte-select`, which is what a consumer restyling it writes.
+
 ## 0.12.1
 
 ## 0.12.0
