@@ -227,6 +227,23 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
  *
  * <!-- While a reply is in flight: `streaming` hides the action bar and shows the caret. -->
  * <aparte-chat-bubble message-id="a2" data-role="assistant" streaming></aparte-chat-bubble>
+ *
+ * <!-- One reply among several. `setSiblings(count, index)` is what draws the picker, and
+ *      it is a METHOD, not an attribute — so a branch cannot be shown by markup alone.
+ *      Retry forks a sibling instead of overwriting the reply, and this is the control
+ *      that walks them; each press dispatches `aparte-branch-navigate` for a host to
+ *      answer. Kept in the example because a guide that describes branching has no other
+ *      way to SHOW it. -->
+ * <aparte-chat-bubble
+ *   message-id="a3"
+ *   data-role="assistant"
+ *   name="Assistant"
+ *   content="A second take on the same question."
+ * ></aparte-chat-bubble>
+ *
+ * <script>
+ *   document.querySelector('aparte-chat-bubble[message-id="a3"]').setSiblings(2, 0);
+ * </script>
  */
 export class AparteChatBubble extends HTMLElement {
   private _contentEl: HTMLDivElement | null = null;
