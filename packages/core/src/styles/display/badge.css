@@ -30,7 +30,7 @@
 
 .aparte-badge {
   --aparte-badge-intent: var(--aparte-neutral);
-  --aparte-badge-on-intent: var(--aparte-text);
+  --aparte-badge-on-intent: var(--aparte-on-intent);
 
   display: inline-flex;
   align-items: center;

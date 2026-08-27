@@ -86,9 +86,9 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90d
    <div data-status="rejected"> re-tinted every completed tool call's word red, because
    0,2,0 beats the base rule's 0,1,0 and source order puts rejected/aborted last. Core
    itself documents data-status as a free-form host attribute on <aparte-option>. */
-.aparte-segment-tool-call[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success); }
+.aparte-segment-tool-call[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success-ink); }
 .aparte-segment-tool-call[data-status="rejected"] .aparte-tool-state,
-.aparte-segment-tool-call[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error); }
+.aparte-segment-tool-call[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error-ink); }
 /* The Approve / Reject button rules were here. They moved with the buttons, to
    .aparte-approval-option in components/elicitation.css - and what stayed behind was a
    leftover: a rule tinting .aparte-tool-label's border while a decision was pending,

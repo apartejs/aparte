@@ -107,7 +107,7 @@
 .aparte-content a,
 .aparte-segment-content a,
 .aparte-thinking-content a {
-  color: var(--aparte-primary);
+  color: var(--aparte-primary-ink);
   text-decoration: underline;
 }
 

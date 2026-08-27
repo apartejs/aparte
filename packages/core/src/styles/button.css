@@ -27,6 +27,11 @@
      what keeps the two axes independent. */
   --aparte-btn-intent: var(--aparte-neutral);
   --aparte-btn-on-intent: var(--aparte-btn-ink);
+  /* The intent as TEXT. Ghost, outline and soft paint the label with the intent on
+     the PAGE background, which is the case the note below never measured — and on
+     the light theme every one of them came out under AA. Defaults to the fill, so
+     a caller setting only `--aparte-btn-intent` keeps working. */
+  --aparte-btn-intent-ink: var(--aparte-btn-intent);
 
   display: inline-flex;
   align-items: center;
@@ -62,7 +67,7 @@
 
   /* Default fill: ghost. */
   background: transparent;
-  color: var(--aparte-btn-intent);
+  color: var(--aparte-btn-intent-ink);
 }
 
 /* ── Axis 1 — INTENT. Sets a colour; says nothing about how it is used. ─────────
@@ -71,13 +76,13 @@
    success 6.34 against 2.54 — except neutral, which is dark enough to want white.
    Three of them reach neither 4.5 with either colour (primary 4.46, info 4.37,
    danger 4.27); that is the palette's mid-luminance, not this file's doing. */
-.aparte-btn--primary   { --aparte-btn-intent: var(--aparte-primary); }
+.aparte-btn--primary   { --aparte-btn-intent: var(--aparte-primary); --aparte-btn-intent-ink: var(--aparte-primary-ink); }
 .aparte-btn--secondary { --aparte-btn-intent: var(--aparte-secondary); }
 .aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); --aparte-btn-on-intent: var(--aparte-on-primary); }
-.aparte-btn--info      { --aparte-btn-intent: var(--aparte-info); }
-.aparte-btn--success   { --aparte-btn-intent: var(--aparte-success); }
-.aparte-btn--warning   { --aparte-btn-intent: var(--aparte-warning); }
-.aparte-btn--danger    { --aparte-btn-intent: var(--aparte-error); }
+.aparte-btn--info      { --aparte-btn-intent: var(--aparte-info); --aparte-btn-intent-ink: var(--aparte-info-ink); }
+.aparte-btn--success   { --aparte-btn-intent: var(--aparte-success); --aparte-btn-intent-ink: var(--aparte-success-ink); }
+.aparte-btn--warning   { --aparte-btn-intent: var(--aparte-warning); --aparte-btn-intent-ink: var(--aparte-warning-ink); }
+.aparte-btn--danger    { --aparte-btn-intent: var(--aparte-error); --aparte-btn-intent-ink: var(--aparte-error-ink); }
 
 /* ── Axis 2 — FILL. Reads the intent; says nothing about which one. ───────────── */
 
@@ -86,7 +91,7 @@
 .aparte-btn--ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--aparte-btn-intent);
+  color: var(--aparte-btn-intent-ink);
 }
 
 /* Solid — the action of its row. */
@@ -97,10 +102,12 @@
 }
 
 /* Outline — the weight of solid, half the ink. */
+/* The BORDER keeps the fill colour: a border is not text, and 3:1 is the bar it has
+   to clear. Only the label moves to the ink. */
 .aparte-btn--outline {
   background: transparent;
   border-color: var(--aparte-btn-intent);
-  color: var(--aparte-btn-intent);
+  color: var(--aparte-btn-intent-ink);
 }
 
 /* Soft — a wash of the intent. Between ghost and solid, and the one that reads best
@@ -108,7 +115,7 @@
 .aparte-btn--soft {
   background: color-mix(in srgb, var(--aparte-btn-intent) 14%, transparent);
   border-color: transparent;
-  color: var(--aparte-btn-intent);
+  color: var(--aparte-btn-intent-ink);
 }
 
 /* Surface — the one fill that ignores the intent, on purpose: it is not a colour, it

@@ -53,6 +53,22 @@
   --aparte-warning: #f59e0b;
   --aparte-error: #ef4444;
 
+  /* The same five, as TEXT on the page background — a different job, and on a
+     light ground a different colour. The five above are FILLS: a solid button,
+     a badge, a wash. Read as text on `--aparte-bg` they measure 3.23 (primary),
+     3.29 (info), 2.27 (success), 1.92 (warning) and 3.37 (error) against the
+     4.5:1 WCAG AA asks of body text — and every ghost, outline and soft button,
+     the tool-call status, the form error and every link core renders was reading
+     the fill. An accent gains contrast by moving AWAY from its background, so
+     light goes DOWN and dark (below) goes UP; that is why one value cannot serve
+     both themes, and why `button.css` measured only the SOLID case and concluded
+     the palette was at fault. Measured on `--aparte-bg` and `--aparte-surface-1`. */
+  --aparte-primary-ink: #8f6529;   /* 4.63 / 5.09 */
+  --aparte-info-ink:    #0b63f2;   /* 4.61 / 5.06 */
+  --aparte-success-ink: #0b7d57;   /* 4.60 / 5.06 */
+  --aparte-warning-ink: #986206;   /* 4.60 / 5.06 */
+  --aparte-error-ink:   #da1313;   /* 4.61 / 5.06 */
+
   /* Masters — one knob each. Every step of every scale is COMPUTED from these
      (see the anchored block below), so moving one moves the whole family. That
      is the property a scale written out as literals cannot have.
@@ -87,6 +103,16 @@
 
   /* Text/icon over a --aparte-primary (brass) fill — send button, run button. */
   --aparte-on-primary: #ffffff;
+  /* The ink that sits ON a coloured fill — a solid button, a badge, a checkmark.
+     It does NOT flip with the theme, and that is the point: the fills are
+     mid-to-bright in BOTH themes, so the label has to be dark in both. It used to
+     be `--aparte-text`, which is near-black on light and near-white on dark — so
+     the dark theme silently got the white ink that `button.css` had measured and
+     rejected, and the solid primary button read at 1.96:1. Against the five fills
+     this palette declares it measures 5.26 (primary), 5.15 (info), 7.47 (success),
+     8.82 (warning) and 5.04 (error). `--aparte-on-primary` above stays white, for
+     the one intent dark enough to want it. */
+  --aparte-on-intent: #14100a;
   /* Outline width for keyboard focus + drag-over indicators. */
   --aparte-focus-outline-width: 2px;
   /* Scrollbars rendered by the library. */
@@ -412,6 +438,17 @@
   --aparte-art-file-error-msg-bg: rgba(255, 255, 255, 0.06);
 
   /* Error segment */
+  /* The text inks, going the other way: on a dark ground the accent gains
+     contrast by getting BRIGHTER. Three keep their fill value, which already
+     clears AA there; error and info do not — 4.46 and 4.56 on `--aparte-surface-1`
+     and 3.60 / 3.68 on `--aparte-surface-3` — so they take the lighter tone the
+     alert family already ships. */
+  --aparte-primary-ink: #d9a24b;
+  --aparte-info-ink:    #60a5fa;
+  --aparte-success-ink: #10b981;
+  --aparte-warning-ink: #f59e0b;
+  --aparte-error-ink:   #f87171;
+
   --aparte-error-bg: #2d1b1b;
   --aparte-error-border: #7f1d1d;
   --aparte-error-solid: #f87171;
@@ -553,7 +590,7 @@ aparte-chat {
   --aparte-meter-poor: var(--aparte-error);
   --aparte-output-padding: var(--aparte-space-1) var(--aparte-space-2);
   --aparte-output-bg: var(--aparte-surface-2);
-  --aparte-link-color: var(--aparte-primary);
+  --aparte-link-color: var(--aparte-primary-ink);
   --aparte-link-color-hover: var(--aparte-primary-hover);
   --aparte-link-underline-thickness: var(--aparte-border-width);
   --aparte-link-underline-offset: var(--aparte-space-1);
@@ -631,7 +668,7 @@ aparte-chat {
   --aparte-btn-bg-toggled: var(--aparte-surface-2);
   --aparte-btn-color-toggled: var(--aparte-text);
   --aparte-btn-size: var(--aparte-btn-size-md);
-  --aparte-btn-ink: var(--aparte-text);
+  --aparte-btn-ink: var(--aparte-on-intent);
   --aparte-btn-icon-size: var(--aparte-icon-size-lg);
   --aparte-btn-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
   --aparte-btn-padding-lg: var(--aparte-space-3) var(--aparte-space-5);

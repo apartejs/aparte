@@ -215,7 +215,7 @@
      on top of it. Ink beats white on every intent this palette declares except
      neutral (see button.css) — checked-neutral is the one override below. */
   --aparte-checkbox-intent: var(--aparte-primary);
-  --aparte-checkbox-on-intent: var(--aparte-text);
+  --aparte-checkbox-on-intent: var(--aparte-on-intent);
   /* No shared control-size token covers a checkbox yet (the button's own sizes are
      button-specific), so its box is declared here. */
   --aparte-checkbox-size: 18px;
@@ -597,7 +597,7 @@
 /* A bare colour on the marker, not injected `*` content: a locale that doesn't mark
    required fields with an asterisk still gets a place to say so, in its own text. */
 .aparte-field-required {
-  color: var(--aparte-error);
+  color: var(--aparte-error-ink);
 }
 
 /* ── Grouping — fieldset and a field row ────────────────────────────────────── */

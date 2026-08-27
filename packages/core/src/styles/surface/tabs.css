@@ -120,7 +120,7 @@
 }
 
 .aparte-tabs__tab[aria-selected='true'] {
-  color: var(--aparte-primary);
+  color: var(--aparte-primary-ink);
   border-block-end-color: var(--aparte-primary);
 }
 

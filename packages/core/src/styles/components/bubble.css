@@ -152,7 +152,7 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 }
 
 .aparte-action-btn[data-copied] {
-  color: var(--aparte-success);
+  color: var(--aparte-success-ink);
 }
 
 .aparte-action-btn[data-submitted] {
