@@ -5,11 +5,18 @@ sidebar:
   order: 9
 ---
 
+import SegmentPreview from '../../../components/SegmentPreview.astro';
+
 A **tool** is a function the model can ask to run — read a file, hit an API, delete
 something. Register a definition plus a handler and `AparteClient` does the rest: it
 offers the tool to the model, runs your handler when it's called, feeds the result back,
 and renders the call as a row you can open. For anything sensitive, one flag makes the model
 wait for a human to click **Approve** before your handler ever runs.
+
+A tool call as the reader will see it. The row is core's default renderer, drawn from
+the segment's own example.
+
+<SegmentPreview kind="tool_call" />
 
 ## Define and register a tool
 
