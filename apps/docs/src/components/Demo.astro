@@ -1,0 +1,37 @@
+---
+/**
+ * A guide scenario: the rendering AND the code that produces it, from one string.
+ *
+ * `ElementPreview` renders only the frame — on a generated element page the code beside it
+ * is emitted separately, by the generator. Dropped into a guide it therefore showed a
+ * picture with no code, which is worth less than the code alone it replaced. That is the
+ * whole reason this component exists: it reads `guide-demos.ts` once and emits both, so
+ * the reader sees the state AND how to reach it, and neither can drift from the other.
+ *
+ * An unknown `id` renders NOTHING rather than an empty box, the same rule
+ * `ElementPreview` follows — a frame under a caption promising a demo, showing nothing,
+ * shipped here for months once already.
+ */
+import { Code } from '@astrojs/starlight/components';
+import { GUIDE_DEMOS } from '../data/guide-demos';
+import PreviewFrame from './PreviewFrame.astro';
+
+interface Props {
+    /** The scenario's `id` in `guide-demos.ts`. */
+    id: string;
+    /** One line under the frame, saying what the reader is looking at. */
+    caption: string;
+}
+
+const { id, caption } = Astro.props;
+const demo = GUIDE_DEMOS.find((entry) => entry.id === id);
+---
+
+{
+    demo && (
+        <>
+            <PreviewFrame src={`/preview/demo/${demo.id}/`} label={demo.title} caption={caption} />
+            <Code code={demo.html} lang="html" />
+        </>
+    )
+}

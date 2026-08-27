@@ -5,6 +5,8 @@ sidebar:
   order: 9
 ---
 
+import Demo from '../../../components/Demo.astro';
+
 A **tool** is a function the model can ask to run — read a file, hit an API, delete
 something. Register a definition plus a handler and `AparteClient` does the rest: it
 offers the tool to the model, runs your handler when it's called, feeds the result back,
@@ -127,6 +129,11 @@ And every part is a class, so restyling needs no renderer:
 Replacing the markup outright is [a custom tool renderer](#custom-tool-renderer) instead.
 
 ## Require approval (human-in-the-loop)
+
+What the reader sees when the loop stops. The row is the anchor — it opens onto the
+arguments the model sent — and the decision itself is asked at the composer.
+
+<Demo id="tool-approval" caption="A tool call in `awaiting-approval`: the turn is paused and nothing has run yet." />
 
 Set `needsApproval: true` on the tool:
 

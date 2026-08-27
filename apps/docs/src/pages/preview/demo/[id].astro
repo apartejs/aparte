@@ -1,0 +1,24 @@
+---
+/**
+ * One standalone document per GUIDE scenario, for `<Demo>` to load in its frame.
+ *
+ * Deliberately the same shape as `preview/[tag].astro`: a list, `getStaticPaths`, the
+ * script split out so `PreviewDocument` can revive it after the library has loaded. The
+ * only difference is where the string comes from — `guide-demos.ts` rather than an
+ * element's `@example` — because a guide illustrates a STATE, not an element.
+ */
+import { GUIDE_DEMOS } from '../../../data/guide-demos';
+import PreviewDocument from '../../../components/PreviewDocument.astro';
+
+export function getStaticPaths() {
+    return GUIDE_DEMOS.map((demo) => ({ params: { id: demo.id }, props: demo }));
+}
+
+const { title, html } = Astro.props;
+
+const SCRIPT = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+const scripts = [...html.matchAll(SCRIPT)].map((match) => match[1] ?? '');
+const markup = html.replace(SCRIPT, '').trim();
+---
+
+<PreviewDocument title={`${title} — live demo`} markup={markup} scripts={scripts} />
