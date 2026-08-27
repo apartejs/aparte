@@ -1,5 +1,37 @@
 # @aparte/svelte
 
+## 0.13.0
+
+### Patch Changes
+
+- 05f3d8b: `<AparteUi>`'s imperative handle honours `AparteUiHandle` on Vue and Svelte.
+
+  Both packages export that interface with a docblock promising "the same
+  `getElement`/`callMethod` contract on all four wrappers", and both implementations were
+  non-generic: Vue's `defineExpose` took a bare object literal, Svelte's exported plain
+  functions. So `getElement<HTMLInputElement>()` typed as `HTMLElement | null` there and
+  correctly on React and Angular — a consumer following the documented `ref` / `bind:this`
+  pattern got a type error on two of four wrappers and none on the other two.
+
+  Found by a cold audit that compiled it rather than read it: `svelte2tsx` + `tsc` on the real
+  component produced `TS2322` on the exact pattern the framework pages teach.
+
+  Type-only — no runtime behaviour changes. Vue's emitted declaration now carries
+  `getElement<T extends HTMLElement = HTMLElement>(): T | null`, matching the interface.
+
+- c236992: Fixed: every package accepted a `@aparte/core` it cannot actually work with.
+
+  All fourteen declared `"@aparte/core": ">=0.7.0 <1.0.0"` while sitting at 0.12.1 and
+  importing symbols core does not export before 0.11.0 (`AparteElementAttributes`,
+  `AparteTemplateAttrs`, `AparteElementTagName`) or before 0.12.0 (`AparteUiEventName`) —
+  read from `src/index.ts` at each release tag, not inferred. npm and pnpm both ACCEPT
+  `@aparte/react@0.12.1` beside `@aparte/core@0.7.0`, say nothing, and hand you a tree
+  whose types cannot compile.
+
+  These packages are published in lockstep and are never tested apart, so the floor is the
+  release. It now says so, and `pnpm version-packages` moves it with every bump — the floor
+  went stale because the bump was the one place nothing updated it.
+
 ## 0.12.1
 
 ## 0.12.0

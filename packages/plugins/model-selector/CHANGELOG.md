@@ -1,5 +1,36 @@
 # @aparte/plugin-model-selector
 
+## 0.13.0
+
+### Patch Changes
+
+- c236992: Fixed: every package accepted a `@aparte/core` it cannot actually work with.
+
+  All fourteen declared `"@aparte/core": ">=0.7.0 <1.0.0"` while sitting at 0.12.1 and
+  importing symbols core does not export before 0.11.0 (`AparteElementAttributes`,
+  `AparteTemplateAttrs`, `AparteElementTagName`) or before 0.12.0 (`AparteUiEventName`) —
+  read from `src/index.ts` at each release tag, not inferred. npm and pnpm both ACCEPT
+  `@aparte/react@0.12.1` beside `@aparte/core@0.7.0`, say nothing, and hand you a tree
+  whose types cannot compile.
+
+  These packages are published in lockstep and are never tested apart, so the floor is the
+  release. It now says so, and `pnpm version-packages` moves it with every bump — the floor
+  went stale because the bump was the one place nothing updated it.
+
+- 0632dd9: `ask-user`'s question receipt is an `.aparte-tag`. It is a pill holding a truncating
+  label, which is what that recipe is, and it used to redeclare the whole thing. Its own
+  CSS drops from 33 declarations to 22; the card's rule goes from 11 to 6, four of them
+  now setting the tag's tokens rather than restating its properties. Nothing moves on
+  screen.
+
+  This is also the first place in the repo where a plugin reaches core's recipes, which
+  is the point: they are plain classes on a stylesheet core already ships, so a plugin
+  needs no import, no client and no build step to use them.
+
+  `model-selector` no longer puts `aparte-model-selector-select` on its `<aparte-select>`.
+  It carried no CSS and was queried by nothing. The element is addressable as
+  `aparte-model-selector aparte-select`, which is what a consumer restyling it writes.
+
 ## 0.12.1
 
 ## 0.12.0
