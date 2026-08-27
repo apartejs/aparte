@@ -2,7 +2,7 @@
 title: aparteGlobalConfig & core API
 description: The core JS API in one place — the aparteGlobalConfig singleton, AparteClient, and the transports — signatures straight from packages/core/src.
 sidebar:
-  order: 4
+  order: 1
 ---
 
 The [Components](/components/), [CSS variables](/reference/css-variables/) and
