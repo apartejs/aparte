@@ -14,6 +14,11 @@ npm install @aparte/react @aparte/core react react-dom
 
 `@aparte/core`, `react` and `react-dom` are **peer dependencies**.
 
+:::note[On the server]
+`AparteChat.tsx` opens with `'use client'`, so the Next App Router keeps the component out of the server pass for you. `@aparte/core` itself imports cleanly on a server through its DOM-free entry — see [On the server](/frameworks/elements/#on-the-server).
+:::
+
+
 ## `<AparteChat>` + `useAparteChat`
 
 The `useAparteChat` hook owns the message state and the component ref, so you just spread them:

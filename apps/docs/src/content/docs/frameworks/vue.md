@@ -14,6 +14,11 @@ npm install @aparte/vue @aparte/core vue
 
 `@aparte/core` and `vue` are **peer dependencies**.
 
+:::caution[On the server]
+This wrapper carries **no** server guard. Under Nuxt, import it in a client-only context yourself — a custom element extends `HTMLElement` and cannot be constructed during an SSR pass. `@aparte/core` itself imports cleanly on a server through its DOM-free entry: see [On the server](/frameworks/elements/#on-the-server).
+:::
+
+
 
 ## `<AparteChat>` + `useAparteChat`
 

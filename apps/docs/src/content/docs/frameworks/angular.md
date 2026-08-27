@@ -15,6 +15,11 @@ npm install @aparte/angular @aparte/core @angular/core @angular/common rxjs
 
 `@aparte/core`, `@angular/core`, `@angular/common` and `rxjs` are **peer dependencies**.
 
+:::note[On the server]
+`provideAparte()` guards `autoConnect` with `typeof window !== 'undefined'`, so Angular Universal boots without touching the DOM. `@aparte/core` itself imports cleanly on a server through its DOM-free entry — see [On the server](/frameworks/elements/#on-the-server).
+:::
+
+
 :::caution[Angular 19 only, deliberately]
 The peer range is `^19.2.0` because 19 is the only major this wrapper is built and
 browser-tested against. It is a thin bridge over standard custom elements — no private
