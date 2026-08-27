@@ -32,7 +32,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.7.0 <1.0.0",
+        "@aparte/core": ">=0.12.1 <1.0.0",
         "marked": "^18.0.0"
     },
     "devDependencies": {

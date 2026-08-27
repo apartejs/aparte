@@ -75,6 +75,49 @@ for (const file of manifests) {
     }
 }
 
+/**
+ * And the FLOOR has to be the version the lot is actually on.
+ *
+ * Bounded is not the same as true. Every package here ships in lockstep — one
+ * `changeset version`, one number — and yet all fourteen declared `>=0.7.0` while sitting
+ * at 0.12.1 and importing symbols core did not export before 0.11.0
+ * (`AparteElementAttributes`) or 0.12.0 (`AparteUiEventName`) — established by reading
+ * `src/index.ts` at each release TAG, not inferred from a changelog. npm and pnpm both
+ * ACCEPT that pairing in silence and hand the consumer a tree whose types cannot compile.
+ *
+ * This guard only says so. `scripts/sync-peer-ranges.mjs` is what fixes it, and it runs
+ * inside `version-packages` where the bump happens — a floor that has to be hand-edited
+ * on every release is a floor that will rot again.
+ */
+const LOCKSTEP = JSON.parse(readFileSync('packages/core/package.json', 'utf8')).version;
+const stale = [];
+for (const file of manifests) {
+    const json = JSON.parse(readFileSync(file, 'utf8'));
+    for (const [dep, range] of Object.entries(json.peerDependencies ?? {})) {
+        if (!dep.startsWith(SCOPE)) continue;
+        if (String(range).startsWith('workspace:')) continue;
+        const floor = /^>=\s*([0-9][^\s]*)/.exec(String(range))?.[1];
+        if (floor !== LOCKSTEP) stale.push({ file, name: json.name, dep, range: String(range), floor });
+    }
+}
+
+if (stale.length) {
+    console.error(`\n[peer-ranges] ${stale.length} internal peer floor(s) do not match the lockstep version ${LOCKSTEP}:\n`);
+    for (const s of stale) {
+        console.error(`  ${s.name}  ->  "${s.dep}": "${s.range}"   (${s.file})`);
+        console.error(`    floor is ${s.floor ?? '(unreadable)'}, the lot is on ${LOCKSTEP}\n`);
+    }
+    console.error(
+        '  These packages are published together and are never tested apart, so the floor\n'
+        + '  IS the release. A lower one is not generosity, it is an untested claim: the\n'
+        + '  package manager accepts the pairing without a word and the build fails at the\n'
+        + '  consumer, on types that were added after the floor.\n\n'
+        + '  Run `node scripts/sync-peer-ranges.mjs`. It runs on its own inside\n'
+        + '  `pnpm version-packages`; seeing this means the bump happened without it.\n',
+    );
+    process.exit(1);
+}
+
 /*
  * ── EXTERNAL framework peers ─────────────────────────────────────────────────
  *
