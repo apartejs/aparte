@@ -66,6 +66,13 @@ test('while a question is open, the composer offers nothing that leads nowhere',
     await expect(chat.attachButton, 'no attachment picker while answering a question').toBeHidden();
     await expect(chat.editor, 'and no text input either').toBeHidden();
     await expect(chat.composer).toHaveAttribute('data-panel-active', '');
+
+    // And nothing is left of the composer's own row: a single choice settles on the
+    // click, so the send button has no act here either. It used to sit through the
+    // whole question, disabled, offering one — the same defect as the picker above,
+    // one control further along, and only the PANEL can know it.
+    await expect(chat.composer).toHaveAttribute('data-panel-mode', 'none');
+    await expect(chat.sendButton, 'no submit beside options that are the answer').toBeHidden();
 });
 
 test('answering restores the composer and resumes the turn', async ({ page }) => {
@@ -79,9 +86,9 @@ test('answering restores the composer and resumes the turn', async ({ page }) =>
 
     const panel = page.locator(PANEL);
     await expect(panel).toBeVisible();
+    // ONE gesture. The click IS the answer — there is no second step, and no button
+    // to press: the option is a command button, not a radio waiting on a submit.
     await panel.getByText(MOCK_ASK_OPTIONS[0], { exact: false }).first().click();
-    // The panel takes the composer's send button over while it is open.
-    await chat.sendButton.click();
 
     await expect(panel).toHaveCount(0);
     await expect(chat.editor, 'the composer is a composer again').toBeVisible();

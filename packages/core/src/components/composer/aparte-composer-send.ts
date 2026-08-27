@@ -1,5 +1,5 @@
 import { resolveConfig } from '../../config/index.js';
-import type { AparteComposer } from './aparte-composer.js';
+import type { AparteComposer, AparteComposerPanelMode } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 
@@ -70,7 +70,7 @@ export class AparteComposerSend extends HTMLElement {
      * arguments and thrown away, so nothing could recompute the button's chrome
      * afterwards; a config change had no way to know which of the four to write.
      */
-    private _panel: { active: boolean; submitEnabled: boolean; mode: 'advance' | 'submit' } | null = null;
+    private _panel: { active: boolean; submitEnabled: boolean; mode: AparteComposerPanelMode } | null = null;
 
     // Bound handler
     private _onClick = this._handleClick.bind(this);
@@ -174,6 +174,16 @@ export class AparteComposerSend extends HTMLElement {
         const panel = this._panel;
         if (!this._button || !panel?.active) return;
         const cfg = resolveConfig(this);
+        // No act for this button on this panel: its options settle themselves. The
+        // composer's `[data-panel-mode="none"]` rule takes it out of the layout — and
+        // `display: none` takes it out of the accessibility tree with it, so there is
+        // no `aria-hidden` or `tabindex` to set here and none to restore when the mode
+        // flips back. What this branch does is refuse to RELABEL it: leaving it
+        // announced as a disabled "Submit" is the lie, not the button.
+        if (panel.mode === 'none') {
+            this._button.disabled = true;
+            return;
+        }
         const advancing = panel.mode === 'advance';
         this._button.disabled = !panel.submitEnabled;
         this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();

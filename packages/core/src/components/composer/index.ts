@@ -4,6 +4,7 @@ export type {
     AparteComposerEventType,
     AparteComposerState,
     AparteComposerChangeEventDetail,
+    AparteComposerPanelMode,
 } from './aparte-composer.js';
 export { AparteComposerInput } from './aparte-composer-input.js';
 export { AparteComposerSend } from './aparte-composer-send.js';

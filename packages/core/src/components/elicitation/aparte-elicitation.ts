@@ -24,7 +24,7 @@
 import { resolveConfig, runWithConfig, type AparteConfigAware } from '../../config/config-context.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
 import type { AparteConfig } from '../../config/aparte-config.js';
-import type { AparteComposer } from '../composer/aparte-composer.js';
+import type { AparteComposer, AparteComposerPanelMode } from '../composer/aparte-composer.js';
 import { buildElicitationPanel, type BuiltElicitationPanel } from '../../elicitation/panel.js';
 import { buildApprovalPanel } from '../../elicitation/approval-panel.js';
 import type { AparteElicitationRequest, AparteElicitationResult, AparteElicitationPresenter } from '../../elicitation/types.js';
@@ -297,18 +297,25 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
              * question the escape is the corner, for an approval it is a refusal.
              */
             if (request.kind === 'approval') {
+                /*
+                 * The button exists only once an INSTRUCTION has been written.
+                 *
+                 * The options never route through it — a decision is its own click —
+                 * so with `mode: 'submit'` from the start it sat there permanently
+                 * disabled beside them, offering an act that did not exist. It is the
+                 * written text, and only that, which is the act this button already
+                 * means; until there is some, the panel has none for it.
+                 */
+                const approvalMode = (): AparteComposerPanelMode => (panel.isComplete() ? 'submit' : 'none');
                 const panel = runWithConfig(cfg, () =>
                     buildApprovalPanel(request.message, request.options ?? [], () => {
-                        composer.setPanelSubmitEnabled(panel.isComplete(), 'submit');
+                        composer.setPanelSubmitEnabled(panel.isComplete(), approvalMode());
                     }));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
                 this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
                 slot.token = composer.showPanel(panel.el, {
                     submitEnabled: panel.isComplete(),
-                    mode: 'submit',
-                    // The composer's button carries the INSTRUCTION, which is written
-                    // text — exactly the act that button already means. The options
-                    // never route through it: a decision is its own click.
+                    mode: approvalMode(),
                     onSubmit: () => { if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() }); },
                     onEvict: () => fail(),
                 });
@@ -334,6 +341,14 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             skip.textContent = cfg.t('elicitationSkip');
             skip.addEventListener('click', () => settle({ action: 'decline' }));
             panel.dismiss.appendChild(skip);
+
+            /*
+             * The click that IS the answer — a single question whose options are
+             * buttons. Same wiring as the approval panel's, because it is the same
+             * act; the panel decides which of its shapes has it, and reports through
+             * `mode()` that the composer's button has nothing to do.
+             */
+            panel.onSettle((content) => settle({ action: 'accept', content }));
 
             this._pending = {
                 abort: () => fail(),

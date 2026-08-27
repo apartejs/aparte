@@ -76,13 +76,18 @@
 }
 
 /* The row is `.aparte-field-choice`; the panel only tightens its padding, because a
-   question's options sit inside an already-padded panel. */
-.aparte-elic-option {
+   question's options sit inside an already-padded panel.
+
+   Scoped away from `--command`, which is a BUTTON and wears the button recipe —
+   hover included. Out-specifying that recipe from here is the mistake
+   `.aparte-composer-row button` made and paid for twice; a declaration only the
+   intended reader can see needs no antidote. */
+.aparte-elic-option:not(.aparte-elic-option--command) {
   --aparte-field-choice-padding: var(--aparte-elic-option-padding);
   --aparte-field-choice-radius: var(--aparte-elic-option-radius);
 }
 
-.aparte-elic-option:hover {
+.aparte-elic-option:not(.aparte-elic-option--command):hover {
   background: var(--aparte-surface-2);
   border-color: var(--aparte-border);
 }
@@ -190,8 +195,15 @@ textarea.aparte-elic-text {
    What the option adds is the reading direction: left-aligned and flush, because the eye
    reads DOWN a list and a centred label in a wide target is harder to scan. The measures
    are re-expressed as the button's own tokens, so they land on the recipe rather than
-   beside it. `--surface` already carries the box and the hover. */
-.aparte-approval-option {
+   beside it. `--surface` already carries the box and the hover.
+
+   ONE rule for both, because they are the same object. A single-choice QUESTION settles
+   on the click for the same reason an approval does — one act, one gesture — and giving
+   it a second, identical set of declarations is how the two would drift apart. The two
+   names stay because the meanings differ, and a consumer restyling one should not have
+   to accept the other. */
+.aparte-approval-option,
+.aparte-elic-option--command {
   justify-content: flex-start;
   text-align: start;
   /* The recipe keeps a label on one line, which is right for a control in a row and

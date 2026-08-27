@@ -28,6 +28,22 @@ aparte-composer[data-panel-active] aparte-composer-add-attachment {
   display: none;
 }
 
+/* And the send button goes too when the PANEL says it has no act for it.
+   A panel whose options settle on the first click — a single-choice question, an
+   approval — never routes through this button, so it used to sit beside them
+   permanently disabled, meaning nothing. Same rule as above, one level further:
+   an affordance nothing can honour is not rendered (decision #8).
+
+   Declared by the panel through `showPanel({ mode: 'none' })` rather than assumed
+   here, because the same panel turns the button back ON the moment it grows an act
+   (an "Other…" field, a written instruction) — see `AparteComposerPanelMode`.
+
+   `display: none` and not `visibility`/opacity: this must leave the accessibility
+   tree, which is why `<aparte-composer-send>` sets no `aria-hidden` of its own. */
+aparte-composer[data-panel-mode='none'] aparte-composer-send {
+  display: none;
+}
+
 aparte-composer {
   flex: 0 0 auto;
 }

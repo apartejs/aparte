@@ -206,7 +206,7 @@ export { AparteChatViewport } from './components/index.js';
 
 // Export composer primitives
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './components/index.js';
-export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteActionClickEventDetail } from './components/index.js';
+export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';

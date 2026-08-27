@@ -155,4 +155,35 @@ describe('the built-in gate asks at the composer', () => {
         const result = second.find(m => m.role === 'tool_result');
         expect(result?.content).toContain('use --dry-run first');
     });
+
+    /*
+     * There is no button beside the options, and there was.
+     *
+     * An approval's options settle on the first click by design, so the composer's
+     * button never had an act here — and it sat there anyway, disabled, offering one.
+     * It belongs to the INSTRUCTION and only to it, which is written text: exactly
+     * what that button already means, and nothing before there is some.
+     */
+    it('offers no submit until there is an instruction to submit', async () => {
+        const { cfg, target } = harness(vi.fn());
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        const turn = run(client, cfg, target);
+
+        await vi.waitFor(() => expect(document.querySelector('.aparte-approval-panel')).not.toBeNull());
+        const composer = document.querySelector('aparte-composer')!;
+        expect(composer.getAttribute('data-panel-mode')).toBe('none');
+
+        const field = document.querySelector<HTMLTextAreaElement>('.aparte-approval-instruction')!;
+        field.value = 'use --dry-run first';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(composer.getAttribute('data-panel-mode'), 'now there is an act').toBe('submit');
+
+        // And it goes again when the field is emptied.
+        field.value = '';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(composer.getAttribute('data-panel-mode')).toBe('none');
+
+        optionLabelled('Reject').click();
+        await turn;
+    });
 });

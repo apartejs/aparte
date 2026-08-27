@@ -2,6 +2,26 @@ import type { AparteSendEventDetail } from '../../types/index.js';
 import { type AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig } from '../../config/config-context.js';
 
+/**
+ * What the composer's one button means while a panel is up — and whether it is
+ * there at all.
+ *
+ * `'submit'` answers, `'advance'` moves to the next question of a form, and
+ * `'none'` says this panel has NO act left for that button, so it is not drawn.
+ *
+ * `'none'` exists because a panel could not previously say it. The composer's panel
+ * mode was one fixed policy — hide the input and the attachment picker, keep the
+ * strip and the toolbar, and ALWAYS keep the send button — and the approval panel
+ * showed what that costs: its options settle on the first click by design, so the
+ * button beside them sat permanently disabled, meaning nothing, until the optional
+ * instruction field was opened. A control that is never the way forward is not
+ * disabled, it is absent (ratified decision #8).
+ *
+ * Named rather than inlined at each of its six readers: this union is exactly the
+ * kind of list this repo has watched drift when every reader kept its own copy.
+ */
+export type AparteComposerPanelMode = 'advance' | 'submit' | 'none';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Event map for internal pub/sub between primitives
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +32,7 @@ export interface AparteComposerEventMap {
     'attachments-change': { attachments: File[] };
     'submit': { value: string; attachments: File[] };
     'cancel': Record<string, never>;
-    'panel-change': { active: boolean; submitEnabled: boolean; mode: 'advance' | 'submit' };
+    'panel-change': { active: boolean; submitEnabled: boolean; mode: AparteComposerPanelMode };
 }
 
 export type AparteComposerEventType = keyof AparteComposerEventMap;
@@ -158,7 +178,7 @@ export class AparteComposer extends HTMLElement {
     private _listeners = new Map<string, Set<(payload: unknown) => void>>();
     private _panelActive = false;
     /** What the send button means while a panel is up — see `showPanel`. */
-    private _panelMode: 'advance' | 'submit' = 'submit';
+    private _panelMode: AparteComposerPanelMode = 'submit';
     private _panelSubmitEnabled = false;
     private _panelOnSubmit: (() => void) | null = null;
     /**
@@ -355,6 +375,15 @@ export class AparteComposer extends HTMLElement {
      * are the user's state and not an action to offer — hiding them would look like
      * losing them; and the toolbar, because switching model still does something.
      *
+     * The send button is the part the PANEL decides, through `mode`. `'submit'` and
+     * `'advance'` keep it; `'none'` says this panel has no act for it and it is not
+     * drawn. That third value is what a panel whose options settle on the first click
+     * needs — a single-choice question, an approval — and until it existed such a
+     * panel left a permanently disabled button beside options that never routed
+     * through it. Flip between them at any time with {@link setPanelSubmitEnabled},
+     * which is how a panel that grows an act (an "Other…" field, a written
+     * instruction) turns the button back on.
+     *
      * Declared with an attribute + CSS rather than the inline `style.display` this
      * used to set on a child: an attribute is themeable, is visible to a consumer's
      * own rules, and does not clobber a `display` the consumer had set (the restore
@@ -370,7 +399,12 @@ export class AparteComposer extends HTMLElement {
         options?: {
             submitEnabled?: boolean;
             onSubmit?: () => void;
-            mode?: 'advance' | 'submit';
+            /**
+             * What the send button means for this panel — `'none'` if it has no act
+             * for it, in which case the button is not drawn. See
+             * {@link AparteComposerPanelMode}.
+             */
+            mode?: AparteComposerPanelMode;
             /** Called when something other than this owner closes the panel. */
             onEvict?: () => void;
         },
@@ -389,6 +423,7 @@ export class AparteComposer extends HTMLElement {
         this._panelActive = true;
         this._panelSubmitEnabled = options?.submitEnabled ?? false;
         this._panelMode = options?.mode ?? 'submit';
+        this._reflectPanelMode();
         this._panelOnSubmit = options?.onSubmit ?? null;
         this._panelOnEvict = options?.onEvict ?? null;
         const token = Symbol('aparte-composer-panel');
@@ -453,6 +488,7 @@ export class AparteComposer extends HTMLElement {
         this._panelActive = false;
         this._panelSubmitEnabled = false;
         this._panelMode = 'submit';
+        this._reflectPanelMode();
         this._panelOnSubmit = null;
         this._panelOnEvict = null;
         this._panelToken = null;
@@ -468,11 +504,25 @@ export class AparteComposer extends HTMLElement {
      * "submit" (when it was the last one), and two separate calls would flash a
      * wrong icon between them.
      */
-    setPanelSubmitEnabled(enabled: boolean, mode?: 'advance' | 'submit'): void {
+    setPanelSubmitEnabled(enabled: boolean, mode?: AparteComposerPanelMode): void {
         if (!this._panelActive) return;
         this._panelSubmitEnabled = enabled;
         if (mode) this._panelMode = mode;
+        this._reflectPanelMode();
         this._emit('panel-change', { active: true, submitEnabled: enabled, mode: this._panelMode });
+    }
+
+    /**
+     * Publish the panel mode as an attribute, so CSS can act on it.
+     *
+     * The same reasoning `data-panel-active` is set for and the same one that took
+     * the old `style.display` off a child: an attribute is themeable, is visible to
+     * a consumer's own rules, and does not clobber what the consumer set. It is what
+     * lets `'none'` remove the send button without this component reaching into it.
+     */
+    private _reflectPanelMode(): void {
+        if (this._panelActive) this.setAttribute('data-panel-mode', this._panelMode);
+        else this.removeAttribute('data-panel-mode');
     }
 
     get panelActive(): boolean { return this._panelActive; }
@@ -493,7 +543,12 @@ export class AparteComposer extends HTMLElement {
     /** Submit the current value. Called by aparte-composer-send or programmatically. */
     submit(): void {
         if (this._panelActive) {
-            if (this._panelSubmitEnabled) this._panelOnSubmit?.();
+            // `'none'` is authoritative over `submitEnabled`, and deliberately so: the
+            // two are set by the same caller and can disagree, and the mode is the one
+            // that says whether an act exists at all. Reached by Enter inside the panel
+            // and by a consumer calling `submit()` directly — the button itself is not
+            // drawn in this mode.
+            if (this._panelMode !== 'none' && this._panelSubmitEnabled) this._panelOnSubmit?.();
             return;
         }
         if (this._streaming) {
