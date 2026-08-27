@@ -103,15 +103,22 @@ const { src, label, caption } = Astro.props;
            height the frame asks for. */
         height: 22rem;
         border: 0;
-        /* The frame corrects this value once it has rendered. The transition is what makes
-           that a settle rather than a jump. */
-        transition: height 0.2s ease;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .aparte-preview-frame iframe {
-            transition: none;
-        }
+        /*
+         * NO transition on the height. It used to animate over 0.2s, to make the correction
+         * from the placeholder "a settle rather than a jump" — and it bought that at the
+         * cost of the frame being the WRONG height for 200ms after every change.
+         *
+         * Two symptoms, one line. Dragging the resize handle reflows the document
+         * continuously, and the frame trailed it: measured at 9px behind mid-drag on the
+         * artifact preview. Trailing SHORT means the document is taller than its frame, so
+         * the reader gets a scrollbar for as long as the drag lasts. And on the artifact,
+         * where switching Code/Preview moves the height by hundreds of pixels, the same
+         * 200ms reads as the frame slowly growing rather than showing the tab.
+         *
+         * A frame that lands on its content's height does not read as a jump — nothing else
+         * on the page moved, only the empty space below the demo. The placeholder above is
+         * what keeps the load from collapsing.
+         */
     }
 
     .aparte-preview figcaption {
