@@ -7,7 +7,7 @@
  *       <div class="aparte-progress__bar"></div>
  *     </div>
  *     <div class="aparte-alert aparte-alert--warning" role="alert">
- *       <span class="aparte-alert__icon"><svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+ *       <span class="aparte-alert__icon"><aparte-icon name="alertTriangle"></aparte-icon></span>
  *       <div class="aparte-alert__body">
  *         <p class="aparte-alert__title">Heads up</p>
  *         <p class="aparte-alert__message">Your session expires soon.</p>
@@ -26,6 +26,15 @@
 
 /* =========================================
    aparte-badge — small count or status pill
+   =========================================
+   Two axes like the button's: an intent says what it means, a fill says how loudly.
+   `--dot` is the third form — no label, so it is always painted solid.
+
+       <span class="aparte-badge aparte-badge--success aparte-badge--solid">Live</span>
+       <span class="aparte-badge aparte-badge--warning">Draft</span>
+       <span class="aparte-badge aparte-badge--danger aparte-badge--outline">Failed</span>
+       <span class="aparte-badge aparte-badge--info aparte-badge--sm">12</span>
+       <span class="aparte-badge aparte-badge--danger aparte-badge--dot" aria-label="Unread"></span>
    ========================================= */
 
 .aparte-badge {

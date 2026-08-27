@@ -58,7 +58,7 @@ import './types/event-map.js';
 import './types/element-map.js';
 
 // Export primitives
-export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner } from './primitives/index.js';
+export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDetail, type AparteOptgroupToggleEventDetail, AparteProgressSpinner, AparteIcon } from './primitives/index.js';
 
 // Export types
 export type {

@@ -4,7 +4,7 @@
 
        <span class="aparte-tag">
          <span class="aparte-tag__label">typescript</span>
-         <button class="aparte-tag__remove" aria-label="Remove typescript"><svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+         <button class="aparte-tag__remove" aria-label="Remove typescript"><aparte-icon name="close"></aparte-icon></button>
        </span>
        <span class="aparte-tag aparte-tag--sm"><span class="aparte-tag__label">draft</span></span>
    */
@@ -27,6 +27,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The tag's own `line-height: none` is 1 — a line box exactly as tall as the font —
+     so every descender fell outside it and `overflow: hidden` cut it off. "typescript"
+     lost the tail of its `y`, and so does any label with a p, g, q or j. The tag keeps
+     `none` for the box it draws; the LABEL needs the room its glyphs actually occupy. */
+  line-height: var(--aparte-line-height-tight);
 }
 
 .aparte-tag__remove {

@@ -1,7 +1,7 @@
 /*
  * aparté — the icon. Every glyph the library draws carries this class.
  *
- *     <svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+ *     <aparte-icon name="check"></aparte-icon>
  *
  * The glyph does NOT carry its own size. It used to — `width="14"`, `width="16"`,
  * `width="20"` baked into the markup — and that is precisely what kept the same drawing
@@ -15,6 +15,15 @@
  * (`.aparte-action-button svg`, `.aparte-tool-icon svg`) still wins on specificity —
  * those already expressed size in CSS and are left alone.
  */
+
+/* The ELEMENT's own box. `<aparte-icon>` is an unknown tag to CSS, so it defaults to
+   `display: inline` — a box with no dimensions of its own that contributes a line box,
+   which left a few pixels of leading under every icon button. The class below sizes the
+   SVG; this sizes the wrapper around it, and `inline-flex` makes the two the same box. */
+aparte-icon {
+  display: inline-flex;
+  vertical-align: middle;
+}
 
 .aparte-icon {
   inline-size: var(--aparte-icon-size);

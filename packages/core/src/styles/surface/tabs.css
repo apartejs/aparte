@@ -19,7 +19,7 @@
  *     <div class="aparte-accordion">
  *       <details class="aparte-accordion__item" open>
  *         <summary class="aparte-accordion__header">Section title
- *           <svg class="aparte-icon aparte-accordion__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+ *           <aparte-icon name="expand"></aparte-icon>
  *         </summary>
  *         <div class="aparte-accordion__panel">What the section says once it is open.</div>
  *       </details>

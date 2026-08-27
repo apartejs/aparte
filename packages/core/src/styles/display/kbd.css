@@ -11,6 +11,13 @@
 
 .aparte-kbd {
   display: inline-flex;
+  /* A key chip sits IN a sentence, so it aligns to that sentence. As an `inline-flex`
+     box its baseline is its bottom margin edge, which pushed it above the text it was
+     printed among — "Press Ctrl + K to search" read as if the keys were superscript.
+     Third instance of the same defect today: the form controls needed `middle`, the
+     thumbnail row needed `top`, and this needs `middle` too, for the same reason each
+     time — an inline box with no text of its own has no baseline worth aligning to. */
+  vertical-align: middle;
   align-items: center;
   justify-content: center;
   min-width: var(--aparte-kbd-min-width);

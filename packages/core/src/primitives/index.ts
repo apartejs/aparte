@@ -9,3 +9,6 @@ export { AparteSelect, AparteOption, AparteOptgroup, type AparteSelectChangeDeta
 
 // Progress Spinner
 export { AparteProgressSpinner } from './progress-spinner/index.js';
+
+// Icon — the glyph set, reachable from markup
+export { AparteIcon } from './icon/index.js';

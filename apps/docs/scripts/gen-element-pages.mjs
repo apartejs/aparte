@@ -92,6 +92,7 @@ const GROUP = {
   'aparte-elicitation': 'input',
   'aparte-select': 'utility',
   'aparte-progress-spinner': 'utility',
+  'aparte-icon': 'utility',
 };
 
 /** Reading order inside a group, most load-bearing first; anything else follows alphabetically. */

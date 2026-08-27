@@ -13,7 +13,7 @@
            Copy to clipboard
            <span class="aparte-tooltip__arrow"></span>
          </div>
-         <button class="aparte-btn aparte-btn--icon" aria-label="Copy"><svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+         <button class="aparte-btn aparte-btn--icon" aria-label="Copy"><aparte-icon name="copy"></aparte-icon></button>
        </span>
 
    The two inline styles are the caller's half, shown rather than described: this file

@@ -131,7 +131,11 @@ function split(lines) {
          * Display group's example reached the page as unclosed markup, and the browser
          * nested the alert inside the progress bar, where it rendered four pixels tall.
          */
-        if (indented && (inExample || /<[a-z]/i.test(line))) {
+        // `{icon:name}` opens an example exactly as a tag does. Without this the icon
+        // family's own example — a bare glyph, which has no wrapper by nature — stopped
+        // being recognised the moment it named its glyph instead of drawing one, and the
+        // page silently lost a preview.
+        if (indented && (inExample || /<[a-z]/i.test(line) || /\{icon:/.test(line))) {
             inExample = true;
             example.push(line.replace(/^\s{2,4}/, ''));
             continue;
