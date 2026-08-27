@@ -26,8 +26,8 @@
             "default": "./dist/index.js"
         },
         "./icons": {
-            "@aparte-workspace/source": "./src/icons/index.ts",
-            "types": "./dist/icons/index.d.ts",
+            "@aparte-workspace/source": "./src/icons.ts",
+            "types": "./dist/icons.d.ts",
             "import": "./dist/icons.js",
             "default": "./dist/icons.js"
         },

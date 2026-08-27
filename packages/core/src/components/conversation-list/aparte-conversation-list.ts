@@ -164,7 +164,9 @@ export class AparteConversationList extends HTMLElement {
         const archiveAction = isArchived ? 'unarchive' : 'archive';
         const archiveAriaLabel = isArchived ? unarchiveLabel : archiveLabel;
         // Distinct icons: a downward tray for archive, an upward tray for unarchive.
-        const archiveGlyph = isArchived ? unarchiveIcon : archiveIcon;
+        // Marked at the declaration because the use site is inside a multi-line template
+        // literal, where a `//` would render as text rather than exempt anything.
+        const archiveGlyph = isArchived ? unarchiveIcon : archiveIcon;  // safe-text: both arms are glyphs from icons/glyphs.ts — markup by contract, the same strings getIcon() returns.
         return `
 <div
   class="aparte-menu__item aparte-conv-item${activeClass}${archivedClass}"

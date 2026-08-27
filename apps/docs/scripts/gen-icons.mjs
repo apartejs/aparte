@@ -105,8 +105,9 @@ Every glyph is a **string of SVG**. No runtime, no component, no framework — a
 and you are done.
 
 \`\`\`ts
-import { searchIcon, trashIcon } from '@aparte/core/icons';
+import { searchIcon } from '@aparte/core/icons';
 
+const button = document.createElement('button');
 button.innerHTML = searchIcon;
 \`\`\`
 
@@ -123,6 +124,7 @@ These are the ones aparté draws itself, so each is also a **provider key**: giv
 \`setIconProvider\` a function under that name and yours is used instead.
 
 \`\`\`ts
+import { aparteGlobalConfig } from '@aparte/core';
 import { historyIcon } from '@aparte/core/icons';
 
 aparteGlobalConfig.setIconProvider({ retry: () => historyIcon });
@@ -147,6 +149,8 @@ Nothing here is required. An icon provider takes any HTML string, so a font-icon
 another library works just as well:
 
 \`\`\`ts
+import { aparteGlobalConfig } from '@aparte/core';
+
 aparteGlobalConfig.setIconProvider({
     copy: () => '<i class="fas fa-copy"></i>',
     check: () => '✓',

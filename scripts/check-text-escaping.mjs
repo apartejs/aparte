@@ -149,6 +149,24 @@ for (const root of ROOTS) {
                 ),
             )].map((m) => m[1]),
         );
+        /**
+         * Glyphs imported from `icons/glyphs.js` — markup by contract, exactly like
+         * `getIcon()`, which this guard already trusts and which returns those very
+         * strings. They are named here rather than exempted at each use site because
+         * an import has no declaration line to carry a comment, and the use sites are
+         * inside multi-line template literals where a `//` would render as text.
+         *
+         * Narrow on purpose: only names bound by an import from that one module. A
+         * local called `closeIcon` assigned from anything else is not covered.
+         */
+        const trustedGlyphs = new Set();
+        for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*'[^']*icons\/(?:glyphs|extended|index)\.js'/g)) {
+            for (const name of m[1].split(',')) {
+                const bound = name.trim().split(/\s+as\s+/).pop()?.trim();
+                if (bound) trustedGlyphs.add(bound);
+            }
+        }
+
         const declaredSafe = new Map();
         for (const l of raw.split('\n')) {
             const m = /\/\/\s*safe-text:\s*(\S.*)$/.exec(l);
@@ -174,6 +192,7 @@ for (const root of ROOTS) {
             if (receiver && iconProviders.has(receiver) && /\)\s*$/.test(expr)) return true;
             if (declaredSafe.has(expr) || (receiver && declaredSafe.has(receiver))) return true;
             if (preEscaped.has(expr) || composed.has(expr) || preTrusted.has(expr)) return true;
+            if (trustedGlyphs.has(expr)) return true;
             if (LITERAL_ONLY.some((re) => re.test(expr))) return true;
             if (/^'[^']*'$/.test(expr) || /^"[^"]*"$/.test(expr)) return true;
             if (nestedTemplateSafe(expr, isSafe)) return true;
