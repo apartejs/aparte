@@ -55,36 +55,16 @@
   background: transparent;
 }
 
+/* WHAT IS LEFT is only what belongs to REASONING, not to disclosure.
+   The flex row, the `list-style`/`::-webkit-details-marker` reset, the chevron and its
+   180° turn were all redrawn here under four private classes while
+   `surface/accordion.css` already had every one of them. The block now wears
+   `.aparte-accordion__header` / `__item` / `__panel` and adds these two lines: a
+   quieter face than a real accordion header, and the padding the left rail needs. */
 .aparte-thinking-header {
-  display: flex;
-  align-items: center;
-  gap: var(--aparte-space-3);
   padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-5);
-  cursor: pointer;
-  user-select: none;
   font-size: var(--aparte-font-size-sm);
   color: var(--aparte-thinking-text);
-  list-style: none;
-}
-
-.aparte-thinking-header::-webkit-details-marker {
-  display: none;
-}
-
-.aparte-thinking-toggle {
-  margin-inline-start: auto;
-  /* Logical property */
-  transition: transform var(--aparte-duration-slow);
-  opacity: 0.55;
-}
-
-details[open] .aparte-thinking-toggle {
-  transform: rotate(180deg);
-}
-
-.aparte-thinking-toggle::after {
-  content: '▼';
-  font-size: var(--aparte-thinking-toggle-size);
 }
 
 /* Code */
