@@ -1,3 +1,5 @@
+import { resolveConfig } from '../../config/config-context.js';
+
 /**
  * AparteOptgroup
  * 
@@ -129,6 +131,12 @@ export class AparteOptgroup extends HTMLElement {
                 if (this.collapsible) {
                     const chevron = document.createElement('span');
                     chevron.className = 'aparte-optgroup-chevron';
+                    // The library's own `expand`, not a shape drawn here. This span was
+                    // painted as a CSS border-triangle — the second hand-drawn chevron in
+                    // core, built from PHYSICAL border sides where the tool row's used
+                    // logical ones: two markers, two constructions, which is the divergence
+                    // the icons rule was written after.
+                    chevron.innerHTML = resolveConfig(this).getIcon('expand');
                     header.appendChild(chevron);
                     header.style.cursor = 'pointer';
                     header.addEventListener('click', (e) => {

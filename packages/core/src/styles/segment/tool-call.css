@@ -15,14 +15,31 @@
 }
 .aparte-tool-summary:hover { background: var(--aparte-surface-2); }
 .aparte-tool-summary::-webkit-details-marker { display: none; }
+/* SIZES the marker; does not draw it. This was a triangle built out of CSS borders — a
+   third hand-drawn chevron in a repo whose icon rule exists because two had already
+   diverged. Three clauses of the reason written in `thinking.ts` hold verbatim here: it
+   could not take `--aparte-icon-size`, could not be replaced through `setIconProvider`,
+   and rotated 90deg where every other disclosure in the library turns 180.
+
+   The row asks the provider for four glyphs already (`tool`, `check`, `close`), so this
+   was the single glyph in it that was not asked for — while `guides/tools.mdx` documents
+   the part as "the chevron", a lever that answered to nothing.
+
+   NOT moved onto the accordion recipe, deliberately: that header is `space-between` with
+   a TRAILING icon, and `.aparte-tool-state` already holds the trailing slot below. The
+   defect was the hand-drawn glyph, not a missing recipe. */
 .aparte-tool-toggle {
-    width: 0; height: 0; flex: none; margin-inline-start: -1px;
-    border-inline-start: 5px solid currentColor;
-    border-block: 4px solid transparent;
-    opacity: 0.5; transition: transform var(--aparte-duration-base);
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: var(--aparte-space-8);
+    height: var(--aparte-space-8);
+    opacity: 0.5;
+    transition: transform var(--aparte-duration-base);
 }
+.aparte-tool-toggle svg { width: 100%; height: 100%; display: block; }
 .aparte-tool-summary:hover .aparte-tool-toggle { opacity: 0.9; }
-details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(90deg); }
+details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180deg); }
 /* A rule down the leading edge, so the disclosure reads as belonging to the
    pill above it rather than continuing the message text below. Without it
    "Output" and the assistant's next sentence sat in one undifferentiated

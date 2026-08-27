@@ -179,6 +179,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * status slot is one element whose CONTENT is the waiting label or the glyph.
          */
         const pill = pillMarkup(segment, name, status);  // safe-text: markup built by pillMarkup, whose own interpolations are each escaped or marked there
+        const toggle = contextConfig().getIcon('expand');  // safe-text: the icon provider's SVG — the same contract as every other getIcon in this file, where escaping would print the source
 
         /*
          * What went IN and what came OUT, behind a disclosure.
@@ -210,7 +211,7 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
         const cfg = contextConfig();
         return `
             <details class="aparte-segment aparte-segment-tool-call" data-segment-id="${escapeHtml(segment.id)}" data-status="${escapeAttr(status)}" data-tool-call-id="${escapeAttr(toolCallId)}">
-                <summary class="aparte-tool-summary"><span class="aparte-tool-toggle"></span>${pill}</summary>
+                <summary class="aparte-tool-summary"><span class="aparte-tool-toggle">${toggle}</span>${pill}</summary>
                 <div class="aparte-tool-detail">
                     ${input ? `
                     <div class="aparte-tool-part" data-part="input">

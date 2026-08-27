@@ -173,14 +173,20 @@ aparte-optgroup {
     color: var(--aparte-text-muted);
 }
 
+/* Sizes the marker; does not draw it — see the note in `segment/tool-call.css`. This was
+   the second CSS border-triangle in core, and the one built from PHYSICAL sides
+   (`border-left`/`right`/`top`) where the other used logical ones: two hand-drawn
+   markers, two constructions, in a repo whose icon rule exists because two chevrons had
+   already diverged. It now draws `expand`, like every other disclosure. */
 .aparte-optgroup-chevron {
-    width: 0;
-    height: 0;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid currentColor;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: var(--aparte-space-8);
+    height: var(--aparte-space-8);
     transition: transform var(--aparte-duration-slow);
 }
+.aparte-optgroup-chevron svg { width: 100%; height: 100%; display: block; }
 
 aparte-optgroup[collapsed] .aparte-optgroup-chevron {
     transform: rotate(-90deg);
