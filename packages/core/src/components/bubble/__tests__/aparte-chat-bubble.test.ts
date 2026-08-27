@@ -443,6 +443,86 @@ describe('AparteChatBubble', () => {
     });
 
     // ─── Segment renderer output — string | HTMLElement ───────────────────
+    /*
+     * `setStreamingMarkdownProvider`'s own docblock says "the chat bubble uses it to render
+     * the assistant message token-by-token ... instead of re-parsing the whole string on
+     * every token", and the plugin's page repeats it. Only the SEGMENT path honoured it —
+     * the plain-content path, which is the one getting-started teaches first, re-parsed the
+     * whole message per token. A cold audit found the gap; these pin the fix.
+     */
+    describe('plain-content streaming uses the incremental provider', () => {
+        afterEach(() => aparteGlobalConfig.reset());
+
+        it('writes only the delta while streaming, and never re-parses the whole string', () => {
+            const written: string[] = [];
+            let ended = 0;
+            aparteGlobalConfig.setStreamingMarkdownProvider(() => ({
+                write: (delta: string) => { written.push(delta); },
+                end: () => { ended++; },
+            }));
+            let oneShots = 0;
+            aparteGlobalConfig.setMarkdownProvider((md) => { oneShots++; return md; });
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'smd', streaming: '' });
+            bubble.appendToken('Hel');
+            bubble.appendToken('lo ');
+            bubble.appendToken('world');
+
+            expect(written).toEqual(['Hel', 'lo ', 'world']);
+            // The one-shot provider is the fallback, not the streaming path.
+            expect(oneShots).toBe(0);
+            expect(ended).toBe(0);
+        });
+
+        it('flushes the parser and re-renders once when the stream settles', () => {
+            const written: string[] = [];
+            let ended = 0;
+            aparteGlobalConfig.setStreamingMarkdownProvider(() => ({
+                write: (delta: string) => { written.push(delta); },
+                end: () => { ended++; },
+            }));
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'smd-end', streaming: '' });
+            bubble.appendToken('**hi**');
+            bubble.setAttribute('streaming', 'false');
+            bubble.appendToken('!');
+
+            expect(ended).toBe(1);
+        });
+
+        it('falls back to the one-shot render when no streaming provider is registered', () => {
+            let oneShots = 0;
+            aparteGlobalConfig.setMarkdownProvider((md) => { oneShots++; return md; });
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'no-smd', streaming: '' });
+            bubble.appendToken('a');
+            bubble.appendToken('b');
+
+            // Unchanged for a consumer who never installed the plugin.
+            expect(oneShots).toBeGreaterThanOrEqual(2);
+            expect(bubble.getContent()).toBe('ab');
+        });
+
+        /* A retry clears the bubble and re-streams. The parser tracks how many characters
+           it has written, so a stale cursor would slice the next delta out of the wrong
+           string — the content would come out truncated or doubled. */
+        it('drops the parser state when content is REPLACED rather than appended', () => {
+            const written: string[] = [];
+            aparteGlobalConfig.setStreamingMarkdownProvider(() => ({
+                write: (delta: string) => { written.push(delta); },
+                end: () => {},
+            }));
+
+            bubble = createBubble({ role: 'assistant', 'message-id': 'smd-reset', streaming: '' });
+            bubble.appendToken('first answer');
+            written.length = 0;
+            bubble.setContent('');
+            bubble.appendToken('second');
+
+            expect(written).toEqual(['second']);
+        });
+    });
+
     describe('segment renderer output', () => {
         afterEach(() => {
             unregisterSegmentRenderer('el-seg');

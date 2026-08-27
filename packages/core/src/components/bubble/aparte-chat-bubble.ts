@@ -12,6 +12,7 @@ import type {
   AparteMessage,
 } from '../../types/index.js';
 import { getSegmentRenderer, installDefaultRenderersOnce } from '../../renderers/index.js';
+import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../renderers/markdown-stream.js';
 import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
@@ -387,6 +388,8 @@ export class AparteChatBubble extends HTMLElement {
         break;
       case 'content':
         this._content = newValue || '';
+        // A replace, like setContent — see _resetMarkdownStream.
+        this._resetMarkdownStream();
         this._updateContent();
         break;
       case 'timestamp':
@@ -415,7 +418,23 @@ export class AparteChatBubble extends HTMLElement {
   setContent(content: string): void {
     this._content = content;
     this.setAttribute('content', content);
+    // A REPLACE, not an append: the incremental parser tracks how many characters it has
+    // already written, so leaving its state behind would make the next token's delta a
+    // slice of the wrong string. A retry does exactly this — clear, then re-stream.
+    this._resetMarkdownStream();
     this._updateContent();
+  }
+
+  /**
+   * Drop the incremental Markdown parser's state.
+   *
+   * Only needed where `_content` is REPLACED rather than grown. `appendToken` grows it, so
+   * the parser's cursor stays valid there — which is the whole point of the seam.
+   */
+  private _resetMarkdownStream(): void {
+    const host = this as AparteMarkdownStreamHost;
+    if (host._aparteSmd) host._aparteSmd.renderer.end();
+    host._aparteSmd = undefined;
   }
 
   /** Get current content */
@@ -851,7 +870,27 @@ export class AparteChatBubble extends HTMLElement {
     }
 
     this._contentEl.style.display = '';
-    this._contentEl.innerHTML = this._cfg.renderMarkdown(this._content);
+    /*
+     * The SAME incremental seam the text and thinking segment renderers use.
+     *
+     * This line used to be `innerHTML = renderMarkdown(this._content)` — the whole message
+     * re-parsed, re-sanitised and re-inserted on every token. That is the hot path of the
+     * first thing getting-started teaches (`appendMessage` / `appendToken` /
+     * `completeMessage`), and it made a published promise false: `setStreamingMarkdownProvider`
+     * says "the chat bubble uses it to render the assistant message token-by-token
+     * instead of re-parsing the whole string on every token", and the plugin's own page
+     * repeats it. Only the segment path honoured it. Found by a cold audit.
+     *
+     * With no streaming provider registered, `writeStreamedMarkdown` falls through to the
+     * one-shot render — so a consumer who has not installed the plugin sees exactly what
+     * they saw before.
+     *
+     * `runWithConfig`, because the seam reads its provider from the ambient config and this
+     * bubble may be one of several with configs of their own.
+     */
+    runWithConfig(this._cfg, () =>
+      writeStreamedMarkdown(this as AparteMarkdownStreamHost, this._contentEl!, this._content, this._streaming),
+    );
     // The first token retires the waiting indicator (and a cleared content brings
     // it back, e.g. a retry that resets the bubble before re-streaming).
     this._updateWaiting();
