@@ -91,9 +91,13 @@ export function readWrapperSlots() {
  *
  * A prop typed `(…) => void` is a signal. The per-framework spelling is mechanical from
  * the React name: `onMessageSent` → `messageSent` → `@message-sent` in a Vue template,
- * `on:messageSent` in Svelte, `(messageSent)` in Angular. Verified against all four
- * sources by check-wrapper-slots, so a wrapper that renames one is caught rather than
- * silently documented wrong.
+ * `on:messageSent` in Svelte, `(messageSent)` in Angular. Those spellings are checked
+ * against all four sources by `check-wrapper-slots` through {@link CALLBACK_PROOFS}, so a
+ * wrapper that renames or drops one fails the gate rather than being documented wrong.
+ *
+ * That sentence used to be here and be FALSE — the guard imported only the slot half. A
+ * cold audit caught it. Parity held at the time, so nothing shipped was wrong; the claim
+ * was, which is the more dangerous of the two because it stops anyone looking.
  */
 export function readWrapperCallbacks() {
     const src = readFileSync(SOURCES.react, 'utf8');
@@ -148,6 +152,38 @@ function stripComments(src) {
  * How each wrapper declares one slot, and how to prove it does. Kept next to the parser
  * because these four lines ARE the convention the reference page documents.
  */
+/**
+ * How each wrapper DECLARES a callback, so parity can be proved rather than asserted.
+ *
+ * The comment above `readWrapperCallbacks` claimed this was already checked. It was not:
+ * `check-wrapper-slots` imported only the slot half, so the callback spellings were spun
+ * from the React name and verified against nothing. A cold audit caught the false claim —
+ * parity happened to hold, so nothing shipped was wrong, but the sentence was.
+ *
+ * Making the claim true rather than deleting it: the guard exists, the four sources exist,
+ * and a wrapper that renames or drops a callback should fail here rather than be documented
+ * wrong on four pages.
+ */
+export const CALLBACK_PROOFS = {
+    react: { label: 'React', usage: (c) => c.react, proves: () => true },
+    vue: {
+        label: 'Vue',
+        usage: (c) => c.vue,
+        // `defineEmits<{ messageSent: [...] }>` — the name as a key in the emits type.
+        proves: (src, c) => new RegExp(`\\b${c.name}\\s*:`).test(stripComments(src)),
+    },
+    svelte: {
+        label: 'Svelte',
+        usage: (c) => c.svelte,
+        proves: (src, c) => stripComments(src).includes(`dispatch('${c.name}'`),
+    },
+    angular: {
+        label: 'Angular',
+        usage: (c) => c.angular,
+        proves: (src, c) => new RegExp(`\\b${c.name}\\s*=\\s*output<`).test(stripComments(src)),
+    },
+};
+
 export const IMPLEMENTATIONS = {
     react: {
         label: 'React',

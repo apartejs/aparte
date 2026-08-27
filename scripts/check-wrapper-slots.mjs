@@ -13,7 +13,13 @@
  * that no single package's test suite can hold.
  */
 import { readFileSync } from 'node:fs';
-import { IMPLEMENTATIONS, SOURCES, readWrapperSlots } from './wrapper-surface.mjs';
+import {
+    IMPLEMENTATIONS,
+    CALLBACK_PROOFS,
+    SOURCES,
+    readWrapperSlots,
+    readWrapperCallbacks,
+} from './wrapper-surface.mjs';
 
 const slots = readWrapperSlots();
 const sources = Object.fromEntries(
@@ -25,6 +31,23 @@ for (const slot of slots) {
     for (const [key, impl] of Object.entries(IMPLEMENTATIONS)) {
         if (!impl.proves(sources[key], slot)) {
             missing.push({ slot: slot.slot, wrapper: impl.label, expected: impl.usage(slot) });
+        }
+    }
+}
+
+/*
+ * The callbacks, by the same rule and for the same reason.
+ *
+ * `wrapper-surface.mjs` documented this check as already existing while this file imported
+ * only the slot half — so six callback spellings were published on the wrapper reference,
+ * derived from the React name, and verified against nothing. Parity happened to hold; the
+ * claim did not, which is worse, because a stated check stops anyone looking.
+ */
+const callbacks = readWrapperCallbacks();
+for (const callback of callbacks) {
+    for (const [key, proof] of Object.entries(CALLBACK_PROOFS)) {
+        if (!proof.proves(sources[key], callback)) {
+            missing.push({ slot: callback.name, wrapper: proof.label, expected: proof.usage(callback) });
         }
     }
 }
@@ -83,6 +106,6 @@ if (idGaps.length) {
 }
 
 console.log(
-    `[wrapper-slots] OK: ${slots.length} slots on all 4 wrappers — ${names}; `
+    `[wrapper-slots] OK: ${slots.length} slots and ${callbacks.length} callbacks on all 4 wrappers — ${names}; `
     + 'and all 4 accept a caller-supplied host id.',
 );
