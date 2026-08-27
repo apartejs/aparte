@@ -39,7 +39,7 @@
  *
  * Run by `pnpm gate`.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { coreStylesheets } from './core-stylesheets.mjs';
 
 /**
@@ -450,6 +450,27 @@ for (const [name, count] of declaredFrames) {
         problems.push(
             `\`@keyframes ${name}\` is not prefixed \`aparte-\`. Keyframe names are global: `
             + "this one can shadow, or be shadowed by, a rule on the consumer's own page.",
+        );
+    }
+}
+
+/*
+ * The theming guide states this count in prose, and prose drifts: it said 79 while the
+ * real figure had grown to 212 — off by a factor of nearly three, on the sentence whose
+ * whole job is to convince a reader that setting a base is enough. The number is computed
+ * here already, so asserting the page carries it costs nothing and closes the gap for good.
+ *
+ * Deliberately not generated into the page: it is one word inside an argument, and a
+ * generated fragment there would break the sentence rather than maintain it. Stating the
+ * number and checking it is the smaller of the two mechanisms.
+ */
+const THEMING_GUIDE = 'apps/docs/src/content/docs/guides/theming.md';
+if (existsSync(THEMING_GUIDE)) {
+    const guide = readFileSync(THEMING_GUIDE, 'utf8');
+    if (!new RegExp(`\\b${anchored.length}\\b[^.]*variables? read another`).test(guide)) {
+        problems.push(
+            `${THEMING_GUIDE} does not state the derived-variable count. It is ${anchored.length} now — `
+            + 'find the "N of core\'s variables read another one" sentence and update the number.',
         );
     }
 }

@@ -157,6 +157,7 @@ say you're there:
 | `info` (ⓘ details) | your popover (`aparte-message-info`) | off |
 | image-tile preview | your lightbox (`aparte-attachment-preview`) | off |
 | download on a *binary* artifact | your generator (`aparte-artifact-redownload`) | off |
+| re-generating a *persisted* binary artifact | your generator (`aparte-artifact-ready`, on mount) | off |
 
 Two levers, one for the action bar and one for everything else:
 
@@ -167,6 +168,13 @@ aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 // You handle these events yourself:
 aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
 ```
+
+The last row is off for a stronger reason than the others, and worth reading before you
+turn it on: `artifactRehydrate` is an automatic dispatch nobody asked for, carrying
+model-authored content the receiving app is expected to run. Re-opening a saved
+conversation would re-execute whatever a prompt injection had persuaded the model to
+persist — on every reload. The full note is in the
+[config reference](/reference/config/#host-handlers).
 
 The **branch picker** `‹ 1/2 ›`, the waiting indicator, the stop button and the model
 selector are all in the first category — core honours them itself, so they need no
@@ -314,7 +322,7 @@ A second slot sits **between the transcript and the composer** — `aboveCompose
 nothing is rendered until you fill it.
 
 The full list, with every framework's syntax side by side, is generated from the wrapper
-source: [Wrapper slots](/reference/wrappers/).
+source: [Wrapper surface](/reference/wrappers/).
 
 :::note[Upgrading from footerLeft / footerCenter / footerRight]
 Those three are gone. Pass one `toolbar` instead and order your controls yourself; a
@@ -447,7 +455,6 @@ Read the span with **`segmentDuration(segment)`** rather than subtracting anythi
 yourself, ask **`isSegmentSettled(segment)`** whether the number is final, and reach for
 **`segmentTiming(segment)`** when you want the two numbers themselves — all three are
 exported, and all three are the rules core uses internally rather than a copy of them.
-| `meta` | anything only *you* can know: token counts, cost, device |
 
 **Core renders none of it.** It measures a duration honestly (it owns the stream) and
 leaves the display to you, because the line you want says "Thought for 8s" in one product

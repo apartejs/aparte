@@ -12,7 +12,7 @@ covers the whole family; vendors differ only by data (base URL, branding), which
 or pick from `presets`.
 
 ```bash
-npm install @aparte/provider-openai-compat
+npm install @aparte/provider-openai-compat @aparte/core
 ```
 
 ```ts

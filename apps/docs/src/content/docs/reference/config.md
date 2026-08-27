@@ -139,13 +139,13 @@ merged registry, a `zones` parameter picks where each appears.
 The affordances core renders but cannot complete — it only asks, through a DOM event, and
 your app does the work. Declare what you handle; the rest isn't offered.
 
-- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **four**:
+- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **three**:
   - `attachmentPreview` — image tiles ask for a lightbox via `aparte-attachment-preview`.
   - `artifactRedownload` — the download button on a **binary** artifact → `aparte-artifact-redownload`.
   - `artifactRehydrate` — re-generating a **persisted** binary artifact when a saved conversation is re-opened → `aparte-artifact-ready`, dispatched on mount rather than at the end of a stream. Off by default for a stronger reason than the others: it is an automatic dispatch nobody asked for, carrying model-authored content the receiving app is expected to run. Reloading a conversation would otherwise re-execute whatever a prompt injection had persuaded the model to persist, on every reload.
 
-  All four default to `false`.
-- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all four fields present. `Required<…>` on purpose: adding a fifth handler then fails to compile until every reader handles it, which is how the fourth came to be added at all.
+  All three default to `false`.
+- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all three fields present. `Required<…>` on purpose: adding a fourth handler then fails to compile until every reader handles it, which is how the third came to be added at all.
 - `APARTE_DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.

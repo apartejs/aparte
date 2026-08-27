@@ -72,10 +72,13 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **79 of core's variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **212 of core's variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
-`--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those eight bases above are read
-directly in 27 places *and* feed the rest, which is why a rebrand is eight lines.
+`--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
+places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
+
+`--aparte-bg` is the one exception in that list: core paints no page background, so nothing
+in the library reads it. It is declared for *your* CSS to reference.
 
 The part worth knowing: it works **wherever you set the base**, not only on `:root` —
 a themed subtree, a `[data-aparte-host]` boundary, or one element:
