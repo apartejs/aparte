@@ -86,7 +86,12 @@ const { title, markup, scripts } = Astro.props;
                 margin: 0;
             }
             body {
-                padding: 1rem;
+                /* Room to breathe. 1rem pressed every example into the top-left corner of
+                   its frame, which made a two-tile row or a lone icon read as debris
+                   rather than as a specimen. Left-aligned still — an example has to lay
+                   out the way it will on the reader's own page, and centring it would
+                   teach a layout the library does not do. */
+                padding: 2rem 2.25rem;
                 background: var(--aparte-bg, transparent);
                 color: var(--aparte-text);
                 font-family: var(--aparte-font-family);

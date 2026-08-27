@@ -28,10 +28,19 @@
      as `--aparte-select-shadow`, since both are the identical "floating list"
      surface. */
   --aparte-menu-min-width: 200px;
+  /* And a CAP, which this recipe was missing while `.aparte-popover` — the file calls
+     the two "the identical floating list surface" — has carried one all along. With
+     only a minimum, a menu placed as a block child stretched to its container: a
+     dropdown spanning the full width of whatever held it, which is not a dropdown.
+     `width: max-content` is what makes it hug its longest item between the two bounds,
+     the way a menu sizes itself to "Include metadata" and stops. */
+  --aparte-menu-max-width: 320px;
 
   display: flex;
   flex-direction: column;
+  width: max-content;
   min-width: var(--aparte-menu-min-width);
+  max-width: var(--aparte-menu-max-width);
   padding: var(--aparte-space-2);
   background: var(--aparte-surface-1);
   border: var(--aparte-border-width) solid var(--aparte-border);

@@ -188,7 +188,13 @@ const sheets = coreStylesheets().map((path) => {
         lead: banners.find((b) => b.kind === 'lead') ?? null,
         prose: own?.prose ?? '',
         example: own?.example ?? '',
-        classes: [...new Set([...src.matchAll(/\.(aparte-[a-zA-Z0-9_-]+)/g)].map((m) => m[1]))].sort(),
+        // RULES ONLY. This matched the whole source, comments included, so a class merely
+        // NAMED in prose was attributed to the sheet that mentioned it: `surface/tabs.css`
+        // discusses `.aparte-popover`, `.aparte-tooltip` and `.aparte-btn--ghost` in two
+        // sentences, and the Tabs family on the reference page listed all three as if it
+        // defined them. Stripping block comments first makes each family's list what the
+        // sheet actually styles.
+        classes: [...new Set([...src.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\.(aparte-[a-zA-Z0-9_-]+)/g)].map((m) => m[1]))].sort(),
         documented: Boolean(own),
     };
 });

@@ -7,7 +7,7 @@
    and skips the dark-theme override block for that reason; the artifact "paper" tokens
    are the same decision made for the same reason.
 
-       <span style="position: relative; display: inline-block">
+       <span style="position: relative; display: inline-block; margin-block-start: 2.5rem">
          <div class="aparte-tooltip" role="tooltip"
               style="position: absolute; bottom: calc(100% + 8px); left: 50%; translate: -50% 0">
            Copy to clipboard

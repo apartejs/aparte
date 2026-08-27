@@ -45,6 +45,35 @@
 
 /* ── Tabs ────────────────────────────────────────────────────────────────────── */
 
+/* Why this file carries TWO banners: the one above it opens the whole Surfaces group
+   (`aparté — …`), and the generated reference consumes that as the group's intro. A
+   family gets its prose and its live example from a banner named after it
+   (`aparte-tabs — …`), so without the second one the Tabs family reached the page as a
+   bare list of class names — no sentence, no preview — while its own content was shown
+   as the Surfaces overview. `bannersIn()` in gen-css-classes.mjs tells the two apart by
+   that first word; a comment like this one, named after neither, is ignored. */
+
+/* =========================================
+   aparte-tabs — one row of tabs, and the panel under it
+   =========================================
+   Two looks, one behaviour. `--underline` marks the current tab with a rule beneath it
+   and is the quieter of the two; `--segmented` puts the whole row in a track and fills
+   the current tab, which reads as a control rather than as navigation. Neither moves
+   anything: `aria-selected` is what says which tab is current, and the app owns it.
+
+       <div class="aparte-tabs aparte-tabs--underline" role="tablist">
+         <button class="aparte-tabs__tab" role="tab" aria-selected="true">Preview</button>
+         <button class="aparte-tabs__tab" role="tab" aria-selected="false">Code</button>
+       </div>
+       <div class="aparte-tabs__panel" role="tabpanel">What the selected tab shows.</div>
+
+       <div class="aparte-tabs aparte-tabs--segmented" role="tablist">
+         <button class="aparte-tabs__tab" role="tab" aria-selected="true">Light</button>
+         <button class="aparte-tabs__tab" role="tab" aria-selected="false">Dark</button>
+         <button class="aparte-tabs__tab" role="tab" aria-selected="false">System</button>
+       </div>
+   ========================================= */
+
 .aparte-tabs {
   display: flex;
   align-items: center;
