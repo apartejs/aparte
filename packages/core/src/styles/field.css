@@ -18,8 +18,8 @@
  *       <input class="aparte-field" placeholder="example.com" />
  *     </div>
  *
- *     <label><input type="checkbox" class="aparte-checkbox aparte-checkbox--danger" /> Delete my account</label>
- *     <input type="checkbox" role="switch" class="aparte-switch aparte-switch--success" checked />
+ *     <label class="aparte-field-choice"><input type="checkbox" class="aparte-checkbox aparte-checkbox--danger" /> Delete my account</label>
+ *     <label class="aparte-field-choice"><input type="checkbox" role="switch" class="aparte-switch aparte-switch--success" checked /> Email notifications</label>
  *
  * `.aparte-field` is ONE shared recipe — border, background, radius, padding, focus
  * ring, placeholder — applied to <input>, <textarea> and <select> alike, so a form
@@ -756,7 +756,7 @@
 
        <label class="aparte-field-choice">
          <input type="radio" class="aparte-radio" name="k">
-         <span class="aparte-field-choice__body">…</span>
+         <span class="aparte-field-choice__body">Ship to this address</span>
        </label>
 
    `align-items: flex-start` rather than centre: a description makes the row two or

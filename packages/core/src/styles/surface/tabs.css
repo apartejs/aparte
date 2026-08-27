@@ -7,7 +7,7 @@
  * that is the consuming application's job, not a component stylesheet's.
  *
  * Everything below is the LOOK only. Where and when a surface opens is markup and
- * script the caller owns: a <details> toggling itself, a positioning library placing
+ * script the caller owns: a <details open> toggling itself, a positioning library placing
  * a menu next to its trigger. Nothing here reaches for position:fixed on your behalf.
  *
  *     <div class="aparte-tabs" role="tablist">
@@ -16,13 +16,14 @@
  *     </div>
  *     <div class="aparte-tabs__panel" role="tabpanel">The panel for the selected tab.</div>
  *
- *     <details class="aparte-accordion__item">
- *       <summary class="aparte-accordion__header">Section title
- *         <svg class="aparte-accordion__icon" aria-hidden="true" viewBox="0 0 24 24"
- *              fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
- *       </summary>
- *       <div class="aparte-accordion__panel">What the section says once it is open.</div>
- *     </details>
+ *     <div class="aparte-accordion">
+ *       <details class="aparte-accordion__item" open>
+ *         <summary class="aparte-accordion__header">Section title
+ *           <svg class="aparte-icon aparte-accordion__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+ *         </summary>
+ *         <div class="aparte-accordion__panel">What the section says once it is open.</div>
+ *       </details>
+ *     </div>
  *
  *     <div class="aparte-menu" role="menu">
  *       <div class="aparte-menu__label">Export as</div>

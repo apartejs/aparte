@@ -63,8 +63,23 @@ const { title, markup, scripts } = Astro.props;
                 if (event.source === parent && event.data?.aparteTheme) apply(event.data.aparteTheme);
             });
         </script>
-        <style>
-            /* The frame is a stage, not a page: no chrome of its own, and the padding is the
+        <style is:global>
+            /* `is:global`, and it is load-bearing rather than tidy.
+
+               Astro scopes a component's `<style>` by hashing a class onto the elements the
+               component itself renders. Everything below is injected with
+               `<Fragment set:html={markup} />` — raw HTML, carrying no scope class — so
+               `body > * + *` compiled to `body > :where(.astro-xxxx) + :where(.astro-xxxx)`
+               and matched NOTHING. The stacking margin has never applied, in any frame,
+               since this file was written.
+
+               What that looked like: the badge, the progress track and the alert flush
+               against each other in the display overview, three unrelated surfaces touching
+               in the surfaces overview, the switch pressed against its neighbour's label in
+               the field one. Reported as "a badge and a progress bar overlapping the alert
+               oddly", and it was one missing word.
+
+               The frame is a stage, not a page: no chrome of its own, and the padding is the
                only thing here that is not the library's. */
             html,
             body {

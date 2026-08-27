@@ -1,8 +1,7 @@
 /*
  * aparté — the icon. Every glyph the library draws carries this class.
  *
- *     <svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
- *          stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+ *     <svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
  *
  * The glyph does NOT carry its own size. It used to — `width="14"`, `width="16"`,
  * `width="20"` baked into the markup — and that is precisely what kept the same drawing
