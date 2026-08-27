@@ -1,6 +1,6 @@
 import './aparte-option.js';
 import './aparte-optgroup.js';
-import { expandIcon } from '../../icons/glyphs.js';
+import { resolveConfig } from '../../config/config-context.js';
 
 export interface AparteSelectChangeDetail {
     value: string;
@@ -203,7 +203,7 @@ export class AparteSelect extends HTMLElement {
         labelSpan.textContent = placeholder;
         const chevronSpan = document.createElement('span');
         chevronSpan.className = 'aparte-select-chevron';
-        chevronSpan.innerHTML = expandIcon;
+        chevronSpan.innerHTML = resolveConfig(this).getIcon('expand');
         trigger.append(labelSpan, chevronSpan);
 
         // The dropdown is a plain shell: it also holds the search field, and a

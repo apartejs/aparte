@@ -1,7 +1,6 @@
 import type { AparteComposer } from './aparte-composer.js';
 import { resolveConfig } from '../../config/config-context.js';
 import { escapeAttr } from '../../utils/escape.js';
-import { closeIcon } from '../../icons/glyphs.js';
 
 
 /**
@@ -112,7 +111,7 @@ export class AparteComposerAttachments extends HTMLElement {
             const name = this._escape(file.name);
             const remove =
                 `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-thumb__remove" type="button" ` +
-                `aria-label="Remove ${name}">${closeIcon}</button>`;
+                `aria-label="Remove ${name}">${resolveConfig(this).getIcon('close')}</button>`;
 
             if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);

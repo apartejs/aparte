@@ -2,7 +2,6 @@ import { resolveConfig } from '../../config/index.js';
 import type { AparteComposer } from './aparte-composer.js';
 import { escapeAttr } from '../../utils/escape.js';
 import { subscribeConfigChange } from '../../config/config-subscribe.js';
-import { paperclipIcon } from '../../icons/glyphs.js';
 
 /**
  * File picker button for <aparte-composer>.
@@ -114,14 +113,14 @@ export class AparteComposerAddAttachment extends HTMLElement {
         const label = cfg.t('actionUpload') || 'Attach file';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
-        this._button.innerHTML = cfg.getIcon('paperclip') || this._defaultIcon();
+        this._button.innerHTML = cfg.getIcon('paperclip');
     }
 
     private _render(): void {
         if (this.querySelector('.aparte-caa-button')) return;
 
         const label = resolveConfig(this).t('actionUpload') || 'Attach file';
-        const icon = resolveConfig(this).getIcon('paperclip') || this._defaultIcon();
+        const icon = resolveConfig(this).getIcon('paperclip');
         const disabled = this.hasAttribute('disabled') || this._getRoot()?.disabled || false;
 
         this.innerHTML = `<button
@@ -198,9 +197,6 @@ export class AparteComposerAddAttachment extends HTMLElement {
         };
     }
 
-    private _defaultIcon(): string {
-        return paperclipIcon;
-    }
 }
 
 if (!customElements.get('aparte-composer-add-attachment')) {

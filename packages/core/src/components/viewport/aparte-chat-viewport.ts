@@ -15,7 +15,6 @@ import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
 import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
 import { uuid } from '../../utils/uuid.js';
-import { scrollDownIcon } from '../../icons/glyphs.js';
 import {
     stampSegmentOnInsert,
     adoptMessageSegments,
@@ -1197,8 +1196,7 @@ export class AparteChatViewport extends HTMLElement {
             this._scrollBtn.setAttribute('type', 'button');
             this._scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
             const scrollIcon = resolveConfig(this).getIcon('scrollDown');
-            this._scrollBtn.innerHTML = scrollIcon
-                || scrollDownIcon;
+            this._scrollBtn.innerHTML = scrollIcon;
             this.appendChild(this._scrollBtn);
         } else {
             this._container = this.querySelector('.aparte-viewport-container');
@@ -1233,8 +1231,7 @@ export class AparteChatViewport extends HTMLElement {
         scrollBtn.setAttribute('type', 'button');
         scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
         const scrollIcon = resolveConfig(this).getIcon('scrollDown');
-        scrollBtn.innerHTML = scrollIcon
-            || scrollDownIcon;
+        scrollBtn.innerHTML = scrollIcon;
         this.appendChild(scrollBtn);
         this._scrollBtn = scrollBtn;
     }

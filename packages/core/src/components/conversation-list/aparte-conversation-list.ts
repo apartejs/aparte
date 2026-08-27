@@ -1,6 +1,5 @@
 import { resolveConfig } from '../../config/index.js';
 import { escapeAttr } from '../../utils/escape.js';
-import { archiveIcon, unarchiveIcon, closeIcon } from '../../icons/glyphs.js';
 
 export interface AparteConversationListItem {
     id: string;
@@ -178,7 +177,7 @@ export class AparteConversationList extends HTMLElement {
         // Distinct icons: a downward tray for archive, an upward tray for unarchive.
         // Marked at the declaration because the use site is inside a multi-line template
         // literal, where a `//` would render as text rather than exempt anything.
-        const archiveGlyph = isArchived ? unarchiveIcon : archiveIcon;  // safe-text: both arms are glyphs from icons/glyphs.ts — markup by contract, the same strings getIcon() returns.
+        const archiveGlyph = resolveConfig(this).getIcon(isArchived ? 'unarchive' : 'archive');  // safe-text: the icon provider's SVG — markup by contract, which is what getIcon returns everywhere in core.
         return `
 <div
   class="aparte-menu__item aparte-conv-item${activeClass}${archivedClass}"
@@ -203,7 +202,7 @@ export class AparteConversationList extends HTMLElement {
     aria-label="${deleteLabel}"
     tabindex="0"
   >
-    ${closeIcon}
+    ${resolveConfig(this).getIcon('close')}
   </button>
 </div>`;
     }
