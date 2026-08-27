@@ -2,8 +2,12 @@
  * aparté — the thumbnail. A media tile: a fixed square that clips whatever is dropped
  * into it, with room for a control in a corner.
  *
- *     <span class="aparte-thumbnail"><img class="aparte-thumbnail__image" …></span>
- *     <span class="aparte-thumbnail aparte-thumbnail--lg">…</span>
+ *     <span class="aparte-thumbnail"><img class="aparte-thumbnail__image"
+ *           src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23b07d33'/%3E%3C/svg%3E"
+ *           alt="A screenshot"></span>
+ *     <span class="aparte-thumbnail aparte-thumbnail--lg">
+ *       <span class="aparte-thumbnail__ext">PDF</span>
+ *     </span>
  *
  * Distinct from `.aparte-avatar`, which is the same shape for a different reason: an
  * avatar stands for a PERSON and falls back to initials, so it carries type styling and

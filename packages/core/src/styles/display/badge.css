@@ -7,7 +7,7 @@
  *       <div class="aparte-progress__bar"></div>
  *     </div>
  *     <div class="aparte-alert aparte-alert--warning" role="alert">
- *       <span class="aparte-alert__icon">…</span>
+ *       <span class="aparte-alert__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></span>
  *       <div class="aparte-alert__body">
  *         <p class="aparte-alert__title">Heads up</p>
  *         <p class="aparte-alert__message">Your session expires soon.</p>

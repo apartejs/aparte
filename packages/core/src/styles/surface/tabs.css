@@ -14,13 +14,14 @@
  *       <button class="aparte-tabs__tab" role="tab" aria-selected="true">Preview</button>
  *       <button class="aparte-tabs__tab" role="tab" aria-selected="false">Code</button>
  *     </div>
- *     <div class="aparte-tabs__panel" role="tabpanel">…</div>
+ *     <div class="aparte-tabs__panel" role="tabpanel">The panel for the selected tab.</div>
  *
  *     <details class="aparte-accordion__item">
  *       <summary class="aparte-accordion__header">Section title
- *         <svg class="aparte-accordion__icon" aria-hidden="true">…</svg>
+ *         <svg class="aparte-accordion__icon" aria-hidden="true" viewBox="0 0 24 24"
+ *              fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
  *       </summary>
- *       <div class="aparte-accordion__panel">…</div>
+ *       <div class="aparte-accordion__panel">What the section says once it is open.</div>
  *     </details>
  *
  *     <div class="aparte-menu" role="menu">

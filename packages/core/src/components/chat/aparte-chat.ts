@@ -69,12 +69,14 @@ import { escapeAttr } from '../../utils/escape.js';
  *   from outside would also shrink the scroll area, stopping the transcript short of the
  *   edge instead of scrolling to it.
  *
- * @example
- * <!-- Left empty it fills in a viewport, an input and a send button. -->
- * <aparte-chat center-empty placeholder="Say something…" style="height: 600px"></aparte-chat>
+ * Composing it yourself is the other form, and the container still lays it out and still
+ * runs `center-empty`. It is written out here rather than as a second `@example` for a
+ * mechanical reason: every element-own example is concatenated into ONE live frame on the
+ * generated reference page, so a second `<aparte-chat>` there rendered as a second whole
+ * chat — two empty composers with 600px of nothing between them.
  *
- * <!-- Or compose it yourself; the container still lays it out and runs center-empty. -->
- * <aparte-chat center-empty attachments style="height: 600px">
+ * ```html
+ * <aparte-chat center-empty attachments style="height: 320px">
  *   <aparte-chat-viewport></aparte-chat-viewport>
  *   <aparte-composer>
  *     <div class="aparte-composer-shell">
@@ -85,6 +87,23 @@ import { escapeAttr } from '../../utils/escape.js';
  *     </div>
  *   </aparte-composer>
  * </aparte-chat>
+ * ```
+ *
+ * @example
+ * <!-- Left empty it fills in a viewport, an input and a send button. -->
+ * <aparte-chat center-empty placeholder="Say something…" style="height: 320px"></aparte-chat>
+ *
+ * <script>
+ *   // Seeded so the frame shows a real exchange rather than an empty box: this
+ *   // example is RENDERED, not only read.
+ *   const chat = document.querySelector('aparte-chat');
+ *   chat.viewport.appendMessage({ id: 'u1', role: 'user', content: 'What is a transport?' });
+ *   chat.viewport.appendMessage({
+ *     id: 'a1',
+ *     role: 'assistant',
+ *     content: 'The object that talks to the model. Swap it and the UI does not change.',
+ *   });
+ * </script>
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
