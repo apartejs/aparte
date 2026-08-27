@@ -260,6 +260,23 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
      inside a 36-44px button — 44% of its box, where every sized button in the library
      reads at ~57%. */
   --aparte-btn-icon-size: var(--aparte-icon-size-xl);
+  /* NO ink override here, and that is the point.
+
+     A white glyph lived on this line for ten minutes: `--aparte-send-btn-ink: #ffffff`,
+     a hex in core chosen because THIS theme's brass is light. On a theme whose primary
+     is dark it would have been white on white — the exact defect the derivation had just
+     been built to remove, reintroduced one file away from where it was removed.
+
+     The glyph is near-black, and the evidence that this is right was already in the
+     repo: the landing page's hand-written `.btn-primary` has carried `color: #1a1206`
+     on the same brass since long before any of this, a warm near-black whose lightness
+     (0.189) is within a hair of what the recipe now computes (0.175). Nobody ever found
+     that ugly.
+
+     A theme that disagrees says so by NAME, not by patching this button:
+     `--aparte-on-primary` sets the ink for every primary control at once, which is the
+     honest scope — white there costs AA under a text label (3.60 light, 2.28 dark), and
+     that cost belongs to whoever chooses it. */
   width: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
   height: var(--aparte-composer-row-control-size, var(--aparte-send-btn-size));
 }

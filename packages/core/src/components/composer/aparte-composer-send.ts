@@ -44,14 +44,14 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * @cssprop [--aparte-radius-send-btn=6px] - Corner radius of the button.
  * @cssprop --aparte-primary - Button background.
  * @cssprop --aparte-primary-hover - Button background on hover, while enabled.
- * @cssprop --aparte-btn-on-intent - Icon colour on that background. DERIVED from the
- *          background by default — the button wears `.aparte-btn--primary.--solid`, and
- *          that recipe computes a light or dark ink from the fill's own lightness, so a
- *          consumer who changes `--aparte-primary` gets a readable glyph without
- *          touching anything else. Set this to override. It used to be documented as
- *          `--aparte-on-primary`, which this button never read.
- * @cssprop [--aparte-ink-flip=0.57] - The fill lightness at which that derived ink flips
- *          from dark to light. One knob for every solid control.
+ * @cssprop --aparte-on-primary - The glyph's colour. Undeclared by default, which means
+ *          the recipe derives it from `--aparte-primary` itself, so a theme that changes
+ *          the fill gets a readable glyph with no second edit. Declare it to choose one
+ *          — it then applies to every primary control, which is the honest scope.
+ * @cssprop [--aparte-ink-flip=0.57] - Fill lightness at which the derived ink flips from
+ *          dark to light, for every solid control.
+ * @cssprop [--aparte-ink-dark=0.176] - How dark that derived ink goes. Not 0: at zero
+ *          lightness OKLCH drops the chroma, and the ink loses the fill's own hue.
  * @cssprop --aparte-send-disabled-bg - Background while disabled (falls back to
  *          `--aparte-primary`, which is then dimmed by opacity).
   *

@@ -79,6 +79,35 @@ places across the stylesheets *and* feed the rest, which is why a rebrand is eig
 
 `--aparte-bg` is the one exception in that list: core paints no page background, so nothing
 in the library reads it. It is declared for *your* CSS to reference.
+:::
+
+:::note[The ink on a fill is worked out for you]
+Nothing above says what colour a label should be *on top of* `--aparte-primary`. That is
+deliberate: change the fill and core recomputes the ink, so a solid button, badge or
+checkbox stays readable whatever brand colour you set. It derives a light or dark ink from
+the fill's own lightness — the same idea as Bootstrap's `color-contrast()`.
+
+Say so yourself when you have an opinion. Every intent has a partner name, and declaring
+one overrides the computed value for every control using that intent:
+
+```css
+:root {
+  --aparte-primary: #1a1a2e;
+  --aparte-on-primary: #f8fafc;   /* optional — omit it and core works it out */
+}
+```
+
+The seven pairs are `--aparte-primary` / `--aparte-secondary` / `--aparte-neutral` /
+`--aparte-info` / `--aparte-success` / `--aparte-warning` / `--aparte-error`, each with an
+`--aparte-on-*` twin. Two numbers tune the computed default when you keep it:
+`--aparte-ink-flip` (the fill lightness where the ink flips, `0.57`) and
+`--aparte-ink-dark` (how dark the dark end goes, `0.176` — not `0`, so the ink keeps a
+trace of the fill's own hue).
+
+This used to be one fixed colour measured against *this* palette, which meant a dark brand
+primary got near-black text on it and nothing said so. If you pinned `--aparte-on-primary`
+or `--aparte-btn-ink` to work around that, you can drop it.
+:::
 
 The part worth knowing: it works **wherever you set the base**, not only on `:root` —
 a themed subtree, a `[data-aparte-host]` boundary, or one element:

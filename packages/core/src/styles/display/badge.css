@@ -32,6 +32,11 @@
   --aparte-badge-intent: var(--aparte-neutral);
   /* Fallback only — the `@supports` block below derives this from the fill. */
   --aparte-badge-on-intent: var(--aparte-on-intent);
+  /* The derived ink, as a named value so each intent can offer it as the fallback
+     behind the theme's own `--aparte-on-*`. Declared here too, un-derived, because a
+     `var()` whose target is undefined outside `@supports` would take the whole chain
+     down with it. */
+  --aparte-derived-ink: var(--aparte-on-intent);
 
   display: inline-flex;
   align-items: center;
@@ -57,9 +62,9 @@
    cannot write this down as a constant. Same expression, this recipe's own intent. */
 @supports (color: oklch(from red l c h)) {
   .aparte-badge {
-    --aparte-badge-on-intent: oklch(
+    --aparte-derived-ink: oklch(
       from var(--aparte-badge-intent)
-      clamp(0, (var(--aparte-ink-flip) - l) * 1000, 1)
+      clamp(var(--aparte-ink-dark), (var(--aparte-ink-flip) - l) * 1000, 1)
       0.02
       h
     );
@@ -72,13 +77,13 @@
    instead of being pinned against one of its two values. The old line forced white,
    which measured 5.60 on the light fill and 2.62 on the dark one — illegible in dark
    out of the box. See the long note in `button.css`, which this file mirrors. */
-.aparte-badge--primary   { --aparte-badge-intent: var(--aparte-primary); }
-.aparte-badge--secondary { --aparte-badge-intent: var(--aparte-secondary); }
-.aparte-badge--neutral   { --aparte-badge-intent: var(--aparte-neutral); }
-.aparte-badge--info      { --aparte-badge-intent: var(--aparte-info); }
-.aparte-badge--success   { --aparte-badge-intent: var(--aparte-success); }
-.aparte-badge--warning   { --aparte-badge-intent: var(--aparte-warning); }
-.aparte-badge--danger    { --aparte-badge-intent: var(--aparte-error); }
+.aparte-badge--primary   { --aparte-badge-intent: var(--aparte-primary); --aparte-badge-on-intent: var(--aparte-on-primary, var(--aparte-derived-ink)); }
+.aparte-badge--secondary { --aparte-badge-intent: var(--aparte-secondary); --aparte-badge-on-intent: var(--aparte-on-secondary, var(--aparte-derived-ink)); }
+.aparte-badge--neutral   { --aparte-badge-intent: var(--aparte-neutral); --aparte-badge-on-intent: var(--aparte-on-neutral, var(--aparte-derived-ink)); }
+.aparte-badge--info      { --aparte-badge-intent: var(--aparte-info); --aparte-badge-on-intent: var(--aparte-on-info, var(--aparte-derived-ink)); }
+.aparte-badge--success   { --aparte-badge-intent: var(--aparte-success); --aparte-badge-on-intent: var(--aparte-on-success, var(--aparte-derived-ink)); }
+.aparte-badge--warning   { --aparte-badge-intent: var(--aparte-warning); --aparte-badge-on-intent: var(--aparte-on-warning, var(--aparte-derived-ink)); }
+.aparte-badge--danger    { --aparte-badge-intent: var(--aparte-error); --aparte-badge-on-intent: var(--aparte-on-error, var(--aparte-derived-ink)); }
 
 /* ── Axis 2 — FILL. ──────────────────────────────────────────────────────────── */
 .aparte-badge--soft {

@@ -29,6 +29,11 @@
   /* The fallback for a browser without relative colour syntax. The DEFAULT path is
      the `@supports` block below, which derives this from the fill instead. */
   --aparte-btn-on-intent: var(--aparte-btn-ink);
+  /* The derived ink, as a named value so each intent can offer it as the fallback
+     behind the theme's own `--aparte-on-*`. Declared here too, un-derived, because a
+     `var()` whose target is undefined outside `@supports` would take the whole chain
+     down with it. */
+  --aparte-derived-ink: var(--aparte-on-intent);
   /* The intent as TEXT. Ghost, outline and soft paint the label with the intent on
      the PAGE background, which is the case the note below never measured — and on
      the light theme every one of them came out under AA. Defaults to the fill, so
@@ -89,10 +94,16 @@
    Material's NAME and backed it with a constant.
 
    How it reads: keep the fill's hue, drop its chroma to a trace, and set lightness to
-   0 or 1 depending on which side of `--aparte-ink-flip` the fill's own lightness
-   falls. `clamp()` is the branch, because CSS has no `if`. The trace of chroma is
-   deliberate — a warm near-black on brass, a cool one on navy, which is what the
-   hand-picked `#14100a` was reaching for.
+   either `--aparte-ink-dark` or 1 depending on which side of `--aparte-ink-flip` the
+   fill's own lightness falls. `clamp()` is the branch, because CSS has no `if`.
+
+   The dark end is 0.176, not 0, and that is load-bearing: at a lightness of zero OKLCH
+   ignores chroma, so the ink resolved to a flat `#000000` on every fill and the hue
+   this expression carries was discarded. The first version of this rule shipped that
+   while its comment promised a warm black — caught by measuring the computed colour
+   rather than re-reading the code. 0.176 is the lightness of `#14100a`, the ink that
+   was hand-picked here, so brass keeps the warm near-black it had and a blue fill gets
+   a cool one, each derived from its own hue.
 
    Measured in a browser against all nine fills this palette declares, the derivation
    matches or beats the constant on every one, and needs no per-intent exception:
@@ -109,9 +120,9 @@
    consumer setting `--aparte-btn-on-intent` still wins: same specificity, later sheet. */
 @supports (color: oklch(from red l c h)) {
   .aparte-btn {
-    --aparte-btn-on-intent: oklch(
+    --aparte-derived-ink: oklch(
       from var(--aparte-btn-intent)
-      clamp(0, (var(--aparte-ink-flip) - l) * 1000, 1)
+      clamp(var(--aparte-ink-dark), (var(--aparte-ink-flip) - l) * 1000, 1)
       0.02
       h
     );
@@ -124,18 +135,18 @@
    success 6.34 against 2.54 — except neutral, which is dark enough to want white.
    Three of them reach neither 4.5 with either colour (primary 4.46, info 4.37,
    danger 4.27); that is the palette's mid-luminance, not this file's doing. */
-.aparte-btn--primary   { --aparte-btn-intent: var(--aparte-primary); --aparte-btn-intent-ink: var(--aparte-primary-ink); }
-.aparte-btn--secondary { --aparte-btn-intent: var(--aparte-secondary); }
+.aparte-btn--primary   { --aparte-btn-intent: var(--aparte-primary); --aparte-btn-on-intent: var(--aparte-on-primary, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-primary-ink); }
+.aparte-btn--secondary { --aparte-btn-intent: var(--aparte-secondary); --aparte-btn-on-intent: var(--aparte-on-secondary, var(--aparte-derived-ink)); }
 /* `--neutral` no longer forces an ink. It used to set `--aparte-on-primary` (white),
    which was right on the light fill `#6d6479` (5.60) and WRONG on the dark one
    `#a89bb6` (2.62) — because the fill flips with the theme and the forced ink did not.
    The derivation below flips with it: 5.60 light, 8.03 dark. Same deletion in
    `display/badge.css` and `field.css`, which had copied this line. */
-.aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); }
-.aparte-btn--info      { --aparte-btn-intent: var(--aparte-info); --aparte-btn-intent-ink: var(--aparte-info-ink); }
-.aparte-btn--success   { --aparte-btn-intent: var(--aparte-success); --aparte-btn-intent-ink: var(--aparte-success-ink); }
-.aparte-btn--warning   { --aparte-btn-intent: var(--aparte-warning); --aparte-btn-intent-ink: var(--aparte-warning-ink); }
-.aparte-btn--danger    { --aparte-btn-intent: var(--aparte-error); --aparte-btn-intent-ink: var(--aparte-error-ink); }
+.aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); --aparte-btn-on-intent: var(--aparte-on-neutral, var(--aparte-derived-ink)); }
+.aparte-btn--info      { --aparte-btn-intent: var(--aparte-info); --aparte-btn-on-intent: var(--aparte-on-info, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-info-ink); }
+.aparte-btn--success   { --aparte-btn-intent: var(--aparte-success); --aparte-btn-on-intent: var(--aparte-on-success, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-success-ink); }
+.aparte-btn--warning   { --aparte-btn-intent: var(--aparte-warning); --aparte-btn-on-intent: var(--aparte-on-warning, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-warning-ink); }
+.aparte-btn--danger    { --aparte-btn-intent: var(--aparte-error); --aparte-btn-on-intent: var(--aparte-on-error, var(--aparte-derived-ink)); --aparte-btn-intent-ink: var(--aparte-error-ink); }
 
 /* ── Axis 2 — FILL. Reads the intent; says nothing about which one. ───────────── */
 

@@ -216,6 +216,11 @@
      this line is only the fallback for a browser without relative colour syntax. */
   --aparte-checkbox-intent: var(--aparte-primary);
   --aparte-checkbox-on-intent: var(--aparte-on-intent);
+  /* The derived ink, as a named value so each intent can offer it as the fallback
+     behind the theme's own `--aparte-on-*`. Declared here too, un-derived, because a
+     `var()` whose target is undefined outside `@supports` would take the whole chain
+     down with it. */
+  --aparte-derived-ink: var(--aparte-on-intent);
   /* No shared control-size token covers a checkbox yet (the button's own sizes are
      button-specific), so its box is declared here. */
   --aparte-checkbox-size: 18px;
@@ -273,25 +278,25 @@
    than text, so it reads `--aparte-checkbox-on-intent` twice below. */
 @supports (color: oklch(from red l c h)) {
   .aparte-checkbox {
-    --aparte-checkbox-on-intent: oklch(
+    --aparte-derived-ink: oklch(
       from var(--aparte-checkbox-intent)
-      clamp(0, (var(--aparte-ink-flip) - l) * 1000, 1)
+      clamp(var(--aparte-ink-dark), (var(--aparte-ink-flip) - l) * 1000, 1)
       0.02
       h
     );
   }
 }
 
-.aparte-checkbox--primary   { --aparte-checkbox-intent: var(--aparte-primary); }
-.aparte-checkbox--secondary { --aparte-checkbox-intent: var(--aparte-secondary); }
+.aparte-checkbox--primary   { --aparte-checkbox-intent: var(--aparte-primary); --aparte-checkbox-on-intent: var(--aparte-on-primary, var(--aparte-derived-ink)); }
+.aparte-checkbox--secondary { --aparte-checkbox-intent: var(--aparte-secondary); --aparte-checkbox-on-intent: var(--aparte-on-secondary, var(--aparte-derived-ink)); }
 /* No forced ink on neutral: the checkmark now follows the fill, which flips with the
    theme. The old line pinned it white, so the check sat at 2.62 on the dark fill
    `#a89bb6` — invisible against the box it was inside. See button.css. */
-.aparte-checkbox--neutral   { --aparte-checkbox-intent: var(--aparte-neutral); }
-.aparte-checkbox--info      { --aparte-checkbox-intent: var(--aparte-info); }
-.aparte-checkbox--success   { --aparte-checkbox-intent: var(--aparte-success); }
-.aparte-checkbox--warning   { --aparte-checkbox-intent: var(--aparte-warning); }
-.aparte-checkbox--danger    { --aparte-checkbox-intent: var(--aparte-error); }
+.aparte-checkbox--neutral   { --aparte-checkbox-intent: var(--aparte-neutral); --aparte-checkbox-on-intent: var(--aparte-on-neutral, var(--aparte-derived-ink)); }
+.aparte-checkbox--info      { --aparte-checkbox-intent: var(--aparte-info); --aparte-checkbox-on-intent: var(--aparte-on-info, var(--aparte-derived-ink)); }
+.aparte-checkbox--success   { --aparte-checkbox-intent: var(--aparte-success); --aparte-checkbox-on-intent: var(--aparte-on-success, var(--aparte-derived-ink)); }
+.aparte-checkbox--warning   { --aparte-checkbox-intent: var(--aparte-warning); --aparte-checkbox-on-intent: var(--aparte-on-warning, var(--aparte-derived-ink)); }
+.aparte-checkbox--danger    { --aparte-checkbox-intent: var(--aparte-error); --aparte-checkbox-on-intent: var(--aparte-on-error, var(--aparte-derived-ink)); }
 
 .aparte-checkbox:hover:not(:disabled) {
   border-color: var(--aparte-checkbox-intent);
