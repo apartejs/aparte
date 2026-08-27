@@ -174,13 +174,22 @@
     padding: var(--aparte-space-3) var(--aparte-space-5);
     font-size: var(--aparte-font-size-md);
 }
-.aparte-art-file__btn:hover { background: var(--aparte-surface-2); }
-.aparte-art-file__btn--primary {
-    background: var(--aparte-primary);
-    color: var(--aparte-text-inverse);
-    border-color: var(--aparte-primary);
-}
-.aparte-art-file__btn--primary:hover { filter: brightness(1.07); }
+/* NOTHING here repaints the button, and the comment above is why. These seven lines
+   re-declared `background`, `color`, `border-color` and a hover the recipe already
+   paints — a migration leftover that contradicted the sentence directly above it.
+
+   Five of them were inert duplicates. The sixth was not: `color: var(--aparte-text-inverse)`
+   overrode `--aparte-btn-on-intent`, which the recipe derives from the fill. Measured in a
+   browser on the built stylesheet: 3.54:1 in the light theme against the recipe's 5.27 —
+   an AA failure on a visible button label, in the default theme. It was also the last
+   place in `styles/` forcing `--aparte-text-inverse` as ink on a coloured fill; badge and
+   field had already stopped.
+
+   The consumer cost was the sharper one: the one-attribute rebrand this library documents
+   re-derives the ink on every other solid-primary button and, here alone, kept a token
+   bound to core's own palette. `.aparte-art-file__btn:hover` went with them — at 0,2,0 it
+   was always beaten by `.aparte-btn--solid:hover:not(:disabled)` at 0,3,0, so it never
+   applied either. */
 /* Hide the download button until the sandbox has produced the buffer.
    Avoids confusing the user with a disabled-but-styled-primary button
    during streaming / compiling. */
