@@ -124,3 +124,94 @@ test('a chat nested in a dark wrapper stays dark', async ({ page }) => {
         await cssVar(page, 'body', '--aparte-primary'),
     );
 });
+
+/*
+ * THE INK ON A SOLID FILL IS READABLE — on every intent, in both themes, and on a
+ * palette this repo has never seen.
+ *
+ * This is the assertion the library was missing, and its absence cost twice. Core used
+ * to write the ink down as a constant (`--aparte-on-intent: #14100a`), chosen by
+ * measuring against this repo's own five fills. Two things followed, neither visible to
+ * any existing check:
+ *
+ *   - `--neutral` needed a hardcoded white to escape that constant, and the escape was
+ *     pinned while the FILL flipped with the theme — so the solid neutral button, badge
+ *     and checkbox all shipped at 2.62:1 in dark mode, on the stock palette;
+ *   - a consumer who followed our own theming guide (an eight-line rebrand, or
+ *     `<aparte-chat style="--aparte-primary: …">`) got that constant painted on their
+ *     own fill: 1.11:1 measured on a dark navy.
+ *
+ * The ink is now derived from the fill, so this test asserts the PROPERTY rather than
+ * any value: whatever the fill, the label clears AA. Only the derivation breaking should
+ * redden it — a palette change must not.
+ *
+ * It has to run in a browser: `oklch(from …)` is resolved by the engine, and jsdom
+ * returns the unsubstituted token stream, so this passes there on a broken stylesheet.
+ */
+const INTENTS = ['primary', 'secondary', 'neutral', 'info', 'success', 'warning', 'danger'] as const;
+
+/** Contrast of each solid control's own label against its own fill, read from pixels. */
+async function solidContrasts(page: import('@playwright/test').Page): Promise<Record<string, number>> {
+    return page.evaluate((intents) => {
+        const host = document.querySelector('aparte-chat') ?? document.body;
+        let probe = document.getElementById('ink-probe');
+        if (!probe) {
+            probe = document.createElement('div');
+            probe.id = 'ink-probe';
+            probe.innerHTML = intents
+                .map((i) => `<button class="aparte-btn aparte-btn--${i} aparte-btn--solid" data-i="${i}">Ok</button>`)
+                .join('');
+            host.appendChild(probe);
+        }
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 1;
+        const cx = cv.getContext('2d', { willReadFrequently: true })!;
+        const rgb = (c: string): number[] => {
+            cx.clearRect(0, 0, 1, 1);
+            cx.fillStyle = c;
+            cx.fillRect(0, 0, 1, 1);
+            const d = cx.getImageData(0, 0, 1, 1).data;
+            return [d[0]!, d[1]!, d[2]!];
+        };
+        const lum = (c: number[]): number => {
+            const [r, g, b] = c.map((v) => {
+                const s = v / 255;
+                return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+            }) as [number, number, number];
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        };
+        const out: Record<string, number> = {};
+        for (const el of probe.querySelectorAll<HTMLElement>('[data-i]')) {
+            const s = getComputedStyle(el);
+            const a = lum(rgb(s.color));
+            const b = lum(rgb(s.backgroundColor));
+            const [hi, lo] = a > b ? [a, b] : [b, a];
+            out[el.dataset['i']!] = (hi + 0.05) / (lo + 0.05);
+        }
+        return out;
+    }, INTENTS as unknown as string[]);
+}
+
+for (const theme of ['light', 'dark'] as const) {
+    test(`every solid intent clears AA in the ${theme} theme`, async ({ page }) => {
+        if (theme === 'dark') {
+            await page.evaluate(() => document.documentElement.setAttribute('data-aparte-theme', 'dark'));
+        }
+        const ratios = await solidContrasts(page);
+        for (const intent of INTENTS) {
+            expect(ratios[intent], `${intent} label on its own fill`).toBeGreaterThanOrEqual(4.5);
+        }
+    });
+}
+
+test('a consumer palette core has never seen is readable too', async ({ page }) => {
+    // The exact gesture guides/theming.md teaches, with a brand colour far from ours.
+    // Against the old constant this measured 1.11:1 and nothing said so.
+    await page.evaluate(() => {
+        document.documentElement.style.setProperty('--aparte-primary', '#1a1a2e');
+        document.documentElement.style.setProperty('--aparte-neutral', '#0f172a');
+    });
+    const ratios = await solidContrasts(page);
+    expect(ratios['primary'], 'a dark navy brand primary').toBeGreaterThanOrEqual(4.5);
+    expect(ratios['neutral'], 'a near-black neutral').toBeGreaterThanOrEqual(4.5);
+});

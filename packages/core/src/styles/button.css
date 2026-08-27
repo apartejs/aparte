@@ -26,6 +26,8 @@
   /* The intent, as a value. Every fill below reads THIS and nothing else, which is
      what keeps the two axes independent. */
   --aparte-btn-intent: var(--aparte-neutral);
+  /* The fallback for a browser without relative colour syntax. The DEFAULT path is
+     the `@supports` block below, which derives this from the fill instead. */
   --aparte-btn-on-intent: var(--aparte-btn-ink);
   /* The intent as TEXT. Ghost, outline and soft paint the label with the intent on
      the PAGE background, which is the case the note below never measured — and on
@@ -70,6 +72,52 @@
   color: var(--aparte-btn-intent-ink);
 }
 
+/* ── The ink on a solid fill is DERIVED from that fill, not written down ────────
+   This is the one rule in the file that exists because aparté is a LIBRARY.
+
+   It used to be a constant: `--aparte-btn-on-intent` resolved through
+   `--aparte-btn-ink` to `--aparte-on-intent: #14100a`, a hex chosen by measuring
+   contrast against THIS repo's own five intent fills. That made core's rendering
+   depend on core's palette. A consumer following our own theming guide — which
+   teaches an eight-line rebrand and a one-attribute
+   `<aparte-chat style="--aparte-primary: #16a34a">`, and names neither token — got
+   near-black painted on their own fill with no signal. Measured: 1.11:1 on a navy
+   `#1a1a2e`, 1.83:1 on slate `#334155`.
+
+   Deriving it is not new art. Bootstrap has had `color-contrast()` for years and
+   Material's `on-*` tokens are generated per palette; this repo had borrowed
+   Material's NAME and backed it with a constant.
+
+   How it reads: keep the fill's hue, drop its chroma to a trace, and set lightness to
+   0 or 1 depending on which side of `--aparte-ink-flip` the fill's own lightness
+   falls. `clamp()` is the branch, because CSS has no `if`. The trace of chroma is
+   deliberate — a warm near-black on brass, a cool one on navy, which is what the
+   hand-picked `#14100a` was reaching for.
+
+   Measured in a browser against all nine fills this palette declares, the derivation
+   matches or beats the constant on every one, and needs no per-intent exception:
+     primary 5.83 light / 9.22 dark · secondary 6.93 · neutral 5.60 light / 8.03 dark
+     info 5.71 · success 8.28 · warning 9.78 · error 5.58
+   `neutral` is the one that used to need a hardcoded white: it now gets white for free
+   on the light fill and correctly loses it on the dark one, where the forced white
+   read 2.62.
+
+   `@supports`, not a bare second declaration, because a custom property does NOT fall
+   back on an unparsable value the way a real property does — it is stored as tokens
+   and fails later, at use. Outside this block the old constant stands, so a browser
+   without relative colour syntax (Firefox before 128) keeps today's rendering. A
+   consumer setting `--aparte-btn-on-intent` still wins: same specificity, later sheet. */
+@supports (color: oklch(from red l c h)) {
+  .aparte-btn {
+    --aparte-btn-on-intent: oklch(
+      from var(--aparte-btn-intent)
+      clamp(0, (var(--aparte-ink-flip) - l) * 1000, 1)
+      0.02
+      h
+    );
+  }
+}
+
 /* ── Axis 1 — INTENT. Sets a colour; says nothing about how it is used. ─────────
    Ink is the default text colour on a solid fill, measured rather than assumed: on
    every intent this palette declares, ink beats white — warning 7.49 against 2.15,
@@ -78,7 +126,12 @@
    danger 4.27); that is the palette's mid-luminance, not this file's doing. */
 .aparte-btn--primary   { --aparte-btn-intent: var(--aparte-primary); --aparte-btn-intent-ink: var(--aparte-primary-ink); }
 .aparte-btn--secondary { --aparte-btn-intent: var(--aparte-secondary); }
-.aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); --aparte-btn-on-intent: var(--aparte-on-primary); }
+/* `--neutral` no longer forces an ink. It used to set `--aparte-on-primary` (white),
+   which was right on the light fill `#6d6479` (5.60) and WRONG on the dark one
+   `#a89bb6` (2.62) — because the fill flips with the theme and the forced ink did not.
+   The derivation below flips with it: 5.60 light, 8.03 dark. Same deletion in
+   `display/badge.css` and `field.css`, which had copied this line. */
+.aparte-btn--neutral   { --aparte-btn-intent: var(--aparte-neutral); }
 .aparte-btn--info      { --aparte-btn-intent: var(--aparte-info); --aparte-btn-intent-ink: var(--aparte-info-ink); }
 .aparte-btn--success   { --aparte-btn-intent: var(--aparte-success); --aparte-btn-intent-ink: var(--aparte-success-ink); }
 .aparte-btn--warning   { --aparte-btn-intent: var(--aparte-warning); --aparte-btn-intent-ink: var(--aparte-warning-ink); }

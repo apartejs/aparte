@@ -212,8 +212,8 @@
 
 .aparte-checkbox {
   /* Same two-part axis as the button: INTENT is the colour, ON-INTENT is what sits
-     on top of it. Ink beats white on every intent this palette declares except
-     neutral (see button.css) — checked-neutral is the one override below. */
+     on top of it. On-intent is DERIVED from the fill (see the note in button.css);
+     this line is only the fallback for a browser without relative colour syntax. */
   --aparte-checkbox-intent: var(--aparte-primary);
   --aparte-checkbox-on-intent: var(--aparte-on-intent);
   /* No shared control-size token covers a checkbox yet (the button's own sizes are
@@ -268,9 +268,26 @@
   opacity: 1;
 }
 
+/* The ink follows the fill — see the long note in `button.css`. Same expression, this
+   recipe's own intent. Here it paints the CHECKMARK, which is a border trick rather
+   than text, so it reads `--aparte-checkbox-on-intent` twice below. */
+@supports (color: oklch(from red l c h)) {
+  .aparte-checkbox {
+    --aparte-checkbox-on-intent: oklch(
+      from var(--aparte-checkbox-intent)
+      clamp(0, (var(--aparte-ink-flip) - l) * 1000, 1)
+      0.02
+      h
+    );
+  }
+}
+
 .aparte-checkbox--primary   { --aparte-checkbox-intent: var(--aparte-primary); }
 .aparte-checkbox--secondary { --aparte-checkbox-intent: var(--aparte-secondary); }
-.aparte-checkbox--neutral   { --aparte-checkbox-intent: var(--aparte-neutral); --aparte-checkbox-on-intent: var(--aparte-on-primary); }
+/* No forced ink on neutral: the checkmark now follows the fill, which flips with the
+   theme. The old line pinned it white, so the check sat at 2.62 on the dark fill
+   `#a89bb6` — invisible against the box it was inside. See button.css. */
+.aparte-checkbox--neutral   { --aparte-checkbox-intent: var(--aparte-neutral); }
 .aparte-checkbox--info      { --aparte-checkbox-intent: var(--aparte-info); }
 .aparte-checkbox--success   { --aparte-checkbox-intent: var(--aparte-success); }
 .aparte-checkbox--warning   { --aparte-checkbox-intent: var(--aparte-warning); }

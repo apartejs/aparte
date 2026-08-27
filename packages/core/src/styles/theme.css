@@ -101,17 +101,38 @@
   /* Typography */
   --aparte-font-family: system-ui, -apple-system, sans-serif;
 
-  /* Text/icon over a --aparte-primary (brass) fill — send button, run button. */
-  --aparte-on-primary: #ffffff;
-  /* The ink that sits ON a coloured fill — a solid button, a badge, a checkmark.
-     It does NOT flip with the theme, and that is the point: the fills are
-     mid-to-bright in BOTH themes, so the label has to be dark in both. It used to
-     be `--aparte-text`, which is near-black on light and near-white on dark — so
-     the dark theme silently got the white ink that `button.css` had measured and
-     rejected, and the solid primary button read at 1.96:1. Against the five fills
-     this palette declares it measures 5.26 (primary), 5.15 (info), 7.47 (success),
-     8.82 (warning) and 5.04 (error). `--aparte-on-primary` above stays white, for
-     the one intent dark enough to want it. */
+  /* WHERE THE INK ON A COLOURED FILL COMES FROM, and why there is no literal here.
+     `--aparte-btn-on-intent` / `--aparte-badge-on-intent` / `--aparte-checkbox-on-intent`
+     are DERIVED from their own fill, in a `@supports` block in each recipe — see the
+     long note in `button.css`. `--aparte-on-intent` below survives only as the fallback
+     for a browser without relative colour syntax.
+
+     `--aparte-on-primary: #ffffff` used to live here, described as the send button's
+     icon colour. It was read by nothing of the sort: its only three readers were the
+     `--neutral` rules in button/badge/field, which forced white onto a fill that flips
+     with the theme — 5.60 on the light neutral, 2.62 on the dark one. Those are gone,
+     so the token has no reader and is removed rather than left documenting a job it
+     did not do.
+
+     The lightness at which the derived ink flips from light to dark. One knob, read by
+     all three recipes, so the threshold is tunable in one place instead of three. 0.57
+     sits in a wide gap: on this palette the only fill wanting light ink measures 0.519
+     and the lowest wanting dark measures 0.623. */
+  --aparte-ink-flip: 0.57;
+  /* FALLBACK ONLY — a browser without relative colour syntax (Firefox before 128).
+     Everywhere else the ink is derived from the fill and this value is never read.
+
+     It is a hex chosen by measuring against THIS repo's own five fills, which is
+     exactly why it stopped being the default path: it made core's rendering depend on
+     core's palette, in a library whose consumers bring their own. Our theming guide
+     teaches an eight-line rebrand and a one-attribute
+     `<aparte-chat style="--aparte-primary: …">`, and names this token in neither — so
+     a consumer with a dark brand primary got near-black on it and no signal (1.11:1
+     measured on `#1a1a2e`). Kept as the fallback because a degraded old browser is
+     better than an unstyled one; it is not the contract.
+
+     It does not flip with the theme, and in a themed system that anomaly was the tell
+     I wrote a paragraph justifying instead of reading. */
   --aparte-on-intent: #14100a;
   /* Outline width for keyboard focus + drag-over indicators. */
   --aparte-focus-outline-width: 2px;

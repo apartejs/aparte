@@ -30,6 +30,7 @@
 
 .aparte-badge {
   --aparte-badge-intent: var(--aparte-neutral);
+  /* Fallback only — the `@supports` block below derives this from the fill. */
   --aparte-badge-on-intent: var(--aparte-on-intent);
 
   display: inline-flex;
@@ -52,13 +53,28 @@
   color: var(--aparte-badge-intent);
 }
 
+/* The ink follows the fill — see the long note in `button.css` for why a library
+   cannot write this down as a constant. Same expression, this recipe's own intent. */
+@supports (color: oklch(from red l c h)) {
+  .aparte-badge {
+    --aparte-badge-on-intent: oklch(
+      from var(--aparte-badge-intent)
+      clamp(0, (var(--aparte-ink-flip) - l) * 1000, 1)
+      0.02
+      h
+    );
+  }
+}
+
 /* ── Axis 1 — INTENT. ─────────────────────────────────────────────────────────
-   The on-intent swap for neutral (and neutral alone) mirrors the button's own
-   palette exactly, for the same reason: ink beats white on every intent this
-   palette declares except neutral, which is dark enough to want the light one. */
+   No on-intent swap for neutral any more, and no swap for anything else either: the
+   ink is derived from the fill above, so it follows a fill that flips with the theme
+   instead of being pinned against one of its two values. The old line forced white,
+   which measured 5.60 on the light fill and 2.62 on the dark one — illegible in dark
+   out of the box. See the long note in `button.css`, which this file mirrors. */
 .aparte-badge--primary   { --aparte-badge-intent: var(--aparte-primary); }
 .aparte-badge--secondary { --aparte-badge-intent: var(--aparte-secondary); }
-.aparte-badge--neutral   { --aparte-badge-intent: var(--aparte-neutral); --aparte-badge-on-intent: var(--aparte-on-primary); }
+.aparte-badge--neutral   { --aparte-badge-intent: var(--aparte-neutral); }
 .aparte-badge--info      { --aparte-badge-intent: var(--aparte-info); }
 .aparte-badge--success   { --aparte-badge-intent: var(--aparte-success); }
 .aparte-badge--warning   { --aparte-badge-intent: var(--aparte-warning); }
