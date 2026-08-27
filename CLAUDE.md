@@ -37,7 +37,7 @@
 apartejs/
 ├── apps/
 │   ├── docs/                 Starlight (Astro) — EN-first, docs + live showcase
-│   └── examples/             react · vue · svelte · angular · vanilla (+ vanilla-dist)
+│   └── examples/             react · vue · svelte4 · svelte5 · angular · vanilla (+ vanilla-dist)
 ├── e2e/                      Playwright browser smoke tests — drives the examples
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
