@@ -89,7 +89,15 @@ export default defineConfig({
         // finding — a capability that ships documented and unreachable — and the pass
         // needs the same crawl the link check already does, so it is not separable into
         // something smaller. The overlap on link resolution is the price.
-        starlightLinksValidator(),
+        starlightLinksValidator({
+          // The changelog's routes are built by `starlight-changelogs`, which this plugin
+          // knows nothing about — so every one of them reads as a broken link and NO page
+          // could link to the changelog at all. That is not a hypothetical: the first page
+          // that tried (`why.md`, pointing a reader at the version history) failed the
+          // build. Excluded by prefix rather than one link at a time, since the whole
+          // subtree has the same cause.
+          exclude: ['/changelog/**'],
+        }),
         // FOUR sidebars rather than one, switched from a picker at the top: after the
         // catalogue lands this list is ~61 entries, and the complaint that started this lot
         // was volume in a flat list. Topics group pages BY THEIR EXISTING PATHS, so no URL

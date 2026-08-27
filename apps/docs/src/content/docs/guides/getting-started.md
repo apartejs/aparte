@@ -12,6 +12,13 @@ everything with CSS variables — no framework, and zero runtime dependencies.
 By the end of this page you'll have a working chat that streams a reply, running
 entirely in the browser.
 
+:::caution[Alpha]
+Every `@aparte/*` package is a plain `0.x` and the API can still change before the first
+stable cut. A rename lands as a rename rather than behind a deprecated alias, so a minor
+can ask you to change a line — pin an exact version if that matters to you, and read
+[where it is in its life](/why/#where-it-is-in-its-life) before you commit to it.
+:::
+
 ## Install
 
 ```bash
@@ -22,6 +29,12 @@ npm install @aparte/core
 Every import below uses a bare specifier (`@aparte/core`), which a browser cannot
 resolve on its own — Vite, Next, Astro, Parcel, esbuild and friends all can. "No
 framework" means no React/Vue/Svelte/Angular, not no build step.
+
+**In TypeScript, set `"moduleResolution"` to `"bundler"`, `"node16"` or `"nodenext"`.**
+The package declares its entry points through an `exports` map — including a Node build
+without a DOM, and the second entry point `@aparte/core/icons` — and the older
+`"node"`/`"classic"` resolvers do not read one. On those, the import resolves to nothing
+and every symbol is `any`.
 
 For a single `index.html` with no build at all, name the files in an import map:
 

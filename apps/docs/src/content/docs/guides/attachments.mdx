@@ -61,6 +61,26 @@ canonical positions:
 Composing your own composer? The flag doesn't apply — drop the two elements in wherever you
 want them, as with any other primitive.
 
+## Dragging files in
+
+`<aparte-composer-add-attachment>` installs drag & drop on the composer **root**, not on
+itself — so a drop anywhere over the composer attaches, not only onto the paperclip. While
+a drag is over it the root carries `aparte-is-dragover`, and the dashed outline is drawn on
+`.aparte-composer-shell` when your markup has one and on the composer element when it does
+not. It reads `--aparte-focus-outline-width`, `--aparte-primary` and
+`--aparte-radius-input`, so it follows your theme with nothing to set.
+
+Two behaviours worth knowing, because they are asymmetric on purpose:
+
+- `disabled` on the composer removes the drop target entirely. `streaming` does not — it
+  greys the button out, and a drop mid-turn still attaches, since queueing a file while a
+  reply arrives is a reasonable thing to do.
+- The drop handler calls `preventDefault()` even while disabled, so a missed drop can never
+  navigate the page away to the file.
+
+The button is what installs it, so a composer you compose yourself gets drag & drop by
+including `<aparte-composer-add-attachment>` — and gets none without it.
+
 :::note[Why opt-in]
 A picker is a promise: whatever the user attaches gets used. That promise is only kept if
 something consumes the files. An `AparteClient` does (see [What gets sent](#what-gets-sent-to-the-model)),

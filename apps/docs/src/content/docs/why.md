@@ -55,6 +55,18 @@ No routing, no auth, no settings screens, no database. Those belong to *your* pr
 a library that imposes them ages badly. Persistence is an interface you can implement
 ([`AparteStorageAdapter`](/guides/conversation-persistence/)), not a bundled backend.
 
+## Where it is in its life
+
+**Alpha.** Every `@aparte/*` package is on npm at a plain `0.x`, released in lockstep,
+and the API can still change before the first stable cut. Pre-1.0 here means what it
+says: a rename lands as a rename, in the changeset that describes it, without a
+deprecated alias kept alongside — so a minor can ask you to change a line. What changed
+when is in the [changelog](/changelog/), version by version.
+
+That is the trade being offered. The surface has been stable in practice — the eighteen
+element tags have not changed name across four releases — but "in practice" is not a
+promise, and pinning an exact version is reasonable until it is one.
+
 ## When not to pick it
 
 Honest cases for something else: you only want visual building blocks and already have a
