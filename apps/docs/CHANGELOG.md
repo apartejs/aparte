@@ -1,5 +1,65 @@
 # @aparte-workspace/docs
 
+## 0.0.12
+
+### Patch Changes
+
+- f7382c8: Fixed: every live preview on the published docs showed "apartejs.dev refused to connect".
+
+  `nginx.docs.conf` sent `frame-ancestors 'none'` and `X-Frame-Options: DENY`, which forbid
+  the page from being framed by anyone — its own parent included. The docs site frames
+  itself: every preview is an `<iframe>` pointing at `/preview/*`, which is the whole
+  mechanism, so core's light DOM is not restyled by the site around it and a responsive
+  frame gets a viewport of its own. The two halves of the policy disagreed with each other:
+  `frame-src 'self'` let the parent embed, `frame-ancestors 'none'` forbade the child from
+  being embedded.
+
+  It never showed in development, where nothing adds these headers.
+
+  Now `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`. Clickjacking from another
+  origin is still refused, which is what the headers are for.
+
+- 87ae02f: `pnpm release` no longer re-runs the full gate; it requires CI to have passed on the exact
+  commit instead.
+
+  Publishing validated one commit three times: the version PR's CI, `main`'s CI after the
+  merge, and `gate:full` again inside `release` — roughly twenty minutes of a maintainer's
+  wall clock proving what GitHub had just proved. `prerelease-checks` gained a fourth check
+  that asks for the `ci` verdict on `HEAD`'s SHA and refuses when it is red, still running,
+  or absent; a missing or unauthenticated `gh` refuses too, rather than waving the release
+  through.
+
+  This is stricter than what it replaced, not looser. The old gate ran on a maintainer's
+  workstation; CI runs on `ubuntu-latest`, where 0.13.0's POSIX path bug was reachable and a
+  Windows gate could never see it. And 0.13.0 was itself published at 22:52 from a commit
+  whose CI concluded `failure` at 22:58 — the local gate was green, nothing was watching the
+  one that mattered, and the new check would have stopped it twice over.
+
+- 5dd73b4: A Version PR no longer runs the browser suite.
+
+  0.13.0's was 113 files and not one of them was source — package versions, CHANGELOGs, and
+  the changesets they consumed — and it still ran a build and 370 browser tests across seven
+  example apps to prove that a version number does not break a chat. The release paid that
+  twice: once on the PR, once on `main` after the merge.
+
+  The `e2e` job still runs and still reports, because it is a required check in main's
+  ruleset and a skipped job never reports at all — that would block every release PR
+  forever. Only the install, the build and the suite are conditional. The rule is
+  "does this diff touch anything a browser could notice": everything except `.changeset/*`,
+  `CHANGELOG.md`, and the version-and-peer-floor lines of a `package.json`; a manifest that
+  changes for a real reason still counts. It fails open — no base, a first push, an
+  unreadable diff, and the suite runs.
+
+- Updated dependencies [73cbbdb]
+- Updated dependencies [2391d6d]
+- Updated dependencies [3c99726]
+- Updated dependencies [655cdb1]
+- Updated dependencies [73cbbdb]
+- Updated dependencies [f8d4fae]
+  - @aparte/core@0.13.1
+  - @aparte/locale-fr@0.13.1
+  - @aparte/plugin-shiki@0.13.1
+
 ## 0.0.11
 
 ### Patch Changes

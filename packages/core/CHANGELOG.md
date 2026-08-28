@@ -1,5 +1,102 @@
 # @aparte/core
 
+## 0.13.1
+
+### Patch Changes
+
+- 73cbbdb: Fixed: the delete button's cross was invisible while you hovered it, in both themes.
+
+  `--aparte-conv-delete-bg-hover: var(--aparte-error)` has been declared all along and never
+  applied: `.aparte-btn:hover:not(:disabled)` weighs 0,3,0 and `.aparte-conv-item__delete:hover`
+  only 0,2,0, so the recipe won the background. The recipe's hover rule sets no colour,
+  though, so the component's `color` DID apply — the ink meant for a solid red fill, painted
+  on a neutral surface. Measured in a browser: 1.17:1 on the light theme, 1.20:1 on the dark.
+
+  Feeding the recipe its own token instead of out-specifying it is the rule the neighbouring
+  sheets already follow. The red applies now, and the pair measures 3.70:1 and 4.84:1 —
+  clear of the 3:1 a graphical object needs. `.aparte-conv-item__archive` had the same
+  silent defect: its declared surface never applied either.
+
+- 2391d6d: The elicitation panel gives the focus back when it closes.
+
+  It took focus on open and never returned it, so answering a question or approving a tool
+  call dropped a keyboard user at the top of the document — they had to tab through the
+  whole page to reach the composer again. WCAG 2.2 SC 2.4.3, level A, on the
+  human-in-the-loop flow the library puts forward, and what the ARIA Authoring Practices
+  Guide requires of every dialogue-shaped pattern.
+
+  No restoration existed anywhere in core: `previousActive`, `restoreFocus`, `returnFocus`
+  and `document.activeElement` together returned one hit across `packages/core/src`, in
+  `aparte-select.ts`, for something else. The element that had the focus is now recorded
+  once — before either branch opens a panel — and refocused from the single `close()` that
+  ends both.
+
+  It does not pull the focus back if the reader has moved on. A request can settle late (an
+  abort, a model answering while they clicked elsewhere), and yanking them back would be the
+  same theft in the other direction; the check reads `document.activeElement` before
+  `hidePanel` removes it, because afterwards there is no way to tell.
+
+- 3c99726: Auto-follow no longer switches itself off because the content grew.
+
+  `_handleScroll` assigned `_isAutoScrollEnabled = _isAtBottom()` on every scroll event, and
+  `_isAtBottom()` answers "no" for two unrelated reasons: the reader moved up, or the content
+  grew under them. The second disarmed the follow exactly when it was needed — a rebuild
+  settles its height in stages, one stage fires a scroll event while the distance is briefly
+  large, and the follow meant to keep the reader at the bottom had already switched off.
+
+  They are told apart by POSITION now, which is what the note in that handler asked for and
+  what an event counter could not do: growth does not move `scrollTop`, a reader going up
+  does. A decrease disarms, the bottom re-arms, everything else leaves the flag alone.
+
+  Five tests, with the geometry stubbed rather than laid out, because the case that matters
+  is a swap between branches of different heights — including the shorter one, where the
+  engine clamps `scrollTop` and the decrease is not a gesture at all.
+
+- 655cdb1: A resize now re-derives the scroll-to-bottom button, so it stops getting stuck visible
+  after a branch swap.
+
+  "Is anything below the fold" is a pure function of the geometry the viewport's
+  `ResizeObserver` exists to watch, and only the MUTATION path re-derived it — the resize
+  path recalculated the spacer and left the button showing whatever the last mutation
+  happened to measure. A branch swap rebuilds the transcript and React's height flickers
+  through it (1730 → 1934 → 1730, measured); the settle back down is a resize, not a
+  mutation, so a button evaluated at 1934 stayed wrong, and a swap fires no scroll event to
+  correct it.
+
+  Stated plainly: this closes a gap that is visible by reading, and it is covered by a test
+  that goes red without it. It is **not** proven to be the cause of the intermittent
+  `bubble-actions` failure on react-webkit — that one has not been reproduced locally (8/8
+  green), and the CI evidence (the button held visible across 43 polls, five seconds after a
+  swap) is consistent with this mechanism without establishing it.
+
+- 73cbbdb: Fixed: six elements overflowed their container by their own padding on a page with no
+  `box-sizing` reset.
+
+  `width: 100%` next to a `padding` is content-box arithmetic unless something says
+  otherwise, and core is light DOM — a host that never wrote `* { box-sizing: border-box }`
+  is not a broken host. Measured in a frame without a reset: a conversation row came out its
+  parent's width plus both paddings and clipped its last button by the right one, which is
+  how it was reported.
+
+  `.aparte-menu__item`, `.aparte-message`, `.aparte-editor`, `.aparte-tag`,
+  `.aparte-select-search` and `.aparte-accordion__header` now say `box-sizing: border-box`
+  themselves — per element, never a `*` selector, the same way the eight that already had it
+  are written.
+
+- f8d4fae: A custom tool renderer keeps its styles when a stored conversation is re-rendered.
+
+  The injection lived inline in two live paths — `AparteClient`'s `tool-start` handler and
+  the stream adapter's — and nowhere on the path that draws history. So a renderer
+  registered with `registerToolRenderer` came back styled while its tool ran and **bare
+  after a reload**: the markup returned, because `toolCallRenderer` looks the renderer up
+  and delegates to it, but nothing replays `tool-start` for a persisted message, so the CSS
+  never arrived. Reported by a consumer who was re-injecting the stylesheet themselves at
+  startup — the shape of a defect in this library, not a concern of theirs.
+
+  One owner now, called from the render path as well as the two live ones, so "the renderer
+  drew" and "its rules are on the page" cannot come apart again. Keyed by tool name, so it
+  is still injected once however many times the segment is drawn.
+
 ## 0.13.0
 
 ### Minor Changes
