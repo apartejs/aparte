@@ -226,4 +226,5 @@ in-browser Transformers.js provider. You can also register any object implementi
 - **[Customization](/guides/customization)** — icons, render hooks, action registries.
 - **[Conversations & branching](/guides/conversations-branching)** — retry / edit, branches, persistence.
 - **[Providers](/providers/)** — connect a real model: OpenAI-compatible, the AI SDK bridge, or in-browser Transformers.js.
+- **[Local models](/guides/local-models)** — the chat on a model running on your machine: Ollama, LM Studio, llama.cpp.
 - **[The agent engine](/guides/engine)** — the headless `runStreamAgent` loop and the `streamRunner` seam.

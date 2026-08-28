@@ -61,6 +61,9 @@ Ollama is used through its OpenAI-compat `/v1` endpoint, **not** its native `/ap
 native-only niceties (inline base64 images, Ollama-shaped tool calls, `keep_alive`) don't apply.
 :::
 
+The full recipe — CORS, picking a model from the server's list, llama.cpp without a preset,
+the context window — is [Chat UI for a local LLM](/guides/local-models/).
+
 ## As a pure format adapter (bring your own `fetch`)
 
 The provider separates **wire format** from **transport**, so you can take the first and keep the
