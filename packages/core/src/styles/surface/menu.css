@@ -51,6 +51,16 @@
 }
 
 .aparte-menu__item {
+  /* Its own width plus its own padding, because core is light DOM: a host that
+     never wrote `* { box-sizing: border-box }` is not a broken host, and this rule
+     said `width: 100%` next to a padding. Measured in a frame without a reset: the
+     row came out its parent width PLUS both paddings — 328px inside 308 at one window
+     size — and clipped its last button by the right one. The absolute numbers depend on
+     the window; the 20px of overflow is the padding, whatever the width.
+     Per element, never a `*` selector — the same reason every other box-sizing in
+     these sheets is written on the thing it belongs to. */
+
+  box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
   display: flex;

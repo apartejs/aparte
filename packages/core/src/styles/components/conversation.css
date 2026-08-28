@@ -84,10 +84,18 @@
   width: var(--aparte-conv-action-btn-size);
   height: var(--aparte-conv-action-btn-size);
   color: var(--aparte-conv-delete-color);
+  /* DECLARED, not out-specified. `.aparte-btn:hover:not(:disabled)` weighs 0,3,0 and
+     `.aparte-conv-item__delete:hover` only 0,2,0, so the recipe won the background and
+     this button's red never applied — while the `color` below DID, because the recipe's
+     hover rule sets no colour. The result was the ink for a solid red fill painted on a
+     neutral surface: 1.17:1 in the light theme, 1.20 in the dark, measured in a browser.
+     The cross was invisible in both. Feeding the recipe its own token is the rule this
+     file's neighbours already follow, and it makes the pair agree again — 3.70 and 4.84,
+     both clear of the 3:1 a graphical object needs. */
+  --aparte-btn-bg-hover: var(--aparte-conv-delete-bg-hover);
 }
 
 .aparte-conv-item__delete:hover {
-  background: var(--aparte-conv-delete-bg-hover);
   color: var(--aparte-conv-delete-color-hover);
 }
 
@@ -97,10 +105,12 @@
   width: var(--aparte-conv-action-btn-size);
   height: var(--aparte-conv-action-btn-size);
   color: var(--aparte-conv-archive-color, var(--aparte-text-muted));
+  /* Same reason as the delete button above: the recipe out-weighs a plain `:hover` here,
+     so this surface has to be declared as its token or it never applies. */
+  --aparte-btn-bg-hover: var(--aparte-conv-archive-bg-hover, var(--aparte-surface-4, var(--aparte-surface-3)));
 }
 
 .aparte-conv-item__archive:hover {
-  background: var(--aparte-conv-archive-bg-hover, var(--aparte-surface-4, var(--aparte-surface-3)));
   color: var(--aparte-conv-archive-color-hover, var(--aparte-text));
 }
 

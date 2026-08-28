@@ -31,6 +31,7 @@ import type {
 import type { AparteUsage, AparteChatRequest } from '../types/chat.js';
 import { uuid } from '../utils/uuid.js';
 import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
+import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 
 /**
  * DOM-free run events emitted by `@aparte/engine`'s `runStreamAgent`, mirrored here
@@ -372,19 +373,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 };
                 const renderer = config.getToolRenderer(e.name);
                 if (renderer) {
-                    // Inject per-tool styles once into document.head.
-                    if (renderer.getStyles) {
-                        const styles = renderer.getStyles();
-                        if (styles) {
-                            const styleId = `aparte-tool-renderer-${e.name}`;
-                            if (!document.getElementById(styleId)) {
-                                const styleEl = document.createElement('style');
-                                styleEl.id = styleId;
-                                styleEl.textContent = styles;
-                                document.head.appendChild(styleEl);
-                            }
-                        }
-                    }
+                    injectToolRendererStyles(e.name, renderer);
                     const html = renderer.render(toolSeg);
                     if (html) target.addSegment?.(toolSeg);
                 } else {

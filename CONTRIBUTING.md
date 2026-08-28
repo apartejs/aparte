@@ -93,6 +93,28 @@ invalidates everything, deliberately.
 > carry a GitHub ruleset (Settings → Rules → Rulesets): require a PR, require the `ci`,
 > `test-matrix` and `e2e` checks, block force-pushes.
 
+A **Version PR skips the browser suite**, and only that: `e2e` stays a required check, so
+the job still runs and still reports — a skipped job never reports at all, and main's
+ruleset would block every release PR forever. What is conditional is the install, the
+build and the suite itself.
+
+The rule is "does this diff touch anything a browser could notice": everything except
+`.changeset/*`, `CHANGELOG.md` and the version-and-peer-floor lines of a `package.json`.
+A manifest that changes for a real reason — a dependency, an exports map — still counts.
+It fails OPEN: no base, a first push, an unreadable diff, and the suite runs. Ten wasted
+minutes is cheaper than a regression reaching `main`.
+
+The decision runs in its **own job**, on a plain runner, because the `e2e` job runs inside
+the Playwright container where `actions/checkout` has no git and downloads a tarball —
+there is no `.git` there at all. The first version asked `git diff` inside that container,
+got "Not a git repository", swallowed it with `|| true`, read the empty result as "nothing
+changed", and skipped the browser suite on a pull request full of source. It reported
+green in 33 seconds. Every command is now checked with `if !` rather than `|| true`: a
+diff that fails and a diff that finds nothing produce the same empty string, and telling
+them apart is the difference between failing open and failing shut.
+
+0.13.0's Version PR was 113 files and not one of them was source.
+
 ## Commits & changesets
 
 - **Conventional commits** (`feat:`, `fix:`, `docs:`, `chore:` …), one concern each.
@@ -101,6 +123,28 @@ invalidates everything, deliberately.
   pnpm changeset
   ```
 - Never commit `dist/`, `*.tsbuildinfo`, or `.claude/` — they're gitignored; stage explicit files.
+
+### How a changeset reads
+
+A changeset becomes a CHANGELOG entry, which becomes the GitHub Release body. Its reader
+is evaluating the library with ten seconds to spare, and their question is always the
+same: **do I have to touch my code?** Answer that first.
+
+- **The first line is the change, for the caller, at the top.** Plain, imperative, no
+  metaphor, and short enough to scan in one pass. It is a summary line, not an opening
+  sentence — the paragraph that follows may repeat it at length.
+- **Everything else goes below it**: the reasoning, the measurement, the WCAG clause, the
+  history. None of it is cut — this repo's changelogs say *why*, and they should. It is
+  ordered, so the reader who needs only the first line never pays for the rest.
+- **A fix says what was broken from the outside**, not which function was wrong. "The
+  keyboard could not archive a conversation" beats "the row's keydown handler climbed to
+  closest()". The mechanism belongs on line three.
+
+The failure mode is not vagueness, it is elegance. `A panel says whether the composer's
+button has an act, and a single choice settles on the click` is accurate, compact and
+has to be read twice — while `Single-choice questions now answer on the click; there is no
+submit button to press` says the same thing to someone who is skimming. The rigour that
+makes the work good is what makes it hard to scan, and only the ORDER fixes that.
 
 ## Releasing
 
@@ -147,9 +191,15 @@ The flow:
    >
    > Leaving pre mode also restored `changeset publish --tag alpha`, which pre mode refuses.
 2. **Merge it.**
-3. **`pnpm release`** locally — builds every package, `changeset publish` (npm + one git tag
-   per package), **`scripts/align-dist-tags.mjs`**, then `scripts/tag-release.mjs` creates the
-   umbrella tag `v<version>`.
+3. **`pnpm release`** locally — `prerelease-checks` first, then it builds every package,
+   `changeset publish` (npm + one git tag per package), **`scripts/align-dist-tags.mjs`**,
+   then `scripts/tag-release.mjs` creates the umbrella tag `v<version>`.
+   > It does **not** re-run `gate:full`. It used to, and that was a third full validation of
+   > one commit — CI had just judged the identical tree on the version PR, and judged it
+   > again on `main`. `prerelease-checks` asks GitHub for the `ci` verdict on `HEAD`'s exact
+   > SHA instead, and refuses if it is red, still running, or absent. Better evidence as well
+   > as faster: CI runs on `ubuntu-latest`, and 0.13.0 shipped a defect only a POSIX build
+   > could expose. It was published at 22:52 from a commit whose CI failed at 22:58.
 4. **`git push origin v<version>`** — that tag, **alone** → `release-notes.yml` creates the
    **one** GitHub Release for that version, with the matching root-changelog section as its
    body.

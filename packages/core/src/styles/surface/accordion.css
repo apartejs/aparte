@@ -40,6 +40,7 @@
    reset a button does: no native chrome, full width, cursor and text alignment
    fixed for a header that reads left-to-right of its own toggle icon. */
 .aparte-accordion__header {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;

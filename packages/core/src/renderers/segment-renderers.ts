@@ -241,6 +241,34 @@ export function injectRendererStyles(config: AparteConfig = contextConfig()): vo
     if (added) styleElement.textContent = Array.from(injectedRendererStyles).join('\n');
 }
 
+
+/**
+ * Put a tool renderer's stylesheet on the page, once per tool name.
+ *
+ * It used to be an inline block in two places — the client's `tool-start` handler and
+ * the stream adapter's — and nowhere on the path that RE-renders a stored conversation.
+ * So a custom tool renderer was styled while its tool ran and bare after a reload: the
+ * markup came back (`toolCallRenderer` looks the renderer up and delegates to it), the
+ * CSS did not, because nothing replays `tool-start` for history. A consumer worked
+ * around it by re-injecting the styles themselves at startup, which is the shape of a
+ * library defect, not of an app's concern.
+ *
+ * Called from the render path as well as the two live ones, so "the renderer drew" and
+ * "its rules are on the page" cannot come apart again. Keyed by tool NAME rather than by
+ * the CSS text, which is what the two inline copies did and what makes it idempotent.
+ */
+export function injectToolRendererStyles(toolName: string, renderer: { getStyles?: () => string }): void {
+    if (typeof document === 'undefined') return;
+    const css = renderer.getStyles?.();
+    if (!css) return;
+    const id = `aparte-tool-renderer-${toolName}`;
+    if (document.getElementById(id)) return;
+    const el = document.createElement('style');
+    el.id = id;
+    el.textContent = css;
+    document.head.appendChild(el);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Text Renderer
 // ─────────────────────────────────────────────────────────────────────────────

@@ -77,6 +77,7 @@ aparte-select[open] .aparte-select-chevron {
 
 /* Search */
 .aparte-select-search {
+    box-sizing: border-box;
     display: block;
     width: 100%;
     padding: var(--aparte-space-4) var(--aparte-space-6);

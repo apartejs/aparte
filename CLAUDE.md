@@ -316,7 +316,18 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   `check:derived-vars` refuses a duplicate, a dead one, an unprefixed one, and an
   `animation` naming a keyframe that does not exist — that last one is total silence:
   `aparte-icon-spin` was on the loading glyph and declared nowhere, so it simply sat still.
-- A changeset entry for any package with an API/CSS change.
+- A changeset entry for any package with an API/CSS change — and **its first line is the
+  change, for the caller, at the top**: plain, imperative, no metaphor, scannable in one
+  pass. Everything else (the reasoning, the measurement, the history) goes below it. None
+  of it is cut; it is ordered, so a reader who needs only the first line does not pay for
+  the rest. A changeset becomes the CHANGELOG entry which becomes the GitHub Release body,
+  and that reader has ten seconds and one question: *do I have to touch my code?* The
+  failure mode here is not vagueness, it is **elegance** — `A panel says whether the
+  composer's button has an act, and a single choice settles on the click` is accurate,
+  compact, and has to be read twice, where `Single-choice questions now answer on the
+  click; there is no submit button to press` lands on the first. The same care that makes
+  the work good is what makes it hard to skim, and only the order fixes it. Full rule in
+  `CONTRIBUTING.md` → *How a changeset reads*.
 - **A new package or feature lands behind a green gate**: tests + build + publint + a docs page
   (+ browser E2E via `pnpm e2e` for anything touching the framework boundary / rendering).
 - Bundle-size-sensitive change? Check the `@aparte/core` size delta (badge must stay honest).
