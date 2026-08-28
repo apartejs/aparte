@@ -200,7 +200,17 @@ export class AparteSelect extends HTMLElement {
         // chevron uses innerHTML.
         const labelSpan = document.createElement('span');
         labelSpan.className = 'aparte-select-label';
-        labelSpan.textContent = placeholder;
+        // Two layers in one grid cell: the text that shows, and a hidden stack of every
+        // option's label. The stack is what gives the control its width — the widest
+        // option's — so the trigger does not resize with each selection, which is the
+        // one thing a native <select> gets right and this one used to get wrong.
+        const labelText = document.createElement('span');
+        labelText.className = 'aparte-select-label-text';
+        labelText.textContent = placeholder;
+        const sizer = document.createElement('span');
+        sizer.className = 'aparte-select-label-sizer';
+        sizer.setAttribute('aria-hidden', 'true');
+        labelSpan.append(labelText, sizer);
         const chevronSpan = document.createElement('span');
         chevronSpan.className = 'aparte-select-chevron';
         chevronSpan.innerHTML = resolveConfig(this).getIcon('expand');
@@ -573,10 +583,23 @@ export class AparteSelect extends HTMLElement {
     }
 
     private _updateTriggerLabel(): void {
-        const labelEl = this._trigger?.querySelector('.aparte-select-label');
-        if (labelEl) {
+        const placeholder = this.getAttribute('placeholder') || 'Select...';
+        const labelText = this._trigger?.querySelector('.aparte-select-label-text');
+        if (labelText) {
             const selectedLabel = this._getSelectedLabel();
-            labelEl.textContent = selectedLabel || this.getAttribute('placeholder') || 'Select...';
+            labelText.textContent = selectedLabel || placeholder;
+        }
+        // The width stack — rebuilt here because this runs on every change to the
+        // options too (the observer), so an option written later still counts.
+        // `textContent` per span: a label is consumer text, never markup.
+        const sizer = this._trigger?.querySelector('.aparte-select-label-sizer');
+        if (sizer) {
+            const labels = [placeholder, ...Array.from(this.querySelectorAll('aparte-option'), (o) => o.textContent?.trim() || '')];
+            sizer.replaceChildren(...labels.map((text) => {
+                const span = document.createElement('span');
+                span.textContent = text;
+                return span;
+            }));
         }
 
         // Update selected state on options

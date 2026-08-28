@@ -39,12 +39,37 @@ aparte-select[disabled] .aparte-select-trigger {
     cursor: not-allowed;
 }
 
+/* The label is a grid with ONE cell: the visible text and, under it, a hidden stack of
+   every option's label. The stack sets the cell's width — the widest option's — so the
+   control keeps one width whatever is selected, like a native <select>; the text layer
+   ellipsises when a host constrains the control below that (`min-width: 0` is what lets
+   a flex item shrink at all). */
 .aparte-select-label {
     flex: 1;
+    min-width: 0;
+    display: grid;
+    overflow: hidden;
+    color: var(--aparte-select-text, var(--aparte-text));
+}
+
+.aparte-select-label > * {
+    grid-area: 1 / 1;
+    white-space: nowrap;
+}
+
+.aparte-select-label-text {
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--aparte-select-text, var(--aparte-text));
+}
+
+.aparte-select-label-sizer {
+    display: grid;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.aparte-select-label-sizer > span {
+    grid-area: 1 / 1;
 }
 
 .aparte-select-chevron {

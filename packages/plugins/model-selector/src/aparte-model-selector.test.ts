@@ -315,8 +315,11 @@ describe('aparte-model-selector — boundary attached AFTER mount (every wrapper
 
         await vi.waitFor(() => {
             expect(selector.textContent, 'the chat was given its own providers').toContain('Scoped Model');
+            // Inside the same wait: the select keeps a hidden copy of every label (its
+            // width stack), rebuilt by its own observer a microtask after the options
+            // change — the offered options are already the scoped ones.
+            expect(selector.textContent, 'and must not still offer the global ones').not.toContain('Global Model');
         });
-        expect(selector.textContent, 'and must not still offer the global ones').not.toContain('Global Model');
     });
 
     it('stops listening to the config it left behind', async () => {
