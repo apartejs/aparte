@@ -544,6 +544,8 @@ export class AparteChatBubble extends HTMLElement {
   setAttachments(attachments: AparteAttachment[]): void {
     this._attachments = attachments;
     this._updateAttachments();
+    // Attachments are content: a bubble that is only attachments must not be `data-empty`.
+    this._updateWaiting();
   }
 
   /**
@@ -598,6 +600,7 @@ export class AparteChatBubble extends HTMLElement {
     if ('attachments' in updates) {
       this._attachments = updates.attachments ?? [];
       this._updateAttachments();
+      this._updateWaiting();
     }
   }
 
@@ -781,6 +784,17 @@ export class AparteChatBubble extends HTMLElement {
     // DOES set one, `[hidden]` loses — a trap this repo has already paid for.
     const box = this.querySelector('.aparte-message-content') as HTMLElement | null;
     if (box) box.hidden = empty && !waiting;
+
+    // Nothing to show and nothing coming: no chrome either. A turn whose only content
+    // is a tool that renders nothing (an `ask_user` with no preamble), or one stopped
+    // before its first token, used to leave a name and a timestamp floating over
+    // nothing — an orphan header in the transcript. The stylesheet hides the whole
+    // row on `data-empty`; attachments count as content, and a streaming bubble is
+    // never empty (it shows the waiting dots).
+    const message = this.querySelector('.aparte-message') as HTMLElement | null;
+    if (message) {
+      message.toggleAttribute('data-empty', empty && !this._streaming && this._attachments.length === 0);
+    }
 
     const el = this.querySelector('.aparte-waiting') as HTMLElement | null;
     if (!el) return;
@@ -1039,11 +1053,14 @@ export class AparteChatBubble extends HTMLElement {
     this._attachmentsEl.innerHTML = this._attachments.map(a => {
       const name = escapeHtml(a.name);
       if (a.type.startsWith('image/')) {
-        return `<div class="aparte-thumb aparte-thumb--image" title="${name}">`
+        // `aparte-thumbnail` is the RECIPE (the box, the size, the ground); `aparte-thumb`
+        // only maps the strip's measurements onto it. The bubble emitted the mapping
+        // without the recipe, so its tiles had no box — a bare "PDF" beside a bare image.
+        return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">`
           + `<img class="aparte-thumb__img" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
           + `<span class="aparte-thumb__name">${name}</span></div>`;
       }
-      return `<div class="aparte-thumb aparte-thumb--file" title="${name}">`
+      return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">`
         + `<span class="aparte-thumb__ext">${escapeHtml(this._fileExt(a.name))}</span>`
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');

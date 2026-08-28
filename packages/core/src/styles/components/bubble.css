@@ -251,3 +251,12 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 .aparte-message[data-error] .aparte-avatar {
   box-shadow: var(--aparte-avatar-error-ring);
 }
+
+/* An empty, settled turn renders no chrome. The bubble sets `data-empty` when it has
+   no content, no segments, no attachments and is not streaming — a tool-only turn, or
+   one stopped before its first token — and the whole row goes, name and timestamp
+   included, instead of an orphan header floating over nothing. The element stays in
+   the DOM (streaming and the action bar address it by id), it just does not paint. */
+.aparte-message[data-empty] {
+  display: none;
+}
