@@ -8,20 +8,62 @@ import { aparteGlobalConfig , type AparteConfig} from '@aparte/core';
 export interface ShikiHighlighterLike {
     /** The grammars this highlighter carries — read once, then cached. */
     getLoadedLanguages(): string[];
-    /** Render `code` as highlighted HTML with a loaded grammar + theme. */
-    codeToHtml(code: string, options: { lang: string; theme: string }): string;
+    /** Render `code` as highlighted HTML with a loaded grammar and one theme, or a light/dark pair. */
+    codeToHtml(code: string, options: ShikiRenderOptions): string;
 }
+
+/**
+ * A theme for each of the two colour schemes core switches between. A type literal
+ * rather than an interface: shiki's `themes` option is a string-keyed record, and only
+ * a literal type is implicitly assignable to one.
+ */
+export type ShikiThemePair = { light: string; dark: string };
+
+/** What either entry hands to `codeToHtml` — shiki's own option names, nothing invented. */
+export type ShikiRenderOptions =
+    | { lang: string; theme: string }
+    | { lang: string; themes: ShikiThemePair; defaultColor: false };
 
 export interface ShikiCoreProviderOptions {
     /**
-     * Theme to render with — the name of a theme your highlighter was built with.
-     * Default `'github-dark'`.
+     * Theme to render with — the name of a theme your highlighter was built with — or a
+     * `{ light, dark }` pair of them, which follows core's `[data-aparte-theme="dark"]`
+     * switch. Default `'github-dark'`.
      */
-    theme?: string;
+    theme?: string | ShikiThemePair;
 }
 
 /** Languages that mean "don't highlight", plus the empty string. */
 export const PLAINTEXT = new Set(['text', 'plaintext', 'txt', 'ansi', '']);
+
+/** One theme renders with `theme`; a pair renders both colours per token and no default. */
+export function renderOptions(theme: string | ShikiThemePair, lang: string): ShikiRenderOptions {
+    return typeof theme === 'string' ? { lang, theme } : { lang, themes: theme, defaultColor: false };
+}
+
+const PAIR_STYLE_ID = 'aparte-shiki-theme-pair';
+
+/**
+ * The stylesheet a theme pair needs, added to the document once.
+ *
+ * With `defaultColor: false` shiki writes both colours on every token as CSS variables
+ * (`--shiki-light`, `--shiki-dark`, plus `-bg` on the block) and sets no colour of its
+ * own, so someone has to read the right one. That someone is not core — core knows
+ * nothing about shiki's variables — and not the consumer either, who asked for a pair
+ * precisely so the block would follow the theme by itself. The switch is core's public
+ * theme contract, `[data-aparte-theme="dark"]`, documented in theme.css.
+ */
+export function ensureThemePairStyles(): void {
+    if (typeof document === 'undefined' || document.getElementById(PAIR_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = PAIR_STYLE_ID;
+    style.textContent =
+        '.shiki{color:var(--shiki-light);background-color:var(--shiki-light-bg)}'
+        + '.shiki span{color:var(--shiki-light)}'
+        + '[data-aparte-theme="dark"] .shiki{color:var(--shiki-dark);background-color:var(--shiki-dark-bg)}'
+        + '[data-aparte-theme="dark"] .shiki span{color:var(--shiki-dark)}';
+    document.head.appendChild(style);
+}
 
 /**
  * Register a highlighter **you** built as aparté's highlight provider.
@@ -69,6 +111,7 @@ export function setupShikiProviderFromHighlighter(
     config: AparteConfig = aparteGlobalConfig,
 ): void {
     const theme = options.theme ?? 'github-dark';
+    if (typeof theme !== 'string') ensureThemePairStyles();
     let loaded: Set<string> | null = null;
 
     config.setHighlightProvider((code, lang) => {
@@ -76,6 +119,6 @@ export function setupShikiProviderFromHighlighter(
         // Cached after the first call: the grammar set of a core highlighter is fixed.
         loaded ??= new Set(highlighter.getLoadedLanguages());
         const language = PLAINTEXT.has(requested) || !loaded.has(requested) ? 'text' : requested;
-        return highlighter.codeToHtml(code, { lang: language, theme });
+        return highlighter.codeToHtml(code, renderOptions(theme, language));
     });
 }

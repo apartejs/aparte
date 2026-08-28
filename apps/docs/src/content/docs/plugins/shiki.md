@@ -25,6 +25,21 @@ await setupShikiProvider({ theme: 'github-dark' });
 `setupShikiProvider` is **async** — `await` it once at startup before highlighted messages render. It
 fills the `aparteGlobalConfig.setHighlightProvider` seam.
 
+## Light and dark
+
+One theme paints one scheme: `github-dark` stays a dark block on a light page. Pass a pair and the
+block follows core's theme switch — the `[data-aparte-theme="dark"]` attribute from the
+[Theming](/guides/theming/) guide:
+
+```ts
+await setupShikiProvider({ theme: { light: 'github-light', dark: 'github-dark' } });
+```
+
+Both themes are loaded, every token carries both colours as CSS variables (`--shiki-light` /
+`--shiki-dark`, shiki's own dual-theme output), and the plugin adds one small stylesheet that reads the
+right one under `[data-aparte-theme="dark"]`. The same option works on
+`setupShikiProviderFromHighlighter` when the highlighter you built carries both themes.
+
 ## Bundle — two different costs
 
 Shiki knows ~300 languages. The question is not *when* a grammar loads, it is *how many of them end up in
