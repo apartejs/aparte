@@ -133,6 +133,11 @@ agent loop** instead of core's inline one, inject it:
 `provideAparte({ clientOptions: { streamRunner: runStreamAgent } })` from
 [`@aparte/engine`](/guides/engine/) — an optional swap-in, not required. For file uploads add
 `attachments` to `<aparte-chat>` (off by default) — see [Attachments](/guides/attachments/).
+The `<aparte-elicitation>` presenter — what the built-in approval gate and `requestUserInput()`
+ask through — renders inside the host **by default**, as in core's `<aparte-chat>`; bind
+`[elicitation]="false"` when you register a presenter of your own. `class` and `style` on the
+`<aparte-chat>` tag land on the component's host element, which is the sized box
+(`display: block; height: 100%`), so utilities size the chat column as on any element.
 `provideAparte` wires the client, so switch the retry/edit buttons on with
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).

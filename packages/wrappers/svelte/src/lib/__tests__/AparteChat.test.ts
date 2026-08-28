@@ -139,6 +139,29 @@ describe('AparteChat.svelte', () => {
         expect(container.querySelector('aparte-composer-attachments')).toBeNull();
     });
 
+    // Parity with core's <aparte-chat>, whose default composition ships the presenter.
+    it('renders the elicitation presenter inside the host by default, before the composer', () => {
+        const { container } = render(AparteChat, { messages: [] });
+        const host = container.querySelector('[data-aparte-chat]')!;
+        const presenter = host.querySelector(':scope > aparte-elicitation');
+        expect(presenter).not.toBeNull();
+        expect(presenter!.nextElementSibling!.tagName.toLowerCase()).toBe('aparte-composer');
+    });
+
+    it('omits the presenter with elicitation={false}', () => {
+        const { container } = render(AparteChat, { messages: [], elicitation: false });
+        expect(container.querySelector('aparte-elicitation')).toBeNull();
+    });
+
+    it('merges class and style onto the root element', () => {
+        const { container } = render(AparteChat, { messages: [], class: 'flex-1 min-h-0', style: 'min-height: 0px' });
+        const host = container.querySelector('[data-aparte-chat]') as HTMLElement;
+        expect(host.classList.contains('aparte-chat-container')).toBe(true);
+        expect(host.classList.contains('flex-1')).toBe(true);
+        expect(host.classList.contains('min-h-0')).toBe(true);
+        expect(host.style.minHeight).toBe('0px');
+    });
+
     it('mounts the picker and the chips strip with attachments', () => {
         const { container } = render(AparteChat, { messages: [], attachments: true });
         expect(container.querySelector('.aparte-composer-shell > aparte-composer-attachments')).not.toBeNull();

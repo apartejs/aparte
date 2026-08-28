@@ -59,6 +59,20 @@ export interface AparteChatProps {
      */
     attachments?: boolean;
     /**
+     * Render the `<aparte-elicitation>` presenter inside the host — **on by default**,
+     * as it is in `<aparte-chat>`: the built-in approval gate and `requestUserInput()`
+     * ask through it, and it renders nothing until something asks. Pass `false` when
+     * you mount a presenter of your own (`setElicitationPresenter`) or place the element
+     * yourself. The first consumer to hit this appended the element by hand next to the
+     * React tree, guided by a warning that named an `<aparte-chat>` this wrapper does not
+     * render.
+     */
+    elicitation?: boolean;
+    /** Extra class names for the root element (`[data-aparte-chat]`), merged after core's own. */
+    className?: string;
+    /** Inline style for the root element (`[data-aparte-chat]`). */
+    style?: React.CSSProperties;
+    /**
      * Active conversation id. When set, the wrapper loads/persists via the
      * `AparteConversationManager` registered in `aparteGlobalConfig` (set `null` to deselect).
      */
@@ -175,6 +189,9 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
         attachments = false,
+        elicitation = true,
+        className,
+        style,
         conversationId = null,
         composer,
         renderBubble,
@@ -334,7 +351,8 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
 
     return (
         <div
-            className={`aparte-chat-container${centerWhenEmpty ? ' aparte-chat-container--auto-center' : ''}`}
+            className={`aparte-chat-container${centerWhenEmpty ? ' aparte-chat-container--auto-center' : ''}${className ? ` ${className}` : ''}`}
+            style={style}
             data-aparte-chat=""
             data-aparte-empty={centerWhenEmpty && renderMessages.length === 0 ? '' : undefined}
             id={hostId}
@@ -358,6 +376,8 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
                 ))}
                 <aparte-chat-status visible={typingActive ? '' : undefined} text={typingText} />
             </aparte-chat-viewport>
+
+            {elicitation && <aparte-elicitation />}
 
             {aboveComposer}
 

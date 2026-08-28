@@ -164,6 +164,30 @@ describe('AparteChat.vue', () => {
         expect(wrapper.element.querySelector('aparte-composer-attachments')).toBeNull();
     });
 
+    // Parity with core's <aparte-chat>, whose default composition ships the presenter.
+    it('renders the elicitation presenter inside the host by default, before the composer', () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        const host = wrapper.element as HTMLElement;
+        const presenter = host.querySelector(':scope > aparte-elicitation');
+        expect(presenter).not.toBeNull();
+        expect(presenter!.nextElementSibling!.tagName.toLowerCase()).toBe('aparte-composer');
+    });
+
+    it('omits the presenter with :elicitation="false"', () => {
+        const wrapper = mount(AparteChat, { props: { messages: [], elicitation: false } });
+        expect(wrapper.element.querySelector('aparte-elicitation')).toBeNull();
+    });
+
+    // Vue's attribute fallthrough on a single-root component — stated in the docs, so pinned.
+    it('lets class and style fall through to the root element', () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] }, attrs: { class: 'flex-1 min-h-0', style: 'min-height: 0px' } });
+        const host = wrapper.element as HTMLElement;
+        expect(host.hasAttribute('data-aparte-chat')).toBe(true);
+        expect(host.classList.contains('aparte-chat-container')).toBe(true);
+        expect(host.classList.contains('flex-1')).toBe(true);
+        expect(host.style.minHeight).toBe('0px');
+    });
+
     it('mounts the picker and the chips strip with attachments', () => {
         const wrapper = mount(AparteChat, { props: { messages: [], attachments: true } });
         const root = wrapper.element as HTMLElement;

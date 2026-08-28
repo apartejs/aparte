@@ -144,6 +144,28 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(fixture.nativeElement.querySelector('aparte-composer-attachments')).toBeNull();
     });
 
+    // Parity with core's <aparte-chat>, whose default composition ships the presenter.
+    it('renders the elicitation presenter inside the host by default, before the composer', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        // The Angular host IS the <aparte-chat> tag; the sized container is its first child.
+        const container = (fixture.nativeElement as HTMLElement).querySelector('.aparte-chat-container')!;
+        const presenter = container.querySelector(':scope > aparte-elicitation');
+        expect(presenter).not.toBeNull();
+        expect(presenter!.nextElementSibling!.tagName.toLowerCase()).toBe('aparte-composer');
+    });
+
+    it('omits the presenter with [elicitation]="false"', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        (fixture.componentRef as any).setInput('elicitation', false);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('aparte-elicitation')).toBeNull();
+    });
+
     it('mounts the picker and the chips strip with attachments', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         (fixture.componentRef as any).setInput('messages', []);

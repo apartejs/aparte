@@ -1328,7 +1328,10 @@ export class AparteConfig {
                     '[aparte] requestUserInput() was called with no elicitation presenter, '
                     + 'so it rejected with an AbortError — nothing was ever shown to anybody. '
                     + 'Add <aparte-elicitation></aparte-elicitation> '
-                    + 'inside your <aparte-chat>, or register your own by calling '
+                    + 'inside your <aparte-chat> (the Angular wrapper\'s tag too) — or, under the '
+                    + 'React/Vue/Svelte wrappers, inside their [data-aparte-chat] host (every wrapper '
+                    + 'renders it by default, unless you passed `elicitation={false}`) — or register '
+                    + 'your own by calling '
                     + 'setElicitationPresenter() on the config this chat resolves — '
                     + 'the scoped one if you passed a `config`, aparteGlobalConfig otherwise.',
                 );
