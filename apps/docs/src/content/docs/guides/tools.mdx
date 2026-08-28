@@ -12,7 +12,8 @@ A **tool** is a function the model can ask to run — read a file, hit an API, d
 something. Register a definition plus a handler and `AparteClient` does the rest: it
 offers the tool to the model, runs your handler when it's called, feeds the result back,
 and renders the call as a row you can open. For anything sensitive, one flag makes the model
-wait for a human to click **Approve** before your handler ever runs.
+wait for a human to click **Approve** before your handler ever runs. Why the row shows what
+it shows is its own page: [What a tool-call UI has to show](/guides/tool-call-ui/).
 
 ## Define and register a tool
 
