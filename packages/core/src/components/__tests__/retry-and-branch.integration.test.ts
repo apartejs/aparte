@@ -338,7 +338,7 @@ describe('Navigation boundary conditions', () => {
     // `_reRenderActivePath` returns right after dispatching `aparte-path-changed`
     // (the framework owns the DOM), so the post-layout pass never ran: swapping a
     // branch left auto-scroll off and the scroll-to-bottom button showing, on a
-    // transcript the user was already at the bottom of. Reported from bonaparte
+    // transcript the user was already at the bottom of. Reported from a consumer
     // (React) on a conversation long enough to scroll.
     describe('scroll button after a branch swap in framework-managed mode', () => {
         /**

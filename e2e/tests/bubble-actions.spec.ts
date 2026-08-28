@@ -180,7 +180,7 @@ test('editing a user message re-sends it and reports the new text', async ({ pag
 });
 
 test('swapping a branch at the bottom of a scrollable transcript leaves no scroll button', async ({ page }) => {
-    // Reported from bonaparte: on a conversation long enough to scroll, navigating a
+    // Reported from a consumer: on a conversation long enough to scroll, navigating a
     // branch on the LAST message showed the scroll-to-bottom button even though the
     // user was already at the bottom. Cause: `navigateBranch` deliberately turns
     // auto-scroll off (so the rebuild doesn't yank the view), and in

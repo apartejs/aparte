@@ -673,7 +673,7 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
     });
 
     it('reproduces the loop\'s own history from the notifications alone', async () => {
-        // The bonaparte scenario: ignore `request.messages`, rebuild from the hook.
+        // The consumer's scenario: ignore `request.messages`, rebuild from the hook.
         const t = scriptedTransport([
             [{ type: 'tool_use', id: 'c1', name: 'a', input: {} }, { type: 'done' }],
             [{ type: 'tool_use', id: 'c2', name: 'b', input: {} }, { type: 'done' }],

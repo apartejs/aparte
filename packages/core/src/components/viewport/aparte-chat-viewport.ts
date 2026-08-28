@@ -733,7 +733,7 @@ export class AparteChatViewport extends HTMLElement {
         //
         // But if they were already AT the bottom, staying there IS the expected
         // behaviour — and switching auto-follow off there is what left the
-        // scroll-to-bottom button offering to scroll nowhere (bonaparte, React). It
+        // scroll-to-bottom button offering to scroll nowhere (a React consumer). It
         // also protects the swap itself: a rebuild's height flickers (measured on
         // React: 1730 → 1934 → 1730px as the new bubble renders and settles), so a
         // reader pinned to the bottom would drift up by whatever the flicker was.
@@ -1471,7 +1471,7 @@ export class AparteChatViewport extends HTMLElement {
      * fold"). Mirroring the flag made the button lie whenever the two diverged —
      * `navigateBranch` deliberately disarms auto-follow, so swapping a branch while
      * already at the bottom of a scrollable transcript left the button offering to
-     * scroll nowhere (reported from bonaparte, React). Re-derived on scroll, on the
+     * scroll nowhere (reported from a React consumer). Re-derived on scroll, on the
      * post-mutation frame and after a path swap, so it converges to the truth
      * whatever a framework's render timing does in between.
      */
