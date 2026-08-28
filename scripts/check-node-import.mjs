@@ -134,6 +134,9 @@ const SATELLITES = [
     ['@aparte/provider-ai-sdk', 'packages/providers/ai/ai-sdk'],
     ['@aparte/provider-transformers', 'packages/providers/ai/transformers'],
     ['@aparte/locale-fr', 'packages/locales/fr'],
+    // Node-only by construction (an MCP server) — the contract here is that importing it
+    // opens no network and starts no server: `createDocsMcpServer` is a factory.
+    ['@aparte/docs-mcp', 'packages/tools/docs-mcp'],
 ];
 
 for (const [name, dir] of SATELLITES) {

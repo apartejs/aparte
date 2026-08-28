@@ -9,6 +9,9 @@ packages:
   - 'packages/plugins/*'
   - 'packages/wrappers/*'
 
+  # Tools around the library, not in it: the docs as an MCP server
+  - 'packages/tools/*'
+
   # Apps: docs (Starlight), examples (one runnable example per framework)
   - 'apps/*'
   - 'apps/examples/*'
