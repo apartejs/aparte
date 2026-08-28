@@ -116,6 +116,10 @@ with no argument is the normal call, and the system prompt states whatever bound
 chose, because a prompt asking for what the schema does not enforce is how the original
 defect got in.
 
+`systemPrompt: false` registers the tool with **no system message at all** — for a model
+trained on a fixed contract that must not read any added prose. It is a distinct value
+rather than `''`: an empty string is still a field, and the field is really sent.
+
 Two option types, one inside the other: `AskUserToolOptions` is what `createAskUserTool`
 takes — the name, description, system prompt and bounds, everything the *model* sees —
 and `AskUserSetupOptions` extends it with `receipt`, which only `setupAskUser` acts on,

@@ -35,6 +35,15 @@ describe('createAskUserTool options', () => {
     it('names the tool in the default prompt', () => {
         expect(createAskUserTool({ name: 'clarify' }).systemPrompt).toContain('the clarify tool');
     });
+
+    it('systemPrompt: false registers no system message at all — the field is absent, not empty', () => {
+        // `''` would still be a field, and the loop sends whatever string the field holds
+        // as a system message. A model trained on a fixed contract must read nothing added.
+        const tool = createAskUserTool({ systemPrompt: false });
+        expect('systemPrompt' in tool).toBe(false);
+        expect(tool.name).toBe('ask_user');
+        expect(tool.inputSchema).toBeDefined();
+    });
 });
 
 describe('setupAskUser', () => {
