@@ -1,0 +1,49 @@
+/*
+ * aparté — The mark: a row a list has settled on.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ *
+ * WHAT IT IS. A chosen option, an accepted answer, the conversation you are in: the
+ * one item among its peers that a decision landed on. Before this sheet the select
+ * drew it one way (an accent tint plus an inset bar on the start edge), the field
+ * choice another (a primary border), the conversation list a third (its own
+ * background and weight), and the ask-user receipt none at all — four vocabularies
+ * for one meaning, measured in the UI audit of 2026-08-28. The market agrees on two
+ * signals: a tint on the ground (Radix, shadcn, Material's state layer) and a bar on
+ * the row's start edge (GitHub Primer's ActionList). This recipe is both, on one
+ * intent axis, and every row that means "this one" wears it.
+ *
+ * THE AXIS. `--aparte-mark-intent` is the colour, primary by default: chosen. The
+ * modifiers set it to the theme's other masters — success for an answer that was
+ * given or a call that was approved, danger for a destructive outcome, neutral for
+ * the item you are merely in. `--quiet` is the outcome that did NOT happen: a declined
+ * request, a version superseded — no tint, no bar, the muted voice. The market never
+ * strikes through; neither does this.
+ *
+ * THE MEASURES. `--aparte-mark-tint` and `--aparte-mark-bar` live in theme.css so a
+ * theme moves every mark at once. The bar is an inset shadow, not a border: a border
+ * shifts the row's content by its width when the mark lands, a shadow does not.
+ * `[dir="rtl"]` puts it on the other edge, since a shadow knows no logical side.
+ */
+.aparte-mark {
+  --aparte-mark-intent: var(--aparte-primary);
+  background: color-mix(in srgb, var(--aparte-mark-intent) var(--aparte-mark-tint), transparent);
+  box-shadow: inset var(--aparte-mark-bar) 0 0 var(--aparte-mark-intent);
+}
+
+:where([dir="rtl"]) .aparte-mark {
+  box-shadow: inset calc(-1 * var(--aparte-mark-bar)) 0 0 var(--aparte-mark-intent);
+}
+
+.aparte-mark--success { --aparte-mark-intent: var(--aparte-success); }
+.aparte-mark--danger { --aparte-mark-intent: var(--aparte-error); }
+.aparte-mark--neutral { --aparte-mark-intent: var(--aparte-neutral); }
+
+/* The outcome that did not happen. */
+.aparte-mark--quiet {
+  background: none;
+  box-shadow: none;
+  color: var(--aparte-text-muted);
+}

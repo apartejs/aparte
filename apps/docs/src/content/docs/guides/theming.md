@@ -220,6 +220,31 @@ Every composer control (input height + buttons) derives from a single token:
 }
 ```
 
+### Mark the chosen row
+
+"This one" is one recipe everywhere: the select's chosen option, a checked choice in the
+elicitation panel, the conversation you are in and an answered question all wear the
+**mark** — an intent tint on the ground and a bar on the row's start edge. Two tokens move
+every mark at once, and the same class marks a row of your own:
+
+```css
+:root {
+  --aparte-mark-tint: 12%;   /* quieter ground (18% by default) */
+  --aparte-mark-bar: 3px;    /* a heavier bar (2px by default) */
+}
+```
+
+```html
+<li class="aparte-mark">Chosen</li>
+<li class="aparte-mark aparte-mark--success">Accepted</li>
+<li class="aparte-mark aparte-mark--quiet">Declined</li>
+```
+
+`--success`, `--danger` and `--neutral` change the intent; `--quiet` is the outcome that
+did not happen — no tint, no bar, the muted text. Red is for what went wrong, not for
+"no": a declined request is quiet, a rejected tool call keeps the muted voice with a cross
+for a glyph, and a stopped one a stop square.
+
 ## Per-instance themes
 
 Overriding on `:root` rethemes every chat. To run several differently-themed chats on one

@@ -206,6 +206,11 @@
 
   /* Action Bar */
   --aparte-action-bar-btn-size: 28px;
+  /* The mark (display/mark.css): how much of its intent a marked row's ground takes,
+     and how wide the bar on its start edge is. One pair for the select's chosen option,
+     the checked field choice, the active conversation and an answered question. */
+  --aparte-mark-tint: 18%;
+  --aparte-mark-bar: 2px;
 
   /* Branch Picker */
   --aparte-branch-picker-btn-size: 20px;

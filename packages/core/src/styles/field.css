@@ -812,9 +812,23 @@
 
 /* Selected. `:has()` covers the native case with no class to toggle; the explicit
    modifier covers a row whose state lives elsewhere — a button acting as an option,
-   where there is no checked input to look at. */
+   where there is no checked input to look at. It wears the mark (display/mark.css):
+   the tint and the start bar the select's chosen option wears, so a picked choice in
+   an elicitation panel and a picked option in a dropdown say it the same way. The
+   border stays its own — it was the only signal before, and a boxed row keeps its
+   edge coloured. Written as the mark's declarations rather than its class because a
+   `:has()` state cannot add a class to itself. */
 .aparte-field-choice:has(:checked),
-.aparte-field-choice--selected { border-color: var(--aparte-primary); }
+.aparte-field-choice--selected {
+  border-color: var(--aparte-primary);
+  background: color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent);
+  box-shadow: inset var(--aparte-mark-bar) 0 0 var(--aparte-primary);
+}
+
+:where([dir="rtl"]) .aparte-field-choice:has(:checked),
+:where([dir="rtl"]) .aparte-field-choice--selected {
+  box-shadow: inset calc(-1 * var(--aparte-mark-bar)) 0 0 var(--aparte-primary);
+}
 
 .aparte-field-choice:has(:disabled),
 .aparte-field-choice[aria-disabled='true'] {

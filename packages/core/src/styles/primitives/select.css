@@ -145,15 +145,23 @@ aparte-option[data-active] {
     box-shadow: inset 0 0 0 2px var(--aparte-primary);
 }
 
-/* Selected option: an accent TINT plus an accent bar, keeping the theme's own
-   text colour. A solid `--aparte-primary` fill with white text failed WCAG AA in
-   both themes (the brass accent is mid-luminance, so white sits around 3.4:1),
-   and an unreadable selected row is the one row that must be readable. Both
-   tokens stay overridable for a design that wants the solid fill back. */
+/* Selected option: the mark (display/mark.css) — an accent TINT plus an accent bar
+   on the start edge, keeping the theme's own text colour. A solid `--aparte-primary`
+   fill with white text failed WCAG AA in both themes (the brass accent is
+   mid-luminance, so white sits around 3.4:1), and an unreadable selected row is the
+   one row that must be readable. The measures are the mark's tokens, so this option,
+   a checked field choice and the active conversation move together; the option's own
+   two tokens stay overridable for a design that wants the solid fill back. Not the
+   class: an option's selected state is an attribute the select writes, and a second
+   name for it on the same element would be one more thing to keep in step. */
 aparte-option[selected] {
-    background: var(--aparte-select-option-selected, color-mix(in srgb, var(--aparte-primary) 18%, transparent));
+    background: var(--aparte-select-option-selected, color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent));
     color: var(--aparte-select-option-selected-text, var(--aparte-select-text, var(--aparte-text)));
-    box-shadow: inset 2px 0 0 var(--aparte-primary);
+    box-shadow: inset var(--aparte-mark-bar) 0 0 var(--aparte-primary);
+}
+
+:where([dir="rtl"]) aparte-option[selected] {
+    box-shadow: inset calc(-1 * var(--aparte-mark-bar)) 0 0 var(--aparte-primary);
 }
 
 aparte-option[disabled] {

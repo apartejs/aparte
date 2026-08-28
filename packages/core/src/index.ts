@@ -29,6 +29,7 @@ import './styles/display/divider.css';
 import './styles/display/alert.css';
 import './styles/display/card.css';
 import './styles/display/kbd.css';
+import './styles/display/mark.css';
 import './styles/surface/tabs.css';
 import './styles/surface/accordion.css';
 import './styles/surface/menu.css';

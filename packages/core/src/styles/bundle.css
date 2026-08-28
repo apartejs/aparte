@@ -28,6 +28,7 @@
 @import './display/alert.css';
 @import './display/card.css';
 @import './display/kbd.css';
+@import './display/mark.css';
 @import './surface/tabs.css';
 @import './surface/accordion.css';
 @import './surface/menu.css';
