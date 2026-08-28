@@ -9,7 +9,7 @@
  * cannot act is not offered.
  */
 import {
-    resolveConfig, escapeHtml,
+    resolveConfig, escapeHtml, escapeAttr,
     type AparteConfig, type AparteConfigAware, type AparteSelectChangeDetail,
 } from '@aparte/core';
 import { getApprovalController, type ApprovalController } from './approval.js';
@@ -102,11 +102,11 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
         const controller = this._controller;
         const current = controller?.getMode();
         const options = APPROVAL_MODES.map((m) =>
-            `<aparte-option value="${m}">${escapeHtml(this._labels[m] ?? DEFAULT_LABELS[m])}</aparte-option>`).join('');
+            `<aparte-option value="${escapeAttr(m)}">${escapeHtml(this._labels[m] ?? DEFAULT_LABELS[m])}</aparte-option>`).join('');
         this.querySelector('aparte-select')?.removeEventListener('aparte-select-change', this._onChange);
         // The select carries no class of ours: `aparte-approval-mode aparte-select` is
         // already the address a consumer restyling it writes.
-        this.innerHTML = `<aparte-select${current ? ` value="${current}"` : ''}${controller ? '' : ' disabled'} aria-label="Approval mode">${options}</aparte-select>`;
+        this.innerHTML = `<aparte-select${current ? ` value="${escapeAttr(current)}"` : ''}${controller ? '' : ' disabled'} aria-label="Approval mode">${options}</aparte-select>`;
         this.querySelector('aparte-select')?.addEventListener('aparte-select-change', this._onChange);
     }
 
