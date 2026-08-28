@@ -208,36 +208,10 @@ test('swapping a branch at the bottom of a scrollable transcript leaves no scrol
     // the branch-navigation test above, where React's flattening is recorded.
     await pressUntilSwapped(picker, AT_SECOND);
 
-    /*
-     * Still at the bottom → still nothing to offer. (The class is re-derived a couple of
-     * frames after the swap, hence the retrying assertion.)
-     *
-     * WITH THE GEOMETRY IN THE MESSAGE, because this fails on react-webkit in CI and
-     * nowhere else: 8/8 locally, twice, and two attempts at a cause were wrong. A
-     * screenshot says "the button is there" and nothing more. The numbers say whether
-     * the transcript is genuinely scrolled up — in which case the button is RIGHT and
-     * the defect is the swap losing the position — or whether it is at the bottom and
-     * the button simply never re-derived. Those are different bugs and the assertion
-     * could not tell them apart.
-     */
-    const geom = await chat.viewport.evaluate((vp) => {
-        const el = (vp.querySelector('.aparte-viewport-container') as HTMLElement | null) ?? vp;
-        return {
-            top: Math.round(el.scrollTop),
-            height: Math.round(el.scrollHeight),
-            client: Math.round(el.clientHeight),
-            fromBottom: Math.round(el.scrollHeight - el.clientHeight - el.scrollTop),
-        };
-    });
-    await expect(
-        scrollBtn,
-        'a branch swap must not invent a scroll-to-bottom button'
-        + ` — scrollTop ${geom.top}, scrollHeight ${geom.height}, clientHeight ${geom.client},`
-        + ` so ${geom.fromBottom}px from the bottom (threshold 50): `
-        + (geom.fromBottom <= 50
-            ? 'AT the bottom, so the button never re-derived'
-            : 'genuinely scrolled up, so the swap lost the position and the button is right'),
-    ).toHaveClass(/aparte-scroll-btn--hidden/);
+    // Still at the bottom → still nothing to offer. (The class is re-derived a
+    // couple of frames after the swap, hence the retrying assertion.)
+    await expect(scrollBtn, 'a branch swap must not invent a scroll-to-bottom button')
+        .toHaveClass(/aparte-scroll-btn--hidden/);
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
