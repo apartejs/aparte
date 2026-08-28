@@ -71,9 +71,10 @@ try {
  * could expose — a path split on a hardcoded backslash that blanked a whole reference
  * page — and no number of Windows gate runs would ever have seen it.
  *
- * Only the `ci` workflow counts. `release` FAILS on every push to main by design (the
- * org forbids Actions from opening the Version PR, documented in `release.yml`), so a
- * guard demanding every workflow be green would refuse every release forever.
+ * Only the `ci` workflow counts. `release-notes` runs on the tag, after this; and a
+ * `release` workflow that failed on every push to main (the org forbids Actions from
+ * opening the Version PR) was removed on 2026-08-28 — a guard demanding every workflow
+ * be green would still be wrong the day another one is added.
  */
 const CI_WORKFLOW = 'ci';
 try {

@@ -191,9 +191,13 @@ node scripts/gen-root-changelog.mjs --all    # rebuild every version from the pe
 
 The flow:
 
-1. **Push to `main`** → `release.yml` opens/updates the *Version Packages* PR. It runs
-   `pnpm version-packages`, i.e. `changeset version` **plus** the root-changelog generator, so
-   the PR already carries both levels.
+1. **Merge the feature PR, then open the Version PR by hand**:
+   `git checkout -b release/<version> main && pnpm version-packages` — that is
+   `changeset version` **plus** the root-changelog generator, so the PR carries both levels —
+   then commit `chore(release): version packages — <version>`, push, and open the PR.
+   > A `release.yml` workflow used to attempt this on every push to `main` and failed every
+   > time: the organisation forbids GitHub Actions from opening pull requests. It was removed
+   > on 2026-08-28 rather than left red on every commit, where a real failure would hide.
    > **Check the version anyway.** Every release up to 0.5.0-alpha.0 had to have its number
    > corrected by hand (~46 files), because `changeset version` proposed `1.0.0` for any
    > feature release. That is fixed — the three causes, all measured rather than inferred,
