@@ -104,6 +104,15 @@ A manifest that changes for a real reason — a dependency, an exports map — s
 It fails OPEN: no base, a first push, an unreadable diff, and the suite runs. Ten wasted
 minutes is cheaper than a regression reaching `main`.
 
+The decision runs in its **own job**, on a plain runner, because the `e2e` job runs inside
+the Playwright container where `actions/checkout` has no git and downloads a tarball —
+there is no `.git` there at all. The first version asked `git diff` inside that container,
+got "Not a git repository", swallowed it with `|| true`, read the empty result as "nothing
+changed", and skipped the browser suite on a pull request full of source. It reported
+green in 33 seconds. Every command is now checked with `if !` rather than `|| true`: a
+diff that fails and a diff that finds nothing produce the same empty string, and telling
+them apart is the difference between failing open and failing shut.
+
 0.13.0's Version PR was 113 files and not one of them was source.
 
 ## Commits & changesets

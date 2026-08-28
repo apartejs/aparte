@@ -273,10 +273,71 @@ jobs:
       - name: Check Node import contract
         run: pnpm check:node-import
 
+  # Does this diff touch anything a browser could notice?
+  #
+  # Its own job, on a plain runner, and that is the whole point: the `e2e` job below
+  # runs INSIDE the Playwright container, where `actions/checkout` has no git and falls
+  # back to downloading a tarball — no `.git` at all. The first version of this asked
+  # `git diff` there, got "Not a git repository", swallowed it with `|| true`, read the
+  # empty result as "nothing changed" and skipped the browser suite on a pull request
+  # full of source. It reported green in 33 seconds. Failing open was the intent and
+  # the opposite is what shipped, so the check is now explicit rather than implied.
+  #
+  # What it buys: a release's Version PR is ~113 files and not one of them is source —
+  # package versions, CHANGELOGs, and the changesets they consumed. Running seven
+  # example apps in three engines to prove a version number does not break a chat is
+  # ten minutes, twice per release.
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      source: ${{ steps.decide.outputs.source }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # The diff needs both sides.
+          fetch-depth: 0
+
+      - id: decide
+        run: |
+          run_everything() {
+            echo "$1"
+            echo "source=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            run_everything "no base to compare against"
+          fi
+
+          # `if !` on each command, not `|| true`: a diff that FAILS and a diff that
+          # finds nothing produce the same empty string, and telling them apart is the
+          # difference between failing open and failing shut.
+          if ! files=$(git diff --name-only "$base"...HEAD); then
+            run_everything "the file diff failed"
+          fi
+          if ! manifests=$(git diff -U0 "$base"...HEAD -- '*package.json'); then
+            run_everything "the manifest diff failed"
+          fi
+
+          other=$(printf '%s\n' "$files" | grep -vE '^\.changeset/|(^|/)CHANGELOG\.md$|(^|/)package\.json$' || true)
+          # A manifest can carry a real change too — a dependency, an exports map. Only a
+          # version bump and the internal peer floors `sync-peer-ranges` moves are inert.
+          real=$(printf '%s\n' "$manifests" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
+            | grep -vE '"version":|"@aparte/[^"]+": ">=' || true)
+
+          if [ -n "$other" ] || [ -n "$real" ]; then
+            echo "source=true" >> "$GITHUB_OUTPUT"
+            echo "source files changed — running the browser suite"
+          else
+            echo "source=false" >> "$GITHUB_OUTPUT"
+            echo "versions, changelogs and changesets only — the browser suite has nothing new to see"
+          fi
   # Browser smoke E2E — drives every example in a real browser against a
   # network-mocked model (no key/LM Studio). Separate job: it boots six dev
   # servers + a browser, so it is heavier and isolated from the fast gate above.
   e2e:
+    needs: scope
     runs-on: ubuntu-latest
     # Runs INSIDE Playwright's own image: the browsers and the system libraries
     # WebKit needs are already there, so this job stops apt-getting them on every
@@ -306,78 +367,34 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          # Enough history to diff against the base — see the scope step below.
-          fetch-depth: 0
-
-      # Is there anything here a browser could notice?
-      #
-      # A release's Version PR is 113 files and NOT ONE of them is source: package
-      # versions, CHANGELOGs, and the changesets they consumed. It still ran the whole
-      # suite — a build, 370 browser tests across seven example apps, ten minutes — to
-      # prove that a version number does not break a chat. The 0.13.0 release paid that
-      # twice, on the Version PR and again on `main` after the merge.
-      #
-      # The job still RUNS and still reports: `e2e` is a required check in main's
-      # ruleset, and a skipped job never reports at all, which would block every release
-      # PR forever. Only the expensive steps are conditional.
-      #
-      # It fails OPEN. No base, a first push, a shallow fetch, an unreadable diff — any
-      # doubt and the suite runs. The cost of a needless run is ten minutes; the cost of
-      # a wrongly skipped one is a regression reaching `main`.
-      - name: Does this diff touch anything a browser could notice?
-        id: scope
-        run: |
-          base="${{ github.event.pull_request.base.sha || github.event.before }}"
-          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
-            echo "no base to compare against — running the suite"
-            echo "source=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Everything except changesets, changelogs and manifests.
-          other=$(git diff --name-only "$base"...HEAD \
-            | grep -vE '^\.changeset/|(^|/)CHANGELOG\.md$|(^|/)package\.json$' || true)
-          # A manifest can carry a real change too — a dependency, an exports map. Only
-          # a version bump and the internal peer floors `sync-peer-ranges` moves are
-          # inert, so anything else in a package.json counts as source.
-          manifest=$(git diff -U0 "$base"...HEAD -- '**/package.json' 'package.json' \
-            | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
-            | grep -vE '"version":|"@aparte/[^"]+": ">=' || true)
-          if [ -n "$other" ] || [ -n "$manifest" ]; then
-            echo "source=true" >> "$GITHUB_OUTPUT"
-            echo "source files changed — running the suite"
-          else
-            echo "source=false" >> "$GITHUB_OUTPUT"
-            echo "versions, changelogs and changesets only — the browser suite has nothing new to see"
-          fi
 
       - name: Install pnpm
-        if: steps.scope.outputs.source == 'true'
+        if: needs.scope.outputs.source == 'true'
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
       - name: Use Node.js
-        if: steps.scope.outputs.source == 'true'
+        if: needs.scope.outputs.source == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '24'
           cache: 'pnpm'
 
       - name: Install dependencies
-        if: steps.scope.outputs.source == 'true'
+        if: needs.scope.outputs.source == 'true'
         run: pnpm install --frozen-lockfile
 
       # vanilla-dist consumes @aparte/core from its dist, so the packages must be
       # built before the E2E dev servers boot.
       - name: Build
-        if: steps.scope.outputs.source == 'true'
+        if: needs.scope.outputs.source == 'true'
         run: pnpm build
 
       - name: Browser smoke E2E
-        if: steps.scope.outputs.source == 'true'
+        if: needs.scope.outputs.source == 'true'
         run: pnpm e2e
 
       - name: Upload Playwright report
-        if: ${{ !cancelled() && steps.scope.outputs.source == 'true' }}
+        if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
