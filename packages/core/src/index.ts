@@ -285,6 +285,9 @@ export { cssEscape } from './utils/css-escape.js';
 // generating message ids all reach for `crypto.randomUUID`, which does not exist
 // on `http://` — the LAN deployment this library's own audience runs.
 export { uuid } from './utils/uuid.js';
+// Same wall, same reason: `navigator.clipboard` is undefined on `http://`, and a
+// consumer's own copy button hits it exactly as core's three did.
+export { copyText } from './utils/copy-text.js';
 // A segment's own completion rule, and the two readers of what core measured.
 // Exported because a consumer rendering "thought for 8 s" needs to know when the span
 // closed, and a rule kept private is a rule re-derived slightly differently outside —

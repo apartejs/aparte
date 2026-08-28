@@ -16,6 +16,7 @@ import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../rend
 import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
@@ -1393,7 +1394,7 @@ export class AparteChatBubble extends HTMLElement {
           .join('\n');
         const icons = this._cfg.getIconProvider();
         const locale = this._cfg.getLocale();
-        navigator.clipboard.writeText(text).then(() => {
+        copyText(text).then(() => {
           btn.innerHTML = icons.check();
           btn.setAttribute('data-copied', '');
           const copiedLabel = locale.copied ?? locale.copy ?? 'Copied';

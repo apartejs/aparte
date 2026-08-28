@@ -18,6 +18,7 @@
  * `./preview-document.ts`, or from the consumer's own builder.
  */
 import { escapeHtml, escapeAttr } from '../../../utils/escape.js';
+import { copyText } from '../../../utils/copy-text.js';
 import { contextConfig } from '../../../config/index.js';
 import type { AparteArtifactSegment, AparteSegmentRenderer } from '../../../types/index.js';
 import { deriveArtifactKind } from '../../../parsers/aparte-stream-parser.js';
@@ -239,7 +240,7 @@ export const artifactRenderer: AparteSegmentRenderer<AparteArtifactSegment> = {
             copyBtn.addEventListener('click', () => {
                 // Late execution (user click) — resolve from the element.
                 const code = stripCodeFences(segment.content || '');
-                void navigator.clipboard.writeText(code).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
+                void copyText(code).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 const original = copyBtn.innerHTML;
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));

@@ -6,6 +6,7 @@
  * `../segment-renderers.ts`.
  */
 import { escapeHtml, escapeAttr } from '../../utils/escape.js';
+import { copyText } from '../../utils/copy-text.js';
 import { contextConfig } from '../../config/index.js';
 import { streamHighlight } from '../highlight-stream.js';
 import type {
@@ -72,7 +73,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                 const source = element.querySelector('.aparte-code-content-wrapper')?.textContent ?? '';
                 // Late execution (user click) — the ambient render config is
                 // gone; resolve from the connected element instead.
-                void navigator.clipboard.writeText(source).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
+                void copyText(source).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
                 copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
                 // Marked, so `relabel` does not cancel a confirmation the reader is
