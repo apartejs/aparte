@@ -164,9 +164,14 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
  * that hides `.aparte-header` moves that line away and should move the bar too
  * (`.aparte-footer { top: … }`), or keep it in the flow.
  *
- * Invisible means inert: `opacity: 0` does not stop hit-testing, and a bar floated
- * over the header row was a button before anything was drawn there — a drag-select
- * started at a message's top end began on it. */
+ * Invisible but NOT inert, on purpose. `opacity: 0` keeps the bar hit-testable, so a
+ * drag-select started on the empty end of the header row begins on a button nobody
+ * sees — a review flagged it, and `pointer-events: none` until `:hover` was tried. It
+ * made the bar unreachable to anything that clicks without hovering first: Playwright
+ * (which hit-tests the point before it moves the mouse — the header "intercepted" the
+ * edit button on four projects), and with it voice control and switch access, which
+ * synthesise a click the same way. A control only a hover can enable is a control
+ * some users cannot reach; a phantom button on an empty header end is not. */
 @media (hover: hover) and (pointer: fine) {
   aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-footer,
   aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-footer {
@@ -175,14 +180,6 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
     inset-inline-end: var(--aparte-space-6);
     margin: 0;
     z-index: 1;
-    pointer-events: none;
-  }
-
-  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]):hover .aparte-footer,
-  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]):focus-within .aparte-footer,
-  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]):hover .aparte-footer,
-  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]):focus-within .aparte-footer {
-    pointer-events: auto;
   }
 
   aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-action-bar,
