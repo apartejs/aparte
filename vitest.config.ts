@@ -107,7 +107,13 @@ export default defineConfig({
         // error that keeps its reply, tool-approval scoping): measured 85.75%. The
         // ratchet guard is what asked for it — it compares floor to measurement and
         // refuses more than 3 points of slack, in either direction.
-        'packages/core/src/client/**': { lines: 85, statements: 85, functions: 95, branches: 95 },
+        // Branches LOWERED 95 -> 81 by D1 (2026-08-28): the inline stream loop — some
+        // 400 lines, and the branch-densest code in the glob, with the parity suite over
+        // every one of its paths — moved to `@aparte/engine`, whose `stream-run.ts` now
+        // measures 95.34% branches on its own. What the client keeps is the glue around
+        // that loop, which the suites reach less densely: measured 82.31%. Lines held
+        // (86.99%), and functions rose to 98.08%, so 95 -> 97 — the ratchet asked.
+        'packages/core/src/client/**': { lines: 85, statements: 85, functions: 97, branches: 81 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -139,7 +145,9 @@ export default defineConfig({
         // branch, measured 76.35%. The ratchet asked for it — 3.3 points of slack is a
         // floor that cannot fail. Functions and branches stay: 85.53% and 74.93%, both
         // already inside the band.
-        'packages/core/src/renderers/**': { lines: 75, statements: 75, functions: 83, branches: 72 },
+        // Functions raised 83 -> 85 after the audit lots of 2026-08-28 (the pipeline-waiting
+        // renderer left with D2): measured 86.11%. The ratchet asked for it.
+        'packages/core/src/renderers/**': { lines: 75, statements: 75, functions: 85, branches: 72 },
       },
     },
   },
