@@ -277,3 +277,20 @@ describe('default renderer: tool_call', () => {
         expect(sheet).toContain('.aparte-tool-spinner');
     });
 });
+
+// ─── the disclosure's input and result wrap ───
+// A one-line result (an error message, a long path) ran past the bubble's edge: the
+// `<pre>` kept its default `white-space: pre`, and the only rule it had — in prose.css,
+// not even in this segment's sheet — was `margin: 0`. Measured before the fix: 1 823px of
+// text in a 723px body. The rule now lives here and wraps like the code block does.
+describe('tool detail — input and result wrap inside the bubble', () => {
+    it('gives the detail <pre> pre-wrap and overflow-wrap: anywhere', () => {
+        const sheet = readAparteStylesheet();
+        const rule = sheet.match(/\.aparte-tool-part-body pre\s*\{([^}]*)\}/);
+        expect(rule, 'the tool detail <pre> must have a rule of its own').toBeTruthy();
+        expect(rule![1]).toMatch(/white-space:\s*pre-wrap/);
+        expect(rule![1]).toMatch(/overflow-wrap:\s*anywhere/);
+        // …and exactly one: a second declaration elsewhere would be the drift that hid this.
+        expect(sheet.match(/\.aparte-tool-part-body pre\s*\{/g)).toHaveLength(1);
+    });
+});

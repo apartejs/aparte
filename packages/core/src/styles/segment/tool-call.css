@@ -55,6 +55,16 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
     display: block; font-size: var(--aparte-font-size-xs); text-transform: uppercase;
     letter-spacing: 0.04em; opacity: 0.55; margin-bottom: var(--aparte-space-1);
 }
+/* A tool's input and result WRAP. They are a message, a path, a JSON object — not
+   code to read line by line — and a `<pre>` keeps `white-space: pre` by default, so
+   a one-line result ran past the bubble: measured 1 823px of text in a 723px body
+   (407px on a phone), the whole disclosure clipped at the message's edge. Same pair
+   the code block uses; `anywhere` breaks the unbreakable (a long path, a hash). */
+.aparte-tool-part-body pre {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
 /* Always in the DOM so update can leave the node alone and toggle hidden
    instead — an attribute a test can read, where a CSS-only rule is invisible
    to jsdom. */
