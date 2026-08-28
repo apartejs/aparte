@@ -108,7 +108,15 @@ export interface AparteComposerChangeEventDetail {
  * the question" instead — it calls the panel's `onSubmit` and returns, so neither the
  * stop branch nor a send is reached.
  *
- * The streaming flag comes from WINDOW lifecycle events, filtered by target. On a page
+ * The streaming flag comes from WINDOW lifecycle events, filtered by target:
+ * `aparte-message-start` sets it, and any of `aparte-message-done` /
+ * `aparte-message-error` / `aparte-message-aborted` clears it (and evicts an open
+ * panel). `AparteClient` dispatches them on the chat host, bubbling, so they reach
+ * both this element's `window` listener and the host-bound readers; a host that runs
+ * its own loop dispatches the same two (start, done) the same way, with
+ * `detail.targetId` set to this composer's `target` — that is the whole contract,
+ * documented under
+ * "Make the composer follow your turn" in the bring-your-own-loop guide. On a page
  * with two chats, give the composer a `target` — or put it under a chat host that has
  * an `id` — otherwise it answers to every chat's events, and one chat's Stop resets the
  * other's composer and evicts its open panel.

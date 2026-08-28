@@ -438,6 +438,67 @@ options are to normalise the delimiters in your transport before core sees them,
 drive the loop yourself as above.
 :::
 
+## Make the composer follow your turn
+
+The send button turns into **Stop** while `composer.streaming` is true, and that flag is
+not something you set: it follows four lifecycle events, filtered by `detail.targetId`.
+`AparteClient` dispatches them for you; a host with its own loop dispatches two of them
+itself — that is the whole contract:
+
+| Event | What the composer does |
+| --- | --- |
+| `aparte-message-start` | `streaming = true` — the button becomes Stop |
+| `aparte-message-done`, `aparte-message-error`, `aparte-message-aborted` | `streaming = false` — and an open elicitation panel is evicted |
+
+Dispatch them **on the chat host element, bubbling** — the `<aparte-chat>` (the Angular
+wrapper's tag too), or the `[data-aparte-chat]` element the React, Vue and Svelte wrappers
+render. That is what `AparteClient` does (`bubbles: true, composed: true`), and it is the one
+dispatch that reaches every reader: the composer and `<aparte-context>` listen on `window`,
+which a bubbling event reaches; the [conversation controller](/components/conversation/aparte-conversation-list/)
+and `AparteChatHost` (the wrappers' binding) listen on the host itself, which a `window`
+dispatch never reaches — so a host with its own loop that dispatched on `window` saw the button
+follow and the conversation list not. `targetId` is the host's `id`, which is also what the
+composer's `target` names; leave it out only on a page with one chat. Setting
+`status: 'streaming'` on the assistant bubble does nothing for the composer: the bubble and the
+button are two readers of the same turn, and the turn is the events.
+
+{/* doc-check: skip excerpt — `myAgentLoop` / `cancelMyLoop` are the reader's own loop */}
+```ts
+import type {
+  AparteAbortEventDetail,
+  AparteMessageAbortedEventDetail,
+  AparteMessageDoneEventDetail,
+  AparteMessageStartEventDetail,
+} from '@aparte/core';
+
+const host = document.querySelector<HTMLElement>('aparte-chat, [data-aparte-chat]')!;
+const targetId = host.id;
+const lifecycle = <T>(name: string, detail: T) =>
+  host.dispatchEvent(new CustomEvent<T>(name, { bubbles: true, composed: true, detail }));
+
+document.addEventListener('aparte-send', async (event) => {
+  const id = crypto.randomUUID();
+  lifecycle<AparteMessageStartEventDetail>('aparte-message-start', { targetId, messageId: id, role: 'assistant' });
+  viewport.appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+  for await (const token of myAgentLoop(event.detail.content)) viewport.appendToken(id, token);
+  viewport.completeMessage(id);
+  lifecycle<AparteMessageDoneEventDetail>('aparte-message-done', { targetId, messageId: id, role: 'assistant' });
+});
+
+// The other direction. Stop dispatches `aparte-abort` on window — a command, not a
+// notification — scoped by `targetId`, so a page with two chats checks it. The composer
+// resets itself; the host-bound readers still need the turn closed on the host.
+window.addEventListener('aparte-abort', (e: CustomEvent<AparteAbortEventDetail>) => {
+  if (e.detail?.targetId && e.detail.targetId !== targetId) return;
+  cancelMyLoop();
+  lifecycle<AparteMessageAbortedEventDetail>('aparte-message-aborted', { targetId });
+});
+```
+
+All four payloads are typed in the [events reference](/reference/events/), and the readers
+are the same ones `AparteClient` drives — dispatching on the host makes each of them follow
+your turn, not only the button.
+
 ## What you give up
 
 Display-only means the pieces `AparteClient` orchestrates don't run in the page: no built-in
