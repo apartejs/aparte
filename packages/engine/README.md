@@ -17,7 +17,7 @@ new AparteClient().start();
 ```
 
 Its core export is **`runStreamAgent`**: a DOM-free structured-stream loop that turns a
-transport's token stream into high-level run events (text, thinking, tool calls, artifacts),
+transport's token stream into high-level run events (text, thinking, tool calls),
 drives the tool-calling loop (with optional human-in-the-loop approval), and reports usage.
 
 `@aparte/core` runs this loop by default — it used to embed a copy of it inline, and the

@@ -16,10 +16,11 @@
  * core types (`AparteStreamEvent`, `AparteUsage`, `AparteChatMessage`, `AparteToolCall`)
  * so the adapter passes the real objects through with zero runtime conversion.
  *
- * SCOPE: text · thinking · tool_use (+ HITL approval) · done · error · the built-in
- * create_artifact · synthetic toolChoice bypass. Code-fence promotion and `<artifact>`
- * tags in the text are adapter-side (they need the core parser); the raw / XML
- * artifact modes and the multi-phase pipeline were removed (audit 2026-08-28, D2).
+ * SCOPE: text · thinking · tool_use (+ HITL approval) · done · error · synthetic
+ * toolChoice bypass. Tagged blocks in the text are adapter-side (core's parser reads
+ * the grammars registered on the config); the built-in `create_artifact` left with
+ * the artifact (D7), and the raw / XML artifact modes and the multi-phase pipeline
+ * were removed before it (audit 2026-08-28, D2).
  */
 
 // ─── Duck-typed mirrors of @aparte/core (structural — NO import) ───────────────
@@ -183,7 +184,7 @@ export interface StreamChatRequest {
      * un-assignable — from the opposite direction to the `messages` mismatch.
      */
     modelId: string;
-    /** Per-turn hints carried through for the adapter (`artifactHint`, `prefixSegments`); the loop reads none. */
+    /** Per-turn hints carried through for the host (`prefixSegments`, and whatever the consumer puts there); the loop reads none. */
     _meta?: Record<string, unknown>;
     /** `'none'` makes the loop drop the tool inventory for that turn. */
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
@@ -274,9 +275,6 @@ export type StreamRunEvent =
     | { type: 'text-delta'; delta: string }
     | { type: 'text-flush' }
     | { type: 'thinking-delta'; delta: string }
-    // One-shot artifact from the built-in `create_artifact` tool: full content
-    // up-front → a single addSegment + lifecycle(true).
-    | { type: 'artifact-ready'; id: string; mimeType: string; kind: string; title: string; content: string }
     | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-approved'; toolCallId: string }

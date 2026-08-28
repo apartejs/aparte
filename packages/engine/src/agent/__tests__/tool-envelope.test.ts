@@ -56,11 +56,15 @@ async function run(turns: StreamChatEvent[][]) {
 }
 
 describe('the turn\'s tool_call envelope', () => {
-    it('create_artifact and another tool in one turn: one envelope declares both, both results follow it', async () => {
+    it('two tools in one turn after prose: one envelope declares both, both results follow it', async () => {
+        // The vehicle used to be the built-in `create_artifact` beside a plain tool —
+        // the fast path that orphaned the second result. The built-in is gone (D7:
+        // an artifact is a plugin's tool like any other), and the invariant it broke
+        // is the same for any two calls, so two plain tools carry the test now.
         const { requests } = await run([
             [
-                { type: 'text', delta: 'Making a file, then saving.' },
-                { type: 'tool_use', id: 'c-art', name: 'create_artifact', input: { mimeType: 'text/markdown', title: 'Note', content: '# hi' } },
+                { type: 'text', delta: 'Searching, then saving.' },
+                { type: 'tool_use', id: 'c-search', name: 'search', input: { q: 'hi' } },
                 { type: 'tool_use', id: 'c-save', name: 'save', input: {} },
                 { type: 'done' },
             ],
@@ -70,9 +74,9 @@ describe('the turn\'s tool_call envelope', () => {
         assertWellFormed(history);
         const envelopes = history.filter((m) => m.role === 'tool_call');
         expect(envelopes).toHaveLength(1);
-        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-art', 'c-save']);
-        expect(envelopes[0]!.precedingText).toBe('Making a file, then saving.');
-        expect(history.filter((m) => m.role === 'tool_result').map((m) => m.toolCallId)).toEqual(['c-art', 'c-save']);
+        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-search', 'c-save']);
+        expect(envelopes[0]!.precedingText).toBe('Searching, then saving.');
+        expect(history.filter((m) => m.role === 'tool_result').map((m) => m.toolCallId)).toEqual(['c-search', 'c-save']);
     });
 
     it('two plain tools in one turn: still one envelope, in call order', async () => {

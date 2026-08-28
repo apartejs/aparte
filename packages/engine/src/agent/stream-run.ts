@@ -11,11 +11,11 @@
  *
  * Formerly the parity target of core's inline loop; now the one loop, its call
  * sequences pinned by core's `stream-parity` snapshots.
- * Scope: text · thinking · tool_use (+ HITL) · done · error · the built-in
- * create_artifact · synthetic toolChoice bypass. Code-fence promotion stays
- * adapter-side (it needs the core parser), and so do `<artifact>` tags in the
- * text: the core parser reads them natively. The raw / XML artifact modes and the
- * multi-phase pipeline were removed (audit 2026-08-28, D2) — orchestration is the
+ * Scope: text · thinking · tool_use (+ HITL) · done · error · synthetic toolChoice
+ * bypass. Tagged blocks in the text (`<artifact>`, `<cite>`…) are adapter-side: core's
+ * parser reads the grammars registered on the config. The built-in `create_artifact`
+ * left with the artifact (D7) — it is a registered tool now. The raw / XML artifact
+ * modes and the multi-phase pipeline were removed (audit 2026-08-28, D2) — orchestration is the
  * product's, and a mode nothing in this repository emitted was a contract
  * maintained for nobody.
  */
@@ -31,7 +31,6 @@ import type {
     StreamApprovalResolver,
     StreamUsage,
 } from './stream-events.js';
-import { deriveArtifactKind } from './parsers/artifact-kind.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
 const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -86,10 +85,10 @@ export interface StreamRunOptions {
      */
     onHistoryAppend?: (message: StreamAgentMessage) => void;
     /**
-     * Generates artifact segment ids (`prefix` is e.g. `'artifact-raw'`). The
-     * default is a deterministic per-run counter; the adapter injects a
-     * crypto-based one to match `_streamLoop`'s `artifact-*-<uuid>`. (Tool ids
-     * still flow from the stream; only artifacts need generated ids.)
+     * Generates the ids the loop mints itself — today only the synthetic call of a
+     * forced `toolChoice` (`prefix` is `'synthetic-tool'`). The default is a
+     * deterministic per-run counter; core's client injects a crypto-based one. Tool
+     * ids otherwise flow from the stream.
      */
     idGen?: (prefix: string) => string;
 }
@@ -363,24 +362,11 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 }
                 sawToolUse = true;
 
-                // Built-in create_artifact: bypass the generic tool path entirely
-                // (no tool-start, no approval, no handler) — build the artifact
-                // one-shot and inject a success tool_result. ONLY when the consumer
-                // registered no tool of that name: the name belongs to the app, and a
-                // registered handler wins — with tool-start, the approval gate and its
-                // own result, like any other tool. (D7 removes this built-in outright.)
-                if (event.name === 'create_artifact' && !toolLookup('create_artifact')) {
-                    const input = (event.input ?? {}) as { mimeType?: string; title?: string; content?: string };
-                    const mimeType = input.mimeType ?? 'text/plain';
-                    const kind = deriveArtifactKind(mimeType, 'text');
-                    emitter({ type: 'artifact-ready', id: `artifact-${event.id}`, mimeType, kind, title: input.title ?? kind, content: input.content ?? '' });
-                    // The turn's envelope, not one of its own: a fresh `[create_artifact]`
-                    // envelope here is what orphaned the next tool's result.
-                    declareCall({ id: event.id, name: event.name, input: event.input });
-                    append({ role: 'tool_result', content: 'Artifact created successfully.', toolCallId: event.id });
-                    continue;
-                }
-
+                // No built-in tool of any name: `create_artifact` used to be dispatched
+                // here, before the tool path, with no handler, no approval and its own
+                // result. A tool is a tool — the app registers it (`@aparte/plugin-artifacts`
+                // does), and it goes through tool-start, the gate, the handler and the
+                // envelope like every other.
                 emitter({ type: 'tool-start', toolCallId: event.id, name: event.name, input: event.input });
 
                 const cfg = toolConfigLookup?.(event.name);

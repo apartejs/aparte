@@ -15,12 +15,8 @@
 // Structured-stream agent loop: runStreamAgent + its DOM-free events.
 export * from './agent/stream-events.js';
 export * from './agent/stream-run.js';
-// `deriveArtifactKind` — THE implementation; core re-exports it under the same name
-// (audit 2026-08-28, D1: one function object, nothing to keep in step). The XML
-// artifact state machine that used to live beside it is gone (D2): the core parser
-// reads `<artifact>` tags natively, so the mode that switched to the machine was a
-// second path to the same result.
-export { deriveArtifactKind } from './agent/parsers/artifact-kind.js';
+// `deriveArtifactKind` lived here (D1) and left with the artifact (D7): it is
+// `@aparte/plugin-artifacts`' now, with the tool and the card it serves.
 
 // Conversation compactor (context-window budget + sliding-window assembly).
 export * from './conversation/compactor.js';

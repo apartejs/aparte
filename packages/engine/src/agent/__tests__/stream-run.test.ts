@@ -498,57 +498,6 @@ describe('runStreamAgent — limits, abort & error', () => {
     });
 });
 
-describe('runStreamAgent — create_artifact built-in', () => {
-    it('bypasses the tool path (one-shot artifact-ready + success tool_result)', async () => {
-        const t = scriptedTransport([
-            [{ type: 'tool_use', id: 'c1', name: 'create_artifact', input: { mimeType: 'text/html', title: 'Page', content: '<h1>Hi</h1>' } }, { type: 'done' }],
-            [{ type: 'text', delta: 'Made it.' }, { type: 'done' }],
-        ]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: rec.emitter }));
-
-        expect(rec.types()).not.toContain('tool-start');
-        expect(rec.events.find(e => e.type === 'artifact-ready')).toEqual({
-            type: 'artifact-ready', id: 'artifact-c1', mimeType: 'text/html', kind: 'html', title: 'Page', content: '<h1>Hi</h1>',
-        });
-        const second = t.calls[1]!.messages;
-        expect(second.some(m => m.role === 'tool_result' && m.content === 'Artifact created successfully.' && m.toolCallId === 'c1')).toBe(true);
-        expect(second.some(m => m.role === 'tool_call' && m.toolCalls?.[0]?.id === 'c1')).toBe(true);
-    });
-
-    it('is not ruled on by the approval gate — core executes it itself, so no policy can ask or refuse', async () => {
-        const t = scriptedTransport([
-            [{ type: 'tool_use', id: 'c1', name: 'create_artifact', input: { mimeType: 'text/html', title: 'P', content: '<p/>' } }, { type: 'done' }],
-            [{ type: 'done' }],
-        ]);
-        const rec = recorder();
-        const resolver = vi.fn(async () => ({ approved: false, reason: 'plan mode' }));
-        await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            toolConfigLookup: () => ({ needsApproval: true }),
-            approvalResolver: resolver,
-        }));
-        // Stated, not incidental: the built-in is dispatched before the tool path, and
-        // the plugin's docs say so. A future built-in that touches the host must not
-        // inherit this exemption silently.
-        expect(rec.types()).toContain('artifact-ready');
-        expect(rec.types()).not.toContain('tool-awaiting-approval');
-        expect(resolver).not.toHaveBeenCalled();
-    });
-
-    it('defaults mimeType/title/content when the input omits them', async () => {
-        const t = scriptedTransport([
-            [{ type: 'tool_use', id: 'c9', name: 'create_artifact', input: {} }, { type: 'done' }],
-            [{ type: 'done' }],
-        ]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: rec.emitter }));
-        expect(rec.events.find(e => e.type === 'artifact-ready')).toEqual({
-            type: 'artifact-ready', id: 'artifact-c9', mimeType: 'text/plain', kind: 'text', title: 'text', content: '',
-        });
-    });
-});
-
 describe('runStreamAgent — synthetic toolChoice bypass', () => {
     it('runs the forced tool on turn 1 (no LLM call), then answers with the result in history', async () => {
         // One transport call only: the synthetic handler runs pre-transport, then
