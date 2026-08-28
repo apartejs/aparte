@@ -151,7 +151,10 @@ export class AparteStreamParser {
             if ('content' in this._state.activeSegment) {
                 const seg = this._state.activeSegment as { type: string; content: string };
                 let content = seg.content + this._state.buffer;
-                if (seg.type === 'text') content = stripTrailingFence(content);
+                // `code` too: a reply ending on ``` with no newline before it stays in
+                // code mode until here (the mid-stream shortcut that closed it is gone),
+                // and the fence must not land inside the block as three literal backticks.
+                if (seg.type === 'text' || seg.type === 'code') content = stripTrailingFence(content);
                 seg.content = content;
             }
             finalSegments.push(this._closed(this._state.activeSegment));
@@ -333,17 +336,13 @@ export class AparteStreamParser {
         const closeIndex = buffer.indexOf('\n```');
 
         if (closeIndex === -1) {
-            // Check for ``` at end without newline
-            if (buffer.endsWith('```')) {
-                const codeContent = buffer.slice(0, -3);
-                if (this._state.activeSegment && 'content' in this._state.activeSegment) {
-                    (this._state.activeSegment as { content: string }).content += codeContent;
-                }
-                const segment = this._closed(this._state.activeSegment);
-                this._state.mode = 'text';
-                this._state.activeSegment = null;
-                return { segment, remaining: '' };
-            }
+            // No "close on a bare ``` at the end of the buffer" any more. A fence
+            // closes on its own line (CommonMark), and the main rule above says so —
+            // this branch relaxed it for whatever chunk happened to end in three
+            // backticks, so a line like  const s = "```"  split by the tokenizer right
+            // after the quotes closed the block mid-code, and the rest of the file
+            // streamed as prose. A reply that really ends on ``` with no newline is
+            // handled once, at `finalize()`, where the fence can be stripped safely.
 
             // No closing found, accumulate content (keep last 4 chars as potential pattern)
             if (buffer.length > 4) {
