@@ -75,7 +75,6 @@ const CORE_VALUES = pathToFileURL('packages/core/dist/index.node.js').href;
  */
 const EXEMPT = new Map([
     ['APARTE_HOST_ATTR', 'wrapper interop: the attribute the wrappers stamp to bind a host; an app never writes it'],
-    ['APARTE_DEFAULT_SKELETON_FALLBACKS', 'internal default table, reachable through the documented setSkeleton* API'],
     ['resolveConfig', 'per-instance config plumbing for component authors; the documented surface is the `config` prop'],
     ['detachConfig', 'the counterpart of attachConfig, same reason'],
     ['runWithConfig', 'used by render hooks to resolve the right instance; not called from app code'],
