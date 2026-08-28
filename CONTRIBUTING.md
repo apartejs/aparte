@@ -195,6 +195,14 @@ The flow:
    `git checkout -b release/<version> main && pnpm version-packages` — that is
    `changeset version` **plus** the root-changelog generator, so the PR carries both levels —
    then commit `chore(release): version packages — <version>`, push, and open the PR.
+   > **When one PR is the whole release** — a fix release, typically — skip the second
+   > round: run `pnpm version-packages` on the fix branch itself, as its last commit, and
+   > open one PR that carries the fix and the versions. The changeset guard recognises a
+   > moved root `CHANGELOG.md` and stops asking for a changeset; the browser suite still runs
+   > because the diff has source in it. Measured on 0.15.1: three CI rounds of ~10 min each
+   > (fix PR, version PR, `main`) become two. The one hazard is two release-carrying PRs
+   > open at once — both would claim the same version — so version the branch only when it
+   > is next in line.
    > A `release.yml` workflow used to attempt this on every push to `main` and failed every
    > time: the organisation forbids GitHub Actions from opening pull requests. It was removed
    > on 2026-08-28 rather than left red on every commit, where a real failure would hide.
