@@ -186,11 +186,6 @@ jobs:
       - name: Check internal links and anchors
         run: pnpm check:doc-links
 
-      # The CDN URLs the docs teach pin a version by hand; this keeps that number the
-      # one core ships, so a version bump cannot leave the page teaching a stale pin.
-      - name: Check the CDN URLs pin core's version
-        run: pnpm check:cdn-version
-
       # CLAUDE.md requires a changeset for any package with an API or CSS change,
       # and nothing enforced it. In a `fixed` lockstep group a missing changeset does
       # not just skip one version — the whole 15-package train stays put, release.yml

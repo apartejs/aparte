@@ -6,6 +6,9 @@ sidebar:
   label: Getting started
 ---
 
+import { Code } from '@astrojs/starlight/components';
+import { CORE_VERSION } from '../../../data/core-version';
+
 `@aparte/core` is a set of **framework-agnostic web components** for AI chat. You
 drop `<aparte-*>` elements onto a page, stream tokens into them, and style
 everything with CSS variables — no framework, and zero third-party dependencies.
@@ -50,24 +53,24 @@ For a single `index.html` with no build at all — no npm either — load the pa
 CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
 `@aparte/engine` bundled into core's:
 
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@0.14.0/dist/index.css">
+{/* The version in these URLs is read from core's package.json at build time (see
+    src/data/core-version.ts), so the page follows every release on its own. */}
+<Code lang="html" code={`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/dist/index.css">
 <aparte-chat style="height: 600px"></aparte-chat>
 <script type="module">
   import { aparteGlobalConfig, AparteClient, AparteDirectTransport, registerDefaultRenderers }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/core@0.14.0/+esm';
+    from 'https://cdn.jsdelivr.net/npm/@aparte/core@${CORE_VERSION}/+esm';
   import { createOpenAICompatProvider, presets }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/provider-openai-compat@0.14.0/+esm';
+    from 'https://cdn.jsdelivr.net/npm/@aparte/provider-openai-compat@${CORE_VERSION}/+esm';
 
   registerDefaultRenderers();
   aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
   aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
   new AparteClient().start();
-</script>
-```
+</script>`} />
 
 **Pin the same exact version on every URL.** A provider's bundle imports core at the exact
-version jsDelivr resolved for it (`/npm/@aparte/core@0.14.0/+esm`); a different string on
+version jsDelivr resolved for it (<code>/npm/@aparte/core@{CORE_VERSION}/+esm</code>); a different string on
 your side — `@alpha`, `@0.13`, `@latest` — is a different URL, and a different URL is a
 second copy of core with a registry of its own, so the provider you register lands in the
 wrong one. Every package ships at the same version, which makes this one number to keep.
