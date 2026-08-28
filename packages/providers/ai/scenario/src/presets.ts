@@ -42,6 +42,41 @@ export const showcase: Record<string, Scenario> = {
         after: 'get_weather',
         turn: 'Cloudy, 14 °C, a little wind from the west — bring a jacket.',
     },
+    // Several questions in one call: the panel becomes a stepper (1 2 …) with a
+    // "Skip" per step. Nothing in the repository showed that mode until a consumer
+    // reported clipped borders on it — a state no example renders is a state
+    // nobody looks at. BEFORE `question`: scenarios are matched in order, and
+    // "two questions" contains the word that one listens for.
+    survey: {
+        when: /survey|two questions|a few questions/i,
+        turn: [
+            { text: 'Two quick ones, then I can tailor it.' },
+            {
+                tool: 'ask_user',
+                input: {
+                    questions: [
+                        {
+                            question: 'Which colour do you favour?',
+                            header: 'Colour',
+                            options: [
+                                { title: 'Blue', description: 'calm, trusted' },
+                                { title: 'Green', description: 'fresh, natural' },
+                                { title: 'Yellow', description: 'warm, loud' },
+                            ],
+                        },
+                        {
+                            question: 'How dense should the layout be?',
+                            header: 'Density',
+                            options: [
+                                { title: 'Airy', description: 'more room, fewer items per screen', recommended: true },
+                                { title: 'Compact', description: 'more on screen, tighter spacing' },
+                            ],
+                        },
+                    ],
+                },
+            },
+        ],
+    },
     question: {
         when: /question|ask me|colou?r scheme/i,
         turn: [

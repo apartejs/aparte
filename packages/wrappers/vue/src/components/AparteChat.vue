@@ -157,7 +157,7 @@ watch(() => props.isTyping, (t) => { typingActive.value = t; });
 watch(() => props.conversationId, (id) => { void host?.setConversationId(id ?? null); });
 
 // ── Imperative API (forwards to the host) ──
-const appendMessage = (m: AparteMessage) => host?.appendMessage(m);
+const appendMessage = (m: AparteMessage, o?: { historical?: boolean }) => host?.appendMessage(m, o);
 const updateMessage = (id: string, u: Partial<AparteMessage>) => host?.updateMessage(id, u);
 const updateLastMessage = (c: string, o?: { append?: boolean }) => host?.updateLastMessage(c, o);
 const addSegment = (s: AparteSegment) => host?.addSegment(s);

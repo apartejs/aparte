@@ -76,6 +76,12 @@ default renderer shows nothing until it settles — the live UI is the panel, an
 places to read the same open question is one too many. `buildReceipt` is the default
 card if you want it verbatim.
 
+A declined question ends the call with one fixed sentence as the tool result, exported as
+`ASK_USER_DECLINED` (`'The user declined to answer.'`). `receiptRows` recognises it and
+marks the row `declined`; a host that turns tool results into prose, or looks for a
+declined question in its own transcript, should import the constant rather than copy the
+sentence — the wording is the plugin's to change, and a copy would break without a word.
+
 ## The bounds the model is given
 
 The schema caps what the model may ask for: **2 to 4 options** per question and **5
@@ -109,6 +115,10 @@ The tool is built rather than imported for exactly this reason — `createAskUse
 with no argument is the normal call, and the system prompt states whatever bounds you
 chose, because a prompt asking for what the schema does not enforce is how the original
 defect got in.
+
+`systemPrompt: false` registers the tool with **no system message at all** — for a model
+trained on a fixed contract that must not read any added prose. It is a distinct value
+rather than `''`: an empty string is still a field, and the field is really sent.
 
 Two option types, one inside the other: `AskUserToolOptions` is what `createAskUserTool`
 takes — the name, description, system prompt and bounds, everything the *model* sees —

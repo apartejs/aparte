@@ -62,7 +62,7 @@ export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options:
     });
 }
 
-export { createAskUserTool, askUserHandler } from './ask-user.js';
+export { createAskUserTool, askUserHandler, ASK_USER_DECLINED } from './ask-user.js';
 export type { AskUserToolOptions, AskUserSetupOptions } from './ask-user.js';
 export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 

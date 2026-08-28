@@ -71,8 +71,13 @@ export interface AskUserToolOptions {
      * the policy every serious implementation lands near — ask only when the request
      * is genuinely ambiguous — and it is written in English. A product with another
      * policy, or another language, passes its own text; it replaces the default whole.
+     *
+     * `false` means NO system message at all — for a product whose model is trained on
+     * a fixed contract and must not read any added prose. It is a distinct value rather
+     * than `''`, because an empty string is still a field, and since 0.13 the field is
+     * really sent as a system message.
      */
-    systemPrompt?: string;
+    systemPrompt?: string | false;
     /**
      * Options per question. Default 4.
      *
@@ -110,10 +115,9 @@ export function createAskUserTool(options: AskUserToolOptions = {}): AparteTool 
     const maxOptions = options.maxOptions ?? 4;
     const maxQuestions = options.maxQuestions ?? 5;
     const name = options.name ?? 'ask_user';
-    return {
-    name,
-    description: options.description ?? 'Ask the user a question with structured options (title + optional description). Use for single or multiple choice input.',
-    systemPrompt: options.systemPrompt ?? `You have access to the ${name} tool.
+    // Omitted, not emptied, when the host opts out: the loop sends whatever string
+    // the field holds as a system message, and `''` is a string.
+    const systemPrompt = options.systemPrompt === false ? undefined : options.systemPrompt ?? `You have access to the ${name} tool.
 
 WHEN TO USE IT: only when the user's request is genuinely ambiguous and requires a choice between distinct options before you can proceed (e.g. "which framework should I use?", "what style do you prefer?").
 
@@ -126,7 +130,11 @@ WHEN NOT TO USE IT — respond directly instead:
 When you do use it, every question needs a short "header" (one or two words — it is the
 tab a user clicks to come back to that question) and 2 to ${maxOptions} options, each
 with a short "title". Both are enforced by the schema, not preferences. Set
-"multiple: true" only when several options can apply simultaneously.`,
+"multiple: true" only when several options can apply simultaneously.`;
+    return {
+    name,
+    description: options.description ?? 'Ask the user a question with structured options (title + optional description). Use for single or multiple choice input.',
+    ...(systemPrompt === undefined ? {} : { systemPrompt }),
     inputSchema: {
         type: 'object',
         properties: {

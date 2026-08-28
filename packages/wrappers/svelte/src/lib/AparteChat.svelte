@@ -160,7 +160,7 @@
   });
 
   // ── Imperative API (bind:this on the component) ──
-  export function appendMessage(m: AparteMessage) { host?.appendMessage(m); }
+  export function appendMessage(m: AparteMessage, options?: { historical?: boolean }) { host?.appendMessage(m, options); }
   export function updateMessage(id: string, u: Partial<AparteMessage>) { host?.updateMessage(id, u); }
   export function updateLastMessage(content: string, options?: { append?: boolean }) {
     host?.updateLastMessage(content, options);

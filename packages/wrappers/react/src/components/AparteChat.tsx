@@ -301,7 +301,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
     }, []);
 
     useImperativeHandle(ref, (): AparteChatImperativeApi => ({
-        appendMessage: (m) => hostRef.current?.appendMessage(m),
+        appendMessage: (m, o) => hostRef.current?.appendMessage(m, o),
         updateMessage: (id, u) => hostRef.current?.updateMessage(id, u),
         updateLastMessage: (c, o) => hostRef.current?.updateLastMessage(c, o),
         addSegment: (s) => hostRef.current?.addSegment(s),

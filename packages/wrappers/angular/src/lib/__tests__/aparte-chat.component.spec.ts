@@ -641,4 +641,31 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(final.find(m => m.id === 'u1')?.content).toBe('first');
         expect(final.find(m => m.id === 'a1')?.content).toBe('hello');
     });
+
+    // ─── appendMessage forwards { historical } — the replay path from a consumer's own store ──
+    //
+    // The host had accepted the option all along (it is how a stored conversation loads),
+    // and this component's `appendMessage(message)` dropped it on the way, so a restored
+    // tool call came in as a live one — stamped, and spinning. Found by a consumer whose
+    // history lives on its own server.
+    it('appendMessage(message, { historical: true }) reaches the host with the option', () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        const component = fixture.componentInstance;
+        fixture.detectChanges();
+
+        const spy = vi.spyOn((component as any)._host, 'appendMessage');
+        const restored: AparteMessage = {
+            id: 'r1', role: 'assistant', timestamp: 1, status: 'completed',
+            segments: [{
+                id: 's1', type: 'tool_call', status: 'resolved', result: 'ok',
+                toolCall: { id: 'c1', name: 'read_file', input: { path: 'a.md' } },
+            }],
+        };
+        component.appendMessage(restored, { historical: true });
+
+        expect(spy).toHaveBeenCalledWith(restored, { historical: true });
+        // …and a live append still passes nothing, so the host keeps its default (live).
+        component.appendMessage({ id: 'l1', role: 'user', content: 'hi', timestamp: 2 });
+        expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'l1' }), undefined);
+    });
 });

@@ -178,7 +178,6 @@
   overflow-x: hidden;
   background: var(--aparte-code-bg);
 }
-.aparte-tool-part-body pre { margin: 0; }
 .aparte-art-card__pane[data-pane="code"] pre {
     margin: 0; padding: var(--aparte-space-6);
     font-size: var(--aparte-font-size-md);

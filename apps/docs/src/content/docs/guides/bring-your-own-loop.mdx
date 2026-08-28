@@ -252,6 +252,26 @@ message you filled with `injectTokenStream` can't also show a [`thinking`](/segm
 the answer its own [`text`](/segments/text/) segment if you need both in one message.
 :::
 
+:::caution[A segments-driven turn has to be finished]
+`injectTokenStream` marks the message complete when its iterable ends. Segments do not: a
+message you fill with `addSegment` / `appendToSegment` stays "a reply on its way" until you say
+otherwise — and while it does, the viewport carries `data-busy` and keeps the transcript
+read-only (branch pickers, retry and edit disabled), for good. End the turn yourself:
+
+```ts
+chat.updateMessage(id, { status: 'completed' });   // or 'error'
+```
+
+That one call also closes the segments still open (`isStreaming: false`, their `endedAt`).
+:::
+
+Two levels of the same call, not a contradiction: a wrapper's `chat.addSegment(segment)`,
+`updateSegment(id, patch)` and `appendToSegment(id, chunk)` always target the **last** message,
+while the raw viewport's `viewport.addSegment(messageId, segment)` and
+`viewport.updateSegment(messageId, segmentId, patch)` take the message id. Driving a wrapper,
+use the first — and don't append another message while a turn is still being written, or the
+next segment lands on the newcomer.
+
 ## Push-based sources: the queue adapter
 
 `injectTokenStream` *pulls* from an iterable, but IPC-style sources *push* events at you
