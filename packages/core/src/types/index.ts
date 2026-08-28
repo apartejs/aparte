@@ -93,6 +93,7 @@ export type {
 export type {
     AparteAIModel,
     AparteAIProvider,
+    AparteAIProviderMetadata,
     AparteAIProviderConfigField,
     AparteAIProviderConfigSchema,
     AparteModelConfig,
