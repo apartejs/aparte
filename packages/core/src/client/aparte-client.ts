@@ -370,6 +370,8 @@ export class AparteClient {
     }
     /** Aborts the in-flight vendor/transport fetch when the user stops a stream. */
     private _streamController: AbortController | null = null;
+    /** Aborts an in-flight `compact()` summarisation — its own slot, see `compact`. */
+    private _compactController: AbortController | null = null;
 
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
@@ -527,6 +529,7 @@ export class AparteClient {
     abort(): void {
         this._isAborted = true;
         this._streamController?.abort();
+        this._compactController?.abort();
         for (const controller of this._activeToolControllers) {
             controller.abort();
         }
@@ -797,8 +800,11 @@ export class AparteClient {
             // arrived to overwrite a conversation the user had moved on from. It goes
             // through the same controller slot as a turn so `abort()` and `stop()`
             // reach it.
+            // Its OWN slot. It used to take over `_streamController`, so a compaction
+            // started during a turn left that turn unabortable — Stop reached only the
+            // summarisation while the reply kept streaming and kept being billed.
             const compactController = new AbortController();
-            this._streamController = compactController;
+            this._compactController = compactController;
             const response = await this._config.getTransport().chat(
                 provider, summarizeRequest, authConfig,
                 { providerId: provider.id, signal: compactController.signal },

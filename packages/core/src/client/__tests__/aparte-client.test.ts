@@ -1126,3 +1126,57 @@ describe('AparteClient — compaction summary title', () => {
         expect(injected.content).toBe('**Résumé de la conversation**\n\nRÉSUMÉ');
     });
 });
+
+// ─── abort() reaches an in-flight compaction ────────────────────────────────
+// `compact()` used to borrow `_streamController`, the slot a turn uses — so a
+// compaction started during a turn left that turn unabortable, and vice versa. It
+// has its own controller now; `abort()` fires both.
+describe('AparteClient — abort() reaches an in-flight compaction', () => {
+    let client: AparteClient | undefined;
+
+    afterEach(() => {
+        client?.stop();
+        client = undefined;
+    });
+
+    it('aborts the summarisation signal, and the summary never lands', async () => {
+        const messages: AparteMessage[] = [
+            { id: 'u1', role: 'user', content: 'q', timestamp: 1, status: 'completed' },
+            { id: 'a1', role: 'assistant', content: 'a', timestamp: 2, status: 'completed' },
+        ];
+        const target = document.createElement('div') as any;
+        target.getMessages = vi.fn(() => messages);
+        target.appendMessage = vi.fn();
+
+        const cfg = new AparteConfig();
+        cfg.registerAIProvider({
+            id: 'mock',
+            getMetadata: () => ({ id: 'mock', name: 'Mock' }),
+            getModels: () => [{ id: 'm', name: 'M' }],
+            chat: vi.fn(),
+        } as any);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        let seen: AbortSignal | undefined;
+        cfg.setTransport({
+            chat: vi.fn((_p: any, _r: any, _a: any, ctx: { signal: AbortSignal }) => new Promise((_res, rej) => {
+                seen = ctx.signal;
+                ctx.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+            })),
+        } as any);
+
+        const errored = new Promise<any>(res =>
+            window.addEventListener('aparte-compact-error', (e: any) => res(e.detail), { once: true }),
+        );
+        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target });
+        const running = client.compact();
+        await vi.waitFor(() => expect(seen).toBeDefined());
+        expect(seen!.aborted).toBe(false);
+
+        client.abort();
+
+        expect(seen!.aborted).toBe(true);
+        await running;
+        await errored;
+        expect(target.appendMessage).not.toHaveBeenCalled();
+    });
+});
