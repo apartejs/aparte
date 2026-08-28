@@ -72,9 +72,9 @@ not. It reads `--aparte-focus-outline-width`, `--aparte-primary` and
 
 Two behaviours worth knowing, because they are asymmetric on purpose:
 
-- `disabled` on the composer removes the drop target entirely. `streaming` does not — it
-  greys the button out, and a drop mid-turn still attaches, since queueing a file while a
-  reply arrives is a reasonable thing to do.
+- `disabled` on the composer removes the drop target and greys the button out. `streaming`
+  does neither: attaching a file while a reply arrives is part of preparing the next
+  message, so the button and the drop target stay live mid-turn — only the send is gated.
 - The drop handler calls `preventDefault()` even while disabled, so a missed drop can never
   navigate the page away to the file.
 
