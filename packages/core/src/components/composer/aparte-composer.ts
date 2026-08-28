@@ -267,6 +267,9 @@ export class AparteComposer extends HTMLElement {
         // `detail.config`, so the same information arrives without the early binding
         // — and the filter below compares against the LIVE config.
         window.addEventListener('aparte-config-change', this._onConfigChangeEvent);
+        // After the current parse: the other chats of the page may be mounted later in
+        // the same document, and the question is only worth asking once they are.
+        queueMicrotask(() => this._warnIfUnattached());
         this._evaluateModelGate();
         this._applyDirection();
     }
@@ -687,6 +690,18 @@ export class AparteComposer extends HTMLElement {
      * for the reason written there — Angular's wrapper root IS `<aparte-chat>`, the
      * other three render a `[data-aparte-chat]` div.
      */
+    /**
+     * A signal, not a guard: on a page with several chats, a composer attached to none
+     * answers to every chat's lifecycle events (see `_ownTargetId`), and the symptom —
+     * one chat's Stop evicting another's open question — is nowhere near its cause.
+     * Said once, at the console, where the developer is.
+     */
+    private _warnIfUnattached(): void {
+        if (!this.isConnected || this._ownTargetId()) return;
+        if (document.querySelectorAll('aparte-chat, [data-aparte-chat]').length < 2) return;
+        console.warn('[aparte-composer] this composer belongs to no chat while the page has several: give it target="<chat id>" or place it under a chat host with an id, or it will answer to every chat\'s events.');
+    }
+
     private _ownTargetId(): string | undefined {
         const attr = this.targetId;
         if (attr) return attr;
