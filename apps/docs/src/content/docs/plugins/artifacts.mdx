@@ -1,0 +1,142 @@
+---
+title: artifacts
+description: "The artifacts plugin — a create_artifact tool the model calls, the Code/Preview card that renders its result, and the <artifact> tag grammar for a model that writes one in its prose; the sandboxed preview on a gesture, downloads, and onBinary for pdf / xlsx / docx."
+sidebar:
+  order: 8
+  label: artifacts
+---
+
+An **artifact** is a document the model produces — a page, a component, a script, an SVG, a
+Markdown note, a spreadsheet — shown as a card in the transcript with a Code tab, a Preview
+tab, Copy and Download. It is a convention an app teaches its model, not something a model
+does by nature, so the whole convention lives in this package: the `create_artifact` **tool**
+the model calls, the **card** that renders its result, and the `<artifact>` **tag grammar**
+for a model that writes one in its prose.
+
+```bash
+npm install @aparte/plugin-artifacts @aparte/core
+```
+
+`@aparte/core` is the only **peer dependency**.
+
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+
+setupArtifacts();
+```
+
+One call, four registrations: the tool and its handler (`registerTool`), the card on the
+tool's result (`registerToolRenderer`), the grammar on core's parser
+(`registerStreamBlock`) and the card on the segment that grammar produces
+(`registerSegmentRenderer`). The call returns a function that removes all four; a second
+argument scopes everything to one `AparteConfig` instead of the global one.
+
+## Two ways in, one card
+
+**A model with tools** calls `create_artifact` with `{ mimeType, title, content }`. The
+handler (`artifactHandler`) returns the document as the tool's structured result and a
+line of prose for the model — "Artifact created: Launch note (text/markdown, 412
+characters). It is shown to the user; do not repeat its content." — and the card is drawn
+from the result. Because it is a real tool, everything a tool goes through applies: the
+schema the model sees, the [approval gate](/plugins/approval/) (a policy may class writing
+a document as a `write`), the handler, the envelope.
+
+**A model without tools** writes the document in its reply:
+
+```text
+Here is a first draft:
+
+<artifact type="text/markdown" title="Launch note">
+## aparté
+A chat in Web Components, with the agent loop inside.
+</artifact>
+
+Tell me what to change.
+```
+
+The grammar this plugin registers turns the block into an `artifact` segment, streamed
+delta by delta by core's parser — see [Teach the parser a block](/guides/customization/#teach-the-parser-a-block)
+for what the parser does for any such grammar. Both `type=` and `mimeType=` are read
+(`mimeType` wins when both are present); `title=` is optional.
+
+## What the card does
+
+- Opens on **Code**, highlighted through whatever highlighter core was given.
+- **Preview** — for `html`, `react`, `svg`, `js` and `css` — is mounted only when the reader
+  presses the tab. A previewable artifact is model-authored code, and mounting it unasked
+  executes it; the frame is `sandbox="allow-scripts"` with a Content-Security-Policy that
+  lets nothing out, declared twice (attribute and `<meta>`) for the browsers that read one
+  (`PREVIEW_CSP`, `buildSafePreviewDocument`).
+- **Copy** and **Download** on every text artifact; the download is named after the title
+  and given the kind's extension.
+- While a tagged block streams the card pulses and the code pane follows the tokens;
+  Preview and Download wait for the end.
+
+## Options
+
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+
+setupArtifacts({
+  name: 'create_artifact',        // the tool's name as the model sees it
+  systemPrompt: false,            // your own string, or false to send none
+  tag: 'artifact',                // the tag recognised in the prose; false for none
+  preview: true,                  // false: no Preview tab; a function: your own srcdoc builder
+});
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `name` | `'create_artifact'` | The tool's name. |
+| `systemPrompt` | a short prompt saying when to produce a document | `false` sends none; a string replaces it. |
+| `tag` | `'artifact'` | The tag the grammar recognises. `false` registers no grammar: only the tool produces artifacts. |
+| `preview` | `true` | `false` removes the Preview tab; `(kind, body, title) => srcdoc` replaces the built-in document builder. |
+| `onBinary` | — | Produces the file for a binary kind; see below. |
+
+## Binary artifacts: `onBinary`
+
+For `pdf`, `xlsx` and `docx` the model writes *the code that produces the file*, and the
+file itself is made by something the library does not have — a sandbox that runs that code.
+That something is yours:
+
+{/* doc-check: skip excerpt — `runInMySandbox` is the app's own sandbox, the subject of this section */}
+```ts
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import type { ArtifactBinary, ArtifactSegment } from '@aparte/plugin-artifacts';
+
+async function makeFile(artifact: ArtifactSegment): Promise<ArtifactBinary> {
+  const { bytes, filename } = await runInMySandbox(artifact.content);   // yours
+  return { buffer: bytes, mime: artifact.mimeType, filename };
+}
+
+setupArtifacts({ onBinary: makeFile });
+```
+
+Once the source settles the card asks `onBinary` once per artifact, shows the filename and
+size and enables Download when it resolves, and shows the failure in the card when it
+throws. A `previewHtml` on the result (a spreadsheet rendered as a table) is shown in the
+preview pane after sanitisation. Without `onBinary` a binary artifact shows its source and
+offers no download: the library holds no bytes, so it declares no button.
+
+## Kinds
+
+`deriveArtifactKind(mimeType)` names the kind the card switches on — `'react'`, `'html'`,
+`'js'`, `'css'`, `'svg'`, `'json'`, `'markdown'`, `'csv'`, `'text'`, `'pdf'`, `'xlsx'`,
+`'docx'` — from a standard MIME type or Anthropic's `application/vnd.ant.*` namespace
+(`application/vnd.ant.react` → `react`). The segment shape is exported as `ArtifactSegment`
+(with `AparteArtifactSegment` as an alias), and `artifactSegment`, `artifactBlock`,
+`artifactFromToolCall`, `createArtifactTool`, `ARTIFACT_SYSTEM_PROMPT`, `ARTIFACT_TAG` and
+`ARTIFACT_SEGMENT_TYPE` let an app assemble the pieces itself — `artifactRenderer` is the
+card, usable directly as a segment renderer for a segment an app builds by hand.
+
+The option types are exported for a typed setup: `ArtifactsSetupOptions` (what
+`setupArtifacts` takes) is `ArtifactToolOptions` (`name`, `systemPrompt`) plus
+`ArtifactRenderOptions` (`preview`, `onBinary`) plus `tag`; `ArtifactPreviewBuilder` is the
+`preview` function's signature, `ArtifactBinaryResolver` is `onBinary`'s and
+`ArtifactBinary` its result; `ArtifactInput` is `{ mimeType, title?, content }`, what the
+model passes to the tool and what the tool returns as its structured result.
+
+## On the server
+
+The `node` entry registers the tool, its handler and the grammar without a renderer, so an
+SSR build imports the package without a document; the browser entry adds the card.

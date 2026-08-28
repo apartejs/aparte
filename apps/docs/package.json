@@ -37,6 +37,7 @@
     },
     "devDependencies": {
         "@aparte/plugin-approval": "workspace:*",
+        "@aparte/plugin-artifacts": "workspace:*",
         "@aparte/plugin-ask-user": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@astrojs/check": "^0.9.10",

@@ -480,6 +480,21 @@ importers:
         specifier: ^6.0.0
         version: 6.4.3(@types/node@20.11.0)(jiti@1.21.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.39.0)(tsx@4.23.0)(yaml@2.9.0)
 
+  packages/plugins/artifacts:
+    devDependencies:
+      '@aparte/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@custom-elements-manifest/analyzer':
+        specifier: ^0.11.0
+        version: 0.11.0
+      typescript:
+        specifier: ^5.4.0
+        version: 5.7.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@20.11.0)(jiti@1.21.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.39.0)(tsx@4.23.0)(yaml@2.9.0)
+
   packages/plugins/ask-user:
     devDependencies:
       '@aparte/core':
@@ -13472,8 +13487,8 @@ snapshots:
       hast-util-to-html: 9.0.5
       hast-util-to-text: 4.0.2
       hastscript: 9.0.1
-      postcss: 8.5.17
-      postcss-nested: 6.2.0(postcss@8.5.17)
+      postcss: 8.5.26
+      postcss-nested: 6.2.0(postcss@8.5.26)
       unist-util-visit: 5.1.0
       unist-util-visit-parents: 6.0.2
 
@@ -14473,7 +14488,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.11.1
       '@emnapi/runtime': 1.11.1
-      '@napi-rs/wasm-runtime': 1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
+      '@napi-rs/wasm-runtime': 1.2.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
     optional: true
 
   '@oxc-resolver/binding-win32-arm64-msvc@11.24.1':
@@ -16233,7 +16248,7 @@ snapshots:
       domhandler: 5.0.3
       htmlparser2: 10.1.0
       picocolors: 1.1.1
-      postcss: 8.5.17
+      postcss: 8.5.26
       postcss-media-query-parser: 0.2.3
 
   better-path-resolve@1.0.0:
@@ -16671,12 +16686,12 @@ snapshots:
 
   css-loader@7.1.2(webpack@5.105.0(@swc/core@1.3.107(@swc/helpers@0.5.23))(esbuild@0.28.0)(lightningcss@1.33.0)(postcss@8.5.12)):
     dependencies:
-      icss-utils: 5.1.0(postcss@8.5.17)
-      postcss: 8.5.17
-      postcss-modules-extract-imports: 3.1.0(postcss@8.5.17)
-      postcss-modules-local-by-default: 4.2.0(postcss@8.5.17)
-      postcss-modules-scope: 3.2.1(postcss@8.5.17)
-      postcss-modules-values: 4.0.0(postcss@8.5.17)
+      icss-utils: 5.1.0(postcss@8.5.26)
+      postcss: 8.5.26
+      postcss-modules-extract-imports: 3.1.0(postcss@8.5.26)
+      postcss-modules-local-by-default: 4.2.0(postcss@8.5.26)
+      postcss-modules-scope: 3.2.1(postcss@8.5.26)
+      postcss-modules-values: 4.0.0(postcss@8.5.26)
       postcss-value-parser: 4.2.0
       semver: 7.8.5
     optionalDependencies:
@@ -18066,9 +18081,9 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
-  icss-utils@5.1.0(postcss@8.5.17):
+  icss-utils@5.1.0(postcss@8.5.26):
     dependencies:
-      postcss: 8.5.17
+      postcss: 8.5.26
 
   ieee754@1.2.1: {}
 
@@ -19949,30 +19964,30 @@ snapshots:
 
   postcss-media-query-parser@0.2.3: {}
 
-  postcss-modules-extract-imports@3.1.0(postcss@8.5.17):
+  postcss-modules-extract-imports@3.1.0(postcss@8.5.26):
     dependencies:
-      postcss: 8.5.17
+      postcss: 8.5.26
 
-  postcss-modules-local-by-default@4.2.0(postcss@8.5.17):
+  postcss-modules-local-by-default@4.2.0(postcss@8.5.26):
     dependencies:
-      icss-utils: 5.1.0(postcss@8.5.17)
-      postcss: 8.5.17
+      icss-utils: 5.1.0(postcss@8.5.26)
+      postcss: 8.5.26
       postcss-selector-parser: 7.1.4
       postcss-value-parser: 4.2.0
 
-  postcss-modules-scope@3.2.1(postcss@8.5.17):
+  postcss-modules-scope@3.2.1(postcss@8.5.26):
     dependencies:
-      postcss: 8.5.17
+      postcss: 8.5.26
       postcss-selector-parser: 7.1.4
 
-  postcss-modules-values@4.0.0(postcss@8.5.17):
+  postcss-modules-values@4.0.0(postcss@8.5.26):
     dependencies:
-      icss-utils: 5.1.0(postcss@8.5.17)
-      postcss: 8.5.17
+      icss-utils: 5.1.0(postcss@8.5.26)
+      postcss: 8.5.26
 
-  postcss-nested@6.2.0(postcss@8.5.17):
+  postcss-nested@6.2.0(postcss@8.5.26):
     dependencies:
-      postcss: 8.5.17
+      postcss: 8.5.26
       postcss-selector-parser: 6.1.4
 
   postcss-selector-parser@6.1.4:
@@ -20359,7 +20374,7 @@ snapshots:
       adjust-sourcemap-loader: 4.0.0
       convert-source-map: 1.9.0
       loader-utils: 2.0.4
-      postcss: 8.5.17
+      postcss: 8.5.26
       source-map: 0.6.1
 
   resolve.exports@2.0.3: {}
@@ -21691,7 +21706,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
       picomatch: 4.0.5
-      postcss: 8.5.17
+      postcss: 8.5.26
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:
@@ -21710,7 +21725,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
       picomatch: 4.0.5
-      postcss: 8.5.17
+      postcss: 8.5.26
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:
@@ -21730,7 +21745,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
       picomatch: 4.0.5
-      postcss: 8.5.17
+      postcss: 8.5.26
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:

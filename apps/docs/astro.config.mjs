@@ -253,7 +253,7 @@ export default defineConfig({
             {
               label: 'Tools, approval and asking the user',
               description: 'Registering tools, the tool-call row, human-in-the-loop approval, typed questions to the user (elicitation), and the ask-user plugin.',
-              paths: ['guides/tools', 'guides/tool-call-ui', 'guides/elicitation', 'plugins/ask-user', 'plugins/approval', 'segments/tool-call'],
+              paths: ['guides/tools', 'guides/tool-call-ui', 'guides/elicitation', 'plugins/ask-user', 'plugins/approval', 'plugins/artifacts', 'segments/tool-call'],
             },
             {
               label: 'Bring your own loop (display-only)',

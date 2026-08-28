@@ -128,6 +128,7 @@ check('createAparteChatHandler answers a real Request in Node', async () => {
 const SATELLITES = [
     ['@aparte/plugin-ask-user', 'packages/plugins/ask-user'],
     ['@aparte/plugin-approval', 'packages/plugins/approval'],
+    ['@aparte/plugin-artifacts', 'packages/plugins/artifacts'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector'],
     ['@aparte/plugin-marked', 'packages/plugins/marked'],
     ['@aparte/plugin-shiki', 'packages/plugins/shiki'],
