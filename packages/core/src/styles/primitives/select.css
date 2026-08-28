@@ -62,8 +62,16 @@ aparte-select[disabled] .aparte-select-trigger {
     text-overflow: ellipsis;
 }
 
+/* `min-width: 0; overflow: hidden` on the stack is what keeps the ellipsis alive: a
+   grid item's automatic minimum size is its min-content — the widest nowrap label —
+   and that floored the label's track, so a host that constrained the control got a
+   hard clip mid-glyph instead of "…" (measured in Chromium: clientWidth 244 for a
+   140px control). Its max-content contribution, the one that sets the width, is
+   untouched. */
 .aparte-select-label-sizer {
     display: grid;
+    min-width: 0;
+    overflow: hidden;
     visibility: hidden;
     pointer-events: none;
 }
@@ -155,13 +163,20 @@ aparte-option[data-active] {
    class: an option's selected state is an attribute the select writes, and a second
    name for it on the same element would be one more thing to keep in step. */
 aparte-option[selected] {
+    position: relative;
     background: var(--aparte-select-option-selected, color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent));
     color: var(--aparte-select-option-selected-text, var(--aparte-select-text, var(--aparte-text)));
-    box-shadow: inset var(--aparte-mark-bar) 0 0 var(--aparte-primary);
 }
 
-:where([dir="rtl"]) aparte-option[selected] {
-    box-shadow: inset calc(-1 * var(--aparte-mark-bar)) 0 0 var(--aparte-primary);
+/* The bar: the mark's pseudo-element on the logical start edge (see display/mark.css). */
+aparte-option[selected]::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--aparte-mark-bar);
+    background: var(--aparte-primary-ink);
+    pointer-events: none;
 }
 
 aparte-option[disabled] {

@@ -110,8 +110,10 @@
      And it is SHOWN: the bar is revealed by hover, and a finger cannot hover, so on a
      touch device every message's actions were sitting at opacity 0 with no way to
      reach them — a larger target for something invisible. The footer stays in the
-     flow here (the floating rule in bubble.css is under `hover: hover`), so what a
-     touch device gets is the bar every mobile chat shows: under each message, always. */
+     flow here (the floating rule in bubble.css is under `(hover: hover) and
+     (pointer: fine)`, so a device that hovers with a coarse pointer — a TV remote —
+     keeps it in the flow too), so what a touch device gets is the bar every mobile
+     chat shows: under each message, always. */
   .aparte-action-bar {
     --aparte-action-bar-btn-size: var(--aparte-touch-target-size);
     opacity: 1;

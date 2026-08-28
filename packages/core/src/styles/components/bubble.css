@@ -153,11 +153,21 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
  * Three footers stay in the flow. The last assistant message: its bar is always on
  * show, under the reply, where every chat puts it. A message whose branch picker is
  * visible (`data-branches`, written by the bubble beside the picker's own state): the
- * picker must stay in view. And every message under a pointer that cannot hover —
- * hence the media query rather than a coarse-pointer override — because a floating
- * bar revealed by hover would be unreachable there (see responsive.css for what a
- * touch device gets instead). */
-@media (hover: hover) {
+ * picker must stay in view. And every message under a pointer that cannot hover, or
+ * that is coarse — `(hover: hover) and (pointer: fine)`, because the two features are
+ * independent and a TV remote reports both hover and coarse; responsive.css gives a
+ * coarse pointer a 44px bar in the flow, and floated over the header row a 44px bar
+ * would sit on the first line of the reply.
+ *
+ * The bar's place depends on the header row: 8px from the top, it fills the empty end
+ * of the "Assistant · 12:34" line and clears the text by the header's height. A host
+ * that hides `.aparte-header` moves that line away and should move the bar too
+ * (`.aparte-footer { top: … }`), or keep it in the flow.
+ *
+ * Invisible means inert: `opacity: 0` does not stop hit-testing, and a bar floated
+ * over the header row was a button before anything was drawn there — a drag-select
+ * started at a message's top end began on it. */
+@media (hover: hover) and (pointer: fine) {
   aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-footer,
   aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-footer {
     position: absolute;
@@ -165,6 +175,14 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
     inset-inline-end: var(--aparte-space-6);
     margin: 0;
     z-index: 1;
+    pointer-events: none;
+  }
+
+  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]):hover .aparte-footer,
+  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]):focus-within .aparte-footer,
+  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]):hover .aparte-footer,
+  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]):focus-within .aparte-footer {
+    pointer-events: auto;
   }
 
   aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-action-bar,

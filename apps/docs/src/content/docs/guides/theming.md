@@ -223,9 +223,10 @@ Every composer control (input height + buttons) derives from a single token:
 ### Mark the chosen row
 
 "This one" is one recipe everywhere: the select's chosen option, a checked choice in the
-elicitation panel, the conversation you are in and an answered question all wear the
-**mark** — an intent tint on the ground and a bar on the row's start edge. Two tokens move
-every mark at once, and the same class marks a row of your own:
+elicitation panel and an answered question wear the **mark** — an intent tint on the
+ground and a bar on the row's start edge, drawn in the intent's ink — and the conversation
+you are in wears its bar (its ground stays the list's own). Two tokens move every mark at
+once, and the same class marks a row of your own:
 
 ```css
 :root {

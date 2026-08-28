@@ -61,14 +61,20 @@
    a checked field choice carry. Its ground keeps the list's own tokens: a navigation
    list is read for a long time, and the mark's tint on every visit was too loud. */
 .aparte-conv-item--active {
+  position: relative;
   background: var(--aparte-conv-item-bg-active);
   color: var(--aparte-conv-item-color-active);
   font-weight: var(--aparte-conv-item-font-weight-active);
-  box-shadow: inset var(--aparte-mark-bar) 0 0 var(--aparte-primary);
 }
 
-:where([dir="rtl"]) .aparte-conv-item--active {
-  box-shadow: inset calc(-1 * var(--aparte-mark-bar)) 0 0 var(--aparte-primary);
+.aparte-conv-item--active::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--aparte-mark-bar);
+  background: var(--aparte-primary-ink);
+  pointer-events: none;
 }
 
 .aparte-conv-item--active .aparte-conv-item__delete {

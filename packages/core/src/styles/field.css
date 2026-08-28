@@ -804,7 +804,8 @@
     background var(--aparte-duration-fast) var(--aparte-ease),
     border-color var(--aparte-duration-fast) var(--aparte-ease);
 }
-.aparte-field-choice:hover { background: var(--aparte-surface-2); }
+/* Not on a chosen row: its mark (below) is what the pointer must not erase. */
+.aparte-field-choice:not(:has(:checked)):not(.aparte-field-choice--selected):hover { background: var(--aparte-surface-2); }
 
 /* Boxed — each row carries its own edge, for a list that must read as a set of
    separate targets rather than a menu. */
@@ -817,17 +818,25 @@
    an elicitation panel and a picked option in a dropdown say it the same way. The
    border stays its own — it was the only signal before, and a boxed row keeps its
    edge coloured. Written as the mark's declarations rather than its class because a
-   `:has()` state cannot add a class to itself. */
+   `:has()` state cannot add a class to itself; the modifier is doubled so both halves
+   of this rule sit at (0,2,0), above the hover. The bar is the mark's pseudo-element,
+   on the logical start edge — see display/mark.css for why not a shadow. */
 .aparte-field-choice:has(:checked),
-.aparte-field-choice--selected {
+.aparte-field-choice.aparte-field-choice--selected {
+  position: relative;
   border-color: var(--aparte-primary);
   background: color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent);
-  box-shadow: inset var(--aparte-mark-bar) 0 0 var(--aparte-primary);
 }
 
-:where([dir="rtl"]) .aparte-field-choice:has(:checked),
-:where([dir="rtl"]) .aparte-field-choice--selected {
-  box-shadow: inset calc(-1 * var(--aparte-mark-bar)) 0 0 var(--aparte-primary);
+.aparte-field-choice:has(:checked)::before,
+.aparte-field-choice.aparte-field-choice--selected::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--aparte-mark-bar);
+  background: var(--aparte-primary-ink);
+  pointer-events: none;
 }
 
 .aparte-field-choice:has(:disabled),

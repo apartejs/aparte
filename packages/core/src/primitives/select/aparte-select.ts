@@ -45,7 +45,7 @@ export interface AparteSelectChangeDetail {
  * @fires aparte-select-open - The dropdown opened. No detail.
  * @fires aparte-select-close - The dropdown closed. No detail.
  *
- * @cssprop [--aparte-select-bg=var(--aparte-surface-1, #fff)] - Trigger background — and, under `[data-aparte-theme="dark"]`, the dropdown panel's too.
+ * @cssprop [--aparte-select-bg=var(--aparte-surface-1, #fff)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
  * @cssprop [--aparte-select-border=var(--aparte-border, #e2e8f0)] - Border of the trigger and of the dropdown.
  * @cssprop [--aparte-select-border-hover=var(--aparte-primary, #3b82f6)] - Trigger border on hover.
  * @cssprop [--aparte-select-border-focus=var(--aparte-primary, #3b82f6)] - Trigger border while focused.

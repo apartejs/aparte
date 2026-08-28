@@ -104,6 +104,13 @@ aparte-chat-viewport {
   background: var(--aparte-scrollbar-track);
 }
 
+/* The thumb too: the token pair was half-wired on the legacy WebKit path — the
+   standard `scrollbar-color` read both, this block read only the track. */
+.aparte-viewport-container::-webkit-scrollbar-thumb,
+aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
+  background: var(--aparte-scrollbar-thumb);
+}
+
 /* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
 
 /* The button wears `aparte-btn--lg aparte-btn--circle`, and that IS its shape: 36px is
