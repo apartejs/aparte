@@ -797,6 +797,9 @@ export class AparteConfig {
      */
     setApprovalPolicy(policy: AparteApprovalPolicy | null): void {
         this._approvalPolicy = policy;
+        // Like every other registration: a mounted switch has to hear that a policy
+        // arrived after it did, or went away.
+        this._notify();
     }
 
     /** The registered approval policy, or `null`. */

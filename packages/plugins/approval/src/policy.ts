@@ -38,8 +38,11 @@ export interface ApprovalClassification {
     exec?: readonly ToolMatcher[];
 }
 
+// `search`, not `test`: `test` advances `lastIndex` on a `g` or `y` regex the caller
+// owns, so the same name would classify differently on alternate calls — and the gate
+// predicate and the answering channel evaluate the policy one after the other.
 const matches = (name: string, m: ToolMatcher): boolean =>
-    typeof m === 'string' ? m === name : m.test(name);
+    typeof m === 'string' ? m === name : name.search(m) !== -1;
 
 /** The class of a tool name under a classification, or `undefined` when it is in no list. */
 export function classifyTool(name: string, classification: ApprovalClassification): ToolClass | undefined {

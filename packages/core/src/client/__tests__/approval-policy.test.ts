@@ -106,9 +106,22 @@ describe('the client honours the policy', () => {
         await run(cfg, el);
         expect(ran).toEqual([]);
         expect(patches.map(p => p['status'])).toContain('rejected');
+        // A decision already made is not a pause: no row ever said "awaiting approval",
+        // and no `aparte-tool-approval-request` was raised for a question never asked.
+        expect(patches.map(p => p['status'])).not.toContain('awaiting-approval');
         const results = patches.map(p => p['result']).filter(Boolean);
         expect(results).toContain(reason);
         expect(results.join(' ')).not.toContain('rejected by the user');
+    });
+
+    it('a `deny` with no reason still refuses in the policy\'s name — the model is never told a person did', async () => {
+        const { cfg, el, patches, ran } = harness([{ id: 'c1', name: 'read_file' }]);
+        cfg.setApprovalPolicy(() => ({ verdict: 'deny', reason: '  ' }));
+        await run(cfg, el);
+        expect(ran).toEqual([]);
+        const results = patches.map(p => p['result']).filter(Boolean);
+        expect(results).toContain('Tool execution was refused by the approval policy.');
+        expect(results.join(' ')).not.toMatch(/rejected by the user/);
     });
 
     it('`ask` on an unflagged tool pauses it at the gate', async () => {
@@ -123,11 +136,33 @@ describe('the client honours the policy', () => {
 
     it('a host\'s own approvalResolver is untouched by a policy — it already owns the decision', async () => {
         const { cfg, el, ran } = harness([{ id: 'c1', name: 'write_file' }]);
-        const policy = vi.fn<AparteApprovalPolicy>(() => ({ verdict: 'deny', reason: 'never' }));
+        // `allow` is the verdict that COULD bypass a host resolver — by turning the gate
+        // off before it is consulted — so it is the one this test must use.
+        const policy = vi.fn<AparteApprovalPolicy>(() => ({ verdict: 'allow' }));
         cfg.setApprovalPolicy(policy);
-        const client = new AparteClient({ config: cfg, autoRegister: false, approvalResolver: async () => ({ approved: true }) });
+        const resolver = vi.fn(async () => ({ approved: true }));
+        const client = new AparteClient({ config: cfg, autoRegister: false, approvalResolver: resolver });
         await (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
             ._streamTurn(el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
         expect(ran).toEqual(['c1']);
+        expect(resolver, 'the host still gated the flagged call').toHaveBeenCalledOnce();
+        expect(policy, 'and the policy was never consulted').not.toHaveBeenCalled();
+    });
+
+    it('a policy installed after the turn began governs the gate, not only the answer', async () => {
+        const { cfg, el, patches, ran } = harness([{ id: 'c1', name: 'read_file' }]);
+        // Installed from inside the turn: the transport is consulted before the tool
+        // call is ruled on, so a policy set while it streams must already gate.
+        const original = cfg.getTransport();
+        cfg.setTransport({
+            chat: (...args: unknown[]) => {
+                cfg.setApprovalPolicy(() => ({ verdict: 'deny', reason: 'installed mid-turn' }));
+                return (original as unknown as { chat: (...a: unknown[]) => unknown }).chat(...args);
+            },
+        } as never);
+        await run(cfg, el);
+        expect(ran).toEqual([]);
+        expect(patches.map(p => p['status'])).not.toContain('awaiting-approval');
+        expect(patches.map(p => p['result'])).toContain('installed mid-turn');
     });
 });

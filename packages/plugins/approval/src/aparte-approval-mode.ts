@@ -9,7 +9,7 @@
  * cannot act is not offered.
  */
 import {
-    resolveConfig, escapeHtml, escapeAttr,
+    resolveConfig, subscribeConfigChange, escapeHtml, escapeAttr,
     type AparteConfig, type AparteConfigAware, type AparteSelectChangeDetail,
     type AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
@@ -42,8 +42,11 @@ const DEFAULT_LABELS: Record<ApprovalMode, string> = {
  * @fires aparte-approval-mode-change - After a switch: `{ mode, previousMode }`. Bubbles and crosses shadow roots.
  */
 export class AparteApprovalMode extends HTMLElement implements AparteConfigAware {
+    private _cfg: AparteConfig | null = null;
     private _controller: ApprovalController | undefined;
     private _unsubscribe: (() => void) | null = null;
+    private _configUnsubscribe: (() => void) | null = null;
+    private _bound = false;
     private _labels: Partial<Record<ApprovalMode, string>> = {};
     private readonly _onChange = (e: Event): void => {
         const detail = (e as CustomEvent<AparteSelectChangeDetail>).detail;
@@ -70,11 +73,19 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
 
     connectedCallback(): void {
         this._bind(resolveConfig(this));
+        // A setup that arrives AFTER this element mounted (a later script, a dynamic
+        // import), or one that goes away (`dispose()`, `config.reset()`): the config
+        // notifies on `setApprovalPolicy`, and the switch re-resolves its controller
+        // rather than staying disabled — or wired to nothing — for the life of the page.
+        this._configUnsubscribe = subscribeConfigChange(this, () => this._bind(resolveConfig(this)));
     }
 
     disconnectedCallback(): void {
         this._unsubscribe?.();
         this._unsubscribe = null;
+        this._configUnsubscribe?.();
+        this._configUnsubscribe = null;
+        this._bound = false;
         this.querySelector('aparte-select')?.removeEventListener('aparte-select-change', this._onChange);
     }
 
@@ -84,8 +95,14 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
     }
 
     private _bind(cfg: AparteConfig): void {
+        const next = getApprovalController(cfg);
+        // An unrelated notify (a locale, a provider) must not rebuild the select under an
+        // open dropdown: same config, same controller, nothing to rebind.
+        if (this._bound && cfg === this._cfg && next === this._controller) return;
+        this._bound = true;
+        this._cfg = cfg;
         this._unsubscribe?.();
-        this._controller = getApprovalController(cfg);
+        this._controller = next;
         if (!this._controller) {
             console.warn('[aparte] <aparte-approval-mode> found no approval setup on the config it resolves — call setupApproval() from @aparte/plugin-approval on that config (the scoped one if you passed a `config`, aparteGlobalConfig otherwise).');
         }
@@ -101,7 +118,10 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
         this.querySelector('aparte-select')?.removeEventListener('aparte-select-change', this._onChange);
         // The select carries no class of ours: `aparte-approval-mode aparte-select` is
         // already the address a consumer restyling it writes.
-        this.innerHTML = `<aparte-select${current ? ` value="${escapeAttr(current)}"` : ''}${controller ? '' : ' disabled'} aria-label="Approval mode">${options}</aparte-select>`;
+        // The accessible name follows the locale like the option labels do — a
+        // literal here was the one string a localised host could not translate.
+        const aria = String(this._cfg?.getLocale()['approvalModeLabel'] || 'Approval mode');
+        this.innerHTML = `<aparte-select${current ? ` value="${escapeAttr(current)}"` : ''}${controller ? '' : ' disabled'} aria-label="${escapeAttr(aria)}">${options}</aparte-select>`;
         this.querySelector('aparte-select')?.addEventListener('aparte-select-change', this._onChange);
     }
 

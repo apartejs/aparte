@@ -53,6 +53,39 @@ describe('<aparte-approval-mode>', () => {
         expect(select(el)?.value).toBe('auto');
     });
 
+    it('a removed element stops listening — the controller does not retain it', () => {
+        const approval = setupApproval(aparteGlobalConfig, { classify, mode: 'ask' });
+        const el = mount();
+        el.remove();
+        approval.setMode('auto');
+        expect(select(el)?.value, 'a detached switch is no longer synced').toBe('ask');
+    });
+
+    it('a setup that arrives after the element mounted wires it; one that goes away disables it', () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const el = mount();
+        expect(select(el)?.hasAttribute('disabled'), 'nothing to bind to yet').toBe(true);
+
+        const approval = setupApproval(aparteGlobalConfig, { classify, mode: 'plan' });
+        expect(select(el)?.hasAttribute('disabled'), 'the config notified, the switch re-bound').toBe(false);
+        expect(el.mode).toBe('plan');
+
+        approval.dispose();
+        expect(select(el)?.hasAttribute('disabled'), 'a switch wired to nothing is not offered').toBe(true);
+        expect(el.mode).toBeNull();
+    });
+
+    it('the accessible name follows the locale, like the option labels', () => {
+        setupApproval(aparteGlobalConfig, { classify });
+        const el = mount();
+        expect(select(el)?.getAttribute('aria-label')).toBe('Approval mode');
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), approvalModeLabel: "Mode d'approbation" });
+        // A locale switch is a config change too; the same controller stays, the select is
+        // rebuilt only when the binding changed — so read the name off a fresh mount.
+        const fresh = mount();
+        expect(select(fresh)?.getAttribute('aria-label')).toBe("Mode d'approbation");
+    });
+
     it('with no setup it renders disabled and says so once — an affordance that cannot act is not offered', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const el = mount();

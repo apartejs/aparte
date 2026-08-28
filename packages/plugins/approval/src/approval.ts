@@ -42,6 +42,9 @@ const controllers = new WeakMap<AparteConfig, ApprovalController>();
 // `config.reset()`, a `setApprovalPolicy(null)` from elsewhere — reads as no setup
 // rather than as a switch wired to nothing.
 const installed = new WeakMap<AparteConfig, AparteApprovalPolicy>();
+/** Whether the policy on `config` is still the one this module installed there. */
+const isInstalled = (config: AparteConfig): boolean =>
+    config.getApprovalPolicy() === installed.get(config);
 
 /**
  * Install the policy on `config` (the global one by default) and return its controller.
@@ -87,7 +90,9 @@ export function setupApproval(config: AparteConfig = aparteGlobalConfig, options
         },
         dispose() {
             if (controllers.get(config) === controller) {
-                config.setApprovalPolicy(null);
+                // Only the policy this setup installed: a config whose policy was since
+                // replaced by someone else keeps that replacement.
+                if (isInstalled(config)) config.setApprovalPolicy(null);
                 controllers.delete(config);
                 installed.delete(config);
             }
@@ -96,9 +101,11 @@ export function setupApproval(config: AparteConfig = aparteGlobalConfig, options
     };
 
     const policy = createApprovalPolicy(() => mode, options.classify);
-    config.setApprovalPolicy(policy);
+    // Bookkeeping BEFORE the config is told: `setApprovalPolicy` notifies, and a mounted
+    // switch re-resolves its controller on that notify — it must find this one.
     controllers.set(config, controller);
     installed.set(config, policy);
+    config.setApprovalPolicy(policy);
     return controller;
 }
 
@@ -111,5 +118,5 @@ export function setupApproval(config: AparteConfig = aparteGlobalConfig, options
 export function getApprovalController(config: AparteConfig = aparteGlobalConfig): ApprovalController | undefined {
     const controller = controllers.get(config);
     if (!controller) return undefined;
-    return config.getApprovalPolicy() === installed.get(config) ? controller : undefined;
+    return isInstalled(config) ? controller : undefined;
 }

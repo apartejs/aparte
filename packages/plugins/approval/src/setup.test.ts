@@ -85,4 +85,14 @@ describe('setupApproval', () => {
         expect(getApprovalController(cfg)).toBe(third);
         expect(cfg.getApprovalPolicy()).not.toBeNull();
     });
+
+    it('dispose() leaves a policy it does not own — one the host set itself after the setup', () => {
+        const cfg = new AparteConfig();
+        const approval = setupApproval(cfg, { classify });
+        const mine = () => ({ verdict: 'allow' as const });
+        cfg.setApprovalPolicy(mine);
+        expect(getApprovalController(cfg), 'a replaced policy reads as no setup').toBeUndefined();
+        approval.dispose();
+        expect(cfg.getApprovalPolicy(), 'the host\'s own policy survives the stale dispose').toBe(mine);
+    });
 });

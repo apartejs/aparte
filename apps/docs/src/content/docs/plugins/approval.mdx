@@ -63,6 +63,11 @@ Describe what you would do instead; the user can switch the mode to let you do i
 A tool in no list keeps its own `needsApproval` under three of the modes; `auto` lets it
 through as well, because auto is auto.
 
+The policy rules on the tool calls the loop dispatches to a handler. The built-in
+`create_artifact` is not one of them: core executes it itself (it renders an artifact in
+the transcript and touches nothing of yours), so it is not ruled on in any mode —
+classifying its name has no effect.
+
 ## The switch
 
 `<aparte-approval-mode>` is a select over the four modes, bound to the setup of the config

@@ -107,7 +107,15 @@ export interface AparteClientOptions {
      * decide from the call itself — it receives `(call, signal)` — or to drive
      * approval from a headless source (CLI / webhook) with no DOM.
      *
-     * It may return an `instruction`, which the model reads as part of the refusal.
+     * It owns the WHOLE decision: with one injected, an `AparteApprovalPolicy`
+     * registered through `setApprovalPolicy()` — and therefore
+     * `@aparte/plugin-approval`'s modes — is not consulted at all, neither for the
+     * gate nor for the answer, and the tool's own `needsApproval` decides which
+     * calls reach this resolver. Rule on the call here, or drop this option and use
+     * a policy; do not expect both.
+     *
+     * On a refusal it may return an `instruction` (the user's words) or a `reason`
+     * (nobody spoke), which the model reads as the tool result.
      */
     approvalResolver?: AparteToolApprovalResolver;
 
@@ -1519,20 +1527,27 @@ export class AparteClient {
             const context = { target: targetElement as unknown as HTMLElement, config: this._config };
             return (call: AparteToolCall, sig: AbortSignal) => handler(call, sig, context);
         };
-        // With a policy registered, the gate is decided per CALL, from the arguments —
-        // as a predicate, so a call the policy allows never pauses and never paints
-        // `awaiting-approval` on its row. Without one, the tool's own flag, as before.
+        // The gate is decided per CALL, from the arguments, by the same ruling the
+        // channel below answers with — read live, not snapshotted, so a policy
+        // installed mid-turn governs the gate and the answer alike. With no policy
+        // registered `ruleOnToolCall` is exactly the tool's own flag. `'ask'` pauses
+        // and is announced; `'deny'` refuses without announcing a pause nobody will
+        // answer; `false` runs.
+        //
         // A host that injected its own resolver owns the whole decision, so the policy
         // must not decide the gate either — an `allow` would skip that resolver.
-        const policy = this.options.approvalResolver ? null : this._config.getApprovalPolicy();
+        const hostOwnsDecision = Boolean(this.options.approvalResolver);
         const toolConfigLookup = (name: string) => {
             const tool = this._config.getTools().find(t => t.name === name);
             if (!tool) return undefined;
             return {
                 maxTurns: tool.maxTurns,
-                needsApproval: policy
-                    ? (call: AparteToolCall) => this._config.ruleOnToolCall(call).verdict !== 'allow'
-                    : tool.needsApproval,
+                needsApproval: hostOwnsDecision
+                    ? tool.needsApproval
+                    : (call: AparteToolCall) => {
+                        const verdict = this._config.ruleOnToolCall(call).verdict;
+                        return verdict === 'allow' ? false : verdict;
+                    },
             };
         };
         // The SAME channel the inline loop had. It used to be the `document` listener
@@ -1548,7 +1563,9 @@ export class AparteClient {
                 const ruling = this._config.ruleOnToolCall(call);
                 if (ruling.verdict === 'allow') return { approved: true };
                 if (ruling.verdict === 'deny') {
-                    return { approved: false, reason: ruling.reason ?? 'Tool execution was refused by the approval policy.' };
+                    // Truthiness, not `??`: an empty reason would otherwise be the whole
+                    // tool_result, or fall through to "the user rejected this" downstream.
+                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
                 }
                 return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
             });

@@ -13,6 +13,15 @@ describe('classifyTool', () => {
         expect(classifyTool('unknown', classify)).toBeUndefined();
         expect(classifyTool('x', { read: ['x'], exec: ['x'] })).toBe('exec');
     });
+
+    it('a caller\'s global or sticky RegExp classifies the same on every call', () => {
+        // `RegExp.prototype.test` advances `lastIndex` on a `g` regex, so a stateful
+        // match would flip between the gate predicate and the answering channel.
+        const c = { exec: [/^run_/g] };
+        expect(classifyTool('run_command', c)).toBe('exec');
+        expect(classifyTool('run_command', c)).toBe('exec');
+        expect(classifyTool('run_command', c)).toBe('exec');
+    });
 });
 
 describe('rulingFor — the nine cells, plus the unclassified column', () => {

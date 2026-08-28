@@ -278,7 +278,7 @@ Constructor options (all optional):
 | Option | Type | Purpose |
 |---|---|---|
 | `keyResolver` | `(providerId: string) => string \| Record<string,string> \| Promise<... \| undefined \| null> \| undefined \| null` | Resolve the API key/config for a provider. |
-| `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`. |
+| `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` (the user's words) or a `reason` (nobody spoke) the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`, after consulting the `setApprovalPolicy()` policy if one is registered. With one, it owns the whole decision: the policy (and `@aparte/plugin-approval`'s modes) is not consulted at all. |
 | `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: drop everything. |
 | `fileInjectFilter` | `(file: File) => boolean` | Decide which attached files are read and sent to the model. Return `false` to keep one out of the request — e.g. `(f) => !/(^\|\.)env$\|\.(pem\|key)$/i.test(f.name)`. Without one, every attachment is sent. |
 | `streamRunner` | `AparteStreamRunner` | The loop runner — `@aparte/engine`'s `runStreamAgent` by default. Set it to wrap that loop's options (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })`) or to replace it with a loop of your own emitting the same events. |
