@@ -115,13 +115,13 @@ English ships in core as `APARTE_DEFAULT_LOCALE`; other languages are injected.
 
 See the [Localization](/guides/localization/) guide.
 
-### Icons & skeleton
+### Icons
 
 - `setIconProvider(provider: AparteIconProvider): void` — a set of icon functions (`() => string` HTML each), e.g. a FontAwesome bridge.
 - `getIconProvider(): Required<AparteIconProvider>` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`. `Required<>` is the point: every key resolves, so a caller never null-checks a glyph.
 - `getIcon(name: AparteIconName): string` — HTML for one icon by name, falling back to the built-in default.
-- `setSkeletonProvider(provider: AparteSkeletonProvider): void` — a custom loading-state generator (`getSkeleton(type) => string`).
-- `getSkeleton(type: AparteSkeletonType): string` — skeleton HTML for a type (`message` / `code` / `thinking` / `input` / `list` / `text`), via the provider or a minimal built-in fallback.
+
+A loading placeholder is a CSS recipe, not a provider: `.aparte-skeleton` (with `--text`, `--circle`, `--rect`) in the [classes reference](/reference/classes/#skeleton). Core never asks for one — nothing it renders has a loading state that is not the message itself — so there is no `setSkeletonProvider` to call.
 
 ### Actions
 

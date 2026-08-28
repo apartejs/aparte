@@ -107,15 +107,6 @@ describe('aparteGlobalConfig', () => {
                 expect(icons[name]()).toContain('<svg');
             }
         });
-
-        it('should set skeleton provider', () => {
-            const mockProvider = {
-                getSkeleton: () => '<div class="skeleton"></div>'
-            };
-
-            aparteGlobalConfig.setSkeletonProvider(mockProvider);
-            expect(true).toBe(true);
-        });
     });
 
     describe('Action registry (unified, zoned)', () => {

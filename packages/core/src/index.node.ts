@@ -151,8 +151,6 @@ export type {
     AparteConversation,
     AparteConversationMeta,
     AparteStorageAdapter,
-    AparteMemoryFact,
-    AparteArtifactRow,
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
@@ -201,8 +199,6 @@ export type {
     AparteStreamingMarkdownRenderer,
     AparteHighlightProvider,
     AparteSystemPromptVarsProvider,
-    AparteSkeletonProvider,
-    AparteSkeletonType,
     AparteLocale,
     AparteAction,
     AparteActionZone,
@@ -222,7 +218,7 @@ export type {
     AparteArtifactPreviewBuilder,
     AparteSanitizer,
 } from './config/index.js';
-export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
+export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';

@@ -14,7 +14,6 @@ import {
     type AparteLocale,
     type AparteMarkdownProvider,
     type AparteModelConfig,
-    type AparteSkeletonProvider,
 } from '@aparte/core';
 import { APARTE_CLIENT_OPTIONS, AparteAiService } from './aparte-ai.service';
 
@@ -41,8 +40,6 @@ export interface ProvideAparteOptions {
         actions?: ApartePluginLoader[];
         /** An icon provider object, or a loader that registers one. */
         icons?: AparteIconProvider | ApartePluginLoader;
-        /** A skeleton provider object, or a loader that registers one. */
-        skeleton?: AparteSkeletonProvider | ApartePluginLoader;
         /** A loader that applies a theme. */
         theme?: ApartePluginLoader;
         /** A markdown provider `(raw: string) => string`, or a loader that registers one. */
@@ -86,18 +83,6 @@ async function loadIconPlugin(plugin: AparteIconProvider | ApartePluginLoader): 
     }
 }
 
-async function loadSkeletonPlugin(plugin: AparteSkeletonProvider | ApartePluginLoader): Promise<void> {
-    if (typeof plugin === 'object' && plugin !== null) {
-        aparteGlobalConfig.setSkeletonProvider(plugin);
-        return;
-    }
-    try {
-        await (plugin as ApartePluginLoader)();
-    } catch (err) {
-        console.warn('[aparte] Failed to load skeleton plugin', err);
-    }
-}
-
 async function loadMarkdownPlugin(plugin: AparteMarkdownProvider | ApartePluginLoader): Promise<void> {
     // A markdown provider takes the raw string; a loader takes nothing.
     if (plugin.length >= 1) {
@@ -126,7 +111,6 @@ async function loadPlugins(options: ProvideAparteOptions): Promise<void> {
 
     for (const action of plugins.actions ?? []) pending.push(runLoader(action, 'action'));
     if (plugins.icons) pending.push(loadIconPlugin(plugins.icons));
-    if (plugins.skeleton) pending.push(loadSkeletonPlugin(plugins.skeleton));
     if (plugins.theme) pending.push(runLoader(plugins.theme, 'theme'));
     if (plugins.markdown) pending.push(loadMarkdownPlugin(plugins.markdown));
 

@@ -11,8 +11,6 @@ export type { AparteSanitizer } from './sanitize.js';
 export { defaultSanitizer, isSafeUrl } from './sanitize.js';
 export type { AparteIconProvider, AparteIconName } from './icon-provider.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
-export type { AparteSkeletonType, AparteSkeletonProvider } from './skeleton-provider.js';
-export { APARTE_DEFAULT_SKELETON_FALLBACKS } from './skeleton-provider.js';
 export type { AparteAvatarProvider } from './avatar-provider.js';
 export type { AparteStatusRenderer } from './status-renderer.js';
 export type { AparteErrorRenderer } from './error-renderer.js';
