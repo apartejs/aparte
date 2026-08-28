@@ -36,6 +36,9 @@
         "starlight-sidebar-topics": "^0.8.0"
     },
     "devDependencies": {
+        "@aparte/plugin-approval": "workspace:*",
+        "@aparte/plugin-ask-user": "workspace:*",
+        "@aparte/plugin-model-selector": "workspace:*",
         "@astrojs/check": "^0.9.10",
         "astro-og-canvas": "^0.13.0",
         "canvaskit-wasm": "^0.42.0",
