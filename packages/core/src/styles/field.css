@@ -12,6 +12,7 @@
  *     </label>
  *     <input id="email" class="aparte-field" type="email" placeholder="you@example.com" />
  *     <p class="aparte-field-hint">We only use this to send a receipt.</p>
+ *     <p class="aparte-field-warning">Changing it signs you out of other devices.</p>
  *
  *     <div class="aparte-field-group">
  *       <span class="aparte-field-group__prefix">https://</span>
@@ -644,6 +645,19 @@
   margin-block-start: var(--aparte-space-1);
   font-size: var(--aparte-font-size-xs);
   color: var(--aparte-error-text);
+}
+
+/* The third tone of a field's sub-text: a consequence, not a fault. "This setting
+   invalidates the saved states" is neither a hint nor an error, and a shell that had
+   only those two painted it as one of them. Same shape as the error line; the warning
+   ink is the derived one every other warning reads. */
+.aparte-field-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+  margin-block-start: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-xs);
+  color: var(--aparte-warning-ink);
 }
 
 /* A bare colour on the marker, not injected `*` content: a locale that doesn't mark
