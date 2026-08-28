@@ -222,6 +222,26 @@ describe('buildElicitationPanel', () => {
             expect(buildElicitationPanel('?', { type: 'enum', multiple: true, options: [{ value: 'a' }] }, noop).mode()).toBe('submit');
         });
 
+        it('the host can make a single choice select-then-send instead', () => {
+            // `answerOnClick: false`: radios and the composer's button, like any other
+            // question — the field builders simply never receive `settle`.
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ answerOnClick: false });
+            const schema: AparteElicitationSchema = { type: 'enum', options: [{ value: 'a' }, { value: 'b' }], allowOther: false };
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', schema, noop));
+            expect(commands(p.el), 'no command buttons').toHaveLength(0);
+            expect(p.el.querySelectorAll('input[type="radio"]')).toHaveLength(2);
+            expect(p.mode()).toBe('submit');
+            expect(p.isComplete()).toBe(false);
+            (p.el.querySelector('input[type="radio"]') as HTMLInputElement).click();
+            expect(p.isComplete()).toBe(true);
+            expect(p.getContent()).toBe('a');
+            // A yes/no follows the same policy.
+            const yn = runWithConfig(cfg, () => buildElicitationPanel('?', { type: 'boolean' }, noop));
+            expect(commands(yn.el)).toHaveLength(0);
+            expect(yn.mode()).toBe('submit');
+        });
+
         it('a single question is never stepped', () => {
             const p = buildElicitationPanel('', {
                 type: 'object',

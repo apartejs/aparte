@@ -804,7 +804,11 @@ function buildPanel(
     // so a choice here answers on the click; everything that still collects a value —
     // a multi-select, a text field, a choice carrying a `default` — ignores it and
     // keeps the composer's button, which is what `offersSubmit` reports back.
-    const field = buildField(schema, onChange, asked, undefined, settle);
+    // The host can withhold it (`answerOnClick: false`): then a single choice keeps
+    // its radios and commits through the button like every other question — the
+    // field builders see no `settle` at all, so nothing else has to know.
+    const answerOnClick = contextConfig().getElicitationOptions().answerOnClick;
+    const field = buildField(schema, onChange, asked, undefined, answerOnClick ? settle : undefined);
     body.appendChild(field.el);
     return {
         el: panel,

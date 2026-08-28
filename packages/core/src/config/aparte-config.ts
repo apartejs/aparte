@@ -168,6 +168,8 @@ export class AparteConfig {
     /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
     private _elicitationAllowOther = true;
     private _elicitationLayout: 'stepped' | 'stacked' = 'stepped';
+    /** Whether a single choice answers on the click (buttons) or keeps its radios + the composer's button. */
+    private _elicitationAnswerOnClick = true;
     private _elicitationFieldRenderer?: AparteElicitationFieldRenderer | undefined;
     // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
     private _transport: AparteTransport = new AparteDirectTransport();
@@ -937,16 +939,27 @@ export class AparteConfig {
      * collecting structured data, not two different questions asked mid-conversation.
      * No product asks a person two questions by stacking them in one box; it is kept
      * as an option because the form case is real, not because it was the right default.
+     *
+     * `answerOnClick` decides how a question asked ON ITS OWN with a single choice — an
+     * `enum` without `multiple` or a `default`, a `boolean` without a `default` — is
+     * answered. `true` (default) renders the options as buttons and the click is the
+     * answer: one decision, one gesture, the shape every chat product uses for "which
+     * one?". `false` keeps the radios and the composer's button, so a person can
+     * change their mind before committing — the shape a form or a screen reader
+     * flow may prefer, and the one a host that wants a uniform "select, then send"
+     * across every question asks for. A form of several questions always collects and
+     * submits, whatever this says.
      */
-    setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked' }): void {
+    setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked'; answerOnClick?: boolean }): void {
         if (options.allowOther !== undefined) this._elicitationAllowOther = options.allowOther;
         if (options.layout !== undefined) this._elicitationLayout = options.layout;
+        if (options.answerOnClick !== undefined) this._elicitationAnswerOnClick = options.answerOnClick;
         this._notify();
     }
 
     /** The elicitation policy (see {@link setElicitationOptions}). */
-    getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' } {
-        return { allowOther: this._elicitationAllowOther, layout: this._elicitationLayout };
+    getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked'; answerOnClick: boolean } {
+        return { allowOther: this._elicitationAllowOther, layout: this._elicitationLayout, answerOnClick: this._elicitationAnswerOnClick };
     }
 
     /**
@@ -1389,6 +1402,7 @@ export class AparteConfig {
         this._requireModelSelection = false;
         this._elicitationAllowOther = true;
         this._elicitationLayout = 'stepped';
+        this._elicitationAnswerOnClick = true;
         this._elicitationFieldRenderer = undefined;
         this._modelPreferenceProvider = undefined;
         this._approvalPolicy = null;

@@ -54,6 +54,21 @@ Three fields cover most questions:
 An `enum` also offers a free-text **Other…** entry by default; pass
 `allowOther: false` to close it.
 
+A single choice asked on its own — an `enum` without `multiple` or a `default`, a
+`boolean` without a `default` — renders its options as **buttons, and the click is the
+answer**: one decision, one gesture. That is the host's policy, and it has a switch:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setElicitationOptions({ answerOnClick: false });
+```
+
+With it off, the same question keeps its radios and the composer's button — select, then
+send — so a person can change their mind before committing, and every question on the page
+answers the same way. A form of several questions always collects and submits, whatever the
+switch says.
+
 ## Asking for several things at once
 
 Wrap the fields in an `object` schema and you get a small form — one labelled input per
