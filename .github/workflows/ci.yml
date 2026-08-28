@@ -208,8 +208,16 @@ jobs:
           # `scripts/gen-root-changelog.mjs`, which only `pnpm version-packages` runs.
           # If this PR touches it, the versions moved inside it and the changesets are
           # already spent.
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qx 'CHANGELOG.md'; then
+          #
+          # And a PR that touches no package needs no changeset: a workflow, a script,
+          # a docs page, the site. The rule in CLAUDE.md is "any package with an API or
+          # CSS change" — this guard used to demand one for a one-line ci.yml change,
+          # which is a changeset about nothing.
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          if printf '%s\n' "$changed" | grep -qx 'CHANGELOG.md'; then
             echo "release PR (root CHANGELOG.md moved) — the changesets were consumed here"
+          elif ! printf '%s\n' "$changed" | grep -q '^packages/'; then
+            echo "no package changed — no changeset needed"
           else
             pnpm exec changeset status --since="origin/${{ github.base_ref }}"
           fi
