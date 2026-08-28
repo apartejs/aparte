@@ -13,6 +13,15 @@ everything with CSS variables — no framework, and zero third-party dependencie
 By the end of this page you'll have a working chat that streams a reply, running
 entirely in the browser.
 
+:::tip[On React, Vue, Svelte or Angular?]
+Start from your framework's page instead — [React](/frameworks/react/),
+[Vue](/frameworks/vue/), [Svelte](/frameworks/svelte/), [Angular](/frameworks/angular/):
+the same chat as an idiomatic component, with the install and a first render in your own
+syntax. This page is the vanilla path, and it is also where the wrappers send you for what
+they leave alone — providers, transports and the client, which are the same in every
+framework.
+:::
+
 :::caution[Alpha]
 Every `@aparte/*` package is a plain `0.x` and the API can still change before the first
 stable cut. A rename lands as a rename rather than behind a deprecated alias, so a minor
@@ -37,19 +46,31 @@ without a DOM, and the second entry point `@aparte/core/icons` — and the older
 `"node"`/`"classic"` resolvers do not read one. On those, the import resolves to nothing
 and every symbol is `any`.
 
-For a single `index.html` with no build at all, name the files in an import map:
+For a single `index.html` with no build at all — no npm either — load the packages from a
+CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
+`@aparte/engine` bundled into core's:
 
 ```html
-<script type="importmap">
-  { "imports": { "@aparte/core": "https://esm.sh/@aparte/core@latest" } }
-</script>
-<link rel="stylesheet" href="https://esm.sh/@aparte/core@latest/styles.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@0.13.1/dist/index.css">
+<aparte-chat style="height: 600px"></aparte-chat>
 <script type="module">
-  import '@aparte/core';
-  import { registerDefaultRenderers } from '@aparte/core';
+  import { aparteGlobalConfig, AparteClient, AparteDirectTransport, registerDefaultRenderers }
+    from 'https://cdn.jsdelivr.net/npm/@aparte/core@0.13.1/+esm';
+  import { createOpenAICompatProvider, presets }
+    from 'https://cdn.jsdelivr.net/npm/@aparte/provider-openai-compat@0.13.1/+esm';
+
   registerDefaultRenderers();
+  aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
+  aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+  new AparteClient().start();
 </script>
 ```
+
+**Pin the same exact version on every URL.** A provider's bundle imports core at the exact
+version jsDelivr resolved for it (`/npm/@aparte/core@0.13.1/+esm`); a different string on
+your side — `@alpha`, `@0.13`, `@latest` — is a different URL, and a different URL is a
+second copy of core with a registry of its own, so the provider you register lands in the
+wrong one. Every package ships at the same version, which makes this one number to keep.
 :::
 
 ## Register the components

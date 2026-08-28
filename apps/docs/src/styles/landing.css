@@ -188,13 +188,20 @@ h1.thesis em { font-style: italic; color: var(--accent); }
    it is styled like. A select reads as a setting, takes one line, and puts all
    three seams in one glance. */
 .levers { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 20px; margin-block-start: 20px; }
-.levers label { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
-.levers select { font: inherit; font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--text); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer; transition: border-color .2s; }
-.levers select:hover, .levers select:focus-visible { border-color: var(--accent); }
-/* The native menu is painted by the OS in its own colours, so the OPTIONS have to
-   carry a readable pair of their own — a transparent background here renders white
-   on white in a dark-themed browser. */
-.levers option { background: var(--surface); color: var(--text); }
+.levers .lever { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+/* The library's own select (it was a native one, painted white by the browser on this
+   dark page — two designs on one screen). Its tokens make it a quiet pill in the page's
+   colours; the dropdown follows core's dark palette because `index.astro` mirrors the
+   page theme onto `.levers` as `data-aparte-theme`. */
+.levers aparte-select {
+  --aparte-select-min-width: 0;
+  --aparte-select-bg: transparent;
+  --aparte-select-border: var(--line);
+  --aparte-select-border-hover: var(--accent);
+  --aparte-select-border-focus: var(--accent);
+  --aparte-select-dropdown-bg: var(--surface);
+  font-size: 13px; letter-spacing: 0; text-transform: none;
+}
 
 /* The version chip in the nav: it says the project ships, says "alpha" without
    hiding it, and is the way to the changelog — all on the pixels one more nav

@@ -154,12 +154,26 @@ const { title, markup, scripts } = Astro.props;
              * reply that streams in or a disclosure the reader opens changes the height after
              * the fact.
              */
-            const post = () =>
-                parent.postMessage(
-                    { apartePreviewHeight: Math.ceil(document.body.getBoundingClientRect().height) },
-                    '*',
-                );
+            /*
+             * The body's box is not always the bottom of what is on screen: an open
+             * `<aparte-select>` drops its list in an absolutely positioned layer that adds
+             * nothing to the body's height, so the frame stayed the height of the closed
+             * control and the reader saw the list cut off at the frame's edge. The height
+             * reported is the body's box or the lowest edge of anything painted inside it,
+             * whichever is further down — and it is re-posted on DOM mutations as well as
+             * on resizes, because opening that list resizes nothing the observer watches.
+             */
+            const height = () => {
+                let bottom = document.body.getBoundingClientRect().height;
+                for (const el of document.body.querySelectorAll('*')) {
+                    const r = el.getBoundingClientRect();
+                    if (r.height > 0 && r.bottom > bottom) bottom = r.bottom;
+                }
+                return Math.ceil(bottom);
+            };
+            const post = () => parent.postMessage({ apartePreviewHeight: height() }, '*');
             new ResizeObserver(post).observe(document.body);
+            new MutationObserver(post).observe(document.body, { subtree: true, childList: true, attributes: true });
             addEventListener('load', post);
 
             /*
