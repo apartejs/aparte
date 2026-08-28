@@ -68,10 +68,12 @@ import type * as React from 'react';
 /**
  * An aparté tag in JSX: the standard HTML props, plus the element's own attributes.
  *
- * `Omit` puts the ELEMENT's contract first where the two collide, and one collision is
- * real: `<aparte-chat-bubble role="assistant">` is the message role, while React types
- * `role` as an `AriaRole` union. Intersecting them would leave no assignable value at
- * all, so the element wins and ARIA's narrower type steps aside.
+ * `Omit` puts the ELEMENT's contract first where the two collide. The motivating
+ * collision was `<aparte-chat-bubble role="assistant">` — the message role on an
+ * attribute React types as an `AriaRole` union, where intersecting the two left no
+ * assignable value. The bubble now reads its message role from `data-role` only and
+ * `role` is ARIA's again, but the rule stays: an element's own attribute type wins
+ * over React's guess for it.
  */
 type AparteTagProps<T> =
     Omit<React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>, keyof T>

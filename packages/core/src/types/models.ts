@@ -269,14 +269,6 @@ export interface AparteViewportConfig {
     maxRenderedBubbles?: number;
 
     /**
-     * @deprecated Renamed to {@link maxRenderedBubbles}. This used to silently
-     * evict messages from the conversation model (data loss); it now only caps
-     * rendered bubbles. For real history retention, configure it on your
-     * AparteConversationManager instead.
-     */
-    maxMessages?: number;
-
-    /**
      * Duration in milliseconds to freeze spacer recalculation after resetSpacer().
      * Set this to the duration of any CSS layout transition in the host app
      * (e.g. the flex animation that moves the composer from center to bottom).

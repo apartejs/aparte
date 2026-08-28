@@ -140,8 +140,7 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
  *
  * @element aparte-chat-bubble
  *
- * @attr {string} role - The message role. `data-role` is the styled mirror of it.
- * @attr {string} data-role - `user` / `assistant` / `system`; what the CSS keys off.
+ * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and no longer reads a message role from it.)
  * @attr {string} content - Plain text content, for a bubble with no segments.
  * @attr {number | string} timestamp - Epoch milliseconds OR a date string: `_updateTimestamp` accepts either and only coerces when the value is numeric.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
@@ -270,12 +269,12 @@ export class AparteChatBubble extends HTMLElement {
   private _editInput: AparteComposerInput | null = null;
 
   static get observedAttributes(): string[] {
-    // Both `data-role` (preferred, set by Angular wrapper) and `role` (legacy
-    // / direct usage) feed into the same _role state. The host element gets
-    // its own `role="article"` set in _render() for ARIA compliance — that
-    // is filtered in attributeChangedCallback so it doesn't loop back as a
-    // bubble role of "article".
-    return ['role', 'data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name'];
+    // `data-role` is the ONE channel for the message role. `role` is ARIA's
+    // attribute — this element writes `role="article"` on itself in _render() —
+    // and it used to be read as a legacy message-role channel too, which meant
+    // filtering our own "article" back out at every turn. A rename lands as a
+    // rename pre-1.0, so the overload is gone.
+    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name'];
   }
 
   constructor() {
@@ -392,12 +391,7 @@ export class AparteChatBubble extends HTMLElement {
     if (oldValue === newValue) return;
 
     switch (name) {
-      case 'role':
       case 'data-role':
-        // Skip the ARIA-compliance value we set ourselves in _render().
-        // Real bubble roles are 'user' or 'assistant'; anything else is
-        // either the 'article' we wrote for accessibility or stale.
-        if (newValue === 'article') return;
         if (newValue === 'user' || newValue === 'assistant') {
           this._role = newValue as AparteBubbleRole;
           this._updateRole();
@@ -677,17 +671,13 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   private _render(): void {
-    // Read the bubble's logical role from `data-role` (preferred — written
-    // by the Angular wrapper) or the legacy `role` attribute, then set the
-    // host's actual `role` attribute to a valid ARIA value. "user" and
-    // "assistant" are NOT valid ARIA roles and would trigger accessibility
-    // warnings in browsers / Lighthouse. The role-based styling lives on
-    // inner `data-role` markers, so this swap is transparent to CSS.
+    // The message role comes from `data-role` alone; the host's `role` attribute is
+    // ARIA's and is set to a valid value here. "user" and "assistant" are not ARIA
+    // roles and would trip accessibility tooling — which is exactly why the message
+    // role never belonged on that attribute. The role-based styling lives on inner
+    // `data-role` markers, so the swap is transparent to CSS.
     const dataRole = this.getAttribute('data-role');
-    const legacyRole = this.getAttribute('role');
-    const role = (dataRole && dataRole !== 'article') ? dataRole
-        : (legacyRole && legacyRole !== 'article') ? legacyRole
-        : 'assistant';
+    const role = (dataRole === 'user' || dataRole === 'assistant') ? dataRole : 'assistant';
     this._role = role as AparteBubbleRole;
     if (this.getAttribute('role') !== 'article') {
         this.setAttribute('role', 'article');
@@ -1504,7 +1494,7 @@ export class AparteChatBubble extends HTMLElement {
     let el: HTMLElement | null = this.parentElement;
     while (el) {
       const tag = el.tagName?.toLowerCase();
-      const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+      const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
       if (isHost && el.id) return el.id;
       el = el.parentElement;
     }

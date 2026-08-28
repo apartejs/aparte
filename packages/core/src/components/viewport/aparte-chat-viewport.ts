@@ -77,9 +77,6 @@ import {
  *   this mode only. All four wrappers set it.
  * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
  * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
- * @attr {number} max-messages - DEPRECATED. It used to evict messages from the model; it now
- *   only caps rendered bubbles, which is what `max-rendered-bubbles` says. For real history
- *   retention configure the conversation manager instead.
  *
  * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment grew or settled during a stream.
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
@@ -154,8 +151,6 @@ export class AparteChatViewport extends HTMLElement {
      * snapshot stay intact; only the oldest rendered bubbles are dropped from view.
      */
     private _maxRenderedBubbles: number = 1000;
-    /** One-time guard for the deprecated `maxMessages` warning. */
-    private _warnedMaxMessagesDeprecation = false;
     private _resizeObserver: ResizeObserver | null = null;
     private _mutationObserver: MutationObserver | null = null;
     private _boundResetHandler: (() => void) | null = null;
@@ -167,7 +162,7 @@ export class AparteChatViewport extends HTMLElement {
     private _frameworkManagedDOM = false;
 
     static get observedAttributes(): string[] {
-        return ['scroll-threshold', 'max-rendered-bubbles', 'max-messages'];
+        return ['scroll-threshold', 'max-rendered-bubbles'];
     }
 
     constructor() {
@@ -234,14 +229,6 @@ export class AparteChatViewport extends HTMLElement {
                 this._maxRenderedBubbles = parseInt(newValue || '1000', 10);
                 this._pruneRenderedBubbles();
                 break;
-            case 'max-messages':
-                // Deprecated alias. It used to evict messages from the tree
-                // (destructive, silent data loss); it now only caps rendered
-                // bubbles in the DOM. Use `max-rendered-bubbles` instead.
-                this._warnMaxMessagesDeprecated();
-                this._maxRenderedBubbles = parseInt(newValue || '1000', 10);
-                this._pruneRenderedBubbles();
-                break;
         }
     }
 
@@ -254,12 +241,6 @@ export class AparteChatViewport extends HTMLElement {
         }
         if (config.maxRenderedBubbles !== undefined) {
             this._maxRenderedBubbles = config.maxRenderedBubbles;
-            this._pruneRenderedBubbles();
-        }
-        if (config.maxMessages !== undefined) {
-            // Deprecated alias (see attributeChangedCallback).
-            this._warnMaxMessagesDeprecated();
-            this._maxRenderedBubbles = config.maxMessages;
             this._pruneRenderedBubbles();
         }
         if (config.layoutTransitionMs !== undefined) {
@@ -625,7 +606,7 @@ export class AparteChatViewport extends HTMLElement {
             if (wrapper) {
                 const bubble = document.createElement('aparte-chat-bubble') as HTMLElement;
                 bubble.setAttribute('message-id', message.id);
-                bubble.setAttribute('role', message.role);
+                bubble.setAttribute('data-role', message.role);
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
                 // Also true for an empty assistant message with no status: an
@@ -1097,7 +1078,7 @@ export class AparteChatViewport extends HTMLElement {
 
             const bubble = document.createElement('aparte-chat-bubble');
             bubble.setAttribute('message-id', message.id);
-            bubble.setAttribute('role', message.role);
+            bubble.setAttribute('data-role', message.role);
             if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
             if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');
@@ -1529,7 +1510,7 @@ export class AparteChatViewport extends HTMLElement {
 
         const lastUserBubble = [...allBubbles]
             .reverse()
-            .find(b => b.getAttribute('role') === 'user');
+            .find(b => b.getAttribute('data-role') === 'user');
 
         if (!lastUserBubble) {
             this._setSpacerHeight(0);
@@ -1619,17 +1600,6 @@ export class AparteChatViewport extends HTMLElement {
         for (let i = 0; i < excess; i++) {
             bubbles[i]?.remove();
         }
-    }
-
-    private _warnMaxMessagesDeprecated(): void {
-        if (this._warnedMaxMessagesDeprecation) return;
-        this._warnedMaxMessagesDeprecation = true;
-        console.warn(
-            '[Aparte] `maxMessages` / `max-messages` on aparte-chat-viewport is deprecated: ' +
-            'it used to silently evict messages from the conversation model. It now only ' +
-            'caps rendered bubbles in the DOM — use `maxRenderedBubbles` / `max-rendered-bubbles`. ' +
-            'For actual history retention, configure it on your AparteConversationManager instead.',
-        );
     }
 
     private _cleanup(): void {

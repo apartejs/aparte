@@ -34,7 +34,7 @@ type ViewportEl = HTMLElement & {
     updateMessage(id: string, updates: Partial<AparteMessage>): void;
     clearAll(): void;
     setFrameworkManagedDOM(managed: boolean): void;
-    configure(config: { scrollThreshold?: number; maxRenderedBubbles?: number; maxMessages?: number; layoutTransitionMs?: number }): void;
+    configure(config: { scrollThreshold?: number; maxRenderedBubbles?: number; layoutTransitionMs?: number }): void;
 };
 
 function createViewport(): ViewportEl {
@@ -724,13 +724,6 @@ describe('AparteChatViewport', () => {
             for (let i = 0; i < 4; i++) expect(viewport.getMessage(`k${i}`)).toBeDefined();
         });
 
-        it('the deprecated maxMessages alias caps rendering but does not evict', () => {
-            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-            viewport.configure({ maxMessages: 2 });
-            for (let i = 0; i < 4; i++) viewport.appendMessage(makeMsg({ id: `d${i}` }));
-            expect(viewport.getMessages()).toHaveLength(4); // model intact, no eviction
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining('deprecated'));
-        });
     });
 });
 
