@@ -16,9 +16,11 @@ import { aparteGlobalConfig } from '../config/index.js';
 import type { AparteConfig } from '../config/index.js';
 // The artifact card — the one renderer big enough to have its own file, plus the
 // two paths it delegates to.
-// The nine built-in renderers, one file each under ./segments/. This module is the
-// REGISTRY: it owns which renderer draws which segment type, per config, and the
-// style injection they share. It knows nothing about how any of them render.
+// The built-in renderers, one file each under ./segments/ — `DEFAULT_RENDERERS` at
+// the bottom is the list, and the count (this line used to say "nine" over a list
+// of seven). This module is the REGISTRY: it owns which renderer draws which
+// segment type, per config, and the style injection they share. It knows nothing
+// about how any of them render.
 import { textRenderer } from './segments/text.js';
 import { thinkingRenderer } from './segments/thinking.js';
 import { codeRenderer } from './segments/code.js';
@@ -269,57 +271,6 @@ export function injectToolRendererStyles(toolName: string, renderer: { getStyles
     document.head.appendChild(el);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Text Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Thinking Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Code Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Terminal Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Error Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Progress Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// File Tree Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Exports
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tool Call Renderer (default — shown when no per-tool renderer is registered)
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Pipeline Waiting Renderer — pulsing dots between pipeline phases
-// ─────────────────────────────────────────────────────────────────────────────
-
-
 export function registerDefaultRenderers(config: AparteConfig = contextConfig()): void {
     const reg = registryFor(config);
     reg.defaultsInstalled = true;
@@ -339,74 +290,6 @@ export function registerDefaultRenderers(config: AparteConfig = contextConfig())
     injectRendererStyles(config);
     installArtifactReadyHook();
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Artifact Renderer — INLINE CARD with Code/Preview tabs
-//
-// Replaces the previous "pill that opens a side panel" UX. The artifact now
-// lives directly inside the chat as a card the user can interact with:
-//   - Code tab:    syntax-highlighted source (always available)
-//   - Preview tab: sandboxed iframe (only for previewable kinds)
-//   - Actions:     copy, download
-//
-// During streaming the Code tab is active and the iframe is not built. As soon
-// as `isStreaming` flips to false, the card switches to Preview (when
-// previewable) and lazily builds the srcdoc.
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Binary file artifact helpers (xlsx/pdf/docx)
-// ─────────────────────────────────────────────────────────────────────────────
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ─── Char-based helpers (no regex) ───────────────────────────────────────────
-
-
-
-// ─── Preview document builder (CDN-FREE offline fallback) ────────────────────
-// Core ships only an OFFLINE-safe preview: svg/css/html/js render with zero
-// network, and richer kinds (react/…) degrade to a read-only code view. The
-// product opts into a CDN-powered live preview (React/Babel/Tailwind) by
-// registering a builder via `aparteGlobalConfig.setArtifactPreviewBuilder()`. Core must
-// stay framework-agnostic and zero-network, so no CDN URLs live here.
-
-/**
- * Create the preview frame — the ONLY place it is created, and only ever from a
- * real user press on the Preview tab.
- *
- * Idempotent: pressing Preview, Code, then Preview again reuses the frame rather
- * than re-running the artifact.
- *
- * Two containments, and it is worth being precise about what each buys:
- *   - `sandbox="allow-scripts"` (no allow-same-origin) gives the frame an opaque
- *     origin, so it cannot touch the host page, its DOM, or its storage.
- *   - `csp` shrinks what it can reach OUTWARD — the sandbox alone still allows
- *     `fetch()` to any origin, which is how an injected artifact would exfiltrate
- *     or beacon. Note honestly that the `csp` ATTRIBUTE is Chromium-only; the
- *     portable half is the `<meta http-equiv>` that `buildSafePreviewDocument`
- *     puts inside the documents we build ourselves.
- */
-
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The built-in set

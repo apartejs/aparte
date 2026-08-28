@@ -212,7 +212,7 @@ export interface AparteMessage {
     content?: string;
 
     /**
-     * Rich content segments (thinking, code, terminal, etc.)
+     * Rich content segments (thinking, code, tool calls, artifacts, …)
      * Takes precedence over `content` if provided
      */
     segments?: AparteSegment[];
