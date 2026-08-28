@@ -61,6 +61,7 @@ export function renderBinaryFileArtifact(segment: ArtifactSegment, kind: string)
 
     // Already produced (a re-mount): the file, at once.
     if (done && !isStreaming) {
+        const preview = previewMarkup(done, kind);  // safe-text: the app's previewHtml through the config's sanitizer, or an escapeHtml'd sentence — markup on purpose, as swapToPreview() sets it
         return `
             <div class="aparte-segment aparte-card aparte-segment-artifact-file"
                  data-segment-id="${escapeHtml(segment.id)}"
@@ -80,7 +81,7 @@ export function renderBinaryFileArtifact(segment: ArtifactSegment, kind: string)
                     <div class="aparte-art-file__code-pane" data-role="code-pane" hidden>
                         <pre><code class="language-js"></code></pre>
                     </div>
-                    <div class="aparte-art-file__preview-pane" data-role="preview-pane">${previewMarkup(done, kind)}</div>
+                    <div class="aparte-art-file__preview-pane" data-role="preview-pane">${preview}</div>
                 </div>
             </div>
         `;

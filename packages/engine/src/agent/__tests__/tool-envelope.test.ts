@@ -110,7 +110,7 @@ describe('the turn\'s tool_call envelope', () => {
         let turn = 0;
         const turns: StreamChatEvent[][] = [
             [
-                { type: 'tool_use', id: 'c-art', name: 'create_artifact', input: { content: 'x' } },
+                { type: 'tool_use', id: 'c-search', name: 'search', input: { q: 'x' } },
                 { type: 'tool_use', id: 'c-save', name: 'save', input: {} },
                 { type: 'done' },
             ],
@@ -120,7 +120,7 @@ describe('the turn\'s tool_call envelope', () => {
             messageId: 'a1',
             baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'go' }] },
             transportCall: async () => stream(turns[turn++] ?? [{ type: 'done' }]),
-            toolLookup: (name) => (name === 'save' ? async () => ({ content: 'ok' }) : undefined),
+            toolLookup: (name) => (name === 'save' || name === 'search' ? async () => ({ content: 'ok' }) : undefined),
             onHistoryAppend: (m) => seen.push(m),
             emitter: () => {},
             signal: new AbortController().signal,
@@ -129,7 +129,7 @@ describe('the turn\'s tool_call envelope', () => {
         expect(envelopes).toHaveLength(1);
         // Reported when the first call completed, with one call — and the same object
         // holds both by the end: a host keeps the reference, not a copy.
-        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-art', 'c-save']);
+        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-search', 'c-save']);
         expect(seen.map((m) => m.role)).toEqual(['tool_call', 'tool_result', 'tool_result']);
     });
 });

@@ -97,7 +97,9 @@ export default defineConfig({
         // the table-driven suite in
         // `packages/wrappers/angular/src/lib/__tests__/element.directives.spec.ts`
         // exercises the whole surface rather than a sample.
-        functions: 81,
+        // Functions 81 -> 83 with D7 (2026-08-29): the artifact code that left core was
+        // its least-covered; measured 84.09% after. The ratchet asked for it.
+        functions: 83,
         branches: 85,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
@@ -118,7 +120,9 @@ export default defineConfig({
         // Branches 81 -> 90 on 2026-08-29: the approval-policy suite (mid-turn policy, deny
         // without a reason, the host resolver with the bypassing verdict) and the issue #29
         // gate fixture moved the measurement to 91.56%; the two-sided ratchet asked.
-        'packages/core/src/client/**': { lines: 85, statements: 85, functions: 97, branches: 90 },
+        // Lines/statements 85 -> 87 with D7 (2026-08-29): the artifact-hint promotion and
+        // the artifact lifecycle dispatcher left the client; measured 88.03% after.
+        'packages/core/src/client/**': { lines: 87, statements: 87, functions: 97, branches: 90 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -152,7 +156,12 @@ export default defineConfig({
         // already inside the band.
         // Functions raised 83 -> 85 after the audit lots of 2026-08-28 (the pipeline-waiting
         // renderer left with D2): measured 86.11%. The ratchet asked for it.
-        'packages/core/src/renderers/**': { lines: 75, statements: 75, functions: 85, branches: 72 },
+        // All four raised at once by D7 (2026-08-29): the artifact card, its binary path
+        // and its preview builder — ~1 200 lines, the least-covered code in the glob —
+        // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
+        // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
+        // ~1.5 points under the measurement, as the ratchet asked.
+        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 80 },
       },
     },
   },

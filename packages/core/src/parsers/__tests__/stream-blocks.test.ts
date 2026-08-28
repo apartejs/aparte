@@ -30,7 +30,9 @@ function run(chunks: string[], blocks: AparteStreamBlock[] = [note]): AparteSegm
     return out;
 }
 
-const notes = (segs: AparteSegment[]): NoteSegment[] => segs.filter((s) => s.type === 'note') as unknown as NoteSegment[];
+// `as string`: a registered grammar builds a type the closed union does not know — which
+// is the point of the seam, and exactly what the compiler flags as "no overlap".
+const notes = (segs: AparteSegment[]): NoteSegment[] => segs.filter((s) => (s.type as string) === 'note') as unknown as NoteSegment[];
 const texts = (segs: AparteSegment[]): string[] => segs.filter((s) => s.type === 'text').map((s) => (s as { content: string }).content);
 
 describe('registered stream blocks', () => {
