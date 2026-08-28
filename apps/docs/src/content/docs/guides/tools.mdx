@@ -214,6 +214,31 @@ new AparteClient({
 
 An "auto" mode is this and nothing more: a resolver that answers without asking anybody.
 
+### A policy, per call — modes
+
+`needsApproval` is a declaration about a **tool**; a mode — *plan* (read-only), *ask*,
+*auto-edit*, *auto* — is a decision about each **call**, and the same `run_command` can be
+a read or an execution. That decision has a seam of its own: an `AparteApprovalPolicy`
+registered with `setApprovalPolicy()` rules on every call, before the panel is involved.
+
+```ts
+aparteGlobalConfig.setApprovalPolicy((call, tool) => {
+  if (call.name === 'run_command' && String(call.input.cmd).startsWith('rm '))
+    return { verdict: 'deny', reason: 'Deleting is off in this workspace.' };
+  if (call.name.startsWith('read_')) return { verdict: 'allow' };
+  return undefined;                       // no opinion: the tool's own flag decides
+});
+```
+
+The ruling is an `AparteApprovalRuling`: `allow` runs without asking and never pauses the
+row; `ask` puts the call to the person exactly as a `needsApproval` tool is; `deny` refuses
+it, and its `reason` is what the model reads — verbatim, not "the user rejected this",
+because nobody did. `getApprovalPolicy()` reads it back and `ruleOnToolCall(call)` is the
+one place the policy and the flag are combined. A host's own `approvalResolver` is not
+affected: it already owns the decision. The four modes, a read/write/exec classification of
+your tool names and a switch for the composer's toolbar are
+[`@aparte/plugin-approval`](/plugins/approval/).
+
 :::caution[Approval is UX, not authorization]
 `needsApproval` runs **in the browser** — it protects the user from surprising tool runs,
 not your system from a malicious client. Anything a tool actually does against your backend

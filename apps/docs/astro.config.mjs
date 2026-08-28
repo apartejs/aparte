@@ -233,7 +233,11 @@ export default defineConfig({
             + '`requestUserInput()` asks a typed question or a yes/no decision '
             + '(`kind: \'approval\'`) through a panel in the composer (/guides/elicitation/), and '
             + '`@aparte/plugin-ask-user` gives the model a ready-made `ask_user` tool '
-            + '(/plugins/ask-user/, with `systemPrompt: false` to send no system message).',
+            + '(/plugins/ask-user/, with `systemPrompt: false` to send no system message). '
+            + 'Approval MODES — plan / ask / auto-edit / auto, from a read/write/exec '
+            + 'classification of your tool names, with an `<aparte-approval-mode>` switch for the '
+            + 'composer toolbar — are `@aparte/plugin-approval` (/plugins/approval/), built on '
+            + 'core\'s per-call `setApprovalPolicy()`.',
             'Driving your own loop (a backend that streams over its own SSE, a server-side '
             + 'agent): the display-only API — `appendMessage`, `addSegment`, `appendToSegment`, '
             + '`updateSegment`, then `updateMessage(id, { status: \'completed\' })` to finish the '
@@ -249,7 +253,7 @@ export default defineConfig({
             {
               label: 'Tools, approval and asking the user',
               description: 'Registering tools, the tool-call row, human-in-the-loop approval, typed questions to the user (elicitation), and the ask-user plugin.',
-              paths: ['guides/tools', 'guides/tool-call-ui', 'guides/elicitation', 'plugins/ask-user', 'segments/tool-call'],
+              paths: ['guides/tools', 'guides/tool-call-ui', 'guides/elicitation', 'plugins/ask-user', 'plugins/approval', 'segments/tool-call'],
             },
             {
               label: 'Bring your own loop (display-only)',

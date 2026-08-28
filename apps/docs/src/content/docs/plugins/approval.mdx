@@ -1,0 +1,106 @@
+---
+title: Approval modes
+description: "Approval modes for tool calls — plan, ask, auto-edit, auto — from a classification of your tool names (read / write / exec), with the <aparte-approval-mode> switch for the composer's toolbar; built on core's per-call approval policy, setApprovalPolicy."
+sidebar:
+  order: 7
+  label: approval
+---
+
+import AparteApprovalModeApi from '../../../generated/element-api/aparte-approval-mode.mdx';
+
+The **modes** every agent product ends up with — *plan* (read-only), *ask* (confirm every
+change), *auto-edit* (changes go through, commands ask), *auto* (never ask) — as one call on
+your config and one element in the composer. It decides; it never executes anything and
+stores nothing.
+
+```bash
+npm install @aparte/plugin-approval @aparte/core
+```
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { setupApproval } from '@aparte/plugin-approval';
+
+const approval = setupApproval(aparteGlobalConfig, {
+  classify: {
+    read:  ['read_file', 'search', /^list_/],
+    write: ['write_file', 'edit_file'],
+    exec:  ['run_command'],
+  },
+  mode: 'ask',           // the default
+});
+```
+
+```html
+<aparte-composer-toolbar>
+  <aparte-approval-mode></aparte-approval-mode>
+</aparte-composer-toolbar>
+```
+
+`@aparte/core` is the only **peer dependency**. The classification is on **your** tool
+names — they are wire format the library cannot know: nothing in core can tell that
+`run_command` executes and `search_docs` reads.
+
+## The table
+
+| | `read` | `write` | `exec` | unlisted |
+| --- | --- | --- | --- | --- |
+| **plan** | runs | refused, with a reason | refused, with a reason | its own `needsApproval` |
+| **ask** | runs | asks | asks | its own `needsApproval` |
+| **auto-edit** | runs | runs | asks | its own `needsApproval` |
+| **auto** | runs | runs | runs | runs |
+
+"Asks" is the same composer panel a tool marked `needsApproval` gets — the person answers
+in one place, whatever asked. "Refused, with a reason" is what makes *plan* usable: the
+model reads a sentence that names the tool and what it does, and says what it would do
+instead — nobody is told "the user rejected this", because nobody did.
+
+```text
+Plan mode: `write_file` changes files or state, and only read-only tools run in this mode.
+Describe what you would do instead; the user can switch the mode to let you do it.
+```
+
+A tool in no list keeps its own `needsApproval` under three of the modes; `auto` lets it
+through as well, because auto is auto.
+
+## The switch
+
+`<aparte-approval-mode>` is a select over the four modes, bound to the setup of the config
+it sits in — drop it in `<aparte-composer-toolbar>` beside the model selector. A switch
+applies to the **next tool call**, mid-run included. With no `setupApproval()` on its config
+it renders disabled and says so once in the console: an affordance that cannot act is not
+offered.
+
+```ts
+approval.setMode('plan');                       // from your own UI
+approval.subscribe((mode, previous) => { … });  // from the element, or from setMode
+approval.getMode();
+```
+
+Labels are English by default; a localised host sets `element.labels = { plan: 'Planifier', … }`.
+Nothing is remembered across a reload — read `getMode()` and write it wherever you keep
+preferences, the way the model selector's preference is yours to persist.
+
+## Under the hood — the seam in core
+
+The plugin is one function from *(mode, class, call)* to a ruling, installed with
+`config.setApprovalPolicy()`. An `AparteApprovalPolicy` decides **per call**, from the
+arguments, where a tool's `needsApproval` is a declaration about the tool. Its ruling is an
+`AparteApprovalRuling` — `allow`, `ask`, or `deny` with a `reason` — and `undefined` means
+"no opinion", in which case the tool's own flag decides; `config.ruleOnToolCall(call)` is the
+one place the two are combined. The client's default approval channel consults it twice: once
+to decide whether the call pauses at all (an allowed call never flashes *awaiting approval*),
+once to answer. A host that injected its own `approvalResolver` is untouched — it already
+owns the whole decision.
+
+```ts
+// Your own policy, no plugin:
+aparteGlobalConfig.setApprovalPolicy((call, tool) =>
+  call.name === 'run_command' && String(call.input.cmd).startsWith('rm ')
+    ? { verdict: 'deny', reason: 'Deleting is off in this workspace.' }
+    : undefined);                     // everything else: the tool's own needsApproval
+```
+
+## The `<aparte-approval-mode>` element
+
+<AparteApprovalModeApi />
