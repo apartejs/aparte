@@ -12,6 +12,31 @@ covers how work lands.
 3. **Surgical changes.** One concern per commit — no drive-by refactors.
 4. **Goal-driven.** Every change ties to a user-visible behavior or a measurable metric.
 
+## Reporting bugs & proposing features
+
+- **Bug**: open an issue with the template — version, surface (vanilla/React/…), and a
+  minimal reproduction (starting from `apps/examples/` is the fastest path).
+- **Feature**: describe the problem before the shape. Two boundaries decide a lot up
+  front: `@aparte/core` carries **no third-party dependency** (markdown, highlighting,
+  vendor formats live in `provider-*`/`plugin-*` packages you opt into), and the library
+  stays **product-agnostic** (no routing, settings, persistence backends).
+- **Security**: never as a public issue — see [SECURITY.md](./SECURITY.md).
+- Conduct: [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+
+### Good first contributions
+
+Four areas where a first pull request is safe for you and for the core:
+
+- **A locale** — a new language on the model of `packages/locales/fr` (one object, every
+  key typed; the test tells you which key you missed).
+- **An OpenAI-compatible preset** — a vendor's id, base URL and branding in
+  `packages/providers/ai/openai-compat/src/presets.ts`.
+- **A docs page for a segment or a recipe** — the pages under `apps/docs/src/content/docs/`
+  are Markdown; every code fence that opens with an import is compiled by the gate, so a
+  snippet that does not run does not land.
+- **A scenario for the browser suite** — `e2e/tests/` drives the examples against a
+  mocked model; a behaviour you can describe as "type this, see that" fits.
+
 ## Setup
 
 ```bash
@@ -60,8 +85,8 @@ Feature work goes on a branch and lands through a PR, so CI gates it before it r
 
 A push to `main` (the release flow) runs the full `test` + `build`. A **branch** push runs only
 what the diff can break — CI runs the full matrix on the PR anyway, so a docs-only push should
-not cost 1053 tests and 22 builds. Concretely: the unit suite is skipped when no package with
-tests is affected, and the build goes through `nx affected`.
+not cost the whole unit suite and every build. Concretely: the unit suite is skipped when no
+package with tests is affected, and the build goes through `nx affected`.
 
 ### Making it fit on your machine
 
@@ -91,7 +116,8 @@ invalidates everything, deliberately.
 
 > **Maintainers:** the client-side hook is a courtesy, not a guarantee — `main` must also
 > carry a GitHub ruleset (Settings → Rules → Rulesets): require a PR, require the `ci`,
-> `test-matrix` and `e2e` checks, block force-pushes.
+> `node-floor`, `scope` and `e2e` checks (the four jobs of `ci.yml` — count them there,
+> not here), block force-pushes and deletions.
 
 A **Version PR skips the browser suite**, and only that: `e2e` stays a required check, so
 the job still runs and still reports — a skipped job never reports at all, and main's

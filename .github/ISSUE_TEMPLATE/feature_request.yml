@@ -1,0 +1,22 @@
+name: Feature request
+description: A capability aparté should have
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem you're solving
+      description: What you're building, and where aparté stops short.
+    validations: { required: true }
+  - type: textarea
+    id: shape
+    attributes:
+      label: The shape you'd expect
+      description: >
+        API sketch welcome. Note: core carries no third-party dependency and stays
+        product-agnostic — markdown/highlight/model-specific things live in
+        provider-*/plugin-* packages.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead
