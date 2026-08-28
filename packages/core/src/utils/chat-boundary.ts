@@ -1,10 +1,14 @@
 /**
  * Which chat an element belongs to.
  *
- * The predicate is three-legged and every leg is load-bearing: `<aparte-chat>` is the
- * vanilla shell, `<aparte-chat-component>` is Angular's, and the other three wrappers
- * render a plain `<div data-aparte-chat id="…">` — so matching only the tag finds the
- * boundary in one framework out of four.
+ * The predicate is two-legged and both legs are load-bearing: `<aparte-chat>` is the
+ * vanilla shell AND Angular's component (its selector is `aparte-chat`), and the other
+ * three wrappers render a plain `<div data-aparte-chat id="…">` — so matching only the
+ * tag finds the boundary in two frameworks out of five.
+ *
+ * A third leg, `<aparte-chat-component>`, was carried here and at four other sites as
+ * "Angular's tag". Angular has never used it — and core knowing a wrapper's tag name
+ * at all is the framework axis leaking into the engine. Gone.
  *
  * Extracted because it was written out four times (the bubble's target-id walk, the
  * composer's, the elicitation presenter's composer walk, and the presenter routing in
@@ -22,7 +26,6 @@ function isChatBoundary(el: Element | null | undefined): boolean {
     if (!el) return false;
     const tag = el.tagName?.toLowerCase();
     return tag === 'aparte-chat'
-        || tag === 'aparte-chat-component'
         || el.hasAttribute?.('data-aparte-chat') === true;
 }
 

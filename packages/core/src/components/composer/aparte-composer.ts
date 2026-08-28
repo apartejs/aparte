@@ -679,7 +679,7 @@ export class AparteComposer extends HTMLElement {
         let el: HTMLElement | null = this.parentElement;
         while (el) {
             const tag = el.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+            const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
             if (isHost && el.id) return el.id;
             el = el.parentElement;
         }
