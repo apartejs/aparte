@@ -104,9 +104,14 @@ function parseSection(body) {
             entry = [line];
             continue;
         }
+        // An indented `- @aparte/x@1.2.3` is an internal bump, never entry text — and
+        // it is NOT always under an "Updated dependencies" bullet: when a package has
+        // changes of its own in the same section, changesets hangs the bump line under
+        // the last entry (0.15.0, core: `- @aparte/engine@0.15.0` under the tool-output
+        // fix), and the root file — the GitHub Release body — showed it as a stray
+        // sub-bullet. Skip it whether or not an entry is open.
+        if (/^\s+-\s+@aparte\/[\w-]+@\d/.test(line)) continue;
         if (entry) entry.push(line);
-        // An indented `- @aparte/x@1.2.3` with no open entry belongs to a dropped
-        // "Updated dependencies" bullet: skip it.
     }
     flush();
 

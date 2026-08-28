@@ -1,5 +1,15 @@
 # @aparte/plugin-ask-question
 
+## 0.15.0
+
+### Minor Changes
+
+- 952e488: `ASK_USER_DECLINED` is exported: the exact sentence the tool returns as its result when the user declines (`'The user declined to answer.'`). Import it instead of copying the literal — a host that turns tool results into prose, or recognises a declined question in its own transcript, matched the string by hand until now, and a rewording here would have broken it without a word.
+
+  The constant existed for the receipt's own sake (the card must show "declined" rather than pair that sentence with the first question as though the user had said it) and never left the module. Reported by a consumer who had checked.
+
+- 0152d42: `createAskUserTool({ systemPrompt: false })` (and `setupAskUser` with the same option) registers the tool with **no system message at all**. Until now the prompt could be replaced but not removed: `''` still put a field on the tool, and since 0.13 that field is really sent as a system message. A product whose model is trained on a fixed contract, and must not read any added prose, had to strip the field off the returned object by hand.
+
 ## 0.14.0
 
 ### Minor Changes

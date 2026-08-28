@@ -4,6 +4,41 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.15.0
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Minor Changes
+
+- [7502ed0](https://github.com/apartejs/aparte/commit/7502ed0): `appendMessage(message, { historical: true })` now reaches the host from every wrapper — the React ref handle and `useAparteChat`, the Vue instance and `useAparteChat`, the Svelte component and `createAparteChat`, the Angular component — and `AparteChatImperativeApi` declares the option. A restored message is adopted as it is: no fresh timing stamps, `isStreaming` forced off, so a tool call read back from your own backend renders settled rather than spinning.
+
+  The host had accepted the option all along (it is how a stored conversation loads), but every wrapper's `appendMessage(m)` dropped the second argument on the way, so the replay-one-message-at-a-time path the core tests exercise was unreachable from a framework. Found by the second consumer, whose history lives on its own server.
+  <sub>`@aparte/core`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [952e488](https://github.com/apartejs/aparte/commit/952e488): `ASK_USER_DECLINED` is exported: the exact sentence the tool returns as its result when the user declines (`'The user declined to answer.'`). Import it instead of copying the literal — a host that turns tool results into prose, or recognises a declined question in its own transcript, matched the string by hand until now, and a rewording here would have broken it without a word.
+
+  The constant existed for the receipt's own sake (the card must show "declined" rather than pair that sentence with the first question as though the user had said it) and never left the module. Reported by a consumer who had checked.
+  <sub>`@aparte/plugin-ask-user`</sub>
+
+- [0152d42](https://github.com/apartejs/aparte/commit/0152d42): `createAskUserTool({ systemPrompt: false })` (and `setupAskUser` with the same option) registers the tool with **no system message at all**. Until now the prompt could be replaced but not removed: `''` still put a field on the tool, and since 0.13 that field is really sent as a system message. A product whose model is trained on a fixed contract, and must not read any added prose, had to strip the field off the returned object by hand.
+  <sub>`@aparte/plugin-ask-user`</sub>
+
+### Patch Changes
+
+- [4590cbe](https://github.com/apartejs/aparte/commit/4590cbe): A focused option in the elicitation panel keeps its whole focus ring. The options sit in a scroll container, which clips at its padding edge, and the ring is drawn outside the option's box — so a keyboard-focused option lost 4px of ring on every side (the border looked cut). The container now pads by the ring's size and takes the space back with a negative margin, in the same tokens the ring reads (`--aparte-focus-outline-width`, `--aparte-btn-focus-offset`), so nothing moves and a wider ring gets a wider room. `scroll-padding` keeps a focused option's ring in view when the list scrolls.
+  <sub>`@aparte/core`</sub>
+
+- [4b73f83](https://github.com/apartejs/aparte/commit/4b73f83): `AparteAIProviderMetadata` — the return type of a provider's `getMetadata()` (name, id, icon, colour) — is exported from `@aparte/core`. A provider written outside this repository had to spell it `ReturnType<AparteAIProvider['getMetadata']>`; reported by a consumer in July and again now.
+  <sub>`@aparte/core`</sub>
+
+- [06e028b](https://github.com/apartejs/aparte/commit/06e028b): A tool call's input and result now wrap inside the bubble instead of running past its edge. A one-line result — an error message, a long path — was 1 823px of text in a 723px body (407px on a phone): the `<pre>` kept its default `white-space: pre`, so the whole disclosure was clipped at the message's edge. It gets the same pair the code block already had, `white-space: pre-wrap` + `overflow-wrap: anywhere`; a stylesheet that targeted `.aparte-tool-part-body pre` keeps working, the rule only moved from `prose.css` to the tool-call segment's own sheet.
+  <sub>`@aparte/core`</sub>
+
+- [47dddaa](https://github.com/apartejs/aparte/commit/47dddaa): The `showcase` preset gains a `survey` turn — "two questions", "a few questions" or "survey" makes the model ask two questions in one `ask_user` call, so the panel's stepper (1 2, a Skip per step) has a scenario that shows it. Nothing in the repository rendered that mode until a consumer reported clipped borders on it; a state no example renders is a state nobody looks at.
+  <sub>`@aparte/provider-scenario`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-transformers`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/locale-fr`.</sub>
+
 ## 0.14.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

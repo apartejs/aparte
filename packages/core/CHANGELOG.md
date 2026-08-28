@@ -1,5 +1,20 @@
 # @aparte/core
 
+## 0.15.0
+
+### Minor Changes
+
+- 7502ed0: `appendMessage(message, { historical: true })` now reaches the host from every wrapper — the React ref handle and `useAparteChat`, the Vue instance and `useAparteChat`, the Svelte component and `createAparteChat`, the Angular component — and `AparteChatImperativeApi` declares the option. A restored message is adopted as it is: no fresh timing stamps, `isStreaming` forced off, so a tool call read back from your own backend renders settled rather than spinning.
+
+  The host had accepted the option all along (it is how a stored conversation loads), but every wrapper's `appendMessage(m)` dropped the second argument on the way, so the replay-one-message-at-a-time path the core tests exercise was unreachable from a framework. Found by the second consumer, whose history lives on its own server.
+
+### Patch Changes
+
+- 4590cbe: A focused option in the elicitation panel keeps its whole focus ring. The options sit in a scroll container, which clips at its padding edge, and the ring is drawn outside the option's box — so a keyboard-focused option lost 4px of ring on every side (the border looked cut). The container now pads by the ring's size and takes the space back with a negative margin, in the same tokens the ring reads (`--aparte-focus-outline-width`, `--aparte-btn-focus-offset`), so nothing moves and a wider ring gets a wider room. `scroll-padding` keeps a focused option's ring in view when the list scrolls.
+- 4b73f83: `AparteAIProviderMetadata` — the return type of a provider's `getMetadata()` (name, id, icon, colour) — is exported from `@aparte/core`. A provider written outside this repository had to spell it `ReturnType<AparteAIProvider['getMetadata']>`; reported by a consumer in July and again now.
+- 06e028b: A tool call's input and result now wrap inside the bubble instead of running past its edge. A one-line result — an error message, a long path — was 1 823px of text in a 723px body (407px on a phone): the `<pre>` kept its default `white-space: pre`, so the whole disclosure was clipped at the message's edge. It gets the same pair the code block already had, `white-space: pre-wrap` + `overflow-wrap: anywhere`; a stylesheet that targeted `.aparte-tool-part-body pre` keeps working, the rule only moved from `prose.css` to the tool-call segment's own sheet.
+  - @aparte/engine@0.15.0
+
 ## 0.14.0
 
 ### Minor Changes
