@@ -1,10 +1,13 @@
 name: ci
 
 on:
+  # `next` is the integration branch between two publishes (0.15.0 → 0.16.0): a feature
+  # PR targets it, and it merges into `main` only at the next release. Without it here a
+  # PR into `next` was judged by nothing — found the day the branch was created.
   push:
-    branches: [ main ]
+    branches: [ main, next ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, next ]
 
 # A superseded push cancels its in-flight run instead of queuing — on `main` too.
 #
