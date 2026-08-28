@@ -157,13 +157,9 @@ Three things that follow from the directive, and none of them work through `<apa
 Outputs emit the event's **detail**, which is the Angular idiom — `(selectChange)="pick($event.value)"`.
 When you need the event itself (to call `stopPropagation`), add a plain host listener.
 
-The directives are `AparteChatViewportDirective`, `AparteChatBubbleDirective`,
-`AparteChatStatusDirective`, `AparteComposerDirective`, `AparteComposerInputDirective`,
-`AparteComposerActionDirective`, `AparteComposerAddAttachmentDirective`,
-`AparteComposerAttachmentsDirective`, `AparteComposerSendDirective`, `AparteComposerCancelDirective`,
-`AparteComposerToolbarDirective`, `AparteSelectDirective`, `AparteOptionDirective`,
-`AparteOptgroupDirective`, `AparteConversationListDirective`, `AparteProgressSpinnerDirective`,
-and `AparteElicitationDirective`.
+There is one directive per element, named `Aparte<Element>Directive` — every component
+page under [Components](/components/) shows the exact symbol in its Angular tab — and
+`APARTE_ELEMENT_DIRECTIVES` imports them all at once.
 
 [`<aparte-chat>`](/components/conversation/aparte-chat/) has no directive on purpose: `AparteChatComponent` already claims that tag and
 renders the whole turn.

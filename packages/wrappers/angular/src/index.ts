@@ -17,26 +17,12 @@ export type { AparteUiHandle } from './lib/aparte-ui.component';
 // hand-written, they were a parallel structure that nothing watched, so an attribute
 // added to an element would be typed in the other three wrappers and silently missing
 // here. `<aparte-ui>` stays for an element aparté does not define.
-export {
-    APARTE_ELEMENT_DIRECTIVES,
-    AparteChatViewportDirective,
-    AparteChatBubbleDirective,
-    AparteChatStatusDirective,
-    AparteComposerDirective,
-    AparteComposerInputDirective,
-    AparteComposerActionDirective,
-    AparteComposerAddAttachmentDirective,
-    AparteComposerAttachmentsDirective,
-    AparteComposerSendDirective,
-    AparteComposerCancelDirective,
-    AparteComposerToolbarDirective,
-    AparteSelectDirective,
-    AparteOptionDirective,
-    AparteOptgroupDirective,
-    AparteConversationListDirective,
-    AparteProgressSpinnerDirective,
-    AparteElicitationDirective,
-} from './generated/element.directives';
+// A star, not a list: the list was hand-written under a comment explaining why the
+// generator exists, and it omitted three of the twenty generated directives
+// (`AparteContextDirective`, `AparteIconDirective`, `AparteSuggestionsDirective`) — the
+// parallel structure nothing watched, again. The module exports only the directives
+// and `APARTE_ELEMENT_DIRECTIVES`; its base class is deliberately unexported there.
+export * from './generated/element.directives';
 
 // Annex: client lifecycle + reactive conversation manager.
 export { AparteAiService, APARTE_CLIENT_OPTIONS } from './lib/aparte-ai.service';

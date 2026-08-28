@@ -158,7 +158,15 @@ function examplesOf(decl) {
 
 function exampleBlocks(decl) {
   return examplesOf(decl)
-    .map((ex) => `\n\`\`\`${ex.trimStart().startsWith('<') ? 'html' : 'ts'}\n${ex.trim()}\n\`\`\`\n`)
+    .map((ex) => {
+      const text = ex.trim();
+      // An example that brings its own fence (a caption line, then ```html …```) is
+      // emitted verbatim: the caption becomes prose and the inner fence keeps its
+      // language. Re-fencing it nested fences, and the stray closer swallowed every
+      // section after it — a plugin partial lost its whole API table that way.
+      if (/^```/m.test(text)) return `\n${text}\n`;
+      return `\n\`\`\`${text.startsWith('<') ? 'html' : 'ts'}\n${text}\n\`\`\`\n`;
+    })
     .join('');
 }
 
@@ -259,12 +267,20 @@ function angularSymbols() {
       else if (entry.name.endsWith('.ts')) files.push(path);
     }
   }
+  // A star re-export makes every `export class` of that module public: the barrel
+  // names none of them, so a literal search would report "declares nothing" for all
+  // twenty tags. Resolved per file, so a module the barrel does not star still needs
+  // its name written out.
+  const starred = new Set(
+    [...barrel.matchAll(/export \* from '\.\/([^']+)'/g)].map(([, p]) => resolve(root, `${p}.ts`)),
+  );
   const byTag = new Map();
   for (const file of files) {
     const src = readFileSync(file, 'utf8');
+    const isStarred = starred.has(file);
     for (const [, selector, symbol] of src.matchAll(/selector:\s*'([^']+)'[\s\S]*?export class (\w+)/g)) {
       if (!selector.startsWith('aparte-') || byTag.has(selector)) continue;
-      if (!new RegExp(`\\b${symbol}\\b`).test(barrel)) continue;
+      if (!isStarred && !new RegExp(`\\b${symbol}\\b`).test(barrel)) continue;
       byTag.set(selector, symbol);
     }
   }
