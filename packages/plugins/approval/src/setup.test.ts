@@ -9,7 +9,7 @@ describe('setupApproval', () => {
     it('installs a policy on the given config, not the global one, and rules through it', () => {
         const cfg = new AparteConfig();
         const other = new AparteConfig();
-        const approval = setupApproval(cfg, { classify });
+        const approval = setupApproval({ classify }, cfg);
 
         expect(cfg.getApprovalPolicy()).not.toBeNull();
         expect(other.getApprovalPolicy()).toBeNull();
@@ -26,7 +26,7 @@ describe('setupApproval', () => {
     it('a switch applies to the next call and tells every listener once', () => {
         const cfg = new AparteConfig();
         const onModeChange = vi.fn();
-        const approval = setupApproval(cfg, { classify, mode: 'plan', onModeChange });
+        const approval = setupApproval({ classify, mode: 'plan', onModeChange }, cfg);
         expect(cfg.ruleOnToolCall(call('write_file')).verdict).toBe('deny');
 
         const listener = vi.fn();
@@ -50,7 +50,7 @@ describe('setupApproval', () => {
         const cfg = new AparteConfig();
         cfg.registerTool({ name: 'danger', description: '', inputSchema: {}, needsApproval: true }, (async () => 'ok') as never);
         cfg.registerTool({ name: 'safe', description: '', inputSchema: {} }, (async () => 'ok') as never);
-        const approval = setupApproval(cfg, { classify, mode: 'plan' });
+        const approval = setupApproval({ classify, mode: 'plan' }, cfg);
         expect(cfg.ruleOnToolCall(call('danger')).verdict).toBe('ask');
         expect(cfg.ruleOnToolCall(call('safe')).verdict).toBe('allow');
         approval.setMode('auto');
@@ -58,7 +58,7 @@ describe('setupApproval', () => {
     });
 
     it('classify() exposes the setup\'s own reading of a name', () => {
-        const approval = setupApproval(new AparteConfig(), { classify });
+        const approval = setupApproval({ classify }, new AparteConfig());
         expect(approval.classify('run_command')).toBe('exec');
         expect(approval.classify('nope')).toBeUndefined();
         expect(approval.modes).toEqual(['plan', 'ask', 'auto-edit', 'auto']);
@@ -66,10 +66,10 @@ describe('setupApproval', () => {
 
     it('a second setup on the same config replaces the first; dispose removes the policy', () => {
         const cfg = new AparteConfig();
-        const first = setupApproval(cfg, { classify, mode: 'plan' });
+        const first = setupApproval({ classify, mode: 'plan' }, cfg);
         const firstListener = vi.fn();
         first.subscribe(firstListener);
-        const second = setupApproval(cfg, { classify, mode: 'auto' });
+        const second = setupApproval({ classify, mode: 'auto' }, cfg);
 
         expect(getApprovalController(cfg)).toBe(second);
         expect(cfg.ruleOnToolCall(call('write_file')).verdict).toBe('allow');
@@ -80,7 +80,7 @@ describe('setupApproval', () => {
         expect(cfg.getApprovalPolicy()).toBeNull();
         expect(getApprovalController(cfg)).toBeUndefined();
         // Disposing the stale first one must not remove the config's (now absent) policy of another setup.
-        const third = setupApproval(cfg, { classify });
+        const third = setupApproval({ classify }, cfg);
         first.dispose();
         expect(getApprovalController(cfg)).toBe(third);
         expect(cfg.getApprovalPolicy()).not.toBeNull();
@@ -88,7 +88,7 @@ describe('setupApproval', () => {
 
     it('dispose() leaves a policy it does not own — one the host set itself after the setup', () => {
         const cfg = new AparteConfig();
-        const approval = setupApproval(cfg, { classify });
+        const approval = setupApproval({ classify }, cfg);
         const mine = () => ({ verdict: 'allow' as const });
         cfg.setApprovalPolicy(mine);
         expect(getApprovalController(cfg), 'a replaced policy reads as no setup').toBeUndefined();

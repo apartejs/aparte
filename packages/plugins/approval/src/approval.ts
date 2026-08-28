@@ -56,18 +56,18 @@ const isInstalled = (config: AparteConfig): boolean =>
  * ```ts
  * import { setupApproval } from '@aparte/plugin-approval';
  *
- * const approval = setupApproval(aparteGlobalConfig, {
+ * const approval = setupApproval({
  *   classify: {
  *     read:  ['read_file', 'search', /^list_/],
  *     write: ['write_file', 'edit_file'],
  *     exec:  ['run_command'],
  *   },
  *   mode: 'ask',
- * });
+ * });                          // the config last, like every setup*: it defaults to the global
  * approval.setMode('plan');   // or drop <aparte-approval-mode> in the composer's toolbar
  * ```
  */
-export function setupApproval(config: AparteConfig = aparteGlobalConfig, options: ApprovalSetupOptions): ApprovalController {
+export function setupApproval(options: ApprovalSetupOptions, config: AparteConfig = aparteGlobalConfig): ApprovalController {
     controllers.get(config)?.dispose();
 
     let mode: ApprovalMode = options.mode ?? 'ask';

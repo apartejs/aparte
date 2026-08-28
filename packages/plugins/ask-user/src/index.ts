@@ -27,7 +27,7 @@ import './aparte-ask-user.js';
  * aparteGlobalConfig singleton mutation predictable in SSR/test and tree-shaking
  * friendly. Call once at application startup.
  */
-export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options: AskUserSetupOptions = {}): void {
+export function setupAskUser(options: AskUserSetupOptions = {}, config: AparteConfig = aparteGlobalConfig): void {
     // The bounds the schema puts on the model are the HOST's, so they arrive here
     // rather than being frozen into a constant. Defaults are the normal call.
     const tool = createAskUserTool(options);
@@ -58,7 +58,12 @@ export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options:
      */
     registerSegmentRenderer(questionReceiptRenderer, config);
     config.registerToolRenderer(tool.name, {
-        render: (segment) => buildReceipt({ input: segment.toolCall.input, result: segment.result }),
+        // The structured twin rides along: the receipt reads it first and only parses
+        // the prose for a result that came from elsewhere. It was left out here, so
+        // the structured path the receipt exists for was never taken on the real one.
+        render: (segment) => buildReceipt({
+            input: segment.toolCall.input, result: segment.result, structuredResult: segment.structuredResult,
+        }),
     });
 }
 

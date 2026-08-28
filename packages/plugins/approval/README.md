@@ -12,14 +12,14 @@ npm install @aparte/plugin-approval @aparte/core
 import { aparteGlobalConfig } from '@aparte/core';
 import { setupApproval } from '@aparte/plugin-approval';
 
-const approval = setupApproval(aparteGlobalConfig, {
+const approval = setupApproval({
   classify: {
     read:  ['read_file', 'search', /^list_/],
     write: ['write_file', 'edit_file'],
     exec:  ['run_command'],
   },
   mode: 'ask',
-});
+}, aparteGlobalConfig);  // the config last, like every setup*: it defaults to the global
 approval.setMode('plan');   // or let the person switch it:
 ```
 

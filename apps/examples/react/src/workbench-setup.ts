@@ -61,7 +61,7 @@ function makePane(title: string, providerLabel: string, provider: AparteAIProvid
     // The plugin registers the tool AND hides its pill; its handler calls
     // `requestUserInput`, which is answered by the <aparte-elicitation> mounted
     // inside THIS pane's chat. That is the path the CRITICAL broke.
-    setupAskUser(config);
+    setupAskUser({}, config);
 
     // Retry/edit are honoured by the client below, so they may be shown.
     config.setBubbleActions({ retry: true, edit: true });

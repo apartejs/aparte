@@ -33,7 +33,7 @@ import { createAskUserTool, askUserHandler, type AskUserSetupOptions } from './a
  * No receipt renderer here: it builds DOM, and this entry exists precisely so an SSR
  * build can import the package without a document. The browser entry registers it.
  */
-export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options: AskUserSetupOptions = {}): void {
+export function setupAskUser(options: AskUserSetupOptions = {}, config: AparteConfig = aparteGlobalConfig): void {
     const tool = createAskUserTool(options);
     config.registerTool(tool, askUserHandler);
     config.registerToolRenderer(tool.name, { render: () => '' });

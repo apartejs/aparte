@@ -61,7 +61,7 @@ import { receiptRows } from '@aparte/plugin-ask-user';
 
 aparteGlobalConfig.registerToolRenderer('ask_user', {
   render: (segment) => {
-    const rows = receiptRows({ input: segment.toolCall.input, result: segment.result });
+    const rows = receiptRows({ input: segment.toolCall.input, result: segment.result, structuredResult: segment.structuredResult });
     const el = document.createElement('div');
     for (const row of rows) {
       const line = document.createElement('p');
@@ -98,7 +98,7 @@ Those are defaults, not laws. They are the host's to move:
 ```ts
 import { setupAskUser } from '@aparte/plugin-ask-user';
 
-setupAskUser(undefined, { maxOptions: 6, maxQuestions: 2 });
+setupAskUser({ maxOptions: 6, maxQuestions: 2 });   // the config last, like every setup*: it defaults to the global
 ```
 
 The name and the words are the host's too. A backend that already exposes an
@@ -107,7 +107,7 @@ language, passes them in; the receipt in the transcript follows the name, and
 `receipt: false` keeps the transcript silent for a UI that records the exchange itself:
 
 ```ts
-setupAskUser(undefined, {
+setupAskUser({
     name: 'clarify',
     description: 'Pose une question à choix à l’utilisateur.',
     systemPrompt: 'Tu disposes de l’outil clarify. Utilise-le avant d’écrire un fichier.',
@@ -140,7 +140,7 @@ import { createAskUserTool, askUserHandler, buildReceipt, questionReceiptRendere
 aparteGlobalConfig.registerTool(createAskUserTool(), askUserHandler);
 registerSegmentRenderer(questionReceiptRenderer);   // the receipt card's styles
 aparteGlobalConfig.registerToolRenderer('ask_user', {
-  render: (segment) => buildReceipt({ input: segment.toolCall.input, result: segment.result }),
+  render: (segment) => buildReceipt({ input: segment.toolCall.input, result: segment.result, structuredResult: segment.structuredResult }),
 });
 ```
 
