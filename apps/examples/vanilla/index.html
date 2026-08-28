@@ -52,6 +52,10 @@
               <aparte-composer-send></aparte-composer-send>
             </div>
             <aparte-composer-toolbar>
+              <!-- The context gauge: how full the model's window is. Hidden until the
+                   first turn reports a usage and the model declares a window; with
+                   auto-compact it asks the client to compact on reaching 90 %. -->
+              <aparte-context auto-compact style="flex: 1"></aparte-context>
               <aparte-model-selector style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
             </aparte-composer-toolbar>
           </div>

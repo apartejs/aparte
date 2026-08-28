@@ -16,7 +16,8 @@
         "@aparte/plugin-ask-user": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
-        "@aparte/provider-openai-compat": "workspace:*"
+        "@aparte/provider-openai-compat": "workspace:*",
+        "@aparte/provider-scenario": "workspace:*"
     },
     "devDependencies": {
         "typescript": "^5.4.0",

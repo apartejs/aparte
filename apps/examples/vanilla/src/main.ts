@@ -25,7 +25,8 @@ import { setupMarkedProvider } from '@aparte/plugin-marked';
 // elicitation, the guide — undemonstrated on the one app that is raw core: asking a
 // local model to "use the question tool" got a truthful "I have no such tool".
 import { setupAskUser } from '@aparte/plugin-ask-user';
-import { runStreamAgent } from '@aparte/engine';
+import { runStreamAgent, createCompactionSelector } from '@aparte/engine';
+import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
 import {
     DEFAULT_SETTINGS,
     applySystemPrompt,
@@ -104,10 +105,33 @@ function parseRoot(html: string): HTMLElement {
 //    was removed because its only visible trace was a key field for a service the
 //    reader does not have, and the settings view already covers any endpoint +
 //    token you want to point at (that is the same code path a cloud provider uses).
-aparteGlobalConfig.registerAIProvider(
-    createOpenAICompatProvider(presets.OLLAMA),
-    createOpenAICompatProvider(presets.LMSTUDIO),
-);
+//
+//    `?scenario` swaps them for the scripted model: the same page with no local
+//    server, no key and the same replies every time — what a demo, a screenshot
+//    or a test of THIS app wants. The scripted model declares a context window so
+//    the gauge in the toolbar has something to measure against.
+const scenarioMode = new URLSearchParams(location.search).has('scenario');
+if (scenarioMode) {
+    aparteGlobalConfig.registerAIProvider(createScenarioProvider({
+        scenarios: showcase,
+        models: [{ id: 'scripted', name: 'Scripted model', contextWindow: 8000, capabilities: ['streaming', 'function_calling'] }],
+    }));
+    // The showcase's weather turn calls this tool. An app that never registered it
+    // would see the call fail — also a scenario, but the round-trip is the point here.
+    aparteGlobalConfig.registerTool(
+        {
+            name: 'get_weather',
+            description: 'Current weather for a city.',
+            inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+        },
+        async (call) => ({ toolCallId: call.id, content: `Cloudy, 14 °C in ${String(call.input['city'] ?? 'Lille')}.` }),
+    );
+} else {
+    aparteGlobalConfig.registerAIProvider(
+        createOpenAICompatProvider(presets.OLLAMA),
+        createOpenAICompatProvider(presets.LMSTUDIO),
+    );
+}
 
 // 3. Browser talks to the provider directly; the key (if any) stays in the browser.
 // Gate the composer until the model selector has fetched + auto-selected a model.
@@ -135,6 +159,13 @@ aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 //    runs. That equivalence is what the engine parity suite asserts.
 const client = new AparteClient({
     streamRunner: runStreamAgent,
+    // What `compact()` summarises — asked for by the gauge's `auto-compact`, or by
+    // dispatching `aparte-compact`. Without this the whole history is summarised;
+    // with it, the newest turns that still fit the model's window stay verbatim.
+    compactionSelector: createCompactionSelector({
+        contextWindow: () => aparteGlobalConfig.getCurrentModel()?.contextWindow,
+        systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
+    }),
     // The endpoint + token the settings view holds, for ANY provider. The record
     // form (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint,
     // and it is honoured on both the chat and the /models path.
