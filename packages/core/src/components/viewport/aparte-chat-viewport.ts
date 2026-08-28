@@ -142,6 +142,8 @@ export class AparteChatViewport extends HTMLElement {
     private _layoutTransitionMs: number = 0;
     private _repo = new AparteMessageRepository();
     private _isAutoScrollEnabled: boolean = true;
+    /** The last scroll position we saw, so growth can be told from a gesture. */
+    private _lastScrollTop = 0;
     private _scrollThreshold: number = 50;
     /** When true, the next _autoScroll() call uses smooth instead of instant, then resets. */
     private _smoothScrollOnce: boolean = false;
@@ -1384,22 +1386,35 @@ export class AparteChatViewport extends HTMLElement {
 
     private _handleScroll(): void {
         if (!this._container) return;
-        // A scroll IS the user's intent: reaching the bottom re-arms auto-follow,
-        // leaving it disarms it.
-        //
-        // `_isAtBottom()` is deliberately generous (`_scrollThreshold`, 50px): a few
-        // pixels of drift must NOT read as "the reader walked away". That generosity
-        // is right here and wrong as a definition of "anchored" — which is why
-        // `_settleAtBottom()` closes a residual gap instead of this method being
-        // tightened. Tightening it would disarm auto-follow on every stray pixel.
-        //
-        // This handler also cannot tell our own programmatic scroll from a real
-        // gesture. Marking them with a counter was tried and reverted: engines
-        // coalesce scroll events, so the counter over-counted and started swallowing
-        // the USER's scrolls — the browser suite caught it stealing the scroll back.
-        // Anything attempted here must identify the scroll by POSITION, not by
-        // counting events.
-        this._isAutoScrollEnabled = this._isAtBottom();
+        /*
+         * A scroll is the reader's intent — but only when the reader caused it.
+         *
+         * This used to assign `_isAutoScrollEnabled = _isAtBottom()` on every event, and
+         * `_isAtBottom()` answers "no" for two completely different reasons: the reader
+         * moved up, or the CONTENT GREW UNDER THEM. The second one disarmed auto-follow
+         * exactly when it was most needed. A branch swap rebuilds the transcript, its
+         * height settles in stages, one of those stages fires a scroll event while the
+         * distance is briefly large — and the follow that was supposed to put the reader
+         * back at the bottom had already switched itself off. CI caught it on
+         * react-webkit parked 114px up, five seconds after a swap that started at the
+         * bottom (scrollTop 1071, scrollHeight 1718, clientHeight 533).
+         *
+         * The two cases are told apart BY POSITION, which is what the note this replaces
+         * asked for and what an event counter could not do: growth does not move
+         * `scrollTop`, and a reader going up does. So a decrease disarms, the bottom
+         * re-arms, and everything else leaves the flag exactly as it was.
+         */
+        const top = this._container.scrollTop;
+        const readerWentUp = top < this._lastScrollTop - 1;
+        this._lastScrollTop = top;
+
+        if (this._isAtBottom()) {
+            // `_isAtBottom()` stays deliberately generous (`_scrollThreshold`, 50px): a
+            // few pixels of drift must not read as "the reader walked away".
+            this._isAutoScrollEnabled = true;
+        } else if (readerWentUp) {
+            this._isAutoScrollEnabled = false;
+        }
         this._updateScrollButton();
     }
 
