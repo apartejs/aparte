@@ -21,7 +21,9 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * submitting Enter then dispatches `aparte-composer-submit` instead of calling
  * `root.submit()`, which is how the bubble's inline editor reuses this primitive.
  * Everything the root owns goes with it though — the mirrored value, the placeholder
- * fallback, the disabled/streaming sync and image paste all need the composer.
+ * fallback, the disabled sync and image paste all need the composer. The editor stays
+ * editable while a reply streams (the next message is typed while the current one
+ * arrives); only the send is gated then — Enter is swallowed, the button is Stop.
  *
  * Not a `<textarea>` and not a stand-in for one: being a contenteditable it has no form
  * value, no `name` and no native validation, and `getValue()` returns trimmed text with
@@ -215,7 +217,7 @@ export class AparteComposerInput extends HTMLElement {
             role="textbox"
             aria-multiline="true"
             aria-label="${placeholder}"
-            tabindex="0"
+            tabindex="${disabled ? -1 : 0}"
             aria-disabled="${disabled}"
             data-placeholder="${placeholder}"
         ></div>`;
@@ -259,12 +261,12 @@ export class AparteComposerInput extends HTMLElement {
             })
         );
 
-        // Sync streaming state — disable input while streaming
-        this._unsubscribes.push(
-            root._on('streaming-change', ({ streaming }) => {
-                this._updateDisabled(streaming || root.disabled);
-            })
-        );
+        // No `streaming-change` subscription, on purpose: the editor stays editable while
+        // a reply streams. It used to go non-editable for the whole turn, so the next
+        // message could not be prepared while the current one arrived — the first thing
+        // a person does in every chat. Only the SEND is gated meanwhile (the button is
+        // Stop, and Enter is swallowed in `_handleKeydown`); `disabled` still reaches
+        // here through `disabled-change`.
     }
 
     private _handleInput(): void {
@@ -296,6 +298,11 @@ export class AparteComposerInput extends HTMLElement {
             e.preventDefault();
             const root = this._getRoot();
             if (root) {
+                // While a reply streams, Enter neither sends nor stops: `submit()` is
+                // Stop during a turn, and a person finishing the NEXT message with Enter
+                // must not cut the current reply off. The draft stays; Enter sends it once
+                // the turn is over.
+                if (root.streaming) return;
                 root.submit();
             } else {
                 // Standalone (no <aparte-composer> parent, e.g. the bubble's inline
@@ -395,6 +402,10 @@ export class AparteComposerInput extends HTMLElement {
         if (!this._editor) return;
         this._editor.setAttribute('contenteditable', String(!disabled));
         this._editor.setAttribute('aria-disabled', String(disabled));
+        // Out of the tab order as well: a non-editable box that still took focus lit
+        // the shell's focus border on click — a field that looks ready and is not.
+        this._editor.setAttribute('tabindex', disabled ? '-1' : '0');
+        if (disabled && this.ownerDocument?.activeElement === this._editor) this._editor.blur();
     }
 
     /** Escape a value before it lands in a double-quoted HTML attribute. */

@@ -146,7 +146,11 @@ export class AparteComposerAddAttachment extends HTMLElement {
         );
         this._unsubscribes.push(
             root._on('streaming-change', ({ streaming }) => {
-                if (this._button) this._button.disabled = streaming || root.disabled;
+                // Attaching is part of preparing the next message, which stays possible
+                // while a reply streams; only `disabled` blocks it. `streaming` is read so
+                // the subscription still refreshes the button when a turn ends.
+                void streaming;
+                if (this._button) this._button.disabled = root.disabled;
             })
         );
     }
