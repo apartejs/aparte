@@ -217,7 +217,7 @@ export class AparteComposerInput extends HTMLElement {
             role="textbox"
             aria-multiline="true"
             aria-label="${placeholder}"
-            tabindex="${disabled ? -1 : 0}"
+            tabindex="${escapeAttr(String(disabled ? -1 : 0))}"
             aria-disabled="${disabled}"
             data-placeholder="${placeholder}"
         ></div>`;
