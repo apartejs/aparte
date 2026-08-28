@@ -62,6 +62,14 @@ a { color: inherit; }
   background: var(--brand-line); border-radius: 999px; border: 2px solid var(--brand-ground);
 }
 :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb:hover { background: #463a54; }
+/* The chat's own scrollbar follows the page's: core derives its thumb from the neutral
+   and re-anchors that on `aparte-chat`, so the mapping has to land on the element, not
+   on the root. */
+:root:not([data-theme="light"]) aparte-chat {
+  --aparte-scrollbar-thumb: var(--brand-line);
+  --aparte-scrollbar-track: var(--brand-ground);
+  --aparte-scrollbar-width: 11px;
+}
 
 .stage-glow {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;

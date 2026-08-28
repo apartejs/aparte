@@ -167,6 +167,10 @@
   --aparte-focus-outline-width: 2px;
   /* Scrollbars rendered by the library. */
   --aparte-scrollbar-width: 6px;
+  /* The transcript's scrollbar track; the thumb is derived from the neutral, in the
+     derived layer. A host page with a scrollbar of its own (the docs site has one)
+     sets both so the chat's does not read as a second, foreign scrollbar. */
+  --aparte-scrollbar-track: transparent;
   /* Comfortable hit-area on coarse (touch) pointers. */
   --aparte-touch-target-size: 44px;
 
@@ -600,6 +604,7 @@ aparte-chat {
   --aparte-elic-step-padding: var(--aparte-space-2) var(--aparte-space-1);
   --aparte-elic-step-gap: var(--aparte-space-7);
   --aparte-viewport-padding: var(--aparte-space-8);
+  --aparte-scrollbar-thumb: var(--aparte-neutral);
   --aparte-input-padding-x: var(--aparte-space-6);
   --aparte-input-padding-y: var(--aparte-space-5);
   --aparte-conv-list-gap: var(--aparte-space-1);

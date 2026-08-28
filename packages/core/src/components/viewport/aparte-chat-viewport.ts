@@ -89,6 +89,8 @@ import {
  *   which framework-managed mode never builds.
  * @cssprop [--aparte-message-gap=12px] - Gap between consecutive bubbles in the transcript
  *   column (both DOM modes). Shared: it is also the avatar-to-content gap inside a bubble.
+ * @cssprop [--aparte-scrollbar-thumb=var(--aparte-neutral)] - Colour of the transcript's scrollbar thumb. A host page with a scrollbar of its own sets this and the track so the chat's does not read as a second, foreign scrollbar.
+ * @cssprop [--aparte-scrollbar-track=transparent] - Colour of the transcript's scrollbar track.
  * @cssprop [--aparte-scrollbar-width=6px] - Width of the WebKit scrollbar on the scroll
  *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
  * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A

@@ -93,7 +93,7 @@ aparte-chat-viewport {
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--aparte-neutral) transparent;
+  scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
 }
 
 .aparte-viewport-container::-webkit-scrollbar {
@@ -101,7 +101,7 @@ aparte-chat-viewport {
 }
 
 .aparte-viewport-container::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--aparte-scrollbar-track);
 }
 
 /* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
@@ -160,7 +160,7 @@ aparte-chat-viewport[framework-managed] {
   padding: var(--aparte-viewport-padding);
   padding-bottom: calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px));
   scrollbar-width: thin;
-  scrollbar-color: var(--aparte-neutral) transparent;
+  scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
 }
 
 /* The framework wrapper renders bubbles as DIRECT flex children of the viewport
@@ -178,7 +178,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
 }
 
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--aparte-scrollbar-track);
 }
 
 /* The scroll button lives INSIDE the scrolling host here (last child), so it
