@@ -53,7 +53,7 @@ export interface AparteSelectChangeDetail {
  * @cssprop [--aparte-select-radius=0.5rem] - Corner radius of the trigger and the dropdown.
  * @cssprop [--aparte-select-text=var(--aparte-text, #1e293b)] - Colour of the trigger label (and of the options).
  * @cssprop [--aparte-select-chevron=var(--aparte-text-muted, #94a3b8)] - Colour of the chevron, which rotates 180° while open.
- * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1, #fff)] - Dropdown panel background in the light theme only; the `[data-aparte-theme="dark"]` rule is more specific and reads `--aparte-select-bg` instead.
+ * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1, #fff)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware). It used to be read in the light theme only, the dark rule taking the TRIGGER's background instead — so a transparent trigger made the panel see-through in the dark.
  * @cssprop [--aparte-select-shadow=0 4px 12px rgba(0, 0, 0, 0.1)] - Dropdown panel shadow.
  * @cssprop [--aparte-select-z=1000] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
  *
@@ -272,6 +272,13 @@ export class AparteSelect extends HTMLElement {
     private _setupMutationObserver(): void {
         this._observer = new MutationObserver(() => {
             this._updateDropdownContent();
+            // A list refreshed IN PLACE (a consumer writing into `.aparte-select-options`,
+            // as the model selector does when providers settle) leaves nothing to move,
+            // so the call above returns before it reaches the label — and the trigger
+            // kept showing a label the list no longer offered, with a width stack to
+            // match. The label follows every change; its writes are guarded so this
+            // observer does not wake itself.
+            this._updateTriggerLabel();
             // The options may have just been replaced under an open dropdown —
             // re-assert the keyboard position on the NEW elements. See
             // {@link _restoreActive}.
@@ -583,23 +590,30 @@ export class AparteSelect extends HTMLElement {
     }
 
     private _updateTriggerLabel(): void {
+        // Every write below is guarded by a comparison: this runs from the mutation
+        // observer, which watches the whole subtree, and an unconditional write to the
+        // trigger would wake the observer that called it, forever. Written only when
+        // something changed, the second pass finds nothing to do and the loop closes.
         const placeholder = this.getAttribute('placeholder') || 'Select...';
         const labelText = this._trigger?.querySelector('.aparte-select-label-text');
         if (labelText) {
-            const selectedLabel = this._getSelectedLabel();
-            labelText.textContent = selectedLabel || placeholder;
+            const next = this._getSelectedLabel() || placeholder;
+            if (labelText.textContent !== next) labelText.textContent = next;
         }
         // The width stack — rebuilt here because this runs on every change to the
-        // options too (the observer), so an option written later still counts.
-        // `textContent` per span: a label is consumer text, never markup.
+        // options too, so an option written later (or a list refreshed in place)
+        // still counts. `textContent` per span: a label is consumer text, never markup.
         const sizer = this._trigger?.querySelector('.aparte-select-label-sizer');
         if (sizer) {
             const labels = [placeholder, ...Array.from(this.querySelectorAll('aparte-option'), (o) => o.textContent?.trim() || '')];
-            sizer.replaceChildren(...labels.map((text) => {
-                const span = document.createElement('span');
-                span.textContent = text;
-                return span;
-            }));
+            const current = Array.from(sizer.children, (s) => s.textContent ?? '');
+            if (labels.length !== current.length || labels.some((l, i) => l !== current[i])) {
+                sizer.replaceChildren(...labels.map((text) => {
+                    const span = document.createElement('span');
+                    span.textContent = text;
+                    return span;
+                }));
+            }
         }
 
         // Update selected state on options

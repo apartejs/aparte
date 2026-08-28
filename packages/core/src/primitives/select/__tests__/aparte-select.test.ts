@@ -329,3 +329,40 @@ describe('re-connecting does not accumulate listeners', () => {
         host.remove();
     });
 });
+
+// The control keeps the width of its widest option: a hidden stack of every label under
+// the visible one. It has to follow the options, including a list refreshed IN PLACE
+// (a consumer writing into `.aparte-select-options`), which used to leave the trigger
+// showing a label the list no longer offered.
+describe('AparteSelect — the width stack follows the options', () => {
+    const stack = (el: AparteSelect): string[] =>
+        Array.from(el.querySelectorAll('.aparte-select-label-sizer > span'), (s) => s.textContent ?? '');
+    const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+    it('lists the placeholder and every option label', () => {
+        const el = mountSelect([{ value: 'short' }, { value: 'a much longer option label' }]);
+        expect(stack(el)).toEqual(['Pick', 'short', 'a much longer option label']);
+        expect(el.querySelector('.aparte-select-label-text')?.textContent).toBe('Pick');
+    });
+
+    it('follows a list refreshed in place, label included, and settles without looping', async () => {
+        const el = mountSelect([{ value: 'old' }]);
+        el.value = 'old';
+        expect(el.querySelector('.aparte-select-label-text')?.textContent).toBe('old');
+
+        const container = el.querySelector('.aparte-select-options')!;
+        container.innerHTML = '';
+        const fresh = document.createElement('aparte-option');
+        fresh.setAttribute('value', 'old');
+        fresh.textContent = 'renamed';
+        container.appendChild(fresh);
+        await tick();
+
+        expect(stack(el)).toEqual(['Pick', 'renamed']);
+        expect(el.querySelector('.aparte-select-label-text')?.textContent).toBe('renamed');
+        // A second pass finds nothing to write: the same elements are still there.
+        const spans = Array.from(el.querySelectorAll('.aparte-select-label-sizer > span'));
+        await tick();
+        expect(Array.from(el.querySelectorAll('.aparte-select-label-sizer > span'))).toEqual(spans);
+    });
+});
