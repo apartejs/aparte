@@ -28,6 +28,8 @@ export const fr: AparteLocale = {
     approvalOptionsLabel: "Votre décision",
     approvalAsk: "Exécuter {tool} ?",
     approvalWaiting: "en attente de vous",
+    scrollToBottom: "Aller en bas de la conversation",
+    compactionSummaryTitle: "Résumé de la conversation",
     toolRunning: "En cours",
     toolCompleted: "Terminé",
     toolRejected: "Refusé",

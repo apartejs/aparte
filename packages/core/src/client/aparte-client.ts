@@ -848,7 +848,11 @@ export class AparteClient {
             target.appendMessage?.({
                 id: uuid(),
                 role: 'assistant',
-                content: `📝 **Conversation summary**\n\n${summary}`,
+                // Through the locale, like every string the user reads — this was a
+                // hardcoded English title (with an emoji) in an otherwise localised
+                // transcript. The engine compactor's `summaryLabel` is a separate,
+                // per-call knob; this is the UI's own title.
+                content: `**${this._config.t('compactionSummaryTitle')}**\n\n${summary}`,
                 timestamp: Date.now(),
                 status: 'completed'
             });

@@ -200,6 +200,9 @@ export class AparteChatViewport extends HTMLElement {
         const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
         if (detail?.config && detail.config !== resolveConfig(this)) return;
         this._applyDirection();
+        // The button's accessible name is locale text too — a language switch is
+        // documented as live, and this was the one chrome string that stayed put.
+        this._scrollBtn?.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
     };
 
     /** Mirror `locale.direction` onto the scroll container. */
@@ -1196,7 +1199,7 @@ export class AparteChatViewport extends HTMLElement {
             this._scrollBtn = document.createElement('button');
             this._scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
             this._scrollBtn.setAttribute('type', 'button');
-            this._scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
+            this._scrollBtn.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
             const scrollIcon = resolveConfig(this).getIcon('scrollDown');
             this._scrollBtn.innerHTML = scrollIcon;
             this.appendChild(this._scrollBtn);
@@ -1231,7 +1234,7 @@ export class AparteChatViewport extends HTMLElement {
         const scrollBtn = document.createElement('button');
         scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
         scrollBtn.setAttribute('type', 'button');
-        scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
+        scrollBtn.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
         const scrollIcon = resolveConfig(this).getIcon('scrollDown');
         scrollBtn.innerHTML = scrollIcon;
         this.appendChild(scrollBtn);
