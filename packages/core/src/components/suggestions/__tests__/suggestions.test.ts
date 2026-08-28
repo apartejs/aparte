@@ -15,7 +15,9 @@ import type { AparteSuggestions, AparteSuggestionEventDetail } from '../aparte-s
 type FakeComposer = HTMLElement & { setValue: ReturnType<typeof vi.fn>; submit: ReturnType<typeof vi.fn>; focus: ReturnType<typeof vi.fn> };
 
 const fakeComposer = (attrs: Record<string, string> = {}): FakeComposer => {
-    const el = document.createElement('aparte-composer') as FakeComposer;
+    // Through `unknown`: the tag-name map types this element as the real composer,
+    // whose methods are not mocks — and the stand-in's whole point is that they are.
+    const el = document.createElement('aparte-composer') as unknown as FakeComposer;
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
     el.setValue = vi.fn();
     el.submit = vi.fn();
