@@ -15,6 +15,10 @@ sidebar:
   (browser → provider) or `AparteBackendTransport` (browser → your server). See
   [Getting started](/guides/getting-started/#wire-a-real-model).
 
+A fourth package is a provider that calls no model at all: [`@aparte/provider-scenario`](/providers/ai/scenario/)
+replays turns you wrote — for a demo that streams without a key, and for your own tests, which get a
+deterministic model.
+
 Register a provider, set a transport, construct an `AparteClient`, and streaming just works:
 
 ```ts
