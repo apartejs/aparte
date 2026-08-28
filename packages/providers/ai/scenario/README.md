@@ -11,6 +11,12 @@ npm install @aparte/provider-scenario @aparte/core
 
 `@aparte/core` is the only **peer dependency**; this package has none of its own.
 
+It stands in for the **whole provider**: everything above it — the loop, tool execution
+and approval, the transcript, your renderers — runs for real, and nothing below it runs at
+all. So it tests an app that talks to a model over HTTP (BYOK, a backend, a local server).
+It does not test a provider you wrote yourself — a worker, a wire format, a tool-call
+parser — since that is exactly the part it replaces; keep a fake of your own for that layer.
+
 ```ts
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createScenarioProvider } from '@aparte/provider-scenario';

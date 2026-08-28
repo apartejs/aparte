@@ -97,8 +97,9 @@ aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showca
 ```
 
 `showcase` answers *haiku*, *table*, *code*, *weather* (a tool round-trip), *ask me a
-question* (an `ask_user` call, answered by `@aparte/plugin-ask-user`'s panel), *artifact*,
-*slow* and *fail* — the surface a chat has, in one registration. It is what the docs'
+question* (an `ask_user` call, answered by `@aparte/plugin-ask-user`'s panel), *survey*
+(two questions in one call — the panel's stepper), *artifact*, *slow* and *fail* — the
+surface a chat has, in one registration. It is what the docs'
 live frames run on.
 
 ## What it is not
@@ -107,3 +108,10 @@ This repository's own browser suite keeps its network mock: that suite tests the
 wire path — provider format, transport, auth — which this provider bypasses by
 construction. Use the scenario provider to test **your** app around the chat, not to
 test aparté's adapters.
+
+The same line holds for a provider **you** wrote. The scenario stands in for the whole
+provider: everything above it — the loop, tool execution and approval, the transcript,
+your renderers — runs for real, and nothing below it runs at all. An app whose provider
+is the thing under test (a worker, a wire format, a tool-call parser, an executor queue)
+gets no coverage of that layer from a scenario; keep a fake of your own for it, and use
+the scenario for what sits above.
