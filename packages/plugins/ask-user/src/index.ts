@@ -13,7 +13,7 @@
  */
 
 import { aparteGlobalConfig, registerSegmentRenderer, type AparteConfig } from '@aparte/core';
-import { createAskUserTool, askUserHandler, type AskUserToolOptions } from './ask-user.js';
+import { createAskUserTool, askUserHandler, type AskUserSetupOptions } from './ask-user.js';
 import { questionReceiptRenderer } from './question-receipt.renderer.js';
 import { buildReceipt } from './receipt.js';
 
@@ -27,10 +27,16 @@ import './aparte-ask-user.js';
  * aparteGlobalConfig singleton mutation predictable in SSR/test and tree-shaking
  * friendly. Call once at application startup.
  */
-export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options: AskUserToolOptions = {}): void {
+export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options: AskUserSetupOptions = {}): void {
     // The bounds the schema puts on the model are the HOST's, so they arrive here
     // rather than being frozen into a constant. Defaults are the normal call.
-    config.registerTool(createAskUserTool(options), askUserHandler);
+    const tool = createAskUserTool(options);
+    config.registerTool(tool, askUserHandler);
+
+    if (options.receipt === false) {
+        config.registerToolRenderer(tool.name, { render: () => '' });
+        return;
+    }
 
     /*
      * The conversation keeps the record.
@@ -51,13 +57,13 @@ export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options:
      * builds `question-receipt` segments of its own gets the same card.
      */
     registerSegmentRenderer(questionReceiptRenderer, config);
-    config.registerToolRenderer('ask_user', {
+    config.registerToolRenderer(tool.name, {
         render: (segment) => buildReceipt({ input: segment.toolCall.input, result: segment.result }),
     });
 }
 
 export { createAskUserTool, askUserHandler } from './ask-user.js';
-export type { AskUserToolOptions } from './ask-user.js';
+export type { AskUserToolOptions, AskUserSetupOptions } from './ask-user.js';
 export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 
 export { AparteAskUser } from './aparte-ask-user.js';

@@ -91,6 +91,20 @@ import { setupAskUser } from '@aparte/plugin-ask-user';
 setupAskUser(undefined, { maxOptions: 6, maxQuestions: 2 });
 ```
 
+The name and the words are the host's too. A backend that already exposes an
+`ask_user`, or a product that wants the model to read another policy in another
+language, passes them in; the receipt in the transcript follows the name, and
+`receipt: false` keeps the transcript silent for a UI that records the exchange itself:
+
+```ts
+setupAskUser(undefined, {
+    name: 'clarify',
+    description: 'Pose une question à choix à l’utilisateur.',
+    systemPrompt: 'Tu disposes de l’outil clarify. Utilise-le avant d’écrire un fichier.',
+    receipt: false,
+});
+```
+
 The tool is built rather than imported for exactly this reason — `createAskUserTool()`
 with no argument is the normal call, and the system prompt states whatever bounds you
 chose, because a prompt asking for what the schema does not enforce is how the original

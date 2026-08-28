@@ -53,8 +53,26 @@ export interface AskUserDetail {
     defaultValue?: string;
 }
 
-/** Bounds the schema puts on what the model may ask for. */
+/** Bounds the schema puts on what the model may ask for, and the words the model reads. */
 export interface AskUserToolOptions {
+    /**
+     * The tool's name. Default `ask_user`.
+     *
+     * A backend that already exposes an `ask_user` of its own, or a product that
+     * wants the model to see `clarify`, used to have to fork the tool for one
+     * string. The receipt follows the name: `setupAskUser` registers its renderer
+     * under whatever is chosen here.
+     */
+    name?: string;
+    /** The one-line description the model reads in the tool inventory. */
+    description?: string;
+    /**
+     * The instructions telling the model WHEN to reach for the tool. The default is
+     * the policy every serious implementation lands near — ask only when the request
+     * is genuinely ambiguous — and it is written in English. A product with another
+     * policy, or another language, passes its own text; it replaces the default whole.
+     */
+    systemPrompt?: string;
     /**
      * Options per question. Default 4.
      *
@@ -69,6 +87,16 @@ export interface AskUserToolOptions {
     maxQuestions?: number;
 }
 
+/** What `setupAskUser` takes: the tool's options, plus whether the transcript keeps a receipt. */
+export interface AskUserSetupOptions extends AskUserToolOptions {
+    /**
+     * Whether an answered question stays in the transcript as a receipt card.
+     * Default true. `false` renders nothing for the call — for a product whose own
+     * UI already records the exchange.
+     */
+    receipt?: boolean;
+}
+
 /**
  * Build the `ask_user` tool.
  *
@@ -81,10 +109,11 @@ export interface AskUserToolOptions {
 export function createAskUserTool(options: AskUserToolOptions = {}): AparteTool {
     const maxOptions = options.maxOptions ?? 4;
     const maxQuestions = options.maxQuestions ?? 5;
+    const name = options.name ?? 'ask_user';
     return {
-    name: 'ask_user',
-    description: 'Ask the user a question with structured options (title + optional description). Use for single or multiple choice input.',
-    systemPrompt: `You have access to the ask_user tool.
+    name,
+    description: options.description ?? 'Ask the user a question with structured options (title + optional description). Use for single or multiple choice input.',
+    systemPrompt: options.systemPrompt ?? `You have access to the ${name} tool.
 
 WHEN TO USE IT: only when the user's request is genuinely ambiguous and requires a choice between distinct options before you can proceed (e.g. "which framework should I use?", "what style do you prefer?").
 
