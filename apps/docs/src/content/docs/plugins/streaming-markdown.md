@@ -1,5 +1,5 @@
 ---
-title: Streaming Markdown
+title: Streaming Markdown in a chat, token by token
 description: Render Markdown token-by-token as it streams in aparté — incremental parsing that appends DOM nodes, with a live URL-safety guard.
 sidebar:
   order: 3

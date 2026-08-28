@@ -1,8 +1,9 @@
 ---
-title: Getting started
+title: AI chat in Web Components — getting started
 description: Install @aparte/core and render your first streaming chat — vanilla web components, no framework, no backend required.
 sidebar:
   order: 1
+  label: Getting started
 ---
 
 `@aparte/core` is a set of **framework-agnostic web components** for AI chat. You

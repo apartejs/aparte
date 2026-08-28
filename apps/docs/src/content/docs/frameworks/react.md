@@ -1,8 +1,9 @@
 ---
-title: React
+title: React AI chat component
 description: The @aparte/react wrapper — an ergonomic <AparteChat> component plus hooks over the aparté web components.
 sidebar:
   order: 2
+  label: React
 ---
 
 `@aparte/react` wraps `@aparte/core` for React 18/19: an ergonomic `<AparteChat>` component, hooks

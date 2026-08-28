@@ -1,8 +1,9 @@
 ---
-title: Vue
+title: Vue AI chat component
 description: The @aparte/vue wrapper — an ergonomic <AparteChat> component plus composables over the aparté web components.
 sidebar:
   order: 3
+  label: Vue
 ---
 
 `@aparte/vue` wraps `@aparte/core` for Vue 3.5+: an ergonomic `<AparteChat>` component, composables for

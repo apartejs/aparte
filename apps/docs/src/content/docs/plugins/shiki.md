@@ -1,5 +1,5 @@
 ---
-title: Syntax highlighting (shiki)
+title: Syntax highlighting for streamed code (shiki)
 description: Highlight code blocks in aparté via shiki — one lazily-created highlighter, grammars loaded on demand, and a second entry point for shipping only the languages you use.
 sidebar:
   order: 4
