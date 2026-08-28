@@ -89,7 +89,9 @@ export interface AparteComposerChangeEventDetail {
  * it (appending to the host when there is none).
  *
  * A PANEL is neither markup you write nor a named slot: `showPanel()` takes the element,
- * stamps it `data-aparte-panel` and inserts it, `hidePanel()` removes it. One at a time
+ * stamps it `data-aparte-panel` and inserts it — inside the descendant you marked
+ * `data-aparte-panel-host` if there is one, else right after the first input —
+ * and `hidePanel()` removes it. One at a time
  * — a second `showPanel()` evicts the first and calls its `onEvict`. While one is up the
  * host carries `[data-panel-active]`, which hides `<aparte-composer-input>` and
  * `<aparte-composer-add-attachment>` and leaves the attachments strip and the toolbar in
@@ -417,10 +419,17 @@ export class AparteComposer extends HTMLElement {
         // Evict rather than hide: the previous owner is awaiting an answer it will
         // never get, and it is the only thing that can settle its own promise.
         this._evictPanel();
+        // Where it goes, in order: the element the author marked as the panel's host,
+        // else right after the first input, else the end of the composer. The marker
+        // exists because "after the input" is a position, and a layout with the input
+        // in a row and the panel meant for a block of its own had no way to say so.
+        const host = this.querySelector('[data-aparte-panel-host]') as HTMLElement | null;
         const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
         this.setAttribute('data-panel-active', '');
         panel.dataset['apartePanel'] = 'true';
-        if (inputEl) {
+        if (host) {
+            host.appendChild(panel);
+        } else if (inputEl) {
             inputEl.insertAdjacentElement('afterend', panel);
         } else {
             this.appendChild(panel);
