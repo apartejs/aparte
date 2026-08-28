@@ -84,6 +84,12 @@ export interface StreamRunOptions {
      * `request.messages` — and mirrors these notifications into its append-only
      * log, instead of reimplementing the loop's tool bookkeeping. Synchronous and
      * ordered, like {@link emitter}.
+     *
+     * One rule about the envelope: a turn's `tool_call` message is reported ONCE, when
+     * its first call completes, and the calls that complete later in the same turn are
+     * already in that same object's `toolCalls` — the array is shared by reference, not
+     * copied. Hold the reference, not a snapshot, and every result you receive after it
+     * is declared by it.
      */
     onHistoryAppend?: (message: StreamAgentMessage) => void;
     /**
@@ -323,6 +329,25 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // Per-turn streaming state.
         let precedingText = '';
         const toolCallsThisTurn: StreamToolCall[] = [];
+        /**
+         * The turn's ONE `tool_call` envelope, held by reference. Created — and
+         * appended, so the host is notified once — the first time a call needs it;
+         * every later call of the turn is already in the SAME `toolCalls` array, so a
+         * `tool_result` appended afterwards is always declared by it.
+         *
+         * This replaces an id scan over `messages` that guessed whether the envelope
+         * was already there. The `create_artifact` fast path pushed a fresh envelope
+         * of its own; the scan then found the artifact's id in it, concluded "already
+         * pushed", and the next tool's result went out with no call declaring it —
+         * the P0 of the 2026-08-28 audit, a history an Anthropic-shaped API rejects
+         * outright. A reference cannot be guessed wrong.
+         */
+        let envelope: StreamAgentMessage | null = null;
+        const ensureEnvelope = (): void => {
+            if (envelope) return;
+            envelope = { role: 'tool_call', content: '', toolCalls: toolCallsThisTurn, precedingText: precedingText.trim() || undefined };
+            append(envelope);
+        };
 
         // ── inner (SSE) loop — manual iteration so we can abort around each read.
         // Checked on BOTH sides of the read, and the second check is the one that
@@ -409,7 +434,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     const mimeType = input.mimeType ?? 'text/plain';
                     const kind = deriveArtifactKind(mimeType, 'text');
                     emitter({ type: 'artifact-ready', id: `artifact-${event.id}`, mimeType, kind, title: input.title ?? kind, content: input.content ?? '' });
-                    append({ role: 'tool_call', content: '', toolCalls: [{ id: event.id, name: event.name, input: event.input }] });
+                    // The turn's envelope, not one of its own: a fresh `[create_artifact]`
+                    // envelope here is what orphaned the next tool's result.
+                    ensureEnvelope();
                     append({ role: 'tool_result', content: 'Artifact created successfully.', toolCallId: event.id });
                     continue;
                 }
@@ -505,7 +532,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                             ? `The user rejected this tool call and said: ${decision.instruction}`
                             : 'Tool execution was rejected by the user.';
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
-                        pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
+                        ensureEnvelope();
                         append({ role: 'tool_result', content: rejection, toolCallId: event.id });
                         /*
                          * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
@@ -543,7 +570,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     break;
                 } else {
                     emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content });
-                    pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
+                    ensureEnvelope();
                     append({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
                 }
             }
@@ -602,31 +629,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
     // Post-loop finalization runs on every exit path (normal / abort / maxTurns).
     emitter({ type: 'run-done', usage: lastUsage });
     return lastUsage;
-}
-
-/**
- * Push the single grouped `tool_call` envelope for the turn — but only once,
- * even when the turn has several tool calls (each call's `tool_result` is pushed
- * separately). Mirrors `_streamLoop`'s `existingToolCallMsg` guard. Reads
- * `messages` for that guard and writes through `append`, so the duplicate
- * suppression also applies to the `onHistoryAppend` notification.
- */
-function pushToolCallEnvelope(
-    messages: StreamAgentMessage[],
-    append: (message: StreamAgentMessage) => void,
-    toolCallsThisTurn: StreamToolCall[],
-    precedingText: string,
-): void {
-    const exists = messages.some(
-        m => m.role === 'tool_call' && m.toolCalls?.some(tc => toolCallsThisTurn.some(t => t.id === tc.id)),
-    );
-    if (exists) return;
-    append({
-        role: 'tool_call',
-        content: '',
-        toolCalls: toolCallsThisTurn,
-        precedingText: precedingText.trim() || undefined,
-    });
 }
 
 /**
