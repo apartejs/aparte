@@ -1,6 +1,6 @@
 {
     "name": "@aparte/engine",
-    "version": "0.13.0",
+    "version": "0.13.1",
     "description": "Framework-agnostic AI agent loop (runStreamAgent) + parsers/orchestrator — zero runtime deps, headless (browser or Node).",
     "type": "module",
     "sideEffects": false,
@@ -32,7 +32,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.13.0 <1.0.0"
+        "@aparte/core": ">=0.13.1 <1.0.0"
     },
     "peerDependenciesMeta": {
         "@aparte/core": {
