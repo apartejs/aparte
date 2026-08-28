@@ -281,7 +281,7 @@ Constructor options (all optional):
 | `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`. |
 | `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: drop everything. |
 | `fileInjectFilter` | `(file: File) => boolean` | Decide which attached files are read and sent to the model. Return `false` to keep one out of the request — e.g. `(f) => !/(^\|\.)env$\|\.(pem\|key)$/i.test(f.name)`. Without one, every attachment is sent. |
-| `streamRunner` | `AparteStreamRunner` | Delegate the agentic loop to a headless runner (e.g. `@aparte/engine`'s `runStreamAgent`) instead of the built-in inline loop. |
+| `streamRunner` | `AparteStreamRunner` | The loop runner — `@aparte/engine`'s `runStreamAgent` by default. Set it to wrap that loop's options (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })`) or to replace it with a loop of your own emitting the same events. |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |
 | `autoRegister` | `boolean` (default `true`) | Register core's default segment renderers. Rarely needed either way — the built-ins install themselves on first use; set `false` (at startup) to keep them out and register your own. |
 | `history` | `'viewport' \| 'none' \| ((viewportMessages: AparteMessage[]) => AparteChatMessage[])` | Conversation-history strategy for new sends. |

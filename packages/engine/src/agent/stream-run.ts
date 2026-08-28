@@ -1,14 +1,16 @@
 /**
  * stream-run.ts — framework-free structured-stream agent loop.
  *
- * The headless extraction of `AparteClient._streamLoop`: a `while(tool_use)` loop
+ * The agent loop — extracted from core's inline `_streamLoop`, which it has since
+ * replaced (audit 2026-08-28, D1): a `while(tool_use)` loop
  * that consumes a structured `AsyncIterable<StreamChatEvent>` from a transport,
  * runs approved tools, feeds their results back into the history, and re-calls
  * the transport until the model stops asking for tools. It performs **no DOM
- * work** — it emits {@link StreamRunEvent}s (in `_streamLoop`'s exact order) that
+ * work** — it emits {@link StreamRunEvent}s (in the inline loop's exact order) that
  * an adapter in `@aparte/core` turns into `targetElement.*` calls.
  *
- * Parity target: `@aparte/core`'s `AparteClient._streamLoop`.
+ * Formerly the parity target of core's inline loop; now the one loop, its call
+ * sequences pinned by core's `stream-parity` snapshots.
  * Scope: text · thinking · tool_use (+ HITL) · done · error · artifacts (raw /
  * XML / create_artifact) · multi-phase pipeline · synthetic toolChoice bypass.
  * Code-fence promotion stays adapter-side (it needs the core parser).
@@ -450,18 +452,32 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                         continueLoop = false;
                         break;
                     }
-                    const decision = await approvalResolver(
-                        { id: event.id, name: event.name, input: event.input as Record<string, unknown> },
-                        signal,
-                    );
-
                     /*
                      * A stop is not a refusal either. Core's built-in channel resolves
                      * `{ approved: false }` on abort, indistinguishable by value from an
                      * explicit Reject — so the signal is what tells them apart. No
                      * `tool_result`: an aborted call has nothing true to tell the model.
+                     *
+                     * Checked on three sides of the wait, because the stop can land on
+                     * any of them: while the gate was being shown (a host that reacts to
+                     * `awaiting-approval` synchronously — the panel's own Stop button),
+                     * inside the resolver (a channel that rejects with an AbortError
+                     * rather than resolving), or after it resolved. The first and second
+                     * used to fall through to the run-level abort, which never marked the
+                     * call: the segment stayed `awaiting-approval` for good.
                      */
-                    if (signal.aborted) {
+                    let decision: Awaited<ReturnType<typeof approvalResolver>> | undefined;
+                    if (!signal.aborted) {
+                        try {
+                            decision = await approvalResolver(
+                                { id: event.id, name: event.name, input: event.input as Record<string, unknown> },
+                                signal,
+                            );
+                        } catch (err) {
+                            if (!signal.aborted && (err as { name?: string } | undefined)?.name !== 'AbortError') throw err;
+                        }
+                    }
+                    if (signal.aborted || !decision) {
                         emitter({ type: 'tool-aborted', toolCallId: event.id });
                         continueLoop = false;
                         break;

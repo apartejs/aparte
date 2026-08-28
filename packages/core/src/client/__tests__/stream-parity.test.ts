@@ -1,24 +1,32 @@
 // @vitest-environment jsdom
 //
-// PARITY — `runStreamAgent` + the REAL core adapter reproduce `_streamLoop`.
+// THE LOOP'S CALL SEQUENCES — recorded, and the client's wiring held to them.
 //
-// Drives the actual `AparteClient._streamLoop` (from @aparte/core) against a scripted
-// transport with a recorder targetElement, capturing its exact call sequence.
-// Then runs `runStreamAgent` (this package) + `createStreamAdapter` (@aparte/core —
-// the production adapter, NOT a throwaway) against the SAME script, and asserts
-// the two recorded sequences are identical (segment uuids normalized by
-// first-appearance index so identity relationships are preserved).
+// This suite was born in @aparte/engine as a PARITY test: it drove core's inline
+// `_streamLoop` and `runStreamAgent` + the real `createStreamAdapter` against the same
+// scripted transport and asserted identical call sequences. The inline loop is gone
+// (audit 2026-08-28, D1 — one loop, the engine's), so two things remain, both worth
+// keeping:
 //
-// The engine drives the DOM-coupled `_streamLoop`, so this test runs in jsdom;
-// `runStreamAgent` itself stays pure-Node (stream-run.test.ts). Engine → core is
-// the allowed dependency direction (core never imports engine), so the parity
-// test lives here and imports the core adapter.
+// 1. The SNAPSHOTS. Every `toMatchSnapshot` below was written while the inline loop
+//    still ran beside the engine and the two were asserted equal — so they are the
+//    inline loop's behaviour, pinned. A change in the engine that alters a sequence
+//    fails here, with the diff.
+// 2. The EQUALITY. `old` is now the client's own path (`_streamLoop` → the engine
+//    through `_runViaStreamRunner`), `knew` the engine + adapter driven directly. Their
+//    equality is what says the client adds nothing and loses nothing in between — the
+//    tool lookup, the approval channel, the id conventions, the leading writes. It is
+//    also what caught the client writing `status: 'streaming'` once too often.
+//
+// jsdom because the adapter drives DOM-shaped targets; segment uuids are normalized
+// by first-appearance index so identity relationships are preserved.
 
 import { describe, it, expect, vi } from 'vitest';
-import { AparteClient, AparteConfig, createStreamAdapter } from '@aparte/core';
-import type { AparteStreamEvent } from '@aparte/core';
-import { runStreamAgent } from '../stream-run';
-import type { StreamChatEvent, StreamChatRequest } from '../stream-events';
+import { AparteClient } from '../aparte-client.js';
+import { AparteConfig } from '../../config/aparte-config.js';
+import { createStreamAdapter } from '../stream-adapter.js';
+import type { AparteStreamEvent } from '../../types/index.js';
+import { runStreamAgent, type StreamChatEvent, type StreamChatRequest } from '@aparte/engine';
 
 // ─── recorder targetElement ──────────────────────────────────────────────────
 
@@ -75,7 +83,13 @@ function gatedReadable(events: AparteStreamEvent[], at: number, gate: Gate): Rea
             if (i >= events.length) { ctrl.close(); return; }
             ctrl.enqueue(events[i++] as AparteStreamEvent);
         },
-    });
+    // `highWaterMark: 0`, so the stream pulls only when the consumer reads. With the
+    // default of 1 it pre-pulls: event `at` sits in the queue and the gate is reached
+    // before the loop has read it, the stop lands, and `readableToAsyncIterable`
+    // discards the queued event by design — while the generator side had already
+    // handed its `at`-th event over. The two sides then disagreed by exactly one
+    // delta, and the disagreement was the harness's, not the loop's.
+    }, { highWaterMark: 0 });
 }
 
 async function* gatedIterable(events: StreamChatEvent[], at: number, gate: Gate): AsyncIterable<StreamChatEvent> {
@@ -274,7 +288,7 @@ async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: s
     };
 }
 
-describe('runStreamAgent — call-sequence parity with real _streamLoop', () => {
+describe("the client's loop — the engine through the adapter, pinned", () => {
     it('thinking → text → HITL tool (approved) → text → done', async () => {
         const r = await captureParity({ streams: [
             [{ type: 'thinking', delta: 'Th' }, { type: 'thinking', delta: 'ink' }, { type: 'text', delta: 'Hello world' }, { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } }, { type: 'done' }],
@@ -282,6 +296,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         ], approve: true });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     // The name used to say "stops the loop identically", and that is no longer what
@@ -297,6 +312,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         ], approve: false });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     // The scenario whose absence hid a real divergence for a whole release.
@@ -313,6 +329,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         ], approve: false, instruction: 'use the staging bucket instead' });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
         // Agreement alone would pass if BOTH dropped the words, so pin the content too:
         // the sentence has to be somewhere in what the target was told.
         expect(JSON.stringify(r.knew)).toContain('use the staging bucket instead');
@@ -324,6 +341,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         ] });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('artifactRaw mode — whole stream into one artifact', async () => {
@@ -333,6 +351,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('create_artifact built-in — one-shot artifact then reply', async () => {
@@ -342,6 +361,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         ] });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('multi-phase pipeline — two text phases with a pipeline-waiting segment', async () => {
@@ -354,6 +374,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('synthetic toolChoice bypass — forced tool then reply', async () => {
@@ -363,6 +384,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('artifactXml mode — inline <artifact> tags split from chat text', async () => {
@@ -376,6 +398,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('artifactHint mode — first code fence promoted to an artifact', async () => {
@@ -390,6 +413,7 @@ describe('runStreamAgent — call-sequence parity with real _streamLoop', () => 
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 });
 
@@ -425,6 +449,7 @@ describe('runStreamAgent — parity on the paths that STOP', () => {
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('the global turn ceiling stops both loops at the same point', async () => {
@@ -437,6 +462,7 @@ describe('runStreamAgent — parity on the paths that STOP', () => {
         const r = await captureParity({ streams: [loop, loop, loop, loop], maxTurns: 2 });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('a per-tool turn ceiling stops both loops at the same point', async () => {
@@ -448,6 +474,7 @@ describe('runStreamAgent — parity on the paths that STOP', () => {
         const r = await captureParity({ streams: [loop, loop, loop], searchMaxTurns: 1, approve: true });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
     it('a stop mid-stream unwinds identically on both sides', async () => {
@@ -465,6 +492,7 @@ describe('runStreamAgent — parity on the paths that STOP', () => {
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
 
         // And what the user is left with: the text that had arrived, no error.
         const rendered = r.old.join(String.fromCharCode(10));
@@ -485,6 +513,7 @@ describe('runStreamAgent — parity on the paths that STOP', () => {
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);
+        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 });
 

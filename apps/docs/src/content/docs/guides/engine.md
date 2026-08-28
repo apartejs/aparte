@@ -1,18 +1,18 @@
 ---
 title: The agent engine
-description: "@aparte/engine is the headless, zero-dependency agent loop — runStreamAgent, the loop core drives via the streamRunner seam, plus the agnostic conversation compactor."
+description: "@aparte/engine is the headless, zero-dependency agent loop — runStreamAgent, the loop AparteClient runs, plus the agnostic conversation compactor and the budget-aware compaction selector."
 sidebar:
   order: 5
 ---
 
-`@aparte/core` already runs a full **agent loop**: when you drive a chat with `AparteClient`,
-it streams the model, splits the reply into segments (text, thinking, tool calls, artifacts),
-runs the tool-calling loop, and reports usage — all inline. **Core works without this package.**
+`@aparte/core` runs a full **agent loop** when you drive a chat with `AparteClient`: it streams
+the model, splits the reply into segments (text, thinking, tool calls, artifacts), runs the
+tool-calling loop, and reports usage. **That loop is this package's** — core depends on it.
 
 `@aparte/engine` is that loop as a **headless, framework-agnostic** package: zero runtime
 dependencies, no DOM, runs in the browser or Node. Its headline export, **`runStreamAgent`**, is
-the exact loop core embeds inline — extracted so a backend can run it server-side with *provably*
-identical behaviour.
+the loop `AparteClient` runs — and the same function a backend runs server-side, so the two
+behave identically by construction rather than by parity.
 
 It is deliberately **just the loop core drives, plus the agnostic conversation compactor**.
 Opt-in *tools* (ask-user, RAG, skills, code execution) belong in `plugins/*`; product
@@ -76,12 +76,12 @@ The gauge, the selector and the model speak the same numbers: the window is the 
 budget is the compactor's, and the reading is what the provider reported — nothing is estimated
 twice.
 
-## The primary use: the `streamRunner` seam
+## The `streamRunner` seam
 
-Core depends on `@aparte/engine` — first-party, the run-event types are the engine's — but it
-does not run the engine's loop by itself yet: `AparteClient` exposes an injection point,
-`streamRunner`. Give it `runStreamAgent` and the client delegates its loop to the engine,
-rendering the engine's events through core's `createStreamAdapter`:
+`AparteClient` runs `runStreamAgent` by itself — there is nothing to inject to get the engine's
+loop. `streamRunner` is the seam for the two things that go beyond that: wrapping the loop's
+options (the prefix-cache case below) or replacing the loop with one of your own that emits the
+same events, which core renders exactly the same way — same messages, same events, same DOM output:
 
 ```ts
 import { AparteClient } from '@aparte/core';
@@ -89,12 +89,9 @@ import { runStreamAgent } from '@aparte/engine';
 
 const client = new AparteClient({
   // …your transport / config…
-  streamRunner: runStreamAgent,   // delegate the loop to the engine
+  streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }),   // the engine's loop, your options
 });
 ```
-
-With no `streamRunner`, the inline loop runs (the default). With one, the engine runs the loop and
-core renders it — same messages, same events, same DOM output.
 
 ## Owning the history yourself (prefix-cache hosts)
 
@@ -128,14 +125,16 @@ new AparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, onHistoryAp
 Serializing a tool inventory, its calls and their results into a raw prompt is still yours to
 write: the providers that do it target message-based APIs.
 
-## Proven parity
+## Pinned call sequences
 
-The two paths aren't "meant" to match — it's tested. The engine's **`stream-parity`** suite drives
-core's real inline loop and `runStreamAgent` (through the real `createStreamAdapter`) against the
-same scripted transport and asserts an identical call sequence and usage across 26 scenarios in
-nine groups — the happy paths (plain text, thinking, human-in-the-loop approve and reject,
-streamed and one-shot artifacts, multi-phase pipelines, forced tool calls), and then the ones
-that matter more: the paths that STOP (a provider error, a tool with no handler, both turn
-ceilings, a tool that never resolves), walking away from a live stream mid-token, a withheld
-prefix never reaching `content`, events and tags neither loop used to handle, a non-streaming
-response, and three artifact-framing edge cases. So the seam is a drop-in, not an approximation.
+The loop's behaviour isn't "meant" to be stable — it's recorded. Core's **`stream-parity`** suite
+was born in this package as a parity test between core's former inline loop and `runStreamAgent`
+through the real `createStreamAdapter`. Its 26 scenarios in nine groups — the happy paths (plain
+text, thinking, human-in-the-loop approve and reject, streamed and one-shot artifacts, multi-phase
+pipelines, forced tool calls), and then the ones that matter more: the paths that STOP (a provider
+error, a tool with no handler, both turn ceilings, a tool that never resolves), walking away from a
+live stream mid-token, a withheld prefix never reaching `content`, events and tags neither loop
+used to handle, a non-streaming response, and three artifact-framing edge cases — were snapshotted
+while both loops ran and were equal, so the snapshots are the inline loop's behaviour, pinned.
+The suite now lives in core, where it also holds `AparteClient`'s own wiring to a direct engine
+run; a change that alters a sequence fails there, with the diff.

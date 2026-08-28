@@ -10,6 +10,7 @@
  * - <think>…</think> or <thinking>…</thinking> → AparteThinkingSegment (configurable)
  */
 
+import { deriveArtifactKind } from '@aparte/engine';
 import type {
     AparteSegment,
     AparteTextSegment,
@@ -643,42 +644,9 @@ export function parseMarkdownToSegments(
 }
 
 /**
- * Map a MIME type to a short, stable artifact kind identifier.
- *
- * Resolution order: Anthropic's vendor namespace (`application/vnd.ant.<kind>`),
- * exact standard MIMEs, then a substring rescue for parameterised or vendor
- * variants (`text/html; charset=utf-8`, `application/ld+json`, …). Unrecognised
- * MIMEs return `fallback` (default `'unknown'`) — consumers are expected to
- * guard their renderers accordingly.
- *
- * Canonical implementation. `@aparte/engine` keeps a byte-identical copy (core is
- * an OPTIONAL peer there, so it cannot import this at runtime); the engine's
- * `derive-artifact-kind-parity.test.ts` locks the two together.
- *
- * @example
- * deriveArtifactKind('application/vnd.ant.react')  // 'react'
- * deriveArtifactKind('text/html; charset=utf-8')   // 'html'
- * deriveArtifactKind('font/woff2', 'text')         // 'text' (fallback)
+ * Artifact kind from a MIME type — the engine's implementation, re-exported so the
+ * name stays on core's surface. Core used to keep the canonical copy and engine a
+ * byte-identical one, locked together by a parity test; with core depending on
+ * engine (D1) there is one function object and nothing to lock.
  */
-export function deriveArtifactKind(mimeType: string, fallback = 'unknown'): string {
-    const m = (mimeType || '').toLowerCase().trim();
-    const ant = m.match(/^application\/vnd\.ant\.([a-z0-9-]+)/);
-    if (ant) return ant[1]!;
-    if (m === 'text/html' || m === 'application/xhtml+xml') return 'html';
-    if (m === 'application/javascript' || m === 'text/javascript') return 'js';
-    if (m === 'text/css') return 'css';
-    if (m === 'image/svg+xml') return 'svg';
-    if (m === 'application/json') return 'json';
-    if (m === 'text/markdown') return 'markdown';
-    if (m === 'text/csv') return 'csv';
-    if (m === 'text/plain') return 'text';
-    if (m.includes('react')) return 'react';
-    if (m.includes('html')) return 'html';
-    if (m.includes('javascript')) return 'js';
-    if (m.includes('css')) return 'css';
-    if (m.includes('svg')) return 'svg';
-    if (m.includes('json')) return 'json';
-    if (m.includes('csv')) return 'csv';
-    if (m.includes('markdown')) return 'markdown';
-    return fallback;
-}
+export { deriveArtifactKind };

@@ -5,11 +5,11 @@
  * `runAgent` ({@link ./agent-loop}): where `runAgent` drives a text-only
  * provider (`chat → string`, tool calls re-parsed from text), `runStreamAgent`
  * consumes a **structured** `AsyncIterable<StreamChatEvent>` (text / thinking /
- * tool_use / done / error) — the exact stream `AparteClient._streamLoop` reads
- * today. It is the extraction target for that 700-line DOM-coupled loop.
+ * tool_use / done / error) — the stream core's inline loop used to read. That loop
+ * is gone (audit 2026-08-28, D1): this is THE loop, and `AparteClient` runs it.
  *
  * DOM stays out of here. The loop emits high-level {@link StreamRunEvent}s in the
- * exact order `_streamLoop` performs its `targetElement.*` calls; a thin adapter
+ * exact order the inline loop performed its `targetElement.*` calls; a thin adapter
  * (in `@aparte/core`, where the parser and renderers live) translates each event
  * into the imperative viewport surface. So this module — and {@link ./stream-run}
  * — import **nothing** from `@aparte/core`: the types below structurally mirror the
@@ -215,11 +215,11 @@ export type StreamApprovalResolver = (
 // ─── The events runStreamAgent emits ─────────────────────────────────────────
 
 /**
- * High-level, DOM-free events isomorphic to `_streamLoop`'s `targetElement.*`
+ * High-level, DOM-free events isomorphic to the inline loop's `targetElement.*`
  * call sequence. Emitted **synchronously and in order** (see {@link StreamRunEmitter})
  * so the adapter reproduces the exact streaming update order.
  *
- * Mapping to `_streamLoop` (aparte-client.ts) for the adapter:
+ * Mapping to the inline loop it replaced, for the adapter:
  * - `run-start`       → updateMessage(status:'streaming') once at loop entry (the leading write before turn 1)
  * - `turn-start`      → reset the per-turn parser / thinking / streaming-segment state (no DOM); one per turn
  * - `text-delta`      → parser-driven addSegment/updateSegment, else typeName/updateLastMessage

@@ -3,8 +3,6 @@
     "$schema": "../../node_modules/nx/schemas/project-schema.json",
     "sourceRoot": "packages/engine/src",
     "projectType": "library",
-    "//": "core depends on engine (D1); engine keeps core only as a devDependency, for its parity tests. nx reads devDependencies as graph edges too, which made engine:build → core:gen → engine:build a cycle. Engine's build needs nothing from core — its sources import none of it — so the edge is removed here; the tests resolve core through the workspace link and the source condition, not through a build order.",
-    "implicitDependencies": ["!@aparte/core"],
     "targets": {
         "build": {
             "executor": "nx:run-script",

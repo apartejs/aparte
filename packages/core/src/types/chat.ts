@@ -94,8 +94,8 @@ export interface AparteChatRequest {
      * - 'auto'        : model decides (default when tools are present)
      * - 'none'        : no tools injected this turn — model answers directly
      * - { name }      : model MUST call this tool (provider injects a strong directive)
-     * - { name, input }: synthetic call — the agent loop (inline `_streamLoop`
-     *                    or the injected `runStreamAgent`) bypasses the LLM
+     * - { name, input }: synthetic call — the agent loop (`runStreamAgent`,
+     *                    or the runner you injected) bypasses the LLM
      *                    entirely and runs the handler directly with the provided
      *                    input, then re-calls the LLM with the tool_result in history.
      */
@@ -131,7 +131,7 @@ export interface AparteChatRequest {
 
     /**
      * Opaque metadata bag threaded through the request pipeline (e.g. from a
-     * requestInterceptor to the `_streamLoop` post-processor). Never sent to the
+     * requestInterceptor to the loop's post-processing). Never sent to the
      * AI provider — stripped before the network call. The well-known keys are
      * typed; see {@link AparteRequestMeta}.
      */

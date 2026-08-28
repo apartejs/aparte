@@ -14,7 +14,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { runStreamAgent } from '../stream-run.js';
-import type { AparteStreamEvent } from '@aparte/core';
+// The engine's own event type: this suite needs nothing from core.
+import type { StreamChatEvent as AparteStreamEvent } from '../stream-events.js';
 
 /** A transport that asks for one tool call and then stops. */
 function toolCallOnce() {

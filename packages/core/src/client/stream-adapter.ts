@@ -3,10 +3,10 @@
  *
  * `@aparte/engine`'s `runStreamAgent` is the headless loop: it emits high-level,
  * DOM-free run events. This adapter is the other half — it turns each event into
- * the exact `targetElement.*` calls + CustomEvents that `AparteClient._streamLoop`
- * performs today, using the **real** `AparteStreamParser` and tool renderers. So
- * `runStreamAgent` (engine, pure Node) + this adapter (core, DOM) reproduce
- * `_streamLoop` byte-for-byte.
+ * the exact `targetElement.*` calls + CustomEvents that core's inline loop
+ * performed, using the **real** `AparteStreamParser` and tool renderers. So
+ * `runStreamAgent` (engine, pure Node) + this adapter (core, DOM) reproduce that
+ * loop byte-for-byte — and have replaced it (audit 2026-08-28, D1).
  *
  * DEPENDENCY DIRECTION: `@aparte/core` depends on `@aparte/engine` — first-party, so
  * the zero-third-party-dependency promise is untouched — never the reverse. The
@@ -55,8 +55,8 @@ export type AparteStreamRunOptions = StreamRunOptions;
 
 /**
  * A headless structured-stream loop injected via `AparteClientOptions.streamRunner`
- * — the seam by which a consumer swaps `_streamLoop`'s inline loop for
- * `@aparte/engine`'s `runStreamAgent`.
+ * — the seam by which a host wraps or replaces the loop `AparteClient` runs,
+ * which is `@aparte/engine`'s `runStreamAgent` by default.
  *
  * `runStreamAgent` IS this type — pass it, do not cast it. An earlier version of this
  * comment advised a cast "if the duck-typed shapes don't line up", which is how the
@@ -99,7 +99,7 @@ export interface CreateStreamAdapterOptions {
 /**
  * Build the event → DOM adapter for one streamed message. Returns a synchronous
  * {@link AparteStreamRunEmitter} to hand to `runStreamAgent` as its `emitter`.
- * Reproduces `_streamLoop`'s `targetElement.*` call sequence exactly (validated
+ * Reproduces the inline loop's `targetElement.*` call sequence exactly (validated
  * by the engine parity test against the real loop).
  */
 export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStreamRunEmitter {
@@ -397,8 +397,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
  * Bridge a `ReadableStream` (what the transport returns) to the
  * `AsyncIterable<AparteStreamEvent>` `runStreamAgent` consumes, cancelling the
  * reader **synchronously** on abort so a user "stop" cuts the in-flight read.
- * Used by the `_streamLoop` seam when building `transportCall` for an injected
- * runner. Mirrors `_streamLoop`'s `reader.read()` loop + `reader.cancel()`.
+ * Used by `AparteClient` when building `transportCall` for the
+ * runner. Mirrors the inline loop's `reader.read()` loop + `reader.cancel()`.
  */
 export function readableToAsyncIterable(
     stream: ReadableStream<AparteStreamEvent>,

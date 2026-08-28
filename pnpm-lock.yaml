@@ -434,9 +434,6 @@ importers:
 
   packages/engine:
     devDependencies:
-      '@aparte/core':
-        specifier: workspace:*
-        version: link:../core
       '@types/node':
         specifier: 20.11.0
         version: 20.11.0
