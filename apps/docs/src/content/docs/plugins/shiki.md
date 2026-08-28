@@ -40,6 +40,11 @@ Both themes are loaded, every token carries both colours as CSS variables (`--sh
 right one under `[data-aparte-theme="dark"]`. The same option works on
 `setupShikiProviderFromHighlighter` when the highlighter you built carries both themes.
 
+The pair is the exported `ShikiThemePair` type, and what either entry point hands to shiki's
+`codeToHtml` — `{ lang, theme }` for one theme, `{ lang, themes, defaultColor: false }` for a pair —
+is `ShikiRenderOptions`: shiki's own option names, exported so a highlighter of your own can
+accept exactly what the plugin sends.
+
 ## Bundle — two different costs
 
 Shiki knows ~300 languages. The question is not *when* a grammar loads, it is *how many of them end up in

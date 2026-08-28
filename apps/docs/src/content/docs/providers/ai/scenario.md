@@ -90,7 +90,9 @@ selector and the tool gate work unchanged; pass `models` to offer others.
 ## The ready-made showcase
 
 ```ts
+import { aparteGlobalConfig } from '@aparte/core';
 import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
+
 aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showcase }));
 ```
 

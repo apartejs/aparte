@@ -110,6 +110,11 @@ with no argument is the normal call, and the system prompt states whatever bound
 chose, because a prompt asking for what the schema does not enforce is how the original
 defect got in.
 
+Two option types, one inside the other: `AskUserToolOptions` is what `createAskUserTool`
+takes — the name, description, system prompt and bounds, everything the *model* sees —
+and `AskUserSetupOptions` extends it with `receipt`, which only `setupAskUser` acts on,
+because the receipt is a renderer and the tool alone registers none.
+
 ## Wiring it by hand
 
 Instead of `setupAskUser()`:
