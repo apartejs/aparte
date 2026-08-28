@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { AparteChatRequest, AparteStreamEvent } from '@aparte/core';
 import { createScenarioProvider, defaultMatch, playTurn, showcase } from '../index.js';
 
@@ -21,6 +21,32 @@ async function reply(provider: ReturnType<typeof createScenarioProvider>, req: A
     const response = await provider.chat!(req, undefined, { providerId: provider.id, signal });
     return drain(response as ReadableStream<AparteStreamEvent>);
 }
+
+describe('a match() that returns no key', () => {
+    it('says so in the console, naming what it got and the keys it knows — instead of an empty turn in silence', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const provider = createScenarioProvider({
+            scenarios: { greet: 'hi', bye: 'bye' },
+            // The easy slip: the scenario OBJECT, where the loop needs its key.
+            match: (_req, scenarios) => scenarios['greet'] as never,
+            pacing: 'instant',
+        });
+        expect(text(await reply(provider, request(user('hello'))))).toBe('');
+        expect(warn).toHaveBeenCalledOnce();
+        const said = String(warn.mock.calls[0]?.[0]);
+        expect(said).toContain('match() returned a object');
+        expect(said).toContain('"greet", "bye"');
+        warn.mockRestore();
+    });
+
+    it('a key the scenarios do not have is named too', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const provider = createScenarioProvider({ scenarios: { greet: 'hi' }, match: () => 'nope', pacing: 'instant' });
+        await reply(provider, request(user('hello')));
+        expect(String(warn.mock.calls[0]?.[0])).toContain('match() returned "nope"');
+        warn.mockRestore();
+    });
+});
 
 describe('turns mode', () => {
     it('answers calls in order and repeats the last one', async () => {

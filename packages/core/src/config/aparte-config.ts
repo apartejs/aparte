@@ -711,6 +711,22 @@ export class AparteConfig {
             }
             this._aiProviders.set(provider.id, provider);
         }
+        /*
+         * One provider, one model, nothing selected: there is no choice to make, so it
+         * is made. A scripted provider (`@aparte/provider-scenario`) or an in-browser
+         * one offers exactly one model and knows it without a request — and without
+         * this, a page with no `<aparte-model-selector>` and no `setModelConfig()` sent
+         * nothing, silently (issue #29). Only the synchronous case: a provider whose
+         * list comes from a fetch has no model to select yet, and the selector's
+         * `auto-select` is what handles that one.
+         */
+        if (!this.hasSelectedModel() && this._aiProviders.size === 1) {
+            const only = [...this._aiProviders.values()][0]!;
+            const models = only.getModels();
+            if (models.length === 1) {
+                this._modelConfig = { ...this._modelConfig, defaultProvider: only.id, defaultModel: models[0]!.id };
+            }
+        }
         this._notify(); // Notify when providers change
     }
 

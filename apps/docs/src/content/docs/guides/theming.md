@@ -13,8 +13,8 @@ through a variable, so a well-made theme never has to touch the component intern
 
 ## How it works
 
-The default theme lives on `:root` (and `:host`, for shadow contexts). Override any
-variable wherever you like — globally, scoped to a subtree, or per chat instance:
+The default theme lives on `:root`. Override any variable wherever you like — globally,
+scoped to a subtree, or per chat instance:
 
 ```css
 /* Global: retheme every aparté chat on the page. */
@@ -30,6 +30,15 @@ variable wherever you like — globally, scoped to a subtree, or per chat instan
 
 Because they are plain CSS variables, they cascade and inherit like any other — no build
 step, no theme provider, no re-render.
+
+:::note[`:host` in the stylesheet is defensive, not a shadow root]
+Core has **no shadow DOM** — every element renders light DOM, which is why a plain
+`.aparte-message { … }` of yours reaches it. The stylesheet declares its tokens on
+`:root` and, a second time, on `:host` — only so the same sheet keeps working if *you*
+mount a chat inside a shadow root of your own (a web component of yours, a micro-frontend):
+there, `:root` is outside and `:host` is the boundary. Overriding from outside works the same in both cases — set
+the variable on any ancestor, or on the chat element itself.
+:::
 
 ## Light and dark
 

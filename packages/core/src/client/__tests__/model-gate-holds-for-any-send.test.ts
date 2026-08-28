@@ -18,7 +18,10 @@ function harness(): { cfg: AparteConfig; el: HTMLElement; requests: () => number
     const cfg = new AparteConfig();
     cfg.registerAIProvider({
         id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
-        getModels: () => [{ id: 'm', name: 'M' }],
+        // Two models, so that nothing is selected: the only model of the only provider
+        // is selected on its own (issue #29), and this suite is about the gate that
+        // holds while a choice is still the user's to make.
+        getModels: () => [{ id: 'm', name: 'M' }, { id: 'm2', name: 'M2' }],
     } as never);
     cfg.setKeyProvider(() => 'k');
 

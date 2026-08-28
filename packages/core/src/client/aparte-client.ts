@@ -1087,6 +1087,9 @@ export class AparteClient {
             }));
     }
 
+    /** The "no model selected" warning is said once per client, not once per dropped send. */
+    private _warnedNoModel = false;
+
     private async _handleSend(event: CustomEvent): Promise<void> {
         const { content, modelId, providerId: explicitProviderId } = event.detail;
 
@@ -1191,6 +1194,19 @@ export class AparteClient {
 
         // 1. Initial Checks (Sync Errors)
         if (!providerId) {
+            // Said once to the developer, who is the one who can fix it: the error
+            // segment below is appended to a message that does not exist yet, so on a
+            // page with no listener the send was simply dropped — the user's message
+            // sat there and nothing said why (issue #29).
+            if (!this._warnedNoModel) {
+                this._warnedNoModel = true;
+                console.warn(
+                    '[AparteClient] Send dropped: no model is selected. Call '
+                    + 'aparteGlobalConfig.setModelConfig({ defaultProvider, defaultModel }), mount '
+                    + '<aparte-model-selector auto-select>, or register one provider with a single '
+                    + 'model — that one is selected on its own.',
+                );
+            }
             this._handleLifecycleError(targetElement, messageId, new AparteError(
                 'No provider selected. Please configure a provider.',
                 AparteErrorCode.CONFIG_NO_PROVIDER

@@ -66,9 +66,17 @@ CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
 
   registerDefaultRenderers();
   aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
+  // Ollama lists its models over the network, so nothing is selected yet: name one.
+  // (A provider with a single model known up front — the scripted one, an in-browser
+  // one — is selected on its own; mount <aparte-model-selector auto-select> to let
+  // the user pick instead.)
+  aparteGlobalConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
   aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
   new AparteClient().start();
 </script>`} />
+
+A send with no model selected is **dropped**, and the console says so once — that line is
+what it points to.
 
 **Pin the same exact version on every URL.** A provider's bundle imports core at the exact
 version jsDelivr resolved for it (<code>/npm/@aparte/core@{CORE_VERSION}/+esm</code>); a different string on
