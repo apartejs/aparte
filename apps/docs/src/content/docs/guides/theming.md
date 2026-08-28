@@ -246,6 +246,34 @@ did not happen — no tint, no bar, the muted text. Red is for what went wrong, 
 "no": a declined request is quiet, a rejected tool call keeps the muted voice with a cross
 for a glyph, and a stopped one a stop square.
 
+### Check that every token you read exists
+
+A `var(--aparte-text-primary)` that names a token this library does not declare fails in
+**silence**: the declaration is invalid at computed-value time, the property is inherited,
+and the page looks almost right. A consumer read one such token in ten places for months,
+through four visual reviews. The stylesheet you already import declares every token, so the
+check is a script, not an eye — run it in your app, on your own CSS:
+
+```js
+// aparte-tokens.mjs — node aparte-tokens.mjs src/**/*.css
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const sheet = readFileSync(createRequire(import.meta.url).resolve('@aparte/core/styles.css'), 'utf8');
+const declared = new Set(sheet.match(/--aparte-[\w-]+(?=\s*:)/g));
+let bad = 0;
+for (const file of process.argv.slice(2)) {
+  for (const name of new Set(readFileSync(file, 'utf8').match(/--aparte-[\w-]+/g) ?? [])) {
+    if (!declared.has(name)) { bad++; console.log(`${file}: ${name} is not declared by @aparte/core`); }
+  }
+}
+process.exit(bad ? 1 : 0);
+```
+
+Put it in your test script and a typo cannot ship again. A name it reports that you declared
+yourself is fine — the `--aparte-` prefix is the library's, so a token of your own is better
+off under a prefix of your own.
+
 ## Per-instance themes
 
 Overriding on `:root` rethemes every chat. To run several differently-themed chats on one
