@@ -1039,7 +1039,11 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         endTurn();
       });
 
-      document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e) => {
+      // `e: Event` spelled out: under the nx task graph `astro check` sometimes runs
+      // before core's HTMLElementEventMap augmentation is visible to it, and this
+      // parameter then fell to an implicit `any` — a pre-commit that failed one run
+      // in three on a line that had not changed. The cast below already does the work.
+      document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e: Event) => {
         const detail = (e as any).detail || {};
         send(detail.content || '', Array.from(detail.files || []));
       });
