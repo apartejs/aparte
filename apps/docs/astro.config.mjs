@@ -126,6 +126,9 @@ export default defineConfig({
             link: '/why/',
             items: [
               { label: 'Why aparté', link: '/why/' },
+              // The page the category's intent queries land on ("X alternative"): named,
+              // fair, and the one place the runtime/catalogue split is said in full.
+              { label: 'Compare', link: '/compare/' },
               { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
             ],
           },
