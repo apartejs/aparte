@@ -90,14 +90,20 @@
         "^build",
         "^gen",
         "gen"
-      ]
+      ],
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "outputs": []
     },
     "typecheck:tests": {
       "dependsOn": [
         "^build",
         "^gen",
         "gen"
-      ]
+      ],
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "outputs": []
     }
   }
 }
