@@ -290,6 +290,42 @@ describe('parseOpenAICompatStream', () => {
         ]);
     });
 
+    it('flushes accumulated tool calls when the turn ends on finish_reason=stop and [DONE] — the model still asked', async () => {
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'search', arguments: '{"q":"x"}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }),
+            '[DONE]',
+        )));
+        expect(events).toEqual([
+            { type: 'tool_use', id: 'c1', name: 'search', input: { q: 'x' } },
+            { type: 'done', usage: undefined },
+        ]);
+    });
+
+    it('drops a call cut mid-arguments (finish_reason=length) rather than running the tool on {}', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'search', arguments: '{"q":"unfini' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] }),
+            '[DONE]',
+        )));
+        expect(events.filter(e => e.type === 'tool_use')).toEqual([]);
+        expect(events.filter(e => e.type === 'done')).toHaveLength(1);
+        expect(String(warn.mock.calls[0]?.[0])).toContain('cut mid-arguments');
+        warn.mockRestore();
+    });
+
+    it('a vendor chunk whose index is "__proto__" pollutes nothing', async () => {
+        const events = await collect(parseOpenAICompatStream(sse(
+            JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: '__proto__', id: 'evil', function: { name: 'x', arguments: '{"polluted":true}' } }] } }] }),
+            JSON.stringify({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] }),
+            '[DONE]',
+        )));
+        expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+        expect(({} as Record<string, unknown>)['id']).toBeUndefined();
+        expect(events.filter(e => e.type === 'tool_use')).toEqual([]);
+    });
+
     it('emits done when the stream ends without [DONE]', async () => {
         const events = await collect(parseOpenAICompatStream(sse(
             JSON.stringify({ choices: [{ delta: { content: 'x' } }] }),
