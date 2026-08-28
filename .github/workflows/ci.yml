@@ -388,6 +388,16 @@ jobs:
   e2e:
     needs: scope
     runs-on: ubuntu-latest
+    # Three shards, because this job was the wall: ~10 min against ~6 for `ci`, on a
+    # 2-core runner driving seven example apps through three engines. Playwright splits
+    # the test files evenly across shards; each shard boots the six dev servers itself
+    # (one minute) and pays the install and the build (cached, see the nx cache in
+    # `ci`). A failing shard names itself in the check list — `e2e (2)` — and the
+    # report of each is its own artifact.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # Runs INSIDE Playwright's own image: the browsers and the system libraries
     # WebKit needs are already there, so this job stops apt-getting them on every
     # run. That step cost 0.9 min on a good day, 3.2 min on a worse one, and 20+
@@ -451,14 +461,16 @@ jobs:
         if: needs.scope.outputs.source == 'true'
         run: pnpm build
 
+      # `playwright test` directly rather than `pnpm e2e`, so the shard flag reaches
+      # Playwright without crossing two `pnpm run` boundaries.
       - name: Browser smoke E2E
         if: needs.scope.outputs.source == 'true'
-        run: pnpm e2e
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: e2e/playwright-report/
           retention-days: 7
