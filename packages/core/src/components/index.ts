@@ -16,3 +16,7 @@ export type { AparteConversationListItem, AparteConversationSelectDetail, Aparte
 // Prompt starters
 export { AparteSuggestions } from './suggestions/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './suggestions/index.js';
+
+// Context-window gauge
+export { AparteContext } from './context/index.js';
+export type { AparteContextLevel, AparteContextThresholdEventDetail } from './context/index.js';

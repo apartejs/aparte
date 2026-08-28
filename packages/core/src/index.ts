@@ -49,6 +49,7 @@ import './styles/segment/artifact.css';
 import './styles/components/elicitation.css';
 import './styles/components/conversation.css';
 import './styles/components/suggestions.css';
+import './styles/components/context.css';
 import './styles/prose.css';
 import './styles/responsive.css';
 
@@ -210,6 +211,8 @@ export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposer
 export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 export { AparteSuggestions } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
+export { AparteContext } from './components/index.js';
+export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';

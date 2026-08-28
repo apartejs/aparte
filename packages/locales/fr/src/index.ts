@@ -30,6 +30,7 @@ export const fr: AparteLocale = {
     approvalWaiting: "en attente de vous",
     scrollToBottom: "Aller en bas de la conversation",
     suggestionsLabel: "Suggestions de messages",
+    contextLabel: "Fenêtre de contexte",
     compactionSummaryTitle: "Résumé de la conversation",
     toolRunning: "En cours",
     toolCompleted: "Terminé",

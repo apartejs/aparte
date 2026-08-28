@@ -44,6 +44,7 @@ describe('@aparte/core public API', () => {
             "AparteComposerSend",
             "AparteComposerToolbar",
             "AparteConfig",
+            "AparteContext",
             "AparteConversationController",
             "AparteConversationList",
             "AparteConversationManager",

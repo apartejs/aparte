@@ -130,6 +130,7 @@ export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from '
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
+export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
 export {

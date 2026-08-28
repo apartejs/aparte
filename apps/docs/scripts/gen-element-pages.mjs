@@ -88,6 +88,7 @@ const GROUP = {
   'aparte-chat-bubble': 'conversation',
   'aparte-chat-status': 'conversation',
   'aparte-conversation-list': 'conversation',
+  'aparte-context': 'conversation',
   'aparte-composer': 'input',
   'aparte-elicitation': 'input',
   'aparte-suggestions': 'input',

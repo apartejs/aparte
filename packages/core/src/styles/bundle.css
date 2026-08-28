@@ -48,5 +48,6 @@
 @import './components/elicitation.css';
 @import './components/conversation.css';
 @import './components/suggestions.css';
+@import './components/context.css';
 @import './prose.css';
 @import './responsive.css';

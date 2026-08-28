@@ -156,6 +156,8 @@ export interface AparteLocale {
      * keeps working, and the built-in English fills the gap.
      */
     suggestionsLabel?: string;
+    /** Accessible name of the `<aparte-context>` gauge. Optional, like the keys above. */
+    contextLabel?: string;
     /**
      * Title line of the message `compact()` injects in place of the summarised
      * turns (default: "Conversation summary").
@@ -314,6 +316,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     approvalWaiting: "waiting for you",
     scrollToBottom: "Scroll to bottom",
     suggestionsLabel: "Suggested prompts",
+    contextLabel: "Context window",
     compactionSummaryTitle: "Conversation summary",
     toolRunning: "Running",
     toolCompleted: "Done",

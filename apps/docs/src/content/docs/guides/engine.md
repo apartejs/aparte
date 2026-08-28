@@ -40,6 +40,42 @@ you can install `@aparte/engine` alone. If you wire it into core's client (below
 Everything is a plain function or class — no globals, no side effects (`sideEffects: false`), fully
 tree-shakeable, so you pull in only what you use.
 
+## Keep the context under budget: the gauge and the selector
+
+Two pieces, one on each side of the seam. In core, `<aparte-context>` is a gauge of the model's
+window: it reads the usage each turn reports and the window the current model declares (a
+provider's `/models` fetch fills it in, or set the `window` attribute), turns `warn` and `danger`
+at 75 % and 90 % (the `warn` / `danger` attributes), fires `aparte-context-threshold` when the
+level changes — and with `auto-compact` dispatches `aparte-compact` for its chat on reaching
+danger, once, until the level drops. Before the first turn, or without a window, it shows nothing.
+
+In the engine, `createCompactionSelector` is the budget-aware `compactionSelector` for
+`AparteClient.compact()`: the newest turns that still fit the history budget stay verbatim, the
+older ones are summarised. Without it `compact()` summarises the whole history — the built-in
+behaviour, which is a fine default for a small model and a wasteful one for a long conversation.
+
+```ts
+import { AparteClient, aparteGlobalConfig } from '@aparte/core';
+import { createCompactionSelector } from '@aparte/engine';
+
+new AparteClient({
+  compactionSelector: createCompactionSelector({
+    contextWindow: () => aparteGlobalConfig.getCurrentModel()?.contextWindow,
+    systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
+  }),
+}).start();
+```
+
+```html
+<aparte-composer-toolbar>
+  <aparte-context auto-compact style="flex: 1"></aparte-context>
+</aparte-composer-toolbar>
+```
+
+The gauge, the selector and the model speak the same numbers: the window is the model's, the
+budget is the compactor's, and the reading is what the provider reported — nothing is estimated
+twice.
+
 ## The primary use: the `streamRunner` seam
 
 Core stays the zero-dependency leaf: it **never imports `@aparte/engine`**. Instead, `AparteClient`

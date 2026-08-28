@@ -31,3 +31,6 @@ export type { XmlArtifactEvent, XmlArtifactHint, XmlArtifactState } from './agen
 
 // Conversation compactor (context-window budget + sliding-window assembly).
 export * from './conversation/compactor.js';
+// The budget-aware `compactionSelector` for AparteClient.compact().
+export { createCompactionSelector } from './conversation/selector.js';
+export type { CompactionSelectorOptions } from './conversation/selector.js';
