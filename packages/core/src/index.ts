@@ -111,6 +111,7 @@ export type {
     ModelStatus,
     ModelLoadProgress,
     AparteModelChangeEventDetail,
+    AparteApprovalModeChangeEventDetail,
     AparteMessageDoneEventDetail,
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,

@@ -77,6 +77,10 @@ approval.subscribe((mode, previous) => { … });  // from the element, or from s
 approval.getMode();
 ```
 
+The element also dispatches `aparte-approval-mode-change` (`{ mode, previousMode }`, typed
+as `AparteApprovalModeChangeEventDetail` in core's event map), bubbling and composed, so a
+host can persist the choice from any ancestor.
+
 Labels are English by default; a localised host sets `element.labels = { plan: 'Planifier', … }`.
 Nothing is remembered across a reload — read `getMode()` and write it wherever you keep
 preferences, the way the model selector's preference is yours to persist.

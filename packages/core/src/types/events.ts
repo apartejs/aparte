@@ -499,3 +499,21 @@ export interface AparteFileGenErrorEventDetail {
     /** The message shown to the user. Defaults to `'Unknown error'`. */
     error?: string;
 }
+
+/**
+ * Detail for `aparte-approval-mode-change` — dispatched by `@aparte/plugin-approval`'s
+ * `<aparte-approval-mode>` after the person switched the approval mode. Bubbles and
+ * crosses shadow roots, so a host can persist the choice from any ancestor.
+ *
+ * Declared here, like `aparte-model-change`, because a listener in any framework reads
+ * `e.detail` through the typed event map. The values are the plugin's four modes
+ * (`plan`, `ask`, `auto-edit`, `auto`); typed as strings so core names none of them.
+ *
+ * @event aparte-approval-mode-change
+ */
+export interface AparteApprovalModeChangeEventDetail {
+    /** The mode just switched to. */
+    mode: string;
+    /** The mode it replaced. */
+    previousMode: string;
+}

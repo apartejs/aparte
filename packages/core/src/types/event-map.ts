@@ -41,6 +41,7 @@ import type {
     AparteMessageInfoEventDetail,
     AparteMessageDoneEventDetail,
     AparteModelChangeEventDetail,
+    AparteApprovalModeChangeEventDetail,
     AparteArtifactStartEventDetail,
     AparteArtifactDeltaEventDetail,
     AparteArtifactReadyEventDetail,
@@ -97,6 +98,7 @@ interface AparteEventMap {
     'aparte-message-info': CustomEvent<AparteMessageInfoEventDetail>;
     'aparte-message-done': CustomEvent<AparteMessageDoneEventDetail>;
     'aparte-model-change': CustomEvent<AparteModelChangeEventDetail>;
+    'aparte-approval-mode-change': CustomEvent<AparteApprovalModeChangeEventDetail>;
     'aparte-artifact-start': CustomEvent<AparteArtifactStartEventDetail>;
     'aparte-artifact-delta': CustomEvent<AparteArtifactDeltaEventDetail>;
     'aparte-artifact-ready': CustomEvent<AparteArtifactReadyEventDetail>;

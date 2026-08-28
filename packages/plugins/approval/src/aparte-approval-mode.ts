@@ -11,15 +11,10 @@
 import {
     resolveConfig, escapeHtml, escapeAttr,
     type AparteConfig, type AparteConfigAware, type AparteSelectChangeDetail,
+    type AparteApprovalModeChangeEventDetail,
 } from '@aparte/core';
 import { getApprovalController, type ApprovalController } from './approval.js';
 import { APPROVAL_MODES, type ApprovalMode } from './policy.js';
-
-/** `aparte-approval-mode-change` detail. */
-export interface AparteApprovalModeChangeDetail {
-    mode: ApprovalMode;
-    previousMode: ApprovalMode;
-}
 
 const DEFAULT_LABELS: Record<ApprovalMode, string> = {
     plan: 'Plan',
@@ -57,7 +52,7 @@ export class AparteApprovalMode extends HTMLElement implements AparteConfigAware
         const previous = this._controller.getMode();
         this._controller.setMode(next);
         if (this._controller.getMode() !== previous) {
-            this.dispatchEvent(new CustomEvent<AparteApprovalModeChangeDetail>('aparte-approval-mode-change', {
+            this.dispatchEvent(new CustomEvent<AparteApprovalModeChangeEventDetail>('aparte-approval-mode-change', {
                 bubbles: true, composed: true, detail: { mode: next, previousMode: previous },
             }));
         }

@@ -11,5 +11,6 @@ export { setupApproval, getApprovalController } from './approval.js';
 export type { ApprovalSetupOptions, ApprovalController } from './approval.js';
 export { APPROVAL_MODES, classifyTool, rulingFor, createApprovalPolicy } from './policy.js';
 export type { ApprovalMode, ToolClass, ToolMatcher, ApprovalClassification } from './policy.js';
-export type { AparteApprovalModeChangeDetail } from './aparte-approval-mode.js';
-export type { AparteApprovalPolicy, AparteApprovalRuling, AparteToolCall } from '@aparte/core';
+export type {
+    AparteApprovalPolicy, AparteApprovalRuling, AparteToolCall, AparteApprovalModeChangeEventDetail,
+} from '@aparte/core';

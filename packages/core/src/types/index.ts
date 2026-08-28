@@ -135,6 +135,7 @@ export { AparteErrorCode, AparteError } from './errors.js';
 
 export type {
     AparteModelChangeEventDetail,
+    AparteApprovalModeChangeEventDetail,
     AparteMessageDoneEventDetail,
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,
