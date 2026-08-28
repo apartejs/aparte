@@ -228,7 +228,7 @@ describe('the element directives', () => {
     standalone: true,
     imports: [...APARTE_ELEMENT_DIRECTIVES],
     template: `
-        <aparte-chat-viewport [scrollThreshold]="1" [maxRenderedBubbles]="2" [maxMessages]="3"
+        <aparte-chat-viewport [scrollThreshold]="1" [maxRenderedBubbles]="2"
             (segmentUpdate)="seen['segmentUpdate'] = true"
             (resetDone)="seen['resetDone'] = true"
             (pathChanged)="seen['pathChanged'] = true"></aparte-chat-viewport>
@@ -302,7 +302,6 @@ describe('the element directives, across the whole surface', () => {
     const ATTRS: ReadonlyArray<readonly [string, string, string]> = [
         ['aparte-chat-viewport', 'scroll-threshold', '1'],
         ['aparte-chat-viewport', 'max-rendered-bubbles', '2'],
-        ['aparte-chat-viewport', 'max-messages', '3'],
         ['aparte-chat-bubble', 'message-id', 'b1'],
         ['aparte-chat-bubble', 'data-role', 'user'],
         ['aparte-chat-bubble', 'content', 'hi'],
