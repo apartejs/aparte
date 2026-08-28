@@ -99,14 +99,15 @@ export interface AparteLocale {
      */
     stopButton?: string;
     /**
-     * The send button while a form of several questions has more ahead — it advances
-     * instead of submitting (default: "Next").
+     * The tag a `recommended` option wears beside its label (default: "Recommended").
+     * Said, not only tinted: a tint is a hint the eye may miss and a screen reader
+     * never gets.
      *
-     * This key existed briefly for a Next button inside the panel, and went when that
-     * button did. It comes back because the MEANING came back, on a different element:
-     * the composer's one button, which is where it belonged.
+     * (`elicitationNext` lived here until 2026-08-28, for the composer's button while a
+     * form had questions ahead. That meaning is gone with the button's "advance" mode
+     * — the chips are the navigation — so the key went with it, not deprecated.)
      */
-    elicitationNext?: string;
+    elicitationRecommended?: string;
     /**
      * The affordance that declines the request (default: "Skip").
      *
@@ -306,7 +307,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationOtherLabel: "Custom answer",
     submitButton: "Submit",
     stopButton: "Stop",
-    elicitationNext: "Next",
+    elicitationRecommended: "Recommended",
     elicitationSkip: "Skip",
     elicitationYes: "Yes",
     elicitationNo: "No",
@@ -340,6 +341,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     run: "Run",
     file: "File",
     modelSelectorPlaceholder: "Select a model...",
+    approvalModeLabel: "Approval mode",
     roleNameUser: "You",
     roleNameAssistant: "Assistant",
     yourMessage: "Your message",

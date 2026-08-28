@@ -109,8 +109,10 @@ void answer;
 ```
 
 The protocol does not change: the answer is still one object with every key, and the
-composer's send button still means *submit*, enabled only once every required question
-has an answer. Advancing between questions is the panel's own affordance.
+composer's send button means *submit* throughout, enabled only once every required
+question has an answer. Moving between questions is the chips' affordance — a click on a
+choice selects, a chip switches question, one button submits the lot — and an answered
+chip wears a check mark, so what is left is visible at a glance.
 
 If what you actually want is a **form** — several fields filled in one go, which is
 what structured data collection looks like — ask for it:
@@ -296,14 +298,15 @@ presenter needs to drive it:
 | `getContent()` | the current response, shaped to the schema |
 | `isComplete()` | every required field has a usable value |
 | `focus()` | focus the first input, after you mount it |
-| `mode()` | what the composer's one button means here: `'advance'`, `'submit'`, or `'none'` when the panel has nothing for it to do |
+| `mode()` | what the composer's one button means here: `'submit'`, or `'none'` when the panel has nothing for it to do |
 | `onSettle(cb)` | the answer arrived without the button — a single-choice question settles on the click, and this is the only path by which that reaches you |
 | `canProceed()` | whether that button is enabled |
-| `proceed()` | act on it — advancing shows the next question; submitting is yours |
+| `proceed()` | kept for the contract; a form does nothing here — submitting is yours |
 | `relabel()` | re-apply the locale's strings in place, without rebuilding a half-filled form |
 
 The last four are what make "one question at a time" work: the panel has no Next button
-of its own, because the composer's button already changes meaning and gains a fourth.
+of its own, and the composer's button is no "Next" either — the chips are the navigation,
+the button submits, and `canProceed()` is simply "every required question answered".
 
 There is **no promise**: settling is the presenter's job, which is why the built-in one
 wires `getContent()` to the composer's send button and `canProceed()` to whether that

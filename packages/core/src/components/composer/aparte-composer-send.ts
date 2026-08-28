@@ -168,14 +168,14 @@ export class AparteComposerSend extends HTMLElement {
     }
 
     /**
-     * Panel open: this one button now means "answer", and WHICH answer depends on
-     * where you are in the form.
+     * Panel open: this one button now means "submit the answer".
      *
      * The icon has to move with the meaning: it drew a paper plane while the label
      * already said "Submit", so it read as "send a message" while it meant "answer
-     * this question". And a check on a form with three questions left was just as
-     * wrong — hence a chevron while there is more ahead. The visual is what a user
-     * reads.
+     * this question". It used to draw a chevron too, while a form had questions
+     * ahead, and turn into a "Next" — a second way to do what the panel's chips do,
+     * and a button whose meaning changed under the pointer. It is disabled instead
+     * until every question has an answer, which is what the chips' marks explain.
      */
     private _syncPanelState(): void {
         const panel = this._panel;
@@ -191,12 +191,9 @@ export class AparteComposerSend extends HTMLElement {
             this._button.disabled = true;
             return;
         }
-        const advancing = panel.mode === 'advance';
         this._button.disabled = !panel.submitEnabled;
-        this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();
-        const label = advancing
-            ? (cfg.t('elicitationNext') || 'Next')
-            : (cfg.t('submitButton') || 'Submit');
+        this._button.innerHTML = this._getSubmitIcon();
+        const label = cfg.t('submitButton') || 'Submit';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
         this._button.classList.remove('aparte-is-streaming');

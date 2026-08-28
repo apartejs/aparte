@@ -48,26 +48,28 @@ export interface BuiltElicitationPanel {
     /** Focus the first input (called after mount). */
     focus(): void;
     /**
-     * What the composer's one button means on the question currently shown:
-     * `'advance'` while there are more questions ahead, `'submit'` on the last, and
-     * `'none'` when this panel has no act for it and it should not be drawn.
+     * What the composer's one button means for this panel: `'submit'`, or `'none'`
+     * when the panel has no act for it and it should not be drawn.
      *
-     * The composer already has a button, in a place the user knows, and it already
-     * changes meaning (send / stop / submit). Giving it a fourth — advance — is why
-     * this panel needs no "Next" of its own: no second row, no height that changes,
-     * and the tabs stay for jumping around. It also makes the button honest, which a
-     * check on a form with three questions left was not.
+     * It used to have a third value, `'advance'`, while a form had more questions
+     * ahead: the button turned into a chevron and moved to the next question. That
+     * was a second way to do what a chip already does — the chips ARE the navigation,
+     * forwards and back — and a button that changes meaning under the pointer is one
+     * more thing to explain. The reference products settle it the same way: a click
+     * on a choice selects, a tab switches question, one button submits the lot. So
+     * the button means submit throughout, enabled once every question has an answer,
+     * which is what `canProceed()` reports.
      *
-     * `'none'` is the same honesty one step further, for the shape where the button
-     * has no meaning at all: a single question whose options settle on the click.
-     * Assignable to the composer's `AparteComposerPanelMode` and deliberately spelled
-     * out rather than imported — this layer describes what the PANEL has, and knows
-     * nothing about the element that presents it.
+     * `'none'` is for the shape where the button has no meaning at all: a single
+     * question whose options settle on the click. Assignable to the composer's
+     * `AparteComposerPanelMode` and deliberately spelled out rather than imported —
+     * this layer describes what the PANEL has, and knows nothing about the element
+     * that presents it.
      */
-    mode(): 'advance' | 'submit' | 'none';
-    /** Whether that button is enabled: this question answered, or all of them. */
+    mode(): 'submit' | 'none';
+    /** Whether that button is enabled: every required question answered. */
     canProceed(): boolean;
-    /** Act on it. Advancing shows the next question; submitting is the presenter's. */
+    /** Kept for the presenter's contract; a form does nothing here — submitting is the presenter's. */
     proceed(): void;
     /**
      * Settled from INSIDE the panel: an option was clicked and that click is the
@@ -138,9 +140,17 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
 }
 
 /** The label an option shows. Identical in both shapes; only what wraps it differs. */
-function optionBody(label: string, description?: string): HTMLElement {
+function optionBody(label: string, description?: string, recommended?: boolean): HTMLElement {
     const body = el('span', 'aparte-elic-option-body');
-    body.appendChild(el('span', 'aparte-elic-option-title', label));
+    const title = el('span', 'aparte-elic-option-title', label);
+    if (recommended) {
+        // Said, not only tinted: a tint is a hint the eye may miss and a screen reader
+        // never gets. The reference products write it into the label.
+        const badge = el('span', 'aparte-tag aparte-tag--sm aparte-elic-option-badge',
+            contextConfig().t('elicitationRecommended') || 'Recommended');
+        title.append(' ', badge);
+    }
+    body.appendChild(title);
     if (description) body.appendChild(el('span', 'aparte-elic-option-desc', description));
     return body;
 }
@@ -158,7 +168,7 @@ function commandOption(label: string, description?: string, recommended?: boolea
     const button = el('button', 'aparte-btn aparte-btn--block aparte-btn--surface aparte-elic-option aparte-elic-option--command'
         + (recommended ? ' aparte-elic-option--recommended' : ''));
     button.type = 'button';
-    button.appendChild(optionBody(label, description));
+    button.appendChild(optionBody(label, description, recommended));
     return button;
 }
 
@@ -268,7 +278,7 @@ function buildEnumField(
         control.name = name;
         control.value = value;
         if (defaults.has(value)) control.checked = true;
-        row.append(control, optionBody(label, description));
+        row.append(control, optionBody(label, description, recommended));
         return row;
     };
 
@@ -677,7 +687,7 @@ function buildPanel(
         //
         // `isComplete()` is deliberately unchanged — still "every required field" —
         // so the protocol is untouched and the composer's send button still means
-        // submit. Advancing is the panel's own affordance.
+        // submit. Moving between questions is the chips' affordance, and only theirs.
         if (fields.length < 2 || cfg.getElicitationOptions().layout !== 'stepped') return api;
 
         panel.classList.add('aparte-elic-panel--stepped');
@@ -760,26 +770,30 @@ function buildPanel(
                 chip.tabIndex = i === current ? 0 : -1;
                 // Answered, so a reader sees at a glance what is left — and with no
                 // Next button this is the ONLY progress signal, along with the send
-                // button staying disabled until every question has an answer.
-                chip.toggleAttribute('data-answered', fields[i]!.field.isComplete());
+                // button staying disabled until every question has an answer. A check
+                // mark, not only a colour: a colour is what the current chip also has.
+                const answered = fields[i]!.field.isComplete();
+                chip.toggleAttribute('data-answered', answered);
+                const mark = chip.querySelector('.aparte-elic-step__mark');
+                if (answered && !mark) {
+                    const glyph = el('span', 'aparte-elic-step__mark');
+                    glyph.setAttribute('aria-hidden', 'true');
+                    glyph.innerHTML = cfg.getIcon('check');
+                    chip.prepend(glyph);
+                } else if (!answered && mark) {
+                    mark.remove();
+                }
             });
         };
 
         show(0);
-        const last = (): boolean => current === fields.length - 1;
+        // Same contract as the stacked form: the button means submit throughout and
+        // needs every question answered. The chips are the only navigation — a
+        // "next" on the composer's button was a second way to do what a chip does,
+        // and a button that changes meaning under the pointer.
         return {
             ...api,
             focus: () => fields[current]?.field.focus(),
-            mode: () => (last() ? 'submit' : 'advance'),
-            // Advancing needs only THIS question answered; submitting needs them all,
-            // which is what stops the last question from accepting a form with a hole
-            // in it.
-            canProceed: () => (last() ? isComplete() : !!fields[current]?.field.isComplete()),
-            proceed: () => {
-                if (last()) return;
-                show(current + 1);
-                fields[current]?.field.focus();
-            },
         };
     }
 

@@ -311,9 +311,25 @@ textarea.aparte-elic-text {
   margin-bottom: calc(-1 * var(--aparte-border-width));
 }
 
-/* Answered: readable, but it is not where you are. */
+/* Answered: readable, but it is not where you are — and marked, because a colour is
+   what the current chip has too. The mark is the `check` glyph, sized by the chip. */
 .aparte-elic-step[data-answered] {
   color: var(--aparte-text);
+}
+
+.aparte-elic-step__mark {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: var(--aparte-space-1);
+  color: var(--aparte-success);
+  --aparte-icon-size: 0.85em;
+}
+
+/* The tag beside a recommended option's label: the recipe draws it, this only keeps it
+   from stretching the title line. */
+.aparte-elic-option-badge {
+  vertical-align: middle;
+  margin-inline-start: var(--aparte-space-1);
 }
 
 .aparte-elic-step[aria-selected='true'] {

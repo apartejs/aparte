@@ -407,13 +407,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  */
                 onEvict: () => fail(),
                 onSubmit: () => {
-                    // The same button advances through the form and submits at the end;
-                    // the panel is what knows which of the two this click is.
-                    if (panel.mode() === 'advance') {
-                        panel.proceed();
-                        composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
-                        return;
-                    }
+                    // One meaning: submit the lot. Moving between questions is the chips'.
                     if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() });
                 },
             });

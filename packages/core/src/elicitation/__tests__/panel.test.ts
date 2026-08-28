@@ -187,22 +187,25 @@ describe('buildElicitationPanel', () => {
             expect(chips(p)[0]!.hasAttribute('data-answered'), 'and it shows as answered').toBe(true);
         });
 
-        it('the composer button advances, then submits on the last question', () => {
-            // One button, four meanings — send, stop, advance, submit. Giving it the
-            // fourth is why this panel needs no Next of its own: no second row, no
-            // height that changes, and the tabs stay for jumping around. A check on a
-            // form with two questions left was as wrong as a paper plane was.
+        it('the composer button means submit throughout, and needs every question answered', () => {
+            // It used to "advance" while questions were ahead — a chevron, a second way
+            // to do what a chip does, and a button whose meaning changed under the
+            // pointer. The reference products settle it the same way: a click selects,
+            // a tab switches question, one button submits the lot.
             const p = buildElicitationPanel('', twoQuestions, noop);
-            expect(p.mode()).toBe('advance');
+            expect(p.mode()).toBe('submit');
             expect(p.canProceed(), 'nothing answered yet').toBe(false);
 
             select(p.el, 'blue');
-            expect(p.canProceed(), 'THIS question answered is enough to advance').toBe(true);
+            expect(p.mode(), 'still submit — there is no advance').toBe('submit');
+            expect(p.canProceed(), 'one of two answered is not submittable').toBe(false);
+            p.proceed();   // a no-op for a form, and must not move the chips
+            expect(chips(p)[0]!.getAttribute('aria-selected')).toBe('true');
+            expect(chips(p)[0]!.hasAttribute('data-answered')).toBe(true);
+            expect(chips(p)[0]!.querySelector('.aparte-elic-step__mark'), 'an answered chip wears a mark').not.toBeNull();
+            expect(chips(p)[1]!.querySelector('.aparte-elic-step__mark')).toBeNull();
 
-            p.proceed();
-            expect(p.mode(), 'the last question submits').toBe('submit');
-            expect(p.canProceed(), 'and submitting needs them ALL').toBe(false);
-
+            chips(p)[1]!.click();
             select(p.el, 'round');
             expect(p.canProceed()).toBe(true);
             expect(p.isComplete()).toBe(true);

@@ -6,8 +6,10 @@ import { resolveConfig } from '../../config/config-context.js';
  * What the composer's one button means while a panel is up — and whether it is
  * there at all.
  *
- * `'submit'` answers, `'advance'` moves to the next question of a form, and
- * `'none'` says this panel has NO act left for that button, so it is not drawn.
+ * `'submit'` answers, and `'none'` says this panel has NO act left for that button,
+ * so it is not drawn. (`'advance'` — the button as a "next" through a form — is gone:
+ * the chips are the navigation, and a button that changes meaning under the pointer
+ * was one more thing to explain.)
  *
  * `'none'` exists because a panel could not previously say it. The composer's panel
  * mode was one fixed policy — hide the input and the attachment picker, keep the
@@ -20,7 +22,7 @@ import { resolveConfig } from '../../config/config-context.js';
  * Named rather than inlined at each of its six readers: this union is exactly the
  * kind of list this repo has watched drift when every reader kept its own copy.
  */
-export type AparteComposerPanelMode = 'advance' | 'submit' | 'none';
+export type AparteComposerPanelMode = 'submit' | 'none';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event map for internal pub/sub between primitives
@@ -385,9 +387,8 @@ export class AparteComposer extends HTMLElement {
      * are the user's state and not an action to offer — hiding them would look like
      * losing them; and the toolbar, because switching model still does something.
      *
-     * The send button is the part the PANEL decides, through `mode`. `'submit'` and
-     * `'advance'` keep it; `'none'` says this panel has no act for it and it is not
-     * drawn. That third value is what a panel whose options settle on the first click
+     * The send button is the part the PANEL decides, through `mode`. `'submit'`
+     * keeps it; `'none'` says this panel has no act for it and it is not drawn. That third value is what a panel whose options settle on the first click
      * needs — a single-choice question, an approval — and until it existed such a
      * panel left a permanently disabled button beside options that never routed
      * through it. Flip between them at any time with {@link setPanelSubmitEnabled},
@@ -516,10 +517,10 @@ export class AparteComposer extends HTMLElement {
     /**
      * Update the send button's state while a panel is active.
      *
-     * `mode` moves with it because both change on the same event — answering the
-     * question you are on can enable the button AND turn it from "advance" into
-     * "submit" (when it was the last one), and two separate calls would flash a
-     * wrong icon between them.
+     * `mode` moves with it because both can change on the same event — opening the
+     * "Other…" field of a panel whose options settle on the click gives the button
+     * an act it did not have — and two separate calls would flash a wrong state
+     * between them.
      */
     setPanelSubmitEnabled(enabled: boolean, mode?: AparteComposerPanelMode): void {
         if (!this._panelActive) return;
