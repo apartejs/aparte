@@ -155,9 +155,18 @@ export interface AparteChatProps {
     config?: AparteConfig;
 }
 
+/**
+ * The omitted-prop default, hoisted out of the render: a destructuring default
+ * `messages = []` is a NEW array on every render, and the parent-push effect below
+ * compares by identity — so an uncontrolled `<AparteChat>` applied an empty list on
+ * every render, wiping its own thread, and looped. One module-level array is safe to
+ * share across instances: it is never mutated (the host replaces the list).
+ */
+const NO_MESSAGES: AparteMessage[] = [];
+
 export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
     {
-        messages = [],
+        messages = NO_MESSAGES,
         placeholder = 'Type a message...',
         disabled = false,
         isTyping = false,

@@ -52,6 +52,21 @@ describe('AparteChat React Wrapper', () => {
         expect(bubbles[1].getAttribute('message-id')).toBe('2');
     });
 
+    it('an uncontrolled <AparteChat> (no messages prop) keeps what it appended across re-renders', async () => {
+        // The omitted-prop default used to be a fresh `[]` on every render: the
+        // parent-push effect compared it by identity, applied the empty list on every
+        // render — wiping the thread the host had just appended — and looped.
+        const ref = React.createRef<AparteChatImperativeApi>();
+        const { container, rerender } = render(<AparteChat ref={ref} onMessageSent={mockOnMessageSent} />);
+        await act(async () => {
+            ref.current?.appendMessage({ id: 'u1', role: 'user', content: 'kept', timestamp: 1 });
+        });
+        rerender(<AparteChat ref={ref} onMessageSent={mockOnMessageSent} placeholder="again" />);
+        rerender(<AparteChat ref={ref} onMessageSent={mockOnMessageSent} placeholder="and again" />);
+        expect(container.querySelectorAll('aparte-chat-bubble').length).toBe(1);
+        expect(ref.current?.getMessages().map((m) => m.id)).toEqual(['u1']);
+    });
+
     it('exposes getViewport() on the handle (cross-wrapper accessor)', () => {
         const ref = React.createRef<AparteChatImperativeApi>();
         const { container } = render(<AparteChat ref={ref} messages={[]} />);
