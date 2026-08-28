@@ -1297,6 +1297,26 @@ export class AparteChatViewport extends HTMLElement {
                 this._scrollToBottom();
             }
             this._recalculateSpacer();
+            /*
+             * And the button, for the same reason the spacer is here.
+             *
+             * "Is anything below the fold" is a pure function of the geometry this
+             * observer exists to watch, and only the MUTATION path re-derived it
+             * (`_scheduleSpacerUpdate`, whose comment already says the fold may have
+             * moved). A resize that changes nothing in the DOM therefore left the
+             * button showing whatever the last mutation happened to measure.
+             *
+             * That gap has a name in this file already: a branch swap rebuilds the
+             * transcript and React's height FLICKERS through it — 1730 → 1934 → 1730,
+             * measured, see `navigateBranch`. The settle from 1934 back to 1730 is a
+             * resize, not a mutation, so a button evaluated at 1934 stayed wrong. CI
+             * caught it on react-webkit holding "visible" across 43 polls, five seconds
+             * after a swap that ended at the bottom.
+             *
+             * Cheap enough to run unconditionally: one geometry read and a
+             * `classList.toggle`.
+             */
+            this._updateScrollButton();
         });
 
         const wrapper = this.querySelector('.aparte-messages-wrapper');
