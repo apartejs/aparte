@@ -160,6 +160,15 @@ export class AparteComposerInput extends HTMLElement {
         this._getRoot()?.setValue('');
     }
 
+    /**
+     * Re-read the placeholder fallback chain. Called by the composer when ITS
+     * `placeholder` changes — this element observes only its own attribute, and the
+     * composer's is one of the three sources it falls back to.
+     */
+    syncPlaceholder(): void {
+        this._updatePlaceholder();
+    }
+
     /** Focus the inner contenteditable rather than the host element. */
     override focus(): void { this._editor?.focus(); }
     /** Blur the inner contenteditable rather than the host element. */

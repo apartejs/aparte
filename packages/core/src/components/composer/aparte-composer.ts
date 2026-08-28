@@ -120,8 +120,8 @@ export interface AparteComposerChangeEventDetail {
  * @element aparte-composer
  *
  * @attr {string} placeholder - Fallback placeholder for `<aparte-composer-input>`, which
- *   reads it off this element when it carries none of its own. Read when that input
- *   renders, not pushed: changing it here leaves an input already on the page as it was.
+ *   reads it off this element when it carries none of its own. Changing it here reaches
+ *   the inputs already on the page too.
  * @attr {boolean} disabled - Disables the composer's own controls — the input, send,
  *   add-attachment and `<aparte-composer-action>` buttons each read it. What you put in
  *   the toolbar is yours to disable.
@@ -283,7 +283,12 @@ export class AparteComposer extends HTMLElement {
             this._emit('disabled-change', { disabled: value !== null });
         }
         if (name === 'placeholder') {
-            // Primitives read this directly via closest() — no event needed
+            // Pushed, not merely readable: the input reads this element's placeholder
+            // when it renders, and nothing else re-read it, so a placeholder bound to a
+            // translated string went stale on the first language switch after mount.
+            for (const input of this.querySelectorAll('aparte-composer-input')) {
+                (input as { syncPlaceholder?: () => void }).syncPlaceholder?.();
+            }
         }
     }
 
