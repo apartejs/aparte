@@ -800,7 +800,7 @@ describe('aparte-edit event payload', () => {
         // `edit` is opt-in (a host has to keep the new text) — this test drives the
         // real button, so it opts in first.
         aparteGlobalConfig.setBubbleActions({ edit: true });
-        bubble.setAttribute('role', 'user');
+        bubble.setAttribute('data-role', 'user');
         bubble.setAttribute('message-id', 'edit-test');
         document.body.appendChild(bubble);
         bubble.setContent('original text');

@@ -2,8 +2,6 @@ export type {
     AparteConversation,
     AparteConversationMeta,
     AparteStorageAdapter,
-    AparteMemoryFact,
-    AparteArtifactRow,
     AparteAttachmentRow,
 } from './types.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './types.js';

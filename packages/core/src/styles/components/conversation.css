@@ -56,10 +56,25 @@
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
+/* The conversation you are in wears the mark's bar (display/mark.css) on its start
+   edge — Primer's ActionList pattern, and the same bar the select's chosen option and
+   a checked field choice carry. Its ground keeps the list's own tokens: a navigation
+   list is read for a long time, and the mark's tint on every visit was too loud. */
 .aparte-conv-item--active {
+  position: relative;
   background: var(--aparte-conv-item-bg-active);
   color: var(--aparte-conv-item-color-active);
   font-weight: var(--aparte-conv-item-font-weight-active);
+}
+
+.aparte-conv-item--active::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--aparte-mark-bar);
+  background: var(--aparte-primary-ink);
+  pointer-events: none;
 }
 
 .aparte-conv-item--active .aparte-conv-item__delete {

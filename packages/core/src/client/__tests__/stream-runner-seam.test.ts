@@ -37,7 +37,7 @@ const runLoop = (client: AparteClient, target: HTMLElement, cfg: AparteConfig, r
         ._streamLoop(target, 'assistant-1', cfg.getAIProvider('mock'), req, 'k');
 
 describe('AparteClient — streamRunner seam', () => {
-    it('delegates the loop to the injected runner and renders its events (inline loop untouched)', async () => {
+    it('delegates the loop to the injected runner and renders its events', async () => {
         const transportChat = vi.fn(async () => '');
         const cfg = makeConfig(transportChat);
         const rec = makeRecorder();
@@ -92,19 +92,27 @@ describe('AparteClient — streamRunner seam', () => {
         expect(typeof (bridged as AsyncIterable<unknown>)[Symbol.asyncIterator]).toBe('function');
     });
 
-    it('injects prefixSegments before delegating (mirrors the inline path)', async () => {
+    it('injects prefixSegments right after the runner\'s run-start — status first, then the seeded segments', async () => {
         const cfg = makeConfig(vi.fn(async () => ''));
         const rec = makeRecorder();
-        const runner: AparteStreamRunner = async (opts) => { opts.emitter({ type: 'run-done' }); return undefined; };
+        const runner: AparteStreamRunner = async (opts) => { opts.emitter({ type: 'run-start' }); opts.emitter({ type: 'run-done' }); return undefined; };
         const client = new AparteClient({ config: cfg, autoRegister: false, streamRunner: runner });
         await runLoop(client, rec.el, cfg, {
             ...REQ,
             _meta: { prefixSegments: [{ id: 'pre-1', type: 'thinking', content: 'orchestrating', collapsed: true }] },
         });
-        expect(rec.calls.some(c => c.m === 'addSegment' && (c.args[0] as { id: string }).id === 'pre-1')).toBe(true);
+        const streaming = rec.calls.findIndex(c => c.m === 'updateMessage' && (c.args[1] as { status?: string }).status === 'streaming');
+        const prefix = rec.calls.findIndex(c => c.m === 'addSegment' && (c.args[0] as { id: string }).id === 'pre-1');
+        expect(prefix).toBeGreaterThan(-1);
+        // The order the loop always had: the bubble is streaming before the host's
+        // segments land on it. The client used to write the status itself, before the
+        // runner, and let `run-start` repeat it — one call the recorded sequence never had.
+        expect(streaming).toBeGreaterThan(-1);
+        expect(prefix).toBeGreaterThan(streaming);
+        expect(rec.calls.filter(c => c.m === 'updateMessage' && (c.args[1] as { status?: string }).status === 'streaming')).toHaveLength(1);
     });
 
-    it('uses the inline loop (calls the transport) when no runner is injected', async () => {
+    it('runs the engine\'s loop by default (calls the transport) when no runner is injected', async () => {
         const stream = new ReadableStream({ start(c) { c.enqueue({ type: 'text', delta: 'hello' }); c.enqueue({ type: 'done' }); c.close(); } });
         const transportChat = vi.fn(async () => stream);
         const cfg = makeConfig(transportChat);

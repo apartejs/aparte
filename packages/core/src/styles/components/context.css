@@ -1,0 +1,42 @@
+/*
+ * aparté — <aparte-context>: how full the model's context window is.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ *
+ * The bar is the `aparte-progress` recipe; this sheet lays it out beside its reading
+ * and recolours the fill at the two levels — from the global alert tokens, no token
+ * of its own.
+ */
+aparte-context {
+  display: block;
+}
+aparte-context[hidden],
+aparte-context[data-empty] {
+  display: none;
+}
+
+.aparte-context {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  color: var(--aparte-text-muted);
+  font-size: var(--aparte-font-size-sm);
+}
+
+.aparte-context .aparte-progress {
+  flex: 1;
+  min-width: 4rem;
+}
+
+.aparte-context__text {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+aparte-context[data-level="warn"] .aparte-progress__bar {
+  background: var(--aparte-warning);
+}
+aparte-context[data-level="danger"] .aparte-progress__bar {
+  background: var(--aparte-error);
+}

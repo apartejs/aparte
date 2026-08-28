@@ -1,8 +1,9 @@
 ---
-title: Svelte
+title: Svelte AI chat component
 description: The @aparte/svelte wrapper — an ergonomic <AparteChat> component plus stores over the aparté web components.
 sidebar:
   order: 4
+  label: Svelte
 ---
 
 `@aparte/svelte` wraps `@aparte/core` for Svelte 4 **and 5**: an ergonomic `<AparteChat>` component, store

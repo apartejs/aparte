@@ -1,8 +1,9 @@
 ---
-title: Theming
+title: Theming an AI chat with CSS variables
 description: aparté is 100% CSS-driven — restyle every part of the chat by overriding CSS variables, with no JS theme logic and no forking.
 sidebar:
   order: 2
+  label: Theming
 ---
 
 aparté is **100% CSS-driven**. There is no JavaScript theme logic — you restyle the
@@ -72,7 +73,7 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **217 of core’s variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **218 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
 `--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
 places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
@@ -218,6 +219,32 @@ Every composer control (input height + buttons) derives from a single token:
   --aparte-code-font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 ```
+
+### Mark the chosen row
+
+"This one" is one recipe everywhere: the select's chosen option, a checked choice in the
+elicitation panel and an answered question wear the **mark** — an intent tint on the
+ground and a bar on the row's start edge, drawn in the intent's ink — and the conversation
+you are in wears its bar (its ground stays the list's own). Two tokens move every mark at
+once, and the same class marks a row of your own:
+
+```css
+:root {
+  --aparte-mark-tint: 12%;   /* quieter ground (18% by default) */
+  --aparte-mark-bar: 3px;    /* a heavier bar (2px by default) */
+}
+```
+
+```html
+<li class="aparte-mark">Chosen</li>
+<li class="aparte-mark aparte-mark--success">Accepted</li>
+<li class="aparte-mark aparte-mark--quiet">Declined</li>
+```
+
+`--success`, `--danger` and `--neutral` change the intent; `--quiet` is the outcome that
+did not happen — no tint, no bar, the muted text. Red is for what went wrong, not for
+"no": a declined request is quiet, a rejected tool call keeps the muted voice with a cross
+for a glyph, and a stopped one a stop square.
 
 ## Per-instance themes
 

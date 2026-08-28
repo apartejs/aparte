@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     test: {
         // Headless by default — pure Node. The suites that drive core's DOM-coupled
-        // `_streamLoop` override this per-file via a `// @vitest-environment jsdom`
+        // a DOM-shaped target override this per-file via a `// @vitest-environment jsdom`
         // pragma.
         include: ['src/**/*.{test,spec}.ts'],
         globals: true,
@@ -24,7 +24,7 @@ export default defineConfig({
         // Inlined so Vite (not Node) does the resolving, which is what honours the
         // condition instead of the externalised `node` one. Same mechanism as
         // `packages/providers/ai/openai-compat/vitest.config.ts`.
-        server: { deps: { inline: ['@aparte/core'] } },
+
     },
     resolve: {
         conditions: ['@aparte-workspace/source', 'module', 'browser', 'development'],

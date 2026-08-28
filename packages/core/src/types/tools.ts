@@ -102,7 +102,7 @@ export type AparteToolHandler = (
  * quietly", and the plugin walked straight into it because the handler signature
  * gave it nothing to walk around with.
  *
- * Both loops supply it — core's inline loop and the injected `runStreamAgent` — so
+ * The loop supplies it — `runStreamAgent`, or the runner you injected — so
  * a handler behaves the same whichever one is running.
  */
 export interface AparteToolContext {

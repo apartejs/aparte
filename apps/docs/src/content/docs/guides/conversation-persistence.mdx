@@ -1,8 +1,9 @@
 ---
-title: Conversation persistence
+title: Persist chat conversations (IndexedDB, SQLite, REST)
 description: Implement an AparteStorageAdapter, register a AparteConversationManager, and drive a multi-conversation sidebar that loads and saves threads.
 sidebar:
   order: 10
+  label: Conversation persistence
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -25,7 +26,7 @@ interface AparteStorageAdapter {
   save(conv: AparteConversation): Promise<void>; // upsert (create or update)
   delete(id: string): Promise<void>;             // permanent delete
   // + optional split-storage extensions: archive?/unarchive?, loadMeta?/loadFull?,
-  //   pin?/unpin?, rename?, and memory / settings / artifact-gallery / attachment rows.
+  //   pin?/unpin?, rename?, and loadAttachments? for persisted attachment blobs.
 }
 ```
 
@@ -85,8 +86,10 @@ export class LocalStorageAdapter implements AparteStorageAdapter {
 An IndexedDB (or SQLite WASM) adapter follows the same shape — every method is `async`
 precisely so any backend fits. Richer backends can additionally implement `loadMeta()` /
 `loadFull(id)` (fast sidebar listing vs. lazy full payload), `pin` / `unpin` / `rename`,
-and the memory-fact / settings / gallery methods — all optional, consulted only when
-present.
+and `loadAttachments(msgId)` for attachment blobs — all optional, consulted only when
+present. Anything beyond the conversation — a memory of user facts, a settings store, a
+gallery of every artifact ever produced — is your app's own table: extend the interface
+in your code rather than expecting the library to carry your schema.
 
 ## 2. Register a `AparteConversationManager`
 

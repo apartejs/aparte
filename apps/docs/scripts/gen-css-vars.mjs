@@ -408,7 +408,13 @@ applies when you do not.
 const declaredInCss = new Set(
   [...css.matchAll(/^\s+(--aparte-[\w-]+)\s*:/gm)].map((m) => m[1]),
 );
-const undocumented = [...declaredInCss].filter((name) => !md.includes(`\`${name}\``));
+// A token a component sets at runtime is excluded from the page on purpose (see
+// `runtimeManaged`), so its absence is not a hole in the parse. One can be BOTH: a
+// recipe's input declared with a default in its own block (`.aparte-progress {
+// --aparte-progress-value: 0 }`) and written by the element that wears the recipe
+// (`<aparte-context>` sets the ratio). That is the recipe working as designed, and
+// the first time it happened this check read it as a missing token.
+const undocumented = [...declaredInCss].filter((name) => !runtimeManaged.has(name) && !md.includes(`\`${name}\``));
 if (undocumented.length) {
   console.error(
     `\n[gen-css-vars] ${undocumented.length} token(s) declared in aparte.css but absent`

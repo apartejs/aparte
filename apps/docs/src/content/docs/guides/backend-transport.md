@@ -1,8 +1,9 @@
 ---
-title: Backend transport
-description: Keep your API key server-side — route chat through your own /api/chat with AparteBackendTransport and createAparteChatHandler.
+title: Keep the key server-side — chat through your own /api/chat
+description: An OpenAI-compatible chat frontend over your own backend — route chat through your /api/chat with AparteBackendTransport and createAparteChatHandler, the key never in the browser.
 sidebar:
   order: 8
+  label: Backend transport
 ---
 
 Every aparté chat goes through a **transport**: *where* the request goes and *how* the

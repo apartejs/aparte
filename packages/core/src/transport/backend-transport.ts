@@ -1,7 +1,7 @@
 import type { AparteChatRequest, AparteChatResponse } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteTransport, AparteTransportContext } from './types.js';
-import { vendorErrorMessage } from './types.js';
+import { vendorError } from './types.js';
 import { parseAparteEventStream } from '../parsers/index.js';
 
 export interface BackendTransportOptions {
@@ -58,7 +58,7 @@ export class AparteBackendTransport implements AparteTransport {
         });
 
         if (!response.ok) {
-            throw new Error(await vendorErrorMessage(response, 'Backend HTTP'));
+            throw await vendorError(response, 'Backend HTTP');
         }
 
         if (request.stream === false) {

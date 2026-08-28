@@ -6,17 +6,32 @@
     "targets": {
         "build": {
             "executor": "nx:run-script",
-            "outputs": ["{projectRoot}/dist"],
-            "options": { "script": "build" }
+            "outputs": [
+                "{projectRoot}/dist"
+            ],
+            "options": {
+                "script": "build"
+            }
         },
         "typecheck": {
-            "executor": "nx:run-script",
-            "outputs": ["{projectRoot}/dist"],
-            "options": { "script": "typecheck" }
+            "//": "Explicit, so the @nx/js/typescript plugin's inferred one (tsc --build --emitDeclarationOnly, outputs: dist) is not used: that one emits into the dist that build owns and declares it as an output, and a cache hit on it restored a declaration-only snapshot over the full dist. A typecheck writes nothing and claims nothing. vue-tsc here, for the .vue single-file components.",
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "vue-tsc -p tsconfig.json --noEmit",
+                "cwd": "{projectRoot}"
+            },
+            "cache": true,
+            "inputs": [
+                "default",
+                "^production"
+            ],
+            "outputs": []
         },
         "test": {
             "executor": "@nx/vite:test",
-            "outputs": ["{options.reportsDirectory}"],
+            "outputs": [
+                "{options.reportsDirectory}"
+            ],
             "options": {
                 "reportsDirectory": "../../../coverage/packages/wrappers/vue",
                 "cwd": "packages/wrappers/vue"

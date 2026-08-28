@@ -78,11 +78,14 @@ export interface AparteChatRequest {
     /** Tools the AI is allowed to call */
     tools?: AparteTool[];
     /**
-     * Random seed for reproducibility / diversity.
-     * Automatically set to a random integer on every `aparte-retry` so the
-     * provider generates a different response even with the same history.
-     * Supported by OpenAI, OpenRouter, LM Studio, Mistral, Ollama, and Gemini.
-     * Anthropic does not expose a seed parameter — ignored silently there.
+     * Random seed for reproducibility. Passed through verbatim by the providers
+     * that support it (OpenAI-compatible endpoints, the AI SDK bridge, the
+     * transformers worker); Anthropic exposes none, so it is ignored there.
+     *
+     * Nothing sets it for you: a retry varies its answer by sampling
+     * (`temperature`), not by seeding — this line used to promise an automatic
+     * per-retry seed that no code had ever written. Set it from a
+     * `requestInterceptor` when you need reproducible runs.
      */
     seed?: number;
 
@@ -91,8 +94,8 @@ export interface AparteChatRequest {
      * - 'auto'        : model decides (default when tools are present)
      * - 'none'        : no tools injected this turn — model answers directly
      * - { name }      : model MUST call this tool (provider injects a strong directive)
-     * - { name, input }: synthetic call — the agent loop (inline `_streamLoop`
-     *                    or the injected `runStreamAgent`) bypasses the LLM
+     * - { name, input }: synthetic call — the agent loop (`runStreamAgent`,
+     *                    or the runner you injected) bypasses the LLM
      *                    entirely and runs the handler directly with the provided
      *                    input, then re-calls the LLM with the tool_result in history.
      */
@@ -121,26 +124,19 @@ export interface AparteChatRequest {
     /**
      * Hint : stream tokens AS THEY ARRIVE (bypass the provider's flush-throttle).
      * Default throttling coalesces UI paints to protect WebGPU decode speed ;
-     * a short codegen turn that drives a live preview (e.g. xlsx_ops ops) opts
-     * in so the consumer can render progressively. Providers MAY ignore it.
+     * a short code-generation turn that drives a live preview opts in so the
+     * consumer can render progressively. Providers MAY ignore it.
      */
     fastStream?: boolean;
 
     /**
      * Opaque metadata bag threaded through the request pipeline (e.g. from a
-     * requestInterceptor to the `_streamLoop` post-processor). Never sent to the
+     * requestInterceptor to the loop's post-processing). Never sent to the
      * AI provider — stripped before the network call. The well-known keys are
      * typed; see {@link AparteRequestMeta}.
      */
     _meta?: AparteRequestMeta;
 }
-
-/** One phase of a multi-turn `_meta.pipeline` run: each phase is a single LLM
- *  turn whose reply becomes context for the next. */
-export type ApartePipelinePhase =
-    | { mode: 'text'; system: string }
-    | { mode: 'thinking'; system: string; label?: string }
-    | { mode: 'artifact'; system: string; mimeType: string; kind: string };
 
 /** A `{ mimeType, kind }` artifact hint for the `_meta` artifact modes. */
 export interface AparteArtifactHint {
@@ -149,21 +145,27 @@ export interface AparteArtifactHint {
 }
 
 /**
- * Well-known keys of {@link AparteChatRequest._meta}, typed for discoverability.
- * The index signature keeps it an open channel for consumer-specific context.
- * None of these reach the provider — they're stripped before the network call.
+ * The well-known keys of `AparteChatRequest._meta`. Two, both read by core's adapter
+ * and neither by the loop; the rest of the bag is the consumer's (index signature).
+ * `pipeline`, `artifactRaw` and `artifactXml` used to sit here too and were removed
+ * (audit 2026-08-28, D2): the first two were a product's orchestration, the third a
+ * second path to what the stream parser does natively with `<artifact>` tags.
  */
 export interface AparteRequestMeta {
-    /** Multi-phase run — each phase is one LLM turn; reply N is context for N+1. */
-    pipeline?: ApartePipelinePhase[];
-    /** Segments injected into the bubble before streaming (e.g. a plan thinking block). */
+    /**
+     * Segments to show at the top of the assistant's turn before the model has said
+     * anything — a "planning" thinking block a host wants visible from the first
+     * frame, a status row. Added right after the turn flips to `streaming`, in this
+     * order, and never sent to the model.
+     */
     prefixSegments?: AparteSegment[];
-    /** Promote the first code fence in the reply to an artifact (for small models that ignore `<artifact>` XML). */
+    /**
+     * Promote the FIRST fenced code block of the reply to an artifact of this MIME
+     * type and kind — the one artifact mechanism that needs the parser, so it lives
+     * in the adapter. A streaming backend that turns a code reply into a document
+     * (a "make me a page" turn) sets it per request.
+     */
     artifactHint?: AparteArtifactHint;
-    /** Treat the WHOLE reply as a raw artifact of this kind. */
-    artifactRaw?: AparteArtifactHint;
-    /** Parse an `<artifact>` XML block of this kind out of the stream. */
-    artifactXml?: AparteArtifactHint;
     /** Consumer-specific context (open channel). */
     [key: string]: unknown;
 }
@@ -192,13 +194,13 @@ export interface AparteUsage {
     decodeTokens?: number;
     /** Total turn wall-clock time in ms, measured client-side across all phases. */
     wallMs?: number;
-    /** Id of the model / aparteni that produced this response. */
+    /** Id of the model that produced this response. */
     modelId?: string;
     /** Compute device used for this response ('webgpu' | 'wasm' | …). */
     device?: string;
     /**
      * Per-call breakdown when a single turn used several provider calls
-     * (e.g. a tool-use round-trip or an aparteni hot-swap). Absent for a plain
+     * (e.g. a tool-use round-trip or a mid-turn model swap). Absent for a plain
      * single-call turn. Each entry is the AparteUsage of one provider call.
      */
     phases?: AparteUsage[];

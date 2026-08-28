@@ -3,7 +3,7 @@
 **Framework-agnostic AI chat, as composable Web Components.** Drop an
 `<aparte-chat>` onto any page — React, Vue, Svelte, Angular, or none at all —
 wire it to any LLM through a pluggable transport, and restyle everything with CSS
-variables. **Zero dependencies** at the core.
+variables. **Zero third-party dependencies** at the core.
 
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
 [![npm (alpha)](https://img.shields.io/npm/v/@aparte/core/alpha?label=npm%20alpha&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/alpha)
@@ -26,7 +26,7 @@ variables. **Zero dependencies** at the core.
   *same* chat everywhere. Thin wrappers give React/Vue/Svelte/Angular an
   ergonomic component; with no framework, use the `<aparte-*>` custom elements
   directly.
-- **Zero dependencies in `@aparte/core`.** Markdown, syntax highlighting, model
+- **Zero third-party dependencies in `@aparte/core`.** Markdown, syntax highlighting, model
   pickers — all opt-in `provider-*` / `plugin-*` packages. The core stays tiny.
 - **Bring your own model, your way.** A **transport** seam decides where the
   request goes: `AparteDirectTransport` (browser-direct — BYOK or a local model) or
@@ -118,12 +118,13 @@ Runnable examples for every framework (plus vanilla) live in
 
 | Package | What |
 |---|---|
-| `@aparte/core` | Vanilla web components — the chat engine, **zero dependencies** |
+| `@aparte/core` | Vanilla web components — the chat engine, **zero third-party dependencies** |
 | `@aparte/engine` | Framework-agnostic agent loop (`runStreamAgent`) |
 | `@aparte/react` · `/vue` · `/svelte` · `/angular` | Thin, ergonomic framework wrappers (peer deps) |
 | `@aparte/provider-openai-compat` | One adapter for every OpenAI-compatible endpoint (OpenAI, Mistral, OpenRouter, Groq, LM Studio, Ollama…) |
 | `@aparte/provider-ai-sdk` | Vercel AI SDK bridge (Anthropic, Google, 25+ vendors) |
 | `@aparte/provider-transformers` | In-browser inference via Transformers.js |
+| `@aparte/provider-scenario` | A scripted model — replays turns you wrote, for demos, docs and your own tests |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
 | `@aparte/plugin-model-selector` · `-ask-user` | A provider/model picker; a question-elicitation UI |
 | `@aparte/locale-fr` | French UI strings (English is core's built-in default) |

@@ -3,7 +3,7 @@
  *
  * There used to be nothing there: an assistant bubble with a name, an empty body,
  * and (in the display-only path) copy/retry on a reply that did not exist yet.
- * Reported from bonaparte as "it says Assistant, you wait, and you have no idea
+ * Reported from a consumer as "it says Assistant, you wait, and you have no idea
  * what is happening".
  *
  * These three specs were written `fixme` as the contract for that work. Two of

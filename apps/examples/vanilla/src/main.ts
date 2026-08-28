@@ -25,7 +25,8 @@ import { setupMarkedProvider } from '@aparte/plugin-marked';
 // elicitation, the guide — undemonstrated on the one app that is raw core: asking a
 // local model to "use the question tool" got a truthful "I have no such tool".
 import { setupAskUser } from '@aparte/plugin-ask-user';
-import { runStreamAgent } from '@aparte/engine';
+import { runStreamAgent, createCompactionSelector } from '@aparte/engine';
+import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
 import {
     DEFAULT_SETTINGS,
     applySystemPrompt,
@@ -89,7 +90,9 @@ function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void 
     const ms = segmentDuration(segment);
     if (ms === undefined) return;
     const label = host.querySelector('.aparte-thinking-label');
-    if (label) label.textContent = `Thought for ${(ms / 1000).toFixed(1)}s`;
+    // A sub-second span is "<1s", not "0.0s": a duration that reads as zero says the
+    // model did not think, which is the opposite of what the block means.
+    if (label) label.textContent = ms < 1000 ? 'Thought for <1s' : `Thought for ${(ms / 1000).toFixed(1)}s`;
 }
 
 /** A markup string back to the single root element it describes. */
@@ -104,10 +107,33 @@ function parseRoot(html: string): HTMLElement {
 //    was removed because its only visible trace was a key field for a service the
 //    reader does not have, and the settings view already covers any endpoint +
 //    token you want to point at (that is the same code path a cloud provider uses).
-aparteGlobalConfig.registerAIProvider(
-    createOpenAICompatProvider(presets.OLLAMA),
-    createOpenAICompatProvider(presets.LMSTUDIO),
-);
+//
+//    `?scenario` swaps them for the scripted model: the same page with no local
+//    server, no key and the same replies every time — what a demo, a screenshot
+//    or a test of THIS app wants. The scripted model declares a context window so
+//    the gauge in the toolbar has something to measure against.
+const scenarioMode = new URLSearchParams(location.search).has('scenario');
+if (scenarioMode) {
+    aparteGlobalConfig.registerAIProvider(createScenarioProvider({
+        scenarios: showcase,
+        models: [{ id: 'scripted', name: 'Scripted model', contextWindow: 8000, capabilities: ['streaming', 'function_calling'] }],
+    }));
+    // The showcase's weather turn calls this tool. An app that never registered it
+    // would see the call fail — also a scenario, but the round-trip is the point here.
+    aparteGlobalConfig.registerTool(
+        {
+            name: 'get_weather',
+            description: 'Current weather for a city.',
+            inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+        },
+        async (call) => ({ toolCallId: call.id, content: `Cloudy, 14 °C in ${String(call.input['city'] ?? 'Lille')}.` }),
+    );
+} else {
+    aparteGlobalConfig.registerAIProvider(
+        createOpenAICompatProvider(presets.OLLAMA),
+        createOpenAICompatProvider(presets.LMSTUDIO),
+    );
+}
 
 // 3. Browser talks to the provider directly; the key (if any) stays in the browser.
 // Gate the composer until the model selector has fetched + auto-selected a model.
@@ -135,6 +161,13 @@ aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 //    runs. That equivalence is what the engine parity suite asserts.
 const client = new AparteClient({
     streamRunner: runStreamAgent,
+    // What `compact()` summarises — asked for by the gauge's `auto-compact`, or by
+    // dispatching `aparte-compact`. Without this the whole history is summarised;
+    // with it, the newest turns that still fit the model's window stay verbatim.
+    compactionSelector: createCompactionSelector({
+        contextWindow: () => aparteGlobalConfig.getCurrentModel()?.contextWindow,
+        systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
+    }),
     // The endpoint + token the settings view holds, for ANY provider. The record
     // form (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint,
     // and it is honoured on both the chat and the /models path.
@@ -179,23 +212,9 @@ function wireOptimisticUserBubble(el: HTMLElement & { viewport?: ChatViewport | 
 if (chat) {
     wireOptimisticUserBubble(chat);
 
-    // Welcome suggestion chips → the composer, not a synthetic event.
-    //
-    // Dispatching `aparte-send` directly looked equivalent and was not: the
-    // composer's `submit()` is where every gate lives — disabled, already
-    // streaming, and the `requireModelSelection` gate that stays on until
-    // `GET /models` comes back. So these chips were live while the composer was
-    // visibly greyed out, and a click sent a request with an empty model id.
-    const composer = document.querySelector('aparte-composer') as
-        (HTMLElement & { setValue(v: string): void; submit(): void }) | null;
-    document.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-            composer?.setValue(chip.dataset.prompt ?? chip.textContent ?? '');
-            composer?.submit();
-        });
-    });
-
-    // Hide the suggestions once the conversation starts.
+    // The welcome heading goes once the conversation starts. The starters under it
+    // are an <aparte-suggestions empty-only> and hide themselves; they used to be four
+    // hand-wired chips here, which is what the element replaced.
     chat.addEventListener('aparte-send', () => document.getElementById('welcome')?.remove(), { once: true });
 }
 

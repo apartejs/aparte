@@ -50,8 +50,10 @@ const CONTRACTS = [
     {
         file: 'packages/core/dist/index.js',
         bareOnly: true,
-        allowed: [],
-        why: 'the zero-dependency promise: the README, the docs and the badge all say core has none, '
+        allowed: ['@aparte/engine'],
+        why: 'the zero-THIRD-PARTY-dependency promise: @aparte/engine is the one dependency, first-party '
+            + '(audit 2026-08-28, D1 — the agent loop is engine\'s and ships once); the README, the docs '
+            + 'and the badge all say core pulls nothing else, '
             + 'and nine `check:*` scripts existed without one of them asserting it. `package.json` '
             + 'having no `dependencies` is not the same claim — a bundled import would satisfy that '
             + 'and break the promise. This reads the built bytes: not one bare specifier',
@@ -59,7 +61,7 @@ const CONTRACTS = [
     {
         file: 'packages/core/dist/index.node.js',
         bareOnly: true,
-        allowed: [],
+        allowed: ['@aparte/engine'],
         why: 'the SSR entry makes the same promise and is built separately, so it can drift alone. '
             + 'It is a 1.8 KB re-export shim, so this only means anything now that the check follows '
             + 'the chunks it points at',
@@ -127,12 +129,17 @@ for (const { file, allowed, why, bareOnly } of CONTRACTS) {
  * badge all say there are none, and until now nothing asserted it.
  *
  * `devDependencies` are none of this check's business: they do not ship.
+ *
+ * One exception, by decision (audit 2026-08-28, D1): `@aparte/engine` in `dependencies`.
+ * The agent loop is engine's and core drives it, so core installs engine — first-party,
+ * versioned with it, zero third-party code. Anything else stays forbidden.
  */
 const ZERO_DEP_PACKAGES = ['packages/core/package.json'];
+const FIRST_PARTY_ALLOWED = new Set(['@aparte/engine']);
 for (const manifest of ZERO_DEP_PACKAGES) {
     const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
     for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
-        const names = Object.keys(pkg[field] ?? {});
+        const names = Object.keys(pkg[field] ?? {}).filter((n) => !(field === 'dependencies' && FIRST_PARTY_ALLOWED.has(n)));
         if (!names.length) continue;
         problems.push(
             `${manifest} declares ${field}: ${names.join(', ')}.\n`

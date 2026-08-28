@@ -39,12 +39,45 @@ aparte-select[disabled] .aparte-select-trigger {
     cursor: not-allowed;
 }
 
+/* The label is a grid with ONE cell: the visible text and, under it, a hidden stack of
+   every option's label. The stack sets the cell's width — the widest option's — so the
+   control keeps one width whatever is selected, like a native <select>; the text layer
+   ellipsises when a host constrains the control below that (`min-width: 0` is what lets
+   a flex item shrink at all). */
 .aparte-select-label {
     flex: 1;
+    min-width: 0;
+    display: grid;
+    overflow: hidden;
+    color: var(--aparte-select-text, var(--aparte-text));
+}
+
+.aparte-select-label > * {
+    grid-area: 1 / 1;
+    white-space: nowrap;
+}
+
+.aparte-select-label-text {
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--aparte-select-text, var(--aparte-text));
+}
+
+/* `min-width: 0; overflow: hidden` on the stack is what keeps the ellipsis alive: a
+   grid item's automatic minimum size is its min-content — the widest nowrap label —
+   and that floored the label's track, so a host that constrained the control got a
+   hard clip mid-glyph instead of "…" (measured in Chromium: clientWidth 244 for a
+   140px control). Its max-content contribution, the one that sets the width, is
+   untouched. */
+.aparte-select-label-sizer {
+    display: grid;
+    min-width: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.aparte-select-label-sizer > span {
+    grid-area: 1 / 1;
 }
 
 .aparte-select-chevron {
@@ -120,15 +153,30 @@ aparte-option[data-active] {
     box-shadow: inset 0 0 0 2px var(--aparte-primary);
 }
 
-/* Selected option: an accent TINT plus an accent bar, keeping the theme's own
-   text colour. A solid `--aparte-primary` fill with white text failed WCAG AA in
-   both themes (the brass accent is mid-luminance, so white sits around 3.4:1),
-   and an unreadable selected row is the one row that must be readable. Both
-   tokens stay overridable for a design that wants the solid fill back. */
+/* Selected option: the mark (display/mark.css) — an accent TINT plus an accent bar
+   on the start edge, keeping the theme's own text colour. A solid `--aparte-primary`
+   fill with white text failed WCAG AA in both themes (the brass accent is
+   mid-luminance, so white sits around 3.4:1), and an unreadable selected row is the
+   one row that must be readable. The measures are the mark's tokens, so this option,
+   a checked field choice and the active conversation move together; the option's own
+   two tokens stay overridable for a design that wants the solid fill back. Not the
+   class: an option's selected state is an attribute the select writes, and a second
+   name for it on the same element would be one more thing to keep in step. */
 aparte-option[selected] {
-    background: var(--aparte-select-option-selected, color-mix(in srgb, var(--aparte-primary) 18%, transparent));
+    position: relative;
+    background: var(--aparte-select-option-selected, color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent));
     color: var(--aparte-select-option-selected-text, var(--aparte-select-text, var(--aparte-text)));
-    box-shadow: inset 2px 0 0 var(--aparte-primary);
+}
+
+/* The bar: the mark's pseudo-element on the logical start edge (see display/mark.css). */
+aparte-option[selected]::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--aparte-mark-bar);
+    background: var(--aparte-primary-ink);
+    pointer-events: none;
 }
 
 aparte-option[disabled] {
@@ -193,16 +241,12 @@ aparte-optgroup[collapsed] .aparte-optgroup-chevron {
     transform: rotate(-90deg);
 }
 
-/* Dark mode */
-[data-aparte-theme="dark"] aparte-select .aparte-select-trigger,
-[data-aparte-theme="dark"] aparte-select .aparte-select-dropdown {
-    background: var(--aparte-select-bg, var(--aparte-surface-1));
-    border-color: var(--aparte-select-border, var(--aparte-border));
-}
-
-[data-aparte-theme="dark"] aparte-option:hover {
-    background: var(--aparte-select-option-hover, var(--aparte-surface-2));
-}
+/* No dark block: every colour above reads a token the derived layer re-anchors on
+   `[data-aparte-theme]`, so `--aparte-surface-1` IS the dark surface there. The block
+   that used to sit here restated the trigger's and the panel's backgrounds from
+   `--aparte-select-bg` — the TRIGGER's token — so a consumer making the trigger
+   transparent (a pill on a coloured page) got a see-through panel in the dark, with
+   the page's text showing through the options. */
 
 .aparte-optgroup-loader {
     padding: var(--aparte-space-4) var(--aparte-space-6);

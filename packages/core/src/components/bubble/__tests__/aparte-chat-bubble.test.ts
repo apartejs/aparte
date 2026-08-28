@@ -26,6 +26,7 @@ type BubbleEl = HTMLElement & {
     setSiblings(count: number, index: number): void;
     setSegments(segments: AparteSegment[]): void;
     updateMessage(updates: Partial<AparteMessage>): void;
+    setTranscriptBusy(busy: boolean): void;
 };
 
 function createBubble(attrs: Record<string, string> = {}): BubbleEl {
@@ -45,7 +46,7 @@ describe('AparteChatBubble — streaming attribute set BEFORE the inner DOM exis
     // copy/retry on an EMPTY, still-pending assistant bubble.
     it('reflects the streaming state onto .aparte-message once rendered', () => {
         const el = document.createElement('aparte-chat-bubble') as BubbleEl;
-        el.setAttribute('role', 'assistant');
+        el.setAttribute('data-role', 'assistant');
         el.setAttribute('streaming', '');
         document.body.appendChild(el);
         mountedForStreaming.push(el);
@@ -58,7 +59,7 @@ describe('AparteChatBubble — streaming attribute set BEFORE the inner DOM exis
 
     it('leaves a non-streaming bubble untouched', () => {
         const el = document.createElement('aparte-chat-bubble') as BubbleEl;
-        el.setAttribute('role', 'assistant');
+        el.setAttribute('data-role', 'assistant');
         document.body.appendChild(el);
         mountedForStreaming.push(el);
 
@@ -85,7 +86,7 @@ describe('AparteChatBubble', () => {
             // `name` is a public author/display attribute an app may bind untrusted
             // text into (persona, multi-user author). It must be inert, like the
             // sibling fields already are.
-            bubble = createBubble({ name: '<img src=x onerror="window.__xss=1">', role: 'assistant' });
+            bubble = createBubble({ name: '<img src=x onerror="window.__xss=1">', 'data-role': 'assistant' });
             expect(bubble.querySelector('.aparte-name img')).toBeNull(); // no live element
             expect(bubble.querySelector('.aparte-name')?.innerHTML).toContain('&lt;img');
         });
@@ -100,13 +101,13 @@ describe('AparteChatBubble', () => {
         afterEach(() => aparteGlobalConfig.reset());
 
         it('user bubble has "Edit" button, NOT "Retry"', () => {
-            bubble = createBubble({ role: 'user', 'message-id': 'u1' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'u1' });
             expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
             expect(bubble.querySelector('.aparte-action-retry')).toBeNull();
         });
 
         it('assistant bubble has "Retry" button, NOT "Edit"', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'a1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'a1' });
             expect(bubble.querySelector('.aparte-action-retry')).not.toBeNull();
             expect(bubble.querySelector('.aparte-action-edit')).toBeNull();
         });
@@ -122,22 +123,22 @@ describe('AparteChatBubble', () => {
             // Simulate Angular: element connected WITHOUT role, then role is set
             bubble = createBubble({ 'message-id': 'u2' }); // no role → default assistant
             // At this point action bar would have Retry
-            bubble.setAttribute('role', 'user'); // Angular sets it after CD
+            bubble.setAttribute('data-role', 'user'); // Angular sets it after CD
             expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
             expect(bubble.querySelector('.aparte-action-retry')).toBeNull();
         });
 
         it('assistant bubble retains Retry when role is set to assistant post-connection', () => {
             bubble = createBubble({ 'message-id': 'a2' });
-            bubble.setAttribute('role', 'assistant');
+            bubble.setAttribute('data-role', 'assistant');
             expect(bubble.querySelector('.aparte-action-retry')).not.toBeNull();
             expect(bubble.querySelector('.aparte-action-edit')).toBeNull();
         });
 
         it('switching role from assistant to user updates action bar', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'a3' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'a3' });
             expect(bubble.querySelector('.aparte-action-retry')).not.toBeNull();
-            bubble.setAttribute('role', 'user');
+            bubble.setAttribute('data-role', 'user');
             expect(bubble.querySelector('.aparte-action-retry')).toBeNull();
             expect(bubble.querySelector('.aparte-action-edit')).not.toBeNull();
         });
@@ -147,19 +148,19 @@ describe('AparteChatBubble', () => {
 
     describe('setContent()', () => {
         it('renders text content in the content element', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'c1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'c1' });
             bubble.setContent('Hello world');
             expect(bubble.querySelector('.aparte-content')?.textContent).toContain('Hello world');
         });
 
         it('getContent() returns the stored content', () => {
-            bubble = createBubble({ role: 'user', 'message-id': 'c2' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'c2' });
             bubble.setContent('My question');
             expect(bubble.getContent()).toBe('My question');
         });
 
         it('content attribute on creation pre-fills the bubble', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'c3', content: 'Initial' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'c3', content: 'Initial' });
             expect(bubble.getContent()).toBe('Initial');
         });
     });
@@ -168,20 +169,20 @@ describe('AparteChatBubble', () => {
 
     describe('avatar and role display', () => {
         it('renders no avatar by default (empty slot — role shown by layout/colour)', () => {
-            bubble = createBubble({ role: 'user', 'message-id': 'av1' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'av1' });
             const avatar = bubble.querySelector('.aparte-avatar');
             expect(avatar).not.toBeNull();                // the slot exists (opt-in via AvatarProvider)
             expect(avatar?.textContent?.trim()).toBe(''); // but empty by default — no initial
         });
 
         it('assistant avatar is also empty by default', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'av2' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'av2' });
             const avatar = bubble.querySelector('.aparte-avatar');
             expect(avatar?.textContent?.trim()).toBe('');
         });
 
         it('message element has data-role attribute matching role', () => {
-            bubble = createBubble({ role: 'user', 'message-id': 'av3' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'av3' });
             expect(bubble.querySelector('.aparte-message')?.getAttribute('data-role')).toBe('user');
         });
     });
@@ -190,14 +191,14 @@ describe('AparteChatBubble', () => {
 
     describe('setSiblings()', () => {
         it('shows branch picker when count > 1', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bp1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bp1' });
             bubble.setSiblings(3, 1);
             const picker = bubble.querySelector('.aparte-branch-picker') as HTMLElement;
             expect(picker?.hidden).toBe(false);
         });
 
         it('hides branch picker when count <= 1', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bp2' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bp2' });
             bubble.setSiblings(3, 1);
             bubble.setSiblings(1, 0);
             const picker = bubble.querySelector('.aparte-branch-picker') as HTMLElement;
@@ -205,28 +206,28 @@ describe('AparteChatBubble', () => {
         });
 
         it('displays correct "index / count" label', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bp3' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bp3' });
             bubble.setSiblings(4, 2); // 0-based index 2 → "3 / 4"
             const label = bubble.querySelector('.aparte-branch-label');
             expect(label?.textContent).toBe('3 / 4');
         });
 
         it('disables prev button at first sibling (index 0)', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bp4' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bp4' });
             bubble.setSiblings(3, 0);
             const prevBtn = bubble.querySelector('.aparte-branch-prev') as HTMLButtonElement;
             expect(prevBtn?.disabled).toBe(true);
         });
 
         it('disables next button at last sibling', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bp5' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bp5' });
             bubble.setSiblings(3, 2);
             const nextBtn = bubble.querySelector('.aparte-branch-next') as HTMLButtonElement;
             expect(nextBtn?.disabled).toBe(true);
         });
 
         it('enables both buttons in the middle', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bp6' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bp6' });
             bubble.setSiblings(3, 1);
             const prevBtn = bubble.querySelector('.aparte-branch-prev') as HTMLButtonElement;
             const nextBtn = bubble.querySelector('.aparte-branch-next') as HTMLButtonElement;
@@ -244,7 +245,7 @@ describe('AparteChatBubble', () => {
         afterEach(() => aparteGlobalConfig.reset());
 
         it('retry button on assistant bubble fires aparte-retry with correct messageId', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'r1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'r1' });
             let retryDetail: any = null;
             document.body.addEventListener('aparte-retry', (e: Event) => {
                 retryDetail = (e as CustomEvent).detail;
@@ -255,7 +256,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('user bubble does NOT fire aparte-retry on any click', () => {
-            bubble = createBubble({ role: 'user', 'message-id': 'r2' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'r2' });
             let fired = false;
             document.body.addEventListener('aparte-retry', () => { fired = true; });
             // No retry button exists on user bubble, so just click the bubble itself
@@ -301,7 +302,7 @@ describe('AparteChatBubble', () => {
          * survive: the buttons under the cursor are not the ones the listeners knew.
          */
         it('still fires after the bubble re-renders', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bn-rerender' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bn-rerender' });
             bubble.setSiblings(3, 1);
             let detail: any = null;
             document.body.addEventListener('aparte-branch-navigate', (e: Event) => {
@@ -325,7 +326,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('prev button fires aparte-branch-navigate with direction prev', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bn1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bn1' });
             bubble.setSiblings(3, 1);
             let detail: any = null;
             document.body.addEventListener('aparte-branch-navigate', (e: Event) => {
@@ -338,7 +339,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('next button fires aparte-branch-navigate with direction next', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bn2' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bn2' });
             bubble.setSiblings(3, 1);
             let detail: any = null;
             document.body.addEventListener('aparte-branch-navigate', (e: Event) => {
@@ -350,7 +351,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('disabled prev button does NOT fire aparte-branch-navigate', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'bn3' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'bn3' });
             bubble.setSiblings(3, 0); // at first → prev disabled
             let fired = false;
             document.body.addEventListener('aparte-branch-navigate', () => { fired = true; });
@@ -374,7 +375,7 @@ describe('AparteChatBubble', () => {
             // Highlight provider returns inner tokens (like Prism / highlight.js).
             aparteGlobalConfig.setHighlightProvider((code) => `<span class="tok">${code}</span>`);
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'hl1', content: 'x' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'hl1', content: 'x' });
             await flush();
 
             const code = bubble.querySelector('.aparte-content pre code');
@@ -386,7 +387,7 @@ describe('AparteChatBubble', () => {
             aparteGlobalConfig.setMarkdownProvider(() => '<pre><code class="language-js">y</code></pre>');
             aparteGlobalConfig.setHighlightProvider(() => '<pre class="shiki"><code>Y</code></pre>');
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'hl2', content: 'x' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'hl2', content: 'x' });
             await flush();
 
             expect(bubble.querySelector('.aparte-content pre.shiki')).not.toBeNull();
@@ -396,7 +397,7 @@ describe('AparteChatBubble', () => {
             aparteGlobalConfig.setMarkdownProvider(() => '<pre><code class="language-js">z</code></pre>');
             // no highlight provider registered
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'hl3', content: 'x' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'hl3', content: 'x' });
             await flush();
 
             const code = bubble.querySelector('.aparte-content pre code');
@@ -415,7 +416,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('rebuilds the action bar when setBubbleActions changes the per-role set', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'cc1', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'cc1', content: 'hi' });
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
             expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1);
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] });
@@ -424,7 +425,7 @@ describe('AparteChatBubble', () => {
 
         it('re-reads icons when setIconProvider changes', () => {
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'cc2', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'cc2', content: 'hi' });
             // A real skin's provider is complete (spreads DefaultIconProvider);
             // start from the full fallback set so every connected bubble stays valid.
             const full = aparteGlobalConfig.getIconProvider();
@@ -435,7 +436,7 @@ describe('AparteChatBubble', () => {
 
         it('stops rebuilding after the bubble is disconnected', () => {
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'cc3', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'cc3', content: 'hi' });
             expect(bubble.querySelectorAll('.aparte-action-btn')).toHaveLength(1);
             bubble.remove();
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'retry', 'thumbUp', 'thumbDown'] });
@@ -464,7 +465,7 @@ describe('AparteChatBubble', () => {
             let oneShots = 0;
             aparteGlobalConfig.setMarkdownProvider((md) => { oneShots++; return md; });
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'smd', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'smd', streaming: '' });
             bubble.appendToken('Hel');
             bubble.appendToken('lo ');
             bubble.appendToken('world');
@@ -483,7 +484,7 @@ describe('AparteChatBubble', () => {
                 end: () => { ended++; },
             }));
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'smd-end', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'smd-end', streaming: '' });
             bubble.appendToken('**hi**');
             bubble.setAttribute('streaming', 'false');
             bubble.appendToken('!');
@@ -495,7 +496,7 @@ describe('AparteChatBubble', () => {
             let oneShots = 0;
             aparteGlobalConfig.setMarkdownProvider((md) => { oneShots++; return md; });
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'no-smd', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'no-smd', streaming: '' });
             bubble.appendToken('a');
             bubble.appendToken('b');
 
@@ -514,7 +515,7 @@ describe('AparteChatBubble', () => {
                 end: () => {},
             }));
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'smd-reset', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'smd-reset', streaming: '' });
             bubble.appendToken('first answer');
             written.length = 0;
             bubble.setContent('');
@@ -545,7 +546,7 @@ describe('AparteChatBubble', () => {
                     return el;
                 },
             });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-el' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'seg-el' });
             bubble.setSegments([{ id: 's1', type: 'el-seg' } as never]);
 
             const rendered = bubble.querySelector('.my-el-seg') as HTMLElement | null;
@@ -560,7 +561,7 @@ describe('AparteChatBubble', () => {
                 type: 'str-seg',
                 render: (seg) => `<div class="my-str-seg" data-segment-id="${seg.id}">from string</div>`,
             });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-str' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'seg-str' });
             bubble.setSegments([{ id: 's2', type: 'str-seg' } as never]);
 
             const rendered = bubble.querySelector('.my-str-seg');
@@ -576,7 +577,7 @@ describe('AparteChatBubble', () => {
          * written for that exact moment.
          */
         it('draws a segment fallback when no renderer claims its type', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-fb' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'seg-fb' });
             bubble.setSegments([
                 { id: 's3', type: 'custom', subType: 'weather', fallback: 'Lille — 11°C.' } as never,
             ]);
@@ -588,7 +589,7 @@ describe('AparteChatBubble', () => {
         });
 
         it('still names the unknown type when there is no fallback to draw', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-unk' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'seg-unk' });
             bubble.setSegments([{ id: 's4', type: 'nobody-renders-this' } as never]);
 
             const rendered = bubble.querySelector('.aparte-segment-unknown');
@@ -599,7 +600,7 @@ describe('AparteChatBubble', () => {
         /* Markup in a fallback is text: the field is filled by whoever produced the
            segment, which can be a model. */
         it('does not let a fallback carry markup', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'seg-fb-xss' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'seg-fb-xss' });
             bubble.setSegments([
                 { id: 's5', type: 'custom', subType: 'x', fallback: '<img src=x onerror=alert(1)>' } as never,
             ]);
@@ -616,7 +617,7 @@ describe('AparteChatBubble', () => {
 
         it('renders a registered action and emits aparte-action on click', () => {
             aparteGlobalConfig.registerAction({ id: 'share', icon: '<svg class="share-i"></svg>', label: 'Share', zones: ['bubble'] });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'ca1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'ca1' });
 
             const btn = bubble.querySelector('.aparte-action-custom[data-action="custom:share"]') as HTMLButtonElement;
             expect(btn).not.toBeNull();
@@ -631,16 +632,16 @@ describe('AparteChatBubble', () => {
 
         it('honors role targeting (roles: ["user"] hides it on assistant bubbles)', () => {
             aparteGlobalConfig.registerAction({ id: 'editmeta', icon: '<svg></svg>', label: 'Edit meta', zones: ['bubble'], bubble: { roles: ['user'] } });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'ca2' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'ca2' });
             expect(bubble.querySelector('[data-action="custom:editmeta"]')).toBeNull();
 
-            const userBubble = createBubble({ role: 'user', 'message-id': 'ca3' });
+            const userBubble = createBubble({ 'data-role': 'user', 'message-id': 'ca3' });
             expect(userBubble.querySelector('[data-action="custom:editmeta"]')).not.toBeNull();
             userBubble.remove();
         });
 
         it('live-registers into an already-mounted bubble and unregisters back out', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'ca4' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'ca4' });
             expect(bubble.querySelector('[data-action="custom:regen"]')).toBeNull();
 
             // registerAction notifies → mounted bubble rebuilds its action bar.
@@ -655,7 +656,7 @@ describe('AparteChatBubble', () => {
     // ─── Error state reflection (data-error) ──────────────────────────────
     describe('error state', () => {
         it('sets data-error on .aparte-message while an error segment is present, clears otherwise', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'err1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'err1' });
             const message = bubble.querySelector('.aparte-message') as HTMLElement;
 
             bubble.setSegments([{ id: 'e1', type: 'error', content: 'boom' } as never]);
@@ -679,7 +680,7 @@ describe('AparteChatBubble', () => {
                 el.textContent = att.name;
                 return el;
             });
-            bubble = createBubble({ role: 'user', 'message-id': 'att1' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'att1' });
             bubble.updateMessage({
                 attachments: [{ id: 'a1', name: 'report.pdf', type: 'application/pdf', url: 'blob:x' }],
             });
@@ -707,21 +708,21 @@ describe('AparteChatBubble', () => {
 
         it('hides the bar and the footer when no action is enabled', () => {
             aparteGlobalConfig.setBubbleActions({ copy: false });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'e1', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e1', content: 'hi' });
             expect(bar(bubble).children.length).toBe(0);
             expect(bar(bubble).hidden).toBe(true);
             expect(footer(bubble).hidden).toBe(true);
         });
 
         it('keeps both visible for the default set (copy)', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'e2', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e2', content: 'hi' });
             expect(bar(bubble).hidden).toBe(false);
             expect(footer(bubble).hidden).toBe(false);
         });
 
         it('shows them again as soon as an action is turned back on', () => {
             aparteGlobalConfig.setBubbleActions({ copy: false });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'e3', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e3', content: 'hi' });
             expect(bar(bubble).hidden).toBe(true);
             aparteGlobalConfig.setBubbleActions({ retry: true });
             expect(bar(bubble).hidden).toBe(false);
@@ -730,7 +731,7 @@ describe('AparteChatBubble', () => {
 
         it('keeps the footer when the branch picker is the only thing in it', () => {
             aparteGlobalConfig.setBubbleActions({ copy: false });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'e4', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e4', content: 'hi' });
             bubble.setSiblings(2, 0);
             expect(bar(bubble).hidden).toBe(true);
             expect(footer(bubble).hidden).toBe(false);
@@ -738,10 +739,39 @@ describe('AparteChatBubble', () => {
 
         it('hides the footer again when the last sibling disappears', () => {
             aparteGlobalConfig.setBubbleActions({ copy: false });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'e5', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e5', content: 'hi' });
             bubble.setSiblings(2, 0);
             bubble.setSiblings(1, 0);
             expect(footer(bubble).hidden).toBe(true);
+        });
+
+        // The stylesheet floats an older message's footer out of the flow, except while
+        // the branch picker shows: the flag it reads is written beside the picker's state.
+        it('setTranscriptBusy disables retry, edit and the branch arrows, and restores them', () => {
+            aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e7', content: 'hi' });
+            bubble.setSiblings(2, 1);
+            const retry = bubble.querySelector('[data-action="retry"]') as HTMLButtonElement;
+            const prev = bubble.querySelector('.aparte-branch-prev') as HTMLButtonElement;
+            expect(retry.disabled).toBe(false);
+            expect(prev.disabled).toBe(false);
+            bubble.setTranscriptBusy(true);
+            expect(retry.disabled).toBe(true);
+            expect(prev.disabled).toBe(true);
+            expect((bubble.querySelector('[data-action="copy"]') as HTMLButtonElement).disabled, 'copy stays').toBe(false);
+            bubble.setTranscriptBusy(false);
+            expect(retry.disabled).toBe(false);
+            expect(prev.disabled).toBe(false);
+        });
+
+        it('stamps data-branches on the message exactly while the picker shows', () => {
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e6', content: 'hi' });
+            const message = bubble.querySelector('.aparte-message') as HTMLElement;
+            expect(message.hasAttribute('data-branches')).toBe(false);
+            bubble.setSiblings(2, 0);
+            expect(message.hasAttribute('data-branches')).toBe(true);
+            bubble.setSiblings(1, 0);
+            expect(message.hasAttribute('data-branches')).toBe(false);
         });
 
         it('a custom registered action alone is enough to keep the bar', () => {
@@ -750,14 +780,14 @@ describe('AparteChatBubble', () => {
                 id: 'star', icon: '<svg></svg>', label: 'Star',
                 zones: ['bubble'], bubble: { roles: ['assistant'] },
             });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'e6', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e6', content: 'hi' });
             expect(bar(bubble).children.length).toBe(1);
             expect(bar(bubble).hidden).toBe(false);
         });
 
         it('shows the bar in edit mode even with every action off', () => {
             aparteGlobalConfig.setBubbleActions({ copy: false, edit: true });
-            bubble = createBubble({ role: 'user', 'message-id': 'e7', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'e7', content: 'hi' });
             (bubble.querySelector('.aparte-action-edit') as HTMLButtonElement).click();
             expect(bar(bubble).hidden).toBe(false);
             expect(bubble.querySelector('.aparte-action-edit-save')).not.toBeNull();
@@ -771,7 +801,7 @@ describe('AparteChatBubble', () => {
         afterEach(() => aparteGlobalConfig.reset());
 
         const imageBubble = (id: string) => {
-            const el = createBubble({ role: 'user', 'message-id': id });
+            const el = createBubble({ 'data-role': 'user', 'message-id': id });
             el.updateMessage({
                 attachments: [{ id: 'i1', name: 'shot.png', type: 'image/png', url: 'blob:x' }],
             });
@@ -821,7 +851,7 @@ describe('AparteChatBubble', () => {
 
         it('leaves non-image tiles inert even when declared (nothing to preview)', () => {
             aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
-            bubble = createBubble({ role: 'user', 'message-id': 't4' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 't4' });
             bubble.updateMessage({
                 attachments: [{ id: 'f1', name: 'report.pdf', type: 'application/pdf', url: 'blob:x' }],
             });
@@ -837,7 +867,7 @@ describe('AparteChatBubble', () => {
         it('replaces the position indicator with custom output, arrows preserved', () => {
             aparteGlobalConfig.setSiblingNavRenderer(({ count, index }) =>
                 Array.from({ length: count }, (_, i) => `<span class="dot${i === index ? ' active' : ''}"></span>`).join(''));
-            bubble = createBubble({ role: 'assistant', 'message-id': 'sn1' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'sn1' });
             bubble.setSiblings(3, 1);
 
             const label = bubble.querySelector('.aparte-branch-label') as HTMLElement;
@@ -868,28 +898,28 @@ describe('AparteChatBubble', () => {
             (el as unknown as { setUsage(u: unknown): void }).setUsage({ inputTokens: 3, outputTokens: 5 });
 
         it('is off by default, usage or not — nobody in core opens the popover', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'i0', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'i0', content: 'hi' });
             withUsage(bubble);
             expect(actionsOf(bubble)).toEqual(['copy']);
         });
 
         it('is requestable in an explicit per-role set', () => {
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'info'] });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'i1', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'i1', content: 'hi' });
             withUsage(bubble);
             expect(actionsOf(bubble)).toEqual(['copy', 'info']);
         });
 
         it('is removable through the flag, even with usage present', () => {
             aparteGlobalConfig.setBubbleActions({ info: false });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'i2', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'i2', content: 'hi' });
             withUsage(bubble);
             expect(actionsOf(bubble)).not.toContain('info');
         });
 
         it('needs usage: asking for it without any shows nothing', () => {
             aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'info'] });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'i3', content: 'hi' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'i3', content: 'hi' });
             expect(actionsOf(bubble)).toEqual(['copy']);
         });
     });
@@ -903,7 +933,7 @@ describe('AparteChatBubble', () => {
         afterEach(() => aparteGlobalConfig.reset());
 
         it('shows while an assistant bubble is streaming with nothing in it', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'w1', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'w1', streaming: '' });
             const waiting = bubble.querySelector('.aparte-waiting') as HTMLElement;
             expect(waiting).not.toBeNull();
             expect(waiting.hidden).toBe(false);
@@ -916,12 +946,12 @@ describe('AparteChatBubble', () => {
             // `locale.typing` shipped in APARTE_DEFAULT_LOCALE and was read by nothing. A
             // French app must not be told "Typing".
             aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), typing: 'Réflexion…' });
-            bubble = createBubble({ role: 'assistant', 'message-id': 'w1b', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'w1b', streaming: '' });
             expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Réflexion…');
         });
 
         it('disappears on the first token and stays gone', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'w2', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'w2', streaming: '' });
             const waiting = bubble.querySelector('.aparte-waiting') as HTMLElement;
             expect(waiting.hidden).toBe(false);
 
@@ -932,23 +962,23 @@ describe('AparteChatBubble', () => {
         });
 
         it('never shows for a user bubble, nor for a finished one', () => {
-            bubble = createBubble({ role: 'user', 'message-id': 'w3', streaming: '' });
+            bubble = createBubble({ 'data-role': 'user', 'message-id': 'w3', streaming: '' });
             expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
             bubble.remove();
 
-            bubble = createBubble({ role: 'assistant', 'message-id': 'w4', content: 'done' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'w4', content: 'done' });
             expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
         });
 
         it('yields to segments — a thinking block is content, not waiting', () => {
-            bubble = createBubble({ role: 'assistant', 'message-id': 'w5', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'w5', streaming: '' });
             bubble.setSegments([{ id: 's1', type: 'thinking', content: 'hmm' } as unknown as AparteSegment]);
             expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
         });
 
         it('clears when streaming ends even if nothing ever arrived', () => {
             // An empty reply (or an aborted turn) must not leave the dots pulsing.
-            bubble = createBubble({ role: 'assistant', 'message-id': 'w6', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'w6', streaming: '' });
             expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(false);
             bubble.updateMessage({ status: 'completed' });
             expect((bubble.querySelector('.aparte-waiting') as HTMLElement).hidden).toBe(true);
@@ -957,7 +987,7 @@ describe('AparteChatBubble', () => {
         it('is optional: a custom shell without the region simply has no indicator', () => {
             aparteGlobalConfig.setBubbleShellRenderer(({ role }) =>
                 `<div class="aparte-message" data-role="${role}"><div class="aparte-content"></div></div>`);
-            bubble = createBubble({ role: 'assistant', 'message-id': 'w7', streaming: '' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'w7', streaming: '' });
             expect(bubble.querySelector('.aparte-waiting')).toBeNull();
             expect(bubble.querySelector('.aparte-message')?.getAttribute('aria-busy')).toBe('true');
         });
@@ -976,7 +1006,7 @@ describe('AparteChatBubble', () => {
                 + `<div class="aparte-content"></div>`
                 + `<div class="aparte-action-bar"></div>`
                 + `</div></div>`);
-            bubble = createBubble({ role: 'assistant', 'message-id': 'sh1', content: 'hello' });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'sh1', content: 'hello' });
 
             // Custom shell is in place; the default body skeleton is gone.
             expect(bubble.querySelector('.aparte-message.custom-shell')).not.toBeNull();

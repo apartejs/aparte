@@ -89,7 +89,9 @@ export interface AparteComposerChangeEventDetail {
  * it (appending to the host when there is none).
  *
  * A PANEL is neither markup you write nor a named slot: `showPanel()` takes the element,
- * stamps it `data-aparte-panel` and inserts it, `hidePanel()` removes it. One at a time
+ * stamps it `data-aparte-panel` and inserts it — inside the descendant you marked
+ * `data-aparte-panel-host` if there is one, else right after the first input —
+ * and `hidePanel()` removes it. One at a time
  * — a second `showPanel()` evicts the first and calls its `onEvict`. While one is up the
  * host carries `[data-panel-active]`, which hides `<aparte-composer-input>` and
  * `<aparte-composer-add-attachment>` and leaves the attachments strip and the toolbar in
@@ -120,8 +122,8 @@ export interface AparteComposerChangeEventDetail {
  * @element aparte-composer
  *
  * @attr {string} placeholder - Fallback placeholder for `<aparte-composer-input>`, which
- *   reads it off this element when it carries none of its own. Read when that input
- *   renders, not pushed: changing it here leaves an input already on the page as it was.
+ *   reads it off this element when it carries none of its own. Changing it here reaches
+ *   the inputs already on the page too.
  * @attr {boolean} disabled - Disables the composer's own controls — the input, send,
  *   add-attachment and `<aparte-composer-action>` buttons each read it. What you put in
  *   the toolbar is yours to disable.
@@ -265,6 +267,9 @@ export class AparteComposer extends HTMLElement {
         // `detail.config`, so the same information arrives without the early binding
         // — and the filter below compares against the LIVE config.
         window.addEventListener('aparte-config-change', this._onConfigChangeEvent);
+        // After the current parse: the other chats of the page may be mounted later in
+        // the same document, and the question is only worth asking once they are.
+        queueMicrotask(() => this._warnIfUnattached());
         this._evaluateModelGate();
         this._applyDirection();
     }
@@ -283,7 +288,12 @@ export class AparteComposer extends HTMLElement {
             this._emit('disabled-change', { disabled: value !== null });
         }
         if (name === 'placeholder') {
-            // Primitives read this directly via closest() — no event needed
+            // Pushed, not merely readable: the input reads this element's placeholder
+            // when it renders, and nothing else re-read it, so a placeholder bound to a
+            // translated string went stale on the first language switch after mount.
+            for (const input of this.querySelectorAll('aparte-composer-input')) {
+                (input as { syncPlaceholder?: () => void }).syncPlaceholder?.();
+            }
         }
     }
 
@@ -412,10 +422,17 @@ export class AparteComposer extends HTMLElement {
         // Evict rather than hide: the previous owner is awaiting an answer it will
         // never get, and it is the only thing that can settle its own promise.
         this._evictPanel();
+        // Where it goes, in order: the element the author marked as the panel's host,
+        // else right after the first input, else the end of the composer. The marker
+        // exists because "after the input" is a position, and a layout with the input
+        // in a row and the panel meant for a block of its own had no way to say so.
+        const host = this.querySelector('[data-aparte-panel-host]') as HTMLElement | null;
         const inputEl = this.querySelector('aparte-composer-input') as HTMLElement | null;
         this.setAttribute('data-panel-active', '');
         panel.dataset['apartePanel'] = 'true';
-        if (inputEl) {
+        if (host) {
+            host.appendChild(panel);
+        } else if (inputEl) {
             inputEl.insertAdjacentElement('afterend', panel);
         } else {
             this.appendChild(panel);
@@ -673,13 +690,25 @@ export class AparteComposer extends HTMLElement {
      * for the reason written there — Angular's wrapper root IS `<aparte-chat>`, the
      * other three render a `[data-aparte-chat]` div.
      */
+    /**
+     * A signal, not a guard: on a page with several chats, a composer attached to none
+     * answers to every chat's lifecycle events (see `_ownTargetId`), and the symptom —
+     * one chat's Stop evicting another's open question — is nowhere near its cause.
+     * Said once, at the console, where the developer is.
+     */
+    private _warnIfUnattached(): void {
+        if (!this.isConnected || this._ownTargetId()) return;
+        if (document.querySelectorAll('aparte-chat, [data-aparte-chat]').length < 2) return;
+        console.warn('[aparte-composer] this composer belongs to no chat while the page has several: give it target="<chat id>" or place it under a chat host with an id, or it will answer to every chat\'s events.');
+    }
+
     private _ownTargetId(): string | undefined {
         const attr = this.targetId;
         if (attr) return attr;
         let el: HTMLElement | null = this.parentElement;
         while (el) {
             const tag = el.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+            const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
             if (isHost && el.id) return el.id;
             el = el.parentElement;
         }

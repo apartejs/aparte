@@ -1,0 +1,81 @@
+/*
+ * aparté — The mark: a row a list has settled on.
+ *
+ * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
+ * them in the order listed there, and check:derived-vars reads them concatenated in
+ * that same order, the way a browser does.
+ *
+ * WHAT IT IS. A chosen option, an accepted answer, the conversation you are in: the
+ * one item among its peers that a decision landed on. Before this sheet the select
+ * drew it one way (an accent tint plus an inset bar on the start edge), the field
+ * choice another (a primary border), the conversation list a third (its own
+ * background and weight), and the ask-user receipt none at all — four vocabularies
+ * for one meaning, measured in the UI audit of 2026-08-28. The market agrees on two
+ * signals: a tint on the ground (Radix, shadcn, Material's state layer) and a bar on
+ * the row's start edge (GitHub Primer's ActionList). This recipe is both, on one
+ * intent axis, and every row that means "this one" wears it.
+ *
+ * THE AXIS. `--aparte-mark-intent` is the fill, primary by default: chosen. The
+ * modifiers set it to the theme's other masters — success for an answer that was
+ * given or a call that was approved, danger for a destructive outcome, neutral for
+ * the item you are merely in. `--quiet` is the outcome that did NOT happen: a declined
+ * request, a version superseded — no tint, no bar, the muted voice. The market never
+ * strikes through; neither does this.
+ *
+ * THE BAR IS DRAWN IN INK. The tint is the fill at 18%, which carries almost no
+ * contrast by itself (1.2:1 in the light theme); the bar is the whole non-text signal,
+ * so it reads `--aparte-mark-intent-ink` — the master's ink, the one the button and
+ * the badge already derive for text on a ground. The raw success fill measured 2.27:1
+ * on the light surface, under the 3:1 WCAG asks of a graphic; its ink is 7.1:1.
+ *
+ * THE BAR IS A PSEUDO-ELEMENT, NOT A SHADOW. An inset shadow knows only left and
+ * right, so a right-to-left row got its bar on the wrong edge unless a document-level
+ * `[dir="rtl"]` rule caught it — which a `dir` on the row itself, or `dir="auto"`,
+ * escapes. `inset-inline-start` is the start edge whatever the direction, at any level.
+ * Nothing shifts: the pseudo-element is out of the flow.
+ *
+ * THE MEASURES. `--aparte-mark-tint` and `--aparte-mark-bar` live in theme.css so a
+ * theme moves every mark at once.
+ */
+.aparte-mark {
+  --aparte-mark-intent: var(--aparte-primary);
+  --aparte-mark-intent-ink: var(--aparte-primary-ink);
+  position: relative;
+  background: color-mix(in srgb, var(--aparte-mark-intent) var(--aparte-mark-tint), transparent);
+}
+
+.aparte-mark::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--aparte-mark-bar);
+  background: var(--aparte-mark-intent-ink);
+  pointer-events: none;
+}
+
+.aparte-mark--success {
+  --aparte-mark-intent: var(--aparte-success);
+  --aparte-mark-intent-ink: var(--aparte-success-ink);
+}
+
+.aparte-mark--danger {
+  --aparte-mark-intent: var(--aparte-error);
+  --aparte-mark-intent-ink: var(--aparte-error-ink);
+}
+
+/* The neutral master has no derived ink; the fill is its own ink (5:1 light, 6.9:1 dark). */
+.aparte-mark--neutral {
+  --aparte-mark-intent: var(--aparte-neutral);
+  --aparte-mark-intent-ink: var(--aparte-neutral);
+}
+
+/* The outcome that did not happen. */
+.aparte-mark--quiet {
+  background: none;
+  color: var(--aparte-text-muted);
+}
+
+.aparte-mark--quiet::before {
+  display: none;
+}

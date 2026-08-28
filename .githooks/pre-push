@@ -8,6 +8,10 @@
 
 set -e
 
+# No nx daemon in a hook — same reason as pre-commit: the daemon's outputs table
+# has answered "unchanged" against an emptied packages/core/dist.
+export NX_DAEMON=false
+
 # --- refuse a direct push to main -------------------------------------------
 # Feature work belongs on a branch + PR, so CI gates it before it lands. The
 # release flow legitimately pushes main: export APARTE_ALLOW_MAIN_PUSH=1 for it.

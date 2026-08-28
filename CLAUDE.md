@@ -97,6 +97,14 @@ put down on purpose, so a future session does not re-derive the answer from scra
   contract maintained for nobody. *Trigger: a consumer that wants the default row with a
   body of its own — which is the request to listen for, since it is the one thing
   `registerToolRenderer` cannot do today without copying core's markup.*
+- **The artifact rework (Paul's lot, direction decided — D7).** The artifact is today a
+  bidirectional app protocol living beside the segment system (file-gen events the app
+  dispatches, redownload/rehydrate, a preview builder, a binary cache, three ingestion
+  modes). The built-in `create_artifact` already proves the cleaner shape: **an artifact
+  is a tool call whose result is rendered richly** — a tool, a tool renderer, an
+  app-owned execution. Direction: converge toward that seam; keep only the `<artifact>`
+  stream recognition as a parser concern. D2 clears the ground first (two of the three
+  ingestion modes go). *Trigger: Paul opens the lot.*
 
 ---
 
@@ -135,9 +143,17 @@ put down on purpose, so a future session does not re-derive the answer from scra
    name that will lie. Placement is now the DOM order plus `margin-inline-start: auto`.
 5. **Docs EN-first** (FR is a post-launch port). Both `locale-en`/`locale-fr` packages
    stay — that's data, not docs.
-6. **`_streamLoop` inline in core: KEPT** as the standalone default ("core works without
-   engine" story). Engine via the seam = recommended path. Parity proven by the engine
-   suite, not duplicated in maintenance.
+6. **ONE agent loop — revised 2026-08-28 (D1).** This line used to keep `_streamLoop`
+   inline in core beside engine's `runStreamAgent`, on the premise "parity proven by the
+   engine suite, not duplicated in maintenance". The audit falsified the premise: the
+   same `create_artifact`+tool turn corrupted the history in TWO different shapes, one
+   per loop, invisible to the parity suite precisely because they differ; ~20 "mirrors
+   `_streamLoop`" comments; every loop fix landed twice. Decision: the stream types move
+   down into engine (the mirror contract dies), core depends on engine (first-party,
+   zero third-party deps — the badge is reworded, the principle is untouched), the
+   inline loop is deleted and the adapter path — already proven equivalent — becomes THE
+   path. "Core works without engine" survives at the install level (npm resolves it),
+   not at the package-graph level. Executed in Lot C (`.claude/audit-2026-08-28.md` §6).
 7. **Raw-prompt / prefix-cache serialization = a future `providers/*`, NOT a core or engine
    primitive.** The loop half is done (`StreamRunOptions.onHistoryAppend` lets the caller own
    the history, so a prefix-cache host — llama.cpp slots, vLLM — can drive the engine today).
@@ -177,12 +193,30 @@ put down on purpose, so a future session does not re-derive the answer from scra
    static import of a full grammar bundle costs every consumer 302 chunks whatever the
    options say, so the lever is a **separate entry point**
    (`@aparte/plugin-shiki/core`), not a flag. Measure before claiming either.
+10. **The audit-night decisions (2026-08-28, D2–D7)** — taken against three criteria:
+    the norm, the greatest number of consumers, agnosticism. Detail and evidence in
+    `.claude/audit-2026-08-28.md` §5.
+    - **D2** — the `_meta` channel is trimmed: `pipeline`, `artifactRaw`, `artifactXml`
+      leave core (orchestration belongs to the product; the parser's native `<artifact>`
+      path is the one path); `artifactHint` and `prefixSegments` stay AND get documented.
+      `_meta` itself stays an open namespaced bag.
+    - **D3** — the storage contract loses `memory`, `gallery` and `settings` (product
+      schema; an adapter is the consumer's class and can carry its own methods). It keeps
+      conversations and `AparteAttachmentRow`.
+    - **D4** — the skeleton JS seam dies (`setSkeletonProvider` / `getSkeleton`, no
+      consumer); the `.aparte-skeleton` CSS recipe stays in the display layer.
+    - **D5** — `aparte-send` declares `modelId`/`providerId` (per-message model override).
+    - **D6** — two legacies drop, as renames: the bubble's `role` attribute as message role
+      (`data-role` only) and the viewport's `maxMessages` alias.
+    - **D7** — the artifact rework's direction is recorded, its lot is Paul's to open:
+      converge toward the tool/renderer seam (an artifact is a tool result rendered richly).
 
 ---
 
 ## ⚠️ Anti-patterns (don't)
 
-1. **No deps in `@aparte/core`.** The zero-dep promise. Need markdown/highlight/etc.?
+1. **No third-party deps in `@aparte/core`.** The zero-dep promise — `@aparte/engine` is
+   the one dependency, first-party (D1). Need markdown/highlight/etc.?
    → a `providers/*` or `plugins/*` the consumer opts into.
 2. **No framework at the ROOT.** Angular/React/Vue/Svelte live **only** in their own
    wrapper package (peer + dev) and their example. Root = pnpm + NX + TS + vitest +
@@ -191,6 +225,12 @@ put down on purpose, so a future session does not re-derive the answer from scra
    Core stays presentational + transport-agnostic.
 4. **`workspace:*`** for every cross-package dep in `package.json`.
 5. **Don't rebuild what nx caches.** Use `nx run`, not raw scripts, when a target exists.
+6. **No product schema in a public contract.** A field whose JSDoc names a feature this
+   library does not have ("the memory panel", "the orchestrator", "the gallery") is the
+   product's schema wearing a `@aparte` type. Same family as #3, on the TYPES side — it
+   is how `AparteMemoryFact` and the `_meta` pipeline got in. Before exporting anything,
+   the three review questions: which seam? which in-repo consumer exercises it? honoured
+   end to end? (`.claude/philosophie-agnosticite.md` §3.)
 
 ---
 
@@ -316,6 +356,14 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   `check:derived-vars` refuses a duplicate, a dead one, an unprefixed one, and an
   `animation` naming a keyframe that does not exist — that last one is total silence:
   `aparte-icon-spin` was on the loading glyph and declared nowhere, so it simply sat still.
+- **An empty state renders no chrome, and a recipe lives in the display layer.** Three
+  lessons of the UI audit (2026-08-28, `.claude/audit-2026-08-28.md` §8): a turn with
+  nothing to show paints neither name nor time (a tool-only turn, a turn stopped before
+  its first token — both left an orphan header); a markdown table is prose and
+  `prose.css` styles it like the rest (the sanitizer allowlisted tables that no sheet
+  drew); and a tile recipe (`aparte-thumb…`) belongs in `display/`, never in a
+  component's sheet — `composer.css` owned it and the bubble, which emits the same
+  classes, rendered its file chips bare.
 - A changeset entry for any package with an API/CSS change — and **its first line is the
   change, for the caller, at the top**: plain, imperative, no metaphor, scannable in one
   pass. Everything else (the reasoning, the measurement, the history) goes below it. None
@@ -340,3 +388,10 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 - The **customization charter** (106 regions, LAUNCH / V0.1 / on-demand priorities) is the
   design spec; its LAUNCH scope is expressed in-repo via the generated CEM + a public
   "Customization" docs section — not copied wholesale.
+- **The current audit and its lots live in `.claude/audit-2026-08-28.md`** (gitignored):
+  findings with line references, decisions D1–D7 (§5), the three lots A/B/C (§6), the UI
+  audit (§8), the repo-hygiene findings (§9) and the night journal (§11). Its siblings:
+  `.claude/marche-2026-08-28.md` (the market), `.claude/roadmap-v1.md` (components,
+  plugins, the alpha→beta and beta→v1 gates), `.claude/philosophie-agnosticite.md` (the
+  seven agnosticism axes and the doctrine). A session that picks up a lot reads the
+  audit file first.

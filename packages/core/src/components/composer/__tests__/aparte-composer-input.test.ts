@@ -154,3 +154,57 @@ describe('aparte-composer-input — height auto-adjust', () => {
         expect(spy).toHaveBeenCalled();
     });
 });
+
+// The next message is typed while the current reply arrives — the first thing a person
+// does in every chat. The editor used to go non-editable for the whole turn.
+describe('aparte-composer-input — while a reply streams', () => {
+    const startTurn = () => window.dispatchEvent(new CustomEvent('aparte-message-start', { detail: { messageId: 'm1', role: 'assistant' } }));
+    const endTurn = () => window.dispatchEvent(new CustomEvent('aparte-message-done', { detail: { messageId: 'm1', role: 'assistant' } }));
+
+    it('stays editable and in the tab order', () => {
+        const { composer, editor } = mount();
+        startTurn();
+        expect((composer as unknown as { streaming: boolean }).streaming).toBe(true);
+        expect(editor.getAttribute('contenteditable')).toBe('true');
+        expect(editor.getAttribute('aria-disabled')).toBe('false');
+        expect(editor.getAttribute('tabindex')).toBe('0');
+        endTurn();
+    });
+
+    it('swallows a submitting Enter — no send, no stop, the draft stays', () => {
+        const { input, editor, submit } = mount();
+        startTurn();
+        input.setValue('the next question');
+        const ev = enter({});
+        editor.dispatchEvent(ev);
+        expect(submit).not.toHaveBeenCalled();
+        expect(ev.defaultPrevented).toBe(true);
+        expect(input.getValue()).toBe('the next question');
+        endTurn();
+        editor.dispatchEvent(enter({}));
+        expect(submit).toHaveBeenCalledTimes(1);
+    });
+
+    it('still inserts a newline on Shift+Enter mid-stream', () => {
+        const { editor, submit } = mount();
+        startTurn();
+        const ev = enter({ shiftKey: true });
+        editor.dispatchEvent(ev);
+        expect(submit).not.toHaveBeenCalled();
+        endTurn();
+    });
+});
+
+describe('aparte-composer-input — disabled leaves the tab order', () => {
+    it('drops tabindex to -1 and blurs, so a click cannot light the focus border', () => {
+        const { composer, editor } = mount();
+        editor.focus();
+        expect(document.activeElement).toBe(editor);
+        composer.setAttribute('disabled', '');
+        expect(editor.getAttribute('contenteditable')).toBe('false');
+        expect(editor.getAttribute('tabindex')).toBe('-1');
+        expect(document.activeElement).not.toBe(editor);
+        composer.removeAttribute('disabled');
+        expect(editor.getAttribute('tabindex')).toBe('0');
+    });
+});

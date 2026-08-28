@@ -23,7 +23,7 @@ type BubbleEl = HTMLElement & { setSegments(segments: AparteSegment[]): void };
 
 function bubbleWith(segments: AparteSegment[]): BubbleEl {
     const el = document.createElement('aparte-chat-bubble') as BubbleEl;
-    el.setAttribute('role', 'assistant');
+    el.setAttribute('data-role', 'assistant');
     el.setAttribute('message-id', `m-${Math.random().toString(36).slice(2)}`);
     document.body.appendChild(el);
     el.setSegments(segments);
@@ -64,7 +64,7 @@ describe('default segment renderers install themselves on demand', () => {
         const el = document.createElement('aparte-chat-bubble') as BubbleEl & {
             addSegment(s: AparteSegment): void;
         };
-        el.setAttribute('role', 'assistant');
+        el.setAttribute('data-role', 'assistant');
         el.setAttribute('message-id', 'm-imperative');
         document.body.appendChild(el);
         mounted.push(el);

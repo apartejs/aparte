@@ -119,6 +119,42 @@
   margin: var(--aparte-prose-hr-margin);
 }
 
+/* Tables. The sanitizer allowlisted table/thead/tbody/tr/th/td from the start and no
+   sheet ever drew them, so a GFM table — the second most common structure in an
+   assistant reply, and a suggestion chip in our own example — rendered as words with
+   no borders, no padding and columns that touched. `display: block` + `overflow-x` is
+   the one honest way to keep a wide table inside a narrow bubble without a wrapper
+   the markdown provider cannot emit. */
+.aparte-content table,
+.aparte-segment-content table,
+.aparte-thinking-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: var(--aparte-space-4) 0;
+  font-size: var(--aparte-font-size-md);
+}
+
+.aparte-content th,
+.aparte-segment-content th,
+.aparte-thinking-content th,
+.aparte-content td,
+.aparte-segment-content td,
+.aparte-thinking-content td {
+  border: var(--aparte-border-width) solid var(--aparte-border);
+  padding: var(--aparte-space-2) var(--aparte-space-4);
+  text-align: start;
+  vertical-align: top;
+}
+
+.aparte-content th,
+.aparte-segment-content th,
+.aparte-thinking-content th {
+  font-weight: var(--aparte-font-weight-semibold);
+  background: var(--aparte-surface-2);
+}
+
 .aparte-thinking-content {
   padding: var(--aparte-space-2) 0 var(--aparte-space-1) var(--aparte-space-5);
   font-size: var(--aparte-font-size-md);

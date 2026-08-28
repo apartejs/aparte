@@ -141,6 +141,35 @@ export interface AparteLocale {
      */
     approvalAsk?: string;
     /**
+     * Accessible name of the viewport's scroll-to-bottom button (default:
+     * "Scroll to bottom").
+     *
+     * It was hardcoded English at both sites that build the button — the one
+     * chrome string a screen-reader user in another language always met. Same
+     * class of defect as the undeclared-key trio (submitButton, stopButton,
+     * actionUpload): the component looked done, the locale looked complete.
+     */
+    scrollToBottom?: string;
+    /**
+     * Accessible name of the `<aparte-suggestions>` group of prompt starters. Optional
+     * for the same reason as the keys above: a locale written before the element existed
+     * keeps working, and the built-in English fills the gap.
+     */
+    suggestionsLabel?: string;
+    /** Accessible name of the `<aparte-context>` gauge. Optional, like the keys above. */
+    contextLabel?: string;
+    /**
+     * Title line of the message `compact()` injects in place of the summarised
+     * turns (default: "Conversation summary").
+     *
+     * It was hardcoded — with an emoji — inside the client, so a French chat
+     * compacted into an English header. The engine compactor's `summaryLabel`
+     * is a separate, per-call knob (the compactor deliberately ships no locale
+     * system); this key is the UI-side title and follows the locale like every
+     * other string the user reads.
+     */
+    compactionSummaryTitle?: string;
+    /**
      * What the pill says while the decision is being made elsewhere (default:
      * "waiting for you").
      *
@@ -206,7 +235,7 @@ export interface AparteLocale {
      * A binary artifact being produced, and the same artifact's preview being rebuilt
      * after a reload (defaults: "Generating…" / "Rebuilding preview…").
      *
-     * `generating` is also the `aria-label` of the `pipeline-waiting` segment, which
+     * `generating` was also the `aria-label` of the former `pipeline-waiting` segment, which
      * is the ONLY thing a screen-reader user hears while a turn is in flight. It was
      * hardcoded, so that announcement was English in every locale.
      */
@@ -285,6 +314,10 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     approvalInstructionPlaceholder: "Or tell it what to do instead…",
     approvalAsk: "Run {tool}?",
     approvalWaiting: "waiting for you",
+    scrollToBottom: "Scroll to bottom",
+    suggestionsLabel: "Suggested prompts",
+    contextLabel: "Context window",
+    compactionSummaryTitle: "Conversation summary",
     toolRunning: "Running",
     toolCompleted: "Done",
     toolRejected: "Rejected",

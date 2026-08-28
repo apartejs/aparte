@@ -8,16 +8,17 @@ import {
 
 export interface ShikiProviderOptions {
     /**
-     * Theme to render with — a bundled theme name (e.g. `'github-dark'`) or a
-     * loaded custom theme name. Default `'github-dark'`.
+     * Theme to render with — a bundled theme name (e.g. `'github-dark'`) or a loaded
+     * custom theme name — or a `{ light, dark }` pair of them, which follows core's
+     * `[data-aparte-theme="dark"]` switch. Default `'github-dark'`.
      */
-    theme?: BundledTheme | string;
+    theme?: BundledTheme | string | ShikiThemePair;
 }
 
-import { PLAINTEXT } from './core.js';
+import { PLAINTEXT, renderOptions, ensureThemePairStyles, type ShikiThemePair } from './core.js';
 
 export { setupShikiProviderFromHighlighter } from './core.js';
-export type { ShikiCoreProviderOptions, ShikiHighlighterLike } from './core.js';
+export type { ShikiCoreProviderOptions, ShikiHighlighterLike, ShikiThemePair, ShikiRenderOptions } from './core.js';
 
 /**
  * Register [shiki](https://shiki.style) as aparté's syntax-highlight provider.
@@ -44,7 +45,9 @@ export type { ShikiCoreProviderOptions, ShikiHighlighterLike } from './core.js';
  * Framework-agnostic — vanilla, no framework imports. Call once at startup.
  */
 export async function setupShikiProvider(options: ShikiProviderOptions = {}, config: AparteConfig = aparteGlobalConfig): Promise<void> {
-    const theme = (options.theme ?? 'github-dark') as BundledTheme;
+    const theme = options.theme ?? 'github-dark';
+    const themes = (typeof theme === 'string' ? [theme] : [theme.light, theme.dark]) as BundledTheme[];
+    if (typeof theme !== 'string') ensureThemePairStyles();
 
     let highlighter: Highlighter | null = null;
     let creating: Promise<Highlighter> | null = null;
@@ -54,7 +57,7 @@ export async function setupShikiProvider(options: ShikiProviderOptions = {}, con
         if (highlighter) return Promise.resolve(highlighter);
         // De-dupe concurrent first calls so we only ever create one instance.
         if (!creating) {
-            creating = createHighlighter({ themes: [theme], langs: [] })
+            creating = createHighlighter({ themes, langs: [] })
                 .then((h) => {
                     highlighter = h;
                     return h;
@@ -85,6 +88,6 @@ export async function setupShikiProvider(options: ShikiProviderOptions = {}, con
             }
         }
 
-        return hl.codeToHtml(code, { lang: language, theme });
+        return hl.codeToHtml(code, renderOptions(theme, language));
     });
 }

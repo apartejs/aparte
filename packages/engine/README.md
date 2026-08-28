@@ -7,29 +7,28 @@ dependencies, runs in the browser or Node.
 npm install @aparte/engine @aparte/core
 ```
 
-`@aparte/core` is an **optional peer**: install it only for the recommended path below.
+`@aparte/core` is **not a dependency** of this package — it is the other way round: core depends on the engine. Install core for the recommended path below.
 
 ```ts
-import { runStreamAgent } from '@aparte/engine';
 import { AparteClient } from '@aparte/core';
 
-// Inject the loop and core renders its events for you — a drop-in, not an approximation.
-new AparteClient({ streamRunner: runStreamAgent }).start();
+// Nothing to inject: the client runs this package's loop and renders its events.
+new AparteClient().start();
 ```
 
 Its core export is **`runStreamAgent`**: a DOM-free structured-stream loop that turns a
 transport's token stream into high-level run events (text, thinking, tool calls, artifacts),
 drives the tool-calling loop (with optional human-in-the-loop approval), and reports usage.
 
-`@aparte/core` embeds the same loop inline (`AparteClient._streamLoop`) so **core works
-without this package**. `@aparte/engine` is the *recommended path*: inject `runStreamAgent`
-via `AparteClientOptions.streamRunner` and core renders its events through
-`createStreamAdapter`. Parity between the two is proven by this package's `stream-parity`
-suite (it drives core's real `_streamLoop` and `runStreamAgent` against the same scripted
-transport and asserts identical output).
+`@aparte/core` runs this loop by default — it used to embed a copy of it inline, and the
+two were held equal by a parity suite; the copy is gone, and that suite now lives in core
+with the loop's call sequences pinned as snapshots. `AparteClientOptions.streamRunner` is
+the seam to wrap it (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host
+that owns its transcript) or to replace it with a loop of your own emitting the same events.
 
-`@aparte/core` is an **optional peer** — `runStreamAgent` and its parsers import nothing from
-it; the orchestrator/memory helpers use core's config/types when present.
+`@aparte/core` is not needed here — `runStreamAgent`, the parsers and the compactor import
+nothing from it; `createCompactionSelector` is typed structurally, so core's messages fit it
+without core being named.
 
 ## Owning the history (prefix-cache hosts)
 

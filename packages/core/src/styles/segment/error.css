@@ -39,7 +39,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Segment renderers — tool call · artifact card · pipeline waiting
+   Segment renderers — tool call · artifact card
 
    These three shipped their CSS from `getStyles()` until now: a template literal
    in the renderer's own .ts file, injected into <head> at runtime. That seam is

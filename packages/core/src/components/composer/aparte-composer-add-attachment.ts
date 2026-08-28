@@ -22,8 +22,9 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * `--aparte-focus-outline-width`, colour from `--aparte-primary`, radius from
  * `--aparte-radius-input`, none of them declared here. The drop handler always calls
  * `preventDefault()`, even while disabled, so the browser can never navigate away to the
- * dropped file. `disabled` on the ROOT removes the drop target; `streaming` does not — it
- * only greys the button out, so a drop mid-turn still attaches.
+ * dropped file. `disabled` on the ROOT removes the drop target and greys the button;
+ * `streaming` does neither — a file queued while a reply arrives is part of preparing
+ * the next message, and only the send is gated meanwhile.
  *
  * The label and the icon are not attributes — they come from the config (`t('actionUpload')`
  * and the `paperclip` icon), so a locale or icon-provider change rewrites the existing
@@ -31,7 +32,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *
  * A child already carrying `class="aparte-caa-button"` suppresses core's own render — and
  * core then wires nothing to it: no click listener (so no picker opens), and no label,
- * icon or disabled/streaming writes. Drag & drop still works, since it is installed on the
+ * icon or disabled writes. Drag & drop still works, since it is installed on the
  * root regardless. Any other child is replaced on the first render. The file input itself
  * is never a child: it is created on `document.body` per click and removed again.
  *
@@ -101,9 +102,8 @@ export class AparteComposerAddAttachment extends HTMLElement {
      * Re-read the label and the icon on the button that already exists.
      *
      * Deliberately not a re-render: `_render()` returns early once the button is
-     * there, and its `disabled` computation ignores `root.streaming` while the
-     * streaming listener sets `disabled` directly — so rebuilding would silently
-     * re-enable the attach button mid-turn, and drop focus if the user were on it.
+     * there, and rebuilding it would drop focus if the user were on it — a locale or
+     * icon change is not a reason to lose the keyboard.
      * The native file input and the drag listeners live outside this element
      * (on `document.body` and on the composer root), so they are untouched either way.
      */
@@ -146,7 +146,11 @@ export class AparteComposerAddAttachment extends HTMLElement {
         );
         this._unsubscribes.push(
             root._on('streaming-change', ({ streaming }) => {
-                if (this._button) this._button.disabled = streaming || root.disabled;
+                // Attaching is part of preparing the next message, which stays possible
+                // while a reply streams; only `disabled` blocks it. `streaming` is read so
+                // the subscription still refreshes the button when a turn ends.
+                void streaming;
+                if (this._button) this._button.disabled = root.disabled;
             })
         );
     }
@@ -173,7 +177,7 @@ export class AparteComposerAddAttachment extends HTMLElement {
 
         const prevent = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
         const onDragOver = (e: Event) => {
-            if (root.disabled) return; // no drop target while disabled (e.g. streaming)
+            if (root.disabled) return; // no drop target while disabled
             prevent(e);
             root.classList.add('aparte-is-dragover');
         };

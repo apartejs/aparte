@@ -439,7 +439,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
         let el: HTMLElement | null = this._pending?.composer ?? null;
         while (el) {
             const tag = el.tagName?.toLowerCase();
-            const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+            const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
             if (isHost && el.id) return el.id;
             el = el.parentElement;
         }
@@ -473,7 +473,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
             // document — so it found another chat's composer anyway, by a longer
             // route. The two-chat test caught exactly that.
             const tag = node.tagName?.toLowerCase();
-            const isChatBoundary = tag === 'aparte-chat' || tag === 'aparte-chat-component' || node.hasAttribute?.('data-aparte-chat');
+            const isChatBoundary = tag === 'aparte-chat' || node.hasAttribute?.('data-aparte-chat');
             if (isChatBoundary) break;
             node = node.parentElement;
         }

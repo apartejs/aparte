@@ -87,7 +87,12 @@
   --aparte-field-choice-radius: var(--aparte-elic-option-radius);
 }
 
-.aparte-elic-option:not(.aparte-elic-option--command):hover {
+/* Blind to the chosen row: this rule is (0,3,0) in a sheet imported after field.css,
+   so it used to out-specify the mark a checked choice wears there — hover the option
+   you picked and its tint and primary border went back to the plain hover ground
+   (measured in Chromium by the coherence pass's reviewer). The recipe's own hover is
+   scoped the same way; a chosen row keeps saying it is chosen under the pointer. */
+.aparte-elic-option:not(.aparte-elic-option--command):not(:has(:checked)):not(.aparte-field-choice--selected):hover {
   background: var(--aparte-surface-2);
   border-color: var(--aparte-border);
 }
@@ -149,6 +154,14 @@ textarea.aparte-elic-text {
 .aparte-elic-option--recommended {
   border-color: var(--aparte-primary);
   background: color-mix(in srgb, var(--aparte-primary) 6%, transparent);
+}
+/* One ring at a time. The recommended option is the first to receive focus, and its
+   tinted border under the recipe's focus ring read as a double outline (UI audit
+   2026-08-28, §8.3 #9). While it holds focus the ring is the indicator; the tint
+   comes back when focus leaves. */
+.aparte-elic-option--recommended:focus-within {
+  background: transparent;
+  border-color: var(--aparte-border-focus);
 }
 
 /* The whole-request escape, in the corner and out of the way of anything that

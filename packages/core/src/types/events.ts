@@ -31,6 +31,22 @@ export interface AparteSendEventDetail {
 
     /** Files attached to this message (populated by composer attachments) */
     files?: File[];
+
+    /**
+     * Send THIS message to a specific model, overriding the config's default for one
+     * turn — a per-message model picker, the pattern several products now ship.
+     *
+     * `AparteClient` has honoured both fields for as long as it has read
+     * `event.detail`, while nothing declared them: the composer never sends them and
+     * this type did not name them, so the capability existed only for someone who
+     * read the client's source. A capability cited nowhere is invisible (ratified
+     * decision #4); declaring it is what makes it real. Dispatch your own
+     * `aparte-send` with them, or set them on the detail from a listener that runs
+     * before the client's (capture phase).
+     */
+    modelId?: string;
+    /** The provider that `modelId` belongs to; defaults to the config's `defaultProvider`. */
+    providerId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

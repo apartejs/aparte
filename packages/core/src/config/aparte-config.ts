@@ -2,7 +2,7 @@
  * AparteConfig
  * 
  * Central configuration class for Aparte. `aparteGlobalConfig` is the page-wide instance.
- * Manages providers for Markdown rendering, Syntax Highlighting, Icons, and Skeleton loading.
+ * Manages providers for Markdown rendering, Syntax Highlighting and Icons.
  * 
  * "Invisible but Flexible": Works out-of-the-box with sensible defaults,
  * but allows complete customization via dependency injection.
@@ -12,7 +12,6 @@ import { AparteIconProvider, AparteIconName, APARTE_DEFAULT_ICON_FALLBACKS } fro
 import { AparteAvatarProvider } from './avatar-provider.js';
 import { AparteLocale, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
-import { AparteSkeletonProvider, AparteSkeletonType, APARTE_DEFAULT_SKELETON_FALLBACKS } from './skeleton-provider.js';
 import type { AparteStatusRenderer } from './status-renderer.js';
 import type { AparteErrorRenderer } from './error-renderer.js';
 import type { AparteAttachmentRenderer } from './attachment-renderer.js';
@@ -131,7 +130,6 @@ export class AparteConfig {
     private _sanitizer: AparteSanitizer | null = defaultSanitizer;
     private _systemPromptTemplate?: string;
     private _systemPromptVarsProvider?: AparteSystemPromptVarsProvider;
-    private _skeletonProvider?: AparteSkeletonProvider;
     private _statusRenderer?: AparteStatusRenderer;
     private _errorRenderer?: AparteErrorRenderer;
     private _attachmentRenderer?: AparteAttachmentRenderer;
@@ -452,14 +450,6 @@ export class AparteConfig {
         const vars = this._systemPromptVarsProvider ? this._systemPromptVarsProvider() : {};
         const resolved = this._systemPromptTemplate.replace(/\{\{([^}]+)\}\}/g, (_, key) => vars[key.trim()] ?? '');
         return resolved.trim() || null;
-    }
-
-    /**
-     * Set a custom Skeleton generator for loading states
-     * @param provider Object implementing AparteSkeletonProvider interface
-     */
-    setSkeletonProvider(provider: AparteSkeletonProvider): void {
-        this._skeletonProvider = provider;
     }
 
     /**
@@ -1000,17 +990,6 @@ export class AparteConfig {
         return this._defaultHighlightRenderer(code);
     }
 
-    /**
-     * Get HTML for a skeleton loader
-     * Fallback: Simple CSS-animated box
-     */
-    getSkeleton(type: AparteSkeletonType): string {
-        if (this._skeletonProvider) {
-            return this._skeletonProvider.getSkeleton(type);
-        }
-        return this._defaultSkeletonRenderer(type);
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // Tool Registry
     // ─────────────────────────────────────────────────────────────────────────
@@ -1310,7 +1289,6 @@ export class AparteConfig {
         this._highlightProvider = undefined;
         this._systemPromptTemplate = undefined;
         this._systemPromptVarsProvider = undefined;
-        this._skeletonProvider = undefined;
         this._statusRenderer = undefined;
         this._errorRenderer = undefined;
         this._attachmentRenderer = undefined;
@@ -1361,17 +1339,6 @@ export class AparteConfig {
 
     private _defaultHighlightRenderer(code: string): string {
         return `<pre><code>${escapeHtml(code)}</code></pre>`;
-    }
-
-    /**
-     * ONE owner. This used to hold a second, hand-written copy of
-     * `APARTE_DEFAULT_SKELETON_FALLBACKS`, and the two had already drifted — `message`
-     * said "Loading message…" here and "Loading…" there, `text` the reverse. A duplicate
-     * that disagrees with its original is worse than either: whichever one you read, you
-     * cannot tell which one ships.
-     */
-    private _defaultSkeletonRenderer(type: AparteSkeletonType): string {
-        return APARTE_DEFAULT_SKELETON_FALLBACKS[type] ?? APARTE_DEFAULT_SKELETON_FALLBACKS.text;
     }
 
 }

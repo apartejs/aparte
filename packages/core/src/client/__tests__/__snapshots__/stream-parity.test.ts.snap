@@ -1,0 +1,216 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`runStreamAgent — parity on the paths that STOP > a per-tool turn ceiling stops both loops at the same point 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"searching","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"search","input":{"q":"x"}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"aborted"}]",
+    "updateSegment ["seg-#0",{"content":"searching","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`runStreamAgent — parity on the paths that STOP > a stop mid-stream unwinds identically on both sides 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"Partial answer so far","isStreaming":false}]",
+    "updateSegment ["seg-#0",{"content":"Partial answer so far"}]",
+    "dispatchEvent [{"type":"aparte-message-aborted","detail":{"messageId":"assistant-1"}}]",
+    "updateSegment ["seg-#0",{"content":"Partial answer so far","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`runStreamAgent — parity on the paths that STOP > a tool that never resolves times out identically on both sides 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"Saving.","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"save","input":{}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"aborted"}]",
+    "updateSegment ["seg-#0",{"content":"Saving.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`runStreamAgent — parity on the paths that STOP > a tool with no handler stops the turn the same way 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"Saving.","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"save","input":{}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"aborted"}]",
+    "updateSegment ["seg-#0",{"content":"Saving.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`runStreamAgent — parity on the paths that STOP > the global turn ceiling stops both loops at the same point 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"again","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"save","input":{}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"resolved","result":"SAVED"}]",
+    "updateSegment ["seg-#0",{"content":"again","isStreaming":false}]",
+    "addSegment [{"id":"seg-#1","type":"text","content":"again","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"save","input":{}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"aborted"}]",
+    "updateSegment ["seg-#1",{"content":"again","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`the client's loop — the engine through the adapter, pinned > artifactHint mode — first code fence promoted to an artifact 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"code","language":"html","content":"<h1>Hi</h1>","isStreaming":false}]",
+    "updateSegment ["seg-#0",{"content":"<h1>Hi</"}]",
+    "updateSegment ["seg-#0",{"content":"<h1>Hi</h1>"}]",
+    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"seg-#0","mimeType":"text/html","artifactType":"html","title":"html"}}]",
+    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"seg-#0","chunk":"<h1>Hi</h1>"}}]",
+    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"seg-#0","mimeType":"text/html","artifactType":"html","title":"html","content":"<h1>Hi</h1>"}}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`the client's loop — the engine through the adapter, pinned > create_artifact built-in — one-shot artifact then reply 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"artifact-c1","type":"artifact","mimeType":"text/html","artifactType":"html","title":"Page","content":"<h1>Hi</h1>"}]",
+    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"artifact-c1","mimeType":"text/html","artifactType":"html","title":"Page"}}]",
+    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"artifact-c1","chunk":"<h1>Hi</h1>"}}]",
+    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"artifact-c1","mimeType":"text/html","artifactType":"html","title":"Page","content":"<h1>Hi</h1>"}}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"Made it.","isStreaming":false}]",
+    "updateSegment ["seg-#0",{"content":"Made it.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`the client's loop — the engine through the adapter, pinned > plain text, no tools, single turn 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"Just answering.","isStreaming":false}]",
+    "updateSegment ["seg-#0",{"content":"Just answering."}]",
+    "updateSegment ["seg-#0",{"content":"Just answering.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+    "setUsage ["assistant-1",{"inputTokens":4,"outputTokens":2}]",
+  ],
+  "error": undefined,
+  "usage": {
+    "inputTokens": 4,
+    "outputTokens": 2,
+  },
+}
+`;
+
+exports[`the client's loop — the engine through the adapter, pinned > synthetic toolChoice bypass — forced tool then reply 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"tool-#0","type":"tool_call","toolCall":{"id":"#0","name":"save","input":{"path":"/a"}},"status":"pending"}]",
+    "updateSegment ["tool-#0",{"status":"resolved","result":"SAVED"}]",
+    "addSegment [{"id":"seg-#1","type":"text","content":"Saved.","isStreaming":false}]",
+    "updateSegment ["seg-#1",{"content":"Saved.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+    "setUsage ["assistant-1",{"inputTokens":2,"outputTokens":1}]",
+  ],
+  "error": undefined,
+  "usage": {
+    "inputTokens": 2,
+    "outputTokens": 1,
+  },
+}
+`;
+
+exports[`the client's loop — the engine through the adapter, pinned > text → HITL tool (rejected WITH the user's words) → the words survive, identically 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"Trying a tool.","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"search","input":{"q":"x"}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"awaiting-approval"}]",
+    "dispatchEvent [{"type":"aparte-tool-approval-request","detail":{"toolCallId":"c1","toolName":"search","input":{"q":"x"}}}]",
+    "updateSegment ["tool-c1",{"status":"rejected","result":"The user rejected this tool call and said: use the staging bucket instead"}]",
+    "updateSegment ["seg-#0",{"content":"Trying a tool.","isStreaming":false}]",
+    "addSegment [{"id":"seg-#1","type":"text","content":"Understood.","isStreaming":false}]",
+    "updateSegment ["seg-#1",{"content":"Understood.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`the client's loop — the engine through the adapter, pinned > text → HITL tool (rejected) → the model answers, identically 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"seg-#0","type":"text","content":"Trying a tool.","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"search","input":{"q":"x"}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"awaiting-approval"}]",
+    "dispatchEvent [{"type":"aparte-tool-approval-request","detail":{"toolCallId":"c1","toolName":"search","input":{"q":"x"}}}]",
+    "updateSegment ["tool-c1",{"status":"rejected","result":"Tool execution was rejected by the user."}]",
+    "updateSegment ["seg-#0",{"content":"Trying a tool.","isStreaming":false}]",
+    "addSegment [{"id":"seg-#1","type":"text","content":"Understood.","isStreaming":false}]",
+    "updateSegment ["seg-#1",{"content":"Understood.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+  ],
+  "error": undefined,
+  "usage": undefined,
+}
+`;
+
+exports[`the client's loop — the engine through the adapter, pinned > thinking → text → HITL tool (approved) → text → done 1`] = `
+{
+  "calls": [
+    "updateMessage ["assistant-1",{"status":"streaming"}]",
+    "addSegment [{"id":"think-#0","type":"thinking","content":"Th","collapsed":true,"label":"Thinking"}]",
+    "updateSegment ["think-#0",{"content":"Think"}]",
+    "updateSegment ["think-#0",{"collapsed":true,"isStreaming":false}]",
+    "addSegment [{"id":"seg-#1","type":"text","content":"Hello world","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"search","input":{"q":"x"}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"awaiting-approval"}]",
+    "dispatchEvent [{"type":"aparte-tool-approval-request","detail":{"toolCallId":"c1","toolName":"search","input":{"q":"x"}}}]",
+    "updateSegment ["tool-c1",{"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"resolved","result":"RESULT"}]",
+    "updateSegment ["seg-#1",{"content":"Hello world","isStreaming":false}]",
+    "addSegment [{"id":"seg-#2","type":"text","content":"Done.","isStreaming":false}]",
+    "updateSegment ["seg-#2",{"content":"Done.","isStreaming":false}]",
+    "updateMessage ["assistant-1",{"status":"completed"}]",
+    "setUsage ["assistant-1",{"inputTokens":9,"outputTokens":3}]",
+  ],
+  "error": undefined,
+  "usage": {
+    "inputTokens": 9,
+    "outputTokens": 3,
+  },
+}
+`;

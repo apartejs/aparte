@@ -512,7 +512,8 @@ function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void 
   const ms = segmentDuration(segment);
   if (ms === undefined) return;
   const label = host.querySelector('.aparte-thinking-label');
-  if (label) label.textContent = `Thought for ${(ms / 1000).toFixed(1)}s`;
+  // A sub-second span is "<1s", not "0.0s" — a zero reads as "did not think".
+  if (label) label.textContent = ms < 1000 ? 'Thought for <1s' : `Thought for ${(ms / 1000).toFixed(1)}s`;
 }
 ```
 
@@ -687,7 +688,7 @@ config; a renderer whose chrome is all its own data correctly leaves it out.
 
 ## Content providers (opt-in)
 
-Core is zero-dependency by default, so Markdown and syntax highlighting are **off**
+Core carries no third-party dependency, so Markdown and syntax highlighting are **off**
 until you inject a renderer — keeping the bundle honest:
 
 ```ts

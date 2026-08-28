@@ -140,8 +140,7 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
  *
  * @element aparte-chat-bubble
  *
- * @attr {string} role - The message role. `data-role` is the styled mirror of it.
- * @attr {string} data-role - `user` / `assistant` / `system`; what the CSS keys off.
+ * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and no longer reads a message role from it.)
  * @attr {string} content - Plain text content, for a bubble with no segments.
  * @attr {number | string} timestamp - Epoch milliseconds OR a date string: `_updateTimestamp` accepts either and only coerces when the value is numeric.
  * @attr {string} message-id - How streaming and the action bar address this bubble.
@@ -270,12 +269,12 @@ export class AparteChatBubble extends HTMLElement {
   private _editInput: AparteComposerInput | null = null;
 
   static get observedAttributes(): string[] {
-    // Both `data-role` (preferred, set by Angular wrapper) and `role` (legacy
-    // / direct usage) feed into the same _role state. The host element gets
-    // its own `role="article"` set in _render() for ARIA compliance — that
-    // is filtered in attributeChangedCallback so it doesn't loop back as a
-    // bubble role of "article".
-    return ['role', 'data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name'];
+    // `data-role` is the ONE channel for the message role. `role` is ARIA's
+    // attribute — this element writes `role="article"` on itself in _render() —
+    // and it used to be read as a legacy message-role channel too, which meant
+    // filtering our own "article" back out at every turn. A rename lands as a
+    // rename pre-1.0, so the overload is gone.
+    return ['data-role', 'content', 'timestamp', 'message-id', 'streaming', 'name'];
   }
 
   constructor() {
@@ -392,12 +391,7 @@ export class AparteChatBubble extends HTMLElement {
     if (oldValue === newValue) return;
 
     switch (name) {
-      case 'role':
       case 'data-role':
-        // Skip the ARIA-compliance value we set ourselves in _render().
-        // Real bubble roles are 'user' or 'assistant'; anything else is
-        // either the 'article' we wrote for accessibility or stale.
-        if (newValue === 'article') return;
         if (newValue === 'user' || newValue === 'assistant') {
           this._role = newValue as AparteBubbleRole;
           this._updateRole();
@@ -550,6 +544,8 @@ export class AparteChatBubble extends HTMLElement {
   setAttachments(attachments: AparteAttachment[]): void {
     this._attachments = attachments;
     this._updateAttachments();
+    // Attachments are content: a bubble that is only attachments must not be `data-empty`.
+    this._updateWaiting();
   }
 
   /**
@@ -604,6 +600,7 @@ export class AparteChatBubble extends HTMLElement {
     if ('attachments' in updates) {
       this._attachments = updates.attachments ?? [];
       this._updateAttachments();
+      this._updateWaiting();
     }
   }
 
@@ -677,17 +674,13 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   private _render(): void {
-    // Read the bubble's logical role from `data-role` (preferred — written
-    // by the Angular wrapper) or the legacy `role` attribute, then set the
-    // host's actual `role` attribute to a valid ARIA value. "user" and
-    // "assistant" are NOT valid ARIA roles and would trigger accessibility
-    // warnings in browsers / Lighthouse. The role-based styling lives on
-    // inner `data-role` markers, so this swap is transparent to CSS.
+    // The message role comes from `data-role` alone; the host's `role` attribute is
+    // ARIA's and is set to a valid value here. "user" and "assistant" are not ARIA
+    // roles and would trip accessibility tooling — which is exactly why the message
+    // role never belonged on that attribute. The role-based styling lives on inner
+    // `data-role` markers, so the swap is transparent to CSS.
     const dataRole = this.getAttribute('data-role');
-    const legacyRole = this.getAttribute('role');
-    const role = (dataRole && dataRole !== 'article') ? dataRole
-        : (legacyRole && legacyRole !== 'article') ? legacyRole
-        : 'assistant';
+    const role = (dataRole === 'user' || dataRole === 'assistant') ? dataRole : 'assistant';
     this._role = role as AparteBubbleRole;
     if (this.getAttribute('role') !== 'article') {
         this.setAttribute('role', 'article');
@@ -755,6 +748,11 @@ export class AparteChatBubble extends HTMLElement {
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
     this._footerEl = this.querySelector('.aparte-footer');
 
+    // A bubble mounted while a reply already streams (a framework rendering the list
+    // after the viewport flagged itself) starts in the busy state it would have been
+    // pushed into.
+    this._transcriptBusy = !!this.closest('aparte-chat-viewport')?.hasAttribute('data-busy');
+
     this._updateActionBar();
     this._renderAvatar();
     // Re-apply the streaming state onto the freshly-built `.aparte-message`.
@@ -791,6 +789,17 @@ export class AparteChatBubble extends HTMLElement {
     // DOES set one, `[hidden]` loses — a trap this repo has already paid for.
     const box = this.querySelector('.aparte-message-content') as HTMLElement | null;
     if (box) box.hidden = empty && !waiting;
+
+    // Nothing to show and nothing coming: no chrome either. A turn whose only content
+    // is a tool that renders nothing (an `ask_user` with no preamble), or one stopped
+    // before its first token, used to leave a name and a timestamp floating over
+    // nothing — an orphan header in the transcript. The stylesheet hides the whole
+    // row on `data-empty`; attachments count as content, and a streaming bubble is
+    // never empty (it shows the waiting dots).
+    const message = this.querySelector('.aparte-message') as HTMLElement | null;
+    if (message) {
+      message.toggleAttribute('data-empty', empty && !this._streaming && this._attachments.length === 0);
+    }
 
     const el = this.querySelector('.aparte-waiting') as HTMLElement | null;
     if (!el) return;
@@ -1049,11 +1058,14 @@ export class AparteChatBubble extends HTMLElement {
     this._attachmentsEl.innerHTML = this._attachments.map(a => {
       const name = escapeHtml(a.name);
       if (a.type.startsWith('image/')) {
-        return `<div class="aparte-thumb aparte-thumb--image" title="${name}">`
+        // `aparte-thumbnail` is the RECIPE (the box, the size, the ground); `aparte-thumb`
+        // only maps the strip's measurements onto it. The bubble emitted the mapping
+        // without the recipe, so its tiles had no box — a bare "PDF" beside a bare image.
+        return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">`
           + `<img class="aparte-thumb__img" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
           + `<span class="aparte-thumb__name">${name}</span></div>`;
       }
-      return `<div class="aparte-thumb aparte-thumb--file" title="${name}">`
+      return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">`
         + `<span class="aparte-thumb__ext">${escapeHtml(this._fileExt(a.name))}</span>`
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');
@@ -1129,6 +1141,28 @@ export class AparteChatBubble extends HTMLElement {
     }));
   };
 
+  /**
+   * Whether a reply is streaming somewhere in this bubble's transcript. Set by the
+   * viewport (`data-busy` on it, pushed here), read once on connect for a bubble
+   * mounted while the flag was already up. While busy, the branch arrows and the
+   * retry/edit actions are disabled — the transcript is read-only except for Stop.
+   */
+  private _transcriptBusy = false;
+
+  setTranscriptBusy(busy: boolean): void {
+    if (this._transcriptBusy === busy) return;
+    this._transcriptBusy = busy;
+    this._applyTranscriptBusy();
+    this._updateBranchPicker();
+  }
+
+  private _applyTranscriptBusy(): void {
+    if (!this._actionBarEl) return;
+    for (const btn of this._actionBarEl.querySelectorAll<HTMLButtonElement>('[data-action="retry"], [data-action="edit"]')) {
+      btn.disabled = this._transcriptBusy;
+    }
+  }
+
   private _updateBranchPicker(): void {
     if (!this._branchPickerEl) return;
     if (this._siblingCount <= 1 || this._role !== 'assistant') {
@@ -1160,8 +1194,8 @@ export class AparteChatBubble extends HTMLElement {
 
     const prevBtn = this._branchPickerEl.querySelector('.aparte-branch-prev') as HTMLButtonElement | null;
     const nextBtn = this._branchPickerEl.querySelector('.aparte-branch-next') as HTMLButtonElement | null;
-    if (prevBtn) prevBtn.disabled = this._siblingIndex === 0;
-    if (nextBtn) nextBtn.disabled = this._siblingIndex === this._siblingCount - 1;
+    if (prevBtn) prevBtn.disabled = this._transcriptBusy || this._siblingIndex === 0;
+    if (nextBtn) nextBtn.disabled = this._transcriptBusy || this._siblingIndex === this._siblingCount - 1;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1213,6 +1247,7 @@ export class AparteChatBubble extends HTMLElement {
     // after the built-ins, built as DOM (label goes to attributes, never
     // interpolated into innerHTML) so a consumer label can't inject markup.
     this._appendCustomActions(icons);
+    this._applyTranscriptBusy();
 
     // Wire up button handlers — messageId read dynamically at click time
     // so it's always correct even when Angular sets the attribute after connectedCallback
@@ -1236,6 +1271,11 @@ export class AparteChatBubble extends HTMLElement {
     const barEmpty = !this._actionBarEl || this._actionBarEl.hidden;
     const pickerHidden = !this._branchPickerEl || this._branchPickerEl.hidden;
     this._footerEl.hidden = barEmpty && pickerHidden;
+    // The stylesheet floats an older message's footer out of the flow so that it
+    // reserves no row — except while the branch picker shows, which has to stay in
+    // the flow and in view. The picker's visibility is decided here, so the flag that
+    // CSS reads is written here too.
+    this.querySelector('.aparte-message')?.toggleAttribute('data-branches', !pickerHidden);
   }
 
   /** Append the registered custom action buttons for this bubble's role. */
@@ -1342,7 +1382,15 @@ export class AparteChatBubble extends HTMLElement {
 
     switch (action) {
       case 'copy': {
-        const text = this._content || this._segments.map(s => (s as { content?: string }).content ?? '').join('\n');
+        // The reply, not the reasoning: a `thinking` segment is the model's scratchpad,
+        // and the client already keeps it out of the history it sends back
+        // (`_segmentsToText`) for the same reason. Copying it along with the answer
+        // pasted a paragraph of deliberation above every reply — no assistant on the
+        // market does that.
+        const text = this._content || this._segments
+          .filter(s => s.type !== 'thinking')
+          .map(s => (s as { content?: string }).content ?? '')
+          .join('\n');
         const icons = this._cfg.getIconProvider();
         const locale = this._cfg.getLocale();
         navigator.clipboard.writeText(text).then(() => {
@@ -1496,7 +1544,7 @@ export class AparteChatBubble extends HTMLElement {
     let el: HTMLElement | null = this.parentElement;
     while (el) {
       const tag = el.tagName?.toLowerCase();
-      const isHost = tag === 'aparte-chat' || tag === 'aparte-chat-component' || el.hasAttribute?.('data-aparte-chat');
+      const isHost = tag === 'aparte-chat' || el.hasAttribute?.('data-aparte-chat');
       if (isHost && el.id) return el.id;
       el = el.parentElement;
     }

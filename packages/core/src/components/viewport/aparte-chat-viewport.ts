@@ -77,9 +77,6 @@ import {
  *   this mode only. All four wrappers set it.
  * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
  * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
- * @attr {number} max-messages - DEPRECATED. It used to evict messages from the model; it now
- *   only caps rendered bubbles, which is what `max-rendered-bubbles` says. For real history
- *   retention configure the conversation manager instead.
  *
  * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment grew or settled during a stream.
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
@@ -92,6 +89,8 @@ import {
  *   which framework-managed mode never builds.
  * @cssprop [--aparte-message-gap=12px] - Gap between consecutive bubbles in the transcript
  *   column (both DOM modes). Shared: it is also the avatar-to-content gap inside a bubble.
+ * @cssprop [--aparte-scrollbar-thumb=var(--aparte-neutral)] - Colour of the transcript's scrollbar thumb. A host page with a scrollbar of its own sets this and the track so the chat's does not read as a second, foreign scrollbar.
+ * @cssprop [--aparte-scrollbar-track=transparent] - Colour of the transcript's scrollbar track.
  * @cssprop [--aparte-scrollbar-width=6px] - Width of the WebKit scrollbar on the scroll
  *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
  * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A
@@ -144,6 +143,17 @@ export class AparteChatViewport extends HTMLElement {
     private _isAutoScrollEnabled: boolean = true;
     /** The last scroll position we saw, so growth can be told from a gesture. */
     private _lastScrollTop = 0;
+    /** The scroll height at the last scroll event: how much it moved since bounds what churn can do. */
+    private _lastScrollHeight = 0;
+    /** When this component last moved `scrollTop` itself — see `_handleScroll`. "Never" is
+     *  -Infinity rather than 0: `performance.now()` can be under a second old. */
+    private _ownScrollAt = Number.NEGATIVE_INFINITY;
+    /** When the reader last touched the transcript (wheel, touch, pointer, key). */
+    private _readerInputAt = Number.NEGATIVE_INFINITY;
+    /** A decrease inside this window after our own scroll, with no gesture, is the browser's. */
+    private readonly _ownScrollWindowMs = 1000;
+    /** The keys that scroll a focused scroll container — the only keydowns that are a gesture. */
+    private readonly _scrollKeys = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
     private _scrollThreshold: number = 50;
     /** When true, the next _autoScroll() call uses smooth instead of instant, then resets. */
     private _smoothScrollOnce: boolean = false;
@@ -154,8 +164,6 @@ export class AparteChatViewport extends HTMLElement {
      * snapshot stay intact; only the oldest rendered bubbles are dropped from view.
      */
     private _maxRenderedBubbles: number = 1000;
-    /** One-time guard for the deprecated `maxMessages` warning. */
-    private _warnedMaxMessagesDeprecation = false;
     private _resizeObserver: ResizeObserver | null = null;
     private _mutationObserver: MutationObserver | null = null;
     private _boundResetHandler: (() => void) | null = null;
@@ -167,7 +175,7 @@ export class AparteChatViewport extends HTMLElement {
     private _frameworkManagedDOM = false;
 
     static get observedAttributes(): string[] {
-        return ['scroll-threshold', 'max-rendered-bubbles', 'max-messages'];
+        return ['scroll-threshold', 'max-rendered-bubbles'];
     }
 
     constructor() {
@@ -200,6 +208,9 @@ export class AparteChatViewport extends HTMLElement {
         const detail = (e as CustomEvent).detail as { config?: unknown } | undefined;
         if (detail?.config && detail.config !== resolveConfig(this)) return;
         this._applyDirection();
+        // The button's accessible name is locale text too — a language switch is
+        // documented as live, and this was the one chrome string that stayed put.
+        this._scrollBtn?.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
     };
 
     /** Mirror `locale.direction` onto the scroll container. */
@@ -231,14 +242,6 @@ export class AparteChatViewport extends HTMLElement {
                 this._maxRenderedBubbles = parseInt(newValue || '1000', 10);
                 this._pruneRenderedBubbles();
                 break;
-            case 'max-messages':
-                // Deprecated alias. It used to evict messages from the tree
-                // (destructive, silent data loss); it now only caps rendered
-                // bubbles in the DOM. Use `max-rendered-bubbles` instead.
-                this._warnMaxMessagesDeprecated();
-                this._maxRenderedBubbles = parseInt(newValue || '1000', 10);
-                this._pruneRenderedBubbles();
-                break;
         }
     }
 
@@ -251,12 +254,6 @@ export class AparteChatViewport extends HTMLElement {
         }
         if (config.maxRenderedBubbles !== undefined) {
             this._maxRenderedBubbles = config.maxRenderedBubbles;
-            this._pruneRenderedBubbles();
-        }
-        if (config.maxMessages !== undefined) {
-            // Deprecated alias (see attributeChangedCallback).
-            this._warnMaxMessagesDeprecated();
-            this._maxRenderedBubbles = config.maxMessages;
             this._pruneRenderedBubbles();
         }
         if (config.layoutTransitionMs !== undefined) {
@@ -370,6 +367,25 @@ export class AparteChatViewport extends HTMLElement {
             if ((message as { isStreaming?: boolean }).isStreaming) return message.id;
         }
         return null;
+    }
+
+    /**
+     * While a reply streams, the transcript is read-only except for Stop.
+     *
+     * The streaming message's own footer was already hidden; every OTHER message kept
+     * its branch picker and its retry/edit buttons live. Swapping a branch mid-stream
+     * re-rendered the active path under the reply being written, and a retry cut that
+     * reply off to start another — both seen on the landing page. The state that
+     * decides it is the whole transcript's, so it lives on the viewport (`data-busy`)
+     * and is pushed to the bubbles it holds; a bubble mounted later, under a
+     * framework's DOM, reads the attribute itself when it connects.
+     */
+    private _syncBusy(): void {
+        const busy = this._streamingMessageId() !== null;
+        this.toggleAttribute('data-busy', busy);
+        for (const bubble of this.querySelectorAll('aparte-chat-bubble')) {
+            (bubble as unknown as { setTranscriptBusy?: (busy: boolean) => void }).setTranscriptBusy?.(busy);
+        }
     }
 
     /**
@@ -514,6 +530,7 @@ export class AparteChatViewport extends HTMLElement {
             this._settleSegments(messageId, message);
 
             this._notifyBubble(messageId, 'complete', { status: 'completed' });
+            this._syncBusy();
             this._recalculateSpacer();
         }
     }
@@ -559,6 +576,7 @@ export class AparteChatViewport extends HTMLElement {
 
         // Notify bubble
         this._notifyBubble(messageId, 'update', updates);
+        if (updates.status) this._syncBusy();
         this._autoScroll();
     }
 
@@ -576,6 +594,7 @@ export class AparteChatViewport extends HTMLElement {
         // caller handing over a message they already hold rather than a turn starting.
         this._repo.addOrUpdateMessage(this._repo.headId, adoptMessageSegments({ ...message }));
         this._pruneRenderedBubbles();
+        this._syncBusy();
         this._autoScroll();
     }
 
@@ -616,13 +635,21 @@ export class AparteChatViewport extends HTMLElement {
                     [],
                 ) }
                 : { ...message };
+        // The model's own flag, from the same predicate the bubble's `streaming`
+        // attribute uses below. `updateMessage` maps a status to it; a message that
+        // ARRIVES streaming (the client appends a pending shell, a host appends a
+        // reply it is about to write into) used to reach the repository without it,
+        // so `_streamingMessageId()` — and everything read-only that hangs off it —
+        // could not see a turn that had not yet been updated once. Not for a
+        // historical message: a conversation saved mid-reply is a record, not a turn.
+        if (!options?.historical && isAwaitingReply(message)) stored.isStreaming = true;
         this._repo.addOrUpdateMessage(this._repo.headId, stored);
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
             if (wrapper) {
                 const bubble = document.createElement('aparte-chat-bubble') as HTMLElement;
                 bubble.setAttribute('message-id', message.id);
-                bubble.setAttribute('role', message.role);
+                bubble.setAttribute('data-role', message.role);
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
                 // Also true for an empty assistant message with no status: an
@@ -650,13 +677,14 @@ export class AparteChatViewport extends HTMLElement {
             }
         }
         this._pruneRenderedBubbles();
+        this._syncBusy();
         this._recalculateSpacer();
         // User sending always anchors to bottom regardless of scroll position.
         if (message.role === 'user') {
             this._isAutoScrollEnabled = true;
             // Smooth scroll for user-initiated sends. Streaming auto-scroll stays
             // instant (via _autoScroll) so it can keep up with rapid token bursts.
-            requestAnimationFrame(() => this._smoothScrollToBottom());
+            requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._smoothScrollToBottom(); });
         } else {
             this._autoScroll();
         }
@@ -725,7 +753,12 @@ export class AparteChatViewport extends HTMLElement {
         const parentId = meta.message.role === 'user'
             ? existingId
             : meta.parentId;
-        this._repo.addOrUpdateMessage(parentId, { ...newMessage });
+        // A retry starts a turn here: the sibling arrives pending, and the model's
+        // flag has to say so from this moment (see `appendMessage`), not from the
+        // first `updateMessage` — the rebuild below already pushes the busy state.
+        const stored: AparteMessage = { ...newMessage };
+        if (isAwaitingReply(newMessage)) stored.isStreaming = true;
+        this._repo.addOrUpdateMessage(parentId, stored);
         this._repo.switchToBranch(newMessage.id);
         this._reRenderActivePath();
         return newMessage.id;
@@ -736,6 +769,10 @@ export class AparteChatViewport extends HTMLElement {
      * Triggers a full re-render of the active path.
      */
     navigateBranch(messageId: string, direction: 'prev' | 'next'): void {
+        // Not while a reply streams: the active path must not change under it (the
+        // pickers are disabled for the same reason — see `_syncBusy`; this covers a
+        // programmatic call).
+        if (this._streamingMessageId() !== null) return;
         const siblings = this._repo.getBranches(messageId);
         const currentIdx = siblings.indexOf(messageId);
         if (currentIdx === -1) return;
@@ -749,7 +786,7 @@ export class AparteChatViewport extends HTMLElement {
         //
         // But if they were already AT the bottom, staying there IS the expected
         // behaviour — and switching auto-follow off there is what left the
-        // scroll-to-bottom button offering to scroll nowhere (bonaparte, React). It
+        // scroll-to-bottom button offering to scroll nowhere (a React consumer). It
         // also protects the swap itself: a rebuild's height flickers (measured on
         // React: 1730 → 1934 → 1730px as the new bubble renders and settles), so a
         // reader pinned to the bottom would drift up by whatever the flicker was.
@@ -896,6 +933,9 @@ export class AparteChatViewport extends HTMLElement {
             }
         }
         this._repo.clear();
+        // An empty transcript streams nothing: the busy flag is derived from the
+        // repository, and this is the one path that empties it without a status.
+        this._syncBusy();
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
             if (wrapper) {
@@ -1094,7 +1134,7 @@ export class AparteChatViewport extends HTMLElement {
 
             const bubble = document.createElement('aparte-chat-bubble');
             bubble.setAttribute('message-id', message.id);
-            bubble.setAttribute('role', message.role);
+            bubble.setAttribute('data-role', message.role);
             if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
             if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');
@@ -1108,6 +1148,7 @@ export class AparteChatViewport extends HTMLElement {
         }
 
         this._dispatchPathChanged(activeMessages, siblingsInfo);
+        this._syncBusy();
         this._recalculateSpacer();
 
         // No post-swap re-measure of the auto-scroll INTENT here, deliberately: a
@@ -1131,9 +1172,9 @@ export class AparteChatViewport extends HTMLElement {
         if (this._isAutoScrollEnabled) {
             if (this._smoothScrollOnce) {
                 this._smoothScrollOnce = false;
-                requestAnimationFrame(() => this._smoothScrollToBottom());
+                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._smoothScrollToBottom(); });
             } else {
-                requestAnimationFrame(() => this._scrollToBottom());
+                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._scrollToBottom(); });
             }
         }
         this._pruneRenderedBubbles();
@@ -1196,7 +1237,7 @@ export class AparteChatViewport extends HTMLElement {
             this._scrollBtn = document.createElement('button');
             this._scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
             this._scrollBtn.setAttribute('type', 'button');
-            this._scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
+            this._scrollBtn.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
             const scrollIcon = resolveConfig(this).getIcon('scrollDown');
             this._scrollBtn.innerHTML = scrollIcon;
             this.appendChild(this._scrollBtn);
@@ -1231,7 +1272,7 @@ export class AparteChatViewport extends HTMLElement {
         const scrollBtn = document.createElement('button');
         scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
         scrollBtn.setAttribute('type', 'button');
-        scrollBtn.setAttribute('aria-label', 'Scroll to bottom');
+        scrollBtn.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
         const scrollIcon = resolveConfig(this).getIcon('scrollDown');
         scrollBtn.innerHTML = scrollIcon;
         this.appendChild(scrollBtn);
@@ -1281,6 +1322,30 @@ export class AparteChatViewport extends HTMLElement {
         this._updateScrollButton();
     };
 
+    /**
+     * Only the inputs that can SCROLL count as the reader's hand: a wheel notch, a
+     * touch, a navigation key, a press in the scrollbar's gutter. A press on a control
+     * inside the transcript — a branch arrow, a copy button — is not a scroll gesture,
+     * and counting it disarmed the follow through the swap it triggered (react-webkit,
+     * 1 run in 6: the rebuild's height churn moved scrollTop within the second after
+     * the click, and the click made that look like the reader's).
+     */
+    private readonly _noteReaderInput = (e: Event): void => {
+        if (e.type === 'keydown' && !this._scrollKeys.has((e as KeyboardEvent).key)) return;
+        if (e.type === 'pointerdown') {
+            const container = this._container;
+            if (!container) return;
+            const { clientX } = e as PointerEvent;
+            const rect = container.getBoundingClientRect();
+            const rtl = getComputedStyle(container).direction === 'rtl';
+            const inGutter = rtl
+                ? clientX <= rect.right - container.clientWidth
+                : clientX >= rect.left + container.clientWidth;
+            if (!inGutter) return;
+        }
+        this._readerInputAt = performance.now();
+    };
+
     private readonly _onBranchNavigate = (e: Event): void => {
         const evt = e as CustomEvent<{ messageId: string; direction: 'prev' | 'next' }>;
         evt.stopPropagation();
@@ -1289,6 +1354,13 @@ export class AparteChatViewport extends HTMLElement {
 
     private _setupEventListeners(): void {
         this._container?.addEventListener('scroll', this._handleScroll, { passive: true });
+        // The reader's hand on the transcript, so `_handleScroll` can tell their scroll
+        // from one the browser made while settling ours.
+        // `touchmove`, not `touchstart`: a tap on a control fires touchstart too, and
+        // a tap is no more a scroll gesture than a click — a finger that scrolls moves.
+        for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
+            this._container?.addEventListener(type, this._noteReaderInput, { passive: true });
+        }
         this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
         this.addEventListener('aparte-branch-navigate', this._onBranchNavigate);
     }
@@ -1345,23 +1417,24 @@ export class AparteChatViewport extends HTMLElement {
         this._mutationObserver = new MutationObserver(() => {
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
-            // The gate is tested HERE, when the frame is queued, and moving it
-            // inside the callback is not the improvement it looks like.
+            // The gate is tested TWICE: when the frame is queued, and again when it
+            // runs. The second test is what lets a reader leave.
             //
-            // Queue-time looks like a race — the user could scroll up before the
-            // frame runs and be dragged back. Testing it at run-time instead was
-            // tried and reverted: a branch swap replaces bubbles, the resulting
-            // scroll event makes `_isAtBottom()` briefly false, and the deferred
-            // check then refuses to re-anchor, leaving a scroll-to-bottom button on
-            // a transcript that IS at the bottom (caught by
-            // `bubble-actions.spec.ts` on WebKit, 3 runs out of 3).
-            //
-            // So queue-time is deliberate: it captures the user's intent BEFORE the
-            // DOM churn can confuse the "am I at the bottom?" heuristic. Reading it
-            // correctly in both cases needs a way to tell our own programmatic
-            // scroll from a real gesture — see the note in `_handleScroll`.
+            // During a stream a frame is nearly always queued, and it used to scroll
+            // unconditionally when it ran. So a reader who wheeled up was disarmed by
+            // that gesture (`_handleScroll` sees the decrease) — and one frame later the
+            // already-queued scroll dragged them back to the bottom, whose scroll event
+            // re-armed auto-follow. Every attempt to read above the stream lasted one
+            // frame ("on a du mal à remonter", reported from a real session). The
+            // run-time check reads the INTENT flag, which only a real decrease disarms,
+            // so it cannot fall into the trap an earlier attempt did — that one
+            // re-tested `_isAtBottom()` at run time, which a branch swap's height churn
+            // makes briefly false, and it refused to re-anchor a reader who was at the
+            // bottom (`bubble-actions.spec.ts` on WebKit, 3 runs out of 3). Growth does
+            // not decrease `scrollTop` and a clamp lands at the bottom, so the flag
+            // stays armed through a swap; only a person turns it off.
             if (this._isAutoScrollEnabled) {
-                requestAnimationFrame(() => this._scrollToBottom());
+                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._scrollToBottom(); });
             }
             // Recalculate spacer when DOM mutates (new bubble added, Angular re-render).
             this._scheduleSpacerUpdate();
@@ -1403,10 +1476,45 @@ export class AparteChatViewport extends HTMLElement {
          * asked for and what an event counter could not do: growth does not move
          * `scrollTop`, and a reader going up does. So a decrease disarms, the bottom
          * re-arms, and everything else leaves the flag exactly as it was.
+         *
+         * With one exception, measured after the queued frames started re-reading the
+         * flag: a decrease the BROWSER makes while settling a scroll of ours. When a
+         * stream ends the action bar appears (+34px) and the bottom spacer gives the
+         * same 34px back in the same frame; through that churn WebKit moved `scrollTop`
+         * from 829 to 804 — a 25px decrease, no reader anywhere near it — and the
+         * decrease disarmed the follow that was in the middle of landing, leaving the
+         * transcript 25px short and a scroll-to-bottom button on a reader who never
+         * left (vanilla-webkit and react-webkit, 3 runs out of 3; Chromium settles the
+         * same churn without moving). So a decrease is the reader's unless both hold: it
+         * comes within a second of a scroll this component asked for, and no scroll
+         * gesture touched the transcript in that second. A real gesture always leaves a
+         * trace (`_noteReaderInput`); a jump the reader did not make either
+         * (find-in-page, a host's own `scrollTo`) still disarms, except in that
+         * one-second shadow of our own scroll.
+         *
+         * The size of the decrease is bounded by the EVIDENCE of churn — how much the
+         * scroll height moved since the last scroll event — rather than by a number: a
+         * first version capped it at 100px and a branch swap on React refuted that
+         * (the rebuild flickers the height by ~200px, measured in `navigateBranch`,
+         * and WebKit moves scrollTop by as much); a second version dropped the cap
+         * altogether, and during a stream — where every token refreshes
+         * `_ownScrollAt`, so the shadow never closes — a reader drag-selecting text
+         * upward, whose press lands on the text and not in the gutter, was snapped
+         * back to the bottom by the next token. Churn moves scrollTop by at most the
+         * height it changed; a reader, a find-in-page jump or a host's `scrollTo` move
+         * it with the height standing still.
          */
         const top = this._container.scrollTop;
-        const readerWentUp = top < this._lastScrollTop - 1;
+        const height = this._container.scrollHeight;
+        const drop = this._lastScrollTop - top;
+        const churn = Math.abs(height - this._lastScrollHeight);
+        const now = performance.now();
+        const settlingOurs = drop <= churn + 2
+            && now - this._ownScrollAt < this._ownScrollWindowMs
+            && now - this._readerInputAt >= this._ownScrollWindowMs;
+        const readerWentUp = drop > 1 && !settlingOurs;
         this._lastScrollTop = top;
+        this._lastScrollHeight = height;
 
         if (this._isAtBottom()) {
             // `_isAtBottom()` stays deliberately generous (`_scrollThreshold`, 50px): a
@@ -1420,6 +1528,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _scrollToBottom(): void {
         if (!this._container) return;
+        this._ownScrollAt = performance.now();
         this._container.scrollTop = this._container.scrollHeight;
         this._settleAtBottom(4);
     }
@@ -1454,6 +1563,7 @@ export class AparteChatViewport extends HTMLElement {
             if (!this._container || !this._isAutoScrollEnabled) return;
             const max = this._container.scrollHeight - this._container.clientHeight;
             if (max - this._container.scrollTop <= 1) return;
+            this._ownScrollAt = performance.now();
             this._container.scrollTop = max;
             this._settleAtBottom(framesLeft - 1);
         });
@@ -1465,6 +1575,7 @@ export class AparteChatViewport extends HTMLElement {
         // Fall back to instant scroll so tests and SSR environments stay safe.
         // Reduced-motion users get the instant path too — the CSS
         // prefers-reduced-motion block cannot reach a JS-driven smooth scroll.
+        this._ownScrollAt = performance.now();
         if (typeof this._container.scrollTo === 'function' && !this._prefersReducedMotion()) {
             this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
         } else {
@@ -1486,7 +1597,7 @@ export class AparteChatViewport extends HTMLElement {
      * fold"). Mirroring the flag made the button lie whenever the two diverged —
      * `navigateBranch` deliberately disarms auto-follow, so swapping a branch while
      * already at the bottom of a scrollable transcript left the button offering to
-     * scroll nowhere (reported from bonaparte, React). Re-derived on scroll, on the
+     * scroll nowhere (reported from a React consumer). Re-derived on scroll, on the
      * post-mutation frame and after a path swap, so it converges to the truth
      * whatever a framework's render timing does in between.
      */
@@ -1526,7 +1637,7 @@ export class AparteChatViewport extends HTMLElement {
 
         const lastUserBubble = [...allBubbles]
             .reverse()
-            .find(b => b.getAttribute('role') === 'user');
+            .find(b => b.getAttribute('data-role') === 'user');
 
         if (!lastUserBubble) {
             this._setSpacerHeight(0);
@@ -1618,19 +1729,11 @@ export class AparteChatViewport extends HTMLElement {
         }
     }
 
-    private _warnMaxMessagesDeprecated(): void {
-        if (this._warnedMaxMessagesDeprecation) return;
-        this._warnedMaxMessagesDeprecation = true;
-        console.warn(
-            '[Aparte] `maxMessages` / `max-messages` on aparte-chat-viewport is deprecated: ' +
-            'it used to silently evict messages from the conversation model. It now only ' +
-            'caps rendered bubbles in the DOM — use `maxRenderedBubbles` / `max-rendered-bubbles`. ' +
-            'For actual history retention, configure it on your AparteConversationManager instead.',
-        );
-    }
-
     private _cleanup(): void {
         this._container?.removeEventListener('scroll', this._handleScroll);
+        for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
+            this._container?.removeEventListener(type, this._noteReaderInput);
+        }
         this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();

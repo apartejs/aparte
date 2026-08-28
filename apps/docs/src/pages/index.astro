@@ -213,7 +213,7 @@ const DEMOS = [
 const FAMILIES = [
   {
     name: 'Core', count: 'two packages', items: [
-      { pkg: '@aparte/core', line: 'The web components, the renderers, the transports. Zero runtime dependencies.' },
+      { pkg: '@aparte/core', line: 'The web components, the renderers, the transports. Zero third-party dependencies.' },
       { pkg: '@aparte/engine', line: 'The agent loop on its own, drivable from your code. A test proves both loops behave identically.' },
     ],
   },
@@ -361,7 +361,7 @@ const FAMILIES = [
           <p class="lede">
             Not a bubble kit. One element gives you the whole turn: <b>{SEGMENT_KINDS.length} kinds of content</b>,
             <b>human-in-the-loop tools</b>, branch-and-retry on any
-            reply &#8212; with <b>zero runtime dependencies</b>. React, Vue, Svelte, Angular, or
+            reply &#8212; with <b>zero third-party dependencies</b>. React, Vue, Svelte, Angular, or
             nothing at all.
           </p>
           <div class="cta-row">
@@ -537,27 +537,31 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
              They replace a "Themes & icons" TAB, which existed to mix a palette and
              an icon set — a thing the page now does at all times, on every panel.
              A tab for it was a tab for the controls beside it. -->
+        <!-- The library's own select, not the browser's: a page that sells a chat UI
+             kit and then reaches for a native <select> beside it is showing two
+             designs. `aria-label` carries the name (a <label> cannot target a custom
+             element); the visible word stays for the eye. -->
         <div class="levers">
-          <label>Palette
-            <select id="lvPalette">
-              <option value="stage" selected>Stage &mdash; follows this page</option>
-              <option value="violet">Violet &mdash; pinned dark</option>
-              <option value="paper">Paper &mdash; pinned light</option>
-            </select>
-          </label>
-          <label>Icons
-            <select id="lvIcons">
-              <option value="default" selected>Default &mdash; what core ships</option>
-              <option value="solid">Solid</option>
-              <option value="hard">Hard-edged</option>
-            </select>
-          </label>
-          <label>Language
-            <select id="lvLocale">
-              <option value="en" selected>English</option>
-              <option value="fr">Fran&ccedil;ais</option>
-            </select>
-          </label>
+          <span class="lever"><span>Palette</span>
+            <aparte-select id="lvPalette" aria-label="Palette" value="stage">
+              <aparte-option value="stage">Stage &mdash; follows this page</aparte-option>
+              <aparte-option value="violet">Violet &mdash; pinned dark</aparte-option>
+              <aparte-option value="paper">Paper &mdash; pinned light</aparte-option>
+            </aparte-select>
+          </span>
+          <span class="lever"><span>Icons</span>
+            <aparte-select id="lvIcons" aria-label="Icons" value="default">
+              <aparte-option value="default">Default &mdash; what core ships</aparte-option>
+              <aparte-option value="solid">Solid</aparte-option>
+              <aparte-option value="hard">Hard-edged</aparte-option>
+            </aparte-select>
+          </span>
+          <span class="lever"><span>Language</span>
+            <aparte-select id="lvLocale" aria-label="Language" value="en">
+              <aparte-option value="en">English</aparte-option>
+              <aparte-option value="fr">Fran&ccedil;ais</aparte-option>
+            </aparte-select>
+          </span>
         </div>
       </section>
 
@@ -816,7 +820,12 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         root.setAttribute('data-theme', theme);
         // The CHAT's palette is not set here: a theme preset may pin it light or
         // dark independently of the page, so `applySkin` owns that attribute and
-        // is re-run below once it exists.
+        // is re-run below once it exists. The levers row is not the chat: its
+        // `<aparte-select>`s follow the PAGE, and core's dark palette is keyed on
+        // this attribute, whose absence is light.
+        const levers = document.querySelector('.levers');
+        if (theme === 'dark') levers?.setAttribute('data-aparte-theme', 'dark');
+        else levers?.removeAttribute('data-aparte-theme');
       }
       applyTheme(currentTheme());
       document.getElementById('themeToggle')?.addEventListener('click', () => {
@@ -986,13 +995,13 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         if (/stream|token|type|render|reply/.test(q))
           return 'Exactly like this — token by token. aparte streams your model’s replies through a transport, and your API key can stay on your server.';
         if (/depend|size|zero|bundle|weight/.test(q))
-          return 'Zero runtime dependencies in the core. Markdown, syntax highlighting and icons are opt-in plugins you add only if you want them.';
+          return 'Zero third-party dependencies in the core. Markdown, syntax highlighting and icons are opt-in plugins you add only if you want them.';
         if (/browser|local|offline|server|privacy/.test(q))
           return 'With @aparte/provider-transformers the model runs in the browser itself — WebGPU with a WASM fallback, in a worker, weights cached locally. No server, no key. Or point a transport at your own /api/chat and the key never leaves it.';
         if (/branch|retry|fork|version/.test(q))
           return 'Hover this reply and press retry: it forks a sibling instead of overwriting, and a picker appears so you can move between the two versions.';
         if (/what|who|aparte|hello|hi|hey/.test(q))
-          return 'aparte is an AI-chat library in vanilla web components, zero dependencies — with the agent loop inside: tools, human-in-the-loop, branching. This chat you’re using is the component itself, running right here.';
+          return 'aparte is an AI-chat library in vanilla web components, zero third-party dependencies — with the agent loop inside: tools, human-in-the-loop, branching. This chat you’re using is the component itself, running right here.';
         return 'In the real thing I’d relay that to your model. Here I’m a small scripted stand-in, so you can feel the interaction — the streaming, the bubbles, the composer, and retry forking a branch.';
       }
       function send(text: string, files: File[] = []) {
@@ -1039,7 +1048,11 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         endTurn();
       });
 
-      document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e) => {
+      // `e: Event` spelled out: under the nx task graph `astro check` sometimes runs
+      // before core's HTMLElementEventMap augmentation is visible to it, and this
+      // parameter then fell to an implicit `any` — a pre-commit that failed one run
+      // in three on a line that had not changed. The cast below already does the work.
+      document.querySelector('aparte-composer')?.addEventListener('aparte-send', (e: Event) => {
         const detail = (e as any).detail || {};
         send(detail.content || '', Array.from(detail.files || []));
       });
@@ -1289,13 +1302,15 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         if (key === 'fr') aparteGlobalConfig.setLocale(fr);
         else aparteGlobalConfig.resetLocale();
       }
-      /** One select per seam. `change`, not `click`: a select IS the control. */
-      const lvPalette = document.getElementById('lvPalette') as HTMLSelectElement;
-      const lvIcons = document.getElementById('lvIcons') as HTMLSelectElement;
-      const lvLocale = document.getElementById('lvLocale') as HTMLSelectElement;
-      lvPalette.addEventListener('change', () => applySkin(lvPalette.value));
-      lvIcons.addEventListener('change', () => applyIcons(lvIcons.value));
-      lvLocale.addEventListener('change', () => applyLocale(lvLocale.value));
+      /** One select per seam — the library's `<aparte-select>`, whose change event is
+       *  `aparte-select-change` and whose `value` reads and writes like a native one. */
+      type Lever = HTMLElement & { value: string };
+      const lvPalette = document.getElementById('lvPalette') as Lever;
+      const lvIcons = document.getElementById('lvIcons') as Lever;
+      const lvLocale = document.getElementById('lvLocale') as Lever;
+      lvPalette.addEventListener('aparte-select-change', () => applySkin(lvPalette.value));
+      lvIcons.addEventListener('aparte-select-change', () => applyIcons(lvIcons.value));
+      lvLocale.addEventListener('aparte-select-change', () => applyLocale(lvLocale.value));
       /** Put the row back in step with what is actually applied. */
       const syncLevers = (): void => {
         lvPalette.value = skin;

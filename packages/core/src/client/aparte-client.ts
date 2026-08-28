@@ -1,23 +1,18 @@
 import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig } from '../config/config-context.js';
-import { AparteStreamParser, deriveArtifactKind } from '../parsers/aparte-stream-parser.js';
-import { segmentContentUpdate } from '../utils/segments.js';
-import { feedXmlArtifactDelta, finalizeXmlArtifact, type XmlArtifactStreamState } from './xml-artifact-feed.js';
+import { runStreamAgent } from '@aparte/engine';
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
-import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
-import type { AparteStreamRunner, StreamAdapterTarget } from './stream-adapter.js';
+import { dispatchLifecycleEvent } from './lifecycle-events.js';
+import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } from './stream-adapter.js';
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
-import type { AparteThinkingSegment } from '../types/segments.js';
-import type { AparteToolCallSegment } from '../types/segments.js';
 import type { AparteToolCall, AparteTool } from '../types/tools.js';
-import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, AparteRequestMeta, contentToText } from '../types/chat.js';
+import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, contentToText } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { uuid } from '../utils/uuid.js';
 import { requestUserInput } from '../elicitation/index.js';
-import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 
 /**
  * The imperative surface AparteClient drives on a chat target element
@@ -49,17 +44,6 @@ interface AparteChatTargetElement extends HTMLElement {
     truncateResponsesAfter?(userMessageId: string): void;
     typeName?(text: string): void;
 }
-
-/**
- * Default timeout (ms) for a tool handler to resolve before it is aborted.
- *
- * Same value `runStreamAgent` uses, and now overridable by the same option name
- * (`toolTimeoutMs`). It used to be reachable only as this constant here while the
- * engine runner exposed it — so a consumer who set `toolTimeoutMs` got it honoured
- * on one of the two loops and silently ignored on the other. Found by writing the
- * tool-timeout parity scenario the seam never had.
- */
-const DEFAULT_TOOL_HANDLER_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Resolves a human-in-the-loop tool approval for a `needsApproval` tool call.
@@ -130,12 +114,11 @@ export interface AparteClientOptions {
     compactionSelector?: AparteCompactionSelector;
 
     /**
-     * Optional headless stream-loop runner. When set, `_streamLoop` delegates the
-     * agentic loop to it and renders via the core adapter
-     * ({@link createStreamAdapter}); when absent, the built-in inline loop runs.
-     * Inject `@aparte/engine`'s `runStreamAgent` here so a backend/cloud path
-     * shares one tested loop — core stays the zero-dep leaf and never imports
-     * engine. Same injection pattern as {@link approvalResolver} /
+     * The stream-loop runner. Default: `@aparte/engine`'s `runStreamAgent`, rendered
+     * through the core adapter ({@link createStreamAdapter}). Set it to wrap that loop
+     * — `(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host that owns
+     * its transcript — or to replace it with a loop of your own that emits the same
+     * events. Same injection pattern as {@link approvalResolver} /
      * {@link compactionSelector}. See {@link AparteStreamRunner}.
      */
     streamRunner?: AparteStreamRunner;
@@ -265,43 +248,6 @@ export interface AparteClientOptions {
  * client.start();
  * ```
  */
-/**
- * Race a tool handler against its timeout, and reject as an `AbortError` when the
- * timeout wins.
- *
- * Aborting a controller is a REQUEST the handler is free to ignore, and the default
- * shape of a consumer tool ignores it —
- * `async () => ({ content: await fetch(...).then(r => r.text()) })` never reads its
- * signal. So `setTimeout(() => controller.abort(), ms)` on its own fired, nothing
- * rejected, and the loop waited forever on an option whose JSDoc promises a
- * timeout. Three copies of that shape existed: two here and one in the engine.
- *
- * Rejecting as `AbortError` rather than returning a sentinel is what keeps both
- * call sites unchanged: each already catches that name and marks its segment
- * aborted. The signal is still fired first, so a handler that DOES honour it gets
- * to clean up and reject on its own terms.
- */
-function withToolTimeout<T>(
-    work: (signal: AbortSignal) => Promise<T>,
-    controller: AbortController,
-    timeoutMs: number,
-): { raced: Promise<T>; done: () => void } {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => {
-            controller.abort();
-            reject(Object.assign(new Error(`tool handler exceeded ${timeoutMs}ms`), { name: 'AbortError' }));
-        }, timeoutMs);
-    });
-    return {
-        raced: Promise.race([work(controller.signal), timedOut]),
-        done: () => clearTimeout(timer),
-    };
-}
-
-/** See `_handleToolUseEvent`. Internal: the method returning it is private. */
-type AparteToolFlow = 'continue' | 'respond' | 'halt';
-
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
@@ -370,6 +316,8 @@ export class AparteClient {
     }
     /** Aborts the in-flight vendor/transport fetch when the user stops a stream. */
     private _streamController: AbortController | null = null;
+    /** Aborts an in-flight `compact()` summarisation — its own slot, see `compact`. */
+    private _compactController: AbortController | null = null;
 
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
@@ -527,6 +475,7 @@ export class AparteClient {
     abort(): void {
         this._isAborted = true;
         this._streamController?.abort();
+        this._compactController?.abort();
         for (const controller of this._activeToolControllers) {
             controller.abort();
         }
@@ -659,6 +608,12 @@ export class AparteClient {
         // flag is the only trace, and it must not be thrown away here.
         if (this._isAborted) {
             dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+            // FINISHED, like the two abort paths below: the pending shell appended a few
+            // lines up is a streaming message in the viewport's model until a terminal
+            // status says otherwise, and with nothing saying it the transcript stayed
+            // read-only — arrows, retry, edit — for the life of the page after one Stop
+            // that landed while auth or an attachment was still being read.
+            this._updateMessage(targetElement, messageId, { status: 'completed' });
             return;
         }
         dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
@@ -797,8 +752,11 @@ export class AparteClient {
             // arrived to overwrite a conversation the user had moved on from. It goes
             // through the same controller slot as a turn so `abort()` and `stop()`
             // reach it.
+            // Its OWN slot. It used to take over `_streamController`, so a compaction
+            // started during a turn left that turn unabortable — Stop reached only the
+            // summarisation while the reply kept streaming and kept being billed.
             const compactController = new AbortController();
-            this._streamController = compactController;
+            this._compactController = compactController;
             const response = await this._config.getTransport().chat(
                 provider, summarizeRequest, authConfig,
                 { providerId: provider.id, signal: compactController.signal },
@@ -848,7 +806,11 @@ export class AparteClient {
             target.appendMessage?.({
                 id: uuid(),
                 role: 'assistant',
-                content: `📝 **Conversation summary**\n\n${summary}`,
+                // Through the locale, like every string the user reads — this was a
+                // hardcoded English title (with an emoji) in an otherwise localised
+                // transcript. The engine compactor's `summaryLabel` is a separate,
+                // per-call knob; this is the UI's own title.
+                content: `**${this._config.t('compactionSummaryTitle')}**\n\n${summary}`,
                 timestamp: Date.now(),
                 status: 'completed'
             });
@@ -955,9 +917,11 @@ export class AparteClient {
 
         const systemMessages = this._systemMessages();
 
-        // Retry must produce a DIFFERENT answer than the greedy (byte-identical)
-        // re-run: temperature > 0 opts into sampling (the worker turns on
-        // do_sample); variation comes from the in-decoder RNG, no seed needed.
+        // Retry must produce a DIFFERENT answer than a byte-identical re-run:
+        // temperature > 0 opts into sampling, whatever the provider — variation
+        // comes from the decoder's own RNG, no seed involved. (`request.seed`
+        // stays untouched: it is the caller's reproducibility knob, and writing
+        // one here would defeat it.)
         await this._streamTurn(
             targetElement, newMessageId, provider,
             [...systemMessages, ...chatMessages], config.defaultModel || '',
@@ -1437,79 +1401,6 @@ export class AparteClient {
     }
 
     /**
-     * Turn-1 forced tool call. When `toolChoice = { name, input }`
-     * (orchestrator-driven), execute the handler directly instead of consulting
-     * the LLM, render the tool segment, inject the result as `tool_result`, and
-     * strip `toolChoice` for the follow-up turn. Returns the (possibly-updated)
-     * request and whether the loop should skip to the next turn (handler missing
-     * or aborted). Extracted from `_streamLoop`. `messages` is mutated in place.
-     */
-    private async _maybeRunSyntheticTool(
-        baseRequest: AparteChatRequest,
-        turns: number,
-        messages: AparteChatMessage[],
-        targetElement: AparteChatTargetElement,
-    ): Promise<{ baseRequest: AparteChatRequest; skip: boolean }> {
-        const toolChoice = baseRequest.toolChoice;
-        if (!(turns === 1 && toolChoice && typeof toolChoice === 'object' && toolChoice.input !== undefined)) {
-            return { baseRequest, skip: false };
-        }
-
-        const syntheticId = uuid();
-        const syntheticCall: AparteToolCall = { id: syntheticId, name: toolChoice.name, input: toolChoice.input };
-
-        // Render the tool segment so the UI shows the tool was called.
-        const toolSeg: AparteToolCallSegment = {
-            id: `tool-${syntheticId}`,
-            type: 'tool_call',
-            toolCall: syntheticCall,
-            status: 'pending',
-        };
-        const toolRenderer = this._config.getToolRenderer(toolChoice.name);
-        if (toolRenderer) {
-            const html = toolRenderer.render(toolSeg);
-            if (html) targetElement.addSegment?.(toolSeg);
-        } else {
-            targetElement.addSegment?.(toolSeg);
-        }
-
-        const handler = this._config.getToolHandler(toolChoice.name);
-        if (!handler) {
-            console.warn(`[AparteClient] No handler for synthetic tool "${toolChoice.name}"`);
-            targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-            return { baseRequest, skip: true };
-        }
-
-        const controller = new AbortController();
-        this._activeToolControllers.add(controller);
-        const { raced, done: clearToolTimeout } = withToolTimeout(
-            (sig) => handler(syntheticCall, sig, {
-                target: targetElement as unknown as HTMLElement,
-                config: this._config,
-            }),
-            controller,
-            this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS,
-        );
-        try {
-            const result = await raced;
-            targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
-            messages.push({ role: 'tool_call', content: '', toolCalls: [syntheticCall] });
-            messages.push({ role: 'tool_result', content: result.content, toolCallId: syntheticId });
-            // Strip toolChoice + tools from the follow-up LLM call — it should just answer.
-            return { baseRequest: { ...baseRequest, toolChoice: 'none', tools: undefined }, skip: false };
-        } catch (err: unknown) {
-            if ((err as { name?: string })?.name === 'AbortError') {
-                targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                return { baseRequest, skip: true };
-            }
-            throw err;
-        } finally {
-            clearToolTimeout();
-            this._activeToolControllers.delete(controller);
-        }
-    }
-
-    /**
      * What the loop does after one tool call. THREE outcomes, because a boolean
      * conflated two questions that a refusal answers differently.
      *
@@ -1521,266 +1412,8 @@ export class AparteClient {
      * - `'halt'`     — the run is over: an abort, a turn limit, a missing handler.
      */
     /**
-     * Handle one `tool_use` stream event from {@link _streamLoop}: the built-in
-     * `create_artifact`, per-tool renderer selection, the human-in-the-loop
-     * approval gate, and running the registered handler (timeout / abort).
-     * Mutates the shared `messages` / `toolCallsThisTurn` history in place and
-     * returns what the loop should do next.
-     */
-    private async _handleToolUseEvent(
-        event: { id: string; name: string; input: Record<string, unknown> },
-        ctx: {
-            targetElement: AparteChatTargetElement;
-            messageId: string;
-            messages: AparteChatMessage[];
-            toolCallsThisTurn: AparteToolCall[];
-            precedingText: string;
-            artifactProgress: Map<string, number>;
-            turns: number;
-            globalMaxTurns: number;
-        },
-    ): Promise<{ flow: AparteToolFlow }> {
-        const { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns } = ctx;
-        let flow: AparteToolFlow = 'continue';
-
-        toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
-
-        // ── Built-in: create_artifact ─────────────────────────────────
-        // When the LLM calls create_artifact, bypass the generic handler:
-        // create an AparteArtifactSegment directly (isolated from chat text),
-        // dispatch artifact lifecycle events, and inject a success tool_result
-        // so the LLM can continue with a conversational reply.
-        if (event.name === 'create_artifact') {
-            const input = event.input as {
-                mimeType?: string;
-                title?: string;
-                content?: string;
-            };
-            const mimeType = input.mimeType ?? 'text/plain';
-            // The canonical derivation, not a third hand-rolled copy: the inline
-            // chain that used to live here knew nothing of Anthropic's
-            // `application/vnd.ant.*` namespace, so the same create_artifact call
-            // rendered differently depending on whether the engine runner was
-            // injected. `deriveArtifactKind` is already imported at the top of
-            // this file, and engine's copy is locked to it by a parity test.
-            const kind = deriveArtifactKind(mimeType, 'text');
-            const artifactSeg: import('../types/segments.js').AparteArtifactSegment = {
-                id: `artifact-${event.id}`,
-                type: 'artifact',
-                mimeType,
-                artifactType: kind,
-                title: input.title ?? kind,
-                content: input.content ?? '',
-            };
-            targetElement.addSegment?.(artifactSeg);
-            dispatchArtifactLifecycle(targetElement, messageId, artifactSeg, artifactProgress, true);
-
-            messages.push({
-                role: 'tool_call',
-                content: '',
-                toolCalls: [{ id: event.id, name: event.name, input: event.input }],
-            });
-            messages.push({
-                role: 'tool_result',
-                content: 'Artifact created successfully.',
-                toolCallId: event.id,
-            });
-            return { flow: 'continue' };
-        }
-        // ── End built-in create_artifact ──────────────────────────────
-
-        const toolSeg: AparteToolCallSegment = {
-            id: `tool-${event.id}`,
-            type: 'tool_call',
-            toolCall: { id: event.id, name: event.name, input: event.input },
-            status: 'pending'
-        };
-
-        // Check for a per-tool renderer override
-        const toolRenderer = this._config.getToolRenderer(event.name);
-        if (toolRenderer) {
-            injectToolRendererStyles(event.name, toolRenderer);
-            const html = toolRenderer.render(toolSeg);
-            // Only add segment if the renderer produces visible output
-            if (html) {
-                targetElement.addSegment?.(toolSeg);
-            }
-            // No DOM setup here — segment bubble handles it via its own renderer
-        } else {
-            // Fallback: generic tool_call segment renderer (pill + spinner)
-            targetElement.addSegment?.(toolSeg);
-        }
-
-        // Check per-tool maxTurns override
-        const toolDef = this._config.getTools().find(t => t.name === event.name);
-        const effectiveMaxTurns = toolDef?.maxTurns ?? globalMaxTurns;
-        if (turns >= effectiveMaxTurns) {
-            console.warn(`[AparteClient] Tool "${event.name}" maxTurns (${effectiveMaxTurns}) reached.`);
-            targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-            return { flow: 'halt' };
-        }
-
-        // Find and run the registered handler
-        const handler = this._config.getToolHandler(event.name);
-        if (handler) {
-            // The input the handler runs with. A human approval step may
-            // override it via the decision payload (see below); with no
-            // approval it is exactly what the model requested.
-            let effectiveInput = event.input;
-            // Human-in-the-loop: pause for approval before running, if required.
-            if (toolDef?.needsApproval) {
-                const approvalController = new AbortController();
-                this._activeToolControllers.add(approvalController);
-                targetElement.updateSegment?.(toolSeg.id, { status: 'awaiting-approval' });
-                // Through the helper, like every other lifecycle event this class
-                // emits — it stamps `targetId`. The engine path already goes
-                // through `dispatchLifecycleEvent` and stamps it, so dispatching
-                // raw here gave one event two shapes depending on which loop
-                // produced it, and a composer filtering on `targetId` saw the
-                // approval request from the other chat on the page.
-                dispatchLifecycleEvent(targetElement, 'aparte-tool-approval-request', {
-                    toolCallId: event.id, toolName: event.name, input: event.input,
-                });
-                let decision: { approved: boolean; payload?: unknown; instruction?: string };
-                const resolveApproval = this.options.approvalResolver
-                    ?? ((call, sig) => this._askForApproval(call, sig, targetElement as unknown as HTMLElement));
-                try {
-                    decision = await resolveApproval(event, approvalController.signal);
-                } catch (err: unknown) {
-                    // The request ended without an answer — a stopped turn, a torn-down
-                    // panel, nothing mounted to ask. Not a refusal: see the signal check
-                    // just below, which says the same thing for a resolver that reports
-                    // an abort by VALUE instead of by throwing.
-                    if ((err as { name?: string })?.name === 'AbortError') {
-                        targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                        return { flow: 'halt' };
-                    }
-                    throw err;
-                } finally {
-                    this._activeToolControllers.delete(approvalController);
-                }
-                /*
-                 * A stop is not a refusal.
-                 *
-                 * A consumer's resolver may resolve `{ approved: false }` when the signal
-                 * fires — the same value an explicit Reject produces — so a stopped turn
-                 * fell into the refusal branch below, stamped the segment `'rejected'`
-                 * and pushed "rejected by the user" into the history. The model read a
-                 * sentence naming a decision nobody made. Asking the signal instead of
-                 * the value is what tells the two apart, and it costs nothing: the
-                 * controller is already in hand.
-                 *
-                 * No `tool_result` here, deliberately. An aborted turn tells the model
-                 * nothing, because there is nothing true to say — the same treatment a
-                 * handler aborted mid-run already gets.
-                 */
-                if (approvalController.signal.aborted) {
-                    targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                    return { flow: 'halt' };
-                }
-                if (!decision.approved) {
-                    /*
-                     * The user's own words when they gave them, and the fixed sentence
-                     * otherwise. This is the "no, do this instead" branch, and it is
-                     * only useful because a refusal hands the model a turn to read it
-                     * in — before that, whatever was written here went into a history
-                     * nobody sent.
-                     */
-                    const rejection = decision.instruction
-                        ? `The user rejected this tool call and said: ${decision.instruction}`
-                        : 'Tool execution was rejected by the user.';
-                    targetElement.updateSegment?.(toolSeg.id, { status: 'rejected', result: rejection });
-                    const existingToolCallMsg = messages.find(
-                        m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
-                    );
-                    if (!existingToolCallMsg) {
-                        messages.push({
-                            role: 'tool_call',
-                            content: '',
-                            toolCalls: toolCallsThisTurn,
-                            precedingText: precedingText.trim() || undefined
-                        });
-                    }
-                    messages.push({ role: 'tool_result', content: rejection, toolCallId: event.id });
-                    /*
-                     * `'respond'`, not `'halt'`: the two questions a single flag used to
-                     * conflate have different answers here.
-                     *
-                     * Run the tool calls that follow this one in the same turn? NO — the
-                     * model asked for `rm -rf` plus two more, and refusing one must not
-                     * let the others run. That is the defect the `if (!continueLoop)
-                     * break` line downstream was added for.
-                     *
-                     * Take another turn so the model can READ the refusal? YES. It could
-                     * not before: the turn simply ended, so the sentence pushed above was
-                     * never sent, and telling the assistant what you actually wanted meant
-                     * retyping it as a new message it then read out of order.
-                     */
-                    return { flow: 'respond' };
-                }
-                // Approved → optionally let the human's payload edit the
-                // arguments, then restore pending and run the handler.
-                if (decision.payload && typeof decision.payload === 'object' && !Array.isArray(decision.payload)) {
-                    effectiveInput = { ...event.input, ...(decision.payload as Record<string, unknown>) };
-                }
-                targetElement.updateSegment?.(toolSeg.id, { status: 'pending' });
-            }
-
-            const controller = new AbortController();
-            this._activeToolControllers.add(controller);
-            const { raced, done: clearToolTimeout } = withToolTimeout(
-                (sig) => handler(
-                    { id: event.id, name: event.name, input: effectiveInput },
-                    sig,
-                    { target: targetElement as unknown as HTMLElement, config: this._config },
-                ),
-                controller,
-                this.options.toolTimeoutMs ?? DEFAULT_TOOL_HANDLER_TIMEOUT_MS,
-            );
-
-            try {
-                const result = await raced;
-                targetElement.updateSegment?.(toolSeg.id, { status: 'resolved', result: result.content });
-
-                // Inject tool_call + tool_result into message history for re-call
-                const existingToolCallMsg = messages.find(
-                    m => m.role === 'tool_call' && m.toolCalls?.some(tc => tc.id === event.id)
-                );
-                if (!existingToolCallMsg) {
-                    messages.push({
-                        role: 'tool_call',
-                        content: '',
-                        toolCalls: toolCallsThisTurn,
-                        precedingText: precedingText.trim() || undefined
-                    });
-                }
-                messages.push({
-                    role: 'tool_result',
-                    content: result.content,
-                    toolCallId: event.id
-                });
-            } catch (err: unknown) {
-                if ((err as { name?: string })?.name === 'AbortError') {
-                    targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-                    flow = 'halt';
-                } else {
-                    throw err;
-                }
-            } finally {
-                clearToolTimeout();
-                this._activeToolControllers.delete(controller);
-            }
-        } else {
-            console.warn(`[AparteClient] No handler registered for tool "${event.name}"`);
-            targetElement.updateSegment?.(toolSeg.id, { status: 'aborted' });
-            flow = 'halt';
-        }
-        return { flow };
-    }
-
-    /**
-     * Stream loop: runs one provider.chat() call and repeats if a tool was called.
-     * Maintains a running messages array to inject tool_call / tool_result turns.
+     * The turn's agent loop — the engine's `runStreamAgent` rendered through the core
+     * adapter, or the runner a host injected — after the fetch-level abort bookkeeping.
      */
     private async _streamLoop(
         targetElement: AparteChatTargetElement,
@@ -1812,493 +1445,25 @@ export class AparteClient {
         const streamController = new AbortController();
         this._streamController = streamController;
 
-        // ── Injected stream runner ───────────────────────────────────────────
-        // When a headless runner is injected (e.g. @aparte/engine's
-        // runStreamAgent), delegate the loop to it and render via the core
-        // adapter. Absent → the inline loop below runs (core standalone,
-        // zero-dep). Both paths produce the same targetElement calls (proven by
-        // the engine `stream-parity` suite).
-        if (this.options.streamRunner) {
-            return this._runViaStreamRunner(this.options.streamRunner, targetElement, messageId, provider, baseRequest, authConfig, streamController);
-        }
-
-        const messages: AparteChatMessage[] = [...baseRequest.messages];
-        let continueLoop = true;
-        let turns = 0;
-        const globalMaxTurns = this.options.maxTurns ?? 10;
-        let lastUsage: AparteUsage | undefined;
-
-        // ── Pipeline mode ─────────────────────────────────────────────────
-        // _meta.pipeline runs each phase as one LLM turn: the system message +
-        // artifact hint are injected per phase, and reply N is context for N+1.
-        // (Typed via AparteRequestMeta — no local shape / cast needed.)
-        const pipeline = baseRequest._meta?.pipeline;
-        let pipelineIndex = 0;
-
-        this._updateMessage(targetElement, messageId, { status: 'streaming' });
-
-        // Inject prefix segments (e.g. an orchestrator thinking block) before streaming.
-        for (const seg of baseRequest._meta?.prefixSegments ?? []) {
-            targetElement.addSegment?.(seg);
-        }
-
-        while (continueLoop) {
-            // Reset per TURN: it says "stop reading this turn's events", which is a
-            // different question from `continueLoop`'s "take another turn". One boolean
-            // answered both, and a refusal needs opposite answers to the two.
-            let endTurnEarly = false;
-            if (this._isAborted) {
-                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
-                break;
-            }
-
-            turns++;
-            if (turns > globalMaxTurns) {
-                console.warn(`[AparteClient] maxTurns (${globalMaxTurns}) exceeded — stopping loop.`);
-                targetElement.addSegment?.({
-                    id: `max-turns-${uuid()}`,
-                    type: 'error',
-                    content: `Stopped after ${globalMaxTurns} tool calls to prevent an infinite loop.`,
-                    details: 'MAX_TURNS_EXCEEDED'
-                });
-                break;
-            }
-
-            // Turn-1 forced tool call (orchestrator-driven toolChoice) — runs the
-            // handler directly instead of the LLM. `skip` = this turn is done
-            // (handler missing / aborted); otherwise fall through with the request
-            // stripped of toolChoice for the follow-up. See _maybeRunSyntheticTool.
-            const synthetic = await this._maybeRunSyntheticTool(baseRequest, turns, messages, targetElement);
-            baseRequest = synthetic.baseRequest;
-            if (synthetic.skip) { continueLoop = false; continue; }
-
-            // ── Build per-phase request when pipeline is active ───────────────
-            let phaseMessages: AparteChatMessage[] = messages;
-            let phaseMeta: AparteRequestMeta | undefined = baseRequest._meta;
-            if (pipeline && pipelineIndex < pipeline.length) {
-                const phase = pipeline[pipelineIndex]!;
-                phaseMessages = [{ role: 'system', content: phase.system } as AparteChatMessage, ...messages];
-                if (phase.mode === 'artifact') {
-                    phaseMeta = { ...phaseMeta, artifactRaw: { mimeType: phase.mimeType, kind: phase.kind } };
-                } else {
-                    // Ensure no stale artifactRaw leaks into a text phase
-                    const { artifactRaw: _dropped, pipeline: _p, ...restMeta } = (phaseMeta ?? {}) as AparteRequestMeta;
-                    phaseMeta = restMeta;
-                }
-            }
-            const request: AparteChatRequest = { ...baseRequest, messages: phaseMessages, _meta: phaseMeta };
-            const response = await this._config.getTransport().chat(provider, request, authConfig, { providerId: provider.id, signal: streamController.signal });
-
-            if (typeof response === 'string') {
-                // PARSED, like every other reply. Writing the raw string to `content`
-                // meant a non-streaming backend rendered literal ``` fences and got no
-                // code, thinking or artifact segments at all — while the SAME backend
-                // through the engine seam rendered them properly, because
-                // `runStreamAgent` emits the string as a `text-delta` and the adapter
-                // parses it. Two loops, two different products from one response.
-                const wholeParser = new AparteStreamParser();
-                const parsed = [
-                    ...wholeParser.parse(response).segments,
-                    ...wholeParser.finalize(),
-                ];
-                /*
-                 * And PROMOTED, for the same reason it is parsed.
-                 *
-                 * The streaming path below applies this twice — once as the fence closes,
-                 * once at finalize — and this branch applied it never. So a caller who set
-                 * `_meta.artifactHint` got an artifact from a streaming backend and a bare
-                 * code fence from a non-streaming one: one response, two products,
-                 * decided by which transport happens to be wired. That is precisely the
-                 * class of defect the engine parity suite exists to prevent, and it missed
-                 * this one because it never pairs a hint with a plain-string reply.
-                 */
-                const stringHint = baseRequest._meta?.artifactHint;
-                if (stringHint) {
-                    const codeIdx = parsed.findIndex((s) => s.type === 'code');
-                    if (codeIdx !== -1) {
-                        const codeSeg = parsed[codeIdx] as import('../types/segments.js').AparteCodeSegment;
-                        parsed[codeIdx] = {
-                            id: codeSeg.id,
-                            type: 'artifact',
-                            mimeType: stringHint.mimeType,
-                            artifactType: stringHint.kind,
-                            title: codeSeg.filename ?? stringHint.kind,
-                            content: codeSeg.content,
-                        } as import('../types/segments.js').AparteArtifactSegment;
-                    }
-                }
-                if (parsed.length > 0) {
-                    for (const segment of parsed) targetElement.addSegment?.(segment);
-                    this._updateMessage(targetElement, messageId, { status: 'completed' });
-                } else {
-                    // Nothing parseable (an empty or whitespace-only reply): keep the
-                    // old shape so the bubble still has something to show.
-                    this._updateMessage(targetElement, messageId, { content: response, status: 'completed' });
-                }
-                return undefined;
-            }
-
-            // Streaming mode
-            const reader = (response as ReadableStream<AparteStreamEvent>).getReader();
-            const textParser = new AparteStreamParser();
-            const streamingSegmentIds = new Set<string>();
-            /**
-             * Lifecycle bookkeeping for artifact segments. Maps a segment id to the
-             * length of content already broadcast via `aparte-artifact-delta`. Used to
-             * compute incremental chunks without forcing the parser to expose deltas.
-             */
-            const artifactProgress = new Map<string, number>();
-            let thinkingSegmentId: string | null = null;
-            let thinkingContent = '';
-            let thinkingCollapsed = false;
-            // Extract artifact hint once — used in both streaming and finalize promotion
-            const artifactHint = baseRequest._meta?.artifactHint;
-            let artifactPromoted = false; // promote only the first code segment
-
-            // ── artifactRaw mode (turn 2 of multi-turn) ──────────────────────
-            // Entire stream is raw code → routed directly into an artifact segment.
-            const artifactRawHint = request._meta?.artifactRaw;
-            let rawSegId: string | null = null;
-            let rawContent = '';
-
-            if (artifactRawHint) {
-                // Create the artifact segment immediately (pill during streaming)
-                rawSegId = `artifact-raw-${uuid()}`;
-                const rawSeg: import('../types/segments.js').AparteArtifactSegment = {
-                    id: rawSegId, type: 'artifact',
-                    mimeType: artifactRawHint.mimeType,
-                    artifactType: artifactRawHint.kind,
-                    title: artifactRawHint.kind,
-                    content: '',
-                };
-                targetElement.addSegment?.(rawSeg);
-                streamingSegmentIds.add(rawSegId);
-                dispatchArtifactLifecycle(targetElement, messageId, rawSeg, artifactProgress, false);
-            }
-            // ── END artifactRaw ──────────────────────────────────────────────
-
-            // ── XML artifact streaming state (Claude-like) — fed to ./xml-artifact-feed.ts ──
-            const artifactXmlHint = baseRequest._meta?.artifactXml;
-            const xmlCtx: XmlArtifactStreamState = {
-                state: 'normal', scanBuf: '', closeBuf: '', segId: null, content: '', mime: '', kind: '', title: '',
-            };
-
-            // Accumulated text before a tool call in this turn
-            let precedingText = '';
-            // Tool calls emitted during this turn
-            const toolCallsThisTurn: AparteToolCall[] = [];
-
-            // Honor abort INSIDE the SSE event loop too (not only between tool-call
-            // turns). Without this, late events buffered after an `aparte-abort`
-            // (e.g. after the user switches conversation mid-stream) keep mutating
-            // the target's last message — which may now belong to a different
-            // conversation, causing the user message in the new conv to be
-            // overwritten by the assistant reply from the old one.
-            //
-            // Checked on BOTH sides of the read, and that is the whole point: the
-            // loop spends nearly all of its time parked on `reader.read()`, so an
-            // abort arriving while parked — the user pressing Stop while watching
-            // text stream, i.e. the only case that actually happens — is invisible
-            // to a check that only runs before the await. Checking after the read
-            // also covers both shapes a provider can take on abort: an `error`
-            // event (openai-compat) or a quiet close (ai-sdk). Miss it and the
-            // error branch throws, `_handleLifecycleError` REPLACES `segments`,
-            // and the answer the user was reading is erased and blamed on a fault.
-            const bailOnAbort = (): boolean => {
-                if (!this._isAborted) return false;
-                try { void reader.cancel(); } catch { /* best effort */ }
-                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
-                continueLoop = false;
-                return true;
-            };
-
-            // Did the vendor stream reach its own end, or are we walking away from
-            // it? Only the second case needs a cancel (see the finally below).
-            let streamDrained = false;
-
-            try {
-                while (true) {
-                    if (bailOnAbort()) break;
-                    const { done, value: event } = await reader.read();
-                    if (bailOnAbort()) break;
-                    if (done) { streamDrained = true; break; }
-
-                    switch (event.type) {
-                        case 'thinking': {
-                            thinkingContent += event.delta;
-                            if (!thinkingSegmentId) {
-                                const seg: AparteThinkingSegment = {
-                                    id: `think-${uuid()}`,
-                                    type: 'thinking',
-                                    content: thinkingContent,
-                                    collapsed: true,
-                                    label: 'Thinking'
-                                };
-                                thinkingSegmentId = seg.id;
-                                streamingSegmentIds.add(seg.id);
-                                targetElement.addSegment?.(seg);
-                            } else {
-                                targetElement.updateSegment?.(thinkingSegmentId, { content: thinkingContent });
-                            }
-                            break;
-                        }
-                        case 'text': {
-                            // Collapse thinking block when the response text starts
-                            if (thinkingSegmentId && !thinkingCollapsed) {
-                                // Same reasoning as the adapter's `text-delta` arm,
-                                // kept in step because the parity suite diffs these
-                                // two call sequences: reasoning on its own channel
-                                // has no closing delimiter, so the first answer
-                                // token IS its end.
-                                targetElement.updateSegment?.(thinkingSegmentId, { collapsed: true, isStreaming: false });
-                                thinkingCollapsed = true;
-                            }
-                            precedingText += event.delta;
-
-                            // ── artifactRaw: whole stream → artifact segment ──────────────
-                            if (artifactRawHint && rawSegId) {
-                                rawContent += event.delta;
-                                targetElement.updateSegment?.(rawSegId, { content: rawContent });
-                                dispatchArtifactLifecycle(targetElement, messageId, {
-                                    id: rawSegId, type: 'artifact',
-                                    mimeType: artifactRawHint.mimeType,
-                                    artifactType: artifactRawHint.kind,
-                                    title: artifactRawHint.kind,
-                                    content: rawContent,
-                                } as import('../types/segments.js').AparteArtifactSegment, artifactProgress, false);
-                                break;
-                            }
-
-                            // XML artifact streaming (Claude-like) — see ./xml-artifact-feed.ts.
-                            if (artifactXmlHint) {
-                                feedXmlArtifactDelta(event.delta, xmlCtx, {
-                                    targetElement, messageId, textParser, streamingSegmentIds, artifactProgress, artifactXmlHint,
-                                });
-                                break;
-                            }
-                            const result = textParser.parse(event.delta);
-                            for (let segment of result.segments) {
-                                // Artifact hint promotion: promote first code fence → artifact
-                                if (artifactHint && !artifactPromoted && segment.type === 'code') {
-                                    const codeSeg = segment as import('../types/segments.js').AparteCodeSegment;
-                                    const promoted: import('../types/segments.js').AparteArtifactSegment = {
-                                        id: codeSeg.id,
-                                        type: 'artifact',
-                                        mimeType: artifactHint.mimeType,
-                                        artifactType: artifactHint.kind,
-                                        title: codeSeg.filename ?? artifactHint.kind,
-                                        content: codeSeg.content,
-                                    };
-                                    segment = promoted;
-                                    artifactPromoted = true;
-                                }
-                                if (!streamingSegmentIds.has(segment.id)) {
-                                    targetElement.addSegment?.(segment);
-                                    streamingSegmentIds.add(segment.id);
-                                } else if ('content' in segment) {
-                                    // Segment was already streaming — sync the final content
-                                    targetElement.updateSegment?.(segment.id, segmentContentUpdate(segment));
-                                }
-                                if (segment.type === 'artifact') {
-                                    dispatchArtifactLifecycle(targetElement, messageId, segment, artifactProgress, true);
-                                }
-                            }
-                            const active = textParser.getState().activeSegment;
-                            if (active) {
-                                if (!streamingSegmentIds.has(active.id)) {
-                                    targetElement.addSegment?.(active);
-                                    streamingSegmentIds.add(active.id);
-                                    if (active.type === 'artifact') {
-                                        dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
-                                    }
-                                } else {
-                                    targetElement.updateSegment?.(active.id, segmentContentUpdate(active));
-                                    if (active.type === 'artifact') {
-                                        dispatchArtifactLifecycle(targetElement, messageId, active, artifactProgress, false);
-                                    }
-                                }
-                            } else if (result.segments.length === 0) {
-                                // NOTHING here on purpose. This branch used to write
-                                // the raw delta into `message.content`, and it is the
-                                // second half of the history corruption: it only ever
-                                // fires when the parser has withheld an ambiguous
-                                // prefix (``` / ` / <) — a real text delta always
-                                // leaves an ACTIVE segment, which the branch above
-                                // handles. Measured: `parse('a b')` gives 0 segments
-                                // and an active text segment; `parse('```')` gives 0
-                                // and none.
-                                //
-                                // So the parser is holding those characters, and
-                                // `finalize()` flushes them as a text segment if the
-                                // stream ends there — verified. Writing them out here
-                                // duplicated them into a field that history then
-                                // preferred over what was rendered.
-                            }
-                            break;
-                        }
-                        case 'tool_use': {
-                            const toolResult = await this._handleToolUseEvent(
-                                { id: event.id, name: event.name, input: event.input },
-                                { targetElement, messageId, messages, toolCallsThisTurn, precedingText, artifactProgress, turns, globalMaxTurns },
-                            );
-                            // Anything but `'continue'` ends THIS turn's remaining tool
-                            // calls; only `'halt'` also ends the run.
-                            if (toolResult.flow !== 'continue') endTurnEarly = true;
-                            if (toolResult.flow === 'halt') continueLoop = false;
-                            break;
-                        }
-                        case 'error':
-                            throw new Error(event.message);
-                        case 'done':
-                            if (event.usage) lastUsage = event.usage;
-                            break;
-                        default: {
-                            // Compile-time exhaustiveness is KEPT: add a member to the
-                            // union and this assignment stops typechecking. What is gone
-                            // is the runtime throw.
-                            //
-                            // `assertNever` threw here, `_streamTurn` caught it, and
-                            // `_handleLifecycleError` REPLACED the message's segments with
-                            // an error bubble — so one unrecognised event destroyed a reply
-                            // the user was already reading. That is reachable on any
-                            // provider/SDK version skew: the ai-sdk mapper already drops
-                            // `source`/`file`/`abort` parts by design, so a new member is a
-                            // normal event, not a corrupt stream.
-                            const exhaustive: never = event;
-                            void exhaustive;
-                            this._warnUnknownStreamEvent(event);
-                            break;
-                        }
-                    }
-
-                    // A `break` inside the switch above leaves the SWITCH, not this
-                    // loop. Without this line a turn the loop already decided to
-                    // stop — a tool the human rejected, a per-tool turn limit, a
-                    // missing handler — went on to execute every remaining tool
-                    // call of the same turn: side effects ran after an explicit
-                    // refusal, and their results were appended to a stopped loop's
-                    // history. `runStreamAgent` exits its inner loop for the same
-                    // reasons; this is the core side of that agreement.
-                    //
-                    // Per TURN, not per run: a refusal ends this turn's remaining
-                    // calls and then hands the model a turn to answer in, which one
-                    // boolean could not express.
-                    if (endTurnEarly) break;
-                }
-
-                // artifactXml finalize comes FIRST: its `scanning` branch pushes
-                // held text back into the parser, which only works while the parser
-                // can still be flushed. Same ordering as the engine twin, and the
-                // parity suite now asserts the two agree.
-                finalizeXmlArtifact(xmlCtx, { targetElement, messageId, artifactProgress, artifactXmlHint, textParser, streamingSegmentIds });
-
-                // Finalize text parser
-                const finals = textParser.finalize();
-
-                // ── artifactRaw finalize ──────────────────────────────────────
-                if (artifactRawHint && rawSegId) {
-                    const lineCount = rawContent.split('\n').length;
-                    const isInline = lineCount < 15;
-                    targetElement.updateSegment?.(rawSegId, { content: rawContent, inline: isInline } as Partial<import('../types/segments.js').AparteArtifactSegment>);
-                    dispatchArtifactLifecycle(targetElement, messageId, {
-                        id: rawSegId, type: 'artifact',
-                        mimeType: artifactRawHint.mimeType, artifactType: artifactRawHint.kind,
-                        title: artifactRawHint.kind, content: rawContent, inline: isInline,
-                    } as import('../types/segments.js').AparteArtifactSegment, artifactProgress, true);
-                }
-                // ── END artifactRaw finalize ──────────────────────────────────
-
-
-                // ── Artifact hint promotion (finalize) ───────────────────────
-                // Handles the case where the code fence was not yet finalized
-                // during streaming (e.g. stream ended without closing ```).
-                if (artifactHint && !artifactPromoted) {
-                    const codeIdx = finals.findIndex(s => s.type === 'code');
-                    if (codeIdx !== -1) {
-                        const codeSeg = finals[codeIdx] as import('../types/segments.js').AparteCodeSegment;
-                        const promoted: import('../types/segments.js').AparteArtifactSegment = {
-                            id: codeSeg.id,
-                            type: 'artifact',
-                            mimeType: artifactHint.mimeType,
-                            artifactType: artifactHint.kind,
-                            title: codeSeg.filename ?? artifactHint.kind,
-                            content: codeSeg.content,
-                        };
-                        finals[codeIdx] = promoted;
-                        artifactPromoted = true;
-                        // Already in DOM as code block → re-render as artifact pill
-                        if (streamingSegmentIds.has(promoted.id)) {
-                            targetElement.updateSegment?.(promoted.id, promoted);
-                        }
-                    }
-                }
-                // ────────────────────────────────────────────────────────────
-
-                for (const s of finals) {
-                    if (!streamingSegmentIds.has(s.id)) {
-                        targetElement.addSegment?.(s);
-                    } else if ('content' in s) {
-                        // finalize() appended the residual buffer — sync to DOM
-                        targetElement.updateSegment?.(s.id, segmentContentUpdate(s));
-                    }
-                    if (s.type === 'artifact') {
-                        dispatchArtifactLifecycle(targetElement, messageId, s, artifactProgress, true);
-                    }
-                }
-
-                // Stop looping — or advance to the next pipeline phase
-                if (toolCallsThisTurn.length === 0) {
-                    if (pipeline && pipelineIndex < pipeline.length - 1) {
-                        // Inject this turn's assistant reply as context for the next phase
-                        if (precedingText.trim()) {
-                            messages.push({ role: 'assistant', content: precedingText.trim() });
-                        }
-                        pipelineIndex++;
-                        // Show pulsing dots while we wait for the next phase.
-                        // The segment removes itself automatically via MutationObserver
-                        // when the next segment appears — no manual cleanup needed.
-                        const pwId = `pw-${uuid()}`;
-                        targetElement.addSegment?.({ id: pwId, type: 'pipeline-waiting' });
-                        // continueLoop stays true — next iteration handles the new phase
-                    } else {
-                        continueLoop = false;
-                    }
-                }
-
-            } finally {
-                // Leaving before the stream ended on its own — a thrown error, a
-                // rejected tool, a per-tool turn limit — used to just release the
-                // lock, so the vendor happily kept generating (and billing) into a
-                // body nobody would ever read. Releasing a reader does not stop a
-                // stream; cancelling it does.
-                if (!streamDrained) {
-                    try { await reader.cancel(); } catch { /* best effort */ }
-                }
-                reader.releaseLock();
-            }
-        }
-
-        this._updateMessage(targetElement, messageId, { status: 'completed' });
-        // Push usage onto the live bubble so the info action (stats popover)
-        // is available immediately, even for consumers that don't listen for
-        // `aparte-message-done`.
-        if (lastUsage) {
-            try {
-                (targetElement as { setUsage?: (id: string, u: AparteUsage) => void })
-                    .setUsage?.(messageId, lastUsage);
-            } catch { /* viewport may not implement setUsage */ }
-        }
-        return lastUsage;
+        // The loop is the engine's. `streamRunner` lets a host wrap or replace it
+        // (`onHistoryAppend`, a prefix-cache transport…); absent, `runStreamAgent`
+        // runs, rendered through the core adapter. Core used to carry a second copy
+        // of this loop inline — five hundred lines "kept in sync" with the engine by
+        // hand — and the same tool turn corrupted the history in two different
+        // shapes, one per copy, invisible to a parity suite precisely because they
+        // differed. One loop, one shape (audit 2026-08-28, D1).
+        const runner = this.options.streamRunner ?? runStreamAgent;
+        return this._runViaStreamRunner(runner, targetElement, messageId, provider, baseRequest, authConfig, streamController);
     }
 
     /**
-     * Delegate `_streamLoop`'s agentic loop to an injected {@link AparteStreamRunner},
-     * rendering its DOM-free events through {@link createStreamAdapter}.
-     * Builds the runner's dependencies from this client's config / provider /
-     * transport; the adapter reproduces the inline loop's `targetElement.*` calls
-     * (validated by the engine `stream-parity` suite). Leading writes (status
-     * streaming, prefix segments) mirror the inline path; the runner's `run-start`
-     * re-asserts `streaming` idempotently.
+     * Run the loop through a {@link AparteStreamRunner} — the engine's by default —
+     * rendering its DOM-free events through {@link createStreamAdapter}. Builds the
+     * runner's dependencies from this client's config / provider / transport. The
+     * leading writes (status streaming, prefix segments) happen here; the runner's
+     * `run-start` re-asserts `streaming` idempotently. The call sequence this
+     * produces is pinned by the `stream-parity` suite's snapshots, recorded while
+     * the inline loop it replaced still ran beside it.
      */
     private async _runViaStreamRunner(
         streamRunner: AparteStreamRunner,
@@ -2311,21 +1476,26 @@ export class AparteClient {
     ): Promise<AparteUsage | undefined> {
         const signal = streamController.signal;
 
-        // Leading writes: mirror the `status: 'streaming'` update and the
-        // `prefixSegments` injection at the top of the inline `_streamLoop`.
-        this._updateMessage(targetElement, messageId, { status: 'streaming' });
-        const prefixSegments = baseRequest._meta?.['prefixSegments'] as AparteSegment[] | undefined;
-        if (prefixSegments?.length) {
-            for (const seg of prefixSegments) targetElement.addSegment?.(seg);
-        }
-
         const artifactHint = baseRequest._meta?.artifactHint;
-        const emitter = createStreamAdapter({
+        const adapter = createStreamAdapter({
             target: targetElement as StreamAdapterTarget,
             config: this._config,
             messageId,
             artifactHint,
         });
+        // `prefixSegments` (`_meta`) land right after the runner's `run-start` — the
+        // flip to `status: 'streaming'` — so they sit on a streaming bubble, in the
+        // order the loop always used: status first, then the segments the host seeded.
+        // The client used to write the status itself before the runner and let
+        // `run-start` repeat it: harmless on the page, but one call the recorded
+        // sequence never had, which is how the parity suite caught it.
+        const prefixSegments = baseRequest._meta?.['prefixSegments'] as AparteSegment[] | undefined;
+        const emitter: AparteStreamRunEmitter = (event) => {
+            adapter(event);
+            if (event.type === 'run-start' && prefixSegments?.length) {
+                for (const seg of prefixSegments) targetElement.addSegment?.(seg);
+            }
+        };
 
         const transportCall = async (request: AparteChatRequest): Promise<AsyncIterable<AparteStreamEvent> | string> => {
             const response = await this._config.getTransport().chat(provider, request, authConfig, { providerId: provider.id, signal });
@@ -2334,7 +1504,7 @@ export class AparteClient {
                 : readableToAsyncIterable(response as ReadableStream<AparteStreamEvent>, signal);
         };
         // Wrapped, so the INJECTED runner hands a handler the same context core's
-        // inline loop does. Without this, `streamRunner: runStreamAgent` would be the
+        // inline loop did. Without this, `streamRunner: runStreamAgent` would be the
         // one configuration where `ask_user` still silently cancelled — a new
         // parity divergence introduced by fixing the old one.
         const toolLookup = (name: string) => {
@@ -2347,7 +1517,7 @@ export class AparteClient {
             const tool = this._config.getTools().find(t => t.name === name);
             return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;
         };
-        // The SAME channel as the inline loop's. It used to be the `document` listener
+        // The SAME channel the inline loop had. It used to be the `document` listener
         // while the inline loop asked at the composer — two loops asking two different
         // ways, which the parity suite cannot see because it supplies its own resolver
         // to both sides.
@@ -2370,7 +1540,7 @@ export class AparteClient {
             // inline path, so setting it was silently ignored here. Exactly the
             // asymmetry the option was added to remove.
             toolTimeoutMs: this.options.toolTimeoutMs,
-            // Match the inline loop's id conventions: prefixed artifact ids, but a
+            // The id conventions the loop always had: prefixed artifact ids, but a
             // BARE uuid for the synthetic tool (the adapter renders `tool-<id>`).
             idGen: (prefix) => (prefix === 'synthetic-tool' ? uuid() : `${prefix}-${uuid()}`),
         });
@@ -2451,18 +1621,5 @@ export class AparteClient {
         }
 
         dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
-    }
-
-    /** Warn once per client for an unrecognised stream event, then carry on. */
-    private _warnedUnknownEvents = new Set<string>();
-    private _warnUnknownStreamEvent(event: unknown): void {
-        const type = String((event as { type?: unknown })?.type ?? 'undefined');
-        if (this._warnedUnknownEvents.has(type)) return;
-        this._warnedUnknownEvents.add(type);
-        console.warn(
-            `[AparteClient] Ignoring unrecognised stream event "${type}". The reply is`
-            + ' unaffected; this usually means the provider or its SDK emits a part this'
-            + ' version of aparté does not map yet.',
-        );
     }
 }

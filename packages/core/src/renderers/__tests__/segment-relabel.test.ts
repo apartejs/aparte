@@ -204,20 +204,6 @@ describe('relabel reaches a rendered segment', () => {
         expect(el.querySelector('[data-role="file-sub"]')!.textContent).toBe('Génération…');
     });
 
-    it('the waiting indicator’s accessible name — its only content', () => {
-        const el = mount([seg({ id: 's1', type: 'pipeline-waiting' })]);
-        const dots = el.querySelector('.aparte-segment-pipeline-waiting')!;
-
-        expect(dots.getAttribute('aria-label')).toBe('Generating…');
-
-        aparteGlobalConfig.setLocale({ ...FR(), generating: 'Génération…' });
-
-        // Three CSS dots and a name. A sighted user sees nothing change in any
-        // language, which is exactly why this string stayed English through every
-        // locale the project shipped.
-        expect(dots.getAttribute('aria-label')).toBe('Génération…');
-    });
-
     it('an error card’s icon and heading', () => {
         const el = mount([seg({ id: 's1', type: 'error', content: 'boom' })]);
 

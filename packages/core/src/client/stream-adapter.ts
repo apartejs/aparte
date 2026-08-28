@@ -3,19 +3,19 @@
  *
  * `@aparte/engine`'s `runStreamAgent` is the headless loop: it emits high-level,
  * DOM-free run events. This adapter is the other half — it turns each event into
- * the exact `targetElement.*` calls + CustomEvents that `AparteClient._streamLoop`
- * performs today, using the **real** `AparteStreamParser` and tool renderers. So
- * `runStreamAgent` (engine, pure Node) + this adapter (core, DOM) reproduce
- * `_streamLoop` byte-for-byte.
+ * the exact `targetElement.*` calls + CustomEvents that core's inline loop
+ * performed, using the **real** `AparteStreamParser` and tool renderers. So
+ * `runStreamAgent` (engine, pure Node) + this adapter (core, DOM) reproduce that
+ * loop byte-for-byte — and have replaced it (audit 2026-08-28, D1).
  *
- * DEPENDENCY DIRECTION: `@aparte/core` is the zero-dep leaf — it must NEVER import
- * `@aparte/engine` (engine peer-deps core; importing back would create a build
- * cycle). So the run-event contract is **mirrored** here as
- * {@link AparteStreamRunEvent}, structurally identical to engine's `StreamRunEvent`.
- * `@aparte/engine`'s `runStreamAgent` emits objects that satisfy this type; a
- * consumer wires the two together via the injectable
- * `AparteClientOptions.streamRunner` seam — the same pattern as `approvalResolver`
- * (HITL) and `compactionSelector`. Keep the two unions in sync by hand.
+ * DEPENDENCY DIRECTION: `@aparte/core` depends on `@aparte/engine` — first-party, so
+ * the zero-third-party-dependency promise is untouched — never the reverse. The
+ * run-event contract is engine's: {@link AparteStreamRunEvent} and its siblings below
+ * are `StreamRunEvent` & co under core's names, so there is nothing to keep in sync by
+ * hand any more. The hand-mirrored union this file used to carry, and the compile-time
+ * guard in engine that policed it, went with the mirror (audit 2026-08-28, D1). A
+ * consumer wires a runner through `AparteClientOptions.streamRunner` — the same
+ * pattern as `approvalResolver` (HITL) and `compactionSelector`.
  */
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
@@ -28,84 +28,43 @@ import type {
     AparteArtifactSegment,
     AparteCodeSegment,
 } from '../types/segments.js';
-import type { AparteUsage, AparteChatRequest } from '../types/chat.js';
+import type { AparteUsage } from '../types/chat.js';
+import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
 import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
 import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 
 /**
- * DOM-free run events emitted by `@aparte/engine`'s `runStreamAgent`, mirrored here
- * so core need not import engine. **Structurally identical** to engine's
- * `StreamRunEvent` — kept in sync manually (the boundary cost of the zero-dep
- * leaf). See `packages/engine/src/agent/stream-events.ts` for the source of truth
- * and the per-event `_streamLoop` mapping notes.
+ * The DOM-free run events `@aparte/engine`'s `runStreamAgent` emits — engine's
+ * `StreamRunEvent`, under core's name. See `packages/engine/src/agent/stream-events.ts`
+ * for the per-event `_streamLoop` mapping notes.
  */
-export type AparteStreamRunEvent =
-    | { type: 'run-start' }
-    | { type: 'turn-start' }
-    | { type: 'text-delta'; delta: string; reduced?: boolean }
-    | { type: 'text-flush' }
-    | { type: 'thinking-delta'; delta: string }
-    | { type: 'artifact-open'; id: string; mimeType: string; kind: string; title: string }
-    | { type: 'artifact-chunk'; id: string; content: string }
-    | { type: 'artifact-close'; id: string; content: string; inline: boolean }
-    | { type: 'artifact-ready'; id: string; mimeType: string; kind: string; title: string; content: string }
-    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
-    | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
-    | { type: 'tool-approved'; toolCallId: string }
-    | { type: 'tool-rejected'; toolCallId: string; reason: string }
-    | { type: 'tool-resolved'; toolCallId: string; result: string }
-    | { type: 'tool-aborted'; toolCallId: string }
-    | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
-    | { type: 'phase-advance'; index: number }
-    | { type: 'run-aborted' }
-    | { type: 'run-done'; usage?: AparteUsage };
+export type AparteStreamRunEvent = StreamRunEvent;
 
-/** Synchronous, ordered event sink — mirrors engine's `StreamRunEmitter`. */
-export type AparteStreamRunEmitter = (event: AparteStreamRunEvent) => void;
+/** Synchronous, ordered event sink — engine's `StreamRunEmitter`. */
+export type AparteStreamRunEmitter = StreamRunEmitter;
 
 /**
- * Options for an injected {@link AparteStreamRunner} — structurally identical to
- * engine's `StreamRunOptions` (the mirror boundary again). `AparteClient` builds
- * these from its config/provider/transport and hands them to the runner.
+ * Options for an injected {@link AparteStreamRunner} — engine's `StreamRunOptions`.
+ * `AparteClient` builds these from its config / provider / transport and hands them
+ * to the runner; core's request, message and tool types are assignable to the
+ * structural ones the engine declares, and that assignment is checked where it is
+ * made rather than in a guard beside it.
  */
-export interface AparteStreamRunOptions {
-    messageId: string;
-    baseRequest: AparteChatRequest;
-    /** Calls the transport; returns the structured stream or a plain string. */
-    transportCall: (request: AparteChatRequest) => Promise<AsyncIterable<AparteStreamEvent> | string>;
-    /** Resolves a tool's handler by name (mirrors `aparteGlobalConfig.getToolHandler`). */
-    toolLookup: (name: string) => ((call: { id: string; name: string; input: Record<string, unknown> }, signal: AbortSignal) => Promise<{ content: string }>) | undefined;
-    /** Resolves a tool's loop config by name (maxTurns / needsApproval). */
-    toolConfigLookup?: (name: string) => { maxTurns?: number; needsApproval?: boolean } | undefined;
-    /** HITL approval resolver for `needsApproval` tools. */
-    approvalResolver?: (
-        call: { id: string; name: string; input: Record<string, unknown> },
-        signal: AbortSignal,
-    ) => Promise<{ approved: boolean; payload?: unknown; instruction?: string }>;
-    /** The DOM adapter (from {@link createStreamAdapter}). */
-    emitter: AparteStreamRunEmitter;
-    /** Single abort signal (the client composes `_isAborted` + the controller). */
-    signal: AbortSignal;
-    maxTurns?: number;
-    toolTimeoutMs?: number;
-    idGen?: (prefix: string) => string;
-}
+export type AparteStreamRunOptions = StreamRunOptions;
 
 /**
  * A headless structured-stream loop injected via `AparteClientOptions.streamRunner`
- * — the seam by which a consumer swaps `_streamLoop`'s inline loop for
- * `@aparte/engine`'s `runStreamAgent` (core stays the zero-dep leaf; it never
- * imports engine).
+ * — the seam by which a host wraps or replaces the loop `AparteClient` runs,
+ * which is `@aparte/engine`'s `runStreamAgent` by default.
  *
- * `runStreamAgent` is directly assignable to this type — pass it, do not cast it.
- * An earlier version of this comment advised a cast "if the duck-typed shapes
- * don't line up", which is how the two packages' message types drifted apart
- * unnoticed and shipped a `streamRunner: runStreamAgent` that did not compile on
- * five docs pages and a README. A cast here hides exactly the drift that
- * `stream-events.contract.ts` now exists to fail on.
+ * `runStreamAgent` IS this type — pass it, do not cast it. An earlier version of this
+ * comment advised a cast "if the duck-typed shapes don't line up", which is how the
+ * two packages' message types drifted apart unnoticed and shipped a
+ * `streamRunner: runStreamAgent` that did not compile on five docs pages and a
+ * README. The alias makes that drift a typecheck error in the composition itself.
  */
-export type AparteStreamRunner = (opts: AparteStreamRunOptions) => Promise<AparteUsage | undefined>;
+export type AparteStreamRunner = (opts: AparteStreamRunOptions) => Promise<StreamUsage | undefined>;
 
 /**
  * The imperative surface the adapter drives (subset of `AparteChatTargetElement`).
@@ -140,7 +99,7 @@ export interface CreateStreamAdapterOptions {
 /**
  * Build the event → DOM adapter for one streamed message. Returns a synchronous
  * {@link AparteStreamRunEmitter} to hand to `runStreamAgent` as its `emitter`.
- * Reproduces `_streamLoop`'s `targetElement.*` call sequence exactly (validated
+ * Reproduces the inline loop's `targetElement.*` call sequence exactly (validated
  * by the engine parity test against the real loop).
  */
 export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStreamRunEmitter {
@@ -157,7 +116,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let artifactPromoted = false;
     // id → open-segment meta, so chunk/close can rebuild the full segment for the
     // artifact-lifecycle dispatch (which reads mimeType/artifactType/title).
-    let artifactMeta = new Map<string, { mimeType: string; artifactType: string; title: string }>();
 
     return (e: AparteStreamRunEvent): void => {
         switch (e.type) {
@@ -173,7 +131,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 thinkingCollapsed = false;
                 artifactProgress = new Map();
                 artifactPromoted = false;
-                artifactMeta = new Map();
                 break;
 
             case 'thinking-delta': {
@@ -208,42 +165,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     // unaffected — it was frozen by the last reasoning delta.
                     target.updateSegment?.(thinkingId, { collapsed: true, isStreaming: false });
                     thinkingCollapsed = true;
-                }
-                // Reduced pre-tag path (XML mode): render only completed segments;
-                // leave the trailing active segment for the next tag-free delta
-                // (mirrors `emitChatText(…, syncActive = false)` in
-                // ./xml-artifact-feed.ts). No artifact promotion here —
-                // pre-tag text is plain chat.
-                if (e.reduced) {
-                    const r = parser.parse(e.delta);
-                    for (const segment of r.segments) {
-                        if (!streaming.has(segment.id)) {
-                            target.addSegment?.(segment);
-                            streaming.add(segment.id);
-                        } else if ('content' in segment) {
-                            // Already rendered while ACTIVE and now COMPLETED, so
-                            // its final content has to land. Without this arm a
-                            // delta that both closes a code fence and precedes an
-                            // `<artifact>` tag froze that fence at whatever the
-                            // parser's 4-char safe window had released, and
-                            // `text-flush` cannot recover it: `finalize()` returns
-                            // the active segment and the residual buffer, never one
-                            // that already completed. Core's twin (`emitChatText`)
-                            // has always had both arms.
-                            target.updateSegment?.(segment.id, segmentContentUpdate(segment));
-                        }
-                    }
-                    // The raw-delta fallback is gone from BOTH loops. It fired only
-                    // when the parser had withheld an ambiguous prefix, wrote those
-                    // characters into `message.content`, and history then preferred
-                    // that field over the rendered segments — so a reply opening with
-                    // a code fence was sent back to the model as three backticks.
-                    // The parser keeps the text and `finalize()` flushes it.
-                    //
-                    // This sibling is explicit because the condition here already
-                    // consulted `activeSegment`, so it read as more careful than
-                    // core's — and was exactly as wrong.
-                    break;
                 }
                 const result = parser.parse(e.delta);
                 for (let segment of result.segments) {
@@ -325,35 +246,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
             }
 
-            case 'artifact-open': {
-                const seg: AparteArtifactSegment = {
-                    id: e.id, type: 'artifact',
-                    mimeType: e.mimeType, artifactType: e.kind, title: e.title,
-                    content: '',
-                };
-                target.addSegment?.(seg);
-                streaming.add(e.id);
-                artifactMeta.set(e.id, { mimeType: e.mimeType, artifactType: e.kind, title: e.title });
-                dispatchArtifactLifecycle(target, messageId, seg, artifactProgress, false);
-                break;
-            }
-
-            case 'artifact-chunk': {
-                const meta = artifactMeta.get(e.id);
-                target.updateSegment?.(e.id, { content: e.content });
-                dispatchArtifactLifecycle(target, messageId, { id: e.id, content: e.content, ...meta }, artifactProgress, false);
-                break;
-            }
-
-            case 'artifact-close': {
-                const meta = artifactMeta.get(e.id);
-                target.updateSegment?.(e.id, { content: e.content, inline: e.inline } as Partial<AparteSegment>);
-                dispatchArtifactLifecycle(target, messageId, { id: e.id, content: e.content, ...meta }, artifactProgress, true);
-                break;
-            }
-
             case 'artifact-ready': {
-                // One-shot create_artifact: full content up-front, no open/chunk.
+                // One-shot create_artifact: full content up-front.
                 const seg: AparteArtifactSegment = {
                     id: e.id, type: 'artifact',
                     mimeType: e.mimeType, artifactType: e.kind, title: e.title,
@@ -416,9 +310,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 }
                 break;
 
-            case 'phase-advance':
-                target.addSegment?.({ id: `pw-${uuid()}`, type: 'pipeline-waiting' } as AparteSegment);
-                break;
 
             case 'run-aborted':
                 dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId });
@@ -438,8 +329,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
  * Bridge a `ReadableStream` (what the transport returns) to the
  * `AsyncIterable<AparteStreamEvent>` `runStreamAgent` consumes, cancelling the
  * reader **synchronously** on abort so a user "stop" cuts the in-flight read.
- * Used by the `_streamLoop` seam when building `transportCall` for an injected
- * runner. Mirrors `_streamLoop`'s `reader.read()` loop + `reader.cancel()`.
+ * Used by `AparteClient` when building `transportCall` for the
+ * runner. Mirrors the inline loop's `reader.read()` loop + `reader.cancel()`.
  */
 export function readableToAsyncIterable(
     stream: ReadableStream<AparteStreamEvent>,

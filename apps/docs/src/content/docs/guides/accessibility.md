@@ -21,9 +21,8 @@ so a screen reader reads a reply as it arrives rather than only on demand. Each 
 a `role="article"` with an `aria-label` naming its author.
 
 The waiting state is separate and deliberate: `<aparte-chat-status>` is `role="status"` /
-`aria-live="polite"`, and the pipeline-waiting segment is a `role="status"` carrying the
-phase's label. A turn that pauses between two steps therefore says so, instead of leaving
-a silence a reader cannot distinguish from a hang.
+`aria-live="polite"`, so a turn that is still being produced says so, instead of leaving a
+silence a reader cannot distinguish from a hang.
 
 The branch picker announces its move through a visually hidden `.aparte-sr-only` node
 rather than by moving focus — pressing `›` should not steal the caret from wherever you

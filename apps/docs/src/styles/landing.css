@@ -62,6 +62,14 @@ a { color: inherit; }
   background: var(--brand-line); border-radius: 999px; border: 2px solid var(--brand-ground);
 }
 :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb:hover { background: #463a54; }
+/* The chat's own scrollbar follows the page's: core derives its thumb from the neutral
+   and re-anchors that on `aparte-chat`, so the mapping has to land on the element, not
+   on the root. */
+:root:not([data-theme="light"]) aparte-chat {
+  --aparte-scrollbar-thumb: var(--brand-line);
+  --aparte-scrollbar-track: var(--brand-ground);
+  --aparte-scrollbar-width: 11px;
+}
 
 .stage-glow {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -180,13 +188,31 @@ h1.thesis em { font-style: italic; color: var(--accent); }
    it is styled like. A select reads as a setting, takes one line, and puts all
    three seams in one glance. */
 .levers { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 20px; margin-block-start: 20px; }
-.levers label { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
-.levers select { font: inherit; font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--text); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer; transition: border-color .2s; }
-.levers select:hover, .levers select:focus-visible { border-color: var(--accent); }
-/* The native menu is painted by the OS in its own colours, so the OPTIONS have to
-   carry a readable pair of their own — a transparent background here renders white
-   on white in a dark-themed browser. */
-.levers option { background: var(--surface); color: var(--text); }
+.levers .lever { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+/* The library's own select (it was a native one, painted white by the browser on this
+   dark page — two designs on one screen). Its tokens make it a quiet pill in the page's
+   colours; the dropdown follows core's dark palette because `index.astro` mirrors the
+   page theme onto `.levers` as `data-aparte-theme`. */
+/* Until core's module runs, an <aparte-select> is an unknown element whose eight
+   <aparte-option> children lay out as eight lines of prose — 110px of nonsense in the
+   hero, then a 71px shift when it upgrades. Reserve a pill's footprint and hide it. */
+.levers aparte-select:not(:defined) {
+  display: inline-block;
+  visibility: hidden;
+  block-size: 30px;
+  inline-size: 12ch;
+  overflow: hidden;
+}
+
+.levers aparte-select {
+  --aparte-select-min-width: 0;
+  --aparte-select-bg: transparent;
+  --aparte-select-border: var(--line);
+  --aparte-select-border-hover: var(--accent);
+  --aparte-select-border-focus: var(--accent);
+  --aparte-select-dropdown-bg: var(--surface);
+  font-size: 13px; letter-spacing: 0; text-transform: none;
+}
 
 /* The version chip in the nav: it says the project ships, says "alpha" without
    hiding it, and is the way to the changelog — all on the pixels one more nav

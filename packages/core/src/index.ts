@@ -29,6 +29,7 @@ import './styles/display/divider.css';
 import './styles/display/alert.css';
 import './styles/display/card.css';
 import './styles/display/kbd.css';
+import './styles/display/mark.css';
 import './styles/surface/tabs.css';
 import './styles/surface/accordion.css';
 import './styles/surface/menu.css';
@@ -43,11 +44,12 @@ import './styles/segment/thinking.css';
 import './styles/segment/code.css';
 import './styles/segment/tool-call.css';
 import './styles/segment/error.css';
-import './styles/segment/pipeline.css';
 import './styles/segment/text.css';
 import './styles/segment/artifact.css';
 import './styles/components/elicitation.css';
 import './styles/components/conversation.css';
+import './styles/components/suggestions.css';
+import './styles/components/context.css';
 import './styles/prose.css';
 import './styles/responsive.css';
 
@@ -84,8 +86,8 @@ export type {
     AparteToolCallSegment,
     AparteArtifactSegment,
     // Five shapes that were public in everything but name. `AparteSegment` is exported
-    // and its union names all eight members, yet two of them — the error segment and the
-    // pipeline indicator — could not be written down: narrowing on `type: 'error'` gave a
+    // and its union names all its members, yet the error segment could not be written
+    // down: narrowing on `type: 'error'` gave a
     // consumer the shape and no way to declare a variable of it. `AparteSegmentBase` is
     // worse than an omission: it is the CONSTRAINT on the exported
     // `AparteSegmentRenderer<T>`, so writing a renderer for a segment type of your own
@@ -95,7 +97,6 @@ export type {
     AparteSegmentDefaults,
     AparteSegmentTiming,
     AparteErrorSegment,
-    ApartePipelineWaitingSegment,
     // The detail of the `aparte-segment-update` event. It reached types/index.ts and
     // stopped there — and types/index.ts is not an entry point, so a consumer could
     // bind the event (it is in the published event table) and never name its detail.
@@ -207,6 +208,10 @@ export { AparteChatViewport } from './components/index.js';
 // Export composer primitives
 export { AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel, AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar } from './components/index.js';
 export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
+export { AparteSuggestions } from './components/index.js';
+export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
+export { AparteContext } from './components/index.js';
+export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';
@@ -217,8 +222,6 @@ export type {
     AparteConversation,
     AparteConversationMeta,
     AparteStorageAdapter,
-    AparteMemoryFact,
-    AparteArtifactRow,
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
@@ -248,8 +251,8 @@ export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteSkeletonProvider, AparteSkeletonType, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
-export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
+export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client
 export { AparteClient } from './client/aparte-client.js';

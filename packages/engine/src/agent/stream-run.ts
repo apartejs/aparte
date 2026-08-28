@@ -1,17 +1,23 @@
 /**
  * stream-run.ts — framework-free structured-stream agent loop.
  *
- * The headless extraction of `AparteClient._streamLoop`: a `while(tool_use)` loop
+ * The agent loop — extracted from core's inline `_streamLoop`, which it has since
+ * replaced (audit 2026-08-28, D1): a `while(tool_use)` loop
  * that consumes a structured `AsyncIterable<StreamChatEvent>` from a transport,
  * runs approved tools, feeds their results back into the history, and re-calls
  * the transport until the model stops asking for tools. It performs **no DOM
- * work** — it emits {@link StreamRunEvent}s (in `_streamLoop`'s exact order) that
+ * work** — it emits {@link StreamRunEvent}s (in the inline loop's exact order) that
  * an adapter in `@aparte/core` turns into `targetElement.*` calls.
  *
- * Parity target: `@aparte/core`'s `AparteClient._streamLoop`.
- * Scope: text · thinking · tool_use (+ HITL) · done · error · artifacts (raw /
- * XML / create_artifact) · multi-phase pipeline · synthetic toolChoice bypass.
- * Code-fence promotion stays adapter-side (it needs the core parser).
+ * Formerly the parity target of core's inline loop; now the one loop, its call
+ * sequences pinned by core's `stream-parity` snapshots.
+ * Scope: text · thinking · tool_use (+ HITL) · done · error · the built-in
+ * create_artifact · synthetic toolChoice bypass. Code-fence promotion stays
+ * adapter-side (it needs the core parser), and so do `<artifact>` tags in the
+ * text: the core parser reads them natively. The raw / XML artifact modes and the
+ * multi-phase pipeline were removed (audit 2026-08-28, D2) — orchestration is the
+ * product's, and a mode nothing in this repository emitted was a contract
+ * maintained for nobody.
  */
 
 import type {
@@ -25,23 +31,12 @@ import type {
     StreamApprovalResolver,
     StreamUsage,
 } from './stream-events.js';
-import { ArtifactXmlStateMachine, deriveArtifactKind, type XmlArtifactEvent } from './parsers/artifact-xml-state-machine.js';
+import { deriveArtifactKind } from './parsers/artifact-kind.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
 const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
 /** Default global turn cap — mirrors `AparteClientOptions.maxTurns ?? 10`. */
 const DEFAULT_MAX_TURNS = 10;
-
-/**
- * One phase of a multi-phase pipeline (mirrors the shape of `ApartePipelinePhase`,
- * the pipeline-phase type defined in core's `types/chat.ts`). Supplied via
- * `baseRequest._meta.pipeline`; each phase runs as one turn with its own system
- * message, and an `'artifact'` phase streams the whole turn into a raw artifact.
- */
-type PipelinePhase =
-    | { mode: 'text'; system: string }
-    | { mode: 'thinking'; system: string; label?: string }
-    | { mode: 'artifact'; system: string; mimeType: string; kind: string };
 
 export interface StreamRunOptions {
     /** Id of the assistant message being streamed (opaque; carried in events). */
@@ -82,6 +77,12 @@ export interface StreamRunOptions {
      * `request.messages` — and mirrors these notifications into its append-only
      * log, instead of reimplementing the loop's tool bookkeeping. Synchronous and
      * ordered, like {@link emitter}.
+     *
+     * One rule about the envelope: a turn's `tool_call` message is reported ONCE, when
+     * its first call completes, and the calls that complete later in the same turn are
+     * already in that same object's `toolCalls` — the array is shared by reference, not
+     * copied. Hold the reference, not a snapshot, and every result you receive after it
+     * is declared by it.
      */
     onHistoryAppend?: (message: StreamAgentMessage) => void;
     /**
@@ -150,13 +151,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         opts.onHistoryAppend?.(message);
     };
 
-    // Pipeline mode (mirrors _streamLoop): each phase is one turn with
-    // its own system message; phase N's reply is appended before phase N+1.
-    const pipeline = (baseRequest['_meta'] as Record<string, unknown> | undefined)?.['pipeline'] as
-        | PipelinePhase[]
-        | undefined;
-    let pipelineIndex = 0;
-
     let continueLoop = true;
     let turns = 0;
     let lastUsage: StreamUsage | undefined;
@@ -219,26 +213,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             baseRequest = { ...baseRequest, toolChoice: 'none', tools: undefined };
         }
 
-        // ── Per-phase request build when pipeline is active ──────
-        // Prepend the current phase's system message and, for an 'artifact'
-        // phase, inject the artifactRaw hint the streaming loop below reads.
-        let phaseMessages = messages;
-        let phaseMeta = baseRequest['_meta'] as Record<string, unknown> | undefined;
-        if (pipeline && pipelineIndex < pipeline.length) {
-            const phase = pipeline[pipelineIndex]!;
-            phaseMessages = [{ role: 'system', content: phase.system }, ...messages];
-            if (phase.mode === 'artifact') {
-                phaseMeta = { ...phaseMeta, artifactRaw: { mimeType: phase.mimeType, kind: phase.kind } };
-            } else {
-                // Drop any stale artifactRaw / pipeline keys from a text phase.
-                const rest = { ...(phaseMeta ?? {}) };
-                delete rest['artifactRaw'];
-                delete rest['pipeline'];
-                phaseMeta = rest;
-            }
-        }
-
-        const request: StreamChatRequest = { ...baseRequest, messages: phaseMessages, _meta: phaseMeta };
         // A stop that lands before the first event surfaces here as a REJECTION,
         // not as an `error` event — the fetch is aborted while still in flight, so
         // it never reaches the stream the loop reads. Letting it propagate made a
@@ -246,6 +220,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // driving this loop directly. (Core's `_streamTurn` has the mirror of this
         // guard; the browser suite is what found the path, after the two
         // event-level guards were already closed.)
+        const request: StreamChatRequest = { ...baseRequest, messages };
         let response: Awaited<ReturnType<typeof transportCall>>;
         try {
             response = await transportCall(request);
@@ -287,40 +262,28 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // sets each outer iteration). No DOM effect of its own.
         emitter({ type: 'turn-start' });
 
-        // artifactRaw mode: the WHOLE turn's text streams into one artifact
-        // segment (mirrors _streamLoop). Open it up-front, before the
-        // first delta, exactly as _streamLoop does in its per-turn setup.
-        const rawHint = (request['_meta'] as Record<string, unknown> | undefined)?.['artifactRaw'] as
-            | { mimeType: string; kind: string }
-            | undefined;
-        let rawSegId: string | null = null;
-        let rawContent = '';
-        if (rawHint) {
-            rawSegId = idGen('artifact-raw');
-            emitter({ type: 'artifact-open', id: rawSegId, mimeType: rawHint.mimeType, kind: rawHint.kind, title: rawHint.kind });
-        }
-
-        // artifactXml mode (mutually exclusive with raw; raw wins, matching the
-        // _streamLoop branch order). The E2 state machine parses inline
-        // `<artifact>` tags; its micro-events map 1:1 to StreamRunEvents.
-        const xmlHint = (request['_meta'] as Record<string, unknown> | undefined)?.['artifactXml'] as
-            | { mimeType: string; kind: string }
-            | undefined;
-        const xmlMachine = (xmlHint && !rawHint)
-            ? new ArtifactXmlStateMachine(xmlHint, () => idGen('artifact-xml'))
-            : null;
-        const emitXml = (events: XmlArtifactEvent[]): void => {
-            for (const ev of events) {
-                if (ev.type === 'chat-text') emitter({ type: 'text-delta', delta: ev.text, ...(ev.reduced ? { reduced: true } : {}) });
-                else if (ev.type === 'artifact-open') emitter({ type: 'artifact-open', id: ev.id, mimeType: ev.mimeType, kind: ev.kind, title: ev.title });
-                else if (ev.type === 'artifact-chunk') emitter({ type: 'artifact-chunk', id: ev.id, content: ev.content });
-                else emitter({ type: 'artifact-close', id: ev.id, content: ev.content, inline: ev.inline });
-            }
-        };
-
         // Per-turn streaming state.
         let precedingText = '';
         const toolCallsThisTurn: StreamToolCall[] = [];
+        /**
+         * The turn's ONE `tool_call` envelope, held by reference. Created — and
+         * appended, so the host is notified once — the first time a call needs it;
+         * every later call of the turn is already in the SAME `toolCalls` array, so a
+         * `tool_result` appended afterwards is always declared by it.
+         *
+         * This replaces an id scan over `messages` that guessed whether the envelope
+         * was already there. The `create_artifact` fast path pushed a fresh envelope
+         * of its own; the scan then found the artifact's id in it, concluded "already
+         * pushed", and the next tool's result went out with no call declaring it —
+         * the P0 of the 2026-08-28 audit, a history an Anthropic-shaped API rejects
+         * outright. A reference cannot be guessed wrong.
+         */
+        let envelope: StreamAgentMessage | null = null;
+        const ensureEnvelope = (): void => {
+            if (envelope) return;
+            envelope = { role: 'tool_call', content: '', toolCalls: toolCallsThisTurn, precedingText: precedingText.trim() || undefined };
+            append(envelope);
+        };
 
         // ── inner (SSE) loop — manual iteration so we can abort around each read.
         // Checked on BOTH sides of the read, and the second check is the one that
@@ -354,19 +317,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
                 if (event.type === 'text') {
                     precedingText += event.delta;
-                    if (rawSegId) {
-                        // artifactRaw: route the whole delta into the artifact,
-                        // never through the text parser (mirrors the raw-artifact path in _streamLoop).
-                        rawContent += event.delta;
-                        emitter({ type: 'artifact-chunk', id: rawSegId, content: rawContent });
-                        continue;
-                    }
-                    if (xmlMachine) {
-                        // artifactXml: run the delta through the state machine
-                        // (mirrors the XML-artifact path in _streamLoop); it splits chat text from artifacts.
-                        emitXml(xmlMachine.feed(event.delta));
-                        continue;
-                    }
                     emitter({ type: 'text-delta', delta: event.delta });
                     continue;
                 }
@@ -407,7 +357,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     const mimeType = input.mimeType ?? 'text/plain';
                     const kind = deriveArtifactKind(mimeType, 'text');
                     emitter({ type: 'artifact-ready', id: `artifact-${event.id}`, mimeType, kind, title: input.title ?? kind, content: input.content ?? '' });
-                    append({ role: 'tool_call', content: '', toolCalls: [{ id: event.id, name: event.name, input: event.input }] });
+                    // The turn's envelope, not one of its own: a fresh `[create_artifact]`
+                    // envelope here is what orphaned the next tool's result.
+                    ensureEnvelope();
                     append({ role: 'tool_result', content: 'Artifact created successfully.', toolCallId: event.id });
                     continue;
                 }
@@ -450,18 +402,32 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                         continueLoop = false;
                         break;
                     }
-                    const decision = await approvalResolver(
-                        { id: event.id, name: event.name, input: event.input as Record<string, unknown> },
-                        signal,
-                    );
-
                     /*
                      * A stop is not a refusal either. Core's built-in channel resolves
                      * `{ approved: false }` on abort, indistinguishable by value from an
                      * explicit Reject — so the signal is what tells them apart. No
                      * `tool_result`: an aborted call has nothing true to tell the model.
+                     *
+                     * Checked on three sides of the wait, because the stop can land on
+                     * any of them: while the gate was being shown (a host that reacts to
+                     * `awaiting-approval` synchronously — the panel's own Stop button),
+                     * inside the resolver (a channel that rejects with an AbortError
+                     * rather than resolving), or after it resolved. The first and second
+                     * used to fall through to the run-level abort, which never marked the
+                     * call: the segment stayed `awaiting-approval` for good.
                      */
-                    if (signal.aborted) {
+                    let decision: Awaited<ReturnType<typeof approvalResolver>> | undefined;
+                    if (!signal.aborted) {
+                        try {
+                            decision = await approvalResolver(
+                                { id: event.id, name: event.name, input: event.input as Record<string, unknown> },
+                                signal,
+                            );
+                        } catch (err) {
+                            if (!signal.aborted && (err as { name?: string } | undefined)?.name !== 'AbortError') throw err;
+                        }
+                    }
+                    if (signal.aborted || !decision) {
                         emitter({ type: 'tool-aborted', toolCallId: event.id });
                         continueLoop = false;
                         break;
@@ -489,7 +455,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                             ? `The user rejected this tool call and said: ${decision.instruction}`
                             : 'Tool execution was rejected by the user.';
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
-                        pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
+                        ensureEnvelope();
                         append({ role: 'tool_result', content: rejection, toolCallId: event.id });
                         /*
                          * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
@@ -527,25 +493,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     break;
                 } else {
                     emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content });
-                    pushToolCallEnvelope(messages, append, toolCallsThisTurn, precedingText);
+                    ensureEnvelope();
                     append({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
                 }
             }
-
-            // artifactXml finalize comes FIRST, and the order is load-bearing.
-            //
-            // Its `scanning` branch hands back text the machine was holding — a
-            // proper prefix of `<artifact` it could not yet classify. That text
-            // travels as `chat-text` -> `text-delta`, and the adapter feeds every
-            // `text-delta` into the parser. Emitted AFTER `text-flush` it reached a
-            // parser that had already been finalized and never would be again, and
-            // since every held value is a prefix of the open tag the parser
-            // withholds all of them: the loss was total, not probabilistic.
-            //
-            // Core's twin sidesteps this by bypassing its parser entirely for held
-            // text. This side cannot — the adapter owns the parser — so it flushes
-            // in the right order instead.
-            if (xmlMachine) emitXml(xmlMachine.finalize());
 
             // Turn boundary: finalize the parser (flush residual text). Mirrors
             // `_streamLoop`'s `textParser.finalize()` call — runs on normal
@@ -553,64 +504,18 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
             // this try before reaching here, exactly like `_streamLoop`).
             emitter({ type: 'text-flush' });
 
-            // artifactRaw close comes right after the parser flush, matching the
-            // finalize-block order in _streamLoop (text-flush, then artifact-close).
-            if (rawSegId) {
-                const inline = rawContent.split('\n').length < 15;
-                emitter({ type: 'artifact-close', id: rawSegId, content: rawContent, inline });
-            }
-            // (artifactXml finalize ran above, before the parser flush — its held
-            // text has to reach the parser while the parser can still be flushed.)
         } finally {
             // Mirror `reader.releaseLock()` in the finally: settle the iterator.
             await iterator.return?.(undefined).catch(() => { /* best effort */ });
         }
 
-        // No tool calls this turn → final answer, OR advance to the next pipeline
-        // phase (mirrors _streamLoop).
-        if (toolCallsThisTurn.length === 0) {
-            if (pipeline && pipelineIndex < pipeline.length - 1) {
-                // Feed this phase's reply into history as context for the next.
-                if (precedingText.trim()) {
-                    append({ role: 'assistant', content: precedingText.trim() });
-                }
-                pipelineIndex++;
-                emitter({ type: 'phase-advance', index: pipelineIndex });
-                // continueLoop stays true — the next iteration runs the new phase.
-            } else {
-                continueLoop = false;
-            }
-        }
+        // No tool calls this turn → the final answer.
+        if (toolCallsThisTurn.length === 0) continueLoop = false;
     }
 
     // Post-loop finalization runs on every exit path (normal / abort / maxTurns).
     emitter({ type: 'run-done', usage: lastUsage });
     return lastUsage;
-}
-
-/**
- * Push the single grouped `tool_call` envelope for the turn — but only once,
- * even when the turn has several tool calls (each call's `tool_result` is pushed
- * separately). Mirrors `_streamLoop`'s `existingToolCallMsg` guard. Reads
- * `messages` for that guard and writes through `append`, so the duplicate
- * suppression also applies to the `onHistoryAppend` notification.
- */
-function pushToolCallEnvelope(
-    messages: StreamAgentMessage[],
-    append: (message: StreamAgentMessage) => void,
-    toolCallsThisTurn: StreamToolCall[],
-    precedingText: string,
-): void {
-    const exists = messages.some(
-        m => m.role === 'tool_call' && m.toolCalls?.some(tc => toolCallsThisTurn.some(t => t.id === tc.id)),
-    );
-    if (exists) return;
-    append({
-        role: 'tool_call',
-        content: '',
-        toolCalls: toolCallsThisTurn,
-        precedingText: precedingText.trim() || undefined,
-    });
 }
 
 /**

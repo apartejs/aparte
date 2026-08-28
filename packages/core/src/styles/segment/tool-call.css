@@ -104,8 +104,13 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    0,2,0 beats the base rule's 0,1,0 and source order puts rejected/aborted last. Core
    itself documents data-status as a free-form host attribute on <aparte-option>. */
 .aparte-segment-tool-call[data-status="resolved"] .aparte-tool-state { color: var(--aparte-success-ink); }
-.aparte-segment-tool-call[data-status="rejected"] .aparte-tool-state,
-.aparte-segment-tool-call[data-status="aborted"] .aparte-tool-state { color: var(--aparte-error-ink); }
+/* Rejected and aborted have NO rule: they keep the base's muted ink. They used to
+   share one — red, the error ink — which said "something went wrong" about a call the
+   user declined or a run they stopped, and made the two indistinguishable. The market
+   (UI audit 2026-08-28, coherence pass) keeps red for what is destructive and shows an
+   outcome that did not happen in the muted voice with a glyph: the renderer draws a
+   cross for rejected and a stop square for aborted, so the word and the glyph tell them
+   apart, not a colour that meant a third thing. */
 /* The Approve / Reject button rules were here. They moved with the buttons, to
    .aparte-approval-option in components/elicitation.css - and what stayed behind was a
    leftover: a rule tinting .aparte-tool-label's border while a decision was pending,

@@ -118,8 +118,8 @@ aparte-conversation-list {
    curve, not a differently-named copy of this one. */
 
 /* One pulse for every dot the library shows. There were three keyframes doing the
-   same thing at slightly different rhythms; the pipeline's travelling wave comes from
-   the animation-delay on its second and third dot, not from a skewed curve. */
+   same thing at slightly different rhythms; a travelling wave, where a row wants one,
+   comes from an animation-delay on its later dots, not from a skewed curve. */
 @keyframes aparte-pulse {
   0%, 100% { opacity: 0.3; transform: scale(0.85); }
   50%      { opacity: 1;   transform: scale(1.1);  }

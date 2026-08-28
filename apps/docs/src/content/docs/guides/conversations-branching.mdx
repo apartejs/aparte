@@ -1,8 +1,9 @@
 ---
-title: Conversations & branching
+title: Edit, retry and branch a chat conversation
 description: Retrying an answer forks the conversation into a branch instead of overwriting it — with a built-in ‹ 1 / 2 › picker to move between versions. Editing a user message updates it in place and regenerates what follows.
 sidebar:
   order: 4
+  label: Conversations & branching
 ---
 
 import Demo from '../../../components/Demo.astro';
@@ -155,6 +156,11 @@ nothing in it is not rendered at all, so no empty row remains.
 The **branch picker needs no switch**: it appears only when a message actually has a
 sibling, so a chat that never retries never shows it. If you want it styled away or
 replaced, that's [`setSiblingNavRenderer`](#customizing-the-picker).
+
+While a reply streams, the picker's arrows — and retry and edit on every message — are
+disabled: the transcript is read-only except for Stop, because a swap or a retry
+mid-stream would change the path under the reply being written. The viewport carries
+`data-busy` while it streams, if you want to reflect the same state in controls of your own.
 
 ## Persistence
 

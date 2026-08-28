@@ -21,5 +21,4 @@ export const SEGMENT_KINDS: Kind[] = [
   { tag: 'tool_call', body: 'Five states, including a turn paused for a person — the row is the anchor, the decision is asked at the composer. It opens onto the arguments the model sent and the result your handler returned.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
   { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
   { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
-  { tag: 'pipeline-waiting', body: 'The indicator for a multi-step turn, so the gap between two phases never reads as a hang.', states: [] },
 ];

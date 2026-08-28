@@ -216,6 +216,7 @@ declare class AparteError extends Error {
 |---|---|
 | `CONFIG_NO_PROVIDER` | No provider selected. |
 | `CONFIG_MISSING_KEY` | The selected provider isn't registered (or its key is missing). |
+| `CONFIG_INVALID_KEY` | The vendor rejected the key (HTTP 401 / 403). |
 | `CONFIG_INVALID_MODEL` | The selected model id isn't valid for the provider. |
 | `USAGE_RATE_LIMIT` | Vendor rate limit (HTTP 429). |
 | `USAGE_CONTEXT_EXCEEDED` | Context window exceeded (HTTP 400). |
@@ -228,10 +229,16 @@ declare class AparteError extends Error {
 | `PROVIDER_POLICY` | Rejected by the vendor's moderation/policy. |
 | `UNKNOWN_ERROR` | Anything uncategorized — `AparteError.from`'s default. |
 
-**How it surfaces:** `AparteClient` catches whatever the transport/provider throws, wraps
-it with `AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR)` (vendor errors don't
-already arrive pre-classified, so most surface as `UNKNOWN_ERROR` unless a provider adapter
-throws a more specific one), renders it as the message's [`error` segment](/segments/error/)
+**How it surfaces:** a non-ok response makes `AparteDirectTransport` and
+`AparteBackendTransport` throw an `AparteError` — the vendor's message, the HTTP status in
+`httpStatus`, and the code that status stands for: `429` → `USAGE_RATE_LIMIT`, `401` / `403`
+→ `CONFIG_INVALID_KEY`, `503` → `PROVIDER_UNAVAILABLE`, other `5xx` → `PROVIDER_ERROR`,
+`400` → `USAGE_BAD_REQUEST`, `408` → `NET_TIMEOUT` (`AparteError.codeForStatus()` is that
+table, for a provider that wants the same). Anything else thrown along the way is wrapped by
+`AparteError.from(error)`, which reads the same table off an error's own `status` when it
+has one, reads `fetch`'s network failure as `NET_ERROR` (`NET_OFFLINE` when the browser
+says so) and a `TimeoutError` as `NET_TIMEOUT`, and settles on `UNKNOWN_ERROR` only when
+nothing says more. `AparteClient` renders it as the message's [`error` segment](/segments/error/)
 (`content` = `error.message`, `details` = `error.code`), and dispatches an
 `aparte-message-error` `CustomEvent` on the target element with
 `{ messageId, error }` — `error` is the full `AparteError`, so `error.code`,

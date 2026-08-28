@@ -42,6 +42,8 @@ aparte-chat-bubble {
   max-width: var(--aparte-message-max-width);
   margin: 0 auto;
   min-width: 0;
+  /* The containing block of a floating footer — see the action bar below. */
+  position: relative;
 }
 
 /* The avatar's shape, size and type live in `display.css` — a message avatar IS an
@@ -135,6 +137,58 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 /* Hide footer (action bar + branch picker) entirely while streaming */
 .aparte-message-streaming .aparte-footer {
   display: none;
+}
+
+/* An older message reserves no row for its actions.
+ *
+ * Measured (UI audit 2026-08-28, §8.3 #7): 103px between the text of one turn and the
+ * text of the next, and 34 of them were this footer — 28px of buttons nobody could
+ * see plus its margin, under EVERY message, so that the bar could appear on hover
+ * without moving anything. The market floats it instead. It cannot float below the
+ * message here: the bubble is a paint-containment boundary (`content-visibility`),
+ * so anything outside its box is clipped. It floats INSIDE the box, over the header
+ * row's empty end — the one place it overlaps no text — as the small bordered
+ * toolbar a Slack message shows on hover.
+ *
+ * Three footers stay in the flow. The last assistant message: its bar is always on
+ * show, under the reply, where every chat puts it. A message whose branch picker is
+ * visible (`data-branches`, written by the bubble beside the picker's own state): the
+ * picker must stay in view. And every message under a pointer that cannot hover, or
+ * that is coarse — `(hover: hover) and (pointer: fine)`, because the two features are
+ * independent and a TV remote reports both hover and coarse; responsive.css gives a
+ * coarse pointer a 44px bar in the flow, and floated over the header row a 44px bar
+ * would sit on the first line of the reply.
+ *
+ * The bar's place depends on the header row: 8px from the top, it fills the empty end
+ * of the "Assistant · 12:34" line and clears the text by the header's height. A host
+ * that hides `.aparte-header` moves that line away and should move the bar too
+ * (`.aparte-footer { top: … }`), or keep it in the flow.
+ *
+ * Invisible but NOT inert, on purpose. `opacity: 0` keeps the bar hit-testable, so a
+ * drag-select started on the empty end of the header row begins on a button nobody
+ * sees — a review flagged it, and `pointer-events: none` until `:hover` was tried. It
+ * made the bar unreachable to anything that clicks without hovering first: Playwright
+ * (which hit-tests the point before it moves the mouse — the header "intercepted" the
+ * edit button on four projects), and with it voice control and switch access, which
+ * synthesise a click the same way. A control only a hover can enable is a control
+ * some users cannot reach; a phantom button on an empty header end is not. */
+@media (hover: hover) and (pointer: fine) {
+  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-footer,
+  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-footer {
+    position: absolute;
+    top: var(--aparte-space-4);
+    inset-inline-end: var(--aparte-space-6);
+    margin: 0;
+    z-index: 1;
+  }
+
+  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-action-bar,
+  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-action-bar {
+    background: var(--aparte-surface-1);
+    border: var(--aparte-border-width) solid var(--aparte-border);
+    border-radius: var(--aparte-radius-md);
+    box-shadow: var(--aparte-popover-shadow);
+  }
 }
 
 .aparte-action-btn {
@@ -250,4 +304,13 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
    restyle `.aparte-message[data-error]` (or its parts) freely. */
 .aparte-message[data-error] .aparte-avatar {
   box-shadow: var(--aparte-avatar-error-ring);
+}
+
+/* An empty, settled turn renders no chrome. The bubble sets `data-empty` when it has
+   no content, no segments, no attachments and is not streaming — a tool-only turn, or
+   one stopped before its first token — and the whole row goes, name and timestamp
+   included, instead of an orphan header floating over nothing. The element stays in
+   the DOM (streaming and the action bar address it by id), it just does not paint. */
+.aparte-message[data-empty] {
+  display: none;
 }

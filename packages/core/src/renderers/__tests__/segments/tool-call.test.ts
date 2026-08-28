@@ -223,7 +223,7 @@ describe('default renderer: tool_call', () => {
         expect(html).toContain('aria-hidden="true" hidden');
     });
 
-    it('renders cross for aborted status', () => {
+    it('renders a stop square for aborted status — not the cross rejected wears', () => {
         const renderer = getSegmentRenderer('tool_call')!;
         const seg = {
             id: 'tc4', type: 'tool_call',
@@ -231,7 +231,12 @@ describe('default renderer: tool_call', () => {
             status: 'aborted'
         };
         const html = renderer.render(seg as any);
-        expect(html).toContain(aparteGlobalConfig.getIcon('close'));
+        expect(html).toContain(aparteGlobalConfig.getIcon('stop'));
+        expect(html).not.toContain(aparteGlobalConfig.getIcon('close'));
+        // Stopped and declined used to share the glyph and the red ink; the glyph tells
+        // them apart now, and neither is red — red stays for what went wrong.
+        const rejected = renderer.render({ ...seg, id: 'tc5', status: 'rejected' } as any);
+        expect(rejected).toContain(aparteGlobalConfig.getIcon('close'));
     });
 
     it('sets data-status attribute matching the segment status', () => {

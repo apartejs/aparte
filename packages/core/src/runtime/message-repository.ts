@@ -249,6 +249,19 @@ export class AparteMessageRepository {
     import(exported: ExportedMessageRepository): void {
         this.clear();
         for (const { message, parentId } of exported.messages) {
+            // TOLERANT of an orphan, where it used to throw. A snapshot written by an
+            // older `export()` could list a child before its parent (see the note on
+            // `export`), and one line that throws halfway through leaves the repository
+            // half-built and the conversation unloadable. Skipping the orphan — and its
+            // own descendants, which fail the same check in turn — keeps everything the
+            // snapshot CAN express, and says what it dropped.
+            if (parentId !== null && !this._nodes.has(parentId)) {
+                console.warn(
+                    `[AparteMessageRepository] import: message "${message.id}" names a parent `
+                    + `"${parentId}" the snapshot does not hold before it — skipped.`,
+                );
+                continue;
+            }
             this.addOrUpdateMessage(parentId, message);
         }
         if (exported.headId) {
@@ -259,15 +272,25 @@ export class AparteMessageRepository {
     /**
      * Export the full tree for serialisation or debugging.
      * Compatible with the assistant-ui ExportedMessageRepository format.
+     *
+     * Walked from the root through each node's `children`, so a parent is always
+     * written before its children. It used to iterate `_nodes` in insertion order and
+     * call that topological — which holds until `_relink` re-parents an EXISTING node
+     * under one inserted after it (`addOrUpdateMessage` with a known id and a newer
+     * parent). The snapshot then listed the child first, and `import()` threw "parent
+     * not found" on the very tree this method had just produced.
      */
     export(): ExportedMessageRepository {
         const messages: Array<{ message: AparteMessage; parentId: string | null }> = [];
-        this._nodes.forEach((node) => {
-            messages.push({
-                message: node.current,
-                parentId: node.prev?.current.id ?? null,
-            });
-        });
+        const walk = (children: string[], parentId: string | null): void => {
+            for (const id of children) {
+                const node = this._nodes.get(id);
+                if (!node) continue;
+                messages.push({ message: node.current, parentId });
+                walk(node.children, id);
+            }
+        };
+        walk(this._root.children, null);
         return { headId: this.headId, messages };
     }
 

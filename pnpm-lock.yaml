@@ -337,6 +337,9 @@ importers:
       '@aparte/provider-openai-compat':
         specifier: workspace:*
         version: link:../../../packages/providers/ai/openai-compat
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../../packages/providers/ai/scenario
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -408,6 +411,10 @@ importers:
         version: 5.7.3
 
   packages/core:
+    dependencies:
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../engine
     devDependencies:
       '@custom-elements-manifest/analyzer':
         specifier: ^0.11.0
@@ -427,9 +434,6 @@ importers:
 
   packages/engine:
     devDependencies:
-      '@aparte/core':
-        specifier: workspace:*
-        version: link:../core
       '@types/node':
         specifier: 20.11.0
         version: 20.11.0
@@ -604,6 +608,18 @@ importers:
       '@types/node':
         specifier: 20.11.0
         version: 20.11.0
+      typescript:
+        specifier: ^5.4.0
+        version: 5.7.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@20.11.0)(jiti@1.21.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.39.0)(tsx@4.23.0)(yaml@2.9.0)
+
+  packages/providers/ai/scenario:
+    devDependencies:
+      '@aparte/core':
+        specifier: workspace:*
+        version: link:../../../core
       typescript:
         specifier: ^5.4.0
         version: 5.7.3

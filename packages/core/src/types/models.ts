@@ -212,7 +212,7 @@ export interface AparteMessage {
     content?: string;
 
     /**
-     * Rich content segments (thinking, code, terminal, etc.)
+     * Rich content segments (thinking, code, tool calls, artifacts, …)
      * Takes precedence over `content` if provided
      */
     segments?: AparteSegment[];
@@ -267,14 +267,6 @@ export interface AparteViewportConfig {
      * Defaults to 1000.
      */
     maxRenderedBubbles?: number;
-
-    /**
-     * @deprecated Renamed to {@link maxRenderedBubbles}. This used to silently
-     * evict messages from the conversation model (data loss); it now only caps
-     * rendered bubbles. For real history retention, configure it on your
-     * AparteConversationManager instead.
-     */
-    maxMessages?: number;
 
     /**
      * Duration in milliseconds to freeze spacer recalculation after resetSpacer().

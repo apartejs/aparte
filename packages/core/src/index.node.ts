@@ -49,7 +49,6 @@ export type {
     AparteSegmentDefaults,
     AparteSegmentTiming,
     AparteErrorSegment,
-    ApartePipelineWaitingSegment,
     // The detail of the `aparte-segment-update` event. It reached types/index.ts and
     // stopped there — and types/index.ts is not an entry point, so a consumer could
     // bind the event (it is in the published event table) and never name its detail.
@@ -129,6 +128,8 @@ export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
+export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
+export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
 
 // ── Renderers (produce HTML strings; DOM-free at import) ────────────────────
 export {
@@ -151,8 +152,6 @@ export type {
     AparteConversation,
     AparteConversationMeta,
     AparteStorageAdapter,
-    AparteMemoryFact,
-    AparteArtifactRow,
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
@@ -201,8 +200,6 @@ export type {
     AparteStreamingMarkdownRenderer,
     AparteHighlightProvider,
     AparteSystemPromptVarsProvider,
-    AparteSkeletonProvider,
-    AparteSkeletonType,
     AparteLocale,
     AparteAction,
     AparteActionZone,
@@ -222,7 +219,7 @@ export type {
     AparteArtifactPreviewBuilder,
     AparteSanitizer,
 } from './config/index.js';
-export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_SKELETON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
+export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';

@@ -448,7 +448,7 @@ export class AparteChatHost {
         this.binding.onMessagesChange?.(next);
     }
 
-    /** Remove a transient segment (e.g. pipeline-waiting indicator). */
+    /** Remove a transient segment (a status row the host added itself). */
     removeSegment(segmentId: string): void {
         this._flushStreamState();
         this._lastBubble()?.removeSegment?.(segmentId);
@@ -668,7 +668,11 @@ export class AparteChatHost {
             // completion is a structural change, and a consumer reacting to it would
             // otherwise read a message that is finished and empty.
             this._flushStreamState();
-            if (!ac.signal.aborted) this._vp()?.completeMessage?.(messageId);
+            // Aborted or not: the message is FINISHED. It used to be completed only on
+            // a clean end, so a stopped stream left a message the viewport still held
+            // as streaming — and everything read-only that hangs off that (the branch
+            // arrows, retry, edit of every message) stayed disabled for good.
+            this._vp()?.completeMessage?.(messageId);
             this._setStreamingId(null);
         } catch (err) {
             this._flushStreamState();

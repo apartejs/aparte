@@ -66,8 +66,12 @@ const LITERAL_SELECTORS = [':root', ':host'];
  * decision somebody made rather than a line nobody noticed — if it is another
  * responsive size, raise it; if it reads a palette master, it belongs in the
  * anchored block instead.
+ *
+ * Raised 6 -> 7 on 2026-08-28: the bubble's action bar joins the coarse-pointer block
+ * (`--aparte-action-bar-btn-size`, a size read from `--aparte-touch-target-size`), the
+ * one control that block had left at 28px.
  */
-const AT_RULE_CEILING = 6;
+const AT_RULE_CEILING = 7;
 /**
  * If the anchored count collapses, the matcher stopped matching — that is not a clean
  * file. Same reasoning as check-attr-escaping's SEEN_FLOOR.

@@ -90,8 +90,12 @@ test('copy puts the reply on the clipboard and confirms it in the button', async
     const copy = chat.action(chat.lastReply, 'copy');
     await copy.click();
 
-    // The button confirms with a checkmark — the feedback every user relies on.
-    await expect(copy.locator('svg polyline')).toBeVisible({ timeout: 5_000 });
+    // The button confirms — the feedback every user relies on. Asserted on the state the
+    // bubble sets (`data-copied`, and the label that goes with it), not on the shape of
+    // the checkmark: this used to look for `svg polyline`, and the glyph being redrawn
+    // as a path made the test fail while the confirmation was right there on screen.
+    await expect(copy).toHaveAttribute('data-copied', '', { timeout: 5_000 });
+    await expect(copy).toHaveAttribute('aria-label', /copied/i);
 
     if (canReadClipboard) {
         const clipboard = await page.evaluate(() => navigator.clipboard.readText());
@@ -180,7 +184,7 @@ test('editing a user message re-sends it and reports the new text', async ({ pag
 });
 
 test('swapping a branch at the bottom of a scrollable transcript leaves no scroll button', async ({ page }) => {
-    // Reported from bonaparte: on a conversation long enough to scroll, navigating a
+    // Reported from a consumer: on a conversation long enough to scroll, navigating a
     // branch on the LAST message showed the scroll-to-bottom button even though the
     // user was already at the bottom. Cause: `navigateBranch` deliberately turns
     // auto-scroll off (so the rebuild doesn't yank the view), and in
