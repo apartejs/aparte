@@ -193,6 +193,17 @@ h1.thesis em { font-style: italic; color: var(--accent); }
    dark page — two designs on one screen). Its tokens make it a quiet pill in the page's
    colours; the dropdown follows core's dark palette because `index.astro` mirrors the
    page theme onto `.levers` as `data-aparte-theme`. */
+/* Until core's module runs, an <aparte-select> is an unknown element whose eight
+   <aparte-option> children lay out as eight lines of prose — 110px of nonsense in the
+   hero, then a 71px shift when it upgrades. Reserve a pill's footprint and hide it. */
+.levers aparte-select:not(:defined) {
+  display: inline-block;
+  visibility: hidden;
+  block-size: 30px;
+  inline-size: 12ch;
+  overflow: hidden;
+}
+
 .levers aparte-select {
   --aparte-select-min-width: 0;
   --aparte-select-bg: transparent;
