@@ -79,7 +79,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'aparté',
-      description: 'Framework-agnostic AI-chat library — vanilla web components, zero dependencies.',
+      description: 'Framework-agnostic AI-chat library — vanilla web components, zero third-party dependencies.',
       // The mascot: `( '.' )` — the wordmark's brass parentheses, with a face.
       // SVG for browsers; the raster set below is for search engines and older
       // clients (both generated from the SVG by scripts/gen-favicon.mjs).
@@ -205,7 +205,8 @@ export default defineConfig({
         starlightLlmsTxt({
           description:
             'aparté is a framework-agnostic AI-chat library: vanilla web components with zero '
-            + 'runtime dependencies (@aparte/core), plus thin React, Vue, Svelte and Angular '
+            + 'third-party dependencies (@aparte/core, whose only dependency is @aparte/engine, the '
+            + 'agent loop), plus thin React, Vue, Svelte and Angular '
             + 'wrappers. It is backend-agnostic — a transport sends requests either browser-direct '
             + '(bring your own key, or a local model) or to your own endpoint, where the key stays '
             + 'server-side. Providers and plugins are opt-in packages.',

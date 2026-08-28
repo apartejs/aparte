@@ -68,7 +68,7 @@ export const showcase: Record<string, Scenario> = {
     },
     artifact: {
         when: /artifact|document|write me/i,
-        turn: 'Here is a first draft:\n\n<artifact type="text/markdown" title="Launch note">## aparté\n\nA chat in Web Components, with the agent loop inside.\n\n- any framework\n- zero dependencies\n</artifact>\n\nTell me what to change.',
+        turn: 'Here is a first draft:\n\n<artifact type="text/markdown" title="Launch note">## aparté\n\nA chat in Web Components, with the agent loop inside.\n\n- any framework\n- zero third-party dependencies\n</artifact>\n\nTell me what to change.',
     },
     slow: {
         when: /slow|think hard|take your time/i,

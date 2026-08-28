@@ -6,7 +6,7 @@ sidebar:
   label: Overview
 ---
 
-`@aparte/core` is presentational and zero-dependency: it renders raw text, exposes **seams**, and asks
+`@aparte/core` is presentational and carries no third-party dependency: it renders raw text, exposes **seams**, and asks
 nothing of you. Plugins fill those seams — each is an opt-in `@aparte/plugin-*` package that you install
 and wire in one call, so core stays small and you pay only for what you use.
 
