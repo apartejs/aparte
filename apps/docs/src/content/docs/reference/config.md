@@ -136,6 +136,9 @@ See the [Customization](/guides/customization/) guide.
 - `registerStreamBlock(block: AparteStreamBlock): void` — teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's prose becomes the segment `block.toSegment` builds, streamed delta by delta (see [Teach the parser a block](/guides/customization/#teach-the-parser-a-block)). One grammar per tag; read when a turn starts.
 - `unregisterStreamBlock(tag: string): void` / `getStreamBlocks(): AparteStreamBlock[]` — forget a grammar; list the registered ones.
 - `getToolRenderer(toolName: string): AparteToolRenderer | undefined` — the renderer for a tool name, if any.
+- `setApprovalPolicy(policy: AparteApprovalPolicy | null): void` — decide per **call** whether a tool runs, asks, or is refused: `allow` runs without asking, `ask` puts the call to the person exactly as a `needsApproval` tool is, `deny` refuses it with the ruling's own `reason` as what the model reads. Returning `undefined` leaves the tool's `needsApproval` to decide; `null` removes the policy. A host that owns its `approvalResolver` on `AparteClientOptions` is not affected — that resolver already decides everything. The four modes ready-made: [`@aparte/plugin-approval`](/plugins/approval/).
+- `getApprovalPolicy(): AparteApprovalPolicy | null` — the registered policy, or `null`.
+- `ruleOnToolCall(call: AparteToolCall): AparteApprovalRuling` — what the policy says about one call, with the tool's own `needsApproval` as the answer when it has no opinion. The one place the two are combined, so the client's gate predicate and its approval channel cannot disagree.
 
 See the [Tools & human-in-the-loop](/guides/tools/) guide.
 

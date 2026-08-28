@@ -103,33 +103,11 @@ describe('AparteClient', () => {
             expect((client as any)._isAborted).toBe(true);
         });
 
-        it('aborts every active tool AbortController', () => {
-            client = new AparteClient({ autoRegister: false });
-            const c1 = new AbortController();
-            const c2 = new AbortController();
-            const s1 = vi.spyOn(c1, 'abort');
-            const s2 = vi.spyOn(c2, 'abort');
-
-            (client as any)._activeToolControllers.add(c1);
-            (client as any)._activeToolControllers.add(c2);
-
-            client.abort();
-
-            expect(s1).toHaveBeenCalledOnce();
-            expect(s2).toHaveBeenCalledOnce();
-        });
-
-        it('clears _activeToolControllers after abort', () => {
-            client = new AparteClient({ autoRegister: false });
-            const c1 = new AbortController();
-            (client as any)._activeToolControllers.add(c1);
-
-            client.abort();
-
-            expect((client as any)._activeToolControllers.size).toBe(0);
-        });
-
-        it('is a no-op when no controllers are active', () => {
+        // The two tests that used to sit here populated a private `Set<AbortController>`
+        // by hand and asserted the client drained it — a set nothing in production ever
+        // added to. The real cascade (abort → run signal → every tool handler's
+        // controller) is pinned in the engine's stream-run and tool-timeout suites.
+        it('is a no-op when no turn is in flight', () => {
             client = new AparteClient({ autoRegister: false });
             expect(() => client.abort()).not.toThrow();
             expect((client as any)._isAborted).toBe(true);

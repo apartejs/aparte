@@ -163,7 +163,8 @@ Every key is optional — anything you leave out falls back to the built-in draw
 The shapes are drawn on the grid most icon sets share (24×24, \`currentColor\`, round
 caps, a 2-unit stroke), and the names are the plain words for what each one shows —
 so swapping in a set of your own changes the import and nothing else. Nothing is
-imported from anywhere: \`@aparte/core\` has no dependencies, and the drawings are its own.
+imported from anywhere: \`@aparte/core\` has zero third-party dependencies, and the
+drawings are its own.
 `;
 
 const changed = !existsSync(OUT) || readFileSync(OUT, 'utf8') !== page;

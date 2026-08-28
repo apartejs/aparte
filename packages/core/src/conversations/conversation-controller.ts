@@ -531,6 +531,19 @@ export class AparteConversationController {
         const wasActiveId = this._activeId;
         let convId = wasActiveId ?? manager.activeId;
 
+        // A concurrent send is still creating the conversation. `createNew()`
+        // assigns `manager.activeId` synchronously, BEFORE its promise resolves,
+        // so we already read that id above and would otherwise call addMessage()
+        // ahead of the first sender: storage would hold the two user messages in
+        // reverse order and `_autoTitle` would title the conversation from the
+        // second one (the order self-heals on the next _persistActive, the title
+        // does not). Waiting here — rather than entering the creation branch —
+        // keeps send order and leaves the switch-away race guard below alone.
+        if (convId && this._activeId === null && this._ensureInFlight) {
+            await this._ensureInFlight.catch(() => { /* the creating send reports it */ });
+            convId = this._activeId ?? convId;
+        }
+
         if (!convId) {
             // Coalesce concurrent sends (e.g. suggestion + quick type) into one
             // conversation creation.

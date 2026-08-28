@@ -107,6 +107,18 @@ describe('AparteDirectTransport', () => {
         expect((fetchSpy.mock.calls[0] as any)[0]).toBe('https://proxy.test/v1/chat');
     });
 
+    it('appends an authQuery provider\'s params to the vendor URL (the Gemini `?key=` shape)', async () => {
+        // The one auth shape this suite never exercised: a break here sends every
+        // request for such a provider unauthenticated, in silence.
+        const p = adapter({ authHeaders: undefined, authQuery: (key: string) => ({ key }) });
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(streamOf(), { status: 200 }) as any);
+        await new AparteDirectTransport().chat(p, req, 'sk-42', ctx);
+
+        const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://vendor.test/v1/chat?key=sk-42');
+        expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
+    });
+
     it('throws an AparteError on a non-ok response: the vendor message, the status, and the code it stands for', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(
             new Response(JSON.stringify({ error: { message: 'bad key' } }), { status: 401 }) as any,

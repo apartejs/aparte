@@ -99,10 +99,12 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # Publish-safety: publint (all 15 packages) + are-the-types-wrong (the 12
-      # non-SFC/APF packages; angular/svelte/vue carry an inherent attw node16
-      # limitation for their .svelte/.vue/APF type entrypoints — publint still
-      # covers them).
+      # Publish-safety: publint over every publishable package + are-the-types-wrong
+      # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
+      # for their .svelte/.vue/APF type entrypoints — publint still covers them. Both
+      # sets are the `pnpm -r --filter "./packages/**"` filter in `check-packaging`, so
+      # a new package is covered the day it exists; count with
+      # `pnpm -r --filter "./packages/**" list --depth -1`.
       - name: Check packaging
         run: pnpm check-packaging
 

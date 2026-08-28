@@ -216,6 +216,24 @@ export interface AparteLocale {
      */
     actionUpload?: string;
 
+    // --- Plugin chrome — read by `@aparte/plugin-model-selector` and
+    // `@aparte/plugin-approval`, declared here for the same reason as the Artifacts
+    // block below: a locale package translates one bag, not one per plugin. Both have
+    // shipped in `APARTE_DEFAULT_LOCALE` and in `@aparte/locale-fr` since they existed
+    // — only the declaration was missing, so a locale author met them through the index
+    // signature alone, with no type and no JSDoc. ---
+    /**
+     * The `<aparte-model-selector>` trigger before a model is picked (default:
+     * "Select a model..."). The one string that element takes from the locale.
+     */
+    modelSelectorPlaceholder?: string;
+    /**
+     * Accessible name of `@aparte/plugin-approval`'s mode switch (default: "Approval
+     * mode"). The switch is an `<aparte-select>` with no visible label, so this string
+     * is the whole of what a screen-reader user hears there.
+     */
+    approvalModeLabel?: string;
+
     // --- Artifacts — read by `@aparte/plugin-artifacts`, which draws the card. The
     // strings stay here because the locale is data every package shares (the
     // approval and ask-user plugins' keys live here too), and a locale package

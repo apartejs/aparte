@@ -42,7 +42,6 @@ function assertWellFormed(messages: StreamAgentMessage[]): void {
 
 async function run(turns: StreamChatEvent[][]) {
     const requests: StreamChatRequest[] = [];
-    const appended: StreamAgentMessage[] = [];
     let turn = 0;
     const usage = await runStreamAgent({
         messageId: 'a1',
@@ -52,7 +51,7 @@ async function run(turns: StreamChatEvent[][]) {
         emitter: () => {},
         signal: new AbortController().signal,
     });
-    return { requests, appended, usage };
+    return { requests, usage };
 }
 
 describe('the turn\'s tool_call envelope', () => {

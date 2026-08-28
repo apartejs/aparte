@@ -276,7 +276,7 @@ export class AparteConfig {
      * @example
      * aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
      * aparteGlobalConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
-     * aparteGlobalConfig.setBubbleActions({ copy: false })             // hide everything
+     * aparteGlobalConfig.setBubbleActions({ copy: false })             // hides copy; calls merge, so anything turned on above stays on
      * // Explicit per-role ordered sets (replace the flag defaults for that role):
      * aparteGlobalConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
      */

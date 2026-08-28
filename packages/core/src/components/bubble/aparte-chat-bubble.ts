@@ -600,7 +600,11 @@ export class AparteChatBubble extends HTMLElement {
       this._updateContent();
     }
     if ('segments' in updates) {
-      this._segments = updates.segments!;
+      // Copy IN, exactly as `setSegments` does and for the same reason: the
+      // viewport `Object.assign`s this very array into the repo message before
+      // forwarding it here, so adopting it by reference leaves one array with two
+      // writers — the doubling documented on `setSegments` above.
+      this._segments = [...updates.segments!];
       this._renderSegments();
     }
     if ('timestamp' in updates) {

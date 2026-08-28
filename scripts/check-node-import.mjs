@@ -121,9 +121,9 @@ check('createAparteChatHandler answers a real Request in Node', async () => {
  * package entirely.
  *
  * Core built an elaborate DOM-free entry and a contract test for exactly this case.
- * The satellites were simply outside it, which is why the loop below is generated
- * from the package list rather than hand-written per package: a new package is
- * covered the day it exists.
+ * The satellites were simply outside it. The list below is hand-kept, so a new
+ * publishable package has to be added here the day it is created — `@aparte/provider-scenario`
+ * shipped uncovered for exactly that reason.
  */
 const SATELLITES = [
     ['@aparte/plugin-ask-user', 'packages/plugins/ask-user'],
@@ -134,6 +134,7 @@ const SATELLITES = [
     ['@aparte/plugin-shiki', 'packages/plugins/shiki'],
     ['@aparte/plugin-streaming-markdown', 'packages/plugins/streaming-markdown'],
     ['@aparte/provider-ai-sdk', 'packages/providers/ai/ai-sdk'],
+    ['@aparte/provider-scenario', 'packages/providers/ai/scenario'],
     ['@aparte/provider-transformers', 'packages/providers/ai/transformers'],
     ['@aparte/locale-fr', 'packages/locales/fr'],
     // Node-only by construction (an MCP server) — the contract here is that importing it

@@ -268,7 +268,6 @@ export class AparteClient {
     private _boundCompactHandler: ((e: Event) => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
-    private _activeToolControllers: Set<AbortController> = new Set();
     private _isAborted = false;
 
     /**
@@ -368,18 +367,15 @@ export class AparteClient {
      * erased an abort that arrived while the user was still waiting for a large attachment
      * to be read.
      *
-     * Cancelling the previous turn's tool controllers used to happen only on `aparte-send`.
-     * Retry and edit reset the flag and left them running, so a tool handler from the turn
-     * being superseded stayed alive — with its timeout still counting — while its reply was
-     * already off the active path. A cold audit found the asymmetry; three callers, one
-     * rule, no third copy to fall out of step.
+     * The superseded turn's TOOL handlers are not cancelled here, and do not need a
+     * registry of their own: `_streamTurn` aborts the previous `_streamController`, and
+     * the engine links every tool handler's controller to that run signal
+     * (`invokeToolHandler`), so cutting the stream cuts its tools. A `Set<AbortController>`
+     * used to sit here for that job and was never added to — three lines of loop over an
+     * empty set, plus a paragraph describing a cancellation the method did not perform.
      */
     private _beginUserTurn(): void {
         this._isAborted = false;
-        for (const controller of this._activeToolControllers) {
-            controller.abort();
-        }
-        this._activeToolControllers.clear();
     }
 
     /**
@@ -490,10 +486,6 @@ export class AparteClient {
         this._isAborted = true;
         this._streamController?.abort();
         this._compactController?.abort();
-        for (const controller of this._activeToolControllers) {
-            controller.abort();
-        }
-        this._activeToolControllers.clear();
     }
 
     /*

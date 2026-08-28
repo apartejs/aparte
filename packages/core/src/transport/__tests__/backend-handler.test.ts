@@ -69,6 +69,20 @@ describe('createAparteChatHandler', () => {
         expect((vinit?.headers as Record<string, string>).Authorization).toBe('Bearer sk-secret');
     });
 
+    it('appends an authQuery adapter\'s params to the vendor URL (the Gemini `?key=` shape)', async () => {
+        // The one auth shape neither transport suite exercised: a break here sends
+        // every request for such a provider unauthenticated, in silence.
+        const vendor = vendorStreamOk();
+        const queryAuth = { ...adapter(), authHeaders: undefined, authQuery: (key: string) => ({ key }) } as AparteAIProvider;
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: queryAuth }, resolveKey: () => 'sk-secret', fetchImpl: vendor });
+
+        await handler(backendRequest({ providerId: 'mock', request: req }));
+
+        const [vurl, vinit] = vendor.mock.calls[0];
+        expect(vurl).toBe('https://vendor.test/v1/chat?key=sk-secret');
+        expect((vinit?.headers as Record<string, string>)?.Authorization).toBeUndefined();
+    });
+
     it('resolves a non-streaming request to { text } via parseText', async () => {
         const vendor = vi.fn(async () => new Response(JSON.stringify({ text: 'DONE' }), {
             status: 200, headers: { 'Content-Type': 'application/json' },
@@ -83,6 +97,29 @@ describe('createAparteChatHandler', () => {
         const handler = createAparteChatHandler({ authorize: () => true, providers: {}, fetchImpl: vendorStreamOk() });
         const res = await handler(backendRequest({ providerId: 'nope', request: req }));
         expect(res.status).toBe(400);
+    });
+
+    it('400s on an inherited providerId ("__proto__", "constructor") — not 500', async () => {
+        // A plain object's inherited members are truthy, so `providers[id]` used to skip
+        // the 400 and reach the "not a format adapter" 500. Own keys only.
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, fetchImpl: vendorStreamOk() });
+        for (const providerId of ['__proto__', 'constructor', 'toString']) {
+            const res = await handler(backendRequest({ providerId, request: req }));
+            expect(res.status, providerId).toBe(400);
+        }
+    });
+
+    it('never relays a failed vendor fetch\'s message — it can name a URL that carries the key', async () => {
+        const vendor = vi.fn(async () => { throw new Error('request to https://vendor.test/v1/chat?key=SECRET failed, reason: ECONNRESET'); });
+        const quiet = vi.spyOn(console, 'error').mockImplementation(() => { /* logged server-side, asserted here */ });
+        const handler = createAparteChatHandler({ authorize: () => true, providers: { mock: adapter() }, resolveKey: () => 'SECRET', fetchImpl: vendor });
+        const res = await handler(backendRequest({ providerId: 'mock', request: req }));
+        expect(res.status).toBe(502);
+        const body = await res.text();
+        expect(body).not.toContain('SECRET');
+        expect(body).toContain('Vendor request failed.');
+        expect(quiet).toHaveBeenCalled();
+        quiet.mockRestore();
     });
 
     it('400s on a malformed body', async () => {

@@ -1,5 +1,5 @@
 /**
- * The things that must be true before 15 packages go to npm.
+ * The things that must be true before the packages go to npm.
  *
  * `pnpm release` used to be `build && changeset publish && align-dist-tags &&
  * tag-release`. No lint, no typecheck, no tests, no packaging check, no clean-tree

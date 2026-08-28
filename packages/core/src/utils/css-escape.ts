@@ -10,7 +10,14 @@
  * defense-in-depth: a hostile, stream-supplied id containing `"` (e.g. a tool-call
  * id) can no longer break out of the selector into a `SyntaxError` or a
  * selector-list that mis-targets another element.
+ *
+ * A raw newline (or CR / form feed) is not allowed inside a CSS string either — it
+ * ends the string and the selector throws the same `SyntaxError`. Escaped as its
+ * code point followed by a space, the form the CSS Syntax spec gives for exactly
+ * this (`\a `), so an id a provider minted with a line break still matches.
  */
 export function cssEscape(value: string): string {
-    return value.replace(/["\\]/g, '\\$&');
+    return value
+        .replace(/["\\]/g, '\\$&')
+        .replace(/[\n\r\f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `);
 }

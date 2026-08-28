@@ -29,6 +29,23 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const ROOTS = ['packages'];
+/**
+ * A floor on how much the walk still READS.
+ *
+ * `OK: 0 files` and `OK: 234 files` are the same exit code, so a shrunken corpus
+ * is indistinguishable from a clean one — the failure the sibling guards already
+ * assert against (check-attr-escaping's SEEN_FLOOR, check-text-escaping's,
+ * check-cross-refs' SCANNED_FLOOR). What would shrink it silently is the
+ * extension filter or the skip list below, not the root: a missing `packages/`
+ * throws ENOENT and exits non-zero on its own.
+ *
+ * Measured 234 (217 when the guard was generalised), so the floor is the
+ * measurement minus ~5%, not a round number well below it: `packages/core`
+ * alone walks to 117 files, so a floor of 100 would be cleared by a regression
+ * that lost every other package. Raise it as the corpus grows; never lower it
+ * without saying why here.
+ */
+const SCANNED_FLOOR = 220;
 
 /** Each API, the one file allowed to call it, and what everyone else calls instead. */
 const CONFINED = [
@@ -74,6 +91,17 @@ for (const root of ROOTS) {
             }
         });
     }
+}
+
+if (scanned < SCANNED_FLOOR) {
+    console.error(
+        `\n[secure-context] FAIL: only ${scanned} files walked, floor is ${SCANNED_FLOOR}.\n\n`
+        + 'Zero offenders on a collapsed corpus is a walk that stopped walking, not a\n'
+        + 'repo that got clean. Check the extension filter and the skip list in walk()\n'
+        + 'before adjusting this floor. If packages were legitimately removed, lower it\n'
+        + 'in the same commit and say so.\n',
+    );
+    process.exit(1);
 }
 
 if (offenders.length) {

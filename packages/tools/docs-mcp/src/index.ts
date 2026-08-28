@@ -21,6 +21,19 @@
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { createRequire } from 'node:module';
+
+// The version the MCP handshake reports is the PUBLISHED one: changesets bumps
+// package.json and nothing else, so a literal here went stale at every release.
+// `../package.json` resolves to this package's manifest from dist/index.js, from
+// src/index.ts under the workspace source condition, and under vitest alike.
+const pkgVersion = (() => {
+    try {
+        return (createRequire(import.meta.url)('../package.json') as { version?: string }).version ?? '0.0.0';
+    } catch {
+        return '0.0.0';
+    }
+})();
 
 /** Where the docs live. Override for a local build (`http://localhost:4321`). */
 export const DEFAULT_BASE_URL = 'https://apartejs.dev';
@@ -57,7 +70,7 @@ export interface DocsHit {
 export type TextFetcher = (url: string) => Promise<string>;
 
 export interface DocsMcpOptions {
-    /** Defaults to {@link DEFAULT_BASE_URL}. A trailing slash is tolerated. */
+    /** Defaults to {@link DEFAULT_BASE_URL} when unset, empty or blank. A trailing slash is tolerated. */
     baseUrl?: string;
     /** Defaults to global `fetch` + `response.text()`; a non-2xx status throws. */
     fetchText?: TextFetcher;
@@ -170,7 +183,9 @@ export class DocsSource {
     private readonly pages = new Map<string, Promise<DocsPage[]>>();
 
     constructor(options: DocsMcpOptions = {}) {
-        this.base = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
+        // `||`, not `??`: an env var exported but empty (`APARTE_DOCS_URL=""`) is
+        // "unset", and a pasted value with a stray newline fails the same way.
+        this.base = (options.baseUrl?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
         this.fetchText = options.fetchText ?? defaultFetchText;
     }
 
@@ -218,7 +233,7 @@ export class DocsSource {
  */
 export function createDocsMcpServer(options: DocsMcpOptions = {}): McpServer {
     const source = new DocsSource(options);
-    const server = new McpServer({ name: 'aparte-docs', version: '0.15.1' });
+    const server = new McpServer({ name: 'aparte-docs', version: pkgVersion });
     const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] });
 
     server.registerTool('list_sets', {

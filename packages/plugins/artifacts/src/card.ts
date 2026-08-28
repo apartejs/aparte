@@ -402,7 +402,10 @@ function mountPreviewFrame(element: HTMLElement, fallback: AparteArtifactSegment
 
     // The latest segment, not the one the closure captured — see `latestSegment`.
     const segment = latestSegment.get(element) ?? fallback;
-    const kind = segment.artifactType || deriveArtifactKind(segment.mimeType ?? '', 'text');
+    // Lower-cased like every other reader of the kind in this file: an app-built
+    // segment with `artifactType: 'HTML'` rendered an enabled Preview tab whose press
+    // did nothing, because `PREVIEWABLE_KINDS.has('HTML')` is false.
+    const kind = (segment.artifactType || deriveArtifactKind(segment.mimeType ?? '', 'text')).toLowerCase();
     if (!PREVIEWABLE_KINDS.has(kind) || !previewEnabled()) return;
 
     const title = segment.title?.trim() || labelForKind(kind);
