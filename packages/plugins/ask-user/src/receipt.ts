@@ -107,7 +107,12 @@ export function buildReceipt(call: ReceiptSource): HTMLElement {
     wrap.className = 'aparte-question-receipt__group';
     for (const row of rows) {
         const card = document.createElement('div');
-        card.className = 'aparte-segment aparte-tag aparte-question-receipt' + (row.declined ? ' aparte-question-receipt--declined' : '');
+        // The card wears core's mark (display/mark.css): an answer given is the row the
+        // choice landed on — the success tint and the bar on its start edge — and a
+        // declined request is the outcome that did not happen, in the mark's quiet
+        // voice. Same recipe as a chosen option in a dropdown or a checked field choice.
+        card.className = 'aparte-segment aparte-tag aparte-question-receipt aparte-mark'
+            + (row.declined ? ' aparte-mark--quiet aparte-question-receipt--declined' : ' aparte-mark--success');
 
         // A declined request has no question → answer pair to show, so it gets neither
         // a question nor an arrow: one line saying what happened.

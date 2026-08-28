@@ -110,3 +110,23 @@ describe('the record a question leaves in the transcript', () => {
         expect(rows[1]).toEqual({ question: 'B?', answer: '' });
     });
 });
+
+// The card wears core's mark: an answer given is the row the choice landed on, a
+// decline is the outcome that did not happen. Same recipe as a chosen option in a
+// dropdown — the classes are core's, the plugin only puts them on.
+describe('the mark the receipt wears', () => {
+    it('an answered card is marked success', () => {
+        const el = buildReceipt({ input: { question: 'Colour?' }, result: 'Blue' });
+        const card = el.querySelector('.aparte-question-receipt')!;
+        expect(card.classList.contains('aparte-mark')).toBe(true);
+        expect(card.classList.contains('aparte-mark--success')).toBe(true);
+        expect(card.classList.contains('aparte-mark--quiet')).toBe(false);
+    });
+
+    it('a declined card is marked quiet', () => {
+        const el = buildReceipt({ input: { question: 'Colour?' }, result: ASK_USER_DECLINED });
+        const card = el.querySelector('.aparte-question-receipt')!;
+        expect(card.classList.contains('aparte-mark--quiet')).toBe(true);
+        expect(card.classList.contains('aparte-mark--success')).toBe(false);
+    });
+});

@@ -7,6 +7,13 @@ export interface QuestionReceiptSegment {
     isStreaming?: boolean;
     question: string;
     answer: string;
+    /**
+     * The user declined the request: `answer` is then the outcome sentence, not an
+     * answer to `question`, and the card shows it alone in the mark's quiet voice.
+     * The tool renderer's DOM path had this branch; an app emitting the segment
+     * itself had no way to say it.
+     */
+    declined?: boolean;
 }
 
 // Core owns the escaping; this alias keeps the call sites short. The inlined
@@ -17,7 +24,14 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
     type: 'question-receipt',
 
     render(seg) {
-        return `<div class="aparte-segment aparte-tag aparte-question-receipt" data-segment-id="${esc(seg.id)}">
+        // The card wears core's mark (display/mark.css) — see `buildReceipt`, the DOM
+        // path, for why an answer is success and a decline is quiet.
+        if (seg.declined) {
+            return `<div class="aparte-segment aparte-tag aparte-question-receipt aparte-mark aparte-mark--quiet aparte-question-receipt--declined" data-segment-id="${esc(seg.id)}">
+  <span class="aparte-tag__label aparte-question-receipt__answer--declined">${esc(seg.answer)}</span>
+</div>`;
+        }
+        return `<div class="aparte-segment aparte-tag aparte-question-receipt aparte-mark aparte-mark--success" data-segment-id="${esc(seg.id)}">
   <span class="aparte-tag__label aparte-question-receipt__question">${esc(seg.question)}</span>
   <span class="aparte-question-receipt__sep">→</span>
   <span class="aparte-tag__label aparte-question-receipt__answer">${esc(seg.answer)}</span>

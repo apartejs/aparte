@@ -71,3 +71,19 @@ describe('questionReceiptRenderer', () => {
         });
     });
 });
+
+describe('the mark, and a decline an app emits itself', () => {
+    it('an answered segment renders a success-marked card', () => {
+        const html = questionReceiptRenderer.render({ id: 's', type: 'question-receipt', question: 'q', answer: 'a' });
+        expect(html).toContain('aparte-mark aparte-mark--success');
+        expect(html).not.toContain('--quiet');
+    });
+
+    it('a declined segment renders the outcome alone, in the quiet mark', () => {
+        const html = questionReceiptRenderer.render({ id: 's', type: 'question-receipt', question: 'Colour?', answer: 'The user declined.', declined: true });
+        expect(html).toContain('aparte-mark--quiet');
+        expect(html).toContain('aparte-question-receipt__answer--declined');
+        expect(html).not.toContain('Colour?');
+        expect(html).not.toContain('aparte-question-receipt__sep');
+    });
+});
