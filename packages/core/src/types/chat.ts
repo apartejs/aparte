@@ -78,11 +78,14 @@ export interface AparteChatRequest {
     /** Tools the AI is allowed to call */
     tools?: AparteTool[];
     /**
-     * Random seed for reproducibility / diversity.
-     * Automatically set to a random integer on every `aparte-retry` so the
-     * provider generates a different response even with the same history.
-     * Supported by OpenAI, OpenRouter, LM Studio, Mistral, Ollama, and Gemini.
-     * Anthropic does not expose a seed parameter — ignored silently there.
+     * Random seed for reproducibility. Passed through verbatim by the providers
+     * that support it (OpenAI-compatible endpoints, the AI SDK bridge, the
+     * transformers worker); Anthropic exposes none, so it is ignored there.
+     *
+     * Nothing sets it for you: a retry varies its answer by sampling
+     * (`temperature`), not by seeding — this line used to promise an automatic
+     * per-retry seed that no code had ever written. Set it from a
+     * `requestInterceptor` when you need reproducible runs.
      */
     seed?: number;
 

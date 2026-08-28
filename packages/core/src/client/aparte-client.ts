@@ -955,9 +955,11 @@ export class AparteClient {
 
         const systemMessages = this._systemMessages();
 
-        // Retry must produce a DIFFERENT answer than the greedy (byte-identical)
-        // re-run: temperature > 0 opts into sampling (the worker turns on
-        // do_sample); variation comes from the in-decoder RNG, no seed needed.
+        // Retry must produce a DIFFERENT answer than a byte-identical re-run:
+        // temperature > 0 opts into sampling, whatever the provider — variation
+        // comes from the decoder's own RNG, no seed involved. (`request.seed`
+        // stays untouched: it is the caller's reproducibility knob, and writing
+        // one here would defeat it.)
         await this._streamTurn(
             targetElement, newMessageId, provider,
             [...systemMessages, ...chatMessages], config.defaultModel || '',
