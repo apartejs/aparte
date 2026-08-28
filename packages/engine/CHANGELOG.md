@@ -1,5 +1,31 @@
 # @aparte/engine
 
+## 0.14.0
+
+### Minor Changes
+
+- 461a692: New `<aparte-context>`: a gauge of the model's context window. It reads each turn's reported usage and the window the current model declares (or a `window` attribute), sets `data-level` to `ok` / `warn` / `danger` at the `warn` / `danger` fractions (75 % / 90 %), fires `aparte-context-threshold` when the level changes, and with `auto-compact` dispatches `aparte-compact` on reaching danger. New in `@aparte/engine`: `createCompactionSelector({ contextWindow, systemPrompt })`, the budget-aware `compactionSelector` for `AparteClient` — the newest turns that fit stay verbatim, the rest is summarised. New locale key `contextLabel`, translated in `@aparte/locale-fr`.
+
+  The first product built on the library showed a context badge that turned red at 90 % — and then nothing happened, because `compact()` existed, `compactionSelector` existed, the engine's compactor existed, and no piece joined them. This is the join: the gauge watches, the selector decides, and the two read the same window.
+
+- 04289bb: `@aparte/core` now depends on `@aparte/engine` — first-party, nothing from outside `@aparte` is installed — so `npm i @aparte/core` installs both; nothing changes in how you call either package. `AparteStreamRunEvent`, `AparteStreamRunEmitter`, `AparteStreamRunOptions` and `AparteStreamRunner` are engine's `StreamRunEvent`, `StreamRunEmitter`, `StreamRunOptions` and runner shape under core's names. `@aparte/engine` no longer lists core as a peer dependency, and `createCompactionSelector` is typed structurally (`CompactableMessage`), so it takes core's messages without importing core.
+
+  Decision D1 of the 2026-08-28 audit. The run-event contract was hand-mirrored across a "zero-import" boundary and policed by a compile-time guard that had itself been written around the one field that broke the seam; the same tool turn corrupted the history in two different shapes, one per loop, invisible to the parity suite precisely because they differ. The direction is settled: the loop is engine's, core drives it. This is the first half — the types; the inline loop's deletion is the second.
+
+- 0850dee: `_meta.pipeline`, `_meta.artifactRaw` and `_meta.artifactXml` are removed from `AparteChatRequest`, and with them the `pipeline-waiting` segment and engine's artifact-XML state machine. `_meta.artifactHint` and `_meta.prefixSegments` stay and are documented; an `<artifact>` tag in the reply's text is parsed exactly as before, and the built-in `create_artifact` tool is unchanged. Gone in full: `ApartePipelinePhase`, the `pipeline-waiting` segment type with its renderer, its stylesheet and `ApartePipelineWaitingSegment`, and — in `@aparte/engine` — `ArtifactXmlStateMachine`, its types and the `phase-advance` / `artifact-open` / `artifact-chunk` / `artifact-close` run events.
+
+  Decision D2 of the 2026-08-28 audit. The multi-phase pipeline and the raw-artifact turn were one product's orchestration wearing a library type — nothing in this repository emitted either, and a contract nothing exercises is maintained for nobody. The XML mode was a second path to what the stream parser already does natively with `<artifact>` tags, kept alive by a state machine that had to be mirrored between two loops. One path is left, the parser's, and the loop no longer branches on the request's metadata at all.
+
+- cd5075e: `AparteClient` runs `@aparte/engine`'s `runStreamAgent` by default; core's inline copy of the agent loop is deleted. One behaviour changes: a tool call stopped while it waited for approval is now marked `aborted`, never `rejected`, and a host that stops the turn from the approval panel itself no longer leaves the call stuck at `awaiting-approval`. Nothing else changes in how you call either package. `streamRunner` stays, to wrap or replace that loop (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host that owns its transcript). `deriveArtifactKind` is the engine's, re-exported by core under the same name.
+
+  Decision D1 of the 2026-08-28 audit, second half. Two copies of one loop were "kept in sync" by hand and by a parity suite; the same tool turn corrupted the history in two different shapes, one per copy, invisible to that suite precisely because they differed. The suite's 26 scenarios were snapshotted while both loops ran and were equal — the inline loop's behaviour, pinned — and now live in core, where they also hold the client's wiring to a direct engine run. That is what found the client writing `status: 'streaming'` once too often, and what dropped the change from 2 470 lines of client to 1 750.
+
+### Patch Changes
+
+- d299096: A turn that calls `create_artifact` and another tool no longer sends the second tool's result without the call that declares it — a history an Anthropic-shaped API rejected outright. The turn's `tool_call` envelope is now created once, held by reference, and declares every call whose `tool_result` follows it; `onHistoryAppend` reports the envelope once, when the first call completes, and the calls that complete later in the same turn are already in that same object's `toolCalls`.
+
+  The loop used to guess whether the turn's envelope was already in the history by scanning it for any of the turn's call ids. The built-in `create_artifact` fast path pushed a fresh envelope of its own, the scan found the artifact's id in it, concluded "already pushed", and the next tool's result went out orphaned. A reference cannot be guessed wrong.
+
 ## 0.13.1
 
 ## 0.13.0

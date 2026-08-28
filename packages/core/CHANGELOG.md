@@ -1,5 +1,133 @@
 # @aparte/core
 
+## 0.14.0
+
+### Minor Changes
+
+- e58508a: `<aparte-chat-bubble>` reads its message role from `data-role` only; a `role="user"` / `role="assistant"` attribute is no longer honoured. If you write bubbles by hand, write `data-role` (the viewport and every wrapper already did).
+
+  `role` is ARIA's attribute — the element sets it to `article` on itself — and reading a message role from it too meant filtering our own value back out at every turn. Pre-1.0 a rename lands as a rename, without an alias.
+
+- ea6cfe0: `showPanel()` now mounts the panel inside any `<aparte-composer>` descendant marked `data-aparte-panel-host`. Without the marker nothing changes: the panel still goes right after the first `<aparte-composer-input>`.
+
+  "After the input" is a position, not a choice — a layout with the input in a row and the panel meant for a block of its own had no way to say so, and a builder that lays the composer out for you needs to.
+
+- 461a692: New `<aparte-context>`: a gauge of the model's context window. It reads each turn's reported usage and the window the current model declares (or a `window` attribute), sets `data-level` to `ok` / `warn` / `danger` at the `warn` / `danger` fractions (75 % / 90 %), fires `aparte-context-threshold` when the level changes, and with `auto-compact` dispatches `aparte-compact` on reaching danger. New in `@aparte/engine`: `createCompactionSelector({ contextWindow, systemPrompt })`, the budget-aware `compactionSelector` for `AparteClient` — the newest turns that fit stay verbatim, the rest is summarised. New locale key `contextLabel`, translated in `@aparte/locale-fr`.
+
+  The first product built on the library showed a context badge that turned red at 90 % — and then nothing happened, because `compact()` existed, `compactionSelector` existed, the engine's compactor existed, and no piece joined them. This is the join: the gauge watches, the selector decides, and the two read the same window.
+
+- 04289bb: `@aparte/core` now depends on `@aparte/engine` — first-party, nothing from outside `@aparte` is installed — so `npm i @aparte/core` installs both; nothing changes in how you call either package. `AparteStreamRunEvent`, `AparteStreamRunEmitter`, `AparteStreamRunOptions` and `AparteStreamRunner` are engine's `StreamRunEvent`, `StreamRunEmitter`, `StreamRunOptions` and runner shape under core's names. `@aparte/engine` no longer lists core as a peer dependency, and `createCompactionSelector` is typed structurally (`CompactableMessage`), so it takes core's messages without importing core.
+
+  Decision D1 of the 2026-08-28 audit. The run-event contract was hand-mirrored across a "zero-import" boundary and policed by a compile-time guard that had itself been written around the one field that broke the seam; the same tool turn corrupted the history in two different shapes, one per loop, invisible to the parity suite precisely because they differ. The direction is settled: the loop is engine's, core drives it. This is the first half — the types; the inline loop's deletion is the second.
+
+- 4bde588: A non-ok response from `AparteDirectTransport` or `AparteBackendTransport` now throws an `AparteError` with the vendor's message, `httpStatus` and a `code` read off the status; until now every one of them reached the error card and `aparte-message-error` as `UNKNOWN_ERROR`, whatever the vendor had said. A listener that matched `code === 'UNKNOWN_ERROR'` to catch transport failures should match the new codes (or the class) instead. The table: `429` → `USAGE_RATE_LIMIT`, `401`/`403` → `CONFIG_INVALID_KEY` (new code), `503` → `PROVIDER_UNAVAILABLE`, other `5xx` → `PROVIDER_ERROR`, `400` → `USAGE_BAD_REQUEST`, `408` → `NET_TIMEOUT`.
+
+  `AparteError.from()` applies the same table to any error that carries a `status`, reads `fetch`'s network failure (a `TypeError` naming the fetch) as `NET_ERROR` — `NET_OFFLINE` when `navigator.onLine` is false — and a `TimeoutError` as `NET_TIMEOUT`; a code the caller names is kept. `AparteError.codeForStatus(status)` is exported for a provider that wants the same mapping. A `404` stays unclassified on purpose: it is a wrong model or a wrong URL, and the message says which.
+
+- 129e094: Two chrome strings now follow the locale: the scroll-to-bottom button's accessible name (`scrollToBottom`) and the title of the message `compact()` injects (`compactionSummaryTitle`, no emoji any more). `@aparte/locale-fr` ships both.
+
+  Both were hardcoded English in an otherwise localised transcript — a French chat compacted into a "📝 Conversation summary" header, and its one floating button was announced in English. The keys are optional on `AparteLocale`, so an existing locale package keeps compiling and falls back to English per key until it adds them. The engine compactor's own `summaryLabel` is unchanged: it is a per-call knob on the prompt side, this is the UI title.
+
+- f9cac24: Older messages no longer reserve a row for their action bar; it floats over the message's header row on hover or focus, as a small bordered toolbar. The transcript tightens by 34px per turn. Three bars stay in the flow as before — the last assistant message's (always visible under the reply), a message's whose branch picker is showing (the bubble now stamps `data-branches` on `.aparte-message` while it does), and every bar on a device that cannot hover, where the bar is now also visible instead of sitting at opacity 0 with nothing able to reveal it. A stylesheet that positioned `.aparte-footer` or styled `.aparte-action-bar` for older messages should be checked against the new `@media (hover: hover)` rules in `bubble.css`.
+
+  Measured on the vanilla example: 103px between the text of one turn and the next, 34 of them this footer under every message. The bar floats inside the message box rather than below it because a bubble is a paint-containment boundary (`content-visibility`), which clips anything outside.
+
+- 0850dee: `_meta.pipeline`, `_meta.artifactRaw` and `_meta.artifactXml` are removed from `AparteChatRequest`, and with them the `pipeline-waiting` segment and engine's artifact-XML state machine. `_meta.artifactHint` and `_meta.prefixSegments` stay and are documented; an `<artifact>` tag in the reply's text is parsed exactly as before, and the built-in `create_artifact` tool is unchanged. Gone in full: `ApartePipelinePhase`, the `pipeline-waiting` segment type with its renderer, its stylesheet and `ApartePipelineWaitingSegment`, and — in `@aparte/engine` — `ArtifactXmlStateMachine`, its types and the `phase-advance` / `artifact-open` / `artifact-chunk` / `artifact-close` run events.
+
+  Decision D2 of the 2026-08-28 audit. The multi-phase pipeline and the raw-artifact turn were one product's orchestration wearing a library type — nothing in this repository emitted either, and a contract nothing exercises is maintained for nobody. The XML mode was a second path to what the stream parser already does natively with `<artifact>` tags, kept alive by a state machine that had to be mirrored between two loops. One path is left, the parser's, and the loop no longer branches on the request's metadata at all.
+
+- cd5075e: `AparteClient` runs `@aparte/engine`'s `runStreamAgent` by default; core's inline copy of the agent loop is deleted. One behaviour changes: a tool call stopped while it waited for approval is now marked `aborted`, never `rejected`, and a host that stops the turn from the approval panel itself no longer leaves the call stuck at `awaiting-approval`. Nothing else changes in how you call either package. `streamRunner` stays, to wrap or replace that loop (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host that owns its transcript). `deriveArtifactKind` is the engine's, re-exported by core under the same name.
+
+  Decision D1 of the 2026-08-28 audit, second half. Two copies of one loop were "kept in sync" by hand and by a parity suite; the same tool turn corrupted the history in two different shapes, one per copy, invisible to that suite precisely because they differed. The suite's 26 scenarios were snapshotted while both loops ran and were equal — the inline loop's behaviour, pinned — and now live in core, where they also hold the client's wiring to a direct engine run. That is what found the client writing `status: 'streaming'` once too often, and what dropped the change from 2 470 lines of client to 1 750.
+
+- 95c390d: Two new tokens let a host match the chat's scrollbar to its own page: `--aparte-scrollbar-thumb` (derived from `--aparte-neutral`) and `--aparte-scrollbar-track` (transparent), beside the existing `--aparte-scrollbar-width`. A host page with a styled scrollbar of its own sets them on `aparte-chat` so the chat's does not read as a second, foreign scrollbar — the docs site does this now. Defaults are unchanged; a stylesheet that overrode `scrollbar-color` on `.aparte-viewport-container` keeps working.
+- 9cf00bb: `AparteSendEventDetail` declares `modelId` and `providerId`: an `aparte-send` carrying them sends that one message to that model, overriding the config's default for the turn — a per-message model picker.
+
+  `AparteClient` has honoured both fields for as long as it has read `event.detail`, while nothing declared them and the composer never sent them, so the capability existed only for whoever read the client's source. Declaring it is what makes it real; the generated events reference picks it up.
+
+- 1412c54: `setSkeletonProvider`, `getSkeleton`, `AparteSkeletonProvider`, `AparteSkeletonType` and `APARTE_DEFAULT_SKELETON_FALLBACKS` are removed from `@aparte/core`, and `provideAparte({ plugins: { skeleton } })` from `@aparte/angular`. The `.aparte-skeleton` CSS recipe stays. If you registered a skeleton provider, delete the call: nothing read it.
+
+  Nothing in core ever called `getSkeleton()` — no component has a loading state that is not the message itself, so the seam was a contract with no consumer on either side, and the six fallback strings it shipped (and their four CSS classes) were dead weight in every bundle. A consumer who wants a placeholder uses the recipe, which is the part that was real.
+
+- 1412c54: `AparteStorageAdapter` loses its optional memory-fact, settings and artifact-gallery methods, and the `AparteMemoryFact` / `AparteArtifactRow` types are gone. `loadAttachments` and `AparteAttachmentRow` stay. An adapter that implemented the removed methods still compiles — they were optional — but the types it named have to come from your own code now.
+
+  The shape of a "memory fact" (`identity | fact | preference | tech | project | style`, a `source` of `auto` or `onboarding`) and of a settings entry is one product's schema, not a chat library's; a public contract that carries it binds every other adapter to that product's choices. Core never read any of those methods. The contract is now exactly what the chat needs persisted — conversations, their tree, their attachments — and an app extends the interface in its own code for the rest.
+
+- e413352: New `<aparte-suggestions>`: a row of prompt starters. Give it `suggestions='["…", {"label": "…", "prompt": "…"}]'` (or set the `suggestions` property), and a click fills the composer and submits it; `mode="fill"` only fills and focuses, `empty-only` hides the row after the first send, `target` names the chat when the element sits outside its composer. It fires a cancelable `aparte-suggestion` first. New locale key `suggestionsLabel` (the group's accessible name), translated in `@aparte/locale-fr`.
+
+  Every chat product opens on three or four of these, and the example app hand-rolled them — four buttons, a click handler, a CSS recipe of its own. The click goes through the composer's `submit()` on purpose: that is where every gate lives (disabled, streaming, `requireModelSelection`), and a chip that bypassed them sent a request with an empty model id while the composer was visibly greyed out. The chips wear the `aparte-btn` recipe, so a theme reaches them with no knob of their own.
+
+- 8da979c: A new CSS class, `aparte-mark`, gives a chosen row one look everywhere: an intent tint on its ground and a bar on its start edge. `aparte-mark--success`, `--danger`, `--neutral` and `--quiet` pick the intent (primary by default), and two tokens move every mark at once: `--aparte-mark-tint` (18%) and `--aparte-mark-bar` (2px). The select's chosen option, a checked field choice and the active conversation wear it; any row, option or button can.
+
+  The recipe lives in `display/mark.css`. The bar is drawn in the intent's ink so it reads at 3:1 and above (the raw success fill was 2.27:1 on the light surface); `--quiet` is the outcome that did not happen: no tint, no bar, muted. The bar is a `::before` pseudo-element on the logical start edge, so a right-to-left row — `dir` on the document, on the row, or `auto` — gets it on the right edge. The select's chosen option keeps its look and now reads those tokens; a checked field choice (the elicitation panel's options) gains the tint and the bar beside its primary border, and keeps them under the pointer; the active conversation gains the bar (its ground stays the list's own).
+
+  Tool-call rows: rejected and aborted no longer share the error ink — both keep the muted voice, and the glyph tells them apart (a cross for rejected, a stop square for aborted). Red stays for what went wrong.
+
+- 1f654b0: The composer stays editable while a reply streams: the next message can be typed and files attached while the current reply arrives, as in every chat. Only the send is gated meanwhile — the button is Stop, and Enter neither sends nor stops (the draft stays and Enter sends it once the turn is over). Until now the editor and the attach button went inert for the whole turn. `disabled` still makes the editor non-editable (the `require-model` gate never did — it gates the send, and typing under it is what the browser suite checks), and a non-editable editor now leaves the tab order (`tabindex="-1"`) and drops focus, so clicking it no longer lights the shell's focus border on a field that cannot be typed in. A custom `<aparte-composer-action>` keeps its own rule (disabled while streaming), since its act is the host's.
+- e58508a: The deprecated `max-messages` attribute and `maxMessages` option of `<aparte-chat-viewport>` are removed — use `max-rendered-bubbles` / `maxRenderedBubbles`, which is what the alias had been forwarding to.
+
+  Pre-1.0 a rename lands as a rename; the alias and its one-time warning were the one deprecation shim in the package. (`AparteConversationManager`'s own `retention.maxMessages` is unrelated and unchanged.)
+
+### Patch Changes
+
+- 9c4ef91: Attachments under a sent message render as real tiles — the same thumbnail tiles the composer previews — instead of a bare "PDF" beside an unframed image. The attachment strip and tile rules moved from `composer.css` to the display layer (`thumbnail.css`), where a recipe shared by two components belongs.
+
+  If you restyled the strip through `.aparte-attachments` or `.aparte-thumb…` selectors nothing changes: the class names are the same, only the sheet that declares them.
+
+- d22a75d: `AparteClient.abort()` now stops an in-flight `compact()` without disturbing a turn, and a turn without disturbing a compaction.
+
+  Compaction used to borrow the turn's abort controller slot, so a summarisation started during a turn left that turn unabortable — Stop reached only the summary while the reply kept streaming and kept being billed. Each has its own controller; `abort()` fires both.
+
+- d45da0c: Changing `placeholder` on `<aparte-composer>` now updates an `<aparte-composer-input>` already on the page. `syncPlaceholder()` on the input is the method the composer calls; an input with a `placeholder` of its own is unaffected.
+
+  The input read the composer's placeholder as a fallback when it rendered and never again, and the composer's attribute callback for it was an empty branch — so a placeholder bound to a translated string went stale on the first language switch after mount.
+
+- 64f679a: The bubble's copy button copies the reply without its reasoning block.
+
+  It joined every segment's content, so a reply that opened with a `thinking` segment pasted the model's deliberation above the answer. The client already keeps that block out of the history it sends back, for the same reason; the two rules for "what the reply is" now agree.
+
+- 9c4ef91: An assistant turn that ends with nothing to show — stopped before its first token, or made only of a tool that renders nothing — no longer leaves a name and a timestamp floating in the transcript. The bubble sets `data-empty` on `.aparte-message` and the stylesheet hides the row; restyle `.aparte-message[data-empty]` if you want a "stopped" marker instead.
+
+  Streaming bubbles are never empty (the waiting dots are their content), and attachments count as content. The element stays in the DOM, so streaming and the action bar still address it by id.
+
+- 213add8: A code block no longer closes on a streamed chunk that merely ends in three backticks — a fence has to start a line.
+
+  `const s = "```"` split by the tokenizer right after the quotes used to close the block mid-code, and the rest of the file streamed as prose. A reply that genuinely ends on ``` with no newline is still handled: the fence is stripped once, at the end of the stream, where it cannot mis-close anything.
+
+- e083712: The 25 built-in glyphs and the 41 icons behind `@aparte/core/icons` are redrawn. Every name, export and size is the same — an icon provider you registered, and any `--aparte-icon-size` a container declares, are unaffected.
+
+  They are core's own drawings, on one grid (24 units, a 2-unit round-capped stroke, `currentColor`) so the two sets keep a single optical weight side by side, and the package carries no notice and credits no icon set. The generated icons reference describes the grid and the naming rather than pointing at any particular set.
+
+- 1589baa: Markdown tables in a reply are styled: borders, cell padding, a header row on the surface tone, and a wide table scrolls inside the bubble instead of overflowing it.
+
+  The sanitizer had allowlisted `table`/`th`/`td` from the start and no stylesheet ever drew them, so a GFM table rendered as words with no borders and columns that touched. `prose.css` styles it like the rest of the prose, from existing tokens only.
+
+- e3d0006: Scrolling up while a reply streams now sticks: the transcript stops pulling the reader back to the bottom.
+
+  Auto-follow was disarmed by the gesture, but a scroll-to-bottom frame queued just before it still ran — and the bottom it reached re-armed auto-follow, so every attempt to read something above the stream lasted one frame. Queued frames now re-check the intent before scrolling. Reaching the bottom again, or pressing the scroll-to-bottom button, re-arms it as before.
+
+- 2c67b6b: `<aparte-select>`'s dropdown panel reads `--aparte-select-dropdown-bg` in the dark theme too. Its dark rule used to repaint the panel from `--aparte-select-bg` — the trigger's background — so a transparent trigger (a pill on a coloured page) made the open list see-through in the dark, with the page's text showing through the options. The dark override is gone altogether: every colour of the select reads a token the derived layer already resolves per theme. And the trigger's label follows a list refreshed in place (a consumer writing into `.aparte-select-options`, as the model selector does): it kept showing a label the list no longer offered.
+- 16464cd: `<aparte-select>` keeps one width — its widest option's — whatever is selected, like a native `<select>`; it used to resize to the selected label on every change. The trigger's label is now a grid of two layers (`.aparte-select-label-text` and a hidden `.aparte-select-label-sizer` stack of every option's label); a stylesheet that targeted `.aparte-select-label`'s text directly should target `.aparte-select-label-text`. A host that constrains the control narrower than its widest option still gets an ellipsis.
+- 8d07938: On WebKit the transcript no longer settles a few pixels short of the bottom — with a scroll-to-bottom button showing — when a streamed reply ends or a branch is swapped at the bottom.
+
+  The action bar appearing at the end of a stream and the bottom spacer giving those pixels back happen in one frame, and through that churn WebKit moves `scrollTop` backwards; a branch swap on React flickers the height by ~200px and moves it by as much. Since queued scroll frames re-read the reader's intent, those browser-made decreases read as "the reader went up" and disarmed the follow mid-landing. A decrease now counts as the reader's unless three things hold: it is no larger than the scroll height moved since the last scroll event (churn moves `scrollTop` by at most the height it changed; a reader, a find-in-page jump or a host's `scrollTo` move it with the height standing still), it comes within a second of a scroll the viewport asked for, and no scroll gesture touched the transcript in that second — a wheel notch, a touch that moves, a navigation key, or a press in the scrollbar's gutter. A click or a tap on a control inside the transcript (a branch arrow, copy) is not a scroll gesture.
+
+- f9a6fbd: While a reply streams, the transcript is read-only except for Stop and copy: the branch pickers and the retry/edit actions of every message are disabled, and `navigateBranch()` is a no-op. Until now only the streaming message's own footer was hidden: swapping a branch on an older message re-rendered the active path under the reply being written, and a retry cut that reply off to start another. The viewport carries `data-busy` while it streams and pushes the state to its bubbles (`setTranscriptBusy()`); a bubble mounted under a framework's DOM while the flag is up reads it on connect.
+
+  A stopped reply now reaches a terminal status on every path, so the flag comes down. Two paths did not settle the message: a stream stopped through the host (`stopTokenStream()` / a wrapper's stop left the viewport holding the message as streaming — it "kept what was streamed" but never finished it), and a Stop pressed before the first token arrived (while auth or an attachment was still being read). Either one left the transcript read-only for the life of the page. `clearAll()` clears the flag too.
+
+- f9b1008: Four visual fixes: popovers and the select dropdown cast a visible shadow, the recommended elicitation option shows one focus ring instead of two, the bubble's action-bar buttons reach the touch-target size on a coarse pointer, and `@aparte/plugin-ask-user`'s receipt shows the answer in the strong text colour instead of green. The shadows are `--aparte-popover-shadow` and `--aparte-select-shadow` — set them yourself if you had: on cream the old one was imperceptible. The recommended option no longer shows its tinted border under the focus ring — one ring at a time. On a coarse pointer the action-bar buttons grow like the other controls already did. And the receipt's green was the one hue outside the palette on the whole transcript.
+- 9592bed: On a page with several chats, an `<aparte-composer>` that belongs to none — no `target`, no chat host with an id above it — logs one warning saying how to attach it. Nothing else changes.
+
+  Such a composer answers to every chat's lifecycle events, so one chat's Stop evicted another's open question, and the symptom sat nowhere near its cause. A signal at the console, not a guard.
+
+- Updated dependencies [461a692]
+- Updated dependencies [04289bb]
+- Updated dependencies [0850dee]
+- Updated dependencies [d299096]
+- Updated dependencies [cd5075e]
+  - @aparte/engine@0.14.0
+
 ## 0.13.1
 
 ### Patch Changes

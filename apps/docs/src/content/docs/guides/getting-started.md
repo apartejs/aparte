@@ -51,13 +51,13 @@ CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
 `@aparte/engine` bundled into core's:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@0.13.1/dist/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aparte/core@0.14.0/dist/index.css">
 <aparte-chat style="height: 600px"></aparte-chat>
 <script type="module">
   import { aparteGlobalConfig, AparteClient, AparteDirectTransport, registerDefaultRenderers }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/core@0.13.1/+esm';
+    from 'https://cdn.jsdelivr.net/npm/@aparte/core@0.14.0/+esm';
   import { createOpenAICompatProvider, presets }
-    from 'https://cdn.jsdelivr.net/npm/@aparte/provider-openai-compat@0.13.1/+esm';
+    from 'https://cdn.jsdelivr.net/npm/@aparte/provider-openai-compat@0.14.0/+esm';
 
   registerDefaultRenderers();
   aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
@@ -67,7 +67,7 @@ CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
 ```
 
 **Pin the same exact version on every URL.** A provider's bundle imports core at the exact
-version jsDelivr resolved for it (`/npm/@aparte/core@0.13.1/+esm`); a different string on
+version jsDelivr resolved for it (`/npm/@aparte/core@0.14.0/+esm`); a different string on
 your side — `@alpha`, `@0.13`, `@latest` — is a different URL, and a different URL is a
 second copy of core with a registry of its own, so the provider you register lands in the
 wrong one. Every package ships at the same version, which makes this one number to keep.

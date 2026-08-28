@@ -1,5 +1,23 @@
 # @aparte/locale-fr
 
+## 0.14.0
+
+### Minor Changes
+
+- 129e094: Two chrome strings now follow the locale: the scroll-to-bottom button's accessible name (`scrollToBottom`) and the title of the message `compact()` injects (`compactionSummaryTitle`, no emoji any more). `@aparte/locale-fr` ships both.
+
+  Both were hardcoded English in an otherwise localised transcript — a French chat compacted into a "📝 Conversation summary" header, and its one floating button was announced in English. The keys are optional on `AparteLocale`, so an existing locale package keeps compiling and falls back to English per key until it adds them. The engine compactor's own `summaryLabel` is unchanged: it is a per-call knob on the prompt side, this is the UI title.
+
+### Patch Changes
+
+- 461a692: New `<aparte-context>`: a gauge of the model's context window. It reads each turn's reported usage and the window the current model declares (or a `window` attribute), sets `data-level` to `ok` / `warn` / `danger` at the `warn` / `danger` fractions (75 % / 90 %), fires `aparte-context-threshold` when the level changes, and with `auto-compact` dispatches `aparte-compact` on reaching danger. New in `@aparte/engine`: `createCompactionSelector({ contextWindow, systemPrompt })`, the budget-aware `compactionSelector` for `AparteClient` — the newest turns that fit stay verbatim, the rest is summarised. New locale key `contextLabel`, translated in `@aparte/locale-fr`.
+
+  The first product built on the library showed a context badge that turned red at 90 % — and then nothing happened, because `compact()` existed, `compactionSelector` existed, the engine's compactor existed, and no piece joined them. This is the join: the gauge watches, the selector decides, and the two read the same window.
+
+- e413352: New `<aparte-suggestions>`: a row of prompt starters. Give it `suggestions='["…", {"label": "…", "prompt": "…"}]'` (or set the `suggestions` property), and a click fills the composer and submits it; `mode="fill"` only fills and focuses, `empty-only` hides the row after the first send, `target` names the chat when the element sits outside its composer. It fires a cancelable `aparte-suggestion` first. New locale key `suggestionsLabel` (the group's accessible name), translated in `@aparte/locale-fr`.
+
+  Every chat product opens on three or four of these, and the example app hand-rolled them — four buttons, a click handler, a CSS recipe of its own. The click goes through the composer's `submit()` on purpose: that is where every gate lives (disabled, streaming, `requireModelSelection`), and a chip that bypassed them sent a request with an empty model id while the composer was visibly greyed out. The chips wear the `aparte-btn` recipe, so a theme reaches them with no knob of their own.
+
 ## 0.13.1
 
 ## 0.13.0

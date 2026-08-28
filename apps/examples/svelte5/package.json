@@ -1,6 +1,6 @@
 {
     "name": "@aparte-workspace/example-svelte5",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "private": true,
     "type": "module",
     "description": "The Svelte example again, on Svelte 5 — the proof that one shipped source serves both majors.",

@@ -1,5 +1,19 @@
 # @aparte/plugin-ask-question
 
+## 0.14.0
+
+### Minor Changes
+
+- b4c7365: `createAskUserTool` and `setupAskUser` accept `name`, `description` and `systemPrompt`; `setupAskUser` also takes `receipt: false` to keep the transcript silent. Nothing changes when you pass none of them.
+
+  The tool's name was `ask_user` three times over (the tool, the receipt renderer, the Node entry) and its description and system prompt were fixed English — so a backend that already exposed an `ask_user`, or a product that wanted the model to read another policy in another language, had to fork the tool for two strings. The receipt renderer now registers under whatever name is chosen, and declining the receipt no longer means registering an empty renderer after `setupAskUser` and hoping the order holds.
+
+- 91607bd: The question receipt now shows a success tint and a bar on its start edge once answered (`aparte-mark aparte-mark--success`), and a muted, unmarked look when declined (`aparte-mark--quiet`) — core's `aparte-mark` recipe, so it matches the select's chosen option and a checked field choice. And a `question-receipt` segment an app emits itself can now say `declined: true` — it renders the outcome alone, the way the tool's own receipt already did.
+
+### Patch Changes
+
+- f9b1008: Four visual fixes: popovers and the select dropdown cast a visible shadow, the recommended elicitation option shows one focus ring instead of two, the bubble's action-bar buttons reach the touch-target size on a coarse pointer, and `@aparte/plugin-ask-user`'s receipt shows the answer in the strong text colour instead of green. The shadows are `--aparte-popover-shadow` and `--aparte-select-shadow` — set them yourself if you had: on cream the old one was imperceptible. The recommended option no longer shows its tinted border under the focus ring — one ring at a time. On a coarse pointer the action-bar buttons grow like the other controls already did. And the receipt's green was the one hue outside the palette on the whole transcript.
+
 ## 0.13.1
 
 ## 0.13.0
