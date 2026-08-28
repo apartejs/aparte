@@ -9,6 +9,16 @@
 
 set -e
 
+# No nx daemon in a hook. With the daemon, a cache hit asks the daemon whether the
+# outputs on disk still match, and the daemon answers from a table its file watcher
+# keeps — a table that missed the emptying of packages/core/dist often enough that
+# `[existing outputs match the cache, left as is]` was printed against an empty
+# folder, and every downstream typecheck failed with "Cannot find module
+# '@aparte/core'" (see packages/core/project.json). Without the daemon nx hashes
+# the outputs from disk and restores them when they differ. A hook is short-lived
+# anyway; the daemon saves it nothing.
+export NX_DAEMON=false
+
 printf '\n[aparte] pre-commit: lint + typecheck\n'
 
 if ! pnpm lint; then
