@@ -1342,7 +1342,15 @@ export class AparteChatBubble extends HTMLElement {
 
     switch (action) {
       case 'copy': {
-        const text = this._content || this._segments.map(s => (s as { content?: string }).content ?? '').join('\n');
+        // The reply, not the reasoning: a `thinking` segment is the model's scratchpad,
+        // and the client already keeps it out of the history it sends back
+        // (`_segmentsToText`) for the same reason. Copying it along with the answer
+        // pasted a paragraph of deliberation above every reply — no assistant on the
+        // market does that.
+        const text = this._content || this._segments
+          .filter(s => s.type !== 'thinking')
+          .map(s => (s as { content?: string }).content ?? '')
+          .join('\n');
         const icons = this._cfg.getIconProvider();
         const locale = this._cfg.getLocale();
         navigator.clipboard.writeText(text).then(() => {
