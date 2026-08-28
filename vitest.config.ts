@@ -88,8 +88,10 @@ export default defineConfig({
         // suite, the real-stream stamping test and the renderer-additivity tests
         // moved the global to 84.67% lines and 80.05% functions. The ratchet guard
         // asked for it — that is what a two-sided floor is for.
-        lines: 85,
-        statements: 85,
+        // Raised 85 -> 87 on 2026-08-28: `@aparte/docs-mcp` (fully covered) and the
+        // `copyText` fallback moved the global to 88.02%; the ratchet asked again.
+        lines: 87,
+        statements: 87,
         // Raised with the typed element directives: 19 directives with a setter per
         // attribute and a listener per event moved the function and branch numbers, and
         // the table-driven suite in
