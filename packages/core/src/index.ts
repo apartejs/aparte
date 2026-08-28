@@ -67,6 +67,8 @@ export type {
     AparteBubbleRole,
     AparteMessage,
     AparteContentParser,
+    AparteStreamBlock,
+    AparteStreamBlockMatch,
     AparteSendEventDetail,
     AparteViewportConfig,
     AparteInputConfig,

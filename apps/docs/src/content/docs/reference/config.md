@@ -207,6 +207,8 @@ default.
 - `getToolHandler(name: string): AparteToolHandler | undefined` — the handler for a tool by name.
 - `registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void` — a per-tool segment renderer, controlling what appears in the bubble when that tool is called: `render`, and optionally `setup`, `update` (patch in place when the call changes, instead of a rebuild), `relabel` (re-read the locale on a config change) and `getStyles`.
 - `unregisterToolRenderer(toolName: string): void` — remove a per-tool renderer.
+- `registerStreamBlock(block: AparteStreamBlock): void` — teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's prose becomes the segment `block.toSegment` builds, streamed delta by delta (see [Teach the parser a block](/guides/customization/#teach-the-parser-a-block)). One grammar per tag; read when a turn starts.
+- `unregisterStreamBlock(tag: string): void` / `getStreamBlocks(): AparteStreamBlock[]` — forget a grammar; list the registered ones.
 - `getToolRenderer(toolName: string): AparteToolRenderer | undefined` — the renderer for a tool name, if any.
 
 See the [Tools & human-in-the-loop](/guides/tools/) guide.

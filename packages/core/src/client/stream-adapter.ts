@@ -107,7 +107,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
     // Per-turn streaming state (reset on `turn-start`, mirroring `_streamLoop`
     // creating a fresh parser / maps each outer iteration).
-    let parser = new AparteStreamParser();
+    let parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
     let streaming = new Set<string>();
     let thinkingId: string | null = null;
     let thinkingContent = '';
@@ -124,7 +124,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'turn-start':
-                parser = new AparteStreamParser();
+                parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
                 streaming = new Set();
                 thinkingId = null;
                 thinkingContent = '';

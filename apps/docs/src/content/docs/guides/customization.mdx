@@ -399,6 +399,53 @@ registerSegmentRenderer({
 });
 ```
 
+### Teach the parser a block
+
+A renderer draws a segment; something has to *produce* it. Models write conventions into
+their prose — `<think>` for reasoning, `<artifact type="…">` for a document, `<file path="…">`
+for a patch, `<cite url="…">` for a source — and every one is the same shape: an opening tag
+with attributes, a body that streams, a closing tag. Register the grammar and the stream
+parser does the rest:
+
+```ts
+import { aparteGlobalConfig, registerSegmentRenderer } from '@aparte/core';
+import type { AparteSegmentBase, AparteStreamBlockMatch } from '@aparte/core';
+
+interface CitationSegment extends AparteSegmentBase {
+  type: 'citation';
+  url: string;
+  content: string;
+}
+
+aparteGlobalConfig.registerStreamBlock({
+  tag: 'cite',
+  toSegment: ({ attrs, id }: AparteStreamBlockMatch): CitationSegment =>
+    ({ id, type: 'citation', url: attrs['url'] ?? '', content: '' }),
+});
+
+registerSegmentRenderer<CitationSegment>({
+  type: 'citation',
+  render(segment) {
+    const a = document.createElement('a');
+    a.href = segment.url || '#';
+    a.textContent = segment.content;
+    return a;
+  },
+});
+```
+
+`toSegment` is called once, at the opening tag, with an `AparteStreamBlockMatch`: the
+attributes as written (quoted or bare — `<cite url="…">`, `<cite url=…>`) and the id the
+parser generated. It returns the segment with an empty `content`, and the parser streams
+the body into it delta by delta,
+marks it `isStreaming` while the block is open and closes it at `</cite>` or at the end of
+the stream. Everything that makes this hard is done once for every grammar: the earliest
+tag wins against a code fence and a reasoning delimiter, a tag cut at a chunk boundary is
+held back, a closing tag split across two chunks never leaks as content, and `<cites>` does
+not open a `cite` block. What the segment *is* stays yours — a `type` with a renderer, or a
+built-in one if the block is only another spelling of it. The blocks are read when a turn
+starts, so a grammar registered mid-turn applies from the next one.
+
 ### Driving the whole registry
 
 `registerSegmentRenderer` adds a type. Three more functions drive the registry itself,

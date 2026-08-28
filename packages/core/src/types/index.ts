@@ -23,6 +23,8 @@ export type {
     AparteInputConfig
 } from './models.js';
 
+export type { AparteStreamBlock, AparteStreamBlockMatch } from './stream-blocks.js';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Events - Component communication
 // ─────────────────────────────────────────────────────────────────────────────

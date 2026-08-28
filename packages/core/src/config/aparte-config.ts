@@ -26,6 +26,7 @@ import type {
     AparteApprovalPolicy, AparteApprovalRuling,
 } from '../types/tools.js';
 import type { AparteSegmentDefaults } from '../types/segments.js';
+import type { AparteStreamBlock } from '../types/stream-blocks.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
@@ -224,6 +225,8 @@ export class AparteConfig {
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
+    /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
+    private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
 
     // Host handlers — what the app declares it can actually complete.
@@ -1190,6 +1193,41 @@ export class AparteConfig {
         return this._toolRenderers.get(toolName);
     }
 
+    /**
+     * Teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's
+     * prose becomes the segment `toSegment` builds, streamed delta by delta.
+     *
+     * The parser does the work once for every grammar — the earliest opening tag wins
+     * against a code fence and a reasoning delimiter, a tag cut at a chunk boundary is
+     * held back, attributes are parsed quoted or bare, and the block is closed at
+     * `</tag>` or at the end of the stream. What the segment IS is yours: a `type` of
+     * your own with a renderer from `registerSegmentRenderer`, or a built-in one. One
+     * grammar per tag; registering the same tag again replaces it.
+     *
+     * Read by the stream adapter when a turn starts, so a block registered mid-turn
+     * applies from the next turn. See {@link AparteStreamBlock}.
+     *
+     * @example
+     * aparteGlobalConfig.registerStreamBlock({
+     *   tag: 'cite',
+     *   toSegment: ({ attrs, id }) => ({ id, type: 'citation', url: attrs['url'] ?? '', content: '' }),
+     * });
+     */
+    registerStreamBlock(block: AparteStreamBlock): void {
+        this._streamBlocks.set(block.tag, block);
+        this._notify();
+    }
+
+    /** Forget a block grammar by its tag. */
+    unregisterStreamBlock(tag: string): void {
+        if (this._streamBlocks.delete(tag)) this._notify();
+    }
+
+    /** The registered block grammars, in registration order. */
+    getStreamBlocks(): AparteStreamBlock[] {
+        return Array.from(this._streamBlocks.values());
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Conversation Manager (optional, agnostic persistence layer)
     // ─────────────────────────────────────────────────────────────────────────
@@ -1398,6 +1436,7 @@ export class AparteConfig {
         this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
+        this._streamBlocks.clear();
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._elicitationAllowOther = true;

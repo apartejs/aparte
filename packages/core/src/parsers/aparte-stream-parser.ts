@@ -11,6 +11,7 @@
  */
 
 import { deriveArtifactKind } from '@aparte/engine';
+import type { AparteStreamBlock } from '../types/stream-blocks.js';
 import type {
     AparteSegment,
     AparteTextSegment,
@@ -40,6 +41,13 @@ export interface AparteStreamParserOptions {
      * `<thinking>…</thinking>` (Claude-style). Pass your own to override.
      */
     thinkingDelimiters?: AparteThinkingDelimiterPair | AparteThinkingDelimiterPair[];
+    /**
+     * Tagged blocks to recognise in the prose — `<tag attr="…">…</tag>` — each turned
+     * into the segment its grammar builds. The stream adapter passes the blocks
+     * registered on the config (`registerStreamBlock`); pass your own when you drive
+     * the parser yourself. See {@link AparteStreamBlock}.
+     */
+    blocks?: AparteStreamBlock[];
     /** Auto-generate segment IDs (default: true) */
     autoGenerateIds?: boolean;
     /** ID prefix for generated segments */
@@ -54,13 +62,15 @@ const DEFAULT_THINKING_DELIMITERS: AparteThinkingDelimiterPair[] = [
 
 export interface AparteParserState {
     /** Current parser mode */
-    mode: 'text' | 'code' | 'thinking' | 'artifact';
+    mode: 'text' | 'code' | 'thinking' | 'artifact' | 'block';
     /** Buffer for incomplete patterns */
     buffer: string;
     /** Current code block language */
     codeLanguage?: string;
     /** Close delimiter of the thinking pair currently open (multi-delimiter support) */
     thinkingEnd?: string;
+    /** Closing tag of the registered block currently open (`</tag>`). */
+    blockEnd?: string;
     /** Accumulated segments */
     segments: AparteSegment[];
     /** Current active segment being built */
@@ -86,6 +96,8 @@ export class AparteStreamParser {
     private _options: Required<Pick<AparteStreamParserOptions, 'autoGenerateIds' | 'idPrefix'>>;
     /** Normalized to an array; the parser matches whichever pair opens first. */
     private _thinkingDelimiters: AparteThinkingDelimiterPair[];
+    /** The registered block grammars, in registration order. */
+    private _blocks: AparteStreamBlock[];
     private _state: AparteParserState;
 
     constructor(options: AparteStreamParserOptions = {}) {
@@ -93,6 +105,7 @@ export class AparteStreamParser {
         this._thinkingDelimiters = delims
             ? (Array.isArray(delims) ? delims : [delims])
             : DEFAULT_THINKING_DELIMITERS;
+        this._blocks = options.blocks ?? [];
         this._options = {
             autoGenerateIds: options.autoGenerateIds ?? true,
             idPrefix: options.idPrefix ?? 'seg'
@@ -200,6 +213,8 @@ export class AparteStreamParser {
                 return this._parseThinkingMode(buffer);
             case 'artifact':
                 return this._parseArtifactMode(buffer);
+            case 'block':
+                return this._parseBlockMode(buffer);
             default:
                 return null;
         }
@@ -220,11 +235,22 @@ export class AparteStreamParser {
         // Check for artifact block start: <artifact ...>
         const artifactStart = buffer.indexOf('<artifact');
 
+        // Registered blocks: the earliest whole-tag match wins, like the delimiters.
+        // A `<tag` cut at the end of the buffer is not a match yet — the next chunk
+        // decides whether it is `<tag>` or `<tagline>` — so it is held back below.
+        let blockStart = -1;
+        let blockHit: AparteStreamBlock | undefined;
+        for (const b of this._blocks) {
+            const i = this._indexOfTag(buffer, b.tag);
+            if (i !== -1 && (blockStart === -1 || i < blockStart)) { blockStart = i; blockHit = b; }
+        }
+
         // Determine which pattern comes first
-        const patterns: { type: 'code' | 'thinking' | 'artifact'; index: number }[] = [];
+        const patterns: { type: 'code' | 'thinking' | 'artifact' | 'block'; index: number }[] = [];
         if (codeBlockStart !== -1) patterns.push({ type: 'code', index: codeBlockStart });
         if (thinkingStart !== -1) patterns.push({ type: 'thinking', index: thinkingStart });
         if (artifactStart !== -1) patterns.push({ type: 'artifact', index: artifactStart });
+        if (blockStart !== -1) patterns.push({ type: 'block', index: blockStart });
 
         patterns.sort((a, b) => a.index - b.index);
 
@@ -233,7 +259,9 @@ export class AparteStreamParser {
             // Check if buffer might be start of a pattern (keep it for next chunk)
             if (buffer.endsWith('`') || buffer.endsWith('``') ||
                 this._thinkingDelimiters.some(p => this._isPartialMatch(buffer, p.start)) ||
-                this._isPartialMatch(buffer, '<artifact')) {
+                this._isPartialMatch(buffer, '<artifact') ||
+                // `<ta`, and also the whole `<tag` with nothing after it yet.
+                this._blocks.some(b => this._isPartialMatch(buffer, '<' + b.tag) || buffer.endsWith('<' + b.tag))) {
                 return null; // Keep buffer, wait for more data
             }
 
@@ -289,7 +317,7 @@ export class AparteStreamParser {
                 return null;
             }
             return { segment: segmentToEmit, remaining: res.remaining };
-        } else {
+        } else if (firstPattern.type === 'artifact') {
             const res = this._startArtifactBlock(buffer);
             if (!res) {
                 // Opening tag incomplete — same restore as the two branches above.
@@ -297,6 +325,23 @@ export class AparteStreamParser {
                 return null;
             }
             return { segment: segmentToEmit, remaining: res.remaining };
+        } else {
+            const res = this._startBlock(buffer, blockHit!);
+            if (!res) {
+                if (segmentToEmit) this._state.activeSegment = segmentToEmit;
+                return null;
+            }
+            // A self-closing tag is a block with no body, opened and closed in one
+            // step. One segment per step: when text preceded it, emit the text now and
+            // leave the tag in the buffer — the next step finds it at index 0 with no
+            // text pending and emits the block itself.
+            if (res.segment && segmentToEmit) {
+                this._state.mode = 'text';
+                this._state.activeSegment = null;
+                this._state.blockEnd = undefined;
+                return { segment: segmentToEmit, remaining: buffer };
+            }
+            return { segment: segmentToEmit ?? res.segment, remaining: res.remaining };
         }
     }
 
@@ -524,6 +569,95 @@ export class AparteStreamParser {
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    // ─── registered blocks ──────────────────────────────────────────────────
+
+    /**
+     * Where `<tag` opens a block in `buffer`, or -1. A hit needs the name to END
+     * there: `<artifacts>` is not `<artifact>`, so the character after the name must
+     * be whitespace, `/` or `>`. A `<tag` sitting at the very end of the buffer is
+     * undecidable and reported as -1 — the partial-match hold in `_parseTextMode`
+     * keeps it for the next chunk.
+     */
+    private _indexOfTag(buffer: string, tag: string): number {
+        const open = '<' + tag;
+        let from = 0;
+        for (;;) {
+            const i = buffer.indexOf(open, from);
+            if (i === -1) return -1;
+            const next = buffer[i + open.length];
+            if (next === undefined) return -1;
+            if (next === '>' || next === '/' || /\s/.test(next)) return i;
+            from = i + 1;
+        }
+    }
+
+    /**
+     * Open a registered block. The buffer starts with `<tag`; the whole opening tag
+     * must be present (its `>`) or we wait. Attributes are read as written —
+     * `a="x"`, `a='x'`, `a=x` — and a self-closing `<tag …/>` is a block with no
+     * body, returned closed at once.
+     */
+    private _startBlock(buffer: string, block: AparteStreamBlock): { segment: AparteSegment | null; remaining: string } | null {
+        const tagEnd = buffer.indexOf('>');
+        if (tagEnd === -1) return null;
+        const inner = buffer.slice(1 + block.tag.length, tagEnd);
+        const selfClosing = inner.trimEnd().endsWith('/');
+        const attrSource = selfClosing ? inner.trimEnd().slice(0, -1) : inner;
+
+        const attrs: Record<string, string> = Object.create(null);
+        for (const m of attrSource.matchAll(/([A-Za-z_][\w:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g)) {
+            attrs[m[1]!] = m[2] ?? m[3] ?? m[4] ?? '';
+        }
+
+        // A grammar may build a type of its own — the union is closed, the registry is
+        // not, which is the documented `registerSegmentRenderer({ type: 'chart' })` case.
+        const segment = block.toSegment({ attrs, id: this._options.autoGenerateIds ? this._generateId() : '' }) as unknown as AparteSegment & { content: string };
+        segment.content = '';
+        const remaining = buffer.slice(tagEnd + 1);
+        if (selfClosing) return { segment: this._closed(segment), remaining };
+
+        segment.isStreaming = true;
+        this._state.mode = 'block';
+        this._state.blockEnd = `</${block.tag}>`;
+        this._state.activeSegment = segment;
+        return { segment: null, remaining };
+    }
+
+    /**
+     * Stream the body of the open block until its closing tag — the same
+     * partial-delimiter handling the thinking and artifact modes use, so a closing
+     * tag split across two chunks is never emitted as content.
+     */
+    private _parseBlockMode(buffer: string): { segment: AparteSegment | null; remaining: string } | null {
+        const endDelim = this._state.blockEnd!;
+        const closeIndex = buffer.indexOf(endDelim);
+        const active = this._state.activeSegment as (AparteSegment & { content: string }) | null;
+
+        if (closeIndex === -1) {
+            if (this._isPartialMatch(buffer, endDelim)) {
+                const partialLength = this._getPartialMatchLength(buffer, endDelim);
+                const safeContent = buffer.slice(0, buffer.length - partialLength);
+                if (safeContent && active) active.content += safeContent;
+                return safeContent
+                    ? { segment: null, remaining: buffer.slice(-partialLength) }
+                    : null;
+            }
+            if (buffer.length > endDelim.length) {
+                const safeContent = buffer.slice(0, -endDelim.length);
+                if (active) active.content += safeContent;
+                return { segment: null, remaining: buffer.slice(-endDelim.length) };
+            }
+            return null;
+        }
+
+        if (active) active.content += buffer.slice(0, closeIndex);
+        const segment = this._closed(this._state.activeSegment);
+        this._state.mode = 'text';
+        this._state.activeSegment = null;
+        this._state.blockEnd = undefined;
+        return { segment, remaining: buffer.slice(closeIndex + endDelim.length) };
+    }
 
     private _createInitialState(): AparteParserState {
         return {
