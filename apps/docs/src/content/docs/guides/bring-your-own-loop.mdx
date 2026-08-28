@@ -332,10 +332,9 @@ exported so you do not have to reimplement them:
 
 | Export | What it does | When you want it |
 | --- | --- | --- |
-| `AparteStreamParser` | Incrementally splits a model's text into segments — text, code fences, thinking blocks, `<artifact>` tags | You are feeding raw deltas and want the same rendering the client produces |
+| `AparteStreamParser` | Incrementally splits a model's text into segments — text, code fences, thinking blocks, and the tagged blocks you registered (`blocks` option / `registerStreamBlock`) | You are feeding raw deltas and want the same rendering the client produces |
 | `parseMarkdownToSegments` | The one-shot version of the above, for a complete reply | You already have the whole answer (a non-streaming call, or replaying history) |
 | `contentToText` | Flattens `string \| AparteContentPart[]` to its text | Your transport or logs need the text of a multimodal message |
-| `deriveArtifactKind` | Maps a MIME type to a short artifact kind (`html`, `svg`, `js`, …) | You are building artifact segments yourself |
 | `readableToAsyncIterable` | Wraps a `ReadableStream` so `for await` works, honouring an `AbortSignal` | You are consuming a provider's `parseStream` directly — Chromium does not async-iterate streams |
 | `uuid` | An id that works on plain `http://` — `crypto.randomUUID` first, a cheap fallback where it does not exist | You generate message or host ids and your app also runs on a LAN address |
 | `copyText` | Copies to the clipboard on plain `http://` too — `navigator.clipboard` first, `execCommand('copy')` where it does not exist | You add a copy button of your own; core's three use it |

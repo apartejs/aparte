@@ -132,6 +132,9 @@ importers:
       '@aparte/plugin-approval':
         specifier: workspace:*
         version: link:../../packages/plugins/approval
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../packages/plugins/artifacts
       '@aparte/plugin-ask-user':
         specifier: workspace:*
         version: link:../../packages/plugins/ask-user

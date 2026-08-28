@@ -44,7 +44,7 @@ if (!existsSync(REF_DIR)) mkdirSync(REF_DIR, { recursive: true });
 
 const front = `---
 title: "@aparte/engine — API reference"
-description: Generated reference for @aparte/engine — runStreamAgent, its stream events, the artifact-XML parser, and the conversation compactor.
+description: Generated reference for @aparte/engine — runStreamAgent, its stream events, and the conversation compactor.
 sidebar:
   order: ${referenceOrder("engine.md")}
 ---

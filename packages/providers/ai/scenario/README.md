@@ -49,6 +49,6 @@ A tool step calls the tool you registered on the config; the real loop runs its 
 and calls the provider again with the result, which `after` answers. `pacing:
 { chunk, delay }` sets the typing speed; `pacing: 'instant'` gives a test the whole
 reply at once. `showcase` is a ready-made set covering markdown, code, reasoning, a tool
-round-trip, a typed question (`ask_user`), an artifact and an error.
+round-trip, a typed question (`ask_user`), an artifact (a card once `@aparte/plugin-artifacts` is set up, prose otherwise) and an error.
 
 Full guide: [apartejs.dev/providers/ai/scenario](https://apartejs.dev/providers/ai/scenario/).

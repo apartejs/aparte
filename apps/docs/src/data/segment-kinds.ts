@@ -20,5 +20,5 @@ export const SEGMENT_KINDS: Kind[] = [
   { tag: 'code', body: 'A fenced block with a copy button that copies the source, not the markup.', states: [] },
   { tag: 'tool_call', body: 'Five states, including a turn paused for a person — the row is the anchor, the decision is asked at the composer. It opens onto the arguments the model sent and the result your handler returned.', states: ['pending', 'awaiting-approval', 'resolved', 'rejected', 'aborted'] },
   { tag: 'error', body: 'A failure card inside the turn that produced it — not a toast somewhere else on the page.', states: [] },
-  { tag: 'artifact', body: 'Tabbed Code / Preview. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
+  { tag: 'artifact', body: 'A plugin\'s segment, not core\'s — tabbed Code / Preview from @aparte/plugin-artifacts. The preview runs in a sandboxed iframe, and only ever after a person presses Preview.', states: [] },
 ];

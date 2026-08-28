@@ -156,8 +156,6 @@ say you're there:
 | `feedback` (👍/👎) | your listener (`aparte-feedback`) | off |
 | `info` (ⓘ details) | your popover (`aparte-message-info`) | off |
 | image-tile preview | your lightbox (`aparte-attachment-preview`) | off |
-| download on a *binary* artifact | your generator (`aparte-artifact-redownload`) | off |
-| re-generating a *persisted* binary artifact | your generator (`aparte-artifact-ready`, on mount) | off |
 
 Two levers, one for the action bar and one for everything else:
 
@@ -165,16 +163,14 @@ Two levers, one for the action bar and one for everything else:
 // You run an AparteClient, so retry and edit do something:
 aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
 
-// You handle these events yourself:
-aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
+// You handle this event yourself:
+aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 ```
 
-The last row is off for a stronger reason than the others, and worth reading before you
-turn it on: `artifactRehydrate` is an automatic dispatch nobody asked for, carrying
-model-authored content the receiving app is expected to run. Re-opening a saved
-conversation would re-execute whatever a prompt injection had persuaded the model to
-persist — on every reload. The full note is in the
-[config reference](/reference/config/#host-handlers).
+The download on a *binary* artifact used to be a third row here; it is
+[`@aparte/plugin-artifacts`](/plugins/artifacts/)'s now, and it follows the same rule in the
+plugin's own terms — the button exists only when the app gave `setupArtifacts` an `onBinary`
+that can produce the bytes.
 
 The **branch picker** `‹ 1/2 ›`, the waiting indicator, the stop button and the model
 selector are all in the first category — core honours them itself, so they need no
@@ -194,9 +190,7 @@ The **tool-approval gate** needs no declaration either, for a different reason: 
 composer by a loop that is actually waiting for the verdict. Nothing in the transcript is
 clickable, so there is no affordance there to declare — and a segment restored from
 storage cannot offer a button whose listener went with the page, which is what the old
-inline Approve / Reject did. The **download on a binary artifact** is the
-opposite — a model producing a spreadsheet doesn't mean anything in the page can
-regenerate the bytes, which is why it waits for `artifactRedownload`.
+inline Approve / Reject did.
 
 :::tip[An explicit list is its own opt-in]
 `setBubbleActions({ assistant: ['copy', 'retry', 'info'] })` renders exactly those, in that

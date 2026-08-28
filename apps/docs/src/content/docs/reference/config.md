@@ -52,32 +52,7 @@ show/hide, class hooks). Each accepts `string | HTMLElement` and `null` clears i
 - `setSiblingNavRenderer(renderer: AparteSiblingNavRenderer | null): void` / `getSiblingNavRenderer(): AparteSiblingNavRenderer | null` — the `‹ N / M ›` branch-position indicator.
 - `setBubbleShellRenderer(renderer: AparteBubbleShellRenderer | null): void` / `getBubbleShellRenderer(): AparteBubbleShellRenderer | null` — the structural skeleton of `<aparte-chat-bubble>` (advanced; must honor the `.aparte-message` class-hook contract).
 - `setAvatarProvider(provider: AparteAvatarProvider | null): void` / `getAvatarProvider(): AparteAvatarProvider | null` — fills the avatar host element with custom DOM (e.g. a mounted framework component).
-- `setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void` / `getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined` — builds the `srcdoc` HTML for an artifact preview iframe. **This replaces the containment, not just the markup** — see below.
-
-:::danger[A preview builder replaces the sandbox's policy]
-The default builder injects a `<meta http-equiv="Content-Security-Policy">` into the
-document it produces: `default-src 'none'` with inline script and style only, no fetch,
-no XHR, no websocket, no remote image or font. The iframe's `csp` attribute carries the
-same policy, but that attribute is **Chromium-only** — on Firefox and Safari the meta tag
-is the only policy the frame has. So a builder that does not emit it hands
-model-authored code a frame that can load and run anything it likes from any origin.
-
-If you replace the builder, emit that meta tag yourself. Loading a library from a CDN
-inside a preview means dropping the policy, which is the whole reason the default does not.
-
-**What the sandbox contains either way**, because it is worth knowing precisely: the frame
-has `sandbox="allow-scripts"` and nothing else — no `allow-same-origin` (an opaque origin,
-so it cannot read your page, your storage, or your API key), no `allow-forms`, no
-`allow-top-navigation`.
-
-**What nothing contains:** the frame navigating *itself*. Assigning `location.href` is a
-navigation, not a fetch — CSP's `navigate-to` was removed from the spec and never shipped,
-and a parent-page `frame-src` does not apply to it. A previewed artifact can therefore
-phone home once, and on Firefox and Safari render the page it navigated to inside the card.
-Verified in all three engines. Treat previewing model-authored HTML as running untrusted
-content in a box, not as running nothing — which is why the Preview tab requires a click
-rather than opening on its own.
-:::
+- The artifact preview builder is not here any more: an artifact is [`@aparte/plugin-artifacts`](/plugins/artifacts/)'s, and its `preview` option takes the builder (with the sandbox note that used to sit on this page).
 
 ### Markdown, highlight & sanitizer
 
@@ -141,63 +116,14 @@ merged registry, a `zones` parameter picks where each appears.
 The affordances core renders but cannot complete — it only asks, through a DOM event, and
 your app does the work. Declare what you handle; the rest isn't offered.
 
-- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **three**:
+- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare what you handle. One today:
   - `attachmentPreview` — image tiles ask for a lightbox via `aparte-attachment-preview`.
-  - `artifactRedownload` — the download button on a **binary** artifact → `aparte-artifact-redownload`.
-  - `artifactRehydrate` — re-generating a **persisted** binary artifact when a saved conversation is re-opened → `aparte-artifact-ready`, dispatched on mount rather than at the end of a stream. Off by default for a stronger reason than the others: it is an automatic dispatch nobody asked for, carrying model-authored content the receiving app is expected to run. Reloading a conversation would otherwise re-execute whatever a prompt injection had persuaded the model to persist, on every reload.
 
-  All three default to `false`.
-- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all three fields present. `Required<…>` on purpose: adding a fourth handler then fails to compile until every reader handles it, which is how the third came to be added at all.
+  Off by default. (`artifactRedownload` and `artifactRehydrate` left with the artifact: the plugin's `onBinary` is a function, not a declaration.)
+- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, every field present. `Required<…>` on purpose: adding a handler then fails to compile until every reader handles it.
 - `APARTE_DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.
-
-#### Completing a binary artifact: the file-generation handshake
-
-For a `pdf`, `xlsx` or `docx` artifact, core renders the card and then **waits on
-your app**: it owns no sandbox and no file generator. It dispatches
-`aparte-artifact-ready` on `window`, and the card stays at *Running sandbox…* until
-you answer with one of two events. Answering is not optional — a card with no answer
-waits forever.
-
-```ts
-// The artifact core wants generated.
-window.addEventListener('aparte-artifact-ready', async (e) => {
-  // `AparteArtifactReadyEventDetail`: the artifact's identity plus its content —
-  // { messageId, segmentId, mimeType, artifactType, title?, content }.
-  const { segmentId, content, mimeType } = e.detail;
-  try {
-    // Your generator, in your sandbox. Core never executes the model's code.
-    const { buffer, mime, filename, previewHtml } = await generateInSandbox(content, mimeType);
-    window.dispatchEvent(new CustomEvent('aparte-file-gen-ready', {
-      detail: {
-        segmentId,
-        filename,
-        buffer,                       // the file itself: Uint8Array | ArrayBuffer
-        bytes: buffer.byteLength,     // its SIZE, for the card's label
-        mime,
-        previewHtml,                  // markup for the preview pane, or null
-      },
-    }));
-  } catch (error) {
-    window.dispatchEvent(new CustomEvent('aparte-file-gen-error', {
-      detail: { segmentId, phase: 'generate', error: String(error) },
-    }));
-  }
-});
-```
-
-`aparte-file-gen-ready` carries
-`{ segmentId, filename, buffer, bytes, mime, previewHtml }`. Note the two that read
-alike: `buffer` is the file (`Uint8Array | ArrayBuffer`), `bytes` is its **size** as
-a number. `previewHtml` is markup for the card's preview pane, or `null`.
-`aparte-file-gen-error` carries
-`{ segmentId, phase?, error? }` and puts the card into its failed state. Both are
-matched on `segmentId`, so several artifacts can be in flight at once.
-
-Re-opening a saved conversation dispatches `aparte-artifact-ready` again only if you
-declared `artifactRehydrate` — see the handler list above for why that is off by
-default.
 
 ### Tools & tool renderers
 
@@ -309,8 +235,7 @@ host's `targetId` so several chats on one page stay isolated. All four are in th
 typed event map, so `e.detail` is typed on an `<aparte-chat>` or a viewport — and,
 since 0.8.0, under the `node` export condition too.
 
-The seven are `aparte-message-start`, `-done`, `-aborted` and `-error`, plus
-`aparte-artifact-start`, `-delta` and `-ready`. Their detail types and what each one
+The four are `aparte-message-start`, `-done`, `-aborted` and `-error`. Their detail types and what each one
 means are in the [events reference](/reference/events/#on-the-chat-host), which is
 generated from the source — this page used to repeat them in a table of its own, and a
 second copy of a list is a second copy to keep in step.

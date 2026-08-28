@@ -495,7 +495,7 @@ viewport.<span class="fn">updateSegment</span>(id, <span class="st">'s1'</span>,
 <span class="cm">// business, never the model's. You never write</span>
 <span class="cm">// messageId or index either — the owner stamps</span>
 <span class="cm">// them, and its measurements land in meta.aparte.</span></pre>
-<pre class="pane" data-pane="artifact"><span class="cm">// the model wrote a document; core renders the card</span>
+<pre class="pane" data-pane="artifact"><span class="cm">// the model wrote a document; the artifacts plugin renders the card</span>
 viewport.<span class="fn">addSegment</span>(mid, &#123;
   id: <span class="st">'a1'</span>, type: <span class="st">'artifact'</span>,
   artifactType: <span class="st">'svg'</span>,
@@ -785,6 +785,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       import '@aparte/core';
       import '@aparte/core/styles.css';
       import { registerDefaultRenderers, aparteGlobalConfig, filesToAttachments } from '@aparte/core';
+      import { setupArtifacts } from '@aparte/plugin-artifacts';
       // The real package, not a French object typed into this page: a lever that
       // demonstrates localisation has to be the thing a consumer would install.
       import { fr } from '@aparte/locale-fr';
@@ -802,6 +803,9 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       import githubLight from '@shikijs/themes/github-light';
       import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
       registerDefaultRenderers();
+      // The artifact card is the plugin's, not core's: the demo below streams an
+      // `artifact` segment, and this is what gives it a renderer.
+      setupArtifacts();
       // Bubble actions are decided PER PANEL, in `showDemo` — not here. The rule is
       // that an action must be honoured by someone: copy is honoured by core alone,
       // so it stays on everywhere; retry is honoured by the `aparte-retry` listener
@@ -1402,7 +1406,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         chat: 'The component itself, streaming token by token — and the composer collecting files, because <b>attachments are one attribute</b> once a host consumes them.',
         tools: 'A tool marked <b>needsApproval</b> pauses the turn and asks at the composer. Press a choice &#8212; or type what to do instead &#8212; and watch the reply come back either way.',
         segments: `One assistant reply holding <b>reasoning and code</b> in the same message. ${N_KINDS} kinds ship registered by default, mixable in any order.`,
-        artifact: 'The model wrote a document, and core renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
+        artifact: 'The model wrote a document, and the artifacts plugin renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
         branch: 'Retry <b>forks a sibling</b> instead of overwriting, and the picker appears on its own. Bubble actions stay off until a host answers them.',
       };
       const HINTS: Record<string, string> = {

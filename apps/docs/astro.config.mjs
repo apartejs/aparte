@@ -222,8 +222,9 @@ export default defineConfig({
           details: [
             'Three families, three places. **Components** are custom elements (`<aparte-chat>`, '
             + '`<aparte-composer>`, `<aparte-select>`…) under /components/. **Segments** are the '
-            + 'data a message bubble renders (text, thinking, code, tool_call, error, artifact, '
-            + 'custom) under /segments/. **The UI kit** is plain CSS classes on plain elements '
+            + 'data a message bubble renders (text, thinking, code, tool_call, error, '
+            + 'custom) under /segments/ — an artifact is a plugin\'s segment (/plugins/artifacts/). '
+            + '**The UI kit** is plain CSS classes on plain elements '
             + '(`aparte-btn`, `aparte-field`, `aparte-alert`, `aparte-tag`, `aparte-menu`, tabs, '
             + 'switches, avatars) for the controls a host puts around the chat, listed with their '
             + 'HTML at /reference/classes/ — they exist, they are themed by the same variables as '

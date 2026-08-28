@@ -62,8 +62,9 @@ document, a chart, a form the user filled in — its result should be rendered a
 not as JSON. That is what a **tool renderer** is for: a renderer registered for a tool
 name replaces the default row with a surface of its own. aparté's
 [`ask_user` plugin](/plugins/ask-user/) is the in-repo example — its result is drawn as a
-receipt card of the question and the answer — and the built-in `create_artifact` tool is
-the same shape: a call whose result is rendered richly. Register yours with
+receipt card of the question and the answer — and [`@aparte/plugin-artifacts`](/plugins/artifacts/)'
+`create_artifact` is the same shape: a call whose result is rendered richly, as a
+Code/Preview card. Register yours with
 `registerToolRenderer` (see [Customization](/guides/customization/)).
 
 ## 5. The approval, before the fact

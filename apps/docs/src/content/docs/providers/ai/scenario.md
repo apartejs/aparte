@@ -45,7 +45,7 @@ A turn is a string (one text step) or a list of steps:
 
 | Step | What it does |
 |---|---|
-| `{ text }` | Streams the text, chunk by chunk. Markdown and `<artifact>` tags are parsed by core as usual. |
+| `{ text }` | Streams the text, chunk by chunk. Markdown is parsed by core as usual; an `<artifact>` tag becomes a card once [`@aparte/plugin-artifacts`](/plugins/artifacts/) is set up (it is prose otherwise). |
 | `{ thinking }` | Streams reasoning — the thinking block. |
 | `{ tool, input?, id? }` | Calls the tool of that name. The loop runs the handler you registered and calls the provider again with the result. |
 | `{ error }` | Fails the turn with that message — what a provider error looks like to the UI. |
@@ -131,7 +131,7 @@ aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showca
 
 `showcase` answers *haiku*, *table*, *code*, *weather* (a tool round-trip), *ask me a
 question* (an `ask_user` call, answered by `@aparte/plugin-ask-user`'s panel), *survey*
-(two questions in one call — the panel's stepper), *artifact*, *slow* and *fail* — the
+(two questions in one call — the panel's stepper), *artifact* (a card with the artifacts plugin set up), *slow* and *fail* — the
 surface a chat has, in one registration. It is what the docs'
 live frames run on.
 
