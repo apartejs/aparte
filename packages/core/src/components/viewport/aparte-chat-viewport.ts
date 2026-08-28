@@ -366,6 +366,25 @@ export class AparteChatViewport extends HTMLElement {
     }
 
     /**
+     * While a reply streams, the transcript is read-only except for Stop.
+     *
+     * The streaming message's own footer was already hidden; every OTHER message kept
+     * its branch picker and its retry/edit buttons live. Swapping a branch mid-stream
+     * re-rendered the active path under the reply being written, and a retry cut that
+     * reply off to start another — both seen on the landing page. The state that
+     * decides it is the whole transcript's, so it lives on the viewport (`data-busy`)
+     * and is pushed to the bubbles it holds; a bubble mounted later, under a
+     * framework's DOM, reads the attribute itself when it connects.
+     */
+    private _syncBusy(): void {
+        const busy = this._streamingMessageId() !== null;
+        this.toggleAttribute('data-busy', busy);
+        for (const bubble of this.querySelectorAll('aparte-chat-bubble')) {
+            (bubble as unknown as { setTranscriptBusy?: (busy: boolean) => void }).setTranscriptBusy?.(busy);
+        }
+    }
+
+    /**
      * Add a new segment. Two calling conventions are accepted:
      * - `addSegment(segment)` — AparteClient's 1-arg "operate on the current
      *   (head) message" convention (also what a wrapper host installs);
@@ -507,6 +526,7 @@ export class AparteChatViewport extends HTMLElement {
             this._settleSegments(messageId, message);
 
             this._notifyBubble(messageId, 'complete', { status: 'completed' });
+            this._syncBusy();
             this._recalculateSpacer();
         }
     }
@@ -552,6 +572,7 @@ export class AparteChatViewport extends HTMLElement {
 
         // Notify bubble
         this._notifyBubble(messageId, 'update', updates);
+        if (updates.status) this._syncBusy();
         this._autoScroll();
     }
 
@@ -569,6 +590,7 @@ export class AparteChatViewport extends HTMLElement {
         // caller handing over a message they already hold rather than a turn starting.
         this._repo.addOrUpdateMessage(this._repo.headId, adoptMessageSegments({ ...message }));
         this._pruneRenderedBubbles();
+        this._syncBusy();
         this._autoScroll();
     }
 
@@ -609,6 +631,14 @@ export class AparteChatViewport extends HTMLElement {
                     [],
                 ) }
                 : { ...message };
+        // The model's own flag, from the same predicate the bubble's `streaming`
+        // attribute uses below. `updateMessage` maps a status to it; a message that
+        // ARRIVES streaming (the client appends a pending shell, a host appends a
+        // reply it is about to write into) used to reach the repository without it,
+        // so `_streamingMessageId()` — and everything read-only that hangs off it —
+        // could not see a turn that had not yet been updated once. Not for a
+        // historical message: a conversation saved mid-reply is a record, not a turn.
+        if (!options?.historical && isAwaitingReply(message)) stored.isStreaming = true;
         this._repo.addOrUpdateMessage(this._repo.headId, stored);
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
@@ -643,6 +673,7 @@ export class AparteChatViewport extends HTMLElement {
             }
         }
         this._pruneRenderedBubbles();
+        this._syncBusy();
         this._recalculateSpacer();
         // User sending always anchors to bottom regardless of scroll position.
         if (message.role === 'user') {
@@ -718,7 +749,12 @@ export class AparteChatViewport extends HTMLElement {
         const parentId = meta.message.role === 'user'
             ? existingId
             : meta.parentId;
-        this._repo.addOrUpdateMessage(parentId, { ...newMessage });
+        // A retry starts a turn here: the sibling arrives pending, and the model's
+        // flag has to say so from this moment (see `appendMessage`), not from the
+        // first `updateMessage` — the rebuild below already pushes the busy state.
+        const stored: AparteMessage = { ...newMessage };
+        if (isAwaitingReply(newMessage)) stored.isStreaming = true;
+        this._repo.addOrUpdateMessage(parentId, stored);
         this._repo.switchToBranch(newMessage.id);
         this._reRenderActivePath();
         return newMessage.id;
@@ -729,6 +765,10 @@ export class AparteChatViewport extends HTMLElement {
      * Triggers a full re-render of the active path.
      */
     navigateBranch(messageId: string, direction: 'prev' | 'next'): void {
+        // Not while a reply streams: the active path must not change under it (the
+        // pickers are disabled for the same reason — see `_syncBusy`; this covers a
+        // programmatic call).
+        if (this._streamingMessageId() !== null) return;
         const siblings = this._repo.getBranches(messageId);
         const currentIdx = siblings.indexOf(messageId);
         if (currentIdx === -1) return;
@@ -1101,6 +1141,7 @@ export class AparteChatViewport extends HTMLElement {
         }
 
         this._dispatchPathChanged(activeMessages, siblingsInfo);
+        this._syncBusy();
         this._recalculateSpacer();
 
         // No post-swap re-measure of the auto-scroll INTENT here, deliberately: a

@@ -157,6 +157,11 @@ The **branch picker needs no switch**: it appears only when a message actually h
 sibling, so a chat that never retries never shows it. If you want it styled away or
 replaced, that's [`setSiblingNavRenderer`](#customizing-the-picker).
 
+While a reply streams, the picker's arrows — and retry and edit on every message — are
+disabled: the transcript is read-only except for Stop, because a swap or a retry
+mid-stream would change the path under the reply being written. The viewport carries
+`data-busy` while it streams, if you want to reflect the same state in controls of your own.
+
 ## Persistence
 
 The whole tree — every branch, not just the active path — round-trips through the

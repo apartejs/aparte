@@ -748,6 +748,11 @@ export class AparteChatBubble extends HTMLElement {
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
     this._footerEl = this.querySelector('.aparte-footer');
 
+    // A bubble mounted while a reply already streams (a framework rendering the list
+    // after the viewport flagged itself) starts in the busy state it would have been
+    // pushed into.
+    this._transcriptBusy = !!this.closest('aparte-chat-viewport')?.hasAttribute('data-busy');
+
     this._updateActionBar();
     this._renderAvatar();
     // Re-apply the streaming state onto the freshly-built `.aparte-message`.
@@ -1136,6 +1141,28 @@ export class AparteChatBubble extends HTMLElement {
     }));
   };
 
+  /**
+   * Whether a reply is streaming somewhere in this bubble's transcript. Set by the
+   * viewport (`data-busy` on it, pushed here), read once on connect for a bubble
+   * mounted while the flag was already up. While busy, the branch arrows and the
+   * retry/edit actions are disabled — the transcript is read-only except for Stop.
+   */
+  private _transcriptBusy = false;
+
+  setTranscriptBusy(busy: boolean): void {
+    if (this._transcriptBusy === busy) return;
+    this._transcriptBusy = busy;
+    this._applyTranscriptBusy();
+    this._updateBranchPicker();
+  }
+
+  private _applyTranscriptBusy(): void {
+    if (!this._actionBarEl) return;
+    for (const btn of this._actionBarEl.querySelectorAll<HTMLButtonElement>('[data-action="retry"], [data-action="edit"]')) {
+      btn.disabled = this._transcriptBusy;
+    }
+  }
+
   private _updateBranchPicker(): void {
     if (!this._branchPickerEl) return;
     if (this._siblingCount <= 1 || this._role !== 'assistant') {
@@ -1167,8 +1194,8 @@ export class AparteChatBubble extends HTMLElement {
 
     const prevBtn = this._branchPickerEl.querySelector('.aparte-branch-prev') as HTMLButtonElement | null;
     const nextBtn = this._branchPickerEl.querySelector('.aparte-branch-next') as HTMLButtonElement | null;
-    if (prevBtn) prevBtn.disabled = this._siblingIndex === 0;
-    if (nextBtn) nextBtn.disabled = this._siblingIndex === this._siblingCount - 1;
+    if (prevBtn) prevBtn.disabled = this._transcriptBusy || this._siblingIndex === 0;
+    if (nextBtn) nextBtn.disabled = this._transcriptBusy || this._siblingIndex === this._siblingCount - 1;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1220,6 +1247,7 @@ export class AparteChatBubble extends HTMLElement {
     // after the built-ins, built as DOM (label goes to attributes, never
     // interpolated into innerHTML) so a consumer label can't inject markup.
     this._appendCustomActions(icons);
+    this._applyTranscriptBusy();
 
     // Wire up button handlers — messageId read dynamically at click time
     // so it's always correct even when Angular sets the attribute after connectedCallback

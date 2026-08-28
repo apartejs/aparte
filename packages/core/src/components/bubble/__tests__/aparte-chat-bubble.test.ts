@@ -26,6 +26,7 @@ type BubbleEl = HTMLElement & {
     setSiblings(count: number, index: number): void;
     setSegments(segments: AparteSegment[]): void;
     updateMessage(updates: Partial<AparteMessage>): void;
+    setTranscriptBusy(busy: boolean): void;
 };
 
 function createBubble(attrs: Record<string, string> = {}): BubbleEl {
@@ -746,6 +747,23 @@ describe('AparteChatBubble', () => {
 
         // The stylesheet floats an older message's footer out of the flow, except while
         // the branch picker shows: the flag it reads is written beside the picker's state.
+        it('setTranscriptBusy disables retry, edit and the branch arrows, and restores them', () => {
+            aparteGlobalConfig.setBubbleActions({ retry: true, edit: true });
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e7', content: 'hi' });
+            bubble.setSiblings(2, 1);
+            const retry = bubble.querySelector('[data-action="retry"]') as HTMLButtonElement;
+            const prev = bubble.querySelector('.aparte-branch-prev') as HTMLButtonElement;
+            expect(retry.disabled).toBe(false);
+            expect(prev.disabled).toBe(false);
+            bubble.setTranscriptBusy(true);
+            expect(retry.disabled).toBe(true);
+            expect(prev.disabled).toBe(true);
+            expect((bubble.querySelector('[data-action="copy"]') as HTMLButtonElement).disabled, 'copy stays').toBe(false);
+            bubble.setTranscriptBusy(false);
+            expect(retry.disabled).toBe(false);
+            expect(prev.disabled).toBe(false);
+        });
+
         it('stamps data-branches on the message exactly while the picker shows', () => {
             bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e6', content: 'hi' });
             const message = bubble.querySelector('.aparte-message') as HTMLElement;
