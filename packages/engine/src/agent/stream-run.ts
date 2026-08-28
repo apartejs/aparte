@@ -386,7 +386,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 let effectiveInput = event.input;
 
                 // ── HITL approval gate ────────────────────────────────────────
-                if (cfg?.needsApproval) {
+                const gated = typeof cfg?.needsApproval === 'function'
+                    ? cfg.needsApproval({ id: event.id, name: event.name, input: event.input as Record<string, unknown> })
+                    : cfg?.needsApproval;
+                if (gated) {
                     emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
                     /*
                      * Nothing can ask, so nothing may answer.
@@ -451,9 +454,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                          * `{ approved }` and never an instruction, so both loops agreed on
                          * a case neither exercised. It supplies one now.
                          */
-                        const rejection = decision.instruction
-                            ? `The user rejected this tool call and said: ${decision.instruction}`
-                            : 'Tool execution was rejected by the user.';
+                        const rejection = decision.reason
+                            ?? (decision.instruction
+                                ? `The user rejected this tool call and said: ${decision.instruction}`
+                                : 'Tool execution was rejected by the user.');
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
                         ensureEnvelope();
                         append({ role: 'tool_result', content: rejection, toolCallId: event.id });

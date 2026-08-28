@@ -241,6 +241,55 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(handler).not.toHaveBeenCalled();
     });
 
+    it('a needsApproval PREDICATE gates per call: the allowed call never pauses, the other does', async () => {
+        const t = scriptedTransport([
+            [
+                { type: 'tool_use', id: 'c1', name: 'run', input: { cmd: 'ls' } },
+                { type: 'tool_use', id: 'c2', name: 'run', input: { cmd: 'rm -rf x' } },
+                { type: 'done' },
+            ],
+            [{ type: 'text', delta: 'Done.' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'ok' }));
+        const resolver = vi.fn(async () => ({ approved: true }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: (call) => call.input['cmd'] !== 'ls' }),
+            approvalResolver: resolver,
+        }));
+
+        // One gate, for c2 only: c1 went straight from tool-start to tool-resolved.
+        const awaiting = rec.events.filter(e => e.type === 'tool-awaiting-approval');
+        expect(awaiting.map(e => (e as { toolCallId: string }).toolCallId)).toEqual(['c2']);
+        expect(resolver).toHaveBeenCalledOnce();
+        expect(handler).toHaveBeenCalledTimes(2);
+    });
+
+    it('a refusal with a `reason` reaches the model verbatim — nobody said "the user rejected"', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'write', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'Understood.' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        const reason = 'Plan mode: write changes files; only read-only tools run.';
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: true }),
+            approvalResolver: async () => ({ approved: false, reason }),
+        }));
+
+        expect(handler).not.toHaveBeenCalled();
+        const rejected = rec.events.find(e => e.type === 'tool-rejected') as { reason: string } | undefined;
+        expect(rejected?.reason).toBe(reason);
+        const result = t.calls[1]!.messages.find(m => m.role === 'tool_result');
+        expect(result?.content).toBe(reason);
+        expect(String(result?.content)).not.toContain('user');
+    });
+
     it('a needsApproval tool with no resolver aborts rather than inventing a refusal', async () => {
         const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
         const rec = recorder();

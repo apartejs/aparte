@@ -200,7 +200,14 @@ export type StreamToolHandler = (
 /** Per-tool loop configuration (mirrors the `AparteTool` subset the loop reads). */
 export interface StreamToolConfig {
     maxTurns?: number;
-    needsApproval?: boolean;
+    /**
+     * Whether a call of this tool pauses for a decision. A boolean is the tool's own
+     * declaration; a predicate decides PER CALL, from the arguments — the shape an
+     * approval policy needs ("a write to this path asks, a read does not"), and one a
+     * boolean could only approximate by gating every call and auto-approving most,
+     * which paints `awaiting-approval` on rows nobody was ever going to be asked about.
+     */
+    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean);
 }
 
 /**
@@ -210,7 +217,18 @@ export interface StreamToolConfig {
 export type StreamApprovalResolver = (
     call: { id: string; name: string; input: Record<string, unknown> },
     signal: AbortSignal,
-) => Promise<{ approved: boolean; payload?: unknown; instruction?: string }>;
+) => Promise<{
+    approved: boolean;
+    payload?: unknown;
+    /** What the user said to do instead, on a refusal — quoted to the model as theirs. */
+    instruction?: string;
+    /**
+     * The refusal, verbatim, when nobody said anything — a policy that refused on its
+     * own ("plan mode: read-only tools only"). The sentence the loop would otherwise
+     * write attributes the refusal to the user, which would be a lie here.
+     */
+    reason?: string;
+}>;
 
 // ─── The events runStreamAgent emits ─────────────────────────────────────────
 
