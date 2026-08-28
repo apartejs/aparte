@@ -236,7 +236,7 @@ export function playTurn(
  * aparteGlobalConfig.registerAIProvider(createScenarioProvider({
  *   scenarios: {
  *     default: 'Ask me for a haiku, a table, or the weather.',
- *     haiku: { when: /haiku/i, turn: 'Web components hum —\nno framework in the wind,\njust the page, alive.' },
+ *     haiku: { when: /haiku/i, turn: 'Web components hum —  \nno framework in the wind,  \njust the page, alive.' },
  *     weather: { when: 'weather', turn: [{ text: 'Let me check.' }, { tool: 'get_weather', input: { city: 'Lille' } }] },
  *     forecast: { after: 'get_weather', turn: 'Cloudy, 14 °C. Bring a jacket.' },
  *   },

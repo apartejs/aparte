@@ -32,7 +32,7 @@ new AparteClient().start();
 createScenarioProvider({
   scenarios: {
     default: 'Ask me for a haiku, or the weather.',
-    haiku:   { when: /haiku/i, turn: 'Web components hum —\nno framework in the wind,\njust the page, alive.' },
+    haiku:   { when: /haiku/i, turn: 'Web components hum —  \nno framework in the wind,  \njust the page, alive.' },
     weather: { when: 'weather', turn: [{ text: 'Let me check.' }, { tool: 'get_weather', input: { city: 'Lille' } }] },
     forecast: { after: 'get_weather', turn: 'Cloudy, 14 °C. Bring a jacket.' },
   },

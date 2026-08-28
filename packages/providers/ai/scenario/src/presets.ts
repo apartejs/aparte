@@ -18,7 +18,7 @@ export const showcase: Record<string, Scenario> = {
     },
     haiku: {
         when: /haiku/i,
-        turn: 'Web components hum —\nno framework in the wind,\njust the page, alive.',
+        turn: 'Web components hum —  \nno framework in the wind,  \njust the page, alive.',
     },
     table: {
         when: /table/i,
