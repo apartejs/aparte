@@ -35,13 +35,15 @@
   --aparte-surface-1: #fffdf8;
   /* Bubbles, cards */
   --aparte-surface-2: #f1ebdf;
-  /* Code blocks, headers */
-  --aparte-surface-3: #e7dfce;
+  /* `--aparte-surface-3` (code blocks, headers) and `--aparte-text-inverse` are no
+     longer literals here: both are derived from the masters in the anchored layer
+     below, so the eight-line rebrand the theming guide documents actually covers them.
+     They were the two palette hexes that survived a rebrand — a consumer on a blue
+     brand kept the brass palette's cream for its tooltip ink and its code headers. */
 
   /* Text */
   --aparte-text: #241f2b;
   --aparte-text-muted: #6d6479;
-  --aparte-text-inverse: #fffdf8;
 
   /* Borders */
   --aparte-border: #e5ddce;
@@ -177,9 +179,9 @@
   /* Messages */
   --aparte-message-max-width: 800px;
 
-  /* Bubbles — opt-in. By default both roles render as a transparent row with
-     no bubble background; consumers can flip these to get a chat-app look. */
-  --aparte-message-content-bg-user: #efe7f6;
+  /* Bubbles. The user's bubble tint is DERIVED from the accent in the anchored layer
+     below (it was a frozen plum hex that outlived every rebrand); the assistant is
+     plain prose (AI-chat convention) — flip it to get a two-bubble chat-app look. */
   --aparte-message-content-bg-assistant: transparent;
   --aparte-message-content-radius: 14px;
 
@@ -460,10 +462,11 @@
   --aparte-bg: #17141c;
   --aparte-surface-1: #211b28;
   --aparte-surface-2: #2a2333;
-  --aparte-surface-3: #342a40;
+  /* `--aparte-surface-3`, `--aparte-text-inverse` and the user bubble's tint are not
+     re-declared here: they derive from the masters (anchored layer), so the dark
+     masters above are enough to move them. */
 
   /* Bubbles — user only; assistant is plain prose (AI-chat convention) */
-  --aparte-message-content-bg-user: #2f2740;
   --aparte-message-content-bg-assistant: transparent;
 
   /* Text */
@@ -473,7 +476,6 @@
      dark for the only reason that this line was missing — which left the scrollbar
      thumb, and now a neutral badge, at the light value on a dark ground. */
   --aparte-neutral: #a89bb6;
-  --aparte-text-inverse: #17141c;
 
   /* Borders */
   --aparte-border: #342a40;
@@ -776,6 +778,21 @@ aparte-chat {
   /* Messages */
   --aparte-message-content-text-user: var(--aparte-text);
   --aparte-message-content-text-assistant: var(--aparte-text);
+  /* The user's bubble: a wash of the accent over the card surface. It was a literal
+     (`#efe7f6` light / `#2f2740` dark) — the one palette colour a consumer's eight-line
+     rebrand could not reach, so a chat moved to a blue brand kept a plum bubble. Mixed
+     in sRGB rather than derived with `oklch(from …)`, because a wash has to keep the
+     SURFACE's lightness, not the accent's; 12 % is where the default palette reads as a
+     tint, not a fill, on both grounds. */
+  --aparte-message-content-bg-user: color-mix(in srgb, var(--aparte-primary) 12%, var(--aparte-surface-1));
+  /* The third surface: the second, pulled 6 % toward the text. Close to what the old
+     literals encoded (`#e7dfce` from `#f1ebdf` light, `#342a40` from `#2a2333` dark —
+     5 to 9 % per channel, not one figure), now one rule that follows the masters. */
+  --aparte-surface-3: color-mix(in srgb, var(--aparte-text) 6%, var(--aparte-surface-2));
+  /* Text on the text colour used as a fill (the tooltip, the avatar). The card
+     surface is the lightest tone in light and the darkest-but-one in dark, which is
+     what the two literals were. */
+  --aparte-text-inverse: var(--aparte-surface-1);
   --aparte-surface:         var(--aparte-surface-1);
   --aparte-surface-hover:   var(--aparte-surface-2);
   --aparte-text-secondary:  var(--aparte-text-muted);

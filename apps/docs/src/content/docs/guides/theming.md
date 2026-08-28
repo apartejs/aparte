@@ -82,13 +82,26 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **218 of core’s variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **221 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
 `--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
 places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
 
 `--aparte-bg` is the one exception in that list: core paints no page background, so nothing
 in the library reads it. It is declared for *your* CSS to reference.
+:::
+
+:::note[What stays literal]
+Everything the chat paints follows the eight above — the user bubble's tint is a wash of
+`--aparte-primary` over `--aparte-surface-1`, `--aparte-surface-3` is `--aparte-surface-2`
+pulled toward the text, `--aparte-text-inverse` is `--aparte-surface-1`. What does **not**
+derive, because a brand decides it: the four status colours (`--aparte-info` / `-success` /
+`-warning` / `-error`) and the two secondary fills (`--aparte-secondary`, `--aparte-neutral`).
+A rebrand that leaves them keeps the defaults — the status four are the conventional
+blue/green/amber/red, the two fills lean plum, the default palette's second hue — and a
+rebrand that has an opinion declares them in the same block. The
+[CSS variables reference](/reference/css-variables/) marks each declared token's default, so a
+literal is recognisable there by its hex.
 :::
 
 :::note[The ink on a fill is worked out for you]

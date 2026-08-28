@@ -174,7 +174,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  *
  * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
  * @cssprop [--aparte-message-content-padding=10px 14px] - Padding of the USER box only; the assistant's content is plain full-width prose.
- * @cssprop [--aparte-message-content-bg-user=#efe7f6] - Background of the user box.
+ * @cssprop --aparte-message-content-bg-user - Background of the user box: a wash of `--aparte-primary` over `--aparte-surface-1`, derived in `theme.css` so a rebrand moves it (declare it to override).
  * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
  * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
  * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
