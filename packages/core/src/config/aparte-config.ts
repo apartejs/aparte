@@ -21,7 +21,10 @@ import type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
 import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../types/model-provider.js';
 import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
-import type { AparteTool, AparteToolHandler, AparteToolRenderer } from '../types/tools.js';
+import type {
+    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolCall,
+    AparteApprovalPolicy, AparteApprovalRuling,
+} from '../types/tools.js';
 import type { AparteSegmentDefaults } from '../types/segments.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
@@ -169,6 +172,8 @@ export class AparteConfig {
     // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
     private _transport: AparteTransport = new AparteDirectTransport();
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
+    // Per-call approval policy (a mode: plan / ask / auto). `null` = the tools' own flags.
+    private _approvalPolicy: AparteApprovalPolicy | null = null;
 
     // Conversation persistence (optional, agnostic)
     private _conversationManager?: AparteConversationManager;
@@ -769,6 +774,49 @@ export class AparteConfig {
     }
 
     /**
+     * Decide per CALL whether a tool runs, asks, or is refused — a mode, not a flag.
+     *
+     * With a policy registered, the client's default approval channel evaluates it for
+     * every tool call: `allow` runs without asking, `ask` puts the call to the person
+     * exactly as a `needsApproval` tool is, `deny` refuses it with the policy's own
+     * `reason` as what the model reads. `undefined` leaves the tool's `needsApproval`
+     * to decide, as before. `null` removes the policy.
+     *
+     * `@aparte/plugin-approval` builds one from a classification of your tool names and
+     * a switchable mode (plan / ask / auto-edit / auto); a host that owns its own
+     * `approvalResolver` on `AparteClientOptions` is not affected — that resolver
+     * already decides everything.
+     *
+     * @example
+     * ```ts
+     * aparteGlobalConfig.setApprovalPolicy((call) =>
+     *   call.name === 'run_command'
+     *     ? { verdict: 'ask' }
+     *     : { verdict: 'allow' });
+     * ```
+     */
+    setApprovalPolicy(policy: AparteApprovalPolicy | null): void {
+        this._approvalPolicy = policy;
+    }
+
+    /** The registered approval policy, or `null`. */
+    getApprovalPolicy(): AparteApprovalPolicy | null {
+        return this._approvalPolicy;
+    }
+
+    /**
+     * What the policy says about one call, with the tool's own `needsApproval` as the
+     * answer when it has no opinion. The one place the two are combined, so the client's
+     * gate predicate and its approval channel cannot disagree.
+     */
+    ruleOnToolCall(call: AparteToolCall): AparteApprovalRuling {
+        const tool = this._tools.get(call.name)?.tool;
+        const ruling = this._approvalPolicy?.(call, tool);
+        if (ruling) return ruling;
+        return { verdict: tool?.needsApproval ? 'ask' : 'allow' };
+    }
+
+    /**
      * Restore previously saved model preference via the registered provider.
      * Should be called once at app startup, before any component mounts.
      * No-op if no provider is registered or nothing was saved.
@@ -1321,6 +1369,7 @@ export class AparteConfig {
         this._elicitationLayout = 'stepped';
         this._elicitationFieldRenderer = undefined;
         this._modelPreferenceProvider = undefined;
+        this._approvalPolicy = null;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
         this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };
         this._notify();

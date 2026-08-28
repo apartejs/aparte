@@ -68,6 +68,37 @@ export interface AparteToolCall {
     input: Record<string, unknown>;
 }
 
+/**
+ * What an approval policy says about one call.
+ *
+ * `allow` runs it without asking; `ask` puts it to the person the way a
+ * `needsApproval` tool is put to them; `deny` refuses it on the spot, and `reason` is
+ * the sentence the model reads about that refusal — verbatim, because nobody said
+ * anything ("Plan mode: `write_file` changes files; only read-only tools run.").
+ */
+export interface AparteApprovalRuling {
+    verdict: 'allow' | 'ask' | 'deny';
+    reason?: string;
+}
+
+/**
+ * Decides, per CALL, whether a tool runs, asks, or is refused.
+ *
+ * A tool's own `needsApproval` is a declaration about the tool; a policy is a decision
+ * about the call — the same `run_command` can be a read (`ls`) or an execution, and a
+ * mode ("plan": read-only, "auto": never ask) is a policy the host switches, not a
+ * flag on twenty definitions. Registered with `setApprovalPolicy()`; the client's
+ * default approval channel consults it before asking. Return `undefined` to have no
+ * opinion, in which case the tool's `needsApproval` decides as before.
+ *
+ * Pure and synchronous: it is evaluated once to decide whether the call pauses at all
+ * (so an allowed call never flashes "awaiting approval") and once to answer.
+ */
+export type AparteApprovalPolicy = (
+    call: AparteToolCall,
+    tool: AparteTool | undefined,
+) => AparteApprovalRuling | undefined;
+
 /** Result returned after a tool handler resolves */
 export interface AparteToolResult {
     toolCallId: string;

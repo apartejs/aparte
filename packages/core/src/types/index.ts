@@ -118,6 +118,8 @@ export { contentToText } from './chat.js';
 export type {
     AparteTool,
     AparteToolCall,
+    AparteApprovalPolicy,
+    AparteApprovalRuling,
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,

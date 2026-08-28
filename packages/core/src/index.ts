@@ -148,6 +148,8 @@ export type {
     // Tool types
     AparteTool,
     AparteToolCall,
+    AparteApprovalPolicy,
+    AparteApprovalRuling,
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,

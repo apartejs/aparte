@@ -68,6 +68,12 @@ export type AparteToolApprovalResolver = (
      * that returns a bare `{ approved }` behaves exactly as before.
      */
     instruction?: string;
+    /**
+     * The refusal, verbatim, when nobody said anything — an approval policy that
+     * refused on its own. Without it the model is told "the user rejected this",
+     * which for a mode is a lie; with it, it reads the policy's own sentence.
+     */
+    reason?: string;
 }>;
 
 /**
@@ -1513,17 +1519,39 @@ export class AparteClient {
             const context = { target: targetElement as unknown as HTMLElement, config: this._config };
             return (call: AparteToolCall, sig: AbortSignal) => handler(call, sig, context);
         };
+        // With a policy registered, the gate is decided per CALL, from the arguments —
+        // as a predicate, so a call the policy allows never pauses and never paints
+        // `awaiting-approval` on its row. Without one, the tool's own flag, as before.
+        // A host that injected its own resolver owns the whole decision, so the policy
+        // must not decide the gate either — an `allow` would skip that resolver.
+        const policy = this.options.approvalResolver ? null : this._config.getApprovalPolicy();
         const toolConfigLookup = (name: string) => {
             const tool = this._config.getTools().find(t => t.name === name);
-            return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;
+            if (!tool) return undefined;
+            return {
+                maxTurns: tool.maxTurns,
+                needsApproval: policy
+                    ? (call: AparteToolCall) => this._config.ruleOnToolCall(call).verdict !== 'allow'
+                    : tool.needsApproval,
+            };
         };
         // The SAME channel the inline loop had. It used to be the `document` listener
         // while the inline loop asked at the composer — two loops asking two different
         // ways, which the parity suite cannot see because it supplies its own resolver
         // to both sides.
+        //
+        // A host's own resolver decides everything and sees no policy: it already
+        // chose to own the decision. The default channel consults the policy first — a
+        // `deny` refuses with the policy's own reason, never "the user rejected this".
         const approvalResolver = this.options.approvalResolver
-            ?? ((call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) =>
-                this._askForApproval(call, sig, targetElement as unknown as HTMLElement));
+            ?? (async (call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) => {
+                const ruling = this._config.ruleOnToolCall(call);
+                if (ruling.verdict === 'allow') return { approved: true };
+                if (ruling.verdict === 'deny') {
+                    return { approved: false, reason: ruling.reason ?? 'Tool execution was refused by the approval policy.' };
+                }
+                return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
+            });
 
         const usage = await streamRunner({
             messageId,

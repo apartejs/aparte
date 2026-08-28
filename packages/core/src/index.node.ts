@@ -97,6 +97,8 @@ export type {
     AparteUsage,
     AparteTool,
     AparteToolCall,
+    AparteApprovalPolicy,
+    AparteApprovalRuling,
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,
