@@ -36,6 +36,16 @@
      never engages — the classic flexbox min-height trap. */
   min-height: 0;
   overflow-y: auto;
+  /* Room for the focus ring. A scroll container clips at its padding edge, and an
+     option's ring is drawn OUTSIDE its box (the recipe's outline plus its offset), so
+     a focused option lost its ring on every side — measured 4px cut left and right on
+     a consumer's screenshot, then here. The padding gives the ring that much room and
+     the negative margin gives it back to the layout, so nothing moves; `scroll-padding`
+     keeps a keyboard-focused option's ring inside the viewport when the list scrolls. */
+  --aparte-elic-ring-room: calc(var(--aparte-focus-outline-width) + var(--aparte-btn-focus-offset));
+  padding: var(--aparte-elic-ring-room);
+  margin: calc(-1 * var(--aparte-elic-ring-room));
+  scroll-padding: var(--aparte-elic-ring-room);
   /* A thin, themed scrollbar: the native one is a grey slab across a soft card. */
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-border) transparent;
