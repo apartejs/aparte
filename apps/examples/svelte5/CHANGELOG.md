@@ -1,5 +1,16 @@
 # @aparte-workspace/example-svelte5
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [4856ab6]
+  - @aparte/core@0.15.1
+  - @aparte/plugin-marked@0.15.1
+  - @aparte/plugin-model-selector@0.15.1
+  - @aparte/provider-openai-compat@0.15.1
+  - @aparte/svelte@0.15.1
+
 ## 0.0.10
 
 ### Patch Changes
