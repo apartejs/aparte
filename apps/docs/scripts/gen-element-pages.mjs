@@ -408,6 +408,14 @@ object whatever you mount it with. A component made of parts is documented on on
 parts as sections. [Segments](/segments/text/) are the other family and a different kind of
 thing — data somebody renders, with no tag at all.
 
+:::tip[There is a third family: the UI kit]
+Buttons, fields, switches, tags, alerts, menus, tabs and avatars ship as **plain classes on
+plain elements** — no tag, themed by the same variables as the chat — for the controls your
+own page puts around it. They are listed with their HTML in
+[the UI kit reference](/reference/classes/); a consumer who started here rewrote his own
+before finding them.
+:::
+
 `;
   for (const group of ['conversation', 'input', 'utility', 'other']) {
     const list = pagesByGroup[group] ?? [];
