@@ -15,13 +15,10 @@
  *
  * Drawn here, on the conventions every stroked icon set shares — a 24×24 grid,
  * `currentColor`, a 2px stroke with round caps and joins — so a consumer who swaps in
- * Lucide, Feather or Tabler under the same names gets the same optical weight. The
- * PATH DATA is our own. An earlier version of this file carried Feather's and Lucide's
- * coordinates verbatim under a header saying "nothing is imported from it", which is
- * true at runtime and irrelevant in license terms: identical path data is a copy, and
- * both licenses require a notice for one. Redrawn instead (2026-08-28), which is the
- * cleaner answer: no notice to carry, no set to credit. `icons/extended.ts` is the
- * opt-in set and is on the same list.
+ * a set of their own under the same names gets the same optical weight. The path data
+ * is core's own, which is what lets the package carry no notice and credit no set;
+ * a glyph that needs redrawing is redrawn here, never pasted from elsewhere.
+ * `icons/extended.ts` is the opt-in set and follows the same rule.
  */
 
 
