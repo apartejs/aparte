@@ -44,7 +44,6 @@
 @import './segment/tool-call.css';
 @import './segment/error.css';
 @import './segment/text.css';
-@import './segment/artifact.css';
 @import './components/elicitation.css';
 @import './components/conversation.css';
 @import './components/suggestions.css';

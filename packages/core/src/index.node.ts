@@ -40,7 +40,6 @@ export type {
     AparteSegmentRenderer,
     AparteCustomSegment,
     AparteToolCallSegment,
-    AparteArtifactSegment,
     // The same five the browser barrel gained, and they belong here for the same reason:
     // a type has no DOM. `AparteSegmentBase` is the constraint on the exported
     // `AparteSegmentRenderer<T>`, so an SSR consumer writing a renderer for a segment type
@@ -74,8 +73,6 @@ export type {
     AparteCompactDoneEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteFileGenReadyEventDetail,
-    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
@@ -84,10 +81,6 @@ export type {
     AparteEditEventDetail,
     AparteFeedbackEventDetail,
     AparteActionEventDetail,
-    AparteArtifactStartEventDetail,
-    AparteArtifactDeltaEventDetail,
-    AparteArtifactReadyEventDetail,
-    AparteArtifactRedownloadEventDetail,
     AparteChatRequest,
     AparteChatResponse,
     AparteChatMessage,
@@ -190,7 +183,7 @@ export {
 } from './host/index.js';
 
 // ── Parsers ─────────────────────────────────────────────────────────────────
-export { AparteStreamParser, parseMarkdownToSegments, deriveArtifactKind, parseAparteEventStream } from './parsers/index.js';
+export { AparteStreamParser, parseMarkdownToSegments, parseAparteEventStream } from './parsers/index.js';
 export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, AparteParserState, AparteParserResult } from './parsers/index.js';
 
 // Transport seam — DOM-free (fetch-based), so the whole seam is SSR-safe. The
@@ -236,7 +229,6 @@ export type {
     AparteBubbleShellRenderer,
     AparteModelPreference,
     AparteModelPreferenceProvider,
-    AparteArtifactPreviewBuilder,
     AparteSanitizer,
 } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';

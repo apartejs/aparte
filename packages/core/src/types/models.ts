@@ -153,9 +153,8 @@ export interface AparteBubbleActionsConfig {
  * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });   // you open a lightbox
  * ```
  *
- * These are declarations, not callbacks: the events (`aparte-attachment-preview`,
- * `aparte-artifact-redownload`) are unchanged, and you keep
- * listening for them wherever you already do.
+ * These are declarations, not callbacks: the event (`aparte-attachment-preview`)
+ * is unchanged, and you keep listening for it wherever you already do.
  */
 export interface AparteHostHandlersConfig {
     /**
@@ -164,34 +163,6 @@ export interface AparteHostHandlersConfig {
      * tile is inert and is not signalled as a button. Default: false
      */
     attachmentPreview?: boolean;
-    /**
-     * The download button on a **binary** artifact, which asks the app to
-     * re-generate the file (`aparte-artifact-redownload`). Text artifacts keep
-     * their button: core writes those out itself. Default: false
-     */
-    artifactRedownload?: boolean;
-    /**
-     * Re-running the generation of a **persisted binary artifact** when a saved
-     * conversation is re-opened (`aparte-artifact-ready`, dispatched from
-     * `setup()` rather than from a stream). Default: false
-     *
-     * Why this is off unless declared, and why it is separate from
-     * `artifactRedownload`: that flag guards a BUTTON, and a button is a request.
-     * This guards an automatic dispatch on mount — nobody asked for it, and the
-     * payload is model-authored content the receiving app is expected to run in a
-     * sandbox. Reloading a conversation would therefore re-execute whatever a
-     * prompt injection had persuaded the model to emit, on every reload, forever.
-     *
-     * Core cannot honour it end to end either: it owns no sandbox and no file
-     * generator, so a dispatch with nothing listening leaves the card stuck at
-     * "generating" — the same reasoning that made the artifact preview require a
-     * click. Declare it when your app really does listen for
-     * `aparte-artifact-ready` and can regenerate the file safely.
-     *
-     * Not affected: the dispatch at the END of a live stream, which follows a turn
-     * the user asked for. This flag is only about mount-time rehydration.
-     */
-    artifactRehydrate?: boolean;
 }
 
 /**

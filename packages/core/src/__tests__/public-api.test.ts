@@ -75,7 +75,6 @@ describe('@aparte/core public API', () => {
             "cssEscape",
             "declineDefaultRenderers",
             "defaultSanitizer",
-            "deriveArtifactKind",
             "detachConfig",
             "escapeAttr",
             "escapeHtml",

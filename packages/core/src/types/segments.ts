@@ -241,64 +241,23 @@ export interface AparteCustomSegment extends AparteSegmentBase {
     fallback?: string;
 }
 
-/**
- * Artifact segment — a structured payload (React/HTML/SVG/JS/CSS, etc.) embedded in the
- * assistant's reply. The payload is delimited in the stream by `<artifact type="...">…</artifact>`.
- *
- * The core only models the data and emits lifecycle events (`aparte-artifact-start|delta|ready`).
- * Apps decide how to render the rich preview (typically a side panel with an iframe/code view).
- *
- * `mimeType` follows standard MIME conventions, with the Anthropic vendor namespace for
- * framework-specific kinds:
- *   - `application/vnd.ant.react` (or `application/vnd.ant.html`, etc.)
- *   - `text/html`, `text/css`, `application/javascript`
- *   - `image/svg+xml`
- *
- * @example
- * {
- *   id: 's1',
- *   type: 'artifact',
- *   mimeType: 'image/svg+xml',
- *   artifactType: 'svg',
- *   title: 'Brass mark',
- *   content: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="18" fill="#d9a24b"/></svg>',
- * }
- */
-export interface AparteArtifactSegment extends AparteSegmentBase {
-    type: 'artifact';
-    /** Standard MIME type (verbatim from the `type="…"` attribute on the opening tag) */
-    mimeType: string;
-    /**
-     * Short kind identifier derived from `mimeType` (e.g. 'react', 'html', 'svg').
-     * Convenience for UIs that want to switch on a stable enum-like string.
-     */
-    artifactType: string;
-    /** Optional human title (from the `title="…"` attribute on the opening tag) */
-    title?: string;
-    /** Body content between the opening and closing tag — accumulates while streaming. */
-    content: string;
-    /**
-     * When true, the renderer displays the artifact inline as a code block
-     * instead of a clickable pill that opens the side panel.
-     * Set by the client after the stream ends, based on content line count.
-     * Defaults to false (pill) while streaming.
-     */
-    inline?: boolean;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Union Type
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** All built-in segment types */
+/**
+ * All built-in segment types. An `artifact` is not one of them any more: it is a
+ * convention an app teaches its model, and `@aparte/plugin-artifacts` registers its
+ * segment — a `type` of its own, through `registerSegmentRenderer` and
+ * `registerStreamBlock` — the way any consumer registers a `chart` or a `citation`.
+ */
 export type AparteSegment =
     | AparteTextSegment
     | AparteThinkingSegment
     | AparteCodeSegment
     | AparteErrorSegment
     | AparteCustomSegment
-    | AparteToolCallSegment
-    | AparteArtifactSegment;
+    | AparteToolCallSegment;
 
 /** Segment type discriminator values */
 export type AparteSegmentType = AparteSegment['type'];

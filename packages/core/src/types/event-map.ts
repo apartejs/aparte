@@ -42,10 +42,6 @@ import type {
     AparteMessageDoneEventDetail,
     AparteModelChangeEventDetail,
     AparteApprovalModeChangeEventDetail,
-    AparteArtifactStartEventDetail,
-    AparteArtifactDeltaEventDetail,
-    AparteArtifactReadyEventDetail,
-    AparteArtifactRedownloadEventDetail,
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
@@ -54,8 +50,6 @@ import type {
     AparteCompactDoneEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteFileGenReadyEventDetail,
-    AparteFileGenErrorEventDetail,
 } from './events.js';
 import type { AparteActionClickEventDetail } from '../components/composer/aparte-composer-action.js';
 import type { AparteSuggestionEventDetail } from '../components/suggestions/aparte-suggestions.js';
@@ -99,16 +93,6 @@ interface AparteEventMap {
     'aparte-message-done': CustomEvent<AparteMessageDoneEventDetail>;
     'aparte-model-change': CustomEvent<AparteModelChangeEventDetail>;
     'aparte-approval-mode-change': CustomEvent<AparteApprovalModeChangeEventDetail>;
-    'aparte-artifact-start': CustomEvent<AparteArtifactStartEventDetail>;
-    'aparte-artifact-delta': CustomEvent<AparteArtifactDeltaEventDetail>;
-    'aparte-artifact-ready': CustomEvent<AparteArtifactReadyEventDetail>;
-    // Was keyed `aparte-artifact-open`, an event that has never existed: the only
-    // three mentions of that name in the repo were this line and its own type's
-    // JSDoc, which asserted it is "dispatched by the artifact pill when a user
-    // clicks it". Nothing dispatched it and nothing listened. The detail shape,
-    // however, is field-for-field what the Download button really dispatches, so
-    // the type moved to the live event instead of being deleted.
-    'aparte-artifact-redownload': CustomEvent<AparteArtifactRedownloadEventDetail>;
     'aparte-tool-approval-request': CustomEvent<AparteToolApprovalRequestDetail>;
     // Forwarded by the wrappers' AparteUi (in APARTE_DEFAULT_UI_EVENTS); detail is
     // component-coupled but event-map is a top-level aggregator, so typing it here.
@@ -144,14 +128,11 @@ interface AparteEventMap {
     // ── Commands a CONSUMER dispatches ────────────────────────────────────────
     // Core listens for these and never sends them, which makes them the most
     // public events in the set: without a type there was nothing to tell you what
-    // to put in `detail`. `aparte-file-gen-*` is the extreme case — core renders a
-    // "Running sandbox…" card and waits for an event nothing in the repo emits.
+    // to put in `detail`.
     'aparte-abort': CustomEvent<AparteAbortEventDetail>;
     'aparte-compact': CustomEvent<AparteCompactEventDetail>;
     'aparte-compact-done': CustomEvent<AparteCompactDoneEventDetail>;
     'aparte-compact-error': CustomEvent<AparteCompactErrorEventDetail>;
-    'aparte-file-gen-ready': CustomEvent<AparteFileGenReadyEventDetail>;
-    'aparte-file-gen-error': CustomEvent<AparteFileGenErrorEventDetail>;
 
     // ── Host-handler events (decision #8 tier b: off until you declare them) ───
     'aparte-attachment-preview': CustomEvent<AparteAttachmentPreviewEventDetail>;

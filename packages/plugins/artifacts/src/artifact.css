@@ -35,6 +35,11 @@
     --aparte-art-file-preview-padding: 20px;
     --aparte-art-file-error-padding-inline: 18px;
 }
+/* Not the paper — that stays light on purpose. This is a code block inside the
+   error panel, which does follow the theme. */
+[data-aparte-theme="dark"] .aparte-segment-artifact-file {
+    --aparte-art-file-error-msg-bg: rgba(255, 255, 255, 0.06);
+}
 /* Artifact card */
 /* The shell is `.aparte-card`; what stays here is what a card in a TRANSCRIPT needs
    and a card in general does not — the vertical rhythm between messages, and `font:

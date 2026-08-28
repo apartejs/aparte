@@ -64,7 +64,6 @@ export type {
     AparteSegment,
     AparteCustomSegment,
     AparteToolCallSegment,
-    AparteArtifactSegment,
     AparteSegmentType,
     AparteSegmentRenderer,
     AparteSegmentUpdateEventDetail
@@ -147,13 +146,7 @@ export type {
     AparteCompactDoneEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteFileGenReadyEventDetail,
-    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
-    AparteArtifactStartEventDetail,
-    AparteArtifactDeltaEventDetail,
-    AparteArtifactReadyEventDetail,
-    AparteArtifactRedownloadEventDetail
 } from './events.js';
 
 // The attribute surface of every element, for the framework wrappers to map over.

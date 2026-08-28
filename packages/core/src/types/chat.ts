@@ -138,18 +138,12 @@ export interface AparteChatRequest {
     _meta?: AparteRequestMeta;
 }
 
-/** A `{ mimeType, kind }` artifact hint for the `_meta` artifact modes. */
-export interface AparteArtifactHint {
-    mimeType: string;
-    kind: string;
-}
-
 /**
- * The well-known keys of `AparteChatRequest._meta`. Two, both read by core's adapter
- * and neither by the loop; the rest of the bag is the consumer's (index signature).
+ * The well-known keys of `AparteChatRequest._meta`. One, read by core's client and
+ * not by the loop; the rest of the bag is the consumer's (index signature).
  * `pipeline`, `artifactRaw` and `artifactXml` used to sit here too and were removed
- * (audit 2026-08-28, D2): the first two were a product's orchestration, the third a
- * second path to what the stream parser does natively with `<artifact>` tags.
+ * (audit 2026-08-28, D2), then `artifactHint` (D7): an artifact is a plugin's
+ * convention now, and a promoted code fence had no consumer.
  */
 export interface AparteRequestMeta {
     /**
@@ -159,13 +153,6 @@ export interface AparteRequestMeta {
      * order, and never sent to the model.
      */
     prefixSegments?: AparteSegment[];
-    /**
-     * Promote the FIRST fenced code block of the reply to an artifact of this MIME
-     * type and kind — the one artifact mechanism that needs the parser, so it lives
-     * in the adapter. A streaming backend that turns a code reply into a document
-     * (a "make me a page" turn) sets it per request.
-     */
-    artifactHint?: AparteArtifactHint;
     /** Consumer-specific context (open channel). */
     [key: string]: unknown;
 }

@@ -87,40 +87,6 @@ exports[`runStreamAgent — parity on the paths that STOP > the global turn ceil
 }
 `;
 
-exports[`the client's loop — the engine through the adapter, pinned > artifactHint mode — first code fence promoted to an artifact 1`] = `
-{
-  "calls": [
-    "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"seg-#0","type":"code","language":"html","content":"<h1>Hi</h1>","isStreaming":false}]",
-    "updateSegment ["seg-#0",{"content":"<h1>Hi</"}]",
-    "updateSegment ["seg-#0",{"content":"<h1>Hi</h1>"}]",
-    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"seg-#0","mimeType":"text/html","artifactType":"html","title":"html"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"seg-#0","chunk":"<h1>Hi</h1>"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"seg-#0","mimeType":"text/html","artifactType":"html","title":"html","content":"<h1>Hi</h1>"}}]",
-    "updateMessage ["assistant-1",{"status":"completed"}]",
-  ],
-  "error": undefined,
-  "usage": undefined,
-}
-`;
-
-exports[`the client's loop — the engine through the adapter, pinned > create_artifact built-in — one-shot artifact then reply 1`] = `
-{
-  "calls": [
-    "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"artifact-c1","type":"artifact","mimeType":"text/html","artifactType":"html","title":"Page","content":"<h1>Hi</h1>"}]",
-    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"artifact-c1","mimeType":"text/html","artifactType":"html","title":"Page"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"artifact-c1","chunk":"<h1>Hi</h1>"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"artifact-c1","mimeType":"text/html","artifactType":"html","title":"Page","content":"<h1>Hi</h1>"}}]",
-    "addSegment [{"id":"seg-#0","type":"text","content":"Made it.","isStreaming":false}]",
-    "updateSegment ["seg-#0",{"content":"Made it.","isStreaming":false}]",
-    "updateMessage ["assistant-1",{"status":"completed"}]",
-  ],
-  "error": undefined,
-  "usage": undefined,
-}
-`;
-
 exports[`the client's loop — the engine through the adapter, pinned > plain text, no tools, single turn 1`] = `
 {
   "calls": [

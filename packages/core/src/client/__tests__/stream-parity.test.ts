@@ -120,6 +120,19 @@ function makeConfig(streamFactory: (turn: number) => unknown, o: ParityOpts = { 
     cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
     cfg.setKeyProvider(() => 'k');
     cfg.setTransport({ chat: async () => streamFactory(ti++) } as never);
+    // The `<artifact>` scenarios below used to lean on a branch hard-wired into the
+    // parser. Core recognises no artifact any more (D7): the tag is a registered
+    // block grammar, and this stand-in — the shape `@aparte/plugin-artifacts`
+    // registers — is what makes both paths build the same segment from it.
+    cfg.registerStreamBlock({
+        tag: 'artifact',
+        toSegment: ({ attrs, id }) => ({
+            id, type: 'artifact', content: '',
+            mimeType: attrs['mimeType'] ?? attrs['type'] ?? 'text/plain',
+            artifactType: (attrs['mimeType'] ?? attrs['type'] ?? '').includes('html') ? 'html' : 'text',
+            title: attrs['title'],
+        }),
+    });
     cfg.registerTool(
         {
             name: 'search', description: '', inputSchema: { type: 'object', properties: {} },
@@ -210,7 +223,6 @@ async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: s
     const baseReqExtras: Record<string, unknown> = {};
     if (meta) baseReqExtras['_meta'] = meta;
     if (toolChoice !== undefined) baseReqExtras['toolChoice'] = toolChoice;
-    const artifactHint = meta?.['artifactHint'] as { mimeType: string; kind: string } | undefined;
 
     // A scenario may legitimately reject on BOTH sides (a provider `error` event).
     // The calls recorded up to that point still have to match, so the rejection is
@@ -253,7 +265,7 @@ async function captureParity(opts: ParityOpts): Promise<{ old: string[]; knew: s
     const newRec = makeRecorder();
     const newAbort = new AbortController();
     const newGateRef = newGate();
-    const adapter = createStreamAdapter({ target: newRec.el, config: oldCfg, messageId: 'assistant-1', artifactHint });
+    const adapter = createStreamAdapter({ target: newRec.el, config: oldCfg, messageId: 'assistant-1' });
     let nti = 0;
     const newOut = settle(() => runStreamAgent({
         messageId: 'assistant-1',
@@ -344,16 +356,6 @@ describe("the client's loop — the engine through the adapter, pinned", () => {
         expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
-    it('create_artifact built-in — one-shot artifact then reply', async () => {
-        const r = await captureParity({ streams: [
-            [{ type: 'tool_use', id: 'c1', name: 'create_artifact', input: { mimeType: 'text/html', title: 'Page', content: '<h1>Hi</h1>' } }, { type: 'done' }],
-            [{ type: 'text', delta: 'Made it.' }, { type: 'done' }],
-        ] });
-        expect(r.knew).toEqual(r.old);
-        expect(r.newUsage).toEqual(r.oldUsage);
-        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
-    });
-
     it('synthetic toolChoice bypass — forced tool then reply', async () => {
         const r = await captureParity({
             streams: [[{ type: 'text', delta: 'Saved.' }, { type: 'done', usage: { inputTokens: 2, outputTokens: 1 } }]],
@@ -364,20 +366,6 @@ describe("the client's loop — the engine through the adapter, pinned", () => {
         expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
-    it('artifactHint mode — first code fence promoted to an artifact', async () => {
-        const r = await captureParity({
-            streams: [[
-                { type: 'text', delta: '```html\n' },
-                { type: 'text', delta: '<h1>Hi</h1>\n' },
-                { type: 'text', delta: '```' },
-                { type: 'done' },
-            ]],
-            meta: { artifactHint: { mimeType: 'text/html', kind: 'html' } },
-        });
-        expect(r.knew).toEqual(r.old);
-        expect(r.newUsage).toEqual(r.oldUsage);
-        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
-    });
 });
 
 // ─── the exits, not just the happy paths ─────────────────────────────────────

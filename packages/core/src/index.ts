@@ -45,7 +45,6 @@ import './styles/segment/code.css';
 import './styles/segment/tool-call.css';
 import './styles/segment/error.css';
 import './styles/segment/text.css';
-import './styles/segment/artifact.css';
 import './styles/components/elicitation.css';
 import './styles/components/conversation.css';
 import './styles/components/suggestions.css';
@@ -86,7 +85,6 @@ export type {
     AparteSegmentRenderer,
     AparteCustomSegment,
     AparteToolCallSegment,
-    AparteArtifactSegment,
     // Five shapes that were public in everything but name. `AparteSegment` is exported
     // and its union names all its members, yet the error segment could not be written
     // down: narrowing on `type: 'error'` gave a
@@ -123,8 +121,6 @@ export type {
     AparteCompactDoneEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteFileGenReadyEventDetail,
-    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
@@ -133,10 +129,6 @@ export type {
     AparteEditEventDetail,
     AparteFeedbackEventDetail,
     AparteActionEventDetail,
-    AparteArtifactStartEventDetail,
-    AparteArtifactDeltaEventDetail,
-    AparteArtifactReadyEventDetail,
-    AparteArtifactRedownloadEventDetail,
     // Chat types
     AparteChatRequest,
     AparteChatResponse,
@@ -247,7 +239,7 @@ export {
 } from './host/index.js';
 
 // Export parsers
-export { AparteStreamParser, parseMarkdownToSegments, deriveArtifactKind } from './parsers/index.js';
+export { AparteStreamParser, parseMarkdownToSegments } from './parsers/index.js';
 export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, AparteParserState, AparteParserResult } from './parsers/index.js';
 export { parseAparteEventStream } from './parsers/index.js';
 
@@ -257,7 +249,7 @@ export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder, AparteSanitizer } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client

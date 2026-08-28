@@ -136,74 +136,6 @@ describe('relabel reaches a rendered segment', () => {
         expect(badge.textContent, `${status} must be relabelled, not emptied`).toContain(fr);
     });
 
-    it('an artifact card’s copy button — and nothing else on the card', () => {
-        const el = mount([{
-            id: 's1', type: 'artifact', isStreaming: false,
-            artifactType: 'svg', mimeType: 'image/svg+xml', title: 'A chart',
-            content: '<svg/>',
-        } as unknown as AparteSegment]);
-        const copyBtn = el.querySelector('.aparte-art-card__btn[data-action="copy"]')!;
-        const card = el.querySelector('.aparte-segment-artifact-card')!;
-
-        aparteGlobalConfig.setLocale(FR());
-        aparteGlobalConfig.setIconProvider({ copy: () => '<svg data-mine="1"></svg>' });
-
-        expect(copyBtn.getAttribute('title')).toBe('Copier');
-        expect(copyBtn.innerHTML).toContain('data-mine');
-
-        // The half that matters more than the label: the card must not be disturbed.
-        // It opens on the Code tab by design — building the preview frame at render
-        // time would execute model-authored code with no gesture — and a relabel that
-        // touched the tab state, or rebuilt the pane, would be the re-render this hook
-        // exists to avoid.
-        expect(card.getAttribute('data-tab')).toBe('code');
-        expect(el.querySelector('iframe')).toBeNull();
-    });
-
-    it('the artifact card’s download button and its two tabs', () => {
-        const el = mount([{
-            id: 's1', type: 'artifact', isStreaming: false,
-            artifactType: 'svg', mimeType: 'image/svg+xml', title: 'A chart',
-            content: '<svg/>',
-        } as unknown as AparteSegment]);
-        const dl = el.querySelector('.aparte-art-card__btn[data-action="download"]')!;
-
-        aparteGlobalConfig.setLocale({ ...FR(), download: 'Télécharger', preview: 'Aperçu', code: 'Code' });
-
-        // Title AND aria-label. They disagreed before: the copy button next door put
-        // `t('copy')` in its title and the literal "Copy" in its aria-label, so a
-        // screen reader read English while the tooltip read French.
-        expect(dl.getAttribute('title')).toBe('Télécharger');
-        expect(dl.getAttribute('aria-label')).toBe('Télécharger');
-        expect(el.querySelector('.aparte-art-card__btn[data-action="copy"]')!.getAttribute('aria-label')).toBe('Copier');
-        expect(el.querySelector('[data-tab-target="preview"]')!.textContent).toBe('Aperçu');
-        expect(el.querySelector('[data-tab-target="code"]')!.textContent).toBe('Code');
-        // Which pane is open is the reader's state, not the locale's.
-        expect(el.querySelector('.aparte-segment-artifact-card')!.getAttribute('data-tab')).toBe('code');
-        expect(el.querySelector('[data-tab-target="code"]')!.getAttribute('aria-selected')).toBe('true');
-    });
-
-    it('a binary artifact’s download button is localized at render', () => {
-        // This button is a SECOND renderer's, on the pdf/xlsx/docx path, and it only
-        // exists when the app declares it can regenerate the bytes — so nothing in
-        // the suite rendered it, and the first attempt at localizing it put an
-        // interpolation inside a single-quoted string. That would have shipped the
-        // literal text `${escapeHtml(...)}` onto the button, and every test would
-        // still have passed. Hence this one.
-        aparteGlobalConfig.setHostHandlers({ artifactRedownload: true });
-        aparteGlobalConfig.setLocale({ ...FR(), download: 'Télécharger', generating: 'Génération…' });
-        const el = mount([{
-            id: 's1', type: 'artifact', isStreaming: true,
-            artifactType: 'pdf', mimeType: 'application/pdf', title: 'report.pdf', content: '',
-        } as unknown as AparteSegment]);
-
-        const btn = el.querySelector('.aparte-art-file__btn[data-action="download"]');
-        expect(btn, 'no download button rendered — the host handler was declared').not.toBeNull();
-        expect(btn!.textContent).toBe('Télécharger');
-        expect(el.innerHTML).not.toContain('${');
-        expect(el.querySelector('[data-role="file-sub"]')!.textContent).toBe('Génération…');
-    });
-
     it('an error card’s icon and heading', () => {
         const el = mount([seg({ id: 's1', type: 'error', content: 'boom' })]);
 
@@ -301,15 +233,6 @@ describe('the strings a language switch used to leave in English', () => {
         expect(ed.getAttribute('data-placeholder') ?? ed.getAttribute('aria-label')).toBe('Écrivez un message...');
     });
 
-    it('the artifact preview pane’s one sentence', () => {
-        const el = mount([{
-            id: 's1', type: 'artifact', isStreaming: false,
-            artifactType: 'svg', mimeType: 'image/svg+xml', title: 'A chart', content: '<svg/>',
-        } as unknown as AparteSegment]);
-
-        expect(el.querySelector('.aparte-art-card__pending')!.textContent)
-            .toBe('Press Preview to run this artifact.');
-    });
 });
 
 describe('the clock is part of the locale, not of the browser', () => {

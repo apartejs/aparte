@@ -6,7 +6,7 @@ export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig
 // class the guide told you not to construct).
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config-subscribe.js';
 export type { AparteConfigAware } from './config-context.js';
-export type { AparteConfigChangeEventDetail, AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteModelPreference, AparteModelPreferenceProvider, AparteArtifactPreviewBuilder } from './aparte-config.js';
+export type { AparteConfigChangeEventDetail, AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteModelPreference, AparteModelPreferenceProvider } from './aparte-config.js';
 export type { AparteSanitizer } from './sanitize.js';
 export { defaultSanitizer, isSafeUrl } from './sanitize.js';
 export type { AparteIconProvider, AparteIconName } from './icon-provider.js';

@@ -13,7 +13,7 @@
  * a service that existed in no package. What is left is a function call and its two
  * outcomes: the bytes, or an error shown in the card.
  */
-import { escapeHtml, contextConfig } from '@aparte/core';
+import { escapeHtml, escapeAttr, contextConfig } from '@aparte/core';
 import type { ArtifactSegment } from './segment.js';
 import { stripCodeFences, labelForKind } from './shared.js';
 import { streamHighlight } from './highlight.js';
@@ -94,7 +94,7 @@ export function renderBinaryFileArtifact(segment: ArtifactSegment, kind: string)
         <div class="aparte-segment aparte-card aparte-segment-artifact-file"
              data-segment-id="${escapeHtml(segment.id)}"
              data-artifact-type="${escapeHtml(kind)}"
-             data-state="${isStreaming ? 'streaming' : canProduce ? 'compiling' : 'source'}">
+             data-state="${escapeAttr(isStreaming ? 'streaming' : canProduce ? 'compiling' : 'source')}">
             <div class="aparte-art-file__card">
                 <div class="aparte-art-file__icon" data-kind="${escapeHtml(kind)}">${escapeHtml(iconLabel)}</div>
                 <div class="aparte-art-file__meta">

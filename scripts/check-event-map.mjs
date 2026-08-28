@@ -44,7 +44,10 @@ const PKG_ROOTS = ['packages'];
  * Guards against a matcher that stops matching. Measured at 44; raise it when the
  * surface grows, never lower it silently.
  */
-const SEEN_FLOOR = 40;
+// 45 → 39 when the artifact left core (D7): `aparte-artifact-start/-delta/-ready/
+// -redownload` and `aparte-file-gen-ready/-error` went with it, so the floor moves
+// down by exactly those six — a measured count, not a loosened one.
+const SEEN_FLOOR = 39;
 
 function* walk(dir) {
     for (const name of readdirSync(dir)) {

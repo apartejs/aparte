@@ -1,4 +1,4 @@
-export { AparteStreamParser, parseMarkdownToSegments, deriveArtifactKind } from './aparte-stream-parser.js';
+export { AparteStreamParser, parseMarkdownToSegments } from './aparte-stream-parser.js';
 export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, AparteParserState, AparteParserResult } from './aparte-stream-parser.js';
 
 // NB: the vendor stream parsers retired with their packages (providers

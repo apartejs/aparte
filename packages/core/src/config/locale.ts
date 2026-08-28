@@ -216,7 +216,10 @@ export interface AparteLocale {
      */
     actionUpload?: string;
 
-    // --- Artifacts ---
+    // --- Artifacts — read by `@aparte/plugin-artifacts`, which draws the card. The
+    // strings stay here because the locale is data every package shares (the
+    // approval and ask-user plugins' keys live here too), and a locale package
+    // translates one bag, not one per plugin. ---
     /**
      * The artifact card's download button (default: "Download").
      *

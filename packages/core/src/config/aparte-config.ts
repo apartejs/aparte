@@ -67,14 +67,12 @@ export const APARTE_DEFAULT_BUBBLE_ACTIONS = {
  * The host-handler declarations — nothing declared.
  *
  * Same rule as {@link APARTE_DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
- * image tile you can click, a Run button, a download button on a binary artifact
- * are all requests core forwards to the app. Undeclared, they are not rendered
- * (and the tile is not even signalled as clickable) instead of doing nothing.
+ * image tile you can click is a request core forwards to the app. Undeclared, it is
+ * not rendered (and the tile is not even signalled as clickable) instead of doing
+ * nothing.
  */
 export const APARTE_DEFAULT_HOST_HANDLERS = {
     attachmentPreview: false,
-    artifactRedownload: false,
-    artifactRehydrate: false,
 } as const;
 
 export interface AparteModelPreference {
@@ -110,17 +108,6 @@ export interface AparteStreamingMarkdownRenderer {
  */
 export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStreamingMarkdownRenderer;
 
-/**
- * Builds the HTML document used as an artifact preview iframe `srcdoc` for a
- * given artifact kind (react/html/svg/js/css/…). Supplied by the consuming app
- * — e.g. a React/Babel/Tailwind live preview that loads those libs from a CDN.
- * Core ships only a CDN-free fallback (svg/css/html/js render offline; other
- * kinds degrade to a read-only code view), so the engine stays zero-network and
- * framework-agnostic. The app opts into richer previews via
- * {@link AparteConfig.setArtifactPreviewBuilder}.
- */
-export type AparteArtifactPreviewBuilder = (kind: string, body: string, title: string) => string;
-
 /** The queue tail must never reject, so a failed request cannot wedge every later one. */
 const NOOP = (): void => { /* deliberately empty */ };
 
@@ -142,7 +129,6 @@ export class AparteConfig {
     private _iconProvider?: AparteIconProvider;
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
-    private _artifactPreviewBuilder?: AparteArtifactPreviewBuilder;
     private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
@@ -304,7 +290,7 @@ export class AparteConfig {
      * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
      *
      * @example
-     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
+     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
      */
     setHostHandlers(config: AparteHostHandlersConfig): void {
         this._hostHandlers = { ...this._hostHandlers, ...config };
@@ -320,8 +306,6 @@ export class AparteConfig {
     getHostHandlers(): Required<AparteHostHandlersConfig> {
         return {
             attachmentPreview: this._hostHandlers.attachmentPreview ?? APARTE_DEFAULT_HOST_HANDLERS.attachmentPreview,
-            artifactRedownload: this._hostHandlers.artifactRedownload ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRedownload,
-            artifactRehydrate: this._hostHandlers.artifactRehydrate ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRehydrate,
         };
     }
 
@@ -474,20 +458,6 @@ export class AparteConfig {
         this._notify();
     }
 
-    /**
-     * Register an artifact preview builder (app-level). When set, the artifact
-     * renderer uses it to build the preview iframe `srcdoc`; when unset, core's
-     * CDN-free fallback is used. This is how the product opts into a
-     * React/Babel/Tailwind live preview without leaking those into core.
-     */
-    setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void {
-        this._artifactPreviewBuilder = builder;
-    }
-
-    /** The registered artifact preview builder, or undefined for the core fallback. */
-    getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined {
-        return this._artifactPreviewBuilder;
-    }
 
     /**
      * The icon set as a **complete** provider: every name resolves, falling back
@@ -1421,7 +1391,6 @@ export class AparteConfig {
         // consumer's `reset()` would do to a second chat.
         this._segmentDefaults.clear();
         this._avatarProvider = undefined;
-        this._artifactPreviewBuilder = undefined;
         this._keyProvider = undefined;
         this._conversationManager = undefined;
         this._elicitationPresenters = [];

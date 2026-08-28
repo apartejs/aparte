@@ -1345,28 +1345,38 @@ export class AparteClient {
      *
      * Fences and the language tag are kept. Without them the model re-reads its own
      * code as prose — which is how it starts explaining a snippet it believes it
-     * wrote in English. Artifacts are included for the same reason: dropping them
-     * made an artifact the model had just produced invisible on the very next turn,
-     * so it could not be asked to change the thing it had built.
+     * wrote in English.
      *
-     * `thinking` stays out on purpose — it is the model's own scratchpad, and most
-     * APIs neither want it back nor bill for it kindly.
+     * A type core does not know — a registered block grammar's (an artifact, a
+     * citation, a file), a consumer's custom segment — follows one rule: its
+     * `content` if it has one, else its `fallback`, else nothing. Dropping such a
+     * segment made a document the model had just produced invisible on the very next
+     * turn, so it could not be asked to change the thing it had built; there used to
+     * be an `artifact` branch here for exactly that, and the rule is what replaces it
+     * now that the artifact is a plugin's type like any other.
+     *
+     * `thinking` and `tool_call` stay out on purpose — the first is the model's own
+     * scratchpad, and most APIs neither want it back nor bill for it kindly; the
+     * second is already in the history as a call and a result.
      */
     private _segmentsToText(segments: AparteMessage['segments']): string {
         if (!segments?.length) return '';
         const fence = '```';
         const parts: string[] = [];
         for (const segment of segments) {
-            const content = (segment as { content?: string }).content ?? '';
+            const content = (segment as { content?: string }).content;
             if (segment.type === 'text') {
                 if (content) parts.push(content);
             } else if (segment.type === 'code') {
                 const lang = (segment as { language?: string }).language ?? '';
-                parts.push(`${fence}${lang}\n${content}\n${fence}`);
-            } else if (segment.type === 'artifact') {
-                const title = (segment as { title?: string }).title ?? 'artifact';
-                const kind = (segment as { artifactType?: string }).artifactType ?? '';
-                parts.push(`${fence}${kind}\n<!-- artifact: ${title} -->\n${content}\n${fence}`);
+                parts.push(`${fence}${lang}\n${content ?? ''}\n${fence}`);
+            } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
+                continue;
+            } else if (typeof content === 'string' && content) {
+                parts.push(content);
+            } else {
+                const fallback = (segment as { fallback?: string }).fallback;
+                if (fallback) parts.push(fallback);
             }
         }
         return parts.join('\n').trim();
@@ -1516,12 +1526,10 @@ export class AparteClient {
     ): Promise<AparteUsage | undefined> {
         const signal = streamController.signal;
 
-        const artifactHint = baseRequest._meta?.artifactHint;
         const adapter = createStreamAdapter({
             target: targetElement as StreamAdapterTarget,
             config: this._config,
             messageId,
-            artifactHint,
         });
         // `prefixSegments` (`_meta`) land right after the runner's `run-start` — the
         // flip to `status: 'streaming'` — so they sit on a streaming bubble, in the

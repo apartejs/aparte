@@ -360,28 +360,6 @@
   /* Select. Its dropdown shadow used to live as a fallback inside select.css,
      which meant it had no dark value at all — rgba(0,0,0,0.1) over a dark
      surface is no shadow. Declared here, it themes like every other. */
-  /* Paper. An artifact preview is a DOCUMENT shown inside the chat — a spreadsheet,
-     a rendered page — so it stays light whatever the app theme is, the way a PDF
-     viewer shows a white page in a dark editor. That intent was already written in a
-     comment beside a literal `#fff`; naming it is what makes it overridable, and it
-     is deliberately absent from the dark block so the paper does not follow. */
-  --aparte-art-paper-bg: #fff;
-  --aparte-art-paper-text: #1f2937;
-  --aparte-art-paper-row-alt: #f9fafb;
-  --aparte-art-paper-head-bg: #f3f4f6;
-  --aparte-art-paper-head-text: #111827;
-  --aparte-art-paper-border: rgba(0, 0, 0, 0.1);
-
-  /* File-type tiles. Brand colours, so they are literals on purpose — but named,
-     because an app with its own file-type palette has nowhere else to put it. */
-  --aparte-art-file-icon-bg: linear-gradient(135deg, #1d6f42, #0f5132);
-  /* Fixed, like the tiles it sits on. --aparte-text-inverse would be right for a
-     THEMED background and is wrong here: it turns near-black in dark mode, which
-     would put black lettering on a dark green tile. */
-  --aparte-art-file-icon-color: #fff;
-  --aparte-art-file-icon-bg-pdf: linear-gradient(135deg, #c0392b, #7d1f17);
-  --aparte-art-file-icon-bg-docx: linear-gradient(135deg, #1e5288, #0f3060);
-  --aparte-art-file-error-msg-bg: rgba(0, 0, 0, 0.04);
 
   --aparte-line-height-snug: 1.4;
 
@@ -445,12 +423,6 @@
   --aparte-focus-outline-offset: -2px;
   --aparte-tool-spinner-size: 10px;
   --aparte-model-select-chevron-room: 28px;
-  --aparte-art-card-header-min-height: 36px;
-  --aparte-art-card-pulse-size: 8px;
-  --aparte-art-card-btn-size: 28px;
-  --aparte-art-file-icon-size: 40px;
-  --aparte-art-file-preview-padding: 20px;
-  --aparte-art-file-error-padding-inline: 18px;
 }
 
 /* =========================================
@@ -492,9 +464,6 @@
   --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  /* Not the paper — that stays light on purpose. This is a code block inside the
-     error panel, which does follow the theme. */
-  --aparte-art-file-error-msg-bg: rgba(255, 255, 255, 0.06);
 
   /* Error segment */
   /* The text inks, going the other way: on a dark ground the accent gains
