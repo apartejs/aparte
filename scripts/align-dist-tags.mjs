@@ -76,9 +76,16 @@ const failed = [];
 
 for (const pkg of packages) {
     const spec = `${pkg.name}@${pkg.version}`;
+    // `npm dist-tag ls`, not `npm view … dist-tags`: the packument endpoint `view` reads
+    // answered 404 for several minutes after the FIRST publish of a package (0.14.0,
+    // provider-scenario) while `dist-tag ls` — a different endpoint — already listed
+    // both tags correctly, and the release chain stopped on a false "not on npm yet".
     let current;
     try {
-        current = JSON.parse(npm(['view', pkg.name, 'dist-tags', '--json']));
+        current = Object.fromEntries(
+            npm(['dist-tag', 'ls', pkg.name]).split('\n').filter(Boolean)
+                .map((line) => line.split(':').map((part) => part.trim())),
+        );
     } catch {
         failed.push(`${pkg.name} (not on npm yet?)`);
         continue;
