@@ -82,3 +82,9 @@ both surfaces are optional — implement only the half you need:
 - **Own-I/O** (`chat()`) — the provider makes its own request (an SDK, a local runtime);
   `AparteDirectTransport` delegates to it and forwards the abort signal. This is what
   [`ai-sdk`](/providers/ai/ai-sdk/) and [`transformers`](/providers/ai/transformers/) do.
+
+Both shapes share the identity part: `getMetadata()` returns an `AparteAIProviderMetadata`
+— `id`, `name`, an `icon` (SVG) and a `color` — which is what the model picker and the
+provider select display. The type is exported, so a provider written outside this
+repository can annotate its own `getMetadata()` with it rather than spell it
+`ReturnType<AparteAIProvider['getMetadata']>`.
