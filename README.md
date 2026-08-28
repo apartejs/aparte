@@ -124,6 +124,7 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/provider-openai-compat` | One adapter for every OpenAI-compatible endpoint (OpenAI, Mistral, OpenRouter, Groq, LM Studio, Ollama…) |
 | `@aparte/provider-ai-sdk` | Vercel AI SDK bridge (Anthropic, Google, 25+ vendors) |
 | `@aparte/provider-transformers` | In-browser inference via Transformers.js |
+| `@aparte/provider-scenario` | A scripted model — replays turns you wrote, for demos, docs and your own tests |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
 | `@aparte/plugin-model-selector` · `-ask-user` | A provider/model picker; a question-elicitation UI |
 | `@aparte/locale-fr` | French UI strings (English is core's built-in default) |
