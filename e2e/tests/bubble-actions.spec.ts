@@ -90,8 +90,12 @@ test('copy puts the reply on the clipboard and confirms it in the button', async
     const copy = chat.action(chat.lastReply, 'copy');
     await copy.click();
 
-    // The button confirms with a checkmark — the feedback every user relies on.
-    await expect(copy.locator('svg polyline')).toBeVisible({ timeout: 5_000 });
+    // The button confirms — the feedback every user relies on. Asserted on the state the
+    // bubble sets (`data-copied`, and the label that goes with it), not on the shape of
+    // the checkmark: this used to look for `svg polyline`, and the glyph being redrawn
+    // as a path made the test fail while the confirmation was right there on screen.
+    await expect(copy).toHaveAttribute('data-copied', '', { timeout: 5_000 });
+    await expect(copy).toHaveAttribute('aria-label', /copied/i);
 
     if (canReadClipboard) {
         const clipboard = await page.evaluate(() => navigator.clipboard.readText());

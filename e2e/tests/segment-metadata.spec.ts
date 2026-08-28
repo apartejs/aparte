@@ -87,9 +87,11 @@ test('the app turns that span into the reasoning line users expect', async ({ pa
 
     // Asserted as a PATTERN, not as "not empty": the built-in label is also
     // non-empty, so a looser assertion would stay green with the app's renderer
-    // removed entirely — the exact hole a substring check leaves.
+    // removed entirely — the exact hole a substring check leaves. The app floors a
+    // sub-second span at "<1s" (a mocked stream settles in milliseconds), so both
+    // spellings are the app's line; neither is the built-in's.
     await expect(chat.segment('thinking').first().locator('.aparte-thinking-label'))
-        .toHaveText(/Thought for \d+\.\d+s/, { timeout: 15_000 });
+        .toHaveText(/Thought for (<1s|\d+\.\d+s)/, { timeout: 15_000 });
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
