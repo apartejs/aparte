@@ -67,6 +67,72 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
         expect(seenSeg).toBe(seg);
     });
 
+    // A registered renderer used to be rebuilt from `render()` on every change of the
+    // call, so anything with state in its markup — a mounted preview, an opened
+    // disclosure — was lost the moment the result landed. `update` lets it patch.
+    it('patches through the consumer update() instead of rebuilding, when declared', () => {
+        let renders = 0;
+        let patched: { el: HTMLElement; status: string | undefined } | null = null;
+        aparteGlobalConfig.registerToolRenderer('visual_tool', {
+            render: () => { renders++; return `<div class="my-visual"><iframe></iframe></div>`; },
+            update: (el, seg) => { patched = { el, status: seg.status }; },
+        });
+        const seg = {
+            id: 'vt5', type: 'tool_call',
+            toolCall: { id: 'c5', name: 'visual_tool', input: {} },
+            status: 'pending',
+        };
+        const renderer = getSegmentRenderer('tool_call')!;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderer.render(seg as any) as string;
+        const el = wrap.firstElementChild as HTMLElement;
+        const frame = el.querySelector('iframe');
+        renderer.update!(el, { ...seg, status: 'resolved', result: 'done' } as any);
+        expect(patched!.el).toBe(el);
+        expect(patched!.status).toBe('resolved');
+        expect(renders, 'no second render').toBe(1);
+        expect(el.querySelector('iframe'), 'the mounted frame survived').toBe(frame);
+    });
+
+    it('still rebuilds a consumer renderer that declares no update()', () => {
+        let renders = 0;
+        aparteGlobalConfig.registerToolRenderer('visual_tool', {
+            render: (s) => { renders++; return `<div class="my-visual" data-s="${s.status}"></div>`; },
+        });
+        const seg = {
+            id: 'vt6', type: 'tool_call',
+            toolCall: { id: 'c6', name: 'visual_tool', input: {} },
+            status: 'pending',
+        };
+        const renderer = getSegmentRenderer('tool_call')!;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderer.render(seg as any) as string;
+        renderer.update!(wrap.firstElementChild as HTMLElement, { ...seg, status: 'resolved' } as any);
+        expect(renders).toBe(2);
+        expect(wrap.firstElementChild!.getAttribute('data-s')).toBe('resolved');
+    });
+
+    it('forwards relabel() to the consumer renderer, and touches nothing without one', () => {
+        let relabelled = 0;
+        aparteGlobalConfig.registerToolRenderer('visual_tool', {
+            render: () => `<div class="my-visual"><span class="aparte-tool-icon">x</span></div>`,
+            relabel: () => { relabelled++; },
+        });
+        const seg = {
+            id: 'vt7', type: 'tool_call',
+            toolCall: { id: 'c7', name: 'visual_tool', input: {} },
+            status: 'resolved',
+        };
+        const renderer = getSegmentRenderer('tool_call')!;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderer.render(seg as any) as string;
+        const el = wrap.firstElementChild as HTMLElement;
+        renderer.relabel!(el, seg as any);
+        expect(relabelled).toBe(1);
+        // The built-in's own selectors are not applied to a consumer's markup.
+        expect(el.querySelector('.aparte-tool-icon')!.textContent).toBe('x');
+    });
+
     it('lets a tool draw its own surface while it awaits approval', () => {
         // The exact OPPOSITE of what this asserted, and the inversion is the fix. The
         // built-in Approve / Reject branch ran BEFORE this lookup, so a registered tool

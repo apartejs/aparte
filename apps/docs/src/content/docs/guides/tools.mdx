@@ -268,6 +268,37 @@ const webSearchRenderer: AparteToolRenderer = {
 aparteGlobalConfig.registerToolRenderer('web_search', webSearchRenderer);
 ```
 
+A call changes several times in one turn — its result lands, a decision is made, it
+fails — and on each change core rebuilds your markup from `render()` unless you declare
+**`update`**, which patches the element in place instead. Rebuilding is right for a
+receipt and wrong for anything with state: a mounted preview, an opened disclosure or a
+focused control is lost in a rebuild. **`relabel`** is called on every config change
+(`setLocale`, `setIconProvider`, `reset()`) so the strings you drew follow the locale;
+replace text and glyphs, add or remove no node. Both are the contracts a segment
+renderer already has, so one object can serve as both:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import type { AparteToolRenderer } from '@aparte/core';
+
+const reportRenderer: AparteToolRenderer = {
+  render: (segment) => {
+    const el = document.createElement('div');
+    el.className = 'my-report';
+    el.dataset['status'] = segment.status ?? 'pending';
+    return el;
+  },
+  // The result landed: mark it, keep the element.
+  update: (element, segment) => {
+    element.dataset['status'] = segment.status ?? 'pending';
+    if (segment.result) element.textContent = segment.result;
+  },
+  relabel: (element) => { element.setAttribute('aria-label', aparteGlobalConfig.t('toolOutput')); },
+};
+
+aparteGlobalConfig.registerToolRenderer('build_report', reportRenderer);
+```
+
 :::danger[The segment carries model-chosen data]
 `segment.toolCall.input` is whatever the **model** decided to pass, and
 `segment.result` is whatever the tool returned. Both are untrusted. The

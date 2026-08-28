@@ -205,7 +205,7 @@ default.
 - `unregisterTool(name: string): void` — remove a tool by name.
 - `getTools(): AparteTool[]` — all registered tool definitions (passed in the chat request).
 - `getToolHandler(name: string): AparteToolHandler | undefined` — the handler for a tool by name.
-- `registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void` — a per-tool segment renderer, controlling what appears in the bubble when that tool is called.
+- `registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void` — a per-tool segment renderer, controlling what appears in the bubble when that tool is called: `render`, and optionally `setup`, `update` (patch in place when the call changes, instead of a rebuild), `relabel` (re-read the locale on a config change) and `getStyles`.
 - `unregisterToolRenderer(toolName: string): void` — remove a per-tool renderer.
 - `getToolRenderer(toolName: string): AparteToolRenderer | undefined` — the renderer for a tool name, if any.
 

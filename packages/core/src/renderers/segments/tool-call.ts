@@ -248,6 +248,14 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
      */
     relabel: (element, segment) => {
         const cfg = contextConfig();
+        // A registered renderer owns its markup, so none of the selectors below exist
+        // in it; its own `relabel` — when it declares one — is the only thing that can
+        // re-read the locale for it.
+        const custom = cfg.getToolRenderer(segment.toolCall?.name);
+        if (custom) {
+            custom.relabel?.(element, segment);
+            return;
+        }
         const icon = element.querySelector('.aparte-tool-icon');
         if (icon) icon.innerHTML = cfg.getIcon('tool');
         // Through `stateBadge`, which is the whole point of it existing.
@@ -299,6 +307,13 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * there — there was no disclosure to keep open.
          */
         const custom = contextConfig().getToolRenderer(segment.toolCall?.name);
+        // A registered renderer that declares `update` owns the patch — a mounted
+        // preview or an opened disclosure in its markup survives the change. One
+        // that does not is rebuilt, as it always was.
+        if (custom?.update) {
+            custom.update(element, segment);
+            return;
+        }
         if (custom || wantsDetail !== (element.tagName === 'DETAILS')) {
             // A `<template>`, not the bubble's own converter: this file is a renderer
             // and must not import from the component that consumes it.

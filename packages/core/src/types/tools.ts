@@ -200,6 +200,22 @@ export interface AparteToolRenderer {
     render: (segment: AparteToolCallSegment) => string | HTMLElement;
     /** Optional DOM setup (event listeners etc.) called after HTML is injected */
     setup?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
+    /**
+     * Patch the element in place when the call changes — its result landing, an
+     * approval decided, a `failed` status. Without it core rebuilds your markup from
+     * `render()` on every change, which is right for a receipt and wrong for anything
+     * with state: a mounted preview, an opened disclosure, a focused control are all
+     * lost in a rebuild. Same contract as `AparteSegmentRenderer.update`: never
+     * re-render, never touch what the reader opened.
+     */
+    update?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
+    /**
+     * Re-read the locale and the icon provider without touching the DOM shape —
+     * called on every config change (`setLocale`, `setIconProvider`, `reset()`), for
+     * as long as the element is on the page. Add or remove no child node; replace
+     * text and glyphs only.
+     */
+    relabel?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
     /** Optional CSS to inject once into document.head */
     getStyles?: () => string;
 }
