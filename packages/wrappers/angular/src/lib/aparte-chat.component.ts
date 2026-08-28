@@ -384,8 +384,10 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
 
     // ── Public imperative API (delegates to the host) ──────────────────────────
 
-    /** Append a message optimistically. */
-    appendMessage(message: AparteMessage): void { this._host?.appendMessage(message); }
+    /** Append a message optimistically — `{ historical: true }` for one restored from your own store. */
+    appendMessage(message: AparteMessage, options?: { historical?: boolean }): void {
+        this._host?.appendMessage(message, options);
+    }
     /** Atomic update for a message. */
     updateMessage(messageId: string, updates: Partial<AparteMessage>): void {
         this._host?.updateMessage(messageId, updates);

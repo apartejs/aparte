@@ -13,7 +13,14 @@ import type { AparteSegment } from './segments.js';
  */
 export interface AparteChatImperativeApi {
     // ── message + streaming surface ──
-    appendMessage: (message: AparteMessage) => void;
+    /**
+     * Append a message. `{ historical: true }` says it is RESTORED, not live: its
+     * segments are adopted as they are — no fresh timing stamps, `isStreaming` forced
+     * off — the way a stored conversation is loaded, so a tool call read back from
+     * your own backend renders settled rather than spinning. Use it when you replay
+     * history one message at a time; a live turn passes nothing.
+     */
+    appendMessage: (message: AparteMessage, options?: { historical?: boolean }) => void;
     updateMessage: (messageId: string, updates: Partial<AparteMessage>) => void;
     updateLastMessage: (content: string, options?: { append?: boolean }) => void;
     addSegment: (segment: AparteSegment) => void;

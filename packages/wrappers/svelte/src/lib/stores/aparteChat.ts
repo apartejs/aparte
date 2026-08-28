@@ -9,7 +9,7 @@ export interface AparteChatStore {
     connect(component: AparteChatImperativeApi | null): void;
     /** Wire to `on:messagesChange={(e) => chat.onMessagesChange(e.detail)}`. */
     onMessagesChange(messages: AparteMessage[]): void;
-    appendMessage(message: AparteMessage): void;
+    appendMessage(message: AparteMessage, options?: { historical?: boolean }): void;
     updateMessage(messageId: string, updates: Partial<AparteMessage>): void;
     updateLastMessage(content: string, options?: { append?: boolean }): void;
     addSegment(segment: AparteSegment): void;
@@ -46,7 +46,7 @@ export function createAparteChat(initial: AparteMessage[] = []): AparteChatStore
         messages,
         connect: (component) => { comp = component; },
         onMessagesChange: (m) => messages.set(m),
-        appendMessage: (m) => comp?.appendMessage(m),
+        appendMessage: (m, o) => comp?.appendMessage(m, o),
         updateMessage: (id, u) => comp?.updateMessage(id, u),
         updateLastMessage: (c, o) => comp?.updateLastMessage(c, o),
         addSegment: (s) => comp?.addSegment(s),

@@ -28,7 +28,7 @@ export interface UseAparteChat {
     // cast lives here once, not in every consumer.
     ref: React.RefObject<AparteChatImperativeApi>;
     // ── imperative helpers (delegate to the component handle) ──
-    appendMessage: (message: AparteMessage) => void;
+    appendMessage: (message: AparteMessage, options?: { historical?: boolean }) => void;
     updateMessage: (messageId: string, updates: Partial<AparteMessage>) => void;
     updateLastMessage: (content: string, options?: { append?: boolean }) => void;
     addSegment: (segment: AparteSegment) => void;
@@ -54,7 +54,7 @@ export function useAparteChat(initial: AparteMessage[] = []): UseAparteChat {
         messages,
         setMessages,
         ref: ref as React.RefObject<AparteChatImperativeApi>,
-        appendMessage: (m) => h()?.appendMessage(m),
+        appendMessage: (m, o) => h()?.appendMessage(m, o),
         updateMessage: (id, u) => h()?.updateMessage(id, u),
         updateLastMessage: (c, o) => h()?.updateLastMessage(c, o),
         addSegment: (s) => h()?.addSegment(s),

@@ -23,7 +23,7 @@ export function useAparteChat(initial: AparteMessage[] = []) {
         messages,
         chatRef,
         onMessagesChange,
-        appendMessage: (m: AparteMessage) => c()?.appendMessage(m),
+        appendMessage: (m: AparteMessage, o?: { historical?: boolean }) => c()?.appendMessage(m, o),
         updateMessage: (id: string, u: Partial<AparteMessage>) => c()?.updateMessage(id, u),
         updateLastMessage: (content: string, o?: { append?: boolean }) => c()?.updateLastMessage(content, o),
         addSegment: (s: AparteSegment) => c()?.addSegment(s),
