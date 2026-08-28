@@ -215,7 +215,8 @@ put down on purpose, so a future session does not re-derive the answer from scra
 
 ## ⚠️ Anti-patterns (don't)
 
-1. **No deps in `@aparte/core`.** The zero-dep promise. Need markdown/highlight/etc.?
+1. **No third-party deps in `@aparte/core`.** The zero-dep promise — `@aparte/engine` is
+   the one dependency, first-party (D1). Need markdown/highlight/etc.?
    → a `providers/*` or `plugins/*` the consumer opts into.
 2. **No framework at the ROOT.** Angular/React/Vue/Svelte live **only** in their own
    wrapper package (peer + dev) and their example. Root = pnpm + NX + TS + vitest +

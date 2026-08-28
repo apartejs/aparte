@@ -8,14 +8,14 @@
  * `runStreamAgent` (engine, pure Node) + this adapter (core, DOM) reproduce
  * `_streamLoop` byte-for-byte.
  *
- * DEPENDENCY DIRECTION: `@aparte/core` is the zero-dep leaf — it must NEVER import
- * `@aparte/engine` (engine peer-deps core; importing back would create a build
- * cycle). So the run-event contract is **mirrored** here as
- * {@link AparteStreamRunEvent}, structurally identical to engine's `StreamRunEvent`.
- * `@aparte/engine`'s `runStreamAgent` emits objects that satisfy this type; a
- * consumer wires the two together via the injectable
- * `AparteClientOptions.streamRunner` seam — the same pattern as `approvalResolver`
- * (HITL) and `compactionSelector`. Keep the two unions in sync by hand.
+ * DEPENDENCY DIRECTION: `@aparte/core` depends on `@aparte/engine` — first-party, so
+ * the zero-third-party-dependency promise is untouched — never the reverse. The
+ * run-event contract is engine's: {@link AparteStreamRunEvent} and its siblings below
+ * are `StreamRunEvent` & co under core's names, so there is nothing to keep in sync by
+ * hand any more. The hand-mirrored union this file used to carry, and the compile-time
+ * guard in engine that policed it, went with the mirror (audit 2026-08-28, D1). A
+ * consumer wires a runner through `AparteClientOptions.streamRunner` — the same
+ * pattern as `approvalResolver` (HITL) and `compactionSelector`.
  */
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
@@ -28,84 +28,43 @@ import type {
     AparteArtifactSegment,
     AparteCodeSegment,
 } from '../types/segments.js';
-import type { AparteUsage, AparteChatRequest } from '../types/chat.js';
+import type { AparteUsage } from '../types/chat.js';
+import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
 import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
 import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 
 /**
- * DOM-free run events emitted by `@aparte/engine`'s `runStreamAgent`, mirrored here
- * so core need not import engine. **Structurally identical** to engine's
- * `StreamRunEvent` — kept in sync manually (the boundary cost of the zero-dep
- * leaf). See `packages/engine/src/agent/stream-events.ts` for the source of truth
- * and the per-event `_streamLoop` mapping notes.
+ * The DOM-free run events `@aparte/engine`'s `runStreamAgent` emits — engine's
+ * `StreamRunEvent`, under core's name. See `packages/engine/src/agent/stream-events.ts`
+ * for the per-event `_streamLoop` mapping notes.
  */
-export type AparteStreamRunEvent =
-    | { type: 'run-start' }
-    | { type: 'turn-start' }
-    | { type: 'text-delta'; delta: string; reduced?: boolean }
-    | { type: 'text-flush' }
-    | { type: 'thinking-delta'; delta: string }
-    | { type: 'artifact-open'; id: string; mimeType: string; kind: string; title: string }
-    | { type: 'artifact-chunk'; id: string; content: string }
-    | { type: 'artifact-close'; id: string; content: string; inline: boolean }
-    | { type: 'artifact-ready'; id: string; mimeType: string; kind: string; title: string; content: string }
-    | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
-    | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
-    | { type: 'tool-approved'; toolCallId: string }
-    | { type: 'tool-rejected'; toolCallId: string; reason: string }
-    | { type: 'tool-resolved'; toolCallId: string; result: string }
-    | { type: 'tool-aborted'; toolCallId: string }
-    | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
-    | { type: 'phase-advance'; index: number }
-    | { type: 'run-aborted' }
-    | { type: 'run-done'; usage?: AparteUsage };
+export type AparteStreamRunEvent = StreamRunEvent;
 
-/** Synchronous, ordered event sink — mirrors engine's `StreamRunEmitter`. */
-export type AparteStreamRunEmitter = (event: AparteStreamRunEvent) => void;
+/** Synchronous, ordered event sink — engine's `StreamRunEmitter`. */
+export type AparteStreamRunEmitter = StreamRunEmitter;
 
 /**
- * Options for an injected {@link AparteStreamRunner} — structurally identical to
- * engine's `StreamRunOptions` (the mirror boundary again). `AparteClient` builds
- * these from its config/provider/transport and hands them to the runner.
+ * Options for an injected {@link AparteStreamRunner} — engine's `StreamRunOptions`.
+ * `AparteClient` builds these from its config / provider / transport and hands them
+ * to the runner; core's request, message and tool types are assignable to the
+ * structural ones the engine declares, and that assignment is checked where it is
+ * made rather than in a guard beside it.
  */
-export interface AparteStreamRunOptions {
-    messageId: string;
-    baseRequest: AparteChatRequest;
-    /** Calls the transport; returns the structured stream or a plain string. */
-    transportCall: (request: AparteChatRequest) => Promise<AsyncIterable<AparteStreamEvent> | string>;
-    /** Resolves a tool's handler by name (mirrors `aparteGlobalConfig.getToolHandler`). */
-    toolLookup: (name: string) => ((call: { id: string; name: string; input: Record<string, unknown> }, signal: AbortSignal) => Promise<{ content: string }>) | undefined;
-    /** Resolves a tool's loop config by name (maxTurns / needsApproval). */
-    toolConfigLookup?: (name: string) => { maxTurns?: number; needsApproval?: boolean } | undefined;
-    /** HITL approval resolver for `needsApproval` tools. */
-    approvalResolver?: (
-        call: { id: string; name: string; input: Record<string, unknown> },
-        signal: AbortSignal,
-    ) => Promise<{ approved: boolean; payload?: unknown; instruction?: string }>;
-    /** The DOM adapter (from {@link createStreamAdapter}). */
-    emitter: AparteStreamRunEmitter;
-    /** Single abort signal (the client composes `_isAborted` + the controller). */
-    signal: AbortSignal;
-    maxTurns?: number;
-    toolTimeoutMs?: number;
-    idGen?: (prefix: string) => string;
-}
+export type AparteStreamRunOptions = StreamRunOptions;
 
 /**
  * A headless structured-stream loop injected via `AparteClientOptions.streamRunner`
  * — the seam by which a consumer swaps `_streamLoop`'s inline loop for
- * `@aparte/engine`'s `runStreamAgent` (core stays the zero-dep leaf; it never
- * imports engine).
+ * `@aparte/engine`'s `runStreamAgent`.
  *
- * `runStreamAgent` is directly assignable to this type — pass it, do not cast it.
- * An earlier version of this comment advised a cast "if the duck-typed shapes
- * don't line up", which is how the two packages' message types drifted apart
- * unnoticed and shipped a `streamRunner: runStreamAgent` that did not compile on
- * five docs pages and a README. A cast here hides exactly the drift that
- * `stream-events.contract.ts` now exists to fail on.
+ * `runStreamAgent` IS this type — pass it, do not cast it. An earlier version of this
+ * comment advised a cast "if the duck-typed shapes don't line up", which is how the
+ * two packages' message types drifted apart unnoticed and shipped a
+ * `streamRunner: runStreamAgent` that did not compile on five docs pages and a
+ * README. The alias makes that drift a typecheck error in the composition itself.
  */
-export type AparteStreamRunner = (opts: AparteStreamRunOptions) => Promise<AparteUsage | undefined>;
+export type AparteStreamRunner = (opts: AparteStreamRunOptions) => Promise<StreamUsage | undefined>;
 
 /**
  * The imperative surface the adapter drives (subset of `AparteChatTargetElement`).

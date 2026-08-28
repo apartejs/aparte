@@ -7,7 +7,7 @@ sidebar:
 
 `@aparte/core` is a set of **framework-agnostic web components** for AI chat. You
 drop `<aparte-*>` elements onto a page, stream tokens into them, and style
-everything with CSS variables — no framework, and zero runtime dependencies.
+everything with CSS variables — no framework, and zero third-party dependencies.
 
 By the end of this page you'll have a working chat that streams a reply, running
 entirely in the browser.

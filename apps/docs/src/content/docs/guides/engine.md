@@ -25,7 +25,7 @@ None of that ships here.
 npm install @aparte/engine
 ```
 
-`@aparte/core` is an **optional peer**: `runStreamAgent` and the parsers need nothing from it, so
+`@aparte/core` is **not a dependency** of the engine — it is the other way round, core depends on it — and `runStreamAgent` and the parsers need nothing from it, so
 you can install `@aparte/engine` alone. If you wire it into core's client (below) you already have
 `@aparte/core`; otherwise `npm install @aparte/core @aparte/engine`. ESM-only (like the rest of
 `@aparte/*`); CJS consumers use `await import()`.
@@ -78,9 +78,10 @@ twice.
 
 ## The primary use: the `streamRunner` seam
 
-Core stays the zero-dependency leaf: it **never imports `@aparte/engine`**. Instead, `AparteClient`
-exposes an injection point, `streamRunner`. Give it `runStreamAgent` and the client delegates its
-loop to the engine, rendering the engine's events through core's `createStreamAdapter`:
+Core depends on `@aparte/engine` — first-party, the run-event types are the engine's — but it
+does not run the engine's loop by itself yet: `AparteClient` exposes an injection point,
+`streamRunner`. Give it `runStreamAgent` and the client delegates its loop to the engine,
+rendering the engine's events through core's `createStreamAdapter`:
 
 ```ts
 import { AparteClient } from '@aparte/core';

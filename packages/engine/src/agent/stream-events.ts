@@ -62,7 +62,7 @@ export interface StreamToolCall {
      * `unknown` looked safer — the loop does not read tool input, it forwards it —
      * but the seam needs assignability in BOTH directions (`transportCall` is
      * contravariant), and `unknown` is not assignable to `Record<string, unknown>`.
-     * Locked to core's shape by `stream-events.contract.ts`.
+     * Core's composition compiles against it.
      */
     input: Record<string, unknown>;
 }
@@ -84,7 +84,7 @@ export type StreamChatEvent =
  * The loop forwards the inventory to the transport and reads `maxTurns` and
  * `needsApproval` from its own lookup — it never interprets the schema. Mirrored
  * exactly all the same, because the seam needs assignability in both directions;
- * `stream-events.contract.ts` locks it.
+ * core's composition compiles against it.
  */
 export interface StreamTool {
     name: string;
@@ -102,9 +102,9 @@ export interface StreamTool {
  * file: engine stays zero-import at runtime. Mirrored EXACTLY rather than
  * loosened to `unknown[]`, which was the first attempt: `transportCall` is
  * contravariant, so the message type has to be assignable to core's AND core's to
- * it, and `unknown[]` fails the second direction. `stream-events.contract.ts`
- * asserts the equality, so a part added on either side is a typecheck error
- * rather than a silent divergence.
+ * it, and `unknown[]` fails the second direction. Core compiles
+ * `streamRunner: runStreamAgent`, so a part added on one side and not the other is
+ * a typecheck error there rather than a silent divergence.
  *
  * The loop never looks inside content — it carries messages to the transport and
  * appends results. This exists to make the seam type-check, not to be read.
@@ -126,7 +126,7 @@ export type StreamContentPart = StreamTextPart | StreamImagePart | StreamFilePar
  * chain that stopped `streamRunner: runStreamAgent` from compiling.
  *
  * Mirrored structurally rather than imported, to keep this package zero-import at
- * runtime; `stream-events.contract.ts` asserts the two line up.
+ * runtime; core, which depends on this package, compiles the two against each other.
  */
 export interface StreamAgentMessage {
     role: 'user' | 'assistant' | 'system' | 'tool_call' | 'tool_result';
@@ -172,7 +172,7 @@ export interface StreamAgentMessage {
  * because TypeScript only excess-property-checks object literals.
  *
  * Types kept structural (not imported from core) so this package stays
- * zero-import at runtime; `stream-events.contract.ts` asserts they line up.
+ * zero-import at runtime; core's composition compiles the two against each other.
  */
 export interface StreamChatRequest {
     messages: StreamAgentMessage[];

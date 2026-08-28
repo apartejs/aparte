@@ -4,7 +4,7 @@
  * There were four before this file: the `<title>`, `<meta name="description">`,
  * the Open Graph pair, the Twitter pair, and a fifth hardcoded inside
  * `src/pages/og/[...slug].ts` for the social card. The card's copy had already
- * drifted — it was missing the closing "Zero runtime dependencies." clause, and
+ * drifted — it was missing the closing "Zero third-party dependencies." clause, and
  * because astro-og-canvas bakes the string into a PNG, the image people saw when
  * they shared the link literally said less than the text tags beside it.
  *
@@ -22,7 +22,7 @@ export const LANDING_TITLE = 'aparté — AI chat in Web Components, with the ag
 export const LANDING_DESCRIPTION =
     'AI chat in Web Components with the agent loop inside: human-in-the-loop tools, '
     + `branch-and-retry, ${KIND_COUNT} kinds of content in one turn. `
-    + 'Zero runtime dependencies.';
+    + 'Zero third-party dependencies.';
 
 /**
  * What the social card's 1200x630 image actually shows, for `og:image:alt`.
@@ -53,4 +53,4 @@ export const LANDING_CARD_TITLE = 'AI chat in Web Components';
 
 export const LANDING_CARD_BODY =
     'With the agent loop inside: human-in-the-loop tools, branch-and-retry, '
-    + `${KIND_COUNT} kinds of content in one turn. Zero runtime dependencies.`;
+    + `${KIND_COUNT} kinds of content in one turn. Zero third-party dependencies.`;

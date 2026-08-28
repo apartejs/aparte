@@ -36,8 +36,9 @@ attachments, markdown/highlight plugins, and localization.
 
 ## The architectural bets
 
-- **Web components, zero dependencies.** `@aparte/core` is vanilla custom elements with no
-  runtime dependency — nothing to version-align with your stack. The
+- **Web components, zero third-party dependencies.** `@aparte/core` is vanilla custom elements
+  whose only dependency is `@aparte/engine`, the agent loop, versioned with it — nothing from
+  outside to version-align with your stack. The
   [React / Vue / Svelte / Angular wrappers](/frameworks/) are thin bridges over one shared,
   compile-enforced imperative API, so the same engine renders identically across all four
   (plus plain HTML).

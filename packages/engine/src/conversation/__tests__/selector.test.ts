@@ -1,12 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import type { AparteMessage } from '@aparte/core';
 import { createCompactionSelector } from '../selector.js';
+
+/** The shape core's `AparteMessage` has, as far as the selector reads it. */
+interface Message {
+    id: string;
+    role: 'user' | 'assistant';
+    content?: string;
+    timestamp: number;
+    segments?: { id: string; type: string; content?: string }[];
+}
 
 /** A budget with no reserves: the window IS the context window minus the system prompt. */
 const BARE = { reservedThinking: 0, reservedGeneration: 0, autocompactBufferPct: 0, safetyMargin: 0, summaryRatio: 0, ragHistRatio: 0, minHistoryBudget: 0 };
 
 /** 200 characters ≈ 50 tokens, by the compactor's own heuristic. */
-const message = (i: number, chars = 200): AparteMessage => ({
+const message = (i: number, chars = 200): Message => ({
     id: `m${i}`,
     role: i % 2 === 0 ? 'user' : 'assistant',
     content: 'x'.repeat(chars),
@@ -49,7 +57,7 @@ describe('createCompactionSelector', () => {
 
     it('costs a message by its segments when it carries no content', () => {
         const select = createCompactionSelector({ contextWindow: 100, config: BARE });
-        const rich: AparteMessage = { id: 'r', role: 'assistant', timestamp: 9, segments: [{ id: 's', type: 'text', content: 'z'.repeat(800) }] };
+        const rich: Message = { id: 'r', role: 'assistant', timestamp: 9, segments: [{ id: 's', type: 'text', content: 'z'.repeat(800) }] };
         const { keep, drop } = select([message(0), message(1), rich]);
         expect(keep.map((m) => m.id)).toEqual(['m1', 'r']);
         expect(drop.map((m) => m.id)).toEqual(['m0']);

@@ -7,7 +7,7 @@ dependencies, runs in the browser or Node.
 npm install @aparte/engine @aparte/core
 ```
 
-`@aparte/core` is an **optional peer**: install it only for the recommended path below.
+`@aparte/core` is **not a dependency** of this package — it is the other way round: core depends on the engine. Install core for the recommended path below.
 
 ```ts
 import { runStreamAgent } from '@aparte/engine';
@@ -28,7 +28,7 @@ via `AparteClientOptions.streamRunner` and core renders its events through
 suite (it drives core's real `_streamLoop` and `runStreamAgent` against the same scripted
 transport and asserts identical output).
 
-`@aparte/core` is an **optional peer** — `runStreamAgent` and its parsers import nothing from
+`@aparte/core` is not needed here — `runStreamAgent` and its parsers import nothing from
 it; the orchestrator/memory helpers use core's config/types when present.
 
 ## Owning the history (prefix-cache hosts)

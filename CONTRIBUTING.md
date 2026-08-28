@@ -268,7 +268,7 @@ consumers.
 
 ## Anti-patterns
 
-- No dependencies in `@aparte/core` (the zero-dep promise).
+- No third-party dependencies in `@aparte/core` (the zero-dep promise; `@aparte/engine` is the one first-party dependency).
 - No framework code at the repo root — frameworks live only in their wrapper package (peer + dev)
   and its example.
 - No product logic (routing, settings, persistence) in the library.

@@ -12,8 +12,39 @@
  * consumer — the window is theirs to know, the client's to never guess.
  */
 
-import type { AparteCompactionSelector, AparteMessage } from '@aparte/core';
 import { computeHistoryBudget, estimateTokens, splitHistoryBudget, type CompactionConfig } from './compactor.js';
+
+/**
+ * The least a message must carry to be costed: its text, or segments with text.
+ * Structural on purpose — this package imports nothing from core — and core's
+ * `AparteMessage` satisfies it, which is what makes the selector below exactly the
+ * `compactionSelector` `AparteClient` takes.
+ */
+export interface CompactableMessage {
+    content?: string;
+    /**
+     * `unknown` elements, read defensively below: core's segment union includes a
+     * segment with no `content` at all, and TypeScript refuses a type with no property
+     * in common with the all-optional `{ content?: unknown }` (a "weak type"), so that
+     * tighter shape made `AparteMessage` unassignable here.
+     */
+    segments?: ReadonlyArray<unknown>;
+}
+
+/** What `compact()` asks for: the messages kept verbatim and the ones to summarise. */
+export interface CompactionSelection<M> {
+    keep: M[];
+    drop: M[];
+}
+
+/**
+ * The selector itself — generic in the MESSAGE type, so it is assignable to core's
+ * `AparteCompactionSelector` (messages of `AparteMessage`) without importing it. The
+ * generic sits on the returned function, not on the factory: a factory-level `<M>`
+ * has no inference site at `createCompactionSelector({...})` and falls back to the
+ * bare `CompactableMessage`, which is not what the client's option type wants back.
+ */
+export type CompactionSelector = <M extends CompactableMessage>(messages: M[]) => CompactionSelection<M>;
 
 export interface CompactionSelectorOptions {
     /**
@@ -36,7 +67,7 @@ export interface CompactionSelectorOptions {
 const read = <T>(value: T | (() => T)): T => (typeof value === 'function' ? (value as () => T)() : value);
 
 /** What a message costs: its text, or the text of its segments when it has no `content`. */
-const textOf = (message: AparteMessage): string => {
+const textOf = (message: CompactableMessage): string => {
     if (typeof message.content === 'string' && message.content.length > 0) return message.content;
     return (message.segments ?? [])
         .map((segment) => {
@@ -62,9 +93,9 @@ const textOf = (message: AparteMessage): string => {
  * is kept verbatim, the rest is dropped for summarising. When everything fits,
  * `drop` is empty and `compact()` reports `{ skipped: true }` — nothing to do.
  */
-export function createCompactionSelector(options: CompactionSelectorOptions): AparteCompactionSelector {
+export function createCompactionSelector(options: CompactionSelectorOptions): CompactionSelector {
     const minKeep = Math.max(0, options.minKeep ?? 2);
-    return (messages: AparteMessage[]) => {
+    return <M extends CompactableMessage>(messages: M[]): CompactionSelection<M> => {
         const contextWindow = read(options.contextWindow);
         if (!contextWindow || contextWindow <= 0) return { keep: messages, drop: [] };
 

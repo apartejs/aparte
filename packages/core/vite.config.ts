@@ -39,6 +39,11 @@ export default defineConfig({
         sourcemap: true,
         reportCompressedSize: false,
         rollupOptions: {
+            // The one dependency, first-party: the agent loop is engine's, and it must
+            // ship once — as `@aparte/engine`, not inlined into core's bundle. Anything
+            // else would be inlined, which is what `check:bundle-entries` reads the
+            // built bytes for.
+            external: ['@aparte/engine'],
             output: {
                 assetFileNames: (assetInfo) => {
                     if (assetInfo.name && assetInfo.name.endsWith('.css')) return 'index.css';

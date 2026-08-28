@@ -1,6 +1,6 @@
 # @aparte/core
 
-Framework-agnostic AI-chat UI as **vanilla Web Components** — zero runtime dependencies,
+Framework-agnostic AI-chat UI as **vanilla Web Components** — zero third-party dependencies,
 ESM-only, usable in any framework or none.
 
 > **Alpha.** On npm, released in lockstep with every other `@aparte/*` package — the
@@ -72,7 +72,7 @@ every CI run.
 - **Theming** — restyle everything through `--aparte-*` CSS variables (Light DOM, no forking).
 - **Customization** — icons, render hooks, and a zoned action registry via `aparteGlobalConfig`.
 
-Zero runtime dependencies: Markdown, syntax highlighting, etc. are **opt-in** providers you inject.
+Zero third-party dependencies (the agent loop, `@aparte/engine`, is the one first-party dependency): Markdown, syntax highlighting, etc. are **opt-in** providers you inject.
 ESM-only (CJS consumers use `await import()`).
 
 ## Docs

@@ -411,6 +411,10 @@ importers:
         version: 5.7.3
 
   packages/core:
+    dependencies:
+      '@aparte/engine':
+        specifier: workspace:*
+        version: link:../engine
     devDependencies:
       '@custom-elements-manifest/analyzer':
         specifier: ^0.11.0

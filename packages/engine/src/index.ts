@@ -33,4 +33,4 @@ export type { XmlArtifactEvent, XmlArtifactHint, XmlArtifactState } from './agen
 export * from './conversation/compactor.js';
 // The budget-aware `compactionSelector` for AparteClient.compact().
 export { createCompactionSelector } from './conversation/selector.js';
-export type { CompactionSelectorOptions } from './conversation/selector.js';
+export type { CompactionSelectorOptions, CompactableMessage, CompactionSelection, CompactionSelector } from './conversation/selector.js';
