@@ -30,6 +30,14 @@ function assertWellFormed(messages: StreamAgentMessage[]): void {
         }
     }
     for (const [id, times] of declared) expect(times, `call ${id} declared once`).toBe(1);
+    // The converse, which this used to leave unchecked: every declared call gets exactly
+    // one result — a `tool_call` declaring a call that never gets a `tool_result` is the
+    // shape a call halted before its result (no handler, turn limit, abort) used to leave.
+    const results = new Map<string, number>();
+    for (const m of messages) {
+        if (m.role === 'tool_result' && m.toolCallId) results.set(m.toolCallId, (results.get(m.toolCallId) ?? 0) + 1);
+    }
+    for (const id of declared.keys()) expect(results.get(id), `declared call ${id} has exactly one tool_result`).toBe(1);
 }
 
 async function run(turns: StreamChatEvent[][]) {

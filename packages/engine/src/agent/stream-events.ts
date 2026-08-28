@@ -260,6 +260,7 @@ export type StreamApprovalResolver = (
  * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte-tool-approval-request`
  * - `tool-approved`   → updateSegment('pending')
  * - `tool-rejected`   → updateSegment('rejected', result)
+ * - `tool-failed`     → updateSegment('failed', error) — the handler threw; the run then ends on that error
  * - `tool-resolved`   → updateSegment('resolved', result)
  * - `tool-aborted`    → updateSegment('aborted') (no-handler path, timeout/abort path, or per-tool maxTurns path)
  * - `turn-limit-exceeded` scope:'global' → addSegment(error 'MAX_TURNS_EXCEEDED');
@@ -280,6 +281,8 @@ export type StreamRunEvent =
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-approved'; toolCallId: string }
     | { type: 'tool-rejected'; toolCallId: string; reason: string }
+    /** The handler threw (not an abort): the row hears of the crash before the run ends on it. */
+    | { type: 'tool-failed'; toolCallId: string; error: string }
     | { type: 'tool-resolved'; toolCallId: string; result: string; structuredResult?: unknown }
     | { type: 'tool-aborted'; toolCallId: string }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }

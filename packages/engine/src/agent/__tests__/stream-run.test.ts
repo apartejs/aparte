@@ -335,6 +335,38 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(JSON.stringify(toolResult)).not.toContain('structured');
     });
 
+    it('a handler that throws settles its row on tool-failed BEFORE the run ends on that error', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'boom', input: {} }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        await expect(runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => async () => { throw new Error('disk full'); },
+        }))).rejects.toThrow('disk full');
+        // The row was announced with tool-start; it gets exactly one terminal event.
+        const failed = rec.events.find(e => e.type === 'tool-failed') as { toolCallId: string; error: string } | undefined;
+        expect(failed).toMatchObject({ toolCallId: 'c1', error: 'disk full' });
+        expect(rec.types().filter(x => x === 'tool-resolved' || x === 'tool-aborted')).toEqual([]);
+    });
+
+    it('a Stop during a handler ends the run with run-aborted — the terminal the host clears its state on', async () => {
+        const ac = new AbortController();
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'slow', input: {} }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter, signal: ac.signal,
+            toolLookup: () => (_call, signal) => new Promise((_resolve, reject) => {
+                signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+                ac.abort();
+            }),
+        }));
+        expect(rec.types()).toContain('tool-aborted');
+        expect(rec.types().slice(-2)).toEqual(['run-aborted', 'run-done']);
+    });
+
     it('a needsApproval tool with no resolver aborts rather than inventing a refusal', async () => {
         const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
         const rec = recorder();
@@ -377,19 +409,40 @@ describe('runStreamAgent — tools & HITL', () => {
 });
 
 describe('runStreamAgent — limits, abort & error', () => {
-    it('stops with a tool-scoped turn-limit when a tool maxTurns is reached', async () => {
+    it('stops with a tool-scoped turn-limit when a tool maxTurns is exceeded — the same arithmetic as the global cap', async () => {
         const t = scriptedTransport([
             [{ type: 'tool_use', id: 'c1', name: 'loop', input: {} }, { type: 'done' }],
             [{ type: 'tool_use', id: 'c2', name: 'loop', input: {} }, { type: 'done' }],
+            [{ type: 'tool_use', id: 'c3', name: 'loop', input: {} }, { type: 'done' }],
         ]);
         const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'again' }));
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            toolLookup: () => async () => ({ content: 'again' }),
+            toolLookup: () => handler,
             toolConfigLookup: () => ({ maxTurns: 2 }),
             maxTurns: 10,
         }));
-        expect(rec.events.find(e => e.type === 'turn-limit-exceeded')).toMatchObject({ scope: 'tool', limit: 2, toolCallId: 'c2' });
+        // `maxTurns: 2` on the tool means two calls, like `maxTurns: 2` on the run means
+        // two transport calls: the tool ran on turns 1 and 2 and is refused on turn 3.
+        expect(handler).toHaveBeenCalledTimes(2);
+        expect(rec.events.find(e => e.type === 'turn-limit-exceeded')).toMatchObject({ scope: 'tool', limit: 2, toolCallId: 'c3' });
+    });
+
+    it('a tool with maxTurns: 1 is callable once — it used to be un-callable', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'once', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'done' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'ok' }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ maxTurns: 1 }),
+        }));
+        expect(handler).toHaveBeenCalledOnce();
+        expect(rec.types()).not.toContain('turn-limit-exceeded');
     });
 
     it('stops with a global turn-limit when maxTurns is exceeded', async () => {
@@ -428,8 +481,10 @@ describe('runStreamAgent — limits, abort & error', () => {
             transportCall: async () => streamOf([{ type: 'text', delta: 'a' }, { type: 'text', delta: 'b' }]),
             emitter, signal: ctrl.signal,
         }));
-        // 'b' is never read; text-flush still runs on the abort-break (like finalize()).
-        expect(events.map(e => e.type)).toEqual(['run-start', 'turn-start', 'text-delta', 'run-aborted', 'text-flush', 'run-done']);
+        // 'b' is never read; text-flush still runs on the abort-break (like finalize()),
+        // and `run-aborted` is decided once at the loop's exit — after the flush, so the
+        // withheld text lands before the abort is announced.
+        expect(events.map(e => e.type)).toEqual(['run-start', 'turn-start', 'text-delta', 'text-flush', 'run-aborted', 'run-done']);
     });
 
     it('throws on a stream error event without emitting run-done (caller handles it)', async () => {
