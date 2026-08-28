@@ -31,6 +31,12 @@ const geometry = (top: number, height: number, client = 500): void => {
     box.dispatchEvent(new Event('scroll'));
 };
 
+/** The reader's hand: a wheel notch, then the scroll it produces — the way a person goes up. */
+const wheelUp = (top: number, height: number): void => {
+    box.dispatchEvent(new WheelEvent('wheel', { deltaY: -120 }));
+    geometry(top, height);
+};
+
 const frame = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
 beforeEach(async () => {
@@ -52,7 +58,7 @@ describe('a queued scroll frame and the reader', () => {
         expect(vp._isAutoScrollEnabled).toBe(true);
 
         vp.appendToken('a1', 'more');               // a frame is queued while armed
-        geometry(700, 1500);                        // the reader goes up before it runs
+        wheelUp(700, 1500);                         // the reader goes up before it runs
         expect(vp._isAutoScrollEnabled).toBe(false);
 
         await frame();
@@ -70,5 +76,38 @@ describe('a queued scroll frame and the reader', () => {
         await frame();
         expect(box.scrollTop, 'auto-follow keeps the reader at the new bottom').toBe(1700);
         expect(vp._isAutoScrollEnabled).toBe(true);
+    });
+});
+
+describe('a decrease the browser made while settling our scroll', () => {
+    // Measured on WebKit: the action bar appears at the end of a stream (+34px), the
+    // spacer gives the 34px back in the same frame, and through that churn scrollTop
+    // moved from 829 to 804 — a decrease no reader made, seconds after their last
+    // gesture. It must not read as "the reader went up".
+    it('does not disarm the follow: small, right after our scroll, no reader input', async () => {
+        geometry(1000, 1500);                       // at the bottom, following
+        vp.appendToken('a1', 'more');
+        await frame();                              // the queued frame scrolls: ours, just now
+        await frame();
+        geometry(940, 1500);                        // -60px, 60px from the bottom, nobody touched it
+        expect(vp._isAutoScrollEnabled, 'a browser-made decrease keeps the follow armed').toBe(true);
+    });
+
+    it('still disarms for the same decrease when the reader touched the transcript', async () => {
+        geometry(1000, 1500);
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+        wheelUp(940, 1500);                         // same 60px, but a wheel notch came first
+        expect(vp._isAutoScrollEnabled, 'a gesture is the reader, whatever we just did').toBe(false);
+    });
+
+    it('still disarms for a jump too large to be layout churn', async () => {
+        geometry(1000, 1500);
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+        geometry(700, 1500);                        // -300px with no input: find-in-page, a host scrollTo
+        expect(vp._isAutoScrollEnabled, 'a large decrease is never our own settling').toBe(false);
     });
 });

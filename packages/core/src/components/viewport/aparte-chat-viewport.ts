@@ -141,6 +141,15 @@ export class AparteChatViewport extends HTMLElement {
     private _isAutoScrollEnabled: boolean = true;
     /** The last scroll position we saw, so growth can be told from a gesture. */
     private _lastScrollTop = 0;
+    /** When this component last moved `scrollTop` itself — see `_handleScroll`. "Never" is
+     *  -Infinity rather than 0: `performance.now()` can be under a second old. */
+    private _ownScrollAt = Number.NEGATIVE_INFINITY;
+    /** When the reader last touched the transcript (wheel, touch, pointer, key). */
+    private _readerInputAt = Number.NEGATIVE_INFINITY;
+    /** A decrease inside this window after our own scroll, with no input, is the browser's. */
+    private readonly _ownScrollWindowMs = 1000;
+    /** Larger than this is never layout churn: the reader, or a scroll we did not make. */
+    private readonly _ownScrollMaxDrop = 100;
     private _scrollThreshold: number = 50;
     /** When true, the next _autoScroll() call uses smooth instead of instant, then resets. */
     private _smoothScrollOnce: boolean = false;
@@ -1265,6 +1274,10 @@ export class AparteChatViewport extends HTMLElement {
         this._updateScrollButton();
     };
 
+    private readonly _noteReaderInput = (): void => {
+        this._readerInputAt = performance.now();
+    };
+
     private readonly _onBranchNavigate = (e: Event): void => {
         const evt = e as CustomEvent<{ messageId: string; direction: 'prev' | 'next' }>;
         evt.stopPropagation();
@@ -1273,6 +1286,11 @@ export class AparteChatViewport extends HTMLElement {
 
     private _setupEventListeners(): void {
         this._container?.addEventListener('scroll', this._handleScroll, { passive: true });
+        // The reader's hand on the transcript, so `_handleScroll` can tell their scroll
+        // from one the browser made while settling ours.
+        for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const) {
+            this._container?.addEventListener(type, this._noteReaderInput, { passive: true });
+        }
         this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
         this.addEventListener('aparte-branch-navigate', this._onBranchNavigate);
     }
@@ -1388,9 +1406,29 @@ export class AparteChatViewport extends HTMLElement {
          * asked for and what an event counter could not do: growth does not move
          * `scrollTop`, and a reader going up does. So a decrease disarms, the bottom
          * re-arms, and everything else leaves the flag exactly as it was.
+         *
+         * With one exception, measured after the queued frames started re-reading the
+         * flag: a decrease the BROWSER makes while settling a scroll of ours. When a
+         * stream ends the action bar appears (+34px) and the bottom spacer gives the
+         * same 34px back in the same frame; through that churn WebKit moved `scrollTop`
+         * from 829 to 804 — a 25px decrease, no reader anywhere near it — and the
+         * decrease disarmed the follow that was in the middle of landing, leaving the
+         * transcript 25px short and a scroll-to-bottom button on a reader who never
+         * left (vanilla-webkit and react-webkit, 3 runs out of 3; Chromium settles the
+         * same churn without moving). So a decrease is the reader's unless all three
+         * hold: it is small, it comes within a second of a scroll this component asked
+         * for, and the reader has not touched the transcript in that second. A real
+         * gesture always leaves a trace (`_noteReaderInput`); a jump the reader did not
+         * make either (find-in-page, a host's own `scrollTo`) still disarms, except in
+         * that one-second shadow of our own scroll.
          */
         const top = this._container.scrollTop;
-        const readerWentUp = top < this._lastScrollTop - 1;
+        const drop = this._lastScrollTop - top;
+        const now = performance.now();
+        const settlingOurs = drop <= this._ownScrollMaxDrop
+            && now - this._ownScrollAt < this._ownScrollWindowMs
+            && now - this._readerInputAt >= this._ownScrollWindowMs;
+        const readerWentUp = drop > 1 && !settlingOurs;
         this._lastScrollTop = top;
 
         if (this._isAtBottom()) {
@@ -1405,6 +1443,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _scrollToBottom(): void {
         if (!this._container) return;
+        this._ownScrollAt = performance.now();
         this._container.scrollTop = this._container.scrollHeight;
         this._settleAtBottom(4);
     }
@@ -1439,6 +1478,7 @@ export class AparteChatViewport extends HTMLElement {
             if (!this._container || !this._isAutoScrollEnabled) return;
             const max = this._container.scrollHeight - this._container.clientHeight;
             if (max - this._container.scrollTop <= 1) return;
+            this._ownScrollAt = performance.now();
             this._container.scrollTop = max;
             this._settleAtBottom(framesLeft - 1);
         });
@@ -1450,6 +1490,7 @@ export class AparteChatViewport extends HTMLElement {
         // Fall back to instant scroll so tests and SSR environments stay safe.
         // Reduced-motion users get the instant path too — the CSS
         // prefers-reduced-motion block cannot reach a JS-driven smooth scroll.
+        this._ownScrollAt = performance.now();
         if (typeof this._container.scrollTo === 'function' && !this._prefersReducedMotion()) {
             this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
         } else {
@@ -1605,6 +1646,9 @@ export class AparteChatViewport extends HTMLElement {
 
     private _cleanup(): void {
         this._container?.removeEventListener('scroll', this._handleScroll);
+        for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const) {
+            this._container?.removeEventListener(type, this._noteReaderInput);
+        }
         this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
