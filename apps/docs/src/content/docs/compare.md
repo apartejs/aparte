@@ -88,7 +88,7 @@ is CSS and render hooks.
 
 ## Loquix
 
-**A presentational web-component kit.** Around fifty Lit components across reasoning,
+**A presentational web-component kit.** A few dozen Lit components across reasoning,
 trust, search and template categories, with accessibility as its headline. By design it
 ships no provider, no loop and no transport: it is a type-only interface you feed.
 
