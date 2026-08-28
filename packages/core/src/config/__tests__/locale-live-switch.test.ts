@@ -55,7 +55,7 @@ afterEach(() => {
 
 describe('a live locale switch reaches a mounted bubble', () => {
     it('renames it — the symptom that started this: the bubble still said "You"', () => {
-        const bubble = mount('aparte-chat-bubble', { role: 'user', 'message-id': 'u1' });
+        const bubble = mount('aparte-chat-bubble', { 'data-role': 'user', 'message-id': 'u1' });
         expect(bubble.querySelector('.aparte-name')?.textContent).toBe('You');
 
         aparteGlobalConfig.setLocale(FR);
@@ -64,7 +64,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
     });
 
     it('renames an assistant bubble too, and switches back on resetLocale()', () => {
-        const bubble = mount('aparte-chat-bubble', { role: 'assistant', 'message-id': 'a1' });
+        const bubble = mount('aparte-chat-bubble', { 'data-role': 'assistant', 'message-id': 'a1' });
 
         aparteGlobalConfig.setLocale(FR);
         expect(bubble.querySelector('.aparte-name')?.textContent).toBe('Assistant IA');
@@ -74,7 +74,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
     });
 
     it('leaves an explicit name attribute alone — the app outranks the locale', () => {
-        const bubble = mount('aparte-chat-bubble', { role: 'user', 'message-id': 'u2', name: 'Paul' });
+        const bubble = mount('aparte-chat-bubble', { 'data-role': 'user', 'message-id': 'u2', name: 'Paul' });
 
         aparteGlobalConfig.setLocale(FR);
 
@@ -82,7 +82,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
     });
 
     it('re-labels the branch arrows and the action toolbar (announced strings)', () => {
-        const bubble = mount('aparte-chat-bubble', { role: 'assistant', 'message-id': 'a2' });
+        const bubble = mount('aparte-chat-bubble', { 'data-role': 'assistant', 'message-id': 'a2' });
 
         aparteGlobalConfig.setLocale(FR);
 
@@ -95,7 +95,7 @@ describe('a live locale switch reaches a mounted bubble', () => {
     });
 
     it('re-labels the waiting indicator a screen reader is reading right now', () => {
-        const bubble = mount('aparte-chat-bubble', { role: 'assistant', 'message-id': 'a3', streaming: '' });
+        const bubble = mount('aparte-chat-bubble', { 'data-role': 'assistant', 'message-id': 'a3', streaming: '' });
         expect(bubble.querySelector('.aparte-waiting')?.textContent).toContain('Typing...');
 
         aparteGlobalConfig.setLocale(FR);

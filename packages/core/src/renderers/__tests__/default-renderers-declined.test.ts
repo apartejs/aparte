@@ -25,7 +25,7 @@ describe('AparteClient({ autoRegister: false })', () => {
         expect(getSegmentRenderer('text')).toBeUndefined();
 
         const el = document.createElement('aparte-chat-bubble') as BubbleEl;
-        el.setAttribute('role', 'assistant');
+        el.setAttribute('data-role', 'assistant');
         el.setAttribute('message-id', 'm-declined');
         document.body.appendChild(el);
         el.setSegments([{ id: 's1', type: 'text', content: 'hello' } as AparteSegment]);
