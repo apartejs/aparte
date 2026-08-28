@@ -138,7 +138,7 @@ jobs:
       - name: Check text-position escaping
         run: pnpm check:text-escaping
 
-      - name: Check crypto.randomUUID stays behind uuid()
+      - name: Check secure-context-only APIs stay behind their fallback
         run: pnpm check:secure-context
 
       - name: Check a segment is stamped in one place
