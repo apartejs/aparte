@@ -115,7 +115,10 @@ export default defineConfig({
         // measures 95.34% branches on its own. What the client keeps is the glue around
         // that loop, which the suites reach less densely: measured 82.31%. Lines held
         // (86.99%), and functions rose to 98.08%, so 95 -> 97 — the ratchet asked.
-        'packages/core/src/client/**': { lines: 85, statements: 85, functions: 97, branches: 81 },
+        // Branches 81 -> 90 on 2026-08-29: the approval-policy suite (mid-turn policy, deny
+        // without a reason, the host resolver with the bypassing verdict) and the issue #29
+        // gate fixture moved the measurement to 91.56%; the two-sided ratchet asked.
+        'packages/core/src/client/**': { lines: 85, statements: 85, functions: 97, branches: 90 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
