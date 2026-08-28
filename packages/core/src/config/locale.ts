@@ -151,6 +151,12 @@ export interface AparteLocale {
      */
     scrollToBottom?: string;
     /**
+     * Accessible name of the `<aparte-suggestions>` group of prompt starters. Optional
+     * for the same reason as the keys above: a locale written before the element existed
+     * keeps working, and the built-in English fills the gap.
+     */
+    suggestionsLabel?: string;
+    /**
      * Title line of the message `compact()` injects in place of the summarised
      * turns (default: "Conversation summary").
      *
@@ -307,6 +313,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     approvalAsk: "Run {tool}?",
     approvalWaiting: "waiting for you",
     scrollToBottom: "Scroll to bottom",
+    suggestionsLabel: "Suggested prompts",
     compactionSummaryTitle: "Conversation summary",
     toolRunning: "Running",
     toolCompleted: "Done",

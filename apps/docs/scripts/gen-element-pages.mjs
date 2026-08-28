@@ -90,6 +90,7 @@ const GROUP = {
   'aparte-conversation-list': 'conversation',
   'aparte-composer': 'input',
   'aparte-elicitation': 'input',
+  'aparte-suggestions': 'input',
   'aparte-select': 'utility',
   'aparte-progress-spinner': 'utility',
   'aparte-icon': 'utility',

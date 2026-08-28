@@ -59,6 +59,7 @@ describe('@aparte/core public API', () => {
             "AparteProgressSpinner",
             "AparteSelect",
             "AparteStreamParser",
+            "AparteSuggestions",
             "aparteGlobalConfig",
             "applyElementProps",
             "attachConfig",

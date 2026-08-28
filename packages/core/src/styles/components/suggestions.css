@@ -1,0 +1,29 @@
+/*
+ * aparté — <aparte-suggestions>: the row of prompt starters.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ *
+ * The chips are `aparte-btn aparte-btn--surface aparte-btn--pill` — the recipe draws
+ * them, this sheet only lays them out. No token of its own: the gap is the global
+ * spacing scale, so a theme reaches it without a knob to re-set.
+ */
+aparte-suggestions {
+  display: block;
+}
+aparte-suggestions[hidden],
+aparte-suggestions[data-empty] {
+  display: none;
+}
+
+.aparte-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aparte-space-2);
+  padding-block: var(--aparte-space-2);
+}
+
+/* A starter's label is a short phrase; it must not become a two-line chip. */
+.aparte-suggestion {
+  white-space: nowrap;
+}

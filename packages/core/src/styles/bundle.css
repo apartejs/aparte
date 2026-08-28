@@ -47,5 +47,6 @@
 @import './segment/artifact.css';
 @import './components/elicitation.css';
 @import './components/conversation.css';
+@import './components/suggestions.css';
 @import './prose.css';
 @import './responsive.css';

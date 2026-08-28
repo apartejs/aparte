@@ -179,23 +179,9 @@ function wireOptimisticUserBubble(el: HTMLElement & { viewport?: ChatViewport | 
 if (chat) {
     wireOptimisticUserBubble(chat);
 
-    // Welcome suggestion chips → the composer, not a synthetic event.
-    //
-    // Dispatching `aparte-send` directly looked equivalent and was not: the
-    // composer's `submit()` is where every gate lives — disabled, already
-    // streaming, and the `requireModelSelection` gate that stays on until
-    // `GET /models` comes back. So these chips were live while the composer was
-    // visibly greyed out, and a click sent a request with an empty model id.
-    const composer = document.querySelector('aparte-composer') as
-        (HTMLElement & { setValue(v: string): void; submit(): void }) | null;
-    document.querySelectorAll<HTMLButtonElement>('.chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-            composer?.setValue(chip.dataset.prompt ?? chip.textContent ?? '');
-            composer?.submit();
-        });
-    });
-
-    // Hide the suggestions once the conversation starts.
+    // The welcome heading goes once the conversation starts. The starters under it
+    // are an <aparte-suggestions empty-only> and hide themselves; they used to be four
+    // hand-wired chips here, which is what the element replaced.
     chat.addEventListener('aparte-send', () => document.getElementById('welcome')?.remove(), { once: true });
 }
 

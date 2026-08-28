@@ -57,6 +57,7 @@ import type {
     AparteFileGenErrorEventDetail,
 } from './events.js';
 import type { AparteActionClickEventDetail } from '../components/composer/aparte-composer-action.js';
+import type { AparteSuggestionEventDetail } from '../components/suggestions/aparte-suggestions.js';
 import type { AparteOptgroupToggleEventDetail } from '../primitives/select/aparte-optgroup.js';
 import type { AparteConfigChangeEventDetail } from '../config/aparte-config.js';
 import type { AparteToolApprovalRequestDetail } from './tools.js';
@@ -154,6 +155,7 @@ interface AparteEventMap {
 
     // ── Element events whose only possible consumer is the app ────────────────
     'aparte-action-click': CustomEvent<AparteActionClickEventDetail>;
+    'aparte-suggestion': CustomEvent<AparteSuggestionEventDetail>;
     'aparte-optgroup-toggle': CustomEvent<AparteOptgroupToggleEventDetail>;
     'aparte-config-change': CustomEvent<AparteConfigChangeEventDetail>;
 }
