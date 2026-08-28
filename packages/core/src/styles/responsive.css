@@ -105,6 +105,12 @@
     --aparte-input-action-btn-size: var(--aparte-touch-target-size);
   }
 
+  /* The bubble's action bar too: 28px buttons under a thumb missed as often as they
+     hit (UI audit 2026-08-28, §8.3 #10). The bar's height follows the same token. */
+  .aparte-action-bar {
+    --aparte-action-bar-btn-size: var(--aparte-touch-target-size);
+  }
+
   /* Hover cannot reveal these on touch — keep them visible and tappable. */
   .aparte-conv-item__delete,
   .aparte-conv-item__archive {

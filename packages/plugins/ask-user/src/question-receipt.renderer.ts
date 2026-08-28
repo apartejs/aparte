@@ -82,7 +82,10 @@ export const questionReceiptRenderer: AparteSegmentRenderer<QuestionReceiptSegme
     flex-shrink: 0;
 }
 .aparte-question-receipt__answer {
-    color: var(--aparte-success);
+    /* The strong text colour, not the success green: the answer is a fact of the
+       transcript, not a verdict, and green was the one hue outside the palette on the
+       whole page (UI audit 2026-08-28, §8.3 #4). The weight does the emphasis. */
+    color: var(--aparte-text);
     font-weight: var(--aparte-font-weight-semibold);
     flex-shrink: 0;
     max-width: 55%;

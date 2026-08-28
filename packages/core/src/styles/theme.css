@@ -387,12 +387,12 @@
      a shadow tuned for a light ground is no shadow at all on a dark one, which is how
      the select's dropdown lost its lift in dark mode until it was caught. */
   --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --aparte-popover-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --aparte-popover-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16);
   --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 
-  --aparte-select-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --aparte-select-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16);
   --aparte-select-min-width: 200px;
   --aparte-select-dropdown-max-height: 300px;
   --aparte-select-status-dot-size: 8px;
@@ -475,9 +475,9 @@
 
   /* Scroll-to-bottom button */
   --aparte-scroll-btn-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-  --aparte-select-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --aparte-select-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.55);
   --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --aparte-popover-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --aparte-popover-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.55);
   --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);

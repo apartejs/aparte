@@ -150,6 +150,14 @@ textarea.aparte-elic-text {
   border-color: var(--aparte-primary);
   background: color-mix(in srgb, var(--aparte-primary) 6%, transparent);
 }
+/* One ring at a time. The recommended option is the first to receive focus, and its
+   tinted border under the recipe's focus ring read as a double outline (UI audit
+   2026-08-28, §8.3 #9). While it holds focus the ring is the indicator; the tint
+   comes back when focus leaves. */
+.aparte-elic-option--recommended:focus-within {
+  background: transparent;
+  border-color: var(--aparte-border-focus);
+}
 
 /* The whole-request escape, in the corner and out of the way of anything that
    answers a question. It used to be a row at the bottom beside the button that

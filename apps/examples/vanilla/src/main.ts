@@ -90,7 +90,9 @@ function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void 
     const ms = segmentDuration(segment);
     if (ms === undefined) return;
     const label = host.querySelector('.aparte-thinking-label');
-    if (label) label.textContent = `Thought for ${(ms / 1000).toFixed(1)}s`;
+    // A sub-second span is "<1s", not "0.0s": a duration that reads as zero says the
+    // model did not think, which is the opposite of what the block means.
+    if (label) label.textContent = ms < 1000 ? 'Thought for <1s' : `Thought for ${(ms / 1000).toFixed(1)}s`;
 }
 
 /** A markup string back to the single root element it describes. */
