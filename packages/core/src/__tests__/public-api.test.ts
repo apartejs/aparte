@@ -69,6 +69,7 @@ describe('@aparte/core public API', () => {
             "collectRendererStyles",
             "contentToText",
             "contextConfig",
+            "copyText",
             "createAparteChatHandler",
             "createStreamAdapter",
             "cssEscape",
