@@ -4,6 +4,17 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.15.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [4856ab6](https://github.com/apartejs/aparte/commit/4856ab6): `AparteAIProviderMetadata` is now really importable from `@aparte/core`. 0.15.0's changelog announced it and the package disagreed: the name had been added to the types module and not to the root barrel, whose type list is explicit, so the import was still TS2724 in the published `dist/index.d.ts`. A consumer checked the tarball. A test now imports it from the barrel, type-checked, so the barrel cannot drop it again quietly.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-ask-user`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`.</sub>
+
 ## 0.15.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

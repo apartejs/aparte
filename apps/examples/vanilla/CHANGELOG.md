@@ -1,5 +1,18 @@
 # @aparte-workspace/playground-vanilla
 
+## 0.0.15
+
+### Patch Changes
+
+- Updated dependencies [4856ab6]
+  - @aparte/core@0.15.1
+  - @aparte/plugin-ask-user@0.15.1
+  - @aparte/plugin-marked@0.15.1
+  - @aparte/plugin-model-selector@0.15.1
+  - @aparte/provider-openai-compat@0.15.1
+  - @aparte/provider-scenario@0.15.1
+  - @aparte/engine@0.15.1
+
 ## 0.0.14
 
 ### Patch Changes
