@@ -89,11 +89,23 @@ function resolveSegmentRenderer(
  * **HTMLElement** (used directly, so custom renderers can wire event listeners /
  * framework nodes with no innerHTML XSS surface). See {@link AparteSegmentRenderer}.
  */
-function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement | null {
-    if (result instanceof HTMLElement) return result;
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = result;
-    return wrapper.firstElementChild as HTMLElement | null;
+function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pick<AparteSegment, 'id'>): HTMLElement | null {
+    let el: HTMLElement | null;
+    if (result instanceof HTMLElement) {
+        el = result;
+    } else {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = result;
+        el = wrapper.firstElementChild as HTMLElement | null;
+    }
+    // The container finds its own children by id — this is where that invariant is
+    // owned, for both arms and for every renderer, not each renderer's to remember.
+    // A root without it made `_applySegmentUpdate` miss and fall back to the full
+    // wipe-and-rebuild, which destroys a mounted artifact preview, collapses an
+    // opened reasoning block and drops the focus — the ask_user receipt did exactly
+    // that on every tool update, since `AparteToolRenderer`'s contract never said so.
+    if (el && segment && !el.hasAttribute('data-segment-id')) el.setAttribute('data-segment-id', segment.id);
+    return el;
 }
 
 /**
@@ -618,7 +630,7 @@ export class AparteChatBubble extends HTMLElement {
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
       // this bubble's config as the ambient render config for the duration.
-      const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
+      const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
       if (el) {
         this._segmentsEl.appendChild(el);
         runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
@@ -642,7 +654,7 @@ export class AparteChatBubble extends HTMLElement {
     if (renderer.update) {
       runWithConfig(this._cfg, () => renderer.update!(el, segment));
     } else {
-      const newEl = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
+      const newEl = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
       if (newEl) {
         el.replaceWith(newEl);
         runWithConfig(this._cfg, () => renderer.setup?.(newEl, segment));
@@ -970,7 +982,7 @@ export class AparteChatBubble extends HTMLElement {
     for (const segment of this._segments) {
       const renderer = resolveSegmentRenderer(segment.type, this._cfg);
       if (renderer) {
-        const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
+        const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
         if (el) {
           this._segmentsEl.appendChild(el);
           runWithConfig(this._cfg, () => renderer.setup?.(el, segment));

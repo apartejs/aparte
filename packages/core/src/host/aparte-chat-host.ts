@@ -53,7 +53,11 @@ interface ViewportApi {
     truncateResponsesAfter?(userMessageId: string): void;
     getMessage?(messageId: string): AparteMessage | undefined;
     appendMessage?(message: AparteMessage): void;
+    /** Framework-managed DOM: record a message in the tree without painting a bubble. */
+    addMessage?(message: AparteMessage): void;
     updateMessage?(messageId: string, updates: Partial<AparteMessage>): void;
+    /** The transcript's read-only-while-streaming flag; in framework-managed mode the host is its one writer. */
+    setTranscriptBusy?(busy: boolean): void;
     exportTree?(): ExportedMessageRepository;
     importTree?(tree: ExportedMessageRepository): void;
     clearAll?(): void;
@@ -251,6 +255,12 @@ export class AparteChatHost {
         if (this._streamingId === id) return;
         this._streamingId = id;
         this.binding.onStreamingChange?.(id);
+        // The transcript's read-only-while-streaming flag has one writer per mode. In
+        // framework-managed mode the repository is not written during a turn, so the
+        // viewport could never derive it — retry, edit and the branch arrows stayed
+        // live on every other message while a reply streamed, under all four wrappers.
+        // This host already knows the truth for every wrapper: it says it.
+        this._vp()?.setTranscriptBusy?.(id !== null);
     }
 
     // ── conversation ───────────────────────────────────────────────────────
@@ -354,6 +364,12 @@ export class AparteChatHost {
                     }, []),
                 }
                 : message;
+        // Recorded in the viewport's tree by the same act that builds the list. It was
+        // not: a manual token stream (`streamTokens`, `appendToSegment`) then wrote to
+        // a message the repository did not know, the viewport invented it under the
+        // empty root, and the next branch operation re-parented the whole transcript
+        // under that phantom — the path came out reversed.
+        this._vp()?.addMessage?.(stored);
         this.binding.setMessages([...this.binding.getMessages(), stored]);
         this.binding.onMessageAppended?.(stored);
     }

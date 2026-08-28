@@ -33,6 +33,7 @@ export const fr: AparteLocale = {
     contextLabel: "Fenêtre de contexte",
     compactionSummaryTitle: "Résumé de la conversation",
     toolRunning: "En cours",
+    toolFailed: "Échec",
     toolCompleted: "Terminé",
     toolRejected: "Refusé",
     toolStopped: "Arrêté",

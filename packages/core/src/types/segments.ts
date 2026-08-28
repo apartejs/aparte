@@ -207,10 +207,11 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
     type: 'tool_call';
     toolCall: import('./tools.js').AparteToolCall;
     /**
-     * `awaiting-approval` — paused for a human decision (needsApproval tools);
-     * `rejected` — the human declined to run it.
+     * `awaiting-approval` — paused for a human decision; `rejected` — the human (or a
+     * policy) declined to run it; `aborted` — stopped, timed out, or nothing could run
+     * it; `failed` — the handler threw, and `result` carries the crash's one line.
      */
-    status: 'pending' | 'resolved' | 'aborted' | 'awaiting-approval' | 'rejected';
+    status: 'pending' | 'resolved' | 'aborted' | 'awaiting-approval' | 'rejected' | 'failed';
     result?: string;
     /** The handler's `structuredContent`, when it returned one — the value behind `result`'s prose. */
     structuredResult?: unknown;

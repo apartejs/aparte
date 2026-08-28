@@ -129,6 +129,20 @@ export type {
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
 // Custom-element TYPES (erased) — keep server consumers fully typed.
+//
+// The element CLASSES too, as types: `frameworks/elements.md` promises the `node`
+// condition keeps "every type", and a server-side consumer typing a ref
+// (`ref: AparteChat`) or a wrapper's imperative surface needs the class's instance
+// type without its `HTMLElement` runtime. `export type` erases the value, so nothing
+// here touches the DOM at import.
+export type {
+    AparteChat, AparteChatBubble, AparteChatViewport, AparteChatStatus,
+    AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel,
+    AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar,
+    AparteSuggestions, AparteContext, AparteConversationList,
+} from './components/index.js';
+export type { AparteElicitation } from './components/elicitation/aparte-elicitation.js';
+export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
 export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';

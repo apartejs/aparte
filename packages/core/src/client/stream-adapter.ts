@@ -301,6 +301,12 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'aborted' });
                 break;
 
+            case 'tool-failed':
+                // The handler threw: the row settles on the crash's one line, and the run
+                // ends on the same error (the message's error card follows).
+                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'failed', result: e.error });
+                break;
+
             case 'turn-limit-exceeded':
                 if (e.scope === 'global') {
                     target.addSegment?.({

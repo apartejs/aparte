@@ -381,7 +381,24 @@ export class AparteChatViewport extends HTMLElement {
      * framework's DOM, reads the attribute itself when it connects.
      */
     private _syncBusy(): void {
-        const busy = this._streamingMessageId() !== null;
+        // One writer per mode. Under a framework the repository is not written during
+        // a turn, so deriving it here could only ever say "not busy" — and did, under
+        // all four wrappers: the host, which knows, writes it through
+        // `setTranscriptBusy` instead, and this must not overwrite it from the repo.
+        if (this._frameworkManagedDOM) return;
+        this.setTranscriptBusy(this._streamingMessageId() !== null);
+    }
+
+    private _busy = false;
+
+    /**
+     * The transcript's read-only-while-streaming flag — `data-busy` on this element and
+     * fanned out to the bubbles it holds. The vanilla path derives it from the
+     * repository (`_syncBusy`); a framework host, whose messages live outside the
+     * repository during a turn, writes it directly from its own streaming id.
+     */
+    setTranscriptBusy(busy: boolean): void {
+        this._busy = busy;
         this.toggleAttribute('data-busy', busy);
         for (const bubble of this.querySelectorAll('aparte-chat-bubble')) {
             (bubble as unknown as { setTranscriptBusy?: (busy: boolean) => void }).setTranscriptBusy?.(busy);
@@ -592,7 +609,13 @@ export class AparteChatViewport extends HTMLElement {
     addMessage(message: AparteMessage): void {
         // Adopted, not stamped: this writes straight to the repository, so it is the
         // caller handing over a message they already hold rather than a turn starting.
-        this._repo.addOrUpdateMessage(this._repo.headId, adoptMessageSegments({ ...message }));
+        const stored = adoptMessageSegments({ ...message });
+        // Same rule as `appendMessage`: a message that ARRIVES streaming (a pending
+        // shell, a reply the host is about to write into) is a streaming one in the
+        // tree, or the manual-stream path — which used to invent this message with
+        // `isStreaming: true` — would stop making the transcript read-only.
+        if (isAwaitingReply(message)) stored.isStreaming = true;
+        this._repo.addOrUpdateMessage(this._repo.headId, stored);
         this._pruneRenderedBubbles();
         this._syncBusy();
         this._autoScroll();
@@ -770,9 +793,10 @@ export class AparteChatViewport extends HTMLElement {
      */
     navigateBranch(messageId: string, direction: 'prev' | 'next'): void {
         // Not while a reply streams: the active path must not change under it (the
-        // pickers are disabled for the same reason — see `_syncBusy`; this covers a
-        // programmatic call).
-        if (this._streamingMessageId() !== null) return;
+        // pickers are disabled for the same reason — see `setTranscriptBusy`; this covers
+        // a programmatic call). The stored flag, so the arrows and this guard agree in
+        // both modes — the repository cannot answer for a framework-managed turn.
+        if (this._busy) return;
         const siblings = this._repo.getBranches(messageId);
         const currentIdx = siblings.indexOf(messageId);
         if (currentIdx === -1) return;

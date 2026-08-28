@@ -55,6 +55,8 @@ function stateBadge(segment: AparteToolCallSegment): string {
     // A stop square, not the cross rejected wears: stopped and declined are two
     // different outcomes, and they used to share the glyph and the colour.
     if (status === 'aborted') return `${cfg.getIcon('stop')}${word('toolStopped')}`;
+    // A crash is a third outcome: not declined, not stopped — the handler threw.
+    if (status === 'failed') return `${cfg.getIcon('close')}${word('toolFailed')}`;
     return '';
 }
 

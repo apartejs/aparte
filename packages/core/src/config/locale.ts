@@ -191,6 +191,8 @@ export interface AparteLocale {
     toolCompleted?: string;
     toolRejected?: string;
     toolStopped?: string;
+    /** The tool row's word when the handler threw — a crash, not a refusal nor a stop (default: "Failed"). */
+    toolFailed?: string;
     /** Label above a tool call's arguments (default: "Input") */
     toolInput?: string;
     /** Label above a tool call's result (default: "Output") */
@@ -323,6 +325,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolCompleted: "Done",
     toolRejected: "Rejected",
     toolStopped: "Stopped",
+    toolFailed: "Failed",
     toolInput: "Input",
     toolOutput: "Output",
     approvalOptionsLabel: "Your decision",

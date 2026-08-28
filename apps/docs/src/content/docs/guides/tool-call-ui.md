@@ -42,12 +42,13 @@ something*, not stuck; when it ends, how it ended. The transition is what a stre
 transcript is for: the row appears the moment the model emits the call, and changes in
 place when the result lands.
 
-aparté's row has five states — waiting for approval, running, completed, rejected by the
-user, stopped — with a spinner while running and a glyph once settled. The change is
-patched into the existing element, so a row a user has opened stays open across the
-update. A tool that wants the model to see a failure returns it *as its result*, and the
-row completes; a handler that throws ends the run instead, and surfaces as the message's
-error card.
+aparté's row has six states — waiting for approval, running, completed, rejected (by the
+user, or by an approval policy), stopped, failed — with a spinner while running and a
+glyph once settled. The change is patched into the existing element, so a row a user has
+opened stays open across the update. A tool that wants the model to see a failure returns
+it *as its result*, and the row completes; a handler that **throws** settles its row on
+*failed* with the crash's one line, and the run ends on that error — the message's error
+card follows. (The row used to keep spinning "Running" in that case.)
 
 ## 4. The result — and how much of it
 

@@ -91,6 +91,37 @@ export class AparteConversationController {
     private _onMessageAborted: (() => void) | null = null;
     private _onSelectConversation: ((e: Event) => void) | null = null;
     private _unsubscribeManager: (() => void) | null = null;
+    /** The manager the subscription above is on, so a replaced manager is re-subscribed. */
+    private _subscribedTo: AparteConversationManager | null = null;
+    /** Between bind() and unbind(): the only time a manager subscription may be installed. */
+    private _bound = false;
+
+    /**
+     * React to an external mutation of the manager (another component deleting or
+     * archiving the active conversation). Without this the binding would keep
+     * showing a phantom history for an id the manager no longer knows about.
+     */
+    private readonly _onManagerChanged = (convs: AparteConversation[]): void => {
+        if (!this._activeId) return;
+        const stillExists = convs.some((c) => c.id === this._activeId && !c.archivedAt);
+        if (!stillExists) {
+            // If a stream is in flight, kill it before clearing the binding.
+            // Without this, deleting the active conv leaves the orchestrator
+            // and AI provider running until they finish naturally.
+            if (this._isStreaming) {
+                try {
+                    window.dispatchEvent(new CustomEvent('aparte-abort', {
+                        detail: { targetId: this._binding.hostId },
+                    }));
+                } catch {
+                    /* environments without window */
+                }
+                this._isStreaming = false;
+            }
+            this._activeId = null;
+            this._binding.clearMessages();
+        }
+    };
 
     constructor(binding: AparteChatBinding, options: AparteConversationControllerOptions = {}) {
         this._binding = binding;
@@ -112,10 +143,21 @@ export class AparteConversationController {
     private _manager(): AparteConversationManager | undefined {
         // Explicit option first, then the config governing the host element
         // (instance config under a [data-aparte-host] boundary, else the global).
-        if (this._options.manager) return this._options.manager;
-        const scoped = resolveConfig(this._binding.host);
-        const manager = scoped.getConversationManager();
-        if (!manager) this._warnManagerOnTheWrongConfig(scoped);
+        const manager = this._options.manager ?? (() => {
+            const scoped = resolveConfig(this._binding.host);
+            const m = scoped.getConversationManager();
+            if (!m) this._warnManagerOnTheWrongConfig(scoped);
+            return m;
+        })();
+        // Subscribe here, once per manager, while bound: every path that can create an
+        // `_activeId` worth protecting resolves the manager through this method, so
+        // a manager registered after bind() — every wrapper's case — is subscribed the
+        // first time it is needed, and a manager replaced on the config is re-subscribed.
+        if (manager && this._bound && manager !== this._subscribedTo) {
+            this._unsubscribeManager?.();
+            this._subscribedTo = manager;
+            this._unsubscribeManager = manager.subscribe(this._onManagerChanged);
+        }
         return manager;
     }
 
@@ -238,34 +280,15 @@ export class AparteConversationController {
             window.addEventListener('aparte-select-conversation', this._onSelectConversation);
         }
 
-        // Subscribe to manager so we can react to external mutations
-        // (e.g. another component deleting/archiving the active conv).
-        // Without this the binding would keep showing a phantom history
-        // for an id the manager no longer knows about.
-        const manager = this._manager();
-        if (manager) {
-            this._unsubscribeManager = manager.subscribe((convs) => {
-                if (!this._activeId) return;
-                const stillExists = convs.some((c) => c.id === this._activeId && !c.archivedAt);
-                if (!stillExists) {
-                    // If a stream is in flight, kill it before clearing the binding.
-                    // Without this, deleting the active conv leaves the orchestrator
-                    // and AI provider running until they finish naturally.
-                    if (this._isStreaming) {
-                        try {
-                            window.dispatchEvent(new CustomEvent('aparte-abort', {
-                                detail: { targetId: this._binding.hostId },
-                            }));
-                        } catch {
-                            /* environments without window */
-                        }
-                        this._isStreaming = false;
-                    }
-                    this._activeId = null;
-                    this._binding.clearMessages();
-                }
-            });
-        }
+        // The manager subscription is installed by `_manager()` — the single lazy
+        // resolution point — the first time a manager is seen while bound, not
+        // latched here. Every wrapper registers its manager AFTER an async `init()`,
+        // i.e. after this bind() ran in the mount effect, so a subscription taken
+        // only here was never installed under React, Vue, Svelte or Angular: the
+        // reaction to an external delete simply never ran. The eager call keeps the
+        // vanilla path (manager registered first) exactly as it was.
+        this._bound = true;
+        this._manager();
 
         return () => this.unbind();
     }
@@ -275,6 +298,10 @@ export class AparteConversationController {
     private _stopHydrationRetry: (() => void) | null = null;
 
     unbind(): void {
+        // Unbound FIRST: `_persistActive()` below resolves the manager, and while
+        // bound that resolution would re-subscribe during teardown.
+        this._bound = false;
+        this._subscribedTo = null;
         // Persist current state before tearing down. This covers the case where
         // the host component is destroyed mid-stream (e.g. "New Chat" navigates
         // to a new route instance): _persistActive() would never be called

@@ -6,12 +6,12 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * Submit button primitive for <aparte-composer>.
  *
- * One control, four meanings: **send**, **stop** while the root is streaming, and — when
- * an elicitation panel is open — **submit** this answer or **advance** to the next
- * question. The panel outranks streaming: while one is open the button stays the answer
- * control and a streaming change is ignored. The icon moves with the meaning (paper
- * plane, square, check, chevron), because a check on a form with three questions left is
- * as wrong as a paper plane that means "answer". All four are decided by the root's state
+ * One control, three meanings: **send**, **stop** while the root is streaming, and — when
+ * an elicitation panel is open — **submit** the answer; a panel whose mode is `'none'`
+ * (its options settle on the click) takes the button out of the layout entirely. The
+ * panel outranks streaming: while one is open the button stays the answer control and a
+ * streaming change is ignored. The icon moves with the meaning (paper plane, square,
+ * check), because a paper plane that means "answer" is a lie. All three are decided by the root's state
  * — its `value`, `attachments`, `disabled`, `streaming` and the panel payload it
  * broadcasts — not by anything this element owns, which is why it recomputes its chrome
  * rather than re-rendering: a rebuild would put a paper plane back mid-stream, drop out

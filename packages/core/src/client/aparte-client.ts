@@ -631,9 +631,13 @@ export class AparteClient {
             return;
         }
         dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
+        // This turn's own controller: the terminal below is decided from ITS signal, not
+        // from the client-wide `_isAborted`, which the next send resets before the
+        // superseded turn has returned.
+        const streamController = new AbortController();
         try {
-            const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
-            if (this._isAborted) {
+            const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController);
+            if (this._isAborted || streamController.signal.aborted) {
                 // A stopped turn is FINISHED, and someone has to say so. The inline
                 // loop marks the message completed on its way out; the injected
                 // runner returns through `run-aborted` and never emits `run-done`,
@@ -655,7 +659,7 @@ export class AparteClient {
             // `reader.read()` nor the one on the `error` event can see it — and
             // `_handleLifecycleError` would REPLACE the message with an error
             // segment, turning a deliberate stop into a rendered failure.
-            if (this._isAborted) {
+            if (this._isAborted || streamController.signal.aborted) {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
                 return;
@@ -1450,7 +1454,9 @@ export class AparteClient {
         messageId: string,
         provider: AparteAIProvider,
         baseRequest: AparteChatRequest,
-        authConfig: string | Record<string, string> | undefined
+        authConfig: string | Record<string, string> | undefined,
+        // Defaulted for a caller that drives the loop directly (the parity suite does).
+        streamController: AbortController = new AbortController(),
     ): Promise<AparteUsage | undefined> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
@@ -1472,7 +1478,11 @@ export class AparteClient {
         // assistant turns on one chat is not a state this UI has — and "we walked away
         // from a stream, so cancel it" is already the rule everywhere else here.
         this._streamController?.abort();
-        const streamController = new AbortController();
+        // The controller is the TURN's, created by `_streamTurn` and handed in, so the
+        // turn can read its own signal when it ends: `_isAborted` is client-wide and
+        // is reset by the next send, so a turn superseded by a retry on an earlier
+        // bubble came back to find it false and announced `aparte-message-done` for a
+        // reply that was cut mid-stream — clearing the NEW turn's streaming state.
         this._streamController = streamController;
 
         // The loop is the engine's. `streamRunner` lets a host wrap or replace it

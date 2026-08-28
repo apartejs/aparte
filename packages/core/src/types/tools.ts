@@ -189,6 +189,13 @@ export interface AparteToolRenderer {
      *
      * Return an empty string to render nothing (e.g. a UI-only tool like
      * `ask_user`).
+     *
+     * The root you return is the segment's element in the bubble: core stamps
+     * `data-segment-id="<segment.id>"` on it if you did not, so an update to the
+     * call (its result landing, an approval decision) is patched into that element
+     * rather than rebuilding every segment of the bubble — a rebuild destroys a
+     * mounted artifact preview, collapses an opened reasoning block and drops the
+     * focus. Keep your markup's root a single element for that reason.
      */
     render: (segment: AparteToolCallSegment) => string | HTMLElement;
     /** Optional DOM setup (event listeners etc.) called after HTML is injected */
