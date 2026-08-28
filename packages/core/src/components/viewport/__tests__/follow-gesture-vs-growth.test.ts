@@ -36,7 +36,9 @@ beforeEach(async () => {
     await import('../aparte-chat-viewport.js');
     await customElements.whenDefined('aparte-chat-viewport');
     document.body.innerHTML = '';
-    vp = document.createElement('aparte-chat-viewport') as Vp;
+    // Through `unknown`: the element's class does not declare the two private fields this
+    // test reads, and saying so is more honest than widening the class for a test.
+    vp = document.createElement('aparte-chat-viewport') as unknown as Vp;
     document.body.appendChild(vp);
     box = vp.querySelector('.aparte-viewport-container') as HTMLElement;
     expect(box, 'the viewport has its scroll container').not.toBeNull();
