@@ -31,6 +31,7 @@ import {
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupAskUser } from '@aparte/plugin-ask-user';
+import { setupArtifacts } from '@aparte/plugin-artifacts';
 import '@aparte/plugin-ask-user';   // registers <aparte-ask-user>, the semantic alias
 
 /** One workbench pane: a label a human reads, and the config that backs it. */
@@ -62,6 +63,8 @@ function makePane(title: string, providerLabel: string, provider: AparteAIProvid
     // `requestUserInput`, which is answered by the <aparte-elicitation> mounted
     // inside THIS pane's chat. That is the path the CRITICAL broke.
     setupAskUser({}, config);
+    // The artifact is a plugin: tool, `<artifact>` grammar and the Code/Preview card.
+    setupArtifacts({}, config);
 
     // Retry/edit are honoured by the client below, so they may be shown.
     config.setBubbleActions({ retry: true, edit: true });

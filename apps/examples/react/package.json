@@ -13,6 +13,7 @@
     "dependencies": {
         "@aparte/core": "workspace:*",
         "@aparte/locale-fr": "workspace:*",
+        "@aparte/plugin-artifacts": "workspace:*",
         "@aparte/plugin-ask-user": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",

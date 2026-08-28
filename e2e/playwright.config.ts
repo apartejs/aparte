@@ -131,6 +131,10 @@ const ERRORS = /errors\.spec\.ts/;
 const ACTIONS = /bubble-actions\.spec\.ts/;
 const MULTICHAT = /multi-chat\.spec\.ts/;
 const SEGMENTS = /segments\.spec\.ts/;
+// The artifact card is a plugin's (`@aparte/plugin-artifacts`), installed by the vanilla
+// and React examples — the two that run the deep suites — so its first browser spec
+// runs where the plugin is set up.
+const ARTIFACTS = /artifacts\.spec\.ts/;
 const ATTACH = /attachments\.spec\.ts/;
 const SELECTOR = /model-selector\.spec\.ts/;
 const TOOLBAR = /composer-toolbar\.spec\.ts/;
@@ -186,7 +190,7 @@ const THEMING = /theming\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ATTACH, SELECTOR, RESPONSIVE];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :

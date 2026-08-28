@@ -217,6 +217,9 @@ importers:
       '@aparte/locale-fr':
         specifier: workspace:*
         version: link:../../../packages/locales/fr
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/artifacts
       '@aparte/plugin-ask-user':
         specifier: workspace:*
         version: link:../../../packages/plugins/ask-user
@@ -337,6 +340,9 @@ importers:
       '@aparte/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
+      '@aparte/plugin-artifacts':
+        specifier: workspace:*
+        version: link:../../../packages/plugins/artifacts
       '@aparte/plugin-ask-user':
         specifier: workspace:*
         version: link:../../../packages/plugins/ask-user

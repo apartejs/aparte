@@ -25,6 +25,7 @@ import { setupMarkedProvider } from '@aparte/plugin-marked';
 // elicitation, the guide — undemonstrated on the one app that is raw core: asking a
 // local model to "use the question tool" got a truthful "I have no such tool".
 import { setupAskUser } from '@aparte/plugin-ask-user';
+import { setupArtifacts } from '@aparte/plugin-artifacts';
 import { runStreamAgent, createCompactionSelector } from '@aparte/engine';
 import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
 import {
@@ -41,6 +42,9 @@ import {
 registerDefaultRenderers();
 setupMarkedProvider();
 setupAskUser();
+// The artifact is a plugin: the `create_artifact` tool, the `<artifact>` grammar and
+// the Code/Preview card that renders both, in one call.
+setupArtifacts();
 
 // 1b. "Thought for 1.4s" — the market's collapsed reasoning line, built HERE.
 //

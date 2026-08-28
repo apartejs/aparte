@@ -72,6 +72,10 @@ const LONG_THINKING_LINES = [
 /** The bold run a spec asserts is real markup rather than literal asterisks. */
 export const MOCK_THINKING_BOLD = 'bold conclusion';
 export const MOCK_CODE_MARK = 'aparteCodeFixture';
+/** The heading inside the `<artifact>` the `artifact` scenario streams. */
+export const MOCK_ARTIFACT_MARK = 'aparte artifact fixture';
+/** The title the tag carries — what the card shows in its header. */
+export const MOCK_ARTIFACT_TITLE = 'Launch note';
 export const MOCK_TOOL_NAME = 'e2e_echo';
 
 /**
@@ -126,6 +130,7 @@ export type LlmScenario =
     | 'thinking'
     | 'long-thinking'
     | 'code'
+    | 'artifact'
     | 'tool-call'
     | 'ask-user'
     | 'ask-two-questions'
@@ -334,6 +339,24 @@ function bodyForScenario(scenario: LlmScenario): string {
 
         case 'empty-stream':
             return [finishEvent(), DONE].join('');
+
+        /**
+         * A document written IN THE PROSE — the `<artifact>` tag a model with no tools
+         * uses. Core knows nothing about it: the examples register the grammar through
+         * `@aparte/plugin-artifacts`, and the tag is cut across several deltas (the
+         * opening tag split mid-attribute, the closing tag split in two) so the parser's
+         * chunk-boundary handling is what this exercises in a browser.
+         */
+        case 'artifact':
+            return [
+                contentEvent('Here is a first draft:\n\n'),
+                contentEvent(`<artifact type="text/html" ti`),
+                contentEvent(`tle="${MOCK_ARTIFACT_TITLE}">`),
+                contentEvent(`<h1>${MOCK_ARTIFACT_MARK}</h1>\n`),
+                contentEvent('<p>A page the model wrote.</p></arti'),
+                contentEvent('fact>\n\nTell me what to change.'),
+                finishEvent(), usageEvent(), DONE,
+            ].join('');
 
         case 'text':
         case 'slow':
