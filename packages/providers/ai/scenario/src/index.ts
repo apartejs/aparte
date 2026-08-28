@@ -185,7 +185,9 @@ export function playTurn(
         async start(controller) {
             let outputChars = 0;
             let usage: Partial<AparteUsage> = {};
-            const startedAt = Date.now();
+            // Not `startedAt`: that name is a segment stamp core writes in one place, and
+            // `check:segment-stamp` reads any write to it as a third stamping site.
+            const turnBegan = Date.now();
             try {
                 for (const step of steps) {
                     if (signal?.aborted) break;
@@ -216,7 +218,7 @@ export function playTurn(
                     const inputTokens = estimateTokens(inputChars);
                     controller.enqueue({
                         type: 'done',
-                        usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, durationMs: Date.now() - startedAt, ...usage },
+                        usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, durationMs: Date.now() - turnBegan, ...usage },
                     });
                 }
                 controller.close();
