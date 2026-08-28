@@ -1243,6 +1243,11 @@ export class AparteChatBubble extends HTMLElement {
     const barEmpty = !this._actionBarEl || this._actionBarEl.hidden;
     const pickerHidden = !this._branchPickerEl || this._branchPickerEl.hidden;
     this._footerEl.hidden = barEmpty && pickerHidden;
+    // The stylesheet floats an older message's footer out of the flow so that it
+    // reserves no row — except while the branch picker shows, which has to stay in
+    // the flow and in view. The picker's visibility is decided here, so the flag that
+    // CSS reads is written here too.
+    this.querySelector('.aparte-message')?.toggleAttribute('data-branches', !pickerHidden);
   }
 
   /** Append the registered custom action buttons for this bubble's role. */

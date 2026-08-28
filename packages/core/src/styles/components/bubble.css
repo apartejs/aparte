@@ -42,6 +42,8 @@ aparte-chat-bubble {
   max-width: var(--aparte-message-max-width);
   margin: 0 auto;
   min-width: 0;
+  /* The containing block of a floating footer — see the action bar below. */
+  position: relative;
 }
 
 /* The avatar's shape, size and type live in `display.css` — a message avatar IS an
@@ -135,6 +137,43 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 /* Hide footer (action bar + branch picker) entirely while streaming */
 .aparte-message-streaming .aparte-footer {
   display: none;
+}
+
+/* An older message reserves no row for its actions.
+ *
+ * Measured (UI audit 2026-08-28, §8.3 #7): 103px between the text of one turn and the
+ * text of the next, and 34 of them were this footer — 28px of buttons nobody could
+ * see plus its margin, under EVERY message, so that the bar could appear on hover
+ * without moving anything. The market floats it instead. It cannot float below the
+ * message here: the bubble is a paint-containment boundary (`content-visibility`),
+ * so anything outside its box is clipped. It floats INSIDE the box, over the header
+ * row's empty end — the one place it overlaps no text — as the small bordered
+ * toolbar a Slack message shows on hover.
+ *
+ * Three footers stay in the flow. The last assistant message: its bar is always on
+ * show, under the reply, where every chat puts it. A message whose branch picker is
+ * visible (`data-branches`, written by the bubble beside the picker's own state): the
+ * picker must stay in view. And every message under a pointer that cannot hover —
+ * hence the media query rather than a coarse-pointer override — because a floating
+ * bar revealed by hover would be unreachable there (see responsive.css for what a
+ * touch device gets instead). */
+@media (hover: hover) {
+  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-footer,
+  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-footer {
+    position: absolute;
+    top: var(--aparte-space-4);
+    inset-inline-end: var(--aparte-space-6);
+    margin: 0;
+    z-index: 1;
+  }
+
+  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-action-bar,
+  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-action-bar {
+    background: var(--aparte-surface-1);
+    border: var(--aparte-border-width) solid var(--aparte-border);
+    border-radius: var(--aparte-radius-md);
+    box-shadow: var(--aparte-popover-shadow);
+  }
 }
 
 .aparte-action-btn {

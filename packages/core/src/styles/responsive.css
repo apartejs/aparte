@@ -106,9 +106,15 @@
   }
 
   /* The bubble's action bar too: 28px buttons under a thumb missed as often as they
-     hit (UI audit 2026-08-28, §8.3 #10). The bar's height follows the same token. */
+     hit (UI audit 2026-08-28, §8.3 #10). The bar's height follows the same token.
+     And it is SHOWN: the bar is revealed by hover, and a finger cannot hover, so on a
+     touch device every message's actions were sitting at opacity 0 with no way to
+     reach them — a larger target for something invisible. The footer stays in the
+     flow here (the floating rule in bubble.css is under `hover: hover`), so what a
+     touch device gets is the bar every mobile chat shows: under each message, always. */
   .aparte-action-bar {
     --aparte-action-bar-btn-size: var(--aparte-touch-target-size);
+    opacity: 1;
   }
 
   /* Hover cannot reveal these on touch — keep them visible and tappable. */

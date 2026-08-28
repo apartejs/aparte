@@ -744,6 +744,18 @@ describe('AparteChatBubble', () => {
             expect(footer(bubble).hidden).toBe(true);
         });
 
+        // The stylesheet floats an older message's footer out of the flow, except while
+        // the branch picker shows: the flag it reads is written beside the picker's state.
+        it('stamps data-branches on the message exactly while the picker shows', () => {
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 'e6', content: 'hi' });
+            const message = bubble.querySelector('.aparte-message') as HTMLElement;
+            expect(message.hasAttribute('data-branches')).toBe(false);
+            bubble.setSiblings(2, 0);
+            expect(message.hasAttribute('data-branches')).toBe(true);
+            bubble.setSiblings(1, 0);
+            expect(message.hasAttribute('data-branches')).toBe(false);
+        });
+
         it('a custom registered action alone is enough to keep the bar', () => {
             aparteGlobalConfig.setBubbleActions({ copy: false });
             aparteGlobalConfig.registerAction({
