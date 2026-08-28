@@ -269,7 +269,7 @@ export default defineConfig({
             {
               label: 'Reference: components, segments, events, config',
               description: 'Every custom element with its attributes, events and CSS properties; every segment shape; the event map; the config object; the icons.',
-              paths: ['components/**', 'segments/**', 'reference/events', 'reference/config', 'reference/icons', 'reference'],
+              paths: ['components/**', 'segments/**', 'reference/events', 'reference/config', 'reference/icons', 'reference/support', 'reference'],
             },
           ],
           // The generated references are exhaustive by construction (471 variables, every

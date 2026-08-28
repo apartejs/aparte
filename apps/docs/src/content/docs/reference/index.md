@@ -5,8 +5,9 @@ sidebar:
   order: 0
 ---
 
-Seven pages, all generated from the source at build time, so what they list is what the
-version you installed ships. Each answers one question:
+Seven pages generated from the source at build time — so what they list is what the
+version you installed ships — and one declared by hand and measured against it. Each
+answers one question:
 
 | Page | The question it answers |
 | --- | --- |
@@ -17,6 +18,7 @@ version you installed ships. Each answers one question:
 | [Engine](/reference/engine/) | *What does `@aparte/engine` export?* The loop, its run events, the compaction selector. |
 | [Wrappers](/reference/wrappers/) | *What is the same on React, Vue, Svelte and Angular?* The one imperative contract and how each framework spells it. |
 | [Icons](/reference/icons/) | *Which glyphs exist, and how do I swap them?* The built-in set and the extended set behind `@aparte/core/icons`. |
+| [Support matrix](/reference/support/) | *Does it run where my users are?* The browser, Node, framework, bundler and TypeScript floors — each derived from what the code uses — beside the versions CI runs. |
 
 :::tip[Looking for the components themselves?]
 The custom elements — `<aparte-chat>`, `<aparte-composer>`, `<aparte-select>`… — are under
