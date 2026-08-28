@@ -218,16 +218,12 @@ aparte-optgroup[collapsed] .aparte-optgroup-chevron {
     transform: rotate(-90deg);
 }
 
-/* Dark mode */
-[data-aparte-theme="dark"] aparte-select .aparte-select-trigger,
-[data-aparte-theme="dark"] aparte-select .aparte-select-dropdown {
-    background: var(--aparte-select-bg, var(--aparte-surface-1));
-    border-color: var(--aparte-select-border, var(--aparte-border));
-}
-
-[data-aparte-theme="dark"] aparte-option:hover {
-    background: var(--aparte-select-option-hover, var(--aparte-surface-2));
-}
+/* No dark block: every colour above reads a token the derived layer re-anchors on
+   `[data-aparte-theme]`, so `--aparte-surface-1` IS the dark surface there. The block
+   that used to sit here restated the trigger's and the panel's backgrounds from
+   `--aparte-select-bg` — the TRIGGER's token — so a consumer making the trigger
+   transparent (a pill on a coloured page) got a see-through panel in the dark, with
+   the page's text showing through the options. */
 
 .aparte-optgroup-loader {
     padding: var(--aparte-space-4) var(--aparte-space-6);
