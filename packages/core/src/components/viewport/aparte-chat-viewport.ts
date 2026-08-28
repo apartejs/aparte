@@ -143,6 +143,8 @@ export class AparteChatViewport extends HTMLElement {
     private _isAutoScrollEnabled: boolean = true;
     /** The last scroll position we saw, so growth can be told from a gesture. */
     private _lastScrollTop = 0;
+    /** The scroll height at the last scroll event: how much it moved since bounds what churn can do. */
+    private _lastScrollHeight = 0;
     /** When this component last moved `scrollTop` itself — see `_handleScroll`. "Never" is
      *  -Infinity rather than 0: `performance.now()` can be under a second old. */
     private _ownScrollAt = Number.NEGATIVE_INFINITY;
@@ -1354,7 +1356,9 @@ export class AparteChatViewport extends HTMLElement {
         this._container?.addEventListener('scroll', this._handleScroll, { passive: true });
         // The reader's hand on the transcript, so `_handleScroll` can tell their scroll
         // from one the browser made while settling ours.
-        for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const) {
+        // `touchmove`, not `touchstart`: a tap on a control fires touchstart too, and
+        // a tap is no more a scroll gesture than a click — a finger that scrolls moves.
+        for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
             this._container?.addEventListener(type, this._noteReaderInput, { passive: true });
         }
         this._scrollBtn?.addEventListener('click', this._onScrollBtnClick);
@@ -1488,18 +1492,29 @@ export class AparteChatViewport extends HTMLElement {
          * (find-in-page, a host's own `scrollTo`) still disarms, except in that
          * one-second shadow of our own scroll.
          *
-         * No cap on the size of the decrease: a first version counted anything over
-         * 100px as "never churn", and a branch swap on React proved it — the rebuild's
-         * height flickers by ~200px (measured in `navigateBranch`), WebKit moves
-         * scrollTop by as much, and the follow was disarmed in about one run in six.
+         * The size of the decrease is bounded by the EVIDENCE of churn — how much the
+         * scroll height moved since the last scroll event — rather than by a number: a
+         * first version capped it at 100px and a branch swap on React refuted that
+         * (the rebuild flickers the height by ~200px, measured in `navigateBranch`,
+         * and WebKit moves scrollTop by as much); a second version dropped the cap
+         * altogether, and during a stream — where every token refreshes
+         * `_ownScrollAt`, so the shadow never closes — a reader drag-selecting text
+         * upward, whose press lands on the text and not in the gutter, was snapped
+         * back to the bottom by the next token. Churn moves scrollTop by at most the
+         * height it changed; a reader, a find-in-page jump or a host's `scrollTo` move
+         * it with the height standing still.
          */
         const top = this._container.scrollTop;
+        const height = this._container.scrollHeight;
         const drop = this._lastScrollTop - top;
+        const churn = Math.abs(height - this._lastScrollHeight);
         const now = performance.now();
-        const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
+        const settlingOurs = drop <= churn + 2
+            && now - this._ownScrollAt < this._ownScrollWindowMs
             && now - this._readerInputAt >= this._ownScrollWindowMs;
         const readerWentUp = drop > 1 && !settlingOurs;
         this._lastScrollTop = top;
+        this._lastScrollHeight = height;
 
         if (this._isAtBottom()) {
             // `_isAtBottom()` stays deliberately generous (`_scrollThreshold`, 50px): a
@@ -1716,7 +1731,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _cleanup(): void {
         this._container?.removeEventListener('scroll', this._handleScroll);
-        for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const) {
+        for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
             this._container?.removeEventListener(type, this._noteReaderInput);
         }
         this._scrollBtn?.removeEventListener('click', this._onScrollBtnClick);

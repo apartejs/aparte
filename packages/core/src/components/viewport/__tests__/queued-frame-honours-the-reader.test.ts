@@ -89,7 +89,7 @@ describe('a decrease the browser made while settling our scroll', () => {
         vp.appendToken('a1', 'more');
         await frame();                              // the queued frame scrolls: ours, just now
         await frame();
-        geometry(940, 1500);                        // -60px, 60px from the bottom, nobody touched it
+        geometry(940, 1560);                        // -60px, 60px from the bottom, nobody touched it
         expect(vp._isAutoScrollEnabled, 'a browser-made decrease keeps the follow armed').toBe(true);
     });
 
@@ -136,7 +136,7 @@ describe('what counts as the reader\'s hand', () => {
         await settleOurs();
         const bubble = vp.querySelector('aparte-chat-bubble')!;
         bubble.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 50 }));
-        geometry(940, 1500);                        // the swap's churn, a second after the click
+        geometry(940, 1560);                        // the swap's churn, a second after the click
         expect(vp._isAutoScrollEnabled, 'a click on a branch arrow must not disarm the follow').toBe(true);
     });
 
@@ -144,7 +144,7 @@ describe('what counts as the reader\'s hand', () => {
         layout();
         await settleOurs();
         box.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 590, clientY: 50 }));
-        geometry(940, 1500);
+        geometry(940, 1560);
         expect(vp._isAutoScrollEnabled).toBe(false);
     });
 
@@ -152,11 +152,49 @@ describe('what counts as the reader\'s hand', () => {
         layout();
         await settleOurs();
         box.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
-        geometry(940, 1500);
+        geometry(940, 1560);
         expect(vp._isAutoScrollEnabled, 'typing is not scrolling').toBe(true);
         await settleOurs();
         box.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true }));
-        geometry(940, 1500);
+        geometry(940, 1560);
         expect(vp._isAutoScrollEnabled).toBe(false);
+    });
+});
+
+describe('churn is bounded by the height it moved', () => {
+    // During a stream every token refreshes the shadow, so the shadow alone cannot tell
+    // the browser's settling from a reader who moved without a recorded gesture — a
+    // drag-selection upward lands its press on the text, not in the gutter. What tells
+    // them apart is the evidence: churn moves scrollTop by at most the height it changed.
+    it('a decrease with the height standing still is the reader — a drag-selection upward', async () => {
+        geometry(1000, 1500);
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+        geometry(300, 1500);                        // -700px, no wheel, no height change
+        expect(vp._isAutoScrollEnabled, 'a selection dragged upward must not be snapped back').toBe(false);
+    });
+
+    it('a decrease no larger than the height change, inside the shadow, is churn', async () => {
+        geometry(1000, 1500);
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+        geometry(800, 1710);                        // the React swap: +210 height, -200 scrollTop
+        expect(vp._isAutoScrollEnabled).toBe(true);
+    });
+
+    it('a tap on a control (touchstart) is not a scroll gesture; a finger that moves is', async () => {
+        geometry(1000, 1500);
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+        const bubble = vp.querySelector('aparte-chat-bubble')!;
+        bubble.dispatchEvent(new Event('touchstart', { bubbles: true }));
+        geometry(940, 1560);
+        expect(vp._isAutoScrollEnabled, 'a tap on a branch arrow').toBe(true);
+        box.dispatchEvent(new Event('touchmove', { bubbles: true }));
+        geometry(880, 1620);
+        expect(vp._isAutoScrollEnabled, 'a touch that scrolls').toBe(false);
     });
 });
