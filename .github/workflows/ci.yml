@@ -191,8 +191,8 @@ jobs:
 
       # CLAUDE.md requires a changeset for any package with an API or CSS change,
       # and nothing enforced it. In a `fixed` lockstep group a missing changeset does
-      # not just skip one version — the whole 15-package train stays put, release.yml
-      # opens no Version PR, and the published `alpha`/`latest` drift away from the
+      # not just skip one version — the whole 15-package train stays put, no Version PR
+      # gets opened, and the published `alpha`/`latest` drift away from the
       # source everyone reads. PR-only: a direct push to main has no base to diff.
       - name: Check a changeset accompanies the change
         if: github.event_name == 'pull_request'
