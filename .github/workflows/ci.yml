@@ -30,6 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      # nx 20 keeps its cache INDEX in a sqlite file under `.nx/workspace-data`, so an
+      # archived `.nx/cache` alone restores artifacts no index knows about — a miss on
+      # every run, silently. The legacy file cache is self-describing (one directory per
+      # hash plus its `.commit` marker) and is what the cache step below carries.
+      NX_DB_CACHE: 'false'
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -52,6 +58,25 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # nx's cache, carried between runs. A fresh runner typechecks 26 projects (79 s)
+      # and builds them (44 s) for a diff that reached two; with the previous run's
+      # cache restored, only what the diff reaches re-runs. Restored here and in the
+      # e2e job (same Node major, same outputs). NOT in node-floor: nx does not hash
+      # the Node version, so a build restored from a Node 24 run would skip the one
+      # build that job exists to perform.
+      #
+      # Saved at the end of this job, from a push only, so the archive follows the
+      # branch and a pull request cannot write into it. Every key is unique (the sha),
+      # and the prefixes let a run start from the latest of its branch, then of any.
+      - name: Restore the nx cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ github.ref_name }}-
+            nx-${{ runner.os }}-
 
       - name: Lint
         run: pnpm lint
@@ -222,6 +247,19 @@ jobs:
             pnpm exec changeset status --since="origin/${{ github.base_ref }}"
           fi
 
+      # The archive would otherwise only ever grow: each run restores the previous one
+      # and adds its own entries. A week of trunk state is what a diff can reach.
+      - name: Prune nx cache entries older than a week
+        if: github.event_name == 'push'
+        run: find .nx/cache -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} +
+
+      - name: Save the nx cache
+        if: github.event_name == 'push'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+
   # Portability guard for the ONE claim nothing else checks: engines.node ">=18".
   #
   # This was four jobs — Node 18, 20 and 22 on ubuntu plus Node 22 on Windows — and
@@ -374,6 +412,8 @@ jobs:
     # projects.
     env:
       HOME: /root
+      # See the `ci` job: the file cache is what the restore step below carries.
+      NX_DB_CACHE: 'false'
     permissions:
       contents: read
     steps:
@@ -393,6 +433,17 @@ jobs:
       - name: Install dependencies
         if: needs.scope.outputs.source == 'true'
         run: pnpm install --frozen-lockfile
+
+      # Read-only here: the `ci` job saves. Same keys, so the build below is mostly hits.
+      - name: Restore the nx cache
+        if: needs.scope.outputs.source == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ github.ref_name }}-
+            nx-${{ runner.os }}-
 
       # vanilla-dist consumes @aparte/core from its dist, so the packages must be
       # built before the E2E dev servers boot.
