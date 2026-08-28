@@ -207,7 +207,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 continueLoop = false;
                 continue;
             }
-            emitter({ type: 'tool-resolved', toolCallId: syntheticId, result: outcome.content });
+            emitter({ type: 'tool-resolved', toolCallId: syntheticId, result: outcome.content, structuredResult: outcome.structuredContent });
             append({ role: 'tool_call', content: '', toolCalls: [{ id: syntheticId, name: tc.name, input: tc.input }] });
             append({ role: 'tool_result', content: outcome.content, toolCallId: syntheticId });
             baseRequest = { ...baseRequest, toolChoice: 'none', tools: undefined };
@@ -390,7 +390,13 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     ? cfg.needsApproval({ id: event.id, name: event.name, input: event.input as Record<string, unknown> })
                     : cfg?.needsApproval;
                 if (gated) {
-                    emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
+                    // Announced only when someone is actually being asked: a `'deny'` is a
+                    // decision already made, and announcing a pause for it painted
+                    // `awaiting-approval` on the row and raised `aparte-tool-approval-request`
+                    // for a call nobody was ever going to be asked about.
+                    if (gated !== 'deny') {
+                        emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
+                    }
                     /*
                      * Nothing can ask, so nothing may answer.
                      *
@@ -454,8 +460,10 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                          * `{ approved }` and never an instruction, so both loops agreed on
                          * a case neither exercised. It supplies one now.
                          */
-                        const rejection = decision.reason
-                            ?? (decision.instruction
+                        // Truthiness, like `instruction` beside it: an empty `reason` is no
+                        // reason, not an empty tool_result.
+                        const rejection = decision.reason?.trim()
+                            || (decision.instruction
                                 ? `The user rejected this tool call and said: ${decision.instruction}`
                                 : 'Tool execution was rejected by the user.');
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
@@ -496,7 +504,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     continueLoop = false;
                     break;
                 } else {
-                    emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content });
+                    emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content, structuredResult: outcome.structuredContent });
                     ensureEnvelope();
                     append({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
                 }
@@ -535,7 +543,7 @@ async function invokeToolHandler(
     call: StreamToolCall,
     signal: AbortSignal,
     toolTimeoutMs: number,
-): Promise<{ status: 'resolved'; content: string } | { status: 'aborted' }> {
+): Promise<{ status: 'resolved'; content: string; structuredContent?: unknown } | { status: 'aborted' }> {
     // If the run was already aborted before we got here, don't invoke the
     // handler at all: a past 'abort' event will never re-fire on the listener
     // below, so the handler would otherwise run to completion despite cancel.
@@ -568,7 +576,7 @@ async function invokeToolHandler(
 
     try {
         const result = await Promise.race([
-            handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content })),
+            handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content, structuredContent: r.structuredContent })),
             timedOut,
         ]);
         return result;

@@ -290,7 +290,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-resolved':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'resolved', result: e.result });
+                target.updateSegment?.(`tool-${e.toolCallId}`, {
+                    status: 'resolved',
+                    result: e.result,
+                    ...(e.structuredResult !== undefined ? { structuredResult: e.structuredResult } : {}),
+                });
                 break;
 
             case 'tool-aborted':

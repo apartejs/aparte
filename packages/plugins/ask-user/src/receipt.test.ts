@@ -26,6 +26,31 @@ describe('the record a question leaves in the transcript', () => {
         expect(rows).toEqual([{ question: 'Colour?', answer: 'Blue' }]);
     });
 
+    it('reads the structured result first — no parsing, and an arrow typed by the user changes nothing', () => {
+        const rows = receiptRows({
+            input: { questions: [{ question: 'Colour?' }, { question: 'Toppings?' }] },
+            result: 'Colour? → blue → then green\nToppings? → ham, cheese',
+            structuredResult: {
+                action: 'accept',
+                answers: [{ question: 'Colour?', value: 'blue → then green' }, { question: 'Toppings?', value: ['ham', 'cheese'] }],
+            },
+        });
+        expect(rows).toEqual([
+            { question: 'Colour?', answer: 'blue → then green' },
+            { question: 'Toppings?', answer: 'ham, cheese' },
+        ]);
+    });
+
+    it('a structured decline is the one outcome row, whatever the prose says', () => {
+        const rows = receiptRows({ input: { question: 'Colour?' }, result: 'anything', structuredResult: { action: 'decline' } });
+        expect(rows).toEqual([{ question: '', answer: ASK_USER_DECLINED, declined: true }]);
+    });
+
+    it('a structuredResult that is not ask_user\'s shape falls back to the prose', () => {
+        const rows = receiptRows({ input: { question: 'Colour?' }, result: 'Blue', structuredResult: { weather: 'sunny' } });
+        expect(rows).toEqual([{ question: 'Colour?', answer: 'Blue' }]);
+    });
+
     it('pairs each question of a form with its own answer', () => {
         const rows = receiptRows({
             input: { questions: [{ question: 'Colour?' }, { question: 'Shape?' }] },

@@ -40,7 +40,7 @@ export function setupAskUser(config: AparteConfig = aparteGlobalConfig, options:
 }
 
 export { createAskUserTool, askUserHandler } from './ask-user.js';
-export type { AskUserToolOptions, AskUserSetupOptions } from './ask-user.js';
+export type { AskUserToolOptions, AskUserSetupOptions, AskUserAnswer, AskUserStructuredResult } from './ask-user.js';
 export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 export type { QuestionReceiptSegment } from './question-receipt.renderer.js';
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';

@@ -275,10 +275,36 @@ export const askUserHandler: AparteToolHandler = async (call, signal, context): 
     // rejection was the right shape for the primitive.
     const result = await requestUserInput({ message, schema, signal, target: context?.target });
     if (result.action === 'accept') {
-        return { toolCallId: call.id, content: formatAnswer(result.content, labels) };
+        return {
+            toolCallId: call.id,
+            content: formatAnswer(result.content, labels),
+            // The same answer as a value — MCP's `action` beside the content, one entry
+            // per question, a `string[]` for a multiple choice — so the receipt reads it
+            // instead of re-parsing the sentence, and a host does not write a converter.
+            structuredContent: { action: 'accept', answers: structuredAnswers(result.content, message, labels) },
+        };
     }
-    return { toolCallId: call.id, content: ASK_USER_DECLINED };
+    return { toolCallId: call.id, content: ASK_USER_DECLINED, structuredContent: { action: 'decline' } };
 };
+
+/** One `{ question, value }` per question — `value` is a `string[]` for a multiple choice. */
+export interface AskUserAnswer {
+    question: string;
+    value: string | string[];
+}
+
+/** The structured twin of `ask_user`'s prose result. */
+export type AskUserStructuredResult =
+    | { action: 'accept'; answers: AskUserAnswer[] }
+    | { action: 'decline' };
+
+function structuredAnswers(content: unknown, question: string, labels: Record<string, string>): AskUserAnswer[] {
+    const value = (v: unknown): string | string[] => (Array.isArray(v) ? v.map(String) : String(v ?? ''));
+    if (content && typeof content === 'object' && !Array.isArray(content)) {
+        return Object.entries(content as Record<string, unknown>).map(([k, v]) => ({ question: labels[k] ?? k, value: value(v) }));
+    }
+    return [{ question, value: value(content) }];
+}
 
 /**
  * Build the elicitation field for one normalised question.

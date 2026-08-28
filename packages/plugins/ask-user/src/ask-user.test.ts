@@ -85,7 +85,12 @@ describe('askUserHandler — elicitation adapter', () => {
         expect(lastRequest?.message).toBe('Where?');
         expect(schema().type).toBe('enum');
         expect(schema().options.map((o: any) => o.value)).toEqual(['Paris', 'London']);
-        expect(res).toEqual({ toolCallId: 'c1', content: 'Paris' });
+        expect(res).toEqual({
+            toolCallId: 'c1',
+            content: 'Paris',
+            // The same answer as a value, beside the prose the model reads.
+            structuredContent: { action: 'accept', answers: [{ question: 'Where?', value: 'Paris' }] },
+        });
     });
 
     it('accepts the single-element questions[] form as an enum', async () => {

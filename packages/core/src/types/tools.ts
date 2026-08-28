@@ -102,7 +102,15 @@ export type AparteApprovalPolicy = (
 /** Result returned after a tool handler resolves */
 export interface AparteToolResult {
     toolCallId: string;
+    /** What the model reads. */
     content: string;
+    /**
+     * The same result as a value, for a renderer or the host — MCP's name for exactly
+     * this field, beside `content`. Optional and additive: a handler that returns prose
+     * alone behaves as before, and the model never sees this. It lands on the
+     * transcript's segment as `AparteToolCallSegment.structuredResult`.
+     */
+    structuredContent?: unknown;
 }
 
 /**

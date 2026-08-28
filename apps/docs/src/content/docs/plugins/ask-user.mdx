@@ -34,7 +34,11 @@ the package) in your chat to present the panel.
 - **Several questions** → an `object` form, each field carrying `multiple`, `allowOther`, and a default.
 
 `accept` returns the chosen answer to the model, `decline` returns a model-usable note, and `cancel`
-aborts the tool call. Options improvised by smaller models (bare strings, or `label`/`value`/`text` keys
+aborts the tool call. The result carries the answer **twice**: as the prose the model reads
+(`content`), and as a value (`structuredContent` — MCP's name): `{ action: 'accept', answers:
+[{ question, value }] }`, `value` a `string[]` for a multiple choice, or `{ action: 'decline' }`
+(`AskUserStructuredResult`). It lands on the transcript's segment as `structuredResult`, which is
+what the receipt reads — a host that wants the answer does not parse the sentence. Options improvised by smaller models (bare strings, or `label`/`value`/`text` keys
 instead of `title`) are normalised so the panel always renders real choices.
 
 ## What the conversation keeps

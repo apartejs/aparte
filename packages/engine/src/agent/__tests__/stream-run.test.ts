@@ -253,18 +253,43 @@ describe('runStreamAgent — tools & HITL', () => {
         const rec = recorder();
         const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'ok' }));
         const resolver = vi.fn(async () => ({ approved: true }));
+        const gate = vi.fn((call: { id: string; name: string; input: Record<string, unknown> }) => call.input['cmd'] !== 'ls');
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
             toolLookup: () => handler,
-            toolConfigLookup: () => ({ needsApproval: (call) => call.input['cmd'] !== 'ls' }),
+            toolConfigLookup: () => ({ needsApproval: gate }),
             approvalResolver: resolver,
         }));
 
+        // The predicate is handed the whole call — `name` is what a policy dispatches on.
+        expect(gate.mock.calls.map(c => c[0])).toEqual([
+            { id: 'c1', name: 'run', input: { cmd: 'ls' } },
+            { id: 'c2', name: 'run', input: { cmd: 'rm -rf x' } },
+        ]);
         // One gate, for c2 only: c1 went straight from tool-start to tool-resolved.
         const awaiting = rec.events.filter(e => e.type === 'tool-awaiting-approval');
         expect(awaiting.map(e => (e as { toolCallId: string }).toolCallId)).toEqual(['c2']);
         expect(resolver).toHaveBeenCalledOnce();
         expect(handler).toHaveBeenCalledTimes(2);
+    });
+
+    it("a `'deny'` predicate refuses without announcing a pause — nobody is being asked", async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'write', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'Understood.' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: () => 'deny' }),
+            approvalResolver: async () => ({ approved: false, reason: 'Plan mode.' }),
+        }));
+        expect(rec.types()).not.toContain('tool-awaiting-approval');
+        expect(rec.types()).toContain('tool-rejected');
+        expect(handler).not.toHaveBeenCalled();
+        expect(t.calls[1]!.messages.find(m => m.role === 'tool_result')?.content).toBe('Plan mode.');
     });
 
     it('a refusal with a `reason` reaches the model verbatim — nobody said "the user rejected"', async () => {
@@ -288,6 +313,26 @@ describe('runStreamAgent — tools & HITL', () => {
         const result = t.calls[1]!.messages.find(m => m.role === 'tool_result');
         expect(result?.content).toBe(reason);
         expect(String(result?.content)).not.toContain('user');
+    });
+
+    it("a handler's structuredContent rides on tool-resolved as structuredResult, and the model never sees it", async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'ask', input: {} }, { type: 'done' }],
+            [{ type: 'done' }],
+        ]);
+        const rec = recorder();
+        const value = { action: 'accept', answers: [{ question: 'Colour?', value: 'blue' }] };
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => async () => ({ content: 'Colour? → blue', structuredContent: value }),
+        }));
+        const resolved = rec.events.find(e => e.type === 'tool-resolved') as { result: string; structuredResult?: unknown };
+        expect(resolved.result).toBe('Colour? → blue');
+        expect(resolved.structuredResult).toEqual(value);
+        // The history carries the prose only: the value is for a renderer, not the model.
+        const toolResult = t.calls[1]!.messages.find(m => m.role === 'tool_result');
+        expect(toolResult?.content).toBe('Colour? → blue');
+        expect(JSON.stringify(toolResult)).not.toContain('structured');
     });
 
     it('a needsApproval tool with no resolver aborts rather than inventing a refusal', async () => {
@@ -414,6 +459,26 @@ describe('runStreamAgent — create_artifact built-in', () => {
         const second = t.calls[1]!.messages;
         expect(second.some(m => m.role === 'tool_result' && m.content === 'Artifact created successfully.' && m.toolCallId === 'c1')).toBe(true);
         expect(second.some(m => m.role === 'tool_call' && m.toolCalls?.[0]?.id === 'c1')).toBe(true);
+    });
+
+    it('is not ruled on by the approval gate — core executes it itself, so no policy can ask or refuse', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'create_artifact', input: { mimeType: 'text/html', title: 'P', content: '<p/>' } }, { type: 'done' }],
+            [{ type: 'done' }],
+        ]);
+        const rec = recorder();
+        const resolver = vi.fn(async () => ({ approved: false, reason: 'plan mode' }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolConfigLookup: () => ({ needsApproval: true }),
+            approvalResolver: resolver,
+        }));
+        // Stated, not incidental: the built-in is dispatched before the tool path, and
+        // the plugin's docs say so. A future built-in that touches the host must not
+        // inherit this exemption silently.
+        expect(rec.types()).toContain('artifact-ready');
+        expect(rec.types()).not.toContain('tool-awaiting-approval');
+        expect(resolver).not.toHaveBeenCalled();
     });
 
     it('defaults mimeType/title/content when the input omits them', async () => {

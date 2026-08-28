@@ -212,6 +212,8 @@ export interface AparteToolCallSegment extends AparteSegmentBase {
      */
     status: 'pending' | 'resolved' | 'aborted' | 'awaiting-approval' | 'rejected';
     result?: string;
+    /** The handler's `structuredContent`, when it returned one — the value behind `result`'s prose. */
+    structuredResult?: unknown;
 }
 
 /**

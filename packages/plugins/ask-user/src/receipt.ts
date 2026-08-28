@@ -43,6 +43,21 @@ interface ReceiptRow {
 export interface ReceiptSource {
     input: AparteToolCall['input'];
     result?: string | undefined;
+    /** The handler's structured twin of `result`, read first when it is there. */
+    structuredResult?: unknown;
+}
+
+/** The structure `askUserHandler` attaches, if `value` is one — a result from elsewhere is not. */
+function structuredRows(value: unknown): ReceiptRow[] | null {
+    const s = value as { action?: unknown; answers?: unknown } | null;
+    if (!s || typeof s !== 'object') return null;
+    if (s.action === 'decline') return [{ question: '', answer: ASK_USER_DECLINED, declined: true }];
+    if (s.action !== 'accept' || !Array.isArray(s.answers)) return null;
+    return s.answers.map((a) => {
+        const row = (a ?? {}) as { question?: unknown; value?: unknown };
+        const v = row.value;
+        return { question: String(row.question ?? ''), answer: Array.isArray(v) ? v.map(String).join(', ') : String(v ?? '') };
+    });
 }
 
 /** The questions the model asked, in the order it asked them. */
@@ -65,6 +80,11 @@ function questionsOf(input: unknown): string[] {
  * contain anything, including an arrow.
  */
 export function receiptRows(call: ReceiptSource): ReceiptRow[] {
+    // The value, when the handler attached one: nothing to parse, and an arrow typed
+    // by the user cannot confuse it. The prose path stays for a result from elsewhere.
+    const structured = structuredRows(call.structuredResult);
+    if (structured) return structured;
+
     const questions = questionsOf(call.input);
     const raw = call.result ?? '';
     if (!raw.trim()) return [];

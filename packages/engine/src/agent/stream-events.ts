@@ -195,7 +195,12 @@ export interface StreamChatRequest {
 export type StreamToolHandler = (
     call: StreamToolCall,
     signal: AbortSignal,
-) => Promise<{ content: string }>;
+) => Promise<{
+    /** What the model reads. */
+    content: string;
+    /** The same result as a value, forwarded on `tool-resolved` as `structuredResult`; the model never sees it. */
+    structuredContent?: unknown;
+}>;
 
 /** Per-tool loop configuration (mirrors the `AparteTool` subset the loop reads). */
 export interface StreamToolConfig {
@@ -206,8 +211,14 @@ export interface StreamToolConfig {
      * approval policy needs ("a write to this path asks, a read does not"), and one a
      * boolean could only approximate by gating every call and auto-approving most,
      * which paints `awaiting-approval` on rows nobody was ever going to be asked about.
+     *
+     * The predicate has three answers, because a policy has three: `false` runs the
+     * call, `'ask'` (or `true`) puts it to someone — the loop announces the pause with
+     * `tool-awaiting-approval` — and `'deny'` means the decision is already made: the
+     * resolver is still consulted (it is the one channel that carries the refusal
+     * sentence back), but nothing is announced, since nobody is being asked.
      */
-    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean);
+    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean | 'ask' | 'deny');
 }
 
 /**
@@ -269,7 +280,7 @@ export type StreamRunEvent =
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-approved'; toolCallId: string }
     | { type: 'tool-rejected'; toolCallId: string; reason: string }
-    | { type: 'tool-resolved'; toolCallId: string; result: string }
+    | { type: 'tool-resolved'; toolCallId: string; result: string; structuredResult?: unknown }
     | { type: 'tool-aborted'; toolCallId: string }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
     | { type: 'run-aborted' }
