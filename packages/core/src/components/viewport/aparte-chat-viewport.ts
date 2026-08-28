@@ -640,7 +640,7 @@ export class AparteChatViewport extends HTMLElement {
             this._isAutoScrollEnabled = true;
             // Smooth scroll for user-initiated sends. Streaming auto-scroll stays
             // instant (via _autoScroll) so it can keep up with rapid token bursts.
-            requestAnimationFrame(() => this._smoothScrollToBottom());
+            requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._smoothScrollToBottom(); });
         } else {
             this._autoScroll();
         }
@@ -1115,9 +1115,9 @@ export class AparteChatViewport extends HTMLElement {
         if (this._isAutoScrollEnabled) {
             if (this._smoothScrollOnce) {
                 this._smoothScrollOnce = false;
-                requestAnimationFrame(() => this._smoothScrollToBottom());
+                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._smoothScrollToBottom(); });
             } else {
-                requestAnimationFrame(() => this._scrollToBottom());
+                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._scrollToBottom(); });
             }
         }
         this._pruneRenderedBubbles();
@@ -1329,23 +1329,24 @@ export class AparteChatViewport extends HTMLElement {
         this._mutationObserver = new MutationObserver(() => {
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
-            // The gate is tested HERE, when the frame is queued, and moving it
-            // inside the callback is not the improvement it looks like.
+            // The gate is tested TWICE: when the frame is queued, and again when it
+            // runs. The second test is what lets a reader leave.
             //
-            // Queue-time looks like a race — the user could scroll up before the
-            // frame runs and be dragged back. Testing it at run-time instead was
-            // tried and reverted: a branch swap replaces bubbles, the resulting
-            // scroll event makes `_isAtBottom()` briefly false, and the deferred
-            // check then refuses to re-anchor, leaving a scroll-to-bottom button on
-            // a transcript that IS at the bottom (caught by
-            // `bubble-actions.spec.ts` on WebKit, 3 runs out of 3).
-            //
-            // So queue-time is deliberate: it captures the user's intent BEFORE the
-            // DOM churn can confuse the "am I at the bottom?" heuristic. Reading it
-            // correctly in both cases needs a way to tell our own programmatic
-            // scroll from a real gesture — see the note in `_handleScroll`.
+            // During a stream a frame is nearly always queued, and it used to scroll
+            // unconditionally when it ran. So a reader who wheeled up was disarmed by
+            // that gesture (`_handleScroll` sees the decrease) — and one frame later the
+            // already-queued scroll dragged them back to the bottom, whose scroll event
+            // re-armed auto-follow. Every attempt to read above the stream lasted one
+            // frame ("on a du mal à remonter", reported from a real session). The
+            // run-time check reads the INTENT flag, which only a real decrease disarms,
+            // so it cannot fall into the trap an earlier attempt did — that one
+            // re-tested `_isAtBottom()` at run time, which a branch swap's height churn
+            // makes briefly false, and it refused to re-anchor a reader who was at the
+            // bottom (`bubble-actions.spec.ts` on WebKit, 3 runs out of 3). Growth does
+            // not decrease `scrollTop` and a clamp lands at the bottom, so the flag
+            // stays armed through a swap; only a person turns it off.
             if (this._isAutoScrollEnabled) {
-                requestAnimationFrame(() => this._scrollToBottom());
+                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._scrollToBottom(); });
             }
             // Recalculate spacer when DOM mutates (new bubble added, Angular re-render).
             this._scheduleSpacerUpdate();
