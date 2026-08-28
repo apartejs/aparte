@@ -202,6 +202,15 @@ export default defineConfig({
         // `description` carries over the paragraph the old script hand-wrote: Starlight's
         // own `description` is one line for a meta tag, and an LLM reading the site cold
         // needs the architecture stated, not the tagline.
+        //
+        // What a model reading the site cold could NOT find (2026-08-28, two consumers): the
+        // approval elicitation (a real consumer rebuilt a modal it already had), the UI kit
+        // of classes, `systemPrompt: false`. `llms.txt` was a 13-line index naming no page,
+        // and `llms-small.txt` weighed 700 KB because it carried the generated references
+        // (471 CSS variables, every class, every event). So: one set per question a model
+        // asks, each a separate file with a sentence in the index; the generated bulk and
+        // the changelog out of the small file; and `details` says where the three families
+        // live, which no single page does.
         starlightLlmsTxt({
           description:
             'aparté is a framework-agnostic AI-chat library: vanilla web components with zero '
@@ -210,6 +219,70 @@ export default defineConfig({
             + 'wrappers. It is backend-agnostic — a transport sends requests either browser-direct '
             + '(bring your own key, or a local model) or to your own endpoint, where the key stays '
             + 'server-side. Providers and plugins are opt-in packages.',
+          details: [
+            'Three families, three places. **Components** are custom elements (`<aparte-chat>`, '
+            + '`<aparte-composer>`, `<aparte-select>`…) under /components/. **Segments** are the '
+            + 'data a message bubble renders (text, thinking, code, tool_call, error, artifact, '
+            + 'custom) under /segments/. **The UI kit** is plain CSS classes on plain elements '
+            + '(`aparte-btn`, `aparte-field`, `aparte-alert`, `aparte-tag`, `aparte-menu`, tabs, '
+            + 'switches, avatars) for the controls a host puts around the chat, listed with their '
+            + 'HTML at /reference/classes/ — they exist, they are themed by the same variables as '
+            + 'the chat, do not rewrite your own.',
+            'Asking the user something mid-run is built in: a tool marked `needsApproval` pauses '
+            + 'for a human decision (guide: /guides/tools/#require-approval-human-in-the-loop), '
+            + '`requestUserInput()` asks a typed question or a yes/no decision '
+            + '(`kind: \'approval\'`) through a panel in the composer (/guides/elicitation/), and '
+            + '`@aparte/plugin-ask-user` gives the model a ready-made `ask_user` tool '
+            + '(/plugins/ask-user/, with `systemPrompt: false` to send no system message).',
+            'Driving your own loop (a backend that streams over its own SSE, a server-side '
+            + 'agent): the display-only API — `appendMessage`, `addSegment`, `appendToSegment`, '
+            + '`updateSegment`, then `updateMessage(id, { status: \'completed\' })` to finish the '
+            + 'turn — is documented at /guides/bring-your-own-loop/. Plain `content` and '
+            + '`segments` are mutually exclusive on a message.',
+          ].join('\n\n'),
+          customSets: [
+            {
+              label: 'Getting started, frameworks and guides',
+              description: 'Install, first render in vanilla or a framework, and every guide (theming, tools, persistence, branching, localisation, accessibility, troubleshooting).',
+              paths: ['guides/**', 'frameworks/**', 'why', 'compare'],
+            },
+            {
+              label: 'Tools, approval and asking the user',
+              description: 'Registering tools, the tool-call row, human-in-the-loop approval, typed questions to the user (elicitation), and the ask-user plugin.',
+              paths: ['guides/tools', 'guides/tool-call-ui', 'guides/elicitation', 'plugins/ask-user', 'segments/tool-call'],
+            },
+            {
+              label: 'Bring your own loop (display-only)',
+              description: 'Driving the transcript from a loop you own: appendMessage, segments, token streams, finishing a turn, the wrappers\' imperative API, the backend transport.',
+              paths: ['guides/bring-your-own-loop', 'guides/backend-transport', 'guides/engine', 'reference/wrappers', 'reference/engine'],
+            },
+            {
+              label: 'Theming and the UI kit',
+              description: 'CSS variables, dark mode, the customization hooks, and the kit of plain classes (buttons, fields, alerts, tags, menus, tabs) with their HTML.',
+              paths: ['guides/theming', 'guides/customization', 'reference/classes', 'reference/css-variables'],
+            },
+            {
+              label: 'Providers and transports',
+              description: 'OpenAI-compatible endpoints, the AI SDK bridge, a model in the browser, the scripted scenario provider, local models, writing your own provider.',
+              paths: ['providers/**', 'guides/local-models'],
+            },
+            {
+              label: 'Reference: components, segments, events, config',
+              description: 'Every custom element with its attributes, events and CSS properties; every segment shape; the event map; the config object; the icons.',
+              paths: ['components/**', 'segments/**', 'reference/events', 'reference/config', 'reference/icons', 'reference'],
+            },
+          ],
+          // The generated references are exhaustive by construction (471 variables, every
+          // class, every event) and the changelog is history: neither belongs in the file a
+          // small context window is meant to swallow whole.
+          // The element pages too: twelve generated attribute/event/CSS tables, all in
+          // the "Reference" set and in the full file. Measured: the small file went from
+          // 700 KB to 582 KB without them, and the guides are what a small window needs.
+          exclude: ['reference/css-variables', 'reference/classes', 'reference/events', 'reference/icons', 'components/**', 'changelog/**'],
+          optionalLinks: [
+            { label: 'Source and issues', url: 'https://github.com/apartejs/aparte', description: 'The monorepo — open an issue here.' },
+            { label: 'npm', url: 'https://www.npmjs.com/package/@aparte/core', description: 'Every @aparte/* package ships at one version.' },
+          ],
         }),
       ],
       // Adds the `og:image` Starlight's own `twitter:card: summary_large_image`

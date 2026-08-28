@@ -11,4 +11,7 @@ export default defineWorkspace([
     'packages/wrappers/*/vitest.config.ts',
     'packages/plugins/*/vitest.config.ts',
     'packages/locales/*/vitest.config.ts',
+    // Found the day the first tool package landed: a root `vitest run packages/tools/x`
+    // reported "No test files found, exiting with code 0" — a silence that reads as green.
+    'packages/tools/*/vitest.config.ts',
 ]);

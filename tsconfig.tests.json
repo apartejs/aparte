@@ -46,6 +46,7 @@
     "packages/locales/*/src/**/*",
     "packages/plugins/*/src/**/*",
     "packages/providers/ai/*/src/**/*",
+    "packages/tools/*/src/**/*",
     "packages/wrappers/react/src/**/*"
   ],
   "exclude": ["**/node_modules/**", "**/dist/**"]

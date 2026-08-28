@@ -1,6 +1,6 @@
 ---
 title: Asking the user a typed question
-description: Pause a run and ask for typed input — a choice, a yes/no, a free-text answer, or a small form — with requestUserInput and the built-in panel.
+description: "Pause a run and ask the user for typed input — a choice, a free-text answer, a small form — or for a decision (an approval, kind 'approval') — with requestUserInput and the built-in panel in the composer; replace the panel with your own presenter."
 sidebar:
   order: 13
 ---
