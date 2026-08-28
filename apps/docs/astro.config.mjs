@@ -259,7 +259,7 @@ export default defineConfig({
             {
               label: 'Theming and the UI kit',
               description: 'CSS variables, dark mode, the customization hooks, and the kit of plain classes (buttons, fields, alerts, tags, menus, tabs) with their HTML.',
-              paths: ['guides/theming', 'guides/customization', 'reference/classes', 'reference/css-variables'],
+              paths: ['guides/theming', 'guides/layout', 'guides/customization', 'reference/classes', 'reference/css-variables'],
             },
             {
               label: 'Providers and transports',
