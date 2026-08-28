@@ -15,6 +15,7 @@
  */
 import type { AparteChatRequest, AparteChatResponse, AparteStreamEvent } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
+import { AparteError, AparteErrorCode } from '../types/errors.js';
 
 /** A vendor HTTP request built from an Aparte request — auth is injected separately. */
 export interface AparteVendorRequest {
@@ -87,6 +88,18 @@ export async function vendorErrorMessage(response: Response, label = 'HTTP'): Pr
     const raw = (body as { error?: { message?: string } | string })?.error;
     const msg = typeof raw === 'object' ? raw?.message : raw;
     return typeof msg === 'string' && msg ? msg : `${label} ${response.status}`;
+}
+
+/**
+ * The error a non-ok vendor/backend response becomes: the message the body carries
+ * (or `${label} ${status}`), the status, and the code that status stands for. The
+ * transports used to throw a bare Error here, so every one of them reached the error
+ * card as UNKNOWN_ERROR — a 429 and a 503 read the same to a listener.
+ */
+export async function vendorError(response: Response, label = 'HTTP'): Promise<AparteError> {
+    const message = await vendorErrorMessage(response, label);
+    const code = AparteError.codeForStatus(response.status) ?? AparteErrorCode.UNKNOWN_ERROR;
+    return new AparteError(message, code, undefined, undefined, response.status);
 }
 
 /**

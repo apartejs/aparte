@@ -1,7 +1,7 @@
 import type { AparteChatRequest, AparteChatResponse } from '../types/chat.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteTransport, AparteTransportContext } from './types.js';
-import { isFormatAdapter, readAuth, vendorErrorMessage, parseNonStreamText } from './types.js';
+import { isFormatAdapter, readAuth, vendorError, parseNonStreamText } from './types.js';
 
 /** Options for {@link AparteDirectTransport}. */
 export interface DirectTransportOptions {
@@ -82,7 +82,7 @@ export class AparteDirectTransport implements AparteTransport {
         });
 
         if (!response.ok) {
-            throw new Error(await vendorErrorMessage(response));
+            throw await vendorError(response);
         }
 
         if (request.stream === false) {

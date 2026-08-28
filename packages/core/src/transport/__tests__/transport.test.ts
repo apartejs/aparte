@@ -107,11 +107,25 @@ describe('AparteDirectTransport', () => {
         expect((fetchSpy.mock.calls[0] as any)[0]).toBe('https://proxy.test/v1/chat');
     });
 
-    it('throws with the vendor error message on a non-ok response', async () => {
+    it('throws an AparteError on a non-ok response: the vendor message, the status, and the code it stands for', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(
             new Response(JSON.stringify({ error: { message: 'bad key' } }), { status: 401 }) as any,
         );
-        await expect(new AparteDirectTransport().chat(adapter(), req, 'k', ctx)).rejects.toThrow('bad key');
+        const err = await new AparteDirectTransport().chat(adapter(), req, 'k', ctx)
+            .then(() => { throw new Error('resolved instead of rejecting'); }, (e: unknown) => e as { name: string; message: string; code?: string; httpStatus?: number });
+        expect(err.name).toBe('AparteError');
+        expect(err.message).toBe('bad key');
+        expect(err.httpStatus).toBe(401);
+        expect(err.code).toBe('CONFIG_INVALID_KEY');
+    });
+
+    it('a status the enum does not name stays UNKNOWN_ERROR, with the status kept', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('not here', { status: 404 }) as any);
+        const err = await new AparteDirectTransport().chat(adapter(), req, 'k', ctx)
+            .then(() => { throw new Error('resolved instead of rejecting'); }, (e: unknown) => e as { message: string; code?: string; httpStatus?: number });
+        expect(err.message).toBe('HTTP 404');
+        expect(err.code).toBe('UNKNOWN_ERROR');
+        expect(err.httpStatus).toBe(404);
     });
 
     it('warns once when a real key is sent straight from the browser', async () => {
@@ -166,5 +180,15 @@ describe('AparteBackendTransport', () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ text: 'done' }), { status: 200 }) as any);
         const out = await new AparteBackendTransport({ endpoint: '/api/chat' }).chat(adapter(), { ...req, stream: false }, undefined, ctx);
         expect(out).toBe('done');
+    });
+
+    it('throws an AparteError on a non-ok backend reply, with the status and its code', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('<html>bad gateway</html>', { status: 502 }) as any);
+        const err = await new AparteBackendTransport({ endpoint: '/api/chat' }).chat(adapter(), req, undefined, ctx)
+            .then(() => { throw new Error('resolved instead of rejecting'); }, (e: unknown) => e as { name: string; message: string; code?: string; httpStatus?: number });
+        expect(err.name).toBe('AparteError');
+        expect(err.message).toBe('Backend HTTP 502');
+        expect(err.code).toBe('PROVIDER_ERROR');
+        expect(err.httpStatus).toBe(502);
     });
 });
