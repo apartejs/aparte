@@ -102,12 +102,61 @@ describe('a decrease the browser made while settling our scroll', () => {
         expect(vp._isAutoScrollEnabled, 'a gesture is the reader, whatever we just did').toBe(false);
     });
 
-    it('still disarms for a jump too large to be layout churn', async () => {
+    it('still disarms for a decrease that follows no scroll of ours', async () => {
         geometry(1000, 1500);
         vp.appendToken('a1', 'more');
         await frame();
         await frame();
-        geometry(700, 1500);                        // -300px with no input: find-in-page, a host scrollTo
-        expect(vp._isAutoScrollEnabled, 'a large decrease is never our own settling').toBe(false);
+        // Outside the one-second shadow of our own scroll — the same gap a find-in-page
+        // jump or a host's scrollTo lands in. (Not a size rule: a branch swap on React
+        // moves scrollTop by ~200px through its rebuild, and that is the browser's.)
+        (vp as unknown as { _ownScrollAt: number })._ownScrollAt = Number.NEGATIVE_INFINITY;
+        geometry(700, 1500);
+        expect(vp._isAutoScrollEnabled, 'no scroll of ours to blame: the reader left').toBe(false);
+    });
+});
+
+describe('what counts as the reader\'s hand', () => {
+    // jsdom has no layout: give the box a width and a rect so a press can land inside
+    // the content (clientX 100) or in the scrollbar's gutter (clientX 590). And no
+    // PointerEvent: a MouseEvent named `pointerdown` carries the same clientX.
+    const layout = (): void => {
+        Object.defineProperty(box, 'clientWidth', { value: 580, configurable: true });
+        box.getBoundingClientRect = () => ({ left: 0, right: 600, top: 0, bottom: 500, width: 600, height: 500, x: 0, y: 0, toJSON: () => ({}) });
+    };
+    const settleOurs = async (): Promise<void> => {
+        geometry(1000, 1500);
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+    };
+
+    it('a press on a control inside the transcript is not a scroll gesture', async () => {
+        layout();
+        await settleOurs();
+        const bubble = vp.querySelector('aparte-chat-bubble')!;
+        bubble.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 100, clientY: 50 }));
+        geometry(940, 1500);                        // the swap's churn, a second after the click
+        expect(vp._isAutoScrollEnabled, 'a click on a branch arrow must not disarm the follow').toBe(true);
+    });
+
+    it('a press in the scrollbar gutter is', async () => {
+        layout();
+        await settleOurs();
+        box.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 590, clientY: 50 }));
+        geometry(940, 1500);
+        expect(vp._isAutoScrollEnabled).toBe(false);
+    });
+
+    it('a navigation key is, a letter is not', async () => {
+        layout();
+        await settleOurs();
+        box.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+        geometry(940, 1500);
+        expect(vp._isAutoScrollEnabled, 'typing is not scrolling').toBe(true);
+        await settleOurs();
+        box.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true }));
+        geometry(940, 1500);
+        expect(vp._isAutoScrollEnabled).toBe(false);
     });
 });

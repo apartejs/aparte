@@ -148,10 +148,10 @@ export class AparteChatViewport extends HTMLElement {
     private _ownScrollAt = Number.NEGATIVE_INFINITY;
     /** When the reader last touched the transcript (wheel, touch, pointer, key). */
     private _readerInputAt = Number.NEGATIVE_INFINITY;
-    /** A decrease inside this window after our own scroll, with no input, is the browser's. */
+    /** A decrease inside this window after our own scroll, with no gesture, is the browser's. */
     private readonly _ownScrollWindowMs = 1000;
-    /** Larger than this is never layout churn: the reader, or a scroll we did not make. */
-    private readonly _ownScrollMaxDrop = 100;
+    /** The keys that scroll a focused scroll container — the only keydowns that are a gesture. */
+    private readonly _scrollKeys = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
     private _scrollThreshold: number = 50;
     /** When true, the next _autoScroll() call uses smooth instead of instant, then resets. */
     private _smoothScrollOnce: boolean = false;
@@ -1317,7 +1317,27 @@ export class AparteChatViewport extends HTMLElement {
         this._updateScrollButton();
     };
 
-    private readonly _noteReaderInput = (): void => {
+    /**
+     * Only the inputs that can SCROLL count as the reader's hand: a wheel notch, a
+     * touch, a navigation key, a press in the scrollbar's gutter. A press on a control
+     * inside the transcript — a branch arrow, a copy button — is not a scroll gesture,
+     * and counting it disarmed the follow through the swap it triggered (react-webkit,
+     * 1 run in 6: the rebuild's height churn moved scrollTop within the second after
+     * the click, and the click made that look like the reader's).
+     */
+    private readonly _noteReaderInput = (e: Event): void => {
+        if (e.type === 'keydown' && !this._scrollKeys.has((e as KeyboardEvent).key)) return;
+        if (e.type === 'pointerdown') {
+            const container = this._container;
+            if (!container) return;
+            const { clientX } = e as PointerEvent;
+            const rect = container.getBoundingClientRect();
+            const rtl = getComputedStyle(container).direction === 'rtl';
+            const inGutter = rtl
+                ? clientX <= rect.right - container.clientWidth
+                : clientX >= rect.left + container.clientWidth;
+            if (!inGutter) return;
+        }
         this._readerInputAt = performance.now();
     };
 
@@ -1458,18 +1478,22 @@ export class AparteChatViewport extends HTMLElement {
          * decrease disarmed the follow that was in the middle of landing, leaving the
          * transcript 25px short and a scroll-to-bottom button on a reader who never
          * left (vanilla-webkit and react-webkit, 3 runs out of 3; Chromium settles the
-         * same churn without moving). So a decrease is the reader's unless all three
-         * hold: it is small, it comes within a second of a scroll this component asked
-         * for, and the reader has not touched the transcript in that second. A real
-         * gesture always leaves a trace (`_noteReaderInput`); a jump the reader did not
-         * make either (find-in-page, a host's own `scrollTo`) still disarms, except in
-         * that one-second shadow of our own scroll.
+         * same churn without moving). So a decrease is the reader's unless both hold: it
+         * comes within a second of a scroll this component asked for, and no scroll
+         * gesture touched the transcript in that second. A real gesture always leaves a
+         * trace (`_noteReaderInput`); a jump the reader did not make either
+         * (find-in-page, a host's own `scrollTo`) still disarms, except in that
+         * one-second shadow of our own scroll.
+         *
+         * No cap on the size of the decrease: a first version counted anything over
+         * 100px as "never churn", and a branch swap on React proved it — the rebuild's
+         * height flickers by ~200px (measured in `navigateBranch`), WebKit moves
+         * scrollTop by as much, and the follow was disarmed in about one run in six.
          */
         const top = this._container.scrollTop;
         const drop = this._lastScrollTop - top;
         const now = performance.now();
-        const settlingOurs = drop <= this._ownScrollMaxDrop
-            && now - this._ownScrollAt < this._ownScrollWindowMs
+        const settlingOurs = now - this._ownScrollAt < this._ownScrollWindowMs
             && now - this._readerInputAt >= this._ownScrollWindowMs;
         const readerWentUp = drop > 1 && !settlingOurs;
         this._lastScrollTop = top;
