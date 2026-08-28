@@ -10,6 +10,7 @@
    */
 
 .aparte-tag {
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: var(--aparte-tag-gap);

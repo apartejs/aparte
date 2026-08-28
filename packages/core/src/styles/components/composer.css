@@ -218,6 +218,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 }
 
 .aparte-editor {
+  box-sizing: border-box;
   width: 100%;
   max-height: var(--aparte-input-editor-max-height);
   /* Matches _maxHeight default */
