@@ -116,7 +116,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
     let artifactPromoted = false;
     // id → open-segment meta, so chunk/close can rebuild the full segment for the
     // artifact-lifecycle dispatch (which reads mimeType/artifactType/title).
-    let artifactMeta = new Map<string, { mimeType: string; artifactType: string; title: string }>();
 
     return (e: AparteStreamRunEvent): void => {
         switch (e.type) {
@@ -132,7 +131,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 thinkingCollapsed = false;
                 artifactProgress = new Map();
                 artifactPromoted = false;
-                artifactMeta = new Map();
                 break;
 
             case 'thinking-delta': {
@@ -167,42 +165,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     // unaffected — it was frozen by the last reasoning delta.
                     target.updateSegment?.(thinkingId, { collapsed: true, isStreaming: false });
                     thinkingCollapsed = true;
-                }
-                // Reduced pre-tag path (XML mode): render only completed segments;
-                // leave the trailing active segment for the next tag-free delta
-                // (mirrors `emitChatText(…, syncActive = false)` in
-                // ./xml-artifact-feed.ts). No artifact promotion here —
-                // pre-tag text is plain chat.
-                if (e.reduced) {
-                    const r = parser.parse(e.delta);
-                    for (const segment of r.segments) {
-                        if (!streaming.has(segment.id)) {
-                            target.addSegment?.(segment);
-                            streaming.add(segment.id);
-                        } else if ('content' in segment) {
-                            // Already rendered while ACTIVE and now COMPLETED, so
-                            // its final content has to land. Without this arm a
-                            // delta that both closes a code fence and precedes an
-                            // `<artifact>` tag froze that fence at whatever the
-                            // parser's 4-char safe window had released, and
-                            // `text-flush` cannot recover it: `finalize()` returns
-                            // the active segment and the residual buffer, never one
-                            // that already completed. Core's twin (`emitChatText`)
-                            // has always had both arms.
-                            target.updateSegment?.(segment.id, segmentContentUpdate(segment));
-                        }
-                    }
-                    // The raw-delta fallback is gone from BOTH loops. It fired only
-                    // when the parser had withheld an ambiguous prefix, wrote those
-                    // characters into `message.content`, and history then preferred
-                    // that field over the rendered segments — so a reply opening with
-                    // a code fence was sent back to the model as three backticks.
-                    // The parser keeps the text and `finalize()` flushes it.
-                    //
-                    // This sibling is explicit because the condition here already
-                    // consulted `activeSegment`, so it read as more careful than
-                    // core's — and was exactly as wrong.
-                    break;
                 }
                 const result = parser.parse(e.delta);
                 for (let segment of result.segments) {
@@ -284,35 +246,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
             }
 
-            case 'artifact-open': {
-                const seg: AparteArtifactSegment = {
-                    id: e.id, type: 'artifact',
-                    mimeType: e.mimeType, artifactType: e.kind, title: e.title,
-                    content: '',
-                };
-                target.addSegment?.(seg);
-                streaming.add(e.id);
-                artifactMeta.set(e.id, { mimeType: e.mimeType, artifactType: e.kind, title: e.title });
-                dispatchArtifactLifecycle(target, messageId, seg, artifactProgress, false);
-                break;
-            }
-
-            case 'artifact-chunk': {
-                const meta = artifactMeta.get(e.id);
-                target.updateSegment?.(e.id, { content: e.content });
-                dispatchArtifactLifecycle(target, messageId, { id: e.id, content: e.content, ...meta }, artifactProgress, false);
-                break;
-            }
-
-            case 'artifact-close': {
-                const meta = artifactMeta.get(e.id);
-                target.updateSegment?.(e.id, { content: e.content, inline: e.inline } as Partial<AparteSegment>);
-                dispatchArtifactLifecycle(target, messageId, { id: e.id, content: e.content, ...meta }, artifactProgress, true);
-                break;
-            }
-
             case 'artifact-ready': {
-                // One-shot create_artifact: full content up-front, no open/chunk.
+                // One-shot create_artifact: full content up-front.
                 const seg: AparteArtifactSegment = {
                     id: e.id, type: 'artifact',
                     mimeType: e.mimeType, artifactType: e.kind, title: e.title,
@@ -375,9 +310,6 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 }
                 break;
 
-            case 'phase-advance':
-                target.addSegment?.({ id: `pw-${uuid()}`, type: 'pipeline-waiting' } as AparteSegment);
-                break;
 
             case 'run-aborted':
                 dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId });

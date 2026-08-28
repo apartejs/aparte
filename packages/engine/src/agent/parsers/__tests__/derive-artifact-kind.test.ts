@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveArtifactKind } from '../artifact-xml-state-machine';
+import { deriveArtifactKind } from '../artifact-kind';
 
 /**
  * This used to be a PARITY test: core kept the canonical `deriveArtifactKind` and

@@ -49,7 +49,6 @@ export type {
     AparteSegmentDefaults,
     AparteSegmentTiming,
     AparteErrorSegment,
-    ApartePipelineWaitingSegment,
     // The detail of the `aparte-segment-update` event. It reached types/index.ts and
     // stopped there — and types/index.ts is not an entry point, so a consumer could
     // bind the event (it is in the published event table) and never name its detail.

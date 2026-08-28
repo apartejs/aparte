@@ -30,7 +30,7 @@ export interface AparteSegmentBase {
     // All five are optional, so nothing that exists today changes shape, and all
     // five are stamped in ONE place — `utils/segments.ts`, called by the two owners
     // of a message's segment array (`aparte-chat-viewport`, `aparte-chat-host`).
-    // Not by the parser: `tool_call` and `pipeline-waiting` segments never go
+    // Not by the parser: `tool_call` segments never go
     // through it, which would have left a tool call — the most useful duration of
     // all — unmeasured.
 
@@ -287,19 +287,6 @@ export interface AparteArtifactSegment extends AparteSegmentBase {
 // Union Type
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Transient waiting indicator shown between pipeline phases
- *
- * It carries no content of its own — the type IS the message — so the gap between two
- * phases of a multi-step turn never reads as a hang.
- *
- * @example
- * { id: 's1', type: 'pipeline-waiting' }
- */
-export interface ApartePipelineWaitingSegment extends AparteSegmentBase {
-    type: 'pipeline-waiting';
-}
-
 /** All built-in segment types */
 export type AparteSegment =
     | AparteTextSegment
@@ -308,8 +295,7 @@ export type AparteSegment =
     | AparteErrorSegment
     | AparteCustomSegment
     | AparteToolCallSegment
-    | AparteArtifactSegment
-    | ApartePipelineWaitingSegment;
+    | AparteArtifactSegment;
 
 /** Segment type discriminator values */
 export type AparteSegmentType = AparteSegment['type'];

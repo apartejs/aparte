@@ -344,16 +344,6 @@ describe("the client's loop — the engine through the adapter, pinned", () => {
         expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
-    it('artifactRaw mode — whole stream into one artifact', async () => {
-        const r = await captureParity({
-            streams: [[{ type: 'text', delta: 'const ' }, { type: 'text', delta: 'x = 1;' }, { type: 'done', usage: { inputTokens: 3, outputTokens: 4 } }]],
-            meta: { artifactRaw: { mimeType: 'text/javascript', kind: 'js' } },
-        });
-        expect(r.knew).toEqual(r.old);
-        expect(r.newUsage).toEqual(r.oldUsage);
-        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
-    });
-
     it('create_artifact built-in — one-shot artifact then reply', async () => {
         const r = await captureParity({ streams: [
             [{ type: 'tool_use', id: 'c1', name: 'create_artifact', input: { mimeType: 'text/html', title: 'Page', content: '<h1>Hi</h1>' } }, { type: 'done' }],
@@ -364,37 +354,10 @@ describe("the client's loop — the engine through the adapter, pinned", () => {
         expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
     });
 
-    it('multi-phase pipeline — two text phases with a pipeline-waiting segment', async () => {
-        const r = await captureParity({
-            streams: [
-                [{ type: 'text', delta: 'reply1' }, { type: 'done' }],
-                [{ type: 'text', delta: 'reply2' }, { type: 'done', usage: { inputTokens: 4, outputTokens: 4 } }],
-            ],
-            meta: { pipeline: [{ mode: 'text', system: 'PHASE1' }, { mode: 'text', system: 'PHASE2' }] },
-        });
-        expect(r.knew).toEqual(r.old);
-        expect(r.newUsage).toEqual(r.oldUsage);
-        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
-    });
-
     it('synthetic toolChoice bypass — forced tool then reply', async () => {
         const r = await captureParity({
             streams: [[{ type: 'text', delta: 'Saved.' }, { type: 'done', usage: { inputTokens: 2, outputTokens: 1 } }]],
             toolChoice: { name: 'save', input: { path: '/a' } },
-        });
-        expect(r.knew).toEqual(r.old);
-        expect(r.newUsage).toEqual(r.oldUsage);
-        expect({ calls: r.knew, usage: r.newUsage, error: r.newError }).toMatchSnapshot();
-    });
-
-    it('artifactXml mode — inline <artifact> tags split from chat text', async () => {
-        const r = await captureParity({
-            streams: [[
-                { type: 'text', delta: 'Here: <artifact mimeType="text/html" title="Page">' },
-                { type: 'text', delta: '<h1>Hi</h1></artifact> done' },
-                { type: 'done', usage: { inputTokens: 5, outputTokens: 6 } },
-            ]],
-            meta: { artifactXml: { mimeType: 'text/html', kind: 'html' } },
         });
         expect(r.knew).toEqual(r.old);
         expect(r.newUsage).toEqual(r.oldUsage);

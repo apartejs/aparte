@@ -349,98 +349,6 @@ describe('runStreamAgent — limits, abort & error', () => {
     });
 });
 
-describe('runStreamAgent — artifactRaw mode', () => {
-    it('routes the whole turn text into one artifact segment', async () => {
-        const t = scriptedTransport([[
-            { type: 'text', delta: 'const ' },
-            { type: 'text', delta: 'x = 1;' },
-            { type: 'done', usage: { inputTokens: 3, outputTokens: 4 } },
-        ]]);
-        const rec = recorder();
-        const usage = await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactRaw: { mimeType: 'text/javascript', kind: 'js' } } },
-            idGen: (p) => `${p}-0`,
-        }));
-        expect(rec.events).toEqual([
-            { type: 'run-start' },
-            { type: 'turn-start' },
-            { type: 'artifact-open', id: 'artifact-raw-0', mimeType: 'text/javascript', kind: 'js', title: 'js' },
-            { type: 'artifact-chunk', id: 'artifact-raw-0', content: 'const ' },
-            { type: 'artifact-chunk', id: 'artifact-raw-0', content: 'const x = 1;' },
-            { type: 'text-flush' },
-            { type: 'artifact-close', id: 'artifact-raw-0', content: 'const x = 1;', inline: true },
-            { type: 'run-done', usage: { inputTokens: 3, outputTokens: 4 } },
-        ]);
-        expect(usage).toEqual({ inputTokens: 3, outputTokens: 4 });
-    });
-
-    it('marks a >=15-line raw artifact as not inline', async () => {
-        const body = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
-        const t = scriptedTransport([[{ type: 'text', delta: body }, { type: 'done' }]]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactRaw: { mimeType: 'text/plain', kind: 'text' } } },
-            idGen: (p) => `${p}-0`,
-        }));
-        const close = rec.events.find(e => e.type === 'artifact-close') as { inline: boolean };
-        expect(close.inline).toBe(false);
-    });
-});
-
-describe('runStreamAgent — artifactXml mode', () => {
-    it('splits chat text from inline <artifact> tags via the state machine', async () => {
-        const t = scriptedTransport([[
-            { type: 'text', delta: 'Here: <artifact mimeType="text/html" title="Page">' },
-            { type: 'text', delta: '<h1>Hi</h1></artifact> done' },
-            { type: 'done' },
-        ]]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactXml: { mimeType: 'text/html', kind: 'html' } } },
-            idGen: (p) => `${p}-0`,
-        }));
-        expect(rec.events.find(e => e.type === 'artifact-open')).toMatchObject({ id: 'artifact-xml-0', mimeType: 'text/html', kind: 'html', title: 'Page' });
-        expect((rec.events.find(e => e.type === 'artifact-close') as { content: string }).content).toBe('<h1>Hi</h1>');
-        // Chat text on either side is emitted as text-delta (the adapter parses it).
-        expect(rec.events.some(e => e.type === 'text-delta' && (e as { delta: string }).delta === 'Here: ')).toBe(true);
-        expect(rec.events.some(e => e.type === 'text-delta' && (e as { delta: string }).delta === ' done')).toBe(true);
-    });
-
-    it('finalizes a truncated XML artifact at the turn boundary', async () => {
-        const t = scriptedTransport([[
-            { type: 'text', delta: '<artifact mimeType="text/plain" title="T">' },
-            { type: 'text', delta: 'no close here' },
-            { type: 'done' },
-        ]]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'hi' }], _meta: { artifactXml: { mimeType: 'text/plain', kind: 'text' } } },
-            idGen: (p) => `${p}-0`,
-        }));
-        expect((rec.events.find(e => e.type === 'artifact-close') as { content: string })?.content).toBe('no close here');
-    });
-
-    it('raw takes precedence over xml when both hints are present', async () => {
-        const t = scriptedTransport([[{ type: 'text', delta: '<artifact>x</artifact>' }, { type: 'done' }]]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { modelId: 'm',
-                messages: [{ role: 'user', content: 'hi' }],
-                _meta: { artifactRaw: { mimeType: 'text/plain', kind: 'text' }, artifactXml: { mimeType: 'text/html', kind: 'html' } },
-            },
-            idGen: (p) => `${p}-0`,
-        }));
-        // Raw mode → the literal `<artifact>` text becomes artifact body, not parsed.
-        expect(rec.events.find(e => e.type === 'artifact-open')).toMatchObject({ id: 'artifact-raw-0' });
-        expect((rec.events.find(e => e.type === 'artifact-close') as { content: string }).content).toBe('<artifact>x</artifact>');
-    });
-});
-
 describe('runStreamAgent — create_artifact built-in', () => {
     it('bypasses the tool path (one-shot artifact-ready + success tool_result)', async () => {
         const t = scriptedTransport([
@@ -572,55 +480,6 @@ describe('runStreamAgent — synthetic toolChoice bypass', () => {
     });
 });
 
-describe('runStreamAgent — multi-phase pipeline', () => {
-    it('runs each phase as a turn, prepends its system message, and advances with reply context', async () => {
-        const t = scriptedTransport([
-            [{ type: 'text', delta: 'reply1' }, { type: 'done' }],
-            [{ type: 'text', delta: 'reply2' }, { type: 'done', usage: { inputTokens: 4, outputTokens: 4 } }],
-        ]);
-        const rec = recorder();
-        const usage = await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { modelId: 'm',
-                messages: [{ role: 'user', content: 'go' }],
-                _meta: { pipeline: [{ mode: 'text', system: 'PHASE1' }, { mode: 'text', system: 'PHASE2' }] },
-            },
-        }));
-
-        expect(rec.types()).toEqual([
-            'run-start',
-            'turn-start', 'text-delta', 'text-flush', 'phase-advance',
-            'turn-start', 'text-delta', 'text-flush',
-            'run-done',
-        ]);
-        expect(rec.events.find(e => e.type === 'phase-advance')).toEqual({ type: 'phase-advance', index: 1 });
-        // Each turn is prefixed with its phase's system message…
-        expect(t.calls[0]!.messages[0]).toEqual({ role: 'system', content: 'PHASE1' });
-        expect(t.calls[1]!.messages[0]).toEqual({ role: 'system', content: 'PHASE2' });
-        // …and phase 1's reply is carried into phase 2 as assistant context.
-        expect(t.calls[1]!.messages.some(m => m.role === 'assistant' && m.content === 'reply1')).toBe(true);
-        expect(usage).toEqual({ inputTokens: 4, outputTokens: 4 });
-    });
-
-    it('an artifact phase injects the artifactRaw hint so the turn streams into an artifact', async () => {
-        const t = scriptedTransport([[{ type: 'text', delta: '<h1>Hi</h1>' }, { type: 'done' }]]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({
-            transportCall: t.transportCall, emitter: rec.emitter,
-            baseRequest: { modelId: 'm',
-                messages: [{ role: 'user', content: 'make a page' }],
-                _meta: { pipeline: [{ mode: 'artifact', system: 'MAKE', mimeType: 'text/html', kind: 'html' }] },
-            },
-            idGen: (p) => `${p}-0`,
-        }));
-        // Single last phase → no phase-advance; the whole turn is one raw artifact.
-        expect(rec.events.find(e => e.type === 'artifact-open')).toMatchObject({ id: 'artifact-raw-0', kind: 'html' });
-        expect((rec.events.find(e => e.type === 'artifact-close') as { content: string }).content).toBe('<h1>Hi</h1>');
-        expect(rec.types()).not.toContain('phase-advance');
-        expect(t.calls[0]!.messages[0]).toEqual({ role: 'system', content: 'MAKE' });
-    });
-});
-
 describe('runStreamAgent — onHistoryAppend (the caller can own the history)', () => {
     // The loop keeps its own `messages` array and re-sends it every turn. A host
     // with a prefix cache (llama.cpp slots, vLLM) needs the opposite: an
@@ -689,7 +548,7 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
         expect(mine).toEqual(t.calls.at(-1)!.messages);
     });
 
-    it('notifies a rejected tool call and a pipeline phase reply too', async () => {
+    it('notifies a rejected tool call too', async () => {
         const rejected: StreamAgentMessage[] = [];
         // A SCRIPTED transport, not one stream repeated: a refusal now takes another
         // turn, and a transport that replays the same tool_use for ever would be
@@ -707,17 +566,6 @@ describe('runStreamAgent — onHistoryAppend (the caller can own the history)', 
         }));
         expect(rejected.map(m => m.role)).toEqual(['tool_call', 'tool_result']);
         expect(rejected[1]!.content).toContain('rejected by the user');
-
-        const phases: StreamAgentMessage[] = [];
-        await runStreamAgent(baseOpts({
-            transportCall: async () => streamOf([{ type: 'text', delta: 'reply1' }, { type: 'done' }]),
-            baseRequest: { modelId: 'm',
-                messages: [{ role: 'user', content: 'go' }],
-                _meta: { pipeline: [{ mode: 'text', system: 'P1' }, { mode: 'text', system: 'P2' }] },
-            },
-            onHistoryAppend: (m) => phases.push(m),
-        }));
-        expect(phases).toEqual([{ role: 'assistant', content: 'reply1' }]);
     });
 
     it('changes nothing when it is not supplied', async () => {

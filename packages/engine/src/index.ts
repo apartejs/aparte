@@ -12,18 +12,15 @@
  * (memory, intent orchestration) and the not-yet-wired text agent loop live elsewhere.
  */
 
-// Structured-stream agent loop: runStreamAgent + its DOM-free events + the artifact-XML parser.
+// Structured-stream agent loop: runStreamAgent + its DOM-free events.
 export * from './agent/stream-events.js';
 export * from './agent/stream-run.js';
-// The XML state machine, and its `deriveArtifactKind` — THE implementation.
-//
-// Core used to keep the canonical copy and this package a byte-identical one,
-// locked together by a parity test, because core could not import engine. With
-// core depending on engine (audit 2026-08-28, D1) there is one function object:
-// core re-exports this one under the same name, so `import { deriveArtifactKind }`
-// from either package gives you the same function, and nothing to keep in step.
-export { ArtifactXmlStateMachine, deriveArtifactKind } from './agent/parsers/artifact-xml-state-machine.js';
-export type { XmlArtifactEvent, XmlArtifactHint, XmlArtifactState } from './agent/parsers/artifact-xml-state-machine.js';
+// `deriveArtifactKind` — THE implementation; core re-exports it under the same name
+// (audit 2026-08-28, D1: one function object, nothing to keep in step). The XML
+// artifact state machine that used to live beside it is gone (D2): the core parser
+// reads `<artifact>` tags natively, so the mode that switched to the machine was a
+// second path to the same result.
+export { deriveArtifactKind } from './agent/parsers/artifact-kind.js';
 
 // Conversation compactor (context-window budget + sliding-window assembly).
 export * from './conversation/compactor.js';

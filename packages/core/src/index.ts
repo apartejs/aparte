@@ -43,7 +43,6 @@ import './styles/segment/thinking.css';
 import './styles/segment/code.css';
 import './styles/segment/tool-call.css';
 import './styles/segment/error.css';
-import './styles/segment/pipeline.css';
 import './styles/segment/text.css';
 import './styles/segment/artifact.css';
 import './styles/components/elicitation.css';
@@ -86,8 +85,8 @@ export type {
     AparteToolCallSegment,
     AparteArtifactSegment,
     // Five shapes that were public in everything but name. `AparteSegment` is exported
-    // and its union names all eight members, yet two of them — the error segment and the
-    // pipeline indicator — could not be written down: narrowing on `type: 'error'` gave a
+    // and its union names all its members, yet the error segment could not be written
+    // down: narrowing on `type: 'error'` gave a
     // consumer the shape and no way to declare a variable of it. `AparteSegmentBase` is
     // worse than an omission: it is the CONSTRAINT on the exported
     // `AparteSegmentRenderer<T>`, so writing a renderer for a segment type of your own
@@ -97,7 +96,6 @@ export type {
     AparteSegmentDefaults,
     AparteSegmentTiming,
     AparteErrorSegment,
-    ApartePipelineWaitingSegment,
     // The detail of the `aparte-segment-update` event. It reached types/index.ts and
     // stopped there — and types/index.ts is not an entry point, so a consumer could
     // bind the event (it is in the published event table) and never name its detail.

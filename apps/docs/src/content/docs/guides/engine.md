@@ -34,7 +34,7 @@ you can install `@aparte/engine` alone. If you wire it into core's client (below
 
 | Area | Exports | Status |
 |------|---------|--------|
-| **Structured-stream loop** | `runStreamAgent`, `StreamRunEvent`, the artifact-XML parser | Ready — the seam below |
+| **Structured-stream loop** | `runStreamAgent`, `StreamRunEvent`, `deriveArtifactKind` | Ready — the seam below |
 | **Context compaction** | `compactConversation` + token-budget / sliding-window helpers | Ready |
 
 Everything is a plain function or class — no globals, no side effects (`sideEffects: false`), fully
@@ -130,8 +130,7 @@ write: the providers that do it target message-based APIs.
 The loop's behaviour isn't "meant" to be stable — it's recorded. Core's **`stream-parity`** suite
 was born in this package as a parity test between core's former inline loop and `runStreamAgent`
 through the real `createStreamAdapter`. Its 26 scenarios in nine groups — the happy paths (plain
-text, thinking, human-in-the-loop approve and reject, streamed and one-shot artifacts, multi-phase
-pipelines, forced tool calls), and then the ones that matter more: the paths that STOP (a provider
+text, thinking, human-in-the-loop approve and reject, streamed and one-shot artifacts, forced tool calls), and then the ones that matter more: the paths that STOP (a provider
 error, a tool with no handler, both turn ceilings, a tool that never resolves), walking away from a
 live stream mid-token, a withheld prefix never reaching `content`, events and tags neither loop
 used to handle, a non-streaming response, and three artifact-framing edge cases — were snapshotted

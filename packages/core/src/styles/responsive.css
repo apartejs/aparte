@@ -44,7 +44,7 @@
 
 /* Respect prefers-reduced-motion. Scoped to Aparte's own custom elements (never
    the consumer's page) — this covers every animated element the library renders
-   inside them: typing dots, spinners, pipeline/artifact pulses, segment
+   inside them: typing dots, spinners, artifact pulses, segment
    animations. Activity stays conveyed via aria-live / aria-busy. */
 @media (prefers-reduced-motion: reduce) {
   aparte-chat-viewport *,

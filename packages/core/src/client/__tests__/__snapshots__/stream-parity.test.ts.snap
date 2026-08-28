@@ -96,51 +96,6 @@ exports[`the client's loop — the engine through the adapter, pinned > artifact
 }
 `;
 
-exports[`the client's loop — the engine through the adapter, pinned > artifactRaw mode — whole stream into one artifact 1`] = `
-{
-  "calls": [
-    "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"artifact-raw-#0","type":"artifact","mimeType":"text/javascript","artifactType":"js","title":"js","content":""}]",
-    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"artifact-raw-#0","mimeType":"text/javascript","artifactType":"js","title":"js"}}]",
-    "updateSegment ["artifact-raw-#0",{"content":"const "}]",
-    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"artifact-raw-#0","chunk":"const "}}]",
-    "updateSegment ["artifact-raw-#0",{"content":"const x = 1;"}]",
-    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"artifact-raw-#0","chunk":"x = 1;"}}]",
-    "updateSegment ["artifact-raw-#0",{"content":"const x = 1;","inline":true}]",
-    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"artifact-raw-#0","mimeType":"text/javascript","artifactType":"js","title":"js","content":"const x = 1;"}}]",
-    "updateMessage ["assistant-1",{"status":"completed"}]",
-    "setUsage ["assistant-1",{"inputTokens":3,"outputTokens":4}]",
-  ],
-  "error": undefined,
-  "usage": {
-    "inputTokens": 3,
-    "outputTokens": 4,
-  },
-}
-`;
-
-exports[`the client's loop — the engine through the adapter, pinned > artifactXml mode — inline <artifact> tags split from chat text 1`] = `
-{
-  "calls": [
-    "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"artifact-xml-#0","type":"artifact","mimeType":"text/html","artifactType":"html","title":"Page","content":""}]",
-    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"artifact-xml-#0","mimeType":"text/html","artifactType":"html","title":"Page"}}]",
-    "updateSegment ["artifact-xml-#0",{"content":"<h1>Hi</h1>","inline":true}]",
-    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"artifact-xml-#0","chunk":"<h1>Hi</h1>"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"artifact-xml-#0","mimeType":"text/html","artifactType":"html","title":"Page","content":"<h1>Hi</h1>"}}]",
-    "addSegment [{"id":"seg-#1","type":"text","content":"Here:  done","isStreaming":false}]",
-    "updateSegment ["seg-#1",{"content":"Here:  done","isStreaming":false}]",
-    "updateMessage ["assistant-1",{"status":"completed"}]",
-    "setUsage ["assistant-1",{"inputTokens":5,"outputTokens":6}]",
-  ],
-  "error": undefined,
-  "usage": {
-    "inputTokens": 5,
-    "outputTokens": 6,
-  },
-}
-`;
-
 exports[`the client's loop — the engine through the adapter, pinned > create_artifact built-in — one-shot artifact then reply 1`] = `
 {
   "calls": [
@@ -155,26 +110,6 @@ exports[`the client's loop — the engine through the adapter, pinned > create_a
   ],
   "error": undefined,
   "usage": undefined,
-}
-`;
-
-exports[`the client's loop — the engine through the adapter, pinned > multi-phase pipeline — two text phases with a pipeline-waiting segment 1`] = `
-{
-  "calls": [
-    "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"seg-#0","type":"text","content":"reply1","isStreaming":false}]",
-    "updateSegment ["seg-#0",{"content":"reply1","isStreaming":false}]",
-    "addSegment [{"id":"pw-#1","type":"pipeline-waiting"}]",
-    "addSegment [{"id":"seg-#2","type":"text","content":"reply2","isStreaming":false}]",
-    "updateSegment ["seg-#2",{"content":"reply2","isStreaming":false}]",
-    "updateMessage ["assistant-1",{"status":"completed"}]",
-    "setUsage ["assistant-1",{"inputTokens":4,"outputTokens":4}]",
-  ],
-  "error": undefined,
-  "usage": {
-    "inputTokens": 4,
-    "outputTokens": 4,
-  },
 }
 `;
 

@@ -1,5 +1,5 @@
 /*
- * aparté — Segment renderers: thinking, code, tool call, error, pipeline.
+ * aparté — Segment renderers: thinking, code, tool call, error.
  *
  * One of the sheets split out of aparte.css. Order matters: src/index.ts imports
  * them in the order listed there, and check:derived-vars reads them concatenated in

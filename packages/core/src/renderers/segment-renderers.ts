@@ -26,7 +26,6 @@ import { thinkingRenderer } from './segments/thinking.js';
 import { codeRenderer } from './segments/code.js';
 import { errorRenderer } from './segments/error.js';
 import { toolCallRenderer } from './segments/tool-call.js';
-import { pipelineWaitingRenderer } from './segments/pipeline-waiting.js';
 import { artifactRenderer } from './segments/artifact/card.js';
 // The binary path's bookkeeping hook. Installed from the two registration entry
 // points below rather than at module load — see its own comment for why a bundler
@@ -307,5 +306,4 @@ const DEFAULT_RENDERERS = [
     errorRenderer,
     toolCallRenderer,
     artifactRenderer,
-    pipelineWaitingRenderer,
 ] as readonly AparteSegmentRenderer[];

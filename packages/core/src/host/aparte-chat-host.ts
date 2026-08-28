@@ -448,7 +448,7 @@ export class AparteChatHost {
         this.binding.onMessagesChange?.(next);
     }
 
-    /** Remove a transient segment (e.g. pipeline-waiting indicator). */
+    /** Remove a transient segment (a status row the host added itself). */
     removeSegment(segmentId: string): void {
         this._flushStreamState();
         this._lastBubble()?.removeSegment?.(segmentId);

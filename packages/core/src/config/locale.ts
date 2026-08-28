@@ -235,7 +235,7 @@ export interface AparteLocale {
      * A binary artifact being produced, and the same artifact's preview being rebuilt
      * after a reload (defaults: "Generating…" / "Rebuilding preview…").
      *
-     * `generating` is also the `aria-label` of the `pipeline-waiting` segment, which
+     * `generating` was also the `aria-label` of the former `pipeline-waiting` segment, which
      * is the ONLY thing a screen-reader user hears while a turn is in flight. It was
      * hardcoded, so that announcement was English in every locale.
      */

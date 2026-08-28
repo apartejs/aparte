@@ -16,10 +16,10 @@
  * core types (`AparteStreamEvent`, `AparteUsage`, `AparteChatMessage`, `AparteToolCall`)
  * so the adapter passes the real objects through with zero runtime conversion.
  *
- * SCOPE: text · thinking · tool_use (+ HITL approval) · done · error · artifacts
- * (raw / XML state machine / create_artifact) · multi-phase pipeline · synthetic
- * toolChoice bypass. Code-fence promotion is the only `_streamLoop` mechanism
- * left out here — it is adapter-side (it needs the core parser).
+ * SCOPE: text · thinking · tool_use (+ HITL approval) · done · error · the built-in
+ * create_artifact · synthetic toolChoice bypass. Code-fence promotion and `<artifact>`
+ * tags in the text are adapter-side (they need the core parser); the raw / XML
+ * artifact modes and the multi-phase pipeline were removed (audit 2026-08-28, D2).
  */
 
 // ─── Duck-typed mirrors of @aparte/core (structural — NO import) ───────────────
@@ -183,7 +183,7 @@ export interface StreamChatRequest {
      * un-assignable — from the opposite direction to the `messages` mismatch.
      */
     modelId: string;
-    /** Per-turn hints the loop branches on (pipeline phases, artifact modes, …). */
+    /** Per-turn hints carried through for the adapter (`artifactHint`, `prefixSegments`); the loop reads none. */
     _meta?: Record<string, unknown>;
     /** `'none'` makes the loop drop the tool inventory for that turn. */
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
@@ -235,31 +235,17 @@ export type StreamApprovalResolver = (
  * - `tool-aborted`    → updateSegment('aborted') (no-handler path, timeout/abort path, or per-tool maxTurns path)
  * - `turn-limit-exceeded` scope:'global' → addSegment(error 'MAX_TURNS_EXCEEDED');
  *                         scope:'tool'   → updateSegment('aborted')
- * - `phase-advance`   → addSegment({type:'pipeline-waiting'}); the loop has already
- *                       pushed the phase's reply into history and bumped the phase index
  * - `run-aborted`     → dispatch `aparte-message-aborted` (from the inner-loop abort check or the outer turn-boundary abort check)
  * - `run-done`        → updateMessage(status:'completed') always + setUsage if usage
  */
 export type StreamRunEvent =
     | { type: 'run-start' }
     | { type: 'turn-start' }
-    // `reduced` (XML mode only): chat text that precedes an `<artifact>` open tag
-    // — the adapter renders it through `_streamLoop`'s reduced pre-tag path
-    // (completed segments only, no trailing active segment). Absent everywhere else.
-    | { type: 'text-delta'; delta: string; reduced?: boolean }
+    | { type: 'text-delta'; delta: string }
     | { type: 'text-flush' }
     | { type: 'thinking-delta'; delta: string }
-    // Artifacts. `open`→addSegment(artifact)+dispatchArtifactLifecycle(final:false);
-    // `chunk`→updateSegment(content)+lifecycle(false); `close`→updateSegment(
-    // content,inline)+lifecycle(true). Raw mode (whole stream → one artifact,
-    // mirrors aparte-client.ts) and the XML state machine
-    // (E2) both emit these; the adapter renders them identically.
-    | { type: 'artifact-open'; id: string; mimeType: string; kind: string; title: string }
-    | { type: 'artifact-chunk'; id: string; content: string }
-    | { type: 'artifact-close'; id: string; content: string; inline: boolean }
     // One-shot artifact from the built-in `create_artifact` tool: full content
-    // up-front (mirrors aparte-client.ts's create_artifact fast path) → a single addSegment + lifecycle(true),
-    // NOT the streamed open/chunk/close dance.
+    // up-front → a single addSegment + lifecycle(true).
     | { type: 'artifact-ready'; id: string; mimeType: string; kind: string; title: string; content: string }
     | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
@@ -268,12 +254,6 @@ export type StreamRunEvent =
     | { type: 'tool-resolved'; toolCallId: string; result: string }
     | { type: 'tool-aborted'; toolCallId: string }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
-    // Pipeline: after a tool-less turn that is NOT the last phase, advance to the
-    // next phase (mirrors aparte-client.ts). The loop has already pushed
-    // this turn's reply into history as context and bumped the phase index;
-    // `index` is the new (post-increment) index. The adapter shows a
-    // `pipeline-waiting` segment while the next phase's turn runs.
-    | { type: 'phase-advance'; index: number }
     | { type: 'run-aborted' }
     | { type: 'run-done'; usage?: StreamUsage };
 
