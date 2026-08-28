@@ -234,7 +234,11 @@ describe('AparteChatHost', () => {
         await done;
         expect(cleanedUp).toBe(true);            // iterator.return() fired → subscription torn down
         expect(h.ctl.streamingId).toBeNull();
-        expect(h.vpApi.completeMessage).not.toHaveBeenCalledWith('a'); // aborted, not completed
+        // Stopped IS finished: the viewport has no `aborted` status, and its busy flag
+        // (branch arrows, retry, edit) hangs off the message reaching a terminal one.
+        // This used to assert the opposite, which is how a stopped stream left the
+        // transcript read-only for good.
+        expect(h.vpApi.completeMessage).toHaveBeenCalledWith('a');
     });
 
     it('addBranch / addSiblingOf sync the repo first then forward to the viewport', () => {
@@ -420,7 +424,9 @@ describe('AparteChatHost', () => {
             await run;
 
             expect(h.getMessages()[0]?.content).toBe('half a repl');
-            expect(h.vpApi.completeMessage).not.toHaveBeenCalled();
+            // …and the truncated message is finished, not left streaming (see the
+            // idle-source test above for why).
+            expect(h.vpApi.completeMessage).toHaveBeenCalledWith('a1');
             frames.raf.mockRestore();
         });
 

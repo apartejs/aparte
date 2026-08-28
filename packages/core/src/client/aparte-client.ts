@@ -608,6 +608,12 @@ export class AparteClient {
         // flag is the only trace, and it must not be thrown away here.
         if (this._isAborted) {
             dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+            // FINISHED, like the two abort paths below: the pending shell appended a few
+            // lines up is a streaming message in the viewport's model until a terminal
+            // status says otherwise, and with nothing saying it the transcript stayed
+            // read-only — arrows, retry, edit — for the life of the page after one Stop
+            // that landed while auth or an attachment was still being read.
+            this._updateMessage(targetElement, messageId, { status: 'completed' });
             return;
         }
         dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });

@@ -931,6 +931,9 @@ export class AparteChatViewport extends HTMLElement {
             }
         }
         this._repo.clear();
+        // An empty transcript streams nothing: the busy flag is derived from the
+        // repository, and this is the one path that empties it without a status.
+        this._syncBusy();
         if (!this._frameworkManagedDOM) {
             const wrapper = this.querySelector('.aparte-messages-wrapper');
             if (wrapper) {

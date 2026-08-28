@@ -269,3 +269,28 @@ describe('nothing keeps generating after the page stops caring', () => {
         expect(signals[1]!.aborted, 'the second turn must still be live').toBe(false);
     });
 });
+
+/**
+ * A Stop that lands BEFORE the stream starts — while auth or an attachment is still
+ * being read — took the one abort path that finished nothing: the pending shell stayed
+ * a streaming message in the viewport's model, and everything read-only that hangs off
+ * that (branch arrows, retry, edit) stayed disabled for the life of the page.
+ */
+describe('AparteClient — pressing Stop before the stream starts', () => {
+    it('still finishes the message, like the two later abort paths', async () => {
+        const cfg = makeConfig(async () => [], Promise.resolve());
+        const rec = makeRecorder();
+        const events: string[] = [];
+        rec.el.addEventListener('aparte-message-aborted', () => events.push('aborted'));
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        const turn = (client as unknown as { _streamTurn: (...a: unknown[]) => Promise<void> })
+            ._streamTurn(rec.el, 'assistant-1', cfg.getAIProvider('mock'), [{ role: 'user', content: 'hi' }], 'm', 'k');
+        client.abort();                           // Stop, before a single event
+        await turn;
+
+        expect(events).toEqual(['aborted']);
+        const completed = rec.calls.find((c) => c.m === 'updateMessage' && (c.args[1] as { status?: string })?.status === 'completed');
+        expect(completed, 'the pending shell must reach a terminal status').toBeTruthy();
+        expect(rec.calls.some((c) => c.m === 'addSegment'), 'and nothing streamed').toBe(false);
+    });
+});

@@ -86,3 +86,13 @@ describe('the transcript while a reply streams', () => {
         expect(late.querySelector<HTMLButtonElement>('[data-action="retry"]')?.disabled).toBe(true);
     });
 });
+
+describe('the busy state ends with the transcript', () => {
+    it('clearAll() clears data-busy, so an emptied transcript is not read-only', () => {
+        vp.appendMessage({ id: 'a2', role: 'assistant', content: '', timestamp: 3, status: 'streaming' });
+        expect(vp.hasAttribute('data-busy')).toBe(true);
+        (vp as unknown as { clearAll(): void }).clearAll();
+        expect(vp.hasAttribute('data-busy'), 'nothing streams in an empty transcript').toBe(false);
+        expect(vp.getMessages()).toHaveLength(0);
+    });
+});
