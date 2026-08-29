@@ -200,6 +200,25 @@ export class AparteChatViewport extends HTMLElement {
         this._render();
         this._setupEventListeners();
         this._setupObservers();
+        /**
+         * Empty every mounted transcript on the page.
+         *
+         * A command, not a notification: this is one of the events that travel the
+         * other way, dispatched by YOUR app on `window` and listened for here. Every
+         * connected `<aparte-chat-viewport>` clears its repository and its DOM and
+         * answers with `aparte-reset-done`, so a "New chat" button in a shell that
+         * holds no reference to the transcript still empties it. Carries no detail —
+         * and therefore no target, so it clears every viewport, not one.
+         *
+         * @event aparte-reset
+         */
+        // History, deliberately OUT of the JSDoc: `gen-events-ref.mjs` copies an
+        // `@event` body verbatim onto the public page, and this is repo business.
+        // The listener had been live and undocumented since it existed — absent from
+        // the events reference (the generator's name union read the dispatch sites
+        // only, and core never dispatches this one), absent from the manifest (still
+        // is, correctly: the element does not FIRE it), and covered by no test. A
+        // listener that could have been deleted in silence.
         this._boundResetHandler = () => this.clearAll();
         window.addEventListener('aparte-reset', this._boundResetHandler);
         window.addEventListener('aparte-config-change', this._onConfigChange);
@@ -217,7 +236,40 @@ export class AparteChatViewport extends HTMLElement {
         // The button's accessible name is locale text too — a language switch is
         // documented as live, and this was the one chrome string that stayed put.
         this._scrollBtn?.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
+        // The transcript's own name is locale text on the same terms.
+        const surface = this._frameworkManagedDOM ? this : this.querySelector('.aparte-viewport-container');
+        surface?.setAttribute('aria-label', resolveConfig(this).t('transcript'));
     };
+
+    /**
+     * The transcript is a TAB STOP, with a name.
+     *
+     * A scrollable region that no element can hold focus in cannot be scrolled from
+     * the keyboard in WebKit: Chromium and Firefox hand an unfocusable overflow box a
+     * caret or a "scroller" tab stop of their own, Safari does not. So a plain-text
+     * transcript — no links, no code blocks, nothing focusable inside — was unreadable
+     * past the first screen for a Safari keyboard user, with no error and nothing on
+     * screen to say so.
+     *
+     * `tabindex="0"` on the surface itself, in BOTH DOM modes. The framework mode
+     * appeared to work already, and only by accident: the scroll button is inside the
+     * host and stays tabbable while it is visually hidden, so Tab happened to land
+     * somewhere that scrolled. A tab stop that exists because a hidden button happens
+     * to sit there is not an affordance, it is a coincidence.
+     *
+     * The name ships WITH the tab stop rather than after it: a focusable `role="log"`
+     * with no accessible name is announced as an unnamed region, which is a worse
+     * answer than no tab stop at all. And the ROLE ships with both: a name on a
+     * generic element is the same defect mirrored — `aria-label` is prohibited on an
+     * element whose role resolves to none, which is what a bare custom element is. The
+     * default mode already writes `role="log"` on the container before this runs, so
+     * the guard here is what gives the framework-mode host the same declaration.
+     */
+    private _nameScrollSurface(el: HTMLElement): void {
+        el.setAttribute('tabindex', '0');
+        if (!el.hasAttribute('role')) el.setAttribute('role', 'log');
+        el.setAttribute('aria-label', resolveConfig(this).t('transcript'));
+    }
 
     /** Mirror `locale.direction` onto the scroll container. */
     private _applyDirection(): void {
@@ -1245,6 +1297,7 @@ export class AparteChatViewport extends HTMLElement {
             container.setAttribute('aria-live', 'polite');
             container.setAttribute('aria-atomic', 'false');
             container.setAttribute('aria-relevant', 'additions');
+            this._nameScrollSurface(container);
 
             const wrapper = document.createElement('div');
             wrapper.className = 'aparte-messages-wrapper';
@@ -1300,6 +1353,7 @@ export class AparteChatViewport extends HTMLElement {
             return; // already set up (re-entrant _render)
         }
         this.classList.add('aparte-viewport--framework');
+        this._nameScrollSurface(this);
 
         const scrollBtn = document.createElement('button');
         scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';

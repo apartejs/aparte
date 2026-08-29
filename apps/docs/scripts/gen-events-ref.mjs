@@ -183,7 +183,17 @@ const targetsOf = (name) => {
         .join(' + ');
 };
 
-const names = [...new Set([...detailOf.keys(), ...declared.keys(), ...tagged.keys(), ...where.keys()])].sort();
+/*
+ * `listened` is in the union, not only in the grouping.
+ *
+ * The four sources answer "what can I listen for". They all read DISPATCH — a typed
+ * map entry, a manifest `@fires`, an `@event` block, a `dispatchEvent` call — so an
+ * event core only LISTENS for was in none of them and appeared on no page, while the
+ * "ones you dispatch" group had been sitting here ready to render it. `aparte-reset`
+ * had been live and unpublished the whole time: a window listener that empties every
+ * transcript, which an app cannot use if it cannot learn the name.
+ */
+const names = [...new Set([...detailOf.keys(), ...declared.keys(), ...tagged.keys(), ...where.keys(), ...listened])].sort();
 
 if (names.length < EVENT_FLOOR) {
     console.error(
@@ -252,7 +262,7 @@ const GROUPS = [
     {
         id: 'inward',
         title: 'The ones you dispatch',
-        lead: 'The only two that travel the other way: core **listens** for these and never sends them. They are how your app answers a request it received — you generated the file, so you say when it is ready. Dispatch them on `window`.',
+        lead: 'The ones that travel the other way: core **listens** for these and never sends them, so they are COMMANDS your app issues rather than news it receives. Dispatch them on `window`; a listener will never see anything come back on the same name — the answer, when there is one, has a name of its own (`aparte-reset` is answered by `aparte-reset-done`).',
         of: (name) => !where.has(name) && listened.has(name),
     },
 ];

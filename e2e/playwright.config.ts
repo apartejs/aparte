@@ -185,6 +185,13 @@ const THEMING = /theming\.spec\.ts/;
 // real engine can produce. Anchored on the separator so it does not also match
 // `bubble-layout.spec.ts`.
 const SHELL_LAYOUT = /[\\/]layout\.spec\.ts$/;
+// The transcript as a keyboard surface. `vanilla` only, and for the same reason
+// THEMING is: it is core's own DOM and stylesheet, identical under every wrapper —
+// but vanilla is in WEBKIT_APPS, and WebKit is the entire point here. Chromium and
+// Firefox give an unfocusable overflow box a keyboard scroll of their own, so the
+// defect this covers is invisible in two of the three engines, and jsdom — which has
+// no layout and no scrolling at all — cannot host it in any of them.
+const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 
 // Which specs a given app runs.
 //
@@ -201,7 +208,7 @@ const SHELL_LAYOUT = /[\\/]layout\.spec\.ts$/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep
