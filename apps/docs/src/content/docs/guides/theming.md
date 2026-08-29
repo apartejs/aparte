@@ -192,7 +192,7 @@ what moves the whole kit at once, so the older, denser look is four lines away:
 }
 ```
 
-Compare the two on the [UI kit gallery](/kit/): every family reads the same tokens.
+Compare the two on any [UI kit](/kit/button/) page: every family reads the same tokens.
 
 ## Token groups
 

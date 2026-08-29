@@ -25,7 +25,6 @@
  *
  * Output (git-ignored, always regenerated):
  *   src/content/docs/reference/classes.mdx   — the exhaustive index
- *   src/content/docs/kit/index.mdx           — the gallery, previews only
  *   src/content/docs/kit/<family>.mdx        — one page per family, preview first
  *   src/generated/class-previews.ts
  */
@@ -358,9 +357,9 @@ md += `
  * hard to read, and there is no page where the UI library is easily visible" — the same
  * signal as issue #31, where the first consumer rebuilt controls the kit already had.
  * shadcn, Radix and Mantine all do the opposite: a top-level section, one page per
- * family, the live example above the code, and a gallery.
+ * family, the live example above the code.
  *
- * Same parse, same previews, a second output: `kit/index.mdx` is the gallery, and
+ * Same parse, same previews, a second output:
  * `kit/<family>.mdx` is one family with its preview, its markup folded under it, its
  * prose and its classes. The reference page stays the exhaustive index. Nothing is
  * written twice by hand — a banner edited in a sheet lands on all three pages.
@@ -384,30 +383,12 @@ const firstSentence = (text) => {
 };
 const kitPages = [];
 let kitOrder = 0;
-let gallery = `---
-title: UI kit
-description: Every ready-made class aparté ships, shown live — buttons, fields, tags, alerts, menus, tabs and the rest, on plain elements, themed like the chat.
-sidebar:
-  label: Gallery
-  order: 0
----
-
-import ClassPreview from '../../../components/ClassPreview.astro';
-
-Core is **light DOM**: it writes ordinary classes onto ordinary elements, and so can you.
-Put \`aparte-btn\` on a button of yours and it looks like the send button — no component to
-mount, no framework involved, and the same [CSS variables](/reference/css-variables/) paint
-it and the chat. Each family below has its own page with the markup; this one is the kit
-at a glance. The exhaustive list, class by class, is the
-[classes reference](/reference/classes/).
-`;
-
+// No gallery page — one page per family IS the section. A gallery of every preview on
+// one page was built and rejected by the maintainer ("galerie, c'est pas ça").
 for (const group of GROUPS) {
     const members = sheets.filter((s) => group.match(s.rel) && s.classes.length);
     if (!members.length) continue;
     const intro = group.introFrom ? members.find((m) => m.rel === group.introFrom)?.lead : null;
-    gallery += `\n## ${group.title}\n\n${mdxSafe(firstSentence(headlineFree(group.lead || intro?.prose || '')))}\n`;
-    if (intro?.example) gallery += `\n<ClassPreview slug="${group.id}-overview" />\n`;
 
     for (const family of members) {
         const prose = family.prose === intro?.prose ? '' : headlineFree(family.prose);
@@ -415,9 +396,6 @@ for (const group of GROUPS) {
         if (!prose && !example) continue;
         kitOrder += 1;
         const name = familyName(family.id);
-        gallery += `\n### [${name}](/kit/${family.id}/)\n\n`;
-        if (example) gallery += `<ClassPreview slug="${family.id}" />\n`;
-        else gallery += `${mdxSafe(firstSentence(prose))}\n`;
 
         let page = `---
 title: ${yaml(name)}
@@ -438,7 +416,6 @@ import ClassPreview from '../../../components/ClassPreview.astro';
         kitPages.push({ file: join(KIT_DIR, `${family.id}.mdx`), page });
     }
 }
-gallery += `\n{/* Generated from packages/core/src/styles/ by apps/docs/scripts/gen-css-classes.mjs — edit the stylesheet's header comment, not this file. */}\n`;
 
 /* A floor here too: a kit section with three pages is a matcher that stopped matching. */
 const KIT_FLOOR = 15;
@@ -447,7 +424,7 @@ if (kitPages.length < KIT_FLOOR) {
     process.exit(1);
 }
 mkdirSync(KIT_DIR, { recursive: true });
-let kitWrote = writeIfChanged(join(KIT_DIR, 'index.mdx'), gallery) ? 1 : 0;
+let kitWrote = 0;
 for (const { file, page } of kitPages) if (writeIfChanged(file, page)) kitWrote += 1;
 
 mkdirSync(dirname(OUT), { recursive: true });
@@ -469,5 +446,5 @@ writeIfChanged(
 const wrote = writeIfChanged(OUT, md);
 console.log(
     `[gen-css-classes] ${wroteOrNot(wrote)} ${total} classes across ${sheets.length} sheets ` +
-        `(${previews.length} with a live example) → ${OUT}; kit: ${kitPages.length} family pages + gallery (${kitWrote} written) → ${KIT_DIR}`,
+        `(${previews.length} with a live example) → ${OUT}; kit: ${kitPages.length} family pages (${kitWrote} written) → ${KIT_DIR}`,
 );

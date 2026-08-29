@@ -25,7 +25,7 @@ data.
 | `<aparte-sidebar>` | an element wearing the `.aparte-sidebar` recipe | it collapses, it becomes a drawer, and its search filters the list — three behaviours |
 
 That split is the rule the whole kit follows: a recipe draws, an element exists only where
-there is something to do. The [UI kit](/kit/) has every recipe with its markup; the
+there is something to do. The [UI kit](/kit/button/) has every recipe with its markup, one family per page; the
 [element page](/components/shell/aparte-sidebar/) has the sidebar's attributes and events.
 
 ## What the sidebar does
@@ -36,7 +36,7 @@ attribute names), so the header's hamburger needs no script. `aparte-sidebar-tog
 on every change, whoever caused it (`AparteSidebarToggleDetail`: `{ collapsed, drawer }`);
 the `AparteSidebar` class exposes `open()`, `close()`, `toggle()` and `filter(query)`.
 
-**Drawer.** Under 48rem of window the sidebar leaves the grid and slides over the page:
+**Drawer.** Under 48rem of window (`breakpoint`, a length or `none`) the sidebar leaves the grid and slides over the page:
 open, it draws a scrim, closes on Escape or a click outside, and hands the focus back to the
 control that opened it. It is the same element in the same place, positioned fixed — no
 portal, which is what a sidebar can do and a dialog cannot.
@@ -51,7 +51,7 @@ index over message bodies belongs to your storage adapter.
 A settings hub is a modal, and the kit's modal is the browser's own `<dialog>` wearing
 `.aparte-dialog`: `showModal()` gives the top layer, the focus trap, Escape and the focus
 return, and the recipe gives the box — header, a body that scrolls, footer, the backdrop, a
-full-screen sheet under 40rem. Three attributes wire it without a line of script: a control
+full-screen sheet under 30rem. Three attributes wire it without a line of script: a control
 with `data-aparte-dialog-open="id"` opens the dialog it names, `data-aparte-dialog-close`
 inside one closes it (its value becomes `returnValue`, read in the native `close` event), and
 a click on the backdrop closes it unless the dialog carries `data-aparte-dialog-static`.

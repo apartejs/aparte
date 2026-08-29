@@ -79,7 +79,14 @@ export const GUIDE_DEMOS: GuideDemo[] = [
       <aparte-chat-bubble message-id="u1" data-role="user" content="Make the header sticky."></aparte-chat-bubble>
       <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Done — it now stays at the top while the page scrolls."></aparte-chat-bubble>
     </aparte-chat-viewport>
-    <aparte-composer></aparte-composer>
+    <aparte-composer>
+      <div class="aparte-composer-shell">
+        <div class="aparte-composer-row">
+          <aparte-composer-input style="flex: 1"></aparte-composer-input>
+          <aparte-composer-send></aparte-composer-send>
+        </div>
+      </div>
+    </aparte-composer>
   </aparte-chat>
   <div style="display: grid; place-items: center; background: var(--aparte-surface-2); color: var(--aparte-text-muted); font-size: 0.85rem">
     your preview pane
@@ -91,9 +98,11 @@ export const GUIDE_DEMOS: GuideDemo[] = [
         title: 'The application shell: sidebar, header, chat',
         html: `<!-- Three pieces: the grid and the header are recipes, the sidebar is an element
      because it has behaviour. The toggle in the header needs no script — the sidebar
-     listens for \`data-aparte-sidebar-toggle\` itself, and shows under 48rem. -->
+     listens for \`data-aparte-sidebar-toggle\` itself, and shows under 48rem.
+     breakpoint="none" only because this frame is narrower than that: drop it and the
+     column becomes a drawer on a phone. -->
 <div class="aparte-app-shell" style="height: 24rem">
-  <aparte-sidebar>
+  <aparte-sidebar breakpoint="none">
     <div class="aparte-sidebar__header">
       <span class="aparte-sidebar__brand">aparté</span>
       <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
@@ -121,7 +130,14 @@ export const GUIDE_DEMOS: GuideDemo[] = [
         <aparte-chat-bubble message-id="u1" data-role="user" content="Where does the sidebar's state live?"></aparte-chat-bubble>
         <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="On the element: collapsed is an attribute you can set, read and persist."></aparte-chat-bubble>
       </aparte-chat-viewport>
-      <aparte-composer></aparte-composer>
+      <aparte-composer>
+        <div class="aparte-composer-shell">
+          <div class="aparte-composer-row">
+            <aparte-composer-input style="flex: 1"></aparte-composer-input>
+            <aparte-composer-send></aparte-composer-send>
+          </div>
+        </div>
+      </aparte-composer>
     </aparte-chat>
   </main>
 </div>
@@ -187,7 +203,14 @@ export const GUIDE_DEMOS: GuideDemo[] = [
     <aparte-chat-bubble message-id="u1" data-role="user" content="Is this the whole width?"></aparte-chat-bubble>
     <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Yes — no column here, just the transcript's padding on each side."></aparte-chat-bubble>
   </aparte-chat-viewport>
-  <aparte-composer></aparte-composer>
+  <aparte-composer>
+    <div class="aparte-composer-shell">
+      <div class="aparte-composer-row">
+        <aparte-composer-input style="flex: 1"></aparte-composer-input>
+        <aparte-composer-send></aparte-composer-send>
+      </div>
+    </div>
+  </aparte-composer>
 </aparte-chat>`,
     },
 ];

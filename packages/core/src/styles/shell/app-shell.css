@@ -13,11 +13,24 @@
  * `height: 100dvh` for a page — and everything inside follows. Under 48rem the sidebar
  * leaves the grid to become a drawer, and the header's toggle appears.
  *
- *     <div class="aparte-app-shell" style="height: 100dvh">
- *       <aparte-sidebar>…</aparte-sidebar>
- *       <header class="aparte-header">…</header>
+ *     <div class="aparte-app-shell" style="height: 18rem">
+ *       <aside class="aparte-sidebar">
+ *         <div class="aparte-sidebar__header"><span class="aparte-sidebar__brand">aparté</span></div>
+ *         <div class="aparte-sidebar__body"><aparte-conversation-list></aparte-conversation-list></div>
+ *       </aside>
+ *       <header class="aparte-header"><span class="aparte-header__title">Deploy checklist</span></header>
  *       <main class="aparte-app-shell__main">
- *         <aparte-chat>…</aparte-chat>
+ *         <aparte-chat>
+ *           <aparte-chat-viewport></aparte-chat-viewport>
+ *           <aparte-composer>
+ *             <div class="aparte-composer-shell">
+ *               <div class="aparte-composer-row">
+ *                 <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *                 <aparte-composer-send></aparte-composer-send>
+ *               </div>
+ *             </div>
+ *           </aparte-composer>
+ *         </aparte-chat>
  *       </main>
  *     </div>
  */

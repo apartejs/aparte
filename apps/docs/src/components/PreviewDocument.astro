@@ -101,7 +101,13 @@ const { title, markup, scripts } = Astro.props;
                every child to full width, so `<span class="aparte-badge">Live</span>` rendered
                as a 1000px green bar — the opposite of what a badge is. An example has to lay
                out the way it will lay out on the reader's own page, and that is block flow. */
-            body > * + * {
+            /* BLOCKS only. The rule as written hit every inline child of the body after the
+               first: in the Kbd example, "Press <kbd>Ctrl</kbd> + <kbd>K</kbd>" — the second
+               and third keys are body children too, so they got a 1rem top margin and sat a
+               line below the first (the maintainer's screenshot); the copy button of the
+               Button example rode high for the same reason. An inline example lays out as a
+               sentence, and a sentence has no stacking gap. */
+            body > * + *:not(:is(a, abbr, b, button, code, em, i, img, input, kbd, label, mark, samp, select, small, span, strong, sub, sup, svg, aparte-icon, aparte-progress-spinner, .aparte-thumb, .aparte-avatar, .aparte-avatar-group, .aparte-badge, .aparte-tag, .aparte-kbd, .aparte-btn, .aparte-spinner, .aparte-switch, .aparte-checkbox, .aparte-radio)) {
                 margin-block-start: 1rem;
             }
         </style>
@@ -168,6 +174,26 @@ const { title, markup, scripts } = Astro.props;
                 for (const el of document.body.querySelectorAll('*')) {
                     const r = el.getBoundingClientRect();
                     if (r.height > 0 && r.bottom > bottom) bottom = r.bottom;
+                }
+                /*
+                 * A modal <dialog> is in the top layer: centred in THIS frame's viewport
+                 * and capped to it, so its box never reaches below the body — the loop
+                 * above cannot see it. The frame therefore stayed the height of the
+                 * trigger button, and the dialog reopened into no room at all (the
+                 * maintainer's report: "tout petit"). Two rules: while a kit dialog is
+                 * merely present, a floor, so the reopen does not start from a sliver;
+                 * while it is open, the height its content wants, which the parent caps.
+                 */
+                const dialog = document.querySelector<HTMLDialogElement>('dialog.aparte-dialog');
+                if (dialog) {
+                    bottom = Math.max(bottom, 360);
+                    if (dialog.open) {
+                        const wanted = Array.from(dialog.children).reduce(
+                            (sum, child) => sum + Math.max(child.scrollHeight, child.getBoundingClientRect().height),
+                            0,
+                        );
+                        bottom = Math.max(bottom, wanted + 96);
+                    }
                 }
                 return Math.ceil(bottom);
             };

@@ -14,7 +14,7 @@
  * drawer, the search filter) and sets `data-drawer` on itself from the media query,
  * which is the one attribute the rules below read.
  *
- *     <aparte-sidebar>
+ *     <aside class="aparte-sidebar">
  *       <div class="aparte-sidebar__header">
  *         <span class="aparte-sidebar__brand">aparté</span>
  *         <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
@@ -30,7 +30,10 @@
  *       <div class="aparte-sidebar__footer">
  *         <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
  *       </div>
- *     </aparte-sidebar>
+ *     </aside>
+ *
+ * The element wears the same class and adds the behaviour; `<aside class="aparte-sidebar">`
+ * is the look alone, which is what this page shows.
  */
 aparte-sidebar,
 .aparte-sidebar {

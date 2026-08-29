@@ -24,7 +24,7 @@ const { name, markup, slug } = Astro.props;
  * block a reader copies stays the sheet's own example, with no `open` hardcoded.
  */
 const scripts = slug === 'dialog'
-    ? ["const d = document.querySelector('dialog.aparte-dialog'); if (d) { d.show(); d.style.position = 'static'; d.style.margin = '1rem auto'; }"]
+    ? ["const d = document.querySelector('dialog.aparte-dialog'); if (d) { d.show(); d.style.position = 'static'; }"]
     : [];
 ---
 

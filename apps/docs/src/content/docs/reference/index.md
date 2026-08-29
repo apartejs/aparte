@@ -11,7 +11,7 @@ answers one question:
 
 | Page | The question it answers |
 | --- | --- |
-| [The UI kit — classes](/reference/classes/) | *Which ready-made classes can I put on my own elements?* Every class on one page. Buttons, fields, switches, tags, alerts, menus, tabs, avatars — plain classes on plain elements, themed by the same variables as the chat, with their HTML verbatim. To *see* them first, one family per page, start at the [UI kit](/kit/). |
+| [The UI kit — classes](/reference/classes/) | *Which ready-made classes can I put on my own elements?* Every class on one page. Buttons, fields, switches, tags, alerts, menus, tabs, avatars — plain classes on plain elements, themed by the same variables as the chat, with their HTML verbatim. To *see* them first, one family per page, start at the [UI kit](/kit/button/). |
 | [CSS variables](/reference/css-variables/) | *Which `--aparte-*` token do I set to change this?* Every declared variable with its default, and the ones a component reads with a fallback. |
 | [Events](/reference/events/) | *What does aparté dispatch, with what `detail`?* The kebab-case event map, one row per event. |
 | [Config](/reference/config/) | *What can `aparteGlobalConfig` (or a per-chat `AparteConfig`) be told?* Providers, transports, renderers, hooks, host handlers. |
