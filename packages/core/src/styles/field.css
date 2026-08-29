@@ -12,6 +12,7 @@
  *     </label>
  *     <input id="email" class="aparte-field" type="email" placeholder="you@example.com" />
  *     <p class="aparte-field-hint">We only use this to send a receipt.</p>
+ *     <p class="aparte-field-warning">Changing it signs you out of other devices.</p>
  *
  *     <div class="aparte-field-group">
  *       <span class="aparte-field-group__prefix">https://</span>
@@ -157,6 +158,9 @@
   background: var(--aparte-surface-1);
   border: var(--aparte-border-width) solid var(--aparte-border);
   border-radius: var(--aparte-field-radius);
+  /* The addons' ground follows the group's corners; the focus ring is a shadow on the
+     group itself, outside this box, so it is not clipped. */
+  overflow: hidden;
   transition:
     border-color var(--aparte-duration-fast) var(--aparte-ease),
     box-shadow var(--aparte-duration-fast) var(--aparte-ease);
@@ -178,14 +182,23 @@
   box-shadow: none;
 }
 
+/* An addon has a ground of its own and a rule against the field: on the field's own
+   ground, in muted text, "https://" read as the start of what the user had typed. */
 .aparte-field-group__prefix,
 .aparte-field-group__suffix {
   display: inline-flex;
   align-items: center;
   padding-inline: var(--aparte-space-3);
+  background: var(--aparte-surface-2);
   font-size: var(--aparte-font-size-sm);
   color: var(--aparte-text-muted);
   white-space: nowrap;
+}
+.aparte-field-group__prefix {
+  border-inline-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+.aparte-field-group__suffix {
+  border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
 }
 
 .aparte-field-group:hover:not(:has(.aparte-field:disabled)) {
@@ -440,10 +453,15 @@
      has to live here where `:checked` can override it — a central default could never
      react to the class + state combo. */
   --aparte-switch-track: var(--aparte-surface-3);
-  --aparte-switch-width: 36px;
-  --aparte-switch-height: 20px;
-  --aparte-switch-thumb-size: 16px;
+  --aparte-switch-width: 40px;
+  --aparte-switch-height: 22px;
   --aparte-switch-thumb-inset: 2px;
+  /* DERIVED from the track, not a fourth literal to keep in step with the other three:
+     the thumb used to be 16px in a 20px track with a 1px border and a 2px top inset —
+     2px of air above it and none below, visibly low ("le cercle pas centré"). The
+     thumb is what is left once the border and the inset are paid on both sides, so
+     it is centred by construction, whatever the track's size. */
+  --aparte-switch-thumb-size: calc(var(--aparte-switch-height) - 2 * var(--aparte-border-width) - 2 * var(--aparte-switch-thumb-inset));
   /* No shared shadow token fits a small thumb like this one, so it's a plain literal —
      kept the same in both themes rather than reaching for a per-theme split this file
      has no other precedent for. */
@@ -644,6 +662,19 @@
   margin-block-start: var(--aparte-space-1);
   font-size: var(--aparte-font-size-xs);
   color: var(--aparte-error-text);
+}
+
+/* The third tone of a field's sub-text: a consequence, not a fault. "This setting
+   invalidates the saved states" is neither a hint nor an error, and a shell that had
+   only those two painted it as one of them. Same shape as the error line; the warning
+   ink is the derived one every other warning reads. */
+.aparte-field-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-1);
+  margin-block-start: var(--aparte-space-1);
+  font-size: var(--aparte-font-size-xs);
+  color: var(--aparte-warning-ink);
 }
 
 /* A bare colour on the marker, not injected `*` content: a locale that doesn't mark

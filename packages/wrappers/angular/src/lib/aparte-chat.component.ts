@@ -77,6 +77,7 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
               #bubble
               [attr.message-id]="message.id"
               [attr.data-role]="message.role"
+              [attr.data-kind]="message.compaction ? 'compaction' : null"
               [attr.timestamp]="message.timestamp"
               [attr.content]="message.content"
               [attr.streaming]="awaitingReply(message) ? '' : null"
@@ -88,6 +89,12 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
           [attr.text]="typingText()"
         ></aparte-chat-status>
       </aparte-chat-viewport>
+
+      <!-- The presenter for a request to the human (approval gate, ask_user…).
+           Renders nothing until something asks; on by default as in <aparte-chat>. -->
+      @if (elicitation()) {
+        <aparte-elicitation></aparte-elicitation>
+      }
 
       <ng-content select="[slot='above-composer']"></ng-content>
 
@@ -227,6 +234,16 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      */
     @Input({ alias: 'attachments', transform: booleanAttribute }) set attachmentsInput(val: boolean) { this.attachments.set(val); }
     readonly attachments = signal<boolean>(false);
+
+    /**
+     * Render the `<aparte-elicitation>` presenter inside the host — on by default, as
+     * it is in `<aparte-chat>`: the built-in approval gate and `requestUserInput()`
+     * ask through it, and it renders nothing until something asks. Set it to `false`
+     * when you mount a presenter of your own (`setElicitationPresenter`) or place the
+     * element yourself.
+     */
+    @Input({ alias: 'elicitation', transform: booleanAttribute }) set elicitationInput(val: boolean) { this.elicitation.set(val); }
+    readonly elicitation = signal<boolean>(true);
 
     /** Whether the assistant is currently typing/streaming */
     @Input({ alias: 'isTyping', transform: booleanAttribute }) set isTypingInput(val: boolean) { this.isTyping.set(val); }

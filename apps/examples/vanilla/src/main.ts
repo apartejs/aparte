@@ -25,7 +25,9 @@ import { setupMarkedProvider } from '@aparte/plugin-marked';
 // elicitation, the guide — undemonstrated on the one app that is raw core: asking a
 // local model to "use the question tool" got a truthful "I have no such tool".
 import { setupAskUser } from '@aparte/plugin-ask-user';
-import { runStreamAgent, createCompactionSelector } from '@aparte/engine';
+import { setupArtifacts } from '@aparte/plugin-artifacts';
+import { runStreamAgent } from '@aparte/engine';
+import { setupCompaction } from '@aparte/plugin-compaction';
 import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
 import {
     DEFAULT_SETTINGS,
@@ -41,6 +43,9 @@ import {
 registerDefaultRenderers();
 setupMarkedProvider();
 setupAskUser();
+// The artifact is a plugin: the `create_artifact` tool, the `<artifact>` grammar and
+// the Code/Preview card that renders both, in one call.
+setupArtifacts();
 
 // 1b. "Thought for 1.4s" — the market's collapsed reasoning line, built HERE.
 //
@@ -161,13 +166,6 @@ aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 //    runs. That equivalence is what the engine parity suite asserts.
 const client = new AparteClient({
     streamRunner: runStreamAgent,
-    // What `compact()` summarises — asked for by the gauge's `auto-compact`, or by
-    // dispatching `aparte-compact`. Without this the whole history is summarised;
-    // with it, the newest turns that still fit the model's window stay verbatim.
-    compactionSelector: createCompactionSelector({
-        contextWindow: () => aparteGlobalConfig.getCurrentModel()?.contextWindow,
-        systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
-    }),
     // The endpoint + token the settings view holds, for ANY provider. The record
     // form (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint,
     // and it is honoured on both the chat and the /models path.
@@ -178,10 +176,130 @@ const client = new AparteClient({
 applySystemPrompt(aparteGlobalConfig, loadSettings());
 client.start(); // listens for aparte-send/retry/edit and streams replies into the chat
 
+// Compaction: the gauge's `auto-compact` (index.html) asks on reaching 90 %, and this
+// answers — the newest turns that still fit the model's window stay verbatim, the rest
+// is summarised through the same provider, key and endpoint the chat uses.
+setupCompaction({ keyResolver: settingsKeyResolver(loadSettings) });
+
 // Register <aparte-model-selector> AFTER providers are registered, so its async
 // connectedCallback loads the model list with the providers already present
 // (a static import would upgrade the element mid-setup and miss them).
 void import('@aparte/plugin-model-selector');
+
+// ── Layout variants (`?layout=split`, `?layout=shell`) ───────────────────────
+//
+// Same convention as `?chats=2` below: off by default, so the page stays the
+// single-chat reference, and reachable by a URL a reader can share.
+//
+//   ?layout=split — the chat in one pane of an <aparte-split>, an <iframe> in the
+//                   other. The FRAME is the point: a pointer that crosses an iframe
+//                   is delivered to the frame's document and lost, which is what the
+//                   split's drag scrim exists to prevent. Nothing else in this repo
+//                   put a frame beside a chat, so nothing proved it.
+//   ?layout=shell — the same split, inside the real application shell: a sidebar
+//                   that becomes a drawer, a header with its toggle and the two
+//                   [data-aparte-split-pane] buttons. The shell had zero browser
+//                   coverage before this — no example app contained one.
+//
+// The restructure runs HERE, before any of the chat wiring below: it moves the
+// existing <aparte-chat> rather than building a second one, so the client, the
+// optimistic bubble and every E2E helper keep driving the same element. It is also
+// before the model selector's dynamic import resolves, so that element upgrades
+// once, already in its final place.
+
+/** The pane beside the chat. A whole document, because an <iframe> is the case under test. */
+const PREVIEW_DOC =
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    + '<style>body{margin:0;padding:24px;font:16px/1.5 system-ui,sans-serif;background:#f7f3ec;color:#221d17}'
+    + 'h1{margin:0 0 8px;font-size:1.2rem}p{margin:0;opacity:.8}</style></head>'
+    + '<body><h1>Your pane</h1><p>A preview frame, an editor, a canvas. Drag the seam to resize it.</p></body></html>';
+
+/**
+ * Wrap `chatEl` in an `<aparte-split>` with a preview frame beside it.
+ *
+ * Assembled DETACHED and inserted in one go. Building it in place would connect the
+ * split with no children, and the element inserts its seam between the first two —
+ * with none there it lands first, which is the pane track the stacked rules hide.
+ */
+function buildSplit(chatEl: HTMLElement): HTMLElement {
+    const split = document.createElement('aparte-split');
+    split.setAttribute('position', '38');
+    split.setAttribute('style', 'height:100%; --aparte-split-min: 16rem');
+
+    const pane = document.createElement('section');
+    pane.className = 'aparte-split__pane';
+    const frame = document.createElement('iframe');
+    frame.title = 'Preview';
+    frame.setAttribute('style', 'display:block; inline-size:100%; block-size:100%; border:0');
+    // `srcdoc` through setAttribute, never interpolated into innerHTML.
+    frame.setAttribute('srcdoc', PREVIEW_DOC);
+    pane.appendChild(frame);
+
+    const parent = chatEl.parentElement;
+    const anchor = chatEl.nextSibling;
+    chatEl.remove();
+    split.appendChild(chatEl);
+    split.appendChild(pane);
+    parent?.insertBefore(split, anchor);
+    return split;
+}
+
+/** The two buttons that switch panes while the split is stacked. No script behind them. */
+function paneSwitcher(): HTMLElement {
+    const actions = document.createElement('div');
+    actions.className = 'aparte-app-header__actions';
+    // `--surface` rather than a bare `.aparte-btn`: the plain form is a ghost, which
+    // reads as two words of text rather than two controls when nothing sits beside it.
+    actions.innerHTML =
+        '<button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>'
+        + '<button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>';
+    return actions;
+}
+
+/** `?layout=shell` — sidebar, header, and the split in the main area. */
+function buildShell(app: HTMLElement, split: HTMLElement): void {
+    const shell = document.createElement('div');
+    shell.className = 'aparte-app-shell';
+    shell.innerHTML = `
+      <aparte-sidebar>
+        <div class="aparte-sidebar__header">
+          <span class="aparte-sidebar__brand">aparté</span>
+        </div>
+        <div class="aparte-sidebar__search aparte-field-group">
+          <input class="aparte-field aparte-field--sm" type="search" placeholder="Search conversations"
+                 aria-label="Search conversations" data-aparte-sidebar-search />
+        </div>
+        <div class="aparte-sidebar__body">
+          <aparte-conversation-list></aparte-conversation-list>
+        </div>
+      </aparte-sidebar>
+      <header class="aparte-app-header">
+        <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button"
+                aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>&#9776;</button>
+        <span class="aparte-app-header__title">aparté · vanilla</span>
+      </header>
+      <main class="aparte-app-shell__main"></main>`;
+    shell.querySelector('.aparte-app-header')?.appendChild(paneSwitcher());
+    split.remove();
+    shell.querySelector('.aparte-app-shell__main')?.appendChild(split);
+    // The topbar's job — the brand, and the way out to the settings view — is the
+    // header's now, so the page does not carry two of them.
+    const viewswitch = app.querySelector('.viewswitch');
+    if (viewswitch) shell.querySelector('.aparte-app-header__actions')?.appendChild(viewswitch);
+    app.querySelector('.topbar')?.remove();
+    app.appendChild(shell);
+}
+
+const layoutParam = new URLSearchParams(location.search).get('layout');
+if (layoutParam === 'split' || layoutParam === 'shell') {
+    const app = document.querySelector<HTMLElement>('.app:not(.settings)');
+    const chatEl = document.querySelector<HTMLElement>('aparte-chat');
+    if (app && chatEl) {
+        const split = buildSplit(chatEl);
+        if (layoutParam === 'shell') buildShell(app, split);
+        else app.querySelector('.topbar')?.insertBefore(paneSwitcher(), app.querySelector('.viewswitch'));
+    }
+}
 
 // ── Chat wiring ──────────────────────────────────────────────────────────────
 // The bare <aparte-chat> shell doesn't own a ConversationController (that's the

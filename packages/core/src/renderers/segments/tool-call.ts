@@ -12,24 +12,18 @@ import type {
     AparteToolCallSegment,
 } from '../../types/index.js';
 import { injectToolRendererStyles } from '../segment-renderers.js';
+import { describeToolInput } from '../../utils/tool-input.js';
 
 /**
  * The arguments as text, or `''` when there are none worth showing.
  *
- * Pretty-printed JSON, because that is what the model actually sent and what every
- * reference implementation shows — a prose summary would be core inventing a reading
- * of arguments it knows nothing about. `JSON.stringify` can throw on a cyclic value,
- * which a tool input should never be but a hand-built segment can be, so a failure
- * degrades to no input rather than to a broken bubble.
+ * The body moved to `utils/tool-input.ts` when the approval panel started showing the
+ * same arguments: the row is the anchor and the panel is where the decision is made,
+ * so a person must not be able to read the two differently. See that file for why it
+ * is pretty-printed JSON.
  */
 function describeInput(segment: AparteToolCallSegment): string {
-    const input = segment.toolCall?.input;
-    if (!input || typeof input !== 'object' || Object.keys(input).length === 0) return '';
-    try {
-        return JSON.stringify(input, null, 2);
-    } catch {
-        return '';
-    }
+    return describeToolInput(segment.toolCall?.input);
 }
 
 /**
@@ -55,6 +49,8 @@ function stateBadge(segment: AparteToolCallSegment): string {
     // A stop square, not the cross rejected wears: stopped and declined are two
     // different outcomes, and they used to share the glyph and the colour.
     if (status === 'aborted') return `${cfg.getIcon('stop')}${word('toolStopped')}`;
+    // A crash is a third outcome: not declined, not stopped — the handler threw.
+    if (status === 'failed') return `${cfg.getIcon('close')}${word('toolFailed')}`;
     return '';
 }
 
@@ -246,6 +242,14 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
      */
     relabel: (element, segment) => {
         const cfg = contextConfig();
+        // A registered renderer owns its markup, so none of the selectors below exist
+        // in it; its own `relabel` — when it declares one — is the only thing that can
+        // re-read the locale for it.
+        const custom = cfg.getToolRenderer(segment.toolCall?.name);
+        if (custom) {
+            custom.relabel?.(element, segment);
+            return;
+        }
         const icon = element.querySelector('.aparte-tool-icon');
         if (icon) icon.innerHTML = cfg.getIcon('tool');
         // Through `stateBadge`, which is the whole point of it existing.
@@ -297,6 +301,13 @@ export const toolCallRenderer: AparteSegmentRenderer<AparteToolCallSegment> = {
          * there — there was no disclosure to keep open.
          */
         const custom = contextConfig().getToolRenderer(segment.toolCall?.name);
+        // A registered renderer that declares `update` owns the patch — a mounted
+        // preview or an opened disclosure in its markup survives the change. One
+        // that does not is rebuilt, as it always was.
+        if (custom?.update) {
+            custom.update(element, segment);
+            return;
+        }
         if (custom || wantsDetail !== (element.tagName === 'DETAILS')) {
             // A `<template>`, not the bubble's own converter: this file is a renderer
             // and must not import from the component that consumes it.

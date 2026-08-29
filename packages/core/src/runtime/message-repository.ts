@@ -262,6 +262,19 @@ export class AparteMessageRepository {
                 );
                 continue;
             }
+            // Boundary validation where foreign data enters, beside the orphan skip: an
+            // id already inserted cannot be inserted again. `export()` walks the tree
+            // from the root and never repeats one, so no legitimate snapshot is refused
+            // — but a hand-made or corrupted one that names an entry as its own parent
+            // passed the orphan check (the id IS known) and sent `addOrUpdateMessage`
+            // into the `existing` branch, which walked the cycle forever.
+            if (this._nodes.has(message.id)) {
+                console.warn(
+                    `[AparteMessageRepository] import: message "${message.id}" repeats an id `
+                    + 'already in the snapshot — skipped.',
+                );
+                continue;
+            }
             this.addOrUpdateMessage(parentId, message);
         }
         if (exported.headId) {

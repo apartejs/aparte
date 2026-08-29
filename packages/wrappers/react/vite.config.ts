@@ -22,6 +22,13 @@ export default defineConfig({
         rollupOptions: {
             // Peers — never bundle.
             external: ['react', 'react-dom', 'react/jsx-runtime', '@aparte/core'],
+            // `'use client'` on the CHUNK. The directive at the top of AparteChat.tsx is
+            // not what ships: Rollup drops module-level directives from non-entry
+            // modules when it merges them into one file, so the published build had
+            // none and the documented Next App Router path broke on import. Every
+            // runtime export of the entry is a component or a hook, so the whole
+            // chunk is a client boundary; a banner is the one place Rollup keeps it.
+            output: { banner: "'use client';" },
         },
     },
 });

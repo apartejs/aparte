@@ -30,6 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      # nx 20 keeps its cache INDEX in a sqlite file under `.nx/workspace-data`, so an
+      # archived `.nx/cache` alone restores artifacts no index knows about — a miss on
+      # every run, silently. The legacy file cache is self-describing (one directory per
+      # hash plus its `.commit` marker) and is what the cache step below carries.
+      NX_DB_CACHE: 'false'
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -53,6 +59,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # nx's cache, carried between runs. A fresh runner typechecks 26 projects (79 s)
+      # and builds them (44 s) for a diff that reached two; with the previous run's
+      # cache restored, only what the diff reaches re-runs. Restored here and in the
+      # e2e job (same Node major, same outputs). NOT in node-floor: nx does not hash
+      # the Node version, so a build restored from a Node 24 run would skip the one
+      # build that job exists to perform.
+      #
+      # Saved at the end of this job, from a push only, so the archive follows the
+      # branch and a pull request cannot write into it. Every key is unique (the sha),
+      # and the prefixes let a run start from the latest of its branch, then of any.
+      - name: Restore the nx cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ github.ref_name }}-
+            nx-${{ runner.os }}-
+
       - name: Lint
         run: pnpm lint
 
@@ -74,10 +99,12 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # Publish-safety: publint (all 15 packages) + are-the-types-wrong (the 12
-      # non-SFC/APF packages; angular/svelte/vue carry an inherent attw node16
-      # limitation for their .svelte/.vue/APF type entrypoints — publint still
-      # covers them).
+      # Publish-safety: publint over every publishable package + are-the-types-wrong
+      # over all but angular/svelte/vue, which carry an inherent attw node16 limitation
+      # for their .svelte/.vue/APF type entrypoints — publint still covers them. Both
+      # sets are the `pnpm -r --filter "./packages/**"` filter in `check-packaging`, so
+      # a new package is covered the day it exists; count with
+      # `pnpm -r --filter "./packages/**" list --depth -1`.
       - name: Check packaging
         run: pnpm check-packaging
 
@@ -138,7 +165,7 @@ jobs:
       - name: Check text-position escaping
         run: pnpm check:text-escaping
 
-      - name: Check crypto.randomUUID stays behind uuid()
+      - name: Check secure-context-only APIs stay behind their fallback
         run: pnpm check:secure-context
 
       - name: Check a segment is stamped in one place
@@ -146,6 +173,8 @@ jobs:
 
       - name: Check derived CSS variables re-anchor where a palette changes
         run: pnpm check:derived-vars
+      - name: Locale keys (every t() read declared, every key read, fr complete)
+        run: pnpm check:locale-keys
 
       - name: Check the typed event map is honest
         run: pnpm check:event-map
@@ -221,6 +250,19 @@ jobs:
           else
             pnpm exec changeset status --since="origin/${{ github.base_ref }}"
           fi
+
+      # The archive would otherwise only ever grow: each run restores the previous one
+      # and adds its own entries. A week of trunk state is what a diff can reach.
+      - name: Prune nx cache entries older than a week
+        if: github.event_name == 'push'
+        run: find .nx/cache -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} +
+
+      - name: Save the nx cache
+        if: github.event_name == 'push'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
 
   # Portability guard for the ONE claim nothing else checks: engines.node ">=18".
   #
@@ -350,6 +392,16 @@ jobs:
   e2e:
     needs: scope
     runs-on: ubuntu-latest
+    # Three shards, because this job was the wall: ~10 min against ~6 for `ci`, on a
+    # 2-core runner driving seven example apps through three engines. Playwright splits
+    # the test files evenly across shards; each shard boots the six dev servers itself
+    # (one minute) and pays the install and the build (cached, see the nx cache in
+    # `ci`). A failing shard names itself in the check list — `e2e (2)` — and the
+    # report of each is its own artifact.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # Runs INSIDE Playwright's own image: the browsers and the system libraries
     # WebKit needs are already there, so this job stops apt-getting them on every
     # run. That step cost 0.9 min on a good day, 3.2 min on a worse one, and 20+
@@ -374,6 +426,8 @@ jobs:
     # projects.
     env:
       HOME: /root
+      # See the `ci` job: the file cache is what the restore step below carries.
+      NX_DB_CACHE: 'false'
     permissions:
       contents: read
     steps:
@@ -394,20 +448,33 @@ jobs:
         if: needs.scope.outputs.source == 'true'
         run: pnpm install --frozen-lockfile
 
+      # Read-only here: the `ci` job saves. Same keys, so the build below is mostly hits.
+      - name: Restore the nx cache
+        if: needs.scope.outputs.source == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ github.ref_name }}-
+            nx-${{ runner.os }}-
+
       # vanilla-dist consumes @aparte/core from its dist, so the packages must be
       # built before the E2E dev servers boot.
       - name: Build
         if: needs.scope.outputs.source == 'true'
         run: pnpm build
 
+      # `playwright test` directly rather than `pnpm e2e`, so the shard flag reaches
+      # Playwright without crossing two `pnpm run` boundaries.
       - name: Browser smoke E2E
         if: needs.scope.outputs.source == 'true'
-        run: pnpm e2e
+        run: pnpm --filter @aparte-workspace/e2e exec playwright test --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: ${{ !cancelled() && needs.scope.outputs.source == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: e2e/playwright-report/
           retention-days: 7

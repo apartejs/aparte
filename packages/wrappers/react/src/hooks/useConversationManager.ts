@@ -16,14 +16,21 @@ export interface UseConversationManager {
     archivedConversations: AparteConversation[];
     activeId: string | null;
     activeConversation: AparteConversation | null;
-    /** Initialise with a storage adapter (call once). */
-    init: (adapter: AparteStorageAdapter) => Promise<void>;
+    /**
+     * Initialise with a storage adapter (call once). `config` is the one you gave
+     * `<AparteChat config={…}>`; it defaults to the global — the implementation always
+     * took it, the interface hid it, so the documented two-argument call did not type.
+     */
+    init: (adapter: AparteStorageAdapter, config?: AparteConfig) => Promise<void>;
     createNew: (title?: string) => Promise<AparteConversation>;
     addMessage: (convId: string, message: AparteMessage) => Promise<void>;
     updateMessages: (convId: string, messages: AparteMessage[]) => Promise<void>;
     delete: (id: string) => Promise<void>;
     archive: (id: string) => Promise<void>;
     unarchive: (id: string) => Promise<void>;
+    pin: (id: string) => Promise<void>;
+    unpin: (id: string) => Promise<void>;
+    updateTitle: (id: string, title: string) => Promise<void>;
 }
 
 /**
@@ -94,5 +101,8 @@ export function useConversationManager(): UseConversationManager {
         delete: (id) => assert().delete(id),
         archive: (id) => assert().archive(id),
         unarchive: (id) => assert().unarchive(id),
+        pin: (id) => assert().pin(id),
+        unpin: (id) => assert().unpin(id),
+        updateTitle: (id, title) => assert().updateTitle(id, title),
     };
 }

@@ -106,6 +106,23 @@ export interface AparteElicitationRequest {
      * re-reading it would mean nothing.
      */
     message: string | (() => string);
+    /**
+     * The body under the question: what is actually being decided.
+     *
+     * TEXT, and shown as text — a preformatted block the panel renders through
+     * `textContent`. It exists because the approval panel used to show the tool's
+     * NAME and nothing else, while the arguments the model chose — the thing a person
+     * is being asked to approve — stayed in the transcript row behind a closed
+     * disclosure. A decision surface that omits what is being decided is asking for a
+     * signature on a blank page.
+     *
+     * Not markup, and not a render hook: the content here is model-authored, so the
+     * string arm of a hook would be a model-to-DOM XSS on the highest-stakes control
+     * in the library. A host that wants a diff view registers its own presenter.
+     *
+     * Ignored on `kind: 'question'` — a question's body is its schema.
+     */
+    details?: string;
     /** What to ask for. */
     /**
      * What value to collect. Required on a `'question'`, absent on an `'approval'` —
@@ -170,6 +187,20 @@ export interface AparteApprovalOption {
      * translating it.
      */
     label: string | (() => string);
+    /**
+     * What choosing it commits to, drawn under the label — the scope of an "always".
+     *
+     * A label can say "Always allow" and not what that reaches: one host remembered
+     * the first word of a command (`git`, for `git status`) while the button said
+     * "Always allow", so the user authorised every git command believing they had
+     * authorised one. The panel could not show the difference, because an option had
+     * nowhere to put it. Two options that differ only in reach now differ on screen:
+     * `description: 'git status'` beside `description: 'git *'`.
+     *
+     * Same two arms as `label`, for the same reason: it follows a language switch
+     * while the request is open.
+     */
+    description?: string | (() => string);
     /**
      * How it is drawn. `'affirm'` and `'deny'` are the two poles a decision has; a
      * third would be a preference, not a meaning, so there is no `'neutral'`.

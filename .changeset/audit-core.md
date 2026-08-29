@@ -1,0 +1,9 @@
+---
+"@aparte/core": minor
+---
+
+Two of the ten pre-beta audit fixes are visible to your code: `AparteToolCallSegment.status` gains the value `failed` (with a new optional locale key, `toolFailed`), and `aparte-message-done` no longer fires for a turn superseded by a retry or an edit on an earlier bubble. The other eight change no call you make.
+
+A tool handler that throws now settles its row on that `failed` status — badge and locale key — instead of spinning "Running" forever; a `switch` over `status` in a renderer of your own should answer it, and a locale of your own may translate `toolFailed` (it falls back to the built-in English otherwise). A superseded turn ends on its own signal rather than the client-wide abort flag the next send resets, which is why it no longer announces a reply that was cut.
+
+The rest. Core stamps `data-segment-id` on the root of every renderer's output, tool renderers included — a root without it (the ask_user receipt) made every update of that segment wipe and rebuild the whole bubble, destroying a mounted artifact preview and collapsing an opened reasoning block. `AparteMessageRepository.import()` skips a repeated id (a snapshot naming itself as its own parent recursed forever). Under the four wrappers: a framework append is recorded in the viewport's tree by the same act (a manual token stream used to invent a phantom root and reverse the path on the next branch operation); the transcript's read-only-while-streaming flag has one writer per mode — `setTranscriptBusy`, written by the host — so retry, edit and the branch arrows are disabled during a reply as they were meant to be; and the conversation controller subscribes to a manager registered after `bind()`, which is every wrapper's case, so deleting the active conversation elsewhere clears the binding. The `node` entry exports the element classes as types, as the docs promised. The composer button's JSDoc no longer describes an "advance" meaning.

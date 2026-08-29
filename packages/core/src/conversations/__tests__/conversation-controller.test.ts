@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AparteConversationController, type AparteChatBinding } from '../conversation-controller.js';
 import { AparteConversationManager } from '../conversation-manager.js';
+import { aparteGlobalConfig } from '../../config/index.js';
 import type { AparteConversation, AparteStorageAdapter } from '../types.js';
 import { APARTE_CONVERSATION_SCHEMA_VERSION } from '../types.js';
 import type { AparteMessage } from '../../types/index.js';
@@ -74,6 +75,33 @@ describe('AparteConversationController', () => {
     });
 
     // ─── setConversationId ────────────────────────────────────────────────
+
+    describe('a manager registered AFTER bind() — every wrapper\'s case', () => {
+        it('is still subscribed: deleting the active conversation clears the binding', async () => {
+            // The wrappers call `await m.init()` then `config.setConversationManager(m)`,
+            // i.e. after the mount effect that bound the controller; a subscription
+            // taken only at bind() was never installed under any of them.
+            const binding = makeBinding(host);
+            const ctrl = new AparteConversationController(binding);   // no `manager` option
+            ctrl.bind();
+            aparteGlobalConfig.setConversationManager(manager);
+            try {
+                const conv = await manager.createNew('late');
+                await manager.addMessage(conv.id, userMsg('hi'));
+                await ctrl.setConversationId(conv.id);
+                expect(binding.getMessages()).toHaveLength(1);
+
+                await manager.delete(conv.id);
+                await flush();
+
+                expect(binding.getMessages(), 'the phantom history is gone').toHaveLength(0);
+                expect(ctrl.activeId).toBeNull();
+            } finally {
+                ctrl.unbind();
+                aparteGlobalConfig.setConversationManager(null as never);
+            }
+        });
+    });
 
     describe('setConversationId', () => {
         it('loads messages from manager into binding', async () => {

@@ -2,13 +2,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LANDING_TITLE, LANDING_DESCRIPTION, LANDING_IMAGE_ALT } from '../data/landing-meta';
-import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+import Landing from '../layouts/Landing.astro';
 import { SEGMENT_KINDS } from '../data/segment-kinds';
 // The same list `check:derived-vars` and the CSS-variables reference read, so this page
 // cannot count a corpus the rest of the repo has stopped using.
 import { coreStylesheets } from '../../../../scripts/core-stylesheets.mjs';
-import '../styles/palette.css';
-import '../styles/landing.css';
 
 /*
  * The landing page.
@@ -45,17 +43,10 @@ import '../styles/landing.css';
 const REPO = new URL('../../', pathToFileURL(`${process.cwd()}/`).href);
 const at = (p: string) => new URL(p, REPO);
 
-/** The shipped version, read at build time so the nav chip cannot go stale. */
+/** The shipped version, read at build time — the JSON-LD below is what still needs it
+ *  here. The nav chip has its own read, in the layout, of this same file: two reads of
+ *  one file at build time, not two copies of a value, so they cannot disagree. */
 const CORE_VERSION: string = JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')).version;
-
-/**
- * The chip SAYS a version, so it goes to that version's release notes rather than to the
- * list. Derived from the same string it displays — starlight-changelogs slugs a version by
- * replacing dots with dashes — so it cannot point at a release the chip is not showing.
- * `pnpm version-packages` bumps package.json and writes the CHANGELOG section in one step,
- * and check:doc-links fails the gate if the two ever disagree.
- */
-const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
 
 /**
  * The numbers this page quotes, MEASURED at build time.
@@ -251,36 +242,15 @@ const FAMILIES = [
 
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{LANDING_TITLE}</title>
-    <meta name="description" content={LANDING_DESCRIPTION} />
-    <link rel="canonical" href="https://apartejs.dev/" />
-
-    <!-- This page is an Astro page, not a Starlight one, so it inherits none of the head
-         Starlight builds: it had NO Open Graph at all, while being the most-shared URL of
-         the site. Every link to it rendered as a bare line of text in Slack, Discord,
-         LinkedIn and X. The card itself is generated at build time like every docs page's
-         (src/pages/og/), so this stays a list of pointers, not a second design. -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="aparté" />
-    <meta property="og:title" content={LANDING_TITLE} />
-    <meta property="og:description" content={LANDING_DESCRIPTION} />
-    <meta property="og:url" content="https://apartejs.dev/" />
-    <meta property="og:image" content="https://apartejs.dev/og/index.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content={LANDING_IMAGE_ALT} />
-    <meta property="og:locale" content="en" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={LANDING_TITLE} />
-    <meta name="twitter:description" content={LANDING_DESCRIPTION} />
-    <meta name="twitter:image" content="https://apartejs.dev/og/index.png" />
-    <meta name="twitter:image:alt" content={LANDING_IMAGE_ALT} />
-
+<Landing
+  title={LANDING_TITLE}
+  description={LANDING_DESCRIPTION}
+  canonical="https://apartejs.dev/"
+  ogImage="https://apartejs.dev/og/index.png"
+  ogImageAlt={LANDING_IMAGE_ALT}
+  current="index"
+>
+  <Fragment slot="head">
     <!-- What the software IS, said in a vocabulary a machine can read rather than
          inferred from marketing prose. `SoftwareSourceCode` is the type for a
          library one reads and depends on; the runnable product it targets is nested
@@ -305,53 +275,7 @@ const FAMILIES = [
         operatingSystem: 'Any',
       },
     })} />
-    <!-- This page is `/`, which is where a crawler looks for the site's icon — so the
-         links live here too, not only in the Starlight config (that one covers the
-         docs pages). SVG for browsers, .ico as the raster search engines prefer. -->
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/favicon.ico" sizes="48x48 32x32 16x16" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-    <script is:inline>
-      // Shared light/dark with the Starlight docs: read the SAME localStorage key
-      // Starlight uses (`starlight-theme`) and apply `data-theme` before paint, so
-      // the choice made on the docs carries over to the landing with no flash.
-      (() => {
-        const stored = localStorage.getItem('starlight-theme') || 'auto';
-        const theme =
-          stored === 'light' || stored === 'dark'
-            ? stored
-            : matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'dark'
-              : 'light';
-        document.documentElement.dataset.theme = theme;
-      })();
-    </script>
-
-    <!-- Self-hosted Umami: cookieless, no personal data, so no consent banner. Built
-         sites only, so `astro dev` never files a visit from localhost. The same tag
-         is in src/components/Head.astro because THIS page carries its own head and
-         inherits nothing from Starlight; src/data/analytics.ts holds the two values
-         once, and names the CSP that has to allow the host. -->
-    {import.meta.env.PROD && (
-      <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>
-    )}
-  </head>
-  <body>
-    <div class="stage-glow" aria-hidden="true"></div>
-
-    <main class="wrap">
-      <nav class="site-nav">
-        <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
-        <div class="nav-links">
-          <a class="ver" href={CORE_VERSION_HREF} title={`What changed in ${CORE_VERSION}`}>
-            <b>v{CORE_VERSION}</b><span class="alpha">alpha</span>
-          </a>
-          <a href="/why/" class="hide-sm">Why apart&eacute;</a>
-          <a href="/guides/getting-started/" class="hide-sm">Docs</a>
-          <a href="https://github.com/apartejs/aparte" target="_blank" rel="noopener">GitHub</a>
-          <button class="toggle" id="themeToggle" aria-label="Switch theme" title="Switch theme">&#9789;</button>
-        </div>
-      </nav>
+  </Fragment>
 
       <section class="hero">
        <div class="hero-grid">
@@ -495,7 +419,7 @@ viewport.<span class="fn">updateSegment</span>(id, <span class="st">'s1'</span>,
 <span class="cm">// business, never the model's. You never write</span>
 <span class="cm">// messageId or index either — the owner stamps</span>
 <span class="cm">// them, and its measurements land in meta.aparte.</span></pre>
-<pre class="pane" data-pane="artifact"><span class="cm">// the model wrote a document; core renders the card</span>
+<pre class="pane" data-pane="artifact"><span class="cm">// the model wrote a document; the artifacts plugin renders the card</span>
 viewport.<span class="fn">addSegment</span>(mid, &#123;
   id: <span class="st">'a1'</span>, type: <span class="st">'artifact'</span>,
   artifactType: <span class="st">'svg'</span>,
@@ -763,28 +687,12 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         </p>
       </section>
 
-      <footer>
-        <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
-        <div class="foot-links">
-          <a href="/why/">Why apart&eacute;</a>
-          <a href="/guides/getting-started/">Docs</a>
-          <a href="/changelog/">Changelog</a>
-          <a href="https://github.com/apartejs/aparte" target="_blank" rel="noopener">GitHub</a>
-          <!-- External links leave the site, so they open in their own tab. `rel` is
-               `noopener` and deliberately NOT `noreferrer`: the opener reference is
-               the security concern, while the Referer header is how GitHub and npm
-               attribute traffic back to this page. -->
-          <a href="https://www.npmjs.com/org/aparte" target="_blank" rel="noopener">npm</a>
-        </div>
-        <div>A private word, in any framework.</div>
-      </footer>
-    </main>
-
     <script>
       // The real library — registers <aparte-*> elements + pulls in the theme.
       import '@aparte/core';
       import '@aparte/core/styles.css';
       import { registerDefaultRenderers, aparteGlobalConfig, filesToAttachments } from '@aparte/core';
+      import { setupArtifacts } from '@aparte/plugin-artifacts';
       // The real package, not a French object typed into this page: a lever that
       // demonstrates localisation has to be the thing a consumer would install.
       import { fr } from '@aparte/locale-fr';
@@ -802,16 +710,22 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       import githubLight from '@shikijs/themes/github-light';
       import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
       registerDefaultRenderers();
+      // The artifact card is the plugin's, not core's: the demo below streams an
+      // `artifact` segment, and this is what gives it a renderer.
+      setupArtifacts();
       // Bubble actions are decided PER PANEL, in `showDemo` — not here. The rule is
       // that an action must be honoured by someone: copy is honoured by core alone,
       // so it stays on everywhere; retry is honoured by the `aparte-retry` listener
       // at the bottom of this file, which only knows how to fork a chat reply.
       // edit/feedback/info stay off: nothing here would answer them.
 
-      // ── theme toggle — shared with the docs via the `starlight-theme` key ──
-      // The inline <head> script already applied the persisted theme; here we
-      // mirror it onto the chat component and persist any toggle to the SAME key
-      // Starlight reads, so light/dark stays in sync across landing ↔ docs.
+      // ── theme, as this page's business ─────────────────────────────────
+      // The frame (src/layouts/Landing.astro) owns the toggle: it flips
+      // `data-theme`, persists to the SAME key Starlight reads — so light/dark
+      // stays in sync across landing ↔ docs ↔ roadmap — and then SAYS so, with a
+      // `site-theme-change` event on `document`. What is left here is the half only
+      // this page has: mirroring the theme onto the live chat and its levers, which
+      // a shared frame has no business knowing about.
       const root = document.documentElement;
       const currentTheme = () =>
         root.getAttribute('data-theme') ||
@@ -828,10 +742,9 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         else levers?.removeAttribute('data-aparte-theme');
       }
       applyTheme(currentTheme());
-      document.getElementById('themeToggle')?.addEventListener('click', () => {
-        const next = currentTheme() === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('starlight-theme', next);
-        applyTheme(next);
+      document.addEventListener('site-theme-change', (e) => {
+        const { theme } = (e as CustomEvent<{ theme: string }>).detail;
+        applyTheme(theme);
         applySkin(skin);   // a "follow the page" preset has to follow it
       });
 
@@ -1402,7 +1315,7 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
         chat: 'The component itself, streaming token by token — and the composer collecting files, because <b>attachments are one attribute</b> once a host consumes them.',
         tools: 'A tool marked <b>needsApproval</b> pauses the turn and asks at the composer. Press a choice &#8212; or type what to do instead &#8212; and watch the reply come back either way.',
         segments: `One assistant reply holding <b>reasoning and code</b> in the same message. ${N_KINDS} kinds ship registered by default, mixable in any order.`,
-        artifact: 'The model wrote a document, and core renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
+        artifact: 'The model wrote a document, and the artifacts plugin renders it as a tabbed card. Press <b>Preview</b>: the iframe is sandboxed, its CSP is delivered twice for Firefox and Safari, and it is <b>mounted only by your press</b> — reloading a saved conversation never re-runs what a model wrote.',
         branch: 'Retry <b>forks a sibling</b> instead of overwriting, and the picker appears on its own. Bubble actions stay off until a host answers them.',
       };
       const HINTS: Record<string, string> = {
@@ -1478,5 +1391,4 @@ viewport.<span class="fn">addSiblingOf</span>(messageId, next);</pre>
       });
       render('vanilla');
     </script>
-  </body>
-</html>
+</Landing>

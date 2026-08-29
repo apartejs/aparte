@@ -1,6 +1,6 @@
 import type { AparteComposer } from './aparte-composer.js';
 import { resolveConfig } from '../../config/config-context.js';
-import { escapeAttr } from '../../utils/escape.js';
+import { escapeAttr, escapeHtml } from '../../utils/escape.js';
 
 
 /**
@@ -107,21 +107,30 @@ export class AparteComposerAttachments extends HTMLElement {
         // Free the previous render's preview URLs before minting new ones.
         this._revokeUrls();
 
+        const cfg = resolveConfig(this);
+        // "Remove {name}", from the locale. It was the literal `Remove ${name}` — an
+        // icon-only button, so this string is the whole of what a screen-reader user
+        // hears, and it stayed English in every language the library shipped.
+        // Interpolated from the RAW file name and escaped once, at the end: reusing the
+        // already-escaped `name` would escape a `&` twice and read "rapport &amp; co".
+        const removeLabel = (file: File): string =>
+            (cfg.t('removeAttachment') || 'Remove {name}').replace('{name}', file.name);
+
         this.innerHTML = files.map((file) => {
-            const name = this._escape(file.name);
+            const name = escapeHtml(file.name);
             const remove =
                 `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-thumb__remove" type="button" ` +
-                `aria-label="Remove ${name}">${resolveConfig(this).getIcon('close')}</button>`;
+                `aria-label="${escapeAttr(removeLabel(file))}">${cfg.getIcon('close')}</button>`;
 
             if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);
                 this._objectUrls.push(url);
-                return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${escapeAttr(name)}">` +
-                    `<img class="aparte-thumb__img" src="${escapeAttr(url)}" alt="${escapeAttr(name)}" />` +
+                return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">` +
+                    `<img class="aparte-thumb__img" src="${escapeAttr(url)}" alt="${name}" />` +
                     `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
             }
-            return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${escapeAttr(name)}">` +
-                `<span class="aparte-thumb__ext">${this._escape(this._ext(file.name))}</span>` +
+            return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">` +
+                `<span class="aparte-thumb__ext">${escapeHtml(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');
 
@@ -164,10 +173,6 @@ export class AparteComposerAttachments extends HTMLElement {
     private _ext(filename: string): string {
         const dot = filename.lastIndexOf('.');
         return dot > 0 ? filename.slice(dot + 1).toUpperCase().slice(0, 4) : 'FILE';
-    }
-
-    private _escape(str: string): string {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 }
 

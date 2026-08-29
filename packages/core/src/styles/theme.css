@@ -35,13 +35,15 @@
   --aparte-surface-1: #fffdf8;
   /* Bubbles, cards */
   --aparte-surface-2: #f1ebdf;
-  /* Code blocks, headers */
-  --aparte-surface-3: #e7dfce;
+  /* `--aparte-surface-3` (code blocks, headers) and `--aparte-text-inverse` are no
+     longer literals here: both are derived from the masters in the anchored layer
+     below, so the eight-line rebrand the theming guide documents actually covers them.
+     They were the two palette hexes that survived a rebrand — a consumer on a blue
+     brand kept the brass palette's cream for its tooltip ink and its code headers. */
 
   /* Text */
   --aparte-text: #241f2b;
   --aparte-text-muted: #6d6479;
-  --aparte-text-inverse: #fffdf8;
 
   /* Borders */
   --aparte-border: #e5ddce;
@@ -87,8 +89,8 @@
      a large-type page grow twice over. Wanting rem spacing anyway is now a
      one-line change here — which is the point of having a master at all. */
   --aparte-space-unit: 2px;
-  --aparte-radius-unit: 2px;
-  --aparte-font-scale: 1;
+  --aparte-radius-unit: 3px;
+  --aparte-font-scale: 1.08;
 
   /* Not a step of the radius scale: a pill is a shape, not a size. */
   --aparte-radius-full: 9999px;
@@ -177,9 +179,9 @@
   /* Messages */
   --aparte-message-max-width: 800px;
 
-  /* Bubbles — opt-in. By default both roles render as a transparent row with
-     no bubble background; consumers can flip these to get a chat-app look. */
-  --aparte-message-content-bg-user: #efe7f6;
+  /* Bubbles. The user's bubble tint is DERIVED from the accent in the anchored layer
+     below (it was a frozen plum hex that outlived every rebrand); the assistant is
+     plain prose (AI-chat convention) — flip it to get a two-bubble chat-app look. */
   --aparte-message-content-bg-assistant: transparent;
   --aparte-message-content-radius: 14px;
 
@@ -327,6 +329,34 @@
 
   /* Conversation List */
   --aparte-conv-action-btn-size: 20px;
+
+  /* Scroll rail — the ticks beside the transcript. Off-scale on purpose: a 2px line
+     and a 14px mark are a minimap's measures, not spacing steps. */
+  --aparte-scroll-rail-width: 20px;
+  --aparte-scroll-rail-tick-size: 14px;
+  --aparte-scroll-rail-tick-thickness: 2px;
+
+  --aparte-scroll-rail-gap: 8px;
+
+  /* Context gauge, ring variant — a diameter, and a stroke in the ring's own 36-unit
+     box. Literals like the rail's: a 22px ring is a toolbar's measure, not a spacing step. */
+  --aparte-context-ring-size: 22px;
+  --aparte-context-ring-stroke: 4;
+
+  /* Shell — the sidebar's column, the header's row and the split's seam. */
+  --aparte-sidebar-width: 260px;
+  --aparte-app-header-height: 48px;
+  --aparte-scrim: rgba(0, 0, 0, 0.35);
+  /* The split's primary pane and the bounds it moves between. Any length or
+     percentage: the browser clamps them in the grid template, so nothing in JS
+     parses a unit. The seam is 4px because that is a seam; the grab zone around it
+     is 12px because that is a target, and it grows to the touch target on a coarse
+     pointer (responsive.css). */
+  --aparte-split-position: 38%;
+  --aparte-split-min: 20rem;
+  --aparte-split-max: 60%;
+  --aparte-split-handle-size: 4px;
+  --aparte-split-hit-area: 12px;
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather
      than sitting as a magic number in a rule. Literal, like every other size
@@ -358,28 +388,6 @@
   /* Select. Its dropdown shadow used to live as a fallback inside select.css,
      which meant it had no dark value at all — rgba(0,0,0,0.1) over a dark
      surface is no shadow. Declared here, it themes like every other. */
-  /* Paper. An artifact preview is a DOCUMENT shown inside the chat — a spreadsheet,
-     a rendered page — so it stays light whatever the app theme is, the way a PDF
-     viewer shows a white page in a dark editor. That intent was already written in a
-     comment beside a literal `#fff`; naming it is what makes it overridable, and it
-     is deliberately absent from the dark block so the paper does not follow. */
-  --aparte-art-paper-bg: #fff;
-  --aparte-art-paper-text: #1f2937;
-  --aparte-art-paper-row-alt: #f9fafb;
-  --aparte-art-paper-head-bg: #f3f4f6;
-  --aparte-art-paper-head-text: #111827;
-  --aparte-art-paper-border: rgba(0, 0, 0, 0.1);
-
-  /* File-type tiles. Brand colours, so they are literals on purpose — but named,
-     because an app with its own file-type palette has nowhere else to put it. */
-  --aparte-art-file-icon-bg: linear-gradient(135deg, #1d6f42, #0f5132);
-  /* Fixed, like the tiles it sits on. --aparte-text-inverse would be right for a
-     THEMED background and is wrong here: it turns near-black in dark mode, which
-     would put black lettering on a dark green tile. */
-  --aparte-art-file-icon-color: #fff;
-  --aparte-art-file-icon-bg-pdf: linear-gradient(135deg, #c0392b, #7d1f17);
-  --aparte-art-file-icon-bg-docx: linear-gradient(135deg, #1e5288, #0f3060);
-  --aparte-art-file-error-msg-bg: rgba(0, 0, 0, 0.04);
 
   --aparte-line-height-snug: 1.4;
 
@@ -436,19 +444,13 @@
   --aparte-skeleton-text-last-width: 60%;
   --aparte-progress-indeterminate-width: 40%;
 
-  --aparte-btn-size-sm: 20px;
-  --aparte-btn-size-md: 28px;
-  --aparte-btn-size-lg: 36px;
+  --aparte-btn-size-sm: 24px;
+  --aparte-btn-size-md: 32px;
+  --aparte-btn-size-lg: 40px;
 
   --aparte-focus-outline-offset: -2px;
   --aparte-tool-spinner-size: 10px;
   --aparte-model-select-chevron-room: 28px;
-  --aparte-art-card-header-min-height: 36px;
-  --aparte-art-card-pulse-size: 8px;
-  --aparte-art-card-btn-size: 28px;
-  --aparte-art-file-icon-size: 40px;
-  --aparte-art-file-preview-padding: 20px;
-  --aparte-art-file-error-padding-inline: 18px;
 }
 
 /* =========================================
@@ -460,10 +462,11 @@
   --aparte-bg: #17141c;
   --aparte-surface-1: #211b28;
   --aparte-surface-2: #2a2333;
-  --aparte-surface-3: #342a40;
+  /* `--aparte-surface-3`, `--aparte-text-inverse` and the user bubble's tint are not
+     re-declared here: they derive from the masters (anchored layer), so the dark
+     masters above are enough to move them. */
 
   /* Bubbles — user only; assistant is plain prose (AI-chat convention) */
-  --aparte-message-content-bg-user: #2f2740;
   --aparte-message-content-bg-assistant: transparent;
 
   /* Text */
@@ -473,7 +476,6 @@
      dark for the only reason that this line was missing — which left the scrollbar
      thumb, and now a neutral badge, at the light value on a dark ground. */
   --aparte-neutral: #a89bb6;
-  --aparte-text-inverse: #17141c;
 
   /* Borders */
   --aparte-border: #342a40;
@@ -490,9 +492,6 @@
   --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  /* Not the paper — that stays light on purpose. This is a code block inside the
-     error panel, which does follow the theme. */
-  --aparte-art-file-error-msg-bg: rgba(255, 255, 255, 0.06);
 
   /* Error segment */
   /* The text inks, going the other way: on a dark ground the accent gains
@@ -771,11 +770,26 @@ aparte-chat {
   --aparte-avatar-error-ring: 0 0 0 2px var(--aparte-error-solid);
 
   /* Focus ring — derived from the accent so it themes automatically. */
-  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 15%, transparent);
+  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 30%, transparent);
 
   /* Messages */
   --aparte-message-content-text-user: var(--aparte-text);
   --aparte-message-content-text-assistant: var(--aparte-text);
+  /* The user's bubble: a wash of the accent over the card surface. It was a literal
+     (`#efe7f6` light / `#2f2740` dark) — the one palette colour a consumer's eight-line
+     rebrand could not reach, so a chat moved to a blue brand kept a plum bubble. Mixed
+     in sRGB rather than derived with `oklch(from …)`, because a wash has to keep the
+     SURFACE's lightness, not the accent's; 12 % is where the default palette reads as a
+     tint, not a fill, on both grounds. */
+  --aparte-message-content-bg-user: color-mix(in srgb, var(--aparte-primary) 12%, var(--aparte-surface-1));
+  /* The third surface: the second, pulled 6 % toward the text. Close to what the old
+     literals encoded (`#e7dfce` from `#f1ebdf` light, `#342a40` from `#2a2333` dark —
+     5 to 9 % per channel, not one figure), now one rule that follows the masters. */
+  --aparte-surface-3: color-mix(in srgb, var(--aparte-text) 6%, var(--aparte-surface-2));
+  /* Text on the text colour used as a fill (the tooltip, the avatar). The card
+     surface is the lightest tone in light and the darkest-but-one in dark, which is
+     what the two literals were. */
+  --aparte-text-inverse: var(--aparte-surface-1);
   --aparte-surface:         var(--aparte-surface-1);
   --aparte-surface-hover:   var(--aparte-surface-2);
   --aparte-text-secondary:  var(--aparte-text-muted);
@@ -855,6 +869,9 @@ aparte-chat {
   /* Input (composer) */
   --aparte-input-line-height: var(--aparte-line-height-normal);
 
+  /* Shell */
+  --aparte-sidebar-bg: var(--aparte-surface-2);
+
   /* Conversation List */
   --aparte-conv-item-radius: var(--aparte-radius-md);
   --aparte-conv-item-color: var(--aparte-text-muted);
@@ -862,9 +879,5 @@ aparte-chat {
   --aparte-conv-item-bg-hover: var(--aparte-surface-3);
   --aparte-conv-item-bg-active: var(--aparte-surface-3);
   --aparte-conv-item-font-weight-active: var(--aparte-font-weight-medium);
-  --aparte-conv-delete-color: var(--aparte-text-muted);
-  --aparte-conv-delete-bg-hover: var(--aparte-error);
-  --aparte-conv-delete-color-hover: var(--aparte-text-inverse);
-  --aparte-conv-delete-radius: var(--aparte-radius-sm);
 }
 

@@ -1,0 +1,27 @@
+---
+/**
+ * `@aparte/plugin-artifacts`, on the window, for the one preview frame that needs it.
+ *
+ * A component of its own rather than an `import` at the top of `PreviewDocument`'s module
+ * script, and the reason is distribution weight, not tidiness: an unconditional import
+ * there would put the plugin's chunk in every element, segment, class and demo frame on
+ * the site — hundreds of documents — to serve the single demo that calls it. Astro emits a
+ * script only on the pages that actually render the component carrying it, so this chunk
+ * belongs to `/preview/demo/layout-artifact/` and to nothing else.
+ *
+ * A demo's own `<script>` is a CLASSIC script (see `guide-demos.ts`) and therefore cannot
+ * `import`, which is why the module is handed over on `window` — the same bargain
+ * `PreviewDocument` already makes for `window.aparte`. `Reflect.set` rather than an
+ * assignment so no ambient declaration has to be invented for a two-line frame helper.
+ *
+ * Render it BEFORE `PreviewDocument`'s own module script: module scripts run in document
+ * order, so `window.aparteArtifacts` exists by the time the deferred demo scripts are
+ * revived. Both scripts resolve to the one `@aparte/core` chunk, so `setupArtifacts()`
+ * registers on the very config the frame's elements read.
+ */
+---
+
+<script>
+    import * as artifacts from '@aparte/plugin-artifacts';
+    Reflect.set(window, 'aparteArtifacts', artifacts);
+</script>

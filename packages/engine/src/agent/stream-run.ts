@@ -11,11 +11,11 @@
  *
  * Formerly the parity target of core's inline loop; now the one loop, its call
  * sequences pinned by core's `stream-parity` snapshots.
- * Scope: text · thinking · tool_use (+ HITL) · done · error · the built-in
- * create_artifact · synthetic toolChoice bypass. Code-fence promotion stays
- * adapter-side (it needs the core parser), and so do `<artifact>` tags in the
- * text: the core parser reads them natively. The raw / XML artifact modes and the
- * multi-phase pipeline were removed (audit 2026-08-28, D2) — orchestration is the
+ * Scope: text · thinking · tool_use (+ HITL) · done · error · synthetic toolChoice
+ * bypass. Tagged blocks in the text (`<artifact>`, `<cite>`…) are adapter-side: core's
+ * parser reads the grammars registered on the config. The built-in `create_artifact`
+ * left with the artifact (D7) — it is a registered tool now. The raw / XML artifact
+ * modes and the multi-phase pipeline were removed (audit 2026-08-28, D2) — orchestration is the
  * product's, and a mode nothing in this repository emitted was a contract
  * maintained for nobody.
  */
@@ -31,7 +31,6 @@ import type {
     StreamApprovalResolver,
     StreamUsage,
 } from './stream-events.js';
-import { deriveArtifactKind } from './parsers/artifact-kind.js';
 
 /** Default per-tool-call handler timeout — mirrors `TOOL_HANDLER_TIMEOUT_MS`. */
 const DEFAULT_TOOL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -86,10 +85,10 @@ export interface StreamRunOptions {
      */
     onHistoryAppend?: (message: StreamAgentMessage) => void;
     /**
-     * Generates artifact segment ids (`prefix` is e.g. `'artifact-raw'`). The
-     * default is a deterministic per-run counter; the adapter injects a
-     * crypto-based one to match `_streamLoop`'s `artifact-*-<uuid>`. (Tool ids
-     * still flow from the stream; only artifacts need generated ids.)
+     * Generates the ids the loop mints itself — today only the synthetic call of a
+     * forced `toolChoice` (`prefix` is `'synthetic-tool'`). The default is a
+     * deterministic per-run counter; core's client injects a crypto-based one. Tool
+     * ids otherwise flow from the stream.
      */
     idGen?: (prefix: string) => string;
 }
@@ -160,11 +159,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
 
     // ── outer (turn) loop — one iteration = one transport call ────────────────
     while (continueLoop) {
-        // Abort at the top of a turn: no stream open yet, so no cancel needed.
-        if (signal.aborted) {
-            emitter({ type: 'run-aborted' });
-            break;
-        }
+        // Abort at the top of a turn: no stream open yet, so no cancel needed. The
+        // `run-aborted` itself is emitted once, at the loop's exit (see below).
+        if (signal.aborted) break;
 
         turns++;
         if (turns > maxTurns) {
@@ -207,7 +204,11 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 continueLoop = false;
                 continue;
             }
-            emitter({ type: 'tool-resolved', toolCallId: syntheticId, result: outcome.content });
+            if (outcome.status === 'failed') {
+                emitter({ type: 'tool-failed', toolCallId: syntheticId, error: errorText(outcome.error) });
+                throw outcome.error;
+            }
+            emitter({ type: 'tool-resolved', toolCallId: syntheticId, result: outcome.content, structuredResult: outcome.structuredContent });
             append({ role: 'tool_call', content: '', toolCalls: [{ id: syntheticId, name: tc.name, input: tc.input }] });
             append({ role: 'tool_result', content: outcome.content, toolCallId: syntheticId });
             baseRequest = { ...baseRequest, toolChoice: 'none', tools: undefined };
@@ -232,7 +233,7 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 // `runStreamAgent` + `createStreamAdapter` directly never got the
                 // `completed` status and the bubble stayed flagged streaming — which
                 // is verbatim the defect the client-side guard was added to fix.
-                emitter({ type: 'run-aborted' });
+                // (`run-aborted` is emitted once, at the loop's exit.)
                 continueLoop = false;
                 break;
             }
@@ -265,6 +266,9 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         // Per-turn streaming state.
         let precedingText = '';
         const toolCallsThisTurn: StreamToolCall[] = [];
+        // "Did this turn ask for tools" — a different question from "which calls are
+        // declared" (`toolCallsThisTurn`, which now holds only committed ones).
+        let sawToolUse = false;
         /**
          * The turn's ONE `tool_call` envelope, held by reference. Created — and
          * appended, so the host is notified once — the first time a call needs it;
@@ -279,7 +283,17 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
          * outright. A reference cannot be guessed wrong.
          */
         let envelope: StreamAgentMessage | null = null;
-        const ensureEnvelope = (): void => {
+        /*
+         * A call is DECLARED in the envelope only once it is committed to producing
+         * a `tool_result` — at the three sites that append one right after. It used
+         * to be pushed the moment the `tool_use` event was read, into the same array
+         * the envelope holds by reference, so a call halted before its result (no
+         * handler, turn limit, missing resolver, an abort during the wait) still
+         * appeared in a history the host was told to hold by reference: a
+         * `tool_call` declaring a call that never gets a result.
+         */
+        const declareCall = (call: StreamToolCall): void => {
+            toolCallsThisTurn.push(call);
             if (envelope) return;
             envelope = { role: 'tool_call', content: '', toolCalls: toolCallsThisTurn, precedingText: precedingText.trim() || undefined };
             append(envelope);
@@ -297,7 +311,6 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         const bailOnAbort = async (): Promise<boolean> => {
             if (!signal.aborted) return false;
             await iterator.return?.(undefined);
-            emitter({ type: 'run-aborted' });
             continueLoop = false;
             return true;
         };
@@ -347,30 +360,23 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     warnUnknownStreamEvent(event);
                     continue;
                 }
-                toolCallsThisTurn.push({ id: event.id, name: event.name, input: event.input });
+                sawToolUse = true;
 
-                // Built-in create_artifact: bypass the generic tool path entirely
-                // (no tool-start, no approval, no handler) — build the artifact
-                // one-shot and inject a success tool_result (mirrors the create_artifact fast-path in _streamLoop).
-                if (event.name === 'create_artifact') {
-                    const input = (event.input ?? {}) as { mimeType?: string; title?: string; content?: string };
-                    const mimeType = input.mimeType ?? 'text/plain';
-                    const kind = deriveArtifactKind(mimeType, 'text');
-                    emitter({ type: 'artifact-ready', id: `artifact-${event.id}`, mimeType, kind, title: input.title ?? kind, content: input.content ?? '' });
-                    // The turn's envelope, not one of its own: a fresh `[create_artifact]`
-                    // envelope here is what orphaned the next tool's result.
-                    ensureEnvelope();
-                    append({ role: 'tool_result', content: 'Artifact created successfully.', toolCallId: event.id });
-                    continue;
-                }
-
+                // No built-in tool of any name: `create_artifact` used to be dispatched
+                // here, before the tool path, with no handler, no approval and its own
+                // result. A tool is a tool — the app registers it (`@aparte/plugin-artifacts`
+                // does), and it goes through tool-start, the gate, the handler and the
+                // envelope like every other.
                 emitter({ type: 'tool-start', toolCallId: event.id, name: event.name, input: event.input });
 
                 const cfg = toolConfigLookup?.(event.name);
 
-                // Per-tool maxTurns (note: `>=`, stricter than the global `>`).
+                // Per-tool maxTurns — the same arithmetic as the global cap (`>`), so one
+                // number means one thing on both knobs. It was `>=`: `maxTurns: 1` on a
+                // tool made it un-callable on the very first turn, and `maxTurns: N`
+                // allowed N-1 calls against the global option's N.
                 const effectiveMaxTurns = cfg?.maxTurns ?? maxTurns;
-                if (turns >= effectiveMaxTurns) {
+                if (turns > effectiveMaxTurns) {
                     emitter({ type: 'turn-limit-exceeded', scope: 'tool', limit: effectiveMaxTurns, toolCallId: event.id });
                     continueLoop = false;
                     break;
@@ -386,8 +392,17 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                 let effectiveInput = event.input;
 
                 // ── HITL approval gate ────────────────────────────────────────
-                if (cfg?.needsApproval) {
-                    emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
+                const gated = typeof cfg?.needsApproval === 'function'
+                    ? cfg.needsApproval({ id: event.id, name: event.name, input: event.input as Record<string, unknown> })
+                    : cfg?.needsApproval;
+                if (gated) {
+                    // Announced only when someone is actually being asked: a `'deny'` is a
+                    // decision already made, and announcing a pause for it painted
+                    // `awaiting-approval` on the row and raised `aparte-tool-approval-request`
+                    // for a call nobody was ever going to be asked about.
+                    if (gated !== 'deny') {
+                        emitter({ type: 'tool-awaiting-approval', toolCallId: event.id, name: event.name, input: event.input });
+                    }
                     /*
                      * Nothing can ask, so nothing may answer.
                      *
@@ -451,11 +466,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                          * `{ approved }` and never an instruction, so both loops agreed on
                          * a case neither exercised. It supplies one now.
                          */
-                        const rejection = decision.instruction
-                            ? `The user rejected this tool call and said: ${decision.instruction}`
-                            : 'Tool execution was rejected by the user.';
+                        // Truthiness, like `instruction` beside it: an empty `reason` is no
+                        // reason, not an empty tool_result.
+                        const rejection = decision.reason?.trim()
+                            || (decision.instruction
+                                ? `The user rejected this tool call and said: ${decision.instruction}`
+                                : 'Tool execution was rejected by the user.');
                         emitter({ type: 'tool-rejected', toolCallId: event.id, reason: rejection });
-                        ensureEnvelope();
+                        declareCall({ id: event.id, name: event.name, input: event.input });
                         append({ role: 'tool_result', content: rejection, toolCallId: event.id });
                         /*
                          * `break` WITHOUT `continueLoop = false`, and the asymmetry is the
@@ -491,9 +509,14 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
                     emitter({ type: 'tool-aborted', toolCallId: event.id });
                     continueLoop = false;
                     break;
+                } else if (outcome.status === 'failed') {
+                    // A crash is the handler's, and the run ends on it as before —
+                    // but the row hears about it first, instead of spinning for good.
+                    emitter({ type: 'tool-failed', toolCallId: event.id, error: errorText(outcome.error) });
+                    throw outcome.error;
                 } else {
-                    emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content });
-                    ensureEnvelope();
+                    emitter({ type: 'tool-resolved', toolCallId: event.id, result: outcome.content, structuredResult: outcome.structuredContent });
+                    declareCall({ id: event.id, name: event.name, input: event.input });
                     append({ role: 'tool_result', content: outcome.content, toolCallId: event.id });
                 }
             }
@@ -510,10 +533,21 @@ export async function runStreamAgent(opts: StreamRunOptions): Promise<StreamUsag
         }
 
         // No tool calls this turn → the final answer.
-        if (toolCallsThisTurn.length === 0) continueLoop = false;
+        if (!sawToolUse) continueLoop = false;
     }
 
     // Post-loop finalization runs on every exit path (normal / abort / maxTurns).
+    //
+    // `run-aborted` is decided HERE, once, from the signal — not at each site that
+    // notices the abort. It used to be emitted at three of the six abort exits
+    // (top of turn, transport rejection, mid-stream bail), and the three tool-level
+    // ones — a Stop during a handler, during an approval wait, or with no resolver —
+    // set `continueLoop = false` and fell through to `run-done` alone: no terminal
+    // lifecycle event reached the host, so the typing indicator and the streaming
+    // id were never cleared and the turn was never persisted. A tool TIMEOUT aborts
+    // only the child controller, so `signal.aborted` stays false and that turn still
+    // ends as done, unchanged.
+    if (signal.aborted) emitter({ type: 'run-aborted' });
     emitter({ type: 'run-done', usage: lastUsage });
     return lastUsage;
 }
@@ -531,7 +565,12 @@ async function invokeToolHandler(
     call: StreamToolCall,
     signal: AbortSignal,
     toolTimeoutMs: number,
-): Promise<{ status: 'resolved'; content: string } | { status: 'aborted' }> {
+): Promise<
+    | { status: 'resolved'; content: string; structuredContent?: unknown }
+    | { status: 'aborted' }
+    /** The handler threw something that is not an abort: a crash, reported by the caller then re-thrown. */
+    | { status: 'failed'; error: unknown }
+> {
     // If the run was already aborted before we got here, don't invoke the
     // handler at all: a past 'abort' event will never re-fire on the listener
     // below, so the handler would otherwise run to completion despite cancel.
@@ -564,15 +603,25 @@ async function invokeToolHandler(
 
     try {
         const result = await Promise.race([
-            handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content })),
+            handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content, structuredContent: r.structuredContent })),
             timedOut,
         ]);
         return result;
     } catch (err: unknown) {
         if ((err as { name?: string })?.name === 'AbortError') return { status: 'aborted' };
-        throw err;
+        // Not thrown from here: the call was announced with `tool-start`, and the
+        // loop's invariant is that an announced call gets exactly one terminal
+        // event. Throwing from inside skipped it — the row spun "Running" for good
+        // while the message showed an error card. The caller reports, then throws.
+        return { status: 'failed', error: err };
     } finally {
         clearTimeout(timeout);
         signal.removeEventListener('abort', onParentAbort);
     }
+}
+
+/** The one-line text of a handler's crash, for the `tool-failed` event and the row. */
+function errorText(error: unknown): string {
+    if (error instanceof Error) return error.message || error.name;
+    return typeof error === 'string' ? error : String(error);
 }

@@ -1,0 +1,125 @@
+---
+title: An application shell
+description: A sidebar of conversations, a header and the chat — the ChatGPT-style page, built from aparté's shell recipes and one element with behaviour.
+sidebar:
+  order: 18
+  label: App shell
+---
+
+import Demo from '../../../components/Demo.astro';
+
+A chat product is the transcript plus the chrome around it: a column of conversations
+with a new-chat button and a search field, a header with the title and a model picker,
+and the chat in the rest of the window. aparté ships that chrome as three recipes and one
+element — enough to build the whole page on the library alone, and nothing that owns your
+data.
+
+<Demo id="app-shell" caption="The shell: a sidebar, a header, the chat. Narrow the frame to 375 and the sidebar becomes a drawer behind the header's toggle (the demo sets the breakpoint to 30rem; the shell's own default is 48rem, wider than this frame)." />
+
+## The three pieces
+
+| Piece | What it is | Why |
+| --- | --- | --- |
+| `.aparte-app-shell` | a recipe: a two-column, two-row grid — sidebar beside, header above, `__main` in the rest | a grid has no behaviour |
+| `.aparte-app-header` | a recipe: a toggle (shown under 48rem), a title, an `__actions` zone pushed to the end | a header has no behaviour either |
+| `<aparte-sidebar>` | an element wearing the `.aparte-sidebar` recipe | it collapses, it becomes a drawer, and its search filters the list — three behaviours |
+
+That split is the rule the whole kit follows: a recipe draws, an element exists only where
+there is something to do. The [UI kit](/kit/button/) has every recipe with its markup, one family per page; the
+[element page](/components/shell/aparte-sidebar/) has the sidebar's attributes and events.
+
+## What the sidebar does
+
+**Collapse.** `collapsed` is an attribute — set it, read it, persist it. Any element
+carrying `data-aparte-sidebar-toggle` toggles the nearest sidebar (or the one whose id the
+attribute names), so the header's hamburger needs no script. `aparte-sidebar-toggle` fires
+on every change, whoever caused it (`AparteSidebarToggleDetail`: `{ collapsed, drawer }`);
+the `AparteSidebar` class exposes `open()`, `close()`, `toggle()` and `filter(query)`.
+
+**Drawer.** Under 48rem of window (`breakpoint`, a length or `none`) the sidebar leaves the grid and slides over the page:
+open, it draws a scrim, closes on Escape or a click outside, and hands the focus back to the
+control that opened it. It is the same element in the same place, positioned fixed — no
+portal, which is what a sidebar can do and a dialog cannot.
+
+**Search.** An input carrying `data-aparte-sidebar-search` filters the conversation list
+below it by title as the user types, case- and accent-insensitive; a date group with
+nothing left hides with its rows. Client-side, on the titles the list already holds — an
+index over message bodies belongs to your storage adapter.
+
+## A pane beside the chat
+
+A builder is this shell with one more piece: the sidebar, then the chat, then a seam, then
+whatever the chat is producing. `<aparte-split>` goes in `__main`, and **a pane contains a
+chat; a chat never contains a split** — the shell's rule is a direct-child selector, so a
+split nested *inside* an `<aparte-chat>` would sit between the transcript and the composer,
+where nothing sizes it.
+
+```html
+<div class="aparte-app-shell">
+  <aparte-sidebar>…</aparte-sidebar>
+  <header class="aparte-app-header">
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button"
+            aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <span class="aparte-app-header__title">Landing page</span>
+    <div class="aparte-app-header__actions">
+      <!-- Under the split's breakpoint these switch the visible pane; above it they
+           change nothing on screen. The `pane` attribute still moves, so hide them with
+           the same media query rather than leaving two controls that look dead. -->
+      <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="start">Chat</button>
+      <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="end">Preview</button>
+    </div>
+  </header>
+  <main class="aparte-app-shell__main">
+    <aparte-split position="38">
+      <aparte-chat>
+        <aparte-chat-viewport></aparte-chat-viewport>
+        <aparte-composer></aparte-composer>
+      </aparte-chat>
+      <section class="aparte-split__pane">your pane</section>
+    </aparte-split>
+  </main>
+</div>
+```
+
+No height on the split and none on the chat: the shell's grid gives `__main` its row, the
+sheet gives a split or a chat sitting directly in `__main` the full height of it, and the
+chat inside a pane fills the pane. The seam, the drag, the arrow keys, the breakpoint and
+the persistence event are all on the [layout guide](/guides/layout/#builder-split).
+
+## Settings, in a dialog
+
+A settings hub is a modal, and the kit's modal is the browser's own `<dialog>` wearing
+`.aparte-dialog`: `showModal()` gives the top layer, the focus trap, Escape and the focus
+return, and the recipe gives the box — header, a body that scrolls, footer, the backdrop, a
+full-screen sheet under 30rem. Three attributes wire it without a line of script: a control
+with `data-aparte-dialog-open="id"` opens the dialog it names, `data-aparte-dialog-close`
+inside one closes it (its value becomes `returnValue`, read in the native `close` event), and
+a click on the backdrop closes it unless the dialog carries `data-aparte-dialog-static`.
+
+<Demo id="dialog" caption="The kit's dialog on a native <dialog>: open it, tab through it, press Escape or click the backdrop." />
+
+The tabs of a settings hub are [`.aparte-tabs`](/kit/tabs/); what goes in each panel is
+yours. The wiring is installed when `@aparte/core` is imported; a page built before that
+import calls `installDialogTriggersOnce()` itself, once.
+
+## Wiring the data
+
+The sidebar renders what you put in it, and the list is the
+[conversation list](/components/conversation/aparte-conversation-list/) you already wire
+to a manager — see [persistence](/guides/conversation-persistence/). The header's title is
+the active conversation's, the new-chat button calls `manager.createNew()`, and the model
+picker is [`@aparte/plugin-model-selector`](/plugins/model-selector/) in `__actions`. What
+stays yours: routing, authentication, the storage adapter, and the contents of a settings
+panel.
+
+## The knobs
+
+| Token | Default | Moves |
+| --- | --- | --- |
+| `--aparte-sidebar-width` | `260px` | the column, and the drawer |
+| `--aparte-sidebar-bg` | `--aparte-surface-2` | the column's ground |
+| `--aparte-app-header-height` | `48px` | the header row's minimum height |
+| `--aparte-scrim` | `rgba(0, 0, 0, 0.35)` | the shade behind an open drawer |
+
+The breakpoint is 48rem, written in the sheets rather than a token: a media query cannot
+read a custom property.

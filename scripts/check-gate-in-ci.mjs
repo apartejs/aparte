@@ -35,7 +35,7 @@ const EXEMPT = new Map([
     ['pnpm typecheck', 'its own job'],
     ['pnpm typecheck:tests', 'its own job'],
     ['pnpm typecheck:matrix', 'its own job'],
-    ['pnpm check-packaging', 'its own job: publint/attw across 15 packages'],
+    ['pnpm check-packaging', 'its own job: publint/attw across every publishable package'],
     ['pnpm check:node-import', 'runs in the Node version matrix, where it means something'],
     ['pnpm test:coverage', 'named in the guards job, and the coverage job'],
 ]);

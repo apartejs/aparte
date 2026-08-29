@@ -1,0 +1,69 @@
+{
+    "name": "@aparte/plugin-approval",
+    "version": "0.15.1",
+    "publishConfig": {
+        "access": "public"
+    },
+    "description": "Approval modes for aparté tool calls — plan, ask, auto-edit, auto — from a classification of your tool names, with a switch for the composer's toolbar.",
+    "customElements": "dist/custom-elements.json",
+    "type": "module",
+    "sideEffects": true,
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "@aparte-workspace/source": "./src/index.ts",
+            "node": {
+                "types": "./dist/index.node.d.ts",
+                "default": "./dist/index.node.js"
+            },
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build && tsc -b --emitDeclarationOnly --force && pnpm run analyze",
+        "analyze": "cem analyze",
+        "preview": "vite preview",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "test:coverage": "vitest run --coverage"
+    },
+    "peerDependencies": {
+        "@aparte/core": ">=0.15.1 <1.0.0"
+    },
+    "devDependencies": {
+        "@aparte/core": "workspace:*",
+        "@custom-elements-manifest/analyzer": "^0.11.0",
+        "typescript": "^5.4.0",
+        "vite": "^6.0.0"
+    },
+    "keywords": [
+        "aparte",
+        "plugin",
+        "tool",
+        "approval",
+        "human-in-the-loop",
+        "agent"
+    ],
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/apartejs/aparte.git",
+        "directory": "packages/plugins/approval"
+    },
+    "bugs": {
+        "url": "https://github.com/apartejs/aparte/issues"
+    }
+}

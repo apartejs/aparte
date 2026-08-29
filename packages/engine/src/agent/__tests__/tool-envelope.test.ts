@@ -30,11 +30,18 @@ function assertWellFormed(messages: StreamAgentMessage[]): void {
         }
     }
     for (const [id, times] of declared) expect(times, `call ${id} declared once`).toBe(1);
+    // The converse, which this used to leave unchecked: every declared call gets exactly
+    // one result — a `tool_call` declaring a call that never gets a `tool_result` is the
+    // shape a call halted before its result (no handler, turn limit, abort) used to leave.
+    const results = new Map<string, number>();
+    for (const m of messages) {
+        if (m.role === 'tool_result' && m.toolCallId) results.set(m.toolCallId, (results.get(m.toolCallId) ?? 0) + 1);
+    }
+    for (const id of declared.keys()) expect(results.get(id), `declared call ${id} has exactly one tool_result`).toBe(1);
 }
 
 async function run(turns: StreamChatEvent[][]) {
     const requests: StreamChatRequest[] = [];
-    const appended: StreamAgentMessage[] = [];
     let turn = 0;
     const usage = await runStreamAgent({
         messageId: 'a1',
@@ -44,15 +51,19 @@ async function run(turns: StreamChatEvent[][]) {
         emitter: () => {},
         signal: new AbortController().signal,
     });
-    return { requests, appended, usage };
+    return { requests, usage };
 }
 
 describe('the turn\'s tool_call envelope', () => {
-    it('create_artifact and another tool in one turn: one envelope declares both, both results follow it', async () => {
+    it('two tools in one turn after prose: one envelope declares both, both results follow it', async () => {
+        // The vehicle used to be the built-in `create_artifact` beside a plain tool —
+        // the fast path that orphaned the second result. The built-in is gone (D7:
+        // an artifact is a plugin's tool like any other), and the invariant it broke
+        // is the same for any two calls, so two plain tools carry the test now.
         const { requests } = await run([
             [
-                { type: 'text', delta: 'Making a file, then saving.' },
-                { type: 'tool_use', id: 'c-art', name: 'create_artifact', input: { mimeType: 'text/markdown', title: 'Note', content: '# hi' } },
+                { type: 'text', delta: 'Searching, then saving.' },
+                { type: 'tool_use', id: 'c-search', name: 'search', input: { q: 'hi' } },
                 { type: 'tool_use', id: 'c-save', name: 'save', input: {} },
                 { type: 'done' },
             ],
@@ -62,9 +73,9 @@ describe('the turn\'s tool_call envelope', () => {
         assertWellFormed(history);
         const envelopes = history.filter((m) => m.role === 'tool_call');
         expect(envelopes).toHaveLength(1);
-        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-art', 'c-save']);
-        expect(envelopes[0]!.precedingText).toBe('Making a file, then saving.');
-        expect(history.filter((m) => m.role === 'tool_result').map((m) => m.toolCallId)).toEqual(['c-art', 'c-save']);
+        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-search', 'c-save']);
+        expect(envelopes[0]!.precedingText).toBe('Searching, then saving.');
+        expect(history.filter((m) => m.role === 'tool_result').map((m) => m.toolCallId)).toEqual(['c-search', 'c-save']);
     });
 
     it('two plain tools in one turn: still one envelope, in call order', async () => {
@@ -98,7 +109,7 @@ describe('the turn\'s tool_call envelope', () => {
         let turn = 0;
         const turns: StreamChatEvent[][] = [
             [
-                { type: 'tool_use', id: 'c-art', name: 'create_artifact', input: { content: 'x' } },
+                { type: 'tool_use', id: 'c-search', name: 'search', input: { q: 'x' } },
                 { type: 'tool_use', id: 'c-save', name: 'save', input: {} },
                 { type: 'done' },
             ],
@@ -108,7 +119,7 @@ describe('the turn\'s tool_call envelope', () => {
             messageId: 'a1',
             baseRequest: { modelId: 'm', messages: [{ role: 'user', content: 'go' }] },
             transportCall: async () => stream(turns[turn++] ?? [{ type: 'done' }]),
-            toolLookup: (name) => (name === 'save' ? async () => ({ content: 'ok' }) : undefined),
+            toolLookup: (name) => (name === 'save' || name === 'search' ? async () => ({ content: 'ok' }) : undefined),
             onHistoryAppend: (m) => seen.push(m),
             emitter: () => {},
             signal: new AbortController().signal,
@@ -117,7 +128,7 @@ describe('the turn\'s tool_call envelope', () => {
         expect(envelopes).toHaveLength(1);
         // Reported when the first call completed, with one call — and the same object
         // holds both by the end: a host keeps the reference, not a copy.
-        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-art', 'c-save']);
+        expect(envelopes[0]!.toolCalls!.map((c) => c.id)).toEqual(['c-search', 'c-save']);
         expect(seen.map((m) => m.role)).toEqual(['tool_call', 'tool_result', 'tool_result']);
     });
 });

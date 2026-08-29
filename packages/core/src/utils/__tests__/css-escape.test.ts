@@ -26,4 +26,16 @@ describe('cssEscape', () => {
         const uuid = '550e8400-e29b-41d4-a716-446655440000';
         expect(cssEscape(uuid)).toBe(uuid);
     });
+
+    it('survives a line break in the id — a raw newline ends a CSS string and threw', () => {
+        // A tool-call id comes from the provider; one that carries a newline used to
+        // make `querySelector` throw a SyntaxError out of the segment update path.
+        document.body.innerHTML = '';
+        const el = document.createElement('div');
+        const id = 'tool-a\nb\r\fc';
+        el.setAttribute('data-id', id);
+        document.body.appendChild(el);
+        expect(() => document.querySelector(`[data-id="${cssEscape(id)}"]`)).not.toThrow();
+        expect(document.querySelector(`[data-id="${cssEscape(id)}"]`)).toBe(el);
+    });
 });

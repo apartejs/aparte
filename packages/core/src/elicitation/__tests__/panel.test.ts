@@ -187,22 +187,25 @@ describe('buildElicitationPanel', () => {
             expect(chips(p)[0]!.hasAttribute('data-answered'), 'and it shows as answered').toBe(true);
         });
 
-        it('the composer button advances, then submits on the last question', () => {
-            // One button, four meanings — send, stop, advance, submit. Giving it the
-            // fourth is why this panel needs no Next of its own: no second row, no
-            // height that changes, and the tabs stay for jumping around. A check on a
-            // form with two questions left was as wrong as a paper plane was.
+        it('the composer button means submit throughout, and needs every question answered', () => {
+            // It used to "advance" while questions were ahead — a chevron, a second way
+            // to do what a chip does, and a button whose meaning changed under the
+            // pointer. The reference products settle it the same way: a click selects,
+            // a tab switches question, one button submits the lot.
             const p = buildElicitationPanel('', twoQuestions, noop);
-            expect(p.mode()).toBe('advance');
+            expect(p.mode()).toBe('submit');
             expect(p.canProceed(), 'nothing answered yet').toBe(false);
 
             select(p.el, 'blue');
-            expect(p.canProceed(), 'THIS question answered is enough to advance').toBe(true);
+            expect(p.mode(), 'still submit — there is no advance').toBe('submit');
+            expect(p.canProceed(), 'one of two answered is not submittable').toBe(false);
+            p.proceed();   // a no-op for a form, and must not move the chips
+            expect(chips(p)[0]!.getAttribute('aria-selected')).toBe('true');
+            expect(chips(p)[0]!.hasAttribute('data-answered')).toBe(true);
+            expect(chips(p)[0]!.querySelector('.aparte-elic-step__mark'), 'an answered chip wears a mark').not.toBeNull();
+            expect(chips(p)[1]!.querySelector('.aparte-elic-step__mark')).toBeNull();
 
-            p.proceed();
-            expect(p.mode(), 'the last question submits').toBe('submit');
-            expect(p.canProceed(), 'and submitting needs them ALL').toBe(false);
-
+            chips(p)[1]!.click();
             select(p.el, 'round');
             expect(p.canProceed()).toBe(true);
             expect(p.isComplete()).toBe(true);
@@ -217,6 +220,26 @@ describe('buildElicitationPanel', () => {
             // A single question that COLLECTS still commits through the button.
             expect(buildElicitationPanel('?', { type: 'string' }, noop).mode()).toBe('submit');
             expect(buildElicitationPanel('?', { type: 'enum', multiple: true, options: [{ value: 'a' }] }, noop).mode()).toBe('submit');
+        });
+
+        it('the host can make a single choice select-then-send instead', () => {
+            // `answerOnClick: false`: radios and the composer's button, like any other
+            // question — the field builders simply never receive `settle`.
+            const cfg = new AparteConfig();
+            cfg.setElicitationOptions({ answerOnClick: false });
+            const schema: AparteElicitationSchema = { type: 'enum', options: [{ value: 'a' }, { value: 'b' }], allowOther: false };
+            const p = runWithConfig(cfg, () => buildElicitationPanel('?', schema, noop));
+            expect(commands(p.el), 'no command buttons').toHaveLength(0);
+            expect(p.el.querySelectorAll('input[type="radio"]')).toHaveLength(2);
+            expect(p.mode()).toBe('submit');
+            expect(p.isComplete()).toBe(false);
+            (p.el.querySelector('input[type="radio"]') as HTMLInputElement).click();
+            expect(p.isComplete()).toBe(true);
+            expect(p.getContent()).toBe('a');
+            // A yes/no follows the same policy.
+            const yn = runWithConfig(cfg, () => buildElicitationPanel('?', { type: 'boolean' }, noop));
+            expect(commands(yn.el)).toHaveLength(0);
+            expect(yn.mode()).toBe('submit');
         });
 
         it('a single question is never stepped', () => {

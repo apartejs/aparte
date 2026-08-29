@@ -177,7 +177,7 @@ makes the work good is what makes it hard to scan, and only the ORDER fixes that
 Every `@aparte/*` package moves **together, at one version** (`fixed` in
 `.changeset/config.json`). Two consequences worth knowing before you write a changeset: the
 bump type is the **highest** one in the whole group — a single `minor` anywhere makes all
-fifteen minor — and packages with no change of their own are still republished.
+twenty minor — and packages with no change of their own are still republished.
 
 That lockstep is why there are two levels of changelog. Each package keeps its own (npm reads
 it), and the root **`CHANGELOG.md`** is the human aggregate: one section per version, grouped
@@ -195,6 +195,14 @@ The flow:
    `git checkout -b release/<version> main && pnpm version-packages` — that is
    `changeset version` **plus** the root-changelog generator, so the PR carries both levels —
    then commit `chore(release): version packages — <version>`, push, and open the PR.
+   > **When one PR is the whole release** — a fix release, typically — skip the second
+   > round: run `pnpm version-packages` on the fix branch itself, as its last commit, and
+   > open one PR that carries the fix and the versions. The changeset guard recognises a
+   > moved root `CHANGELOG.md` and stops asking for a changeset; the browser suite still runs
+   > because the diff has source in it. Measured on 0.15.1: three CI rounds of ~10 min each
+   > (fix PR, version PR, `main`) become two. The one hazard is two release-carrying PRs
+   > open at once — both would claim the same version — so version the branch only when it
+   > is next in line.
    > A `release.yml` workflow used to attempt this on every push to `main` and failed every
    > time: the organisation forbids GitHub Actions from opening pull requests. It was removed
    > on 2026-08-28 rather than left red on every commit, where a real failure would hide.
@@ -234,7 +242,7 @@ The flow:
    **one** GitHub Release for that version, with the matching root-changelog section as its
    body.
    > ⚠️ Not `git push --tags`. GitHub drops the tag-push event past **three tags in a single
-   > push**, and `changeset publish` has just created fifteen — so `--tags` publishes them all
+   > push**, and `changeset publish` has just created twenty — so `--tags` publishes them all
    > and triggers nothing, with no error anywhere. Push the umbrella tag on its own; the
    > per-package tags can follow in a second push.
 5. Verify the dist-tags: `npm view @aparte/core dist-tags`. **Both** must be the version you
@@ -242,7 +250,7 @@ The flow:
    > The tags drifted on three releases in a row (0.3.0, 0.4.0, 0.5.0): `changeset publish`
    > moved `latest` and left `alpha` behind, so `npm i @aparte/core@alpha` served the version
    > before. `pnpm release` now passes `--tag alpha` **and** runs
-   > `scripts/align-dist-tags.mjs`, which checks both tags on all fifteen packages, prints
+   > `scripts/align-dist-tags.mjs`, which checks both tags on every published package, prints
    > what it moves, and exits non-zero on any failure — its first version silently reported
    > "15 already correct" while doing nothing, because Node cannot spawn `npm.cmd` without a
    > shell.

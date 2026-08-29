@@ -152,6 +152,12 @@ export class AparteChatViewport extends HTMLElement {
     private _readerInputAt = Number.NEGATIVE_INFINITY;
     /** A decrease inside this window after our own scroll, with no gesture, is the browser's. */
     private readonly _ownScrollWindowMs = 1000;
+    /** How long after a scroll of ours we keep re-anchoring while the layout churns.
+     *  Not `readonly`: a test shortens it to run past the window's end in a few frames. */
+    private _settleWindowMs = 400;
+    /** Deadline of the settle in flight (0 = none). Pushed forward, never stacked. */
+    private _settleUntil = 0;
+    private _settleRafId: number | null = null;
     /** The keys that scroll a focused scroll container — the only keydowns that are a gesture. */
     private readonly _scrollKeys = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
     private _scrollThreshold: number = 50;
@@ -194,6 +200,25 @@ export class AparteChatViewport extends HTMLElement {
         this._render();
         this._setupEventListeners();
         this._setupObservers();
+        /**
+         * Empty every mounted transcript on the page.
+         *
+         * A command, not a notification: this is one of the events that travel the
+         * other way, dispatched by YOUR app on `window` and listened for here. Every
+         * connected `<aparte-chat-viewport>` clears its repository and its DOM and
+         * answers with `aparte-reset-done`, so a "New chat" button in a shell that
+         * holds no reference to the transcript still empties it. Carries no detail —
+         * and therefore no target, so it clears every viewport, not one.
+         *
+         * @event aparte-reset
+         */
+        // History, deliberately OUT of the JSDoc: `gen-events-ref.mjs` copies an
+        // `@event` body verbatim onto the public page, and this is repo business.
+        // The listener had been live and undocumented since it existed — absent from
+        // the events reference (the generator's name union read the dispatch sites
+        // only, and core never dispatches this one), absent from the manifest (still
+        // is, correctly: the element does not FIRE it), and covered by no test. A
+        // listener that could have been deleted in silence.
         this._boundResetHandler = () => this.clearAll();
         window.addEventListener('aparte-reset', this._boundResetHandler);
         window.addEventListener('aparte-config-change', this._onConfigChange);
@@ -211,7 +236,40 @@ export class AparteChatViewport extends HTMLElement {
         // The button's accessible name is locale text too — a language switch is
         // documented as live, and this was the one chrome string that stayed put.
         this._scrollBtn?.setAttribute('aria-label', resolveConfig(this).t('scrollToBottom'));
+        // The transcript's own name is locale text on the same terms.
+        const surface = this._frameworkManagedDOM ? this : this.querySelector('.aparte-viewport-container');
+        surface?.setAttribute('aria-label', resolveConfig(this).t('transcript'));
     };
+
+    /**
+     * The transcript is a TAB STOP, with a name.
+     *
+     * A scrollable region that no element can hold focus in cannot be scrolled from
+     * the keyboard in WebKit: Chromium and Firefox hand an unfocusable overflow box a
+     * caret or a "scroller" tab stop of their own, Safari does not. So a plain-text
+     * transcript — no links, no code blocks, nothing focusable inside — was unreadable
+     * past the first screen for a Safari keyboard user, with no error and nothing on
+     * screen to say so.
+     *
+     * `tabindex="0"` on the surface itself, in BOTH DOM modes. The framework mode
+     * appeared to work already, and only by accident: the scroll button is inside the
+     * host and stays tabbable while it is visually hidden, so Tab happened to land
+     * somewhere that scrolled. A tab stop that exists because a hidden button happens
+     * to sit there is not an affordance, it is a coincidence.
+     *
+     * The name ships WITH the tab stop rather than after it: a focusable `role="log"`
+     * with no accessible name is announced as an unnamed region, which is a worse
+     * answer than no tab stop at all. And the ROLE ships with both: a name on a
+     * generic element is the same defect mirrored — `aria-label` is prohibited on an
+     * element whose role resolves to none, which is what a bare custom element is. The
+     * default mode already writes `role="log"` on the container before this runs, so
+     * the guard here is what gives the framework-mode host the same declaration.
+     */
+    private _nameScrollSurface(el: HTMLElement): void {
+        el.setAttribute('tabindex', '0');
+        if (!el.hasAttribute('role')) el.setAttribute('role', 'log');
+        el.setAttribute('aria-label', resolveConfig(this).t('transcript'));
+    }
 
     /** Mirror `locale.direction` onto the scroll container. */
     private _applyDirection(): void {
@@ -381,7 +439,24 @@ export class AparteChatViewport extends HTMLElement {
      * framework's DOM, reads the attribute itself when it connects.
      */
     private _syncBusy(): void {
-        const busy = this._streamingMessageId() !== null;
+        // One writer per mode. Under a framework the repository is not written during
+        // a turn, so deriving it here could only ever say "not busy" — and did, under
+        // all four wrappers: the host, which knows, writes it through
+        // `setTranscriptBusy` instead, and this must not overwrite it from the repo.
+        if (this._frameworkManagedDOM) return;
+        this.setTranscriptBusy(this._streamingMessageId() !== null);
+    }
+
+    private _busy = false;
+
+    /**
+     * The transcript's read-only-while-streaming flag — `data-busy` on this element and
+     * fanned out to the bubbles it holds. The vanilla path derives it from the
+     * repository (`_syncBusy`); a framework host, whose messages live outside the
+     * repository during a turn, writes it directly from its own streaming id.
+     */
+    setTranscriptBusy(busy: boolean): void {
+        this._busy = busy;
         this.toggleAttribute('data-busy', busy);
         for (const bubble of this.querySelectorAll('aparte-chat-bubble')) {
             (bubble as unknown as { setTranscriptBusy?: (busy: boolean) => void }).setTranscriptBusy?.(busy);
@@ -592,7 +667,13 @@ export class AparteChatViewport extends HTMLElement {
     addMessage(message: AparteMessage): void {
         // Adopted, not stamped: this writes straight to the repository, so it is the
         // caller handing over a message they already hold rather than a turn starting.
-        this._repo.addOrUpdateMessage(this._repo.headId, adoptMessageSegments({ ...message }));
+        const stored = adoptMessageSegments({ ...message });
+        // Same rule as `appendMessage`: a message that ARRIVES streaming (a pending
+        // shell, a reply the host is about to write into) is a streaming one in the
+        // tree, or the manual-stream path — which used to invent this message with
+        // `isStreaming: true` — would stop making the transcript read-only.
+        if (isAwaitingReply(message)) stored.isStreaming = true;
+        this._repo.addOrUpdateMessage(this._repo.headId, stored);
         this._pruneRenderedBubbles();
         this._syncBusy();
         this._autoScroll();
@@ -650,6 +731,7 @@ export class AparteChatViewport extends HTMLElement {
                 const bubble = document.createElement('aparte-chat-bubble') as HTMLElement;
                 bubble.setAttribute('message-id', message.id);
                 bubble.setAttribute('data-role', message.role);
+                if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
                 // Also true for an empty assistant message with no status: an
@@ -770,9 +852,10 @@ export class AparteChatViewport extends HTMLElement {
      */
     navigateBranch(messageId: string, direction: 'prev' | 'next'): void {
         // Not while a reply streams: the active path must not change under it (the
-        // pickers are disabled for the same reason — see `_syncBusy`; this covers a
-        // programmatic call).
-        if (this._streamingMessageId() !== null) return;
+        // pickers are disabled for the same reason — see `setTranscriptBusy`; this covers
+        // a programmatic call). The stored flag, so the arrows and this guard agree in
+        // both modes — the repository cannot answer for a framework-managed turn.
+        if (this._busy) return;
         const siblings = this._repo.getBranches(messageId);
         const currentIdx = siblings.indexOf(messageId);
         if (currentIdx === -1) return;
@@ -1135,6 +1218,7 @@ export class AparteChatViewport extends HTMLElement {
             const bubble = document.createElement('aparte-chat-bubble');
             bubble.setAttribute('message-id', message.id);
             bubble.setAttribute('data-role', message.role);
+            if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
             if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
             if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');
@@ -1213,6 +1297,7 @@ export class AparteChatViewport extends HTMLElement {
             container.setAttribute('aria-live', 'polite');
             container.setAttribute('aria-atomic', 'false');
             container.setAttribute('aria-relevant', 'additions');
+            this._nameScrollSurface(container);
 
             const wrapper = document.createElement('div');
             wrapper.className = 'aparte-messages-wrapper';
@@ -1268,6 +1353,7 @@ export class AparteChatViewport extends HTMLElement {
             return; // already set up (re-entrant _render)
         }
         this.classList.add('aparte-viewport--framework');
+        this._nameScrollSurface(this);
 
         const scrollBtn = document.createElement('button');
         scrollBtn.className = 'aparte-btn aparte-btn--surface aparte-btn--circle aparte-btn--lg aparte-scroll-btn aparte-scroll-btn--hidden';
@@ -1522,6 +1608,29 @@ export class AparteChatViewport extends HTMLElement {
             this._isAutoScrollEnabled = true;
         } else if (readerWentUp) {
             this._isAutoScrollEnabled = false;
+        } else if (drop > 1 && settlingOurs && this._isAutoScrollEnabled) {
+            // Armed, and a gap the reader did not open. Nothing else will close it: the
+            // rebuild's mutations are over, the host's border box did not change (so the
+            // ResizeObserver is silent in framework mode), and the settle may be spent.
+            // Measured on react-webkit: top 763 -> 759 -> 720 while the max churned
+            // 891 -> 1091 -> 891, leaving the transcript 171px short with the follow
+            // still armed and no code path acting on it. Classifying the churn was only
+            // half the job — the other half is doing something about it.
+            //
+            // Gated on `settlingOurs`, so it can never reach a reader: a drag-selection
+            // upward (a decrease with the height standing still) and a find-in-page jump
+            // (outside the one-second shadow) both take the disarm branch above.
+            //
+            // And gated on `drop > 1`, the same threshold `readerWentUp` uses: only a
+            // DECREASE is a gap the layout opened, which is the whole of the measured
+            // mechanism. A scroll of ours that is still moving DOWN is `settlingOurs`
+            // too (`drop` is negative, so the churn test passes trivially) — and that is
+            // every frame of a native smooth scroll: `requestSmoothScroll()`, the
+            // scroll-to-bottom button, the glide after a user's send. Re-anchoring one
+            // of those frames assigns `scrollTop`, which per CSSOM-View performs an
+            // instant scroll and ABORTS the running animation, so every glide became a
+            // one-frame stutter and a jump.
+            this._settleAtBottom();
         }
         this._updateScrollButton();
     }
@@ -1530,7 +1639,7 @@ export class AparteChatViewport extends HTMLElement {
         if (!this._container) return;
         this._ownScrollAt = performance.now();
         this._container.scrollTop = this._container.scrollHeight;
-        this._settleAtBottom(4);
+        this._settleAtBottom();
     }
 
     /**
@@ -1554,19 +1663,41 @@ export class AparteChatViewport extends HTMLElement {
      * A BOUNDED retry, not one corrective frame: a single frame lands on the same
      * stale layout and was measured leaving a wider gap than doing nothing. Bounded
      * so it always terminates; re-reads `_isAutoScrollEnabled` every frame so a
-     * reader who scrolls away mid-settle is left alone; stops as soon as the gap is
-     * closed, so the common case costs one frame that does nothing.
+     * reader who scrolls away mid-settle is left alone.
+     *
+     * Bounded by TIME, and it does not stop at the first closed gap — both of those
+     * were the second half of the same bug. It used to be four frames (~64ms on an
+     * idle 60Hz machine) and to return permanently the frame the gap first closed.
+     * A branch swap at the bottom of a long transcript on react-webkit falsified
+     * both at once: the rebuild's scrollable max churned 891 -> 1091 -> 891, the gap
+     * WAS closed for a frame against the tall layout, the chain returned, the height
+     * fell back with WebKit holding `scrollTop` at 720 — and the transcript stood
+     * 171px short with auto-follow still armed. A frame count is a proxy for time
+     * that fails exactly on the slow engine, so the budget is real milliseconds now,
+     * and a closed gap only ends the chain when the window is over. One chain, not
+     * one per call: during a stream every token used to start its own.
      */
-    private _settleAtBottom(framesLeft: number): void {
-        if (framesLeft <= 0) return;
-        requestAnimationFrame(() => {
-            if (!this._container || !this._isAutoScrollEnabled) return;
+    private _settleAtBottom(): void {
+        this._settleUntil = performance.now() + this._settleWindowMs;
+        if (this._settleRafId !== null) return;      // one chain; the deadline re-arms it
+        const step = (): void => {
+            this._settleRafId = null;
+            // A detached viewport has nothing to settle. `_cleanup` cancels the chain on
+            // disconnect, but a document that goes away whole — a closed window, a test
+            // environment torn down — fires no disconnectedCallback, and the next frame
+            // then ran against globals that no longer existed (27 errors after teardown
+            // in the wrapper suites, whose rAF stub is a 0ms timer that survives it).
+            if (!this.isConnected || !this._container || !this._isAutoScrollEnabled) { this._settleUntil = 0; return; }
             const max = this._container.scrollHeight - this._container.clientHeight;
-            if (max - this._container.scrollTop <= 1) return;
-            this._ownScrollAt = performance.now();
-            this._container.scrollTop = max;
-            this._settleAtBottom(framesLeft - 1);
-        });
+            // A closed gap is NOT the end: the churn re-opens it (891 -> 1091 -> 891).
+            if (max - this._container.scrollTop > 1) {
+                this._ownScrollAt = performance.now();
+                this._container.scrollTop = max;
+            }
+            if (performance.now() < this._settleUntil) this._settleRafId = requestAnimationFrame(step);
+            else this._settleUntil = 0;
+        };
+        this._settleRafId = requestAnimationFrame(step);
     }
 
     private _smoothScrollToBottom(): void {
@@ -1602,7 +1733,30 @@ export class AparteChatViewport extends HTMLElement {
      * whatever a framework's render timing does in between.
      */
     private _updateScrollButton(): void {
-        this._scrollBtn?.classList.toggle('aparte-scroll-btn--hidden', this._isAtBottom());
+        const btn = this._scrollBtn;
+        if (!btn) return;
+        const hidden = this._isAtBottom();
+        // This runs on every scroll event of a streaming transcript, so it writes only
+        // what changes: `classList.toggle` is already idempotent, `setAttribute` is not
+        // — it produces a mutation record whatever the value it writes, and the two
+        // below sit in the hottest path the component has. The state is read back from
+        // the button rather than cached in a field, because the button is rebuilt on
+        // every re-render and a cached flag would skip the stamp on the new one.
+        if (btn.classList.contains('aparte-scroll-btn--hidden') === hidden
+            && btn.hasAttribute('tabindex') === hidden) return;
+        btn.classList.toggle('aparte-scroll-btn--hidden', hidden);
+        // Hidden is opacity 0 and no pointer, which the tab order cannot see: the
+        // button stayed a stop while invisible, so a keyboard user landed on nothing
+        // between the transcript and the composer — and the transcript's own stop,
+        // once it had one, pushed the composer past the eighth Tab on the vanilla
+        // example. A control nobody can see is not a control anybody can reach.
+        if (hidden) {
+            btn.setAttribute('tabindex', '-1');
+            btn.setAttribute('aria-hidden', 'true');
+        } else {
+            btn.removeAttribute('tabindex');
+            btn.removeAttribute('aria-hidden');
+        }
     }
 
     /**
@@ -1744,6 +1898,13 @@ export class AparteChatViewport extends HTMLElement {
             cancelAnimationFrame(this._spacerRafId);
             this._spacerRafId = null;
         }
+        // A custom element is re-connected on every DOM move, so a settle left in flight
+        // would accumulate one chain per move.
+        if (this._settleRafId !== null) {
+            cancelAnimationFrame(this._settleRafId);
+            this._settleRafId = null;
+        }
+        this._settleUntil = 0;
     }
 }
 

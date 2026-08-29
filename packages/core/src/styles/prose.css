@@ -178,19 +178,3 @@
   overflow-x: hidden;
   background: var(--aparte-code-bg);
 }
-.aparte-art-card__pane[data-pane="code"] pre {
-    margin: 0; padding: var(--aparte-space-6);
-    font-size: var(--aparte-font-size-md);
-    background: var(--aparte-code-bg);
-}
-.aparte-art-file__code-pane pre {
-    margin: 0; padding: var(--aparte-space-6);
-    font-size: var(--aparte-font-size-md);
-    font-family: var(--aparte-code-font-family);
-}
-.aparte-art-file__preview-pane table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: var(--aparte-font-size-md);
-    font-family: inherit;
-}

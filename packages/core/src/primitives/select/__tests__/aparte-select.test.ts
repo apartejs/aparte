@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
 import { AparteSelect } from '../aparte-select.js';
+import { aparteGlobalConfig } from '../../../config/index.js';
+import { APARTE_DEFAULT_LOCALE } from '../../../config/locale.js';
 
 // Keyboard navigation (APG combobox/listbox): once open, ArrowUp/Down move a
 // roving highlight, Home/End jump to the ends, Enter selects, Escape cancels.
@@ -40,6 +42,59 @@ function key(k: string): void {
 
 afterEach(() => {
     while (mounted.length) mounted.pop()!.remove();
+    aparteGlobalConfig.resetLocale();
+});
+
+function mountSearchable(): HTMLElement {
+    const el = document.createElement('aparte-select');
+    el.setAttribute('placeholder', 'Pick');
+    el.setAttribute('searchable', '');
+    document.body.appendChild(el);
+    mounted.push(el);
+    return el;
+}
+
+/**
+ * The search field's two strings come from the locale.
+ *
+ * Both were literals — `'Search...'` and `'Search options'` — and the placeholder is
+ * VISIBLE text, which is what makes it the worst of the three the audit found: a
+ * French page opened the model picker and read "Search..." in the box. The label is
+ * the field's only accessible name.
+ */
+describe('AparteSelect — the search field speaks the locale', () => {
+    it('defaults to English, with the typographic ellipsis the rest of the file uses', () => {
+        const el = mountSearchable();
+        const search = el.querySelector<HTMLInputElement>('.aparte-select-search')!;
+        expect(search.placeholder).toBe('Search…');
+        expect(search.getAttribute('aria-label')).toBe('Search options');
+    });
+
+    it('reads both keys from the config', () => {
+        aparteGlobalConfig.setLocale({
+            ...APARTE_DEFAULT_LOCALE,
+            selectSearchPlaceholder: 'Rechercher…',
+            selectSearchLabel: 'Rechercher parmi les options',
+        });
+        const el = mountSearchable();
+        const search = el.querySelector<HTMLInputElement>('.aparte-select-search')!;
+        expect(search.placeholder).toBe('Rechercher…');
+        expect(search.getAttribute('aria-label')).toBe('Rechercher parmi les options');
+    });
+
+    it('falls back rather than rendering an empty box when a locale omits them', () => {
+        // `t()` returns '' for a key a custom locale left out, and an empty placeholder
+        // on a field with no visible label says nothing at all.
+        aparteGlobalConfig.setLocale({
+            ...APARTE_DEFAULT_LOCALE,
+            selectSearchPlaceholder: '',
+            selectSearchLabel: '',
+        });
+        const el = mountSearchable();
+        const search = el.querySelector<HTMLInputElement>('.aparte-select-search')!;
+        expect(search.placeholder).toBe('Search…');
+        expect(search.getAttribute('aria-label')).toBe('Search options');
+    });
 });
 
 describe('AparteSelect — keyboard navigation', () => {

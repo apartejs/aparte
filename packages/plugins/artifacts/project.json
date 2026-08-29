@@ -1,0 +1,41 @@
+{
+    "name": "@aparte/plugin-artifacts",
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "packages/plugins/artifacts/src",
+    "projectType": "library",
+    "targets": {
+        "build": {
+            "executor": "nx:run-script",
+            "outputs": [
+                "{projectRoot}/dist"
+            ],
+            "options": {
+                "script": "build"
+            }
+        },
+        "test": {
+            "executor": "@nx/vite:test",
+            "outputs": [
+                "{options.reportsDirectory}"
+            ],
+            "options": {
+                "reportsDirectory": "../../../coverage/packages/plugins/artifacts",
+                "cwd": "packages/plugins/artifacts"
+            }
+        },
+        "typecheck": {
+            "//": "Explicit, so the @nx/js/typescript plugin's inferred one (tsc --build --emitDeclarationOnly, outputs: dist) is not used: that one emits into the dist that build owns and declares it as an output, and a cache hit on it restored a declaration-only snapshot over the full dist. A typecheck writes nothing and claims nothing.",
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "tsc -p tsconfig.json --noEmit",
+                "cwd": "{projectRoot}"
+            },
+            "cache": true,
+            "inputs": [
+                "default",
+                "^production"
+            ],
+            "outputs": []
+        }
+    }
+}

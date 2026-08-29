@@ -94,6 +94,18 @@ main { position: relative; z-index: 1; }
 .nav-links { display: flex; gap: 26px; align-items: baseline; font-size: 14px; }
 .nav-links a { text-decoration: none; color: var(--dim); transition: color .2s; }
 .nav-links a:hover { color: var(--text); }
+
+/* The wordmark is an <a> now: a site's logo goes home, and it does so on every page the
+   frame draws, / included. It is a SIBLING of .nav-links, not a child, so the rule above
+   cannot undress it — it rendered underlined the first time the nav was shared. */
+a.brand { text-decoration: none; }
+a.brand:hover .paren { color: var(--accent); }
+
+/* The nav link for the page you are on. Here rather than in the page's own <style>,
+   because the nav is the LAYOUT's markup: a scoped rule compiles to a selector that
+   matches nothing the layout renders, and the failure is silent. */
+.nav-links a[aria-current="page"] { color: var(--text); }
+.nav-links a[aria-current="page"]::after { content: ""; display: block; block-size: 1px; margin-top: 3px; background: var(--accent); }
 .toggle {
   background: none; border: 1px solid var(--line); color: var(--dim);
   border-radius: 999px; width: 34px; height: 34px; cursor: pointer;

@@ -89,6 +89,9 @@ const GROUP = {
   'aparte-chat-status': 'conversation',
   'aparte-conversation-list': 'conversation',
   'aparte-context': 'conversation',
+  'aparte-scroll-rail': 'conversation',
+  'aparte-sidebar': 'shell',
+  'aparte-split': 'shell',
   'aparte-composer': 'input',
   'aparte-elicitation': 'input',
   'aparte-suggestions': 'input',
@@ -103,6 +106,7 @@ const LEAD = ['aparte-chat', 'aparte-chat-viewport', 'aparte-chat-bubble', 'apar
 const GROUP_LABEL = {
   conversation: 'The conversation',
   input: 'Input',
+  shell: 'The shell',
   utility: 'Utility',
   other: 'Other',
 };
@@ -158,7 +162,15 @@ function examplesOf(decl) {
 
 function exampleBlocks(decl) {
   return examplesOf(decl)
-    .map((ex) => `\n\`\`\`${ex.trimStart().startsWith('<') ? 'html' : 'ts'}\n${ex.trim()}\n\`\`\`\n`)
+    .map((ex) => {
+      const text = ex.trim();
+      // An example that brings its own fence (a caption line, then ```html …```) is
+      // emitted verbatim: the caption becomes prose and the inner fence keeps its
+      // language. Re-fencing it nested fences, and the stray closer swallowed every
+      // section after it — a plugin partial lost its whole API table that way.
+      if (/^```/m.test(text)) return `\n${text}\n`;
+      return `\n\`\`\`${text.startsWith('<') ? 'html' : 'ts'}\n${text}\n\`\`\`\n`;
+    })
     .join('');
 }
 
@@ -259,12 +271,20 @@ function angularSymbols() {
       else if (entry.name.endsWith('.ts')) files.push(path);
     }
   }
+  // A star re-export makes every `export class` of that module public: the barrel
+  // names none of them, so a literal search would report "declares nothing" for all
+  // twenty tags. Resolved per file, so a module the barrel does not star still needs
+  // its name written out.
+  const starred = new Set(
+    [...barrel.matchAll(/export \* from '\.\/([^']+)'/g)].map(([, p]) => resolve(root, `${p}.ts`)),
+  );
   const byTag = new Map();
   for (const file of files) {
     const src = readFileSync(file, 'utf8');
+    const isStarred = starred.has(file);
     for (const [, selector, symbol] of src.matchAll(/selector:\s*'([^']+)'[\s\S]*?export class (\w+)/g)) {
       if (!selector.startsWith('aparte-') || byTag.has(selector)) continue;
-      if (!new RegExp(`\\b${symbol}\\b`).test(barrel)) continue;
+      if (!isStarred && !new RegExp(`\\b${symbol}\\b`).test(barrel)) continue;
       byTag.set(selector, symbol);
     }
   }
@@ -412,12 +432,12 @@ thing — data somebody renders, with no tag at all.
 Buttons, fields, switches, tags, alerts, menus, tabs and avatars ship as **plain classes on
 plain elements** — no tag, themed by the same variables as the chat — for the controls your
 own page puts around it. They are listed with their HTML in
-[the UI kit reference](/reference/classes/); a consumer who started here rewrote his own
+[the UI kit](/kit/button/), one page per family with its live preview; a consumer who started here rewrote his own
 before finding them.
 :::
 
 `;
-  for (const group of ['conversation', 'input', 'utility', 'other']) {
+  for (const group of ['conversation', 'input', 'shell', 'utility', 'other']) {
     const list = pagesByGroup[group] ?? [];
     if (!list.length) continue;
     md += `\n## ${GROUP_LABEL[group]}\n\n| Component | What it is |\n| --- | --- |\n`;

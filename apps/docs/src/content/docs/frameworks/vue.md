@@ -94,7 +94,12 @@ optional swap-in, not required. With the client mounted, switch the retry/edit b
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 For file uploads add the `attachments` prop (off by default) —
-see [Attachments](/guides/attachments/).
+see [Attachments](/guides/attachments/). The `<aparte-elicitation>` presenter — what the
+built-in approval gate and `requestUserInput()` ask through — renders inside the host **by
+default**, as in `<aparte-chat>`; pass `:elicitation="false"` when you register a presenter of
+your own. `class` and `style` fall through to the root element (`[data-aparte-chat]`), Vue's
+default for a single-root component, so `<AparteChat class="flex-1 min-h-0" />` sizes the chat
+column with utilities.
 :::
 
 ## Any aparté element: typed in the template
@@ -154,3 +159,11 @@ It mounts any tag name, which is what a foreign element needs and what aparté's
 
 - `useConversationManager` — Vue-reactive view over the core `AparteConversationManager` (list / create /
   archive), for a multi-conversation sidebar.
+
+## Testing it
+
+Vitest — every runner — executes on Node, so `@aparte/core` resolves to its DOM-free
+entry and no `<aparte-*>` element upgrades under jsdom: the tag stays a plain
+`HTMLElement` and every assertion about it fails for a reason nothing explains. Alias the
+specifier to [`@aparte/core/browser`](/frameworks/elements/#testing-your-components), the
+entry with the elements in it.

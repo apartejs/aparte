@@ -14,23 +14,17 @@ import type {
 import { contextConfig } from '../config/index.js';
 import { aparteGlobalConfig } from '../config/index.js';
 import type { AparteConfig } from '../config/index.js';
-// The artifact card — the one renderer big enough to have its own file, plus the
-// two paths it delegates to.
 // The built-in renderers, one file each under ./segments/ — `DEFAULT_RENDERERS` at
 // the bottom is the list, and the count (this line used to say "nine" over a list
-// of seven). This module is the REGISTRY: it owns which renderer draws which
-// segment type, per config, and the style injection they share. It knows nothing
-// about how any of them render.
+// of seven, then six: the artifact card left for `@aparte/plugin-artifacts`, which
+// registers it through the same public `registerSegmentRenderer`). This module is
+// the REGISTRY: it owns which renderer draws which segment type, per config, and
+// the style injection they share. It knows nothing about how any of them render.
 import { textRenderer } from './segments/text.js';
 import { thinkingRenderer } from './segments/thinking.js';
 import { codeRenderer } from './segments/code.js';
 import { errorRenderer } from './segments/error.js';
 import { toolCallRenderer } from './segments/tool-call.js';
-import { artifactRenderer } from './segments/artifact/card.js';
-// The binary path's bookkeeping hook. Installed from the two registration entry
-// points below rather than at module load — see its own comment for why a bundler
-// makes that difference matter.
-import { installArtifactReadyHook } from './segments/artifact/binary-file.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
@@ -158,7 +152,6 @@ export function installDefaultRenderersOnce(config: AparteConfig = contextConfig
         if (!reg.renderers.has(renderer.type)) reg.renderers.set(renderer.type, renderer);
     }
     injectRendererStyles(config);
-    installArtifactReadyHook();
 }
 
 /**
@@ -287,7 +280,6 @@ export function registerDefaultRenderers(config: AparteConfig = contextConfig())
         if (!reg.renderers.has(renderer.type)) registerSegmentRenderer(renderer, config);
     }
     injectRendererStyles(config);
-    installArtifactReadyHook();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -305,5 +297,4 @@ const DEFAULT_RENDERERS = [
     codeRenderer,
     errorRenderer,
     toolCallRenderer,
-    artifactRenderer,
 ] as readonly AparteSegmentRenderer[];

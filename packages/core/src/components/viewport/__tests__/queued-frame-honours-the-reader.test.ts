@@ -114,6 +114,72 @@ describe('a decrease the browser made while settling our scroll', () => {
         geometry(700, 1500);
         expect(vp._isAutoScrollEnabled, 'no scroll of ours to blame: the reader left').toBe(false);
     });
+
+    // Classifying the churn correctly was only half the job: the handler's outputs were the
+    // flag and the button, and neither of them scrolls. Measured on react-webkit after a
+    // branch swap — top 763 -> 759 -> 720 while the max churned 891 -> 1091 -> 891 — the
+    // follow stayed armed, the transcript stood 171px short, and no code path acted on it.
+    // The settle window is closed here on purpose (0ms), so what this pins is the handler's
+    // branch and not the chain the scroll before it started.
+    it('re-anchors when the churn leaves a gap', async () => {
+        geometry(891, 1611, 720);                   // at the bottom of the short layout
+        (vp as unknown as { _settleWindowMs: number })._settleWindowMs = 0;
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+        geometry(720, 1811, 720);                   // the rebuild's tall layout: -171 top, +200 height
+        expect(vp._isAutoScrollEnabled, 'churn is not the reader').toBe(true);
+
+        await frame();
+        expect(box.scrollTop, 'armed and short of the bottom must become a scroll').toBe(1811 - 720);
+    });
+
+    // The same branch from the other side, and the reason it is gated on a DECREASE.
+    // A scroll of OURS that is still moving is `settlingOurs` too — `drop` is negative,
+    // so the churn test passes trivially — and that is every frame of a native smooth
+    // scroll. Re-anchoring one of them assigns `scrollTop`, which per CSSOM-View is an
+    // instant scroll and aborts the animation: the send glide, the scroll-to-bottom
+    // button and `requestSmoothScroll()` on all four wrappers all became a stutter and
+    // a jump, with no test able to see it (jsdom takes the instant fallback unless
+    // `scrollTo` is a function).
+    it('leaves a smooth scroll of ours gliding instead of snapping it to the bottom', async () => {
+        geometry(1000, 1500);                       // at the bottom, following
+        wheelUp(200, 1500);                         // the reader goes up: the button appears
+        await frame();
+        await frame();                              // nothing of ours is still queued
+        expect(vp._isAutoScrollEnabled).toBe(false);
+
+        // The wheel was over a second ago — the reader stopped, read, then pressed the
+        // button. That is what makes the glide's own scroll events `settlingOurs`: a
+        // press on the button is not a scroll gesture (it is not in the gutter), so
+        // nothing refreshes the reader's trace while the animation runs.
+        (vp as unknown as { _readerInputAt: number })._readerInputAt = Number.NEGATIVE_INFINITY;
+        let glideTo: number | null = null;
+        box.scrollTo = ((o: ScrollToOptions) => { glideTo = o.top ?? null; }) as typeof box.scrollTo;
+
+        (vp.querySelector('.aparte-scroll-btn') as HTMLElement).click();
+        expect(glideTo, 'the button glides to the bottom').toBe(1500);
+
+        box.scrollTop = 400;                        // one frame of that glide: still 600 short
+        box.dispatchEvent(new Event('scroll'));
+        for (let i = 0; i < 4; i++) await frame();
+        expect(box.scrollTop, 'the glide must reach its own end, not be assigned mid-animation')
+            .toBe(400);
+    });
+
+    it('does not re-anchor a drag-selection upward', async () => {
+        geometry(1000, 1500);
+        vp.appendToken('a1', 'more');
+        await frame();
+        await frame();
+        geometry(300, 1500);                        // -700px with the height standing still
+        expect(vp._isAutoScrollEnabled, 'a selection dragged upward is the reader').toBe(false);
+
+        await frame();
+        await frame();
+        expect(box.scrollTop, 'the new branch must never reach a reader').toBe(300);
+        expect(vp._isAutoScrollEnabled).toBe(false);
+    });
 });
 
 describe('what counts as the reader\'s hand', () => {

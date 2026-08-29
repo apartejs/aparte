@@ -23,6 +23,8 @@ export type {
     AparteInputConfig
 } from './models.js';
 
+export type { AparteStreamBlock, AparteStreamBlockMatch } from './stream-blocks.js';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Events - Component communication
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,6 +33,7 @@ export type {
     AparteSendEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
+    AparteLinkClickEventDetail,
     ApartePathChangedEventDetail,
     AparteRetryEventDetail,
     AparteEditEventDetail,
@@ -62,7 +65,6 @@ export type {
     AparteSegment,
     AparteCustomSegment,
     AparteToolCallSegment,
-    AparteArtifactSegment,
     AparteSegmentType,
     AparteSegmentRenderer,
     AparteSegmentUpdateEventDetail
@@ -118,6 +120,8 @@ export { contentToText } from './chat.js';
 export type {
     AparteTool,
     AparteToolCall,
+    AparteApprovalPolicy,
+    AparteApprovalRuling,
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,
@@ -133,6 +137,7 @@ export { AparteErrorCode, AparteError } from './errors.js';
 
 export type {
     AparteModelChangeEventDetail,
+    AparteApprovalModeChangeEventDetail,
     AparteMessageDoneEventDetail,
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,
@@ -140,15 +145,10 @@ export type {
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
+    AparteCompactStartEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteFileGenReadyEventDetail,
-    AparteFileGenErrorEventDetail,
     AparteMessageInfoEventDetail,
-    AparteArtifactStartEventDetail,
-    AparteArtifactDeltaEventDetail,
-    AparteArtifactReadyEventDetail,
-    AparteArtifactRedownloadEventDetail
 } from './events.js';
 
 // The attribute surface of every element, for the framework wrappers to map over.

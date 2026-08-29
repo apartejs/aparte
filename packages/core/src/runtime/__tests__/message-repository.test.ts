@@ -64,6 +64,26 @@ describe('AparteMessageRepository', () => {
 
     // ─── getMessageById ────────────────────────────────────────────────────
 
+    describe('import() — a corrupted snapshot cannot hang the page', () => {
+        it('skips an entry that names itself as its own parent, instead of recursing forever', () => {
+            const repo = new AparteMessageRepository();
+            const m: AparteMessage = { id: 'a', role: 'user', content: 'hi', timestamp: 1 };
+            // The orphan check passes (the id IS known after the first line) and the
+            // `existing` branch of addOrUpdateMessage walked the cycle it created.
+            repo.import({ messages: [{ message: m, parentId: null }, { message: { ...m }, parentId: 'a' }], headId: 'a' });
+            expect(repo.getMessages().map((x) => x.id)).toEqual(['a']);
+        });
+
+        it('a legitimate export round-trips untouched — no id repeats in one', () => {
+            const repo = new AparteMessageRepository();
+            repo.addOrUpdateMessage(null, { id: 'u1', role: 'user', content: 'q', timestamp: 1 });
+            repo.addOrUpdateMessage('u1', { id: 'a1', role: 'assistant', content: 'r', timestamp: 2 });
+            const other = new AparteMessageRepository();
+            other.import(repo.export());
+            expect(other.getMessages().map((x) => x.id)).toEqual(['u1', 'a1']);
+        });
+    });
+
     describe('getMessageById()', () => {
         it('returns undefined for unknown id', () => {
             expect(repo.getMessageById('ghost')).toBeUndefined();

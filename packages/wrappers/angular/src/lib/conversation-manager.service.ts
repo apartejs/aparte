@@ -134,6 +134,24 @@ export class ConversationManagerService implements OnDestroy {
         return this._manager!.unarchive(id);
     }
 
+    /** Pin a conversation to the top of the list. */
+    async pin(id: string): Promise<void> {
+        this._assertInit();
+        return this._manager!.pin(id);
+    }
+
+    /** Unpin a conversation. */
+    async unpin(id: string): Promise<void> {
+        this._assertInit();
+        return this._manager!.unpin(id);
+    }
+
+    /** Rename a conversation. */
+    async updateTitle(id: string, title: string): Promise<void> {
+        this._assertInit();
+        return this._manager!.updateTitle(id, title);
+    }
+
     // ─── Private ─────────────────────────────────────────────────────────────
 
     private _assertInit(): void {

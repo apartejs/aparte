@@ -21,6 +21,8 @@ export type {
     AparteBubbleRole,
     AparteMessage,
     AparteContentParser,
+    AparteStreamBlock,
+    AparteStreamBlockMatch,
     AparteSendEventDetail,
     AparteViewportConfig,
     AparteInputConfig,
@@ -38,7 +40,6 @@ export type {
     AparteSegmentRenderer,
     AparteCustomSegment,
     AparteToolCallSegment,
-    AparteArtifactSegment,
     // The same five the browser barrel gained, and they belong here for the same reason:
     // a type has no DOM. `AparteSegmentBase` is the constraint on the exported
     // `AparteSegmentRenderer<T>`, so an SSR consumer writing a renderer for a segment type
@@ -62,6 +63,7 @@ export type {
     ModelStatus,
     ModelLoadProgress,
     AparteModelChangeEventDetail,
+    AparteApprovalModeChangeEventDetail,
     AparteMessageDoneEventDetail,
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,
@@ -69,10 +71,10 @@ export type {
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
+    AparteCompactStartEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteFileGenReadyEventDetail,
-    AparteFileGenErrorEventDetail,
+    AparteLinkClickEventDetail,
     AparteMessageInfoEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
@@ -81,10 +83,6 @@ export type {
     AparteEditEventDetail,
     AparteFeedbackEventDetail,
     AparteActionEventDetail,
-    AparteArtifactStartEventDetail,
-    AparteArtifactDeltaEventDetail,
-    AparteArtifactReadyEventDetail,
-    AparteArtifactRedownloadEventDetail,
     AparteChatRequest,
     AparteChatResponse,
     AparteChatMessage,
@@ -97,6 +95,8 @@ export type {
     AparteUsage,
     AparteTool,
     AparteToolCall,
+    AparteApprovalPolicy,
+    AparteApprovalRuling,
     AparteToolResult,
     AparteToolHandler,
     AparteToolContext,
@@ -126,9 +126,26 @@ export type {
 export { AparteErrorCode, AparteError, contentToText } from './types/index.js';
 
 // Custom-element TYPES (erased) — keep server consumers fully typed.
+//
+// The element CLASSES too, as types: `frameworks/elements.md` promises the `node`
+// condition keeps "every type", and a server-side consumer typing a ref
+// (`ref: AparteChat`) or a wrapper's imperative surface needs the class's instance
+// type without its `HTMLElement` runtime. `export type` erases the value, so nothing
+// here touches the DOM at import.
+export type {
+    AparteChat, AparteChatBubble, AparteChatViewport, AparteChatStatus,
+    AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel,
+    AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar,
+    AparteSuggestions, AparteContext, AparteConversationList, AparteScrollRail, AparteSidebar,
+    AparteSplit,
+} from './components/index.js';
+export type { AparteScrollRailJumpDetail, AparteScrollRailEvery, AparteSidebarToggleDetail } from './components/index.js';
+export type { AparteSplitResizeDetail } from './components/index.js';
+export type { AparteElicitation } from './components/elicitation/aparte-elicitation.js';
+export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';
 export type { SyncableBubble, AparteComposerEventMap, AparteComposerEventType, AparteComposerState, AparteComposerChangeEventDetail, AparteComposerPanelMode, AparteActionClickEventDetail } from './components/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './components/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
 
@@ -171,7 +188,7 @@ export {
 } from './host/index.js';
 
 // ── Parsers ─────────────────────────────────────────────────────────────────
-export { AparteStreamParser, parseMarkdownToSegments, deriveArtifactKind, parseAparteEventStream } from './parsers/index.js';
+export { AparteStreamParser, parseMarkdownToSegments, parseAparteEventStream } from './parsers/index.js';
 export type { AparteStreamParserOptions, AparteThinkingDelimiterPair, AparteParserState, AparteParserResult } from './parsers/index.js';
 
 // Transport seam — DOM-free (fetch-based), so the whole seam is SSR-safe. The
@@ -202,6 +219,7 @@ export type {
     AparteHighlightProvider,
     AparteSystemPromptVarsProvider,
     AparteLocale,
+    AparteLocaleExtensions,
     AparteAction,
     AparteActionZone,
     AparteIconProvider,
@@ -217,14 +235,13 @@ export type {
     AparteBubbleShellRenderer,
     AparteModelPreference,
     AparteModelPreferenceProvider,
-    AparteArtifactPreviewBuilder,
     AparteSanitizer,
 } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';
-export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
+export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 export { AparteMessageRepository } from './runtime/message-repository.js';
@@ -266,6 +283,7 @@ export { escapeHtml, escapeAttr } from './utils/escape.js';
 // be importable. It touches no DOM, so the SSR barrel carries it too.
 export { cssEscape } from './utils/css-escape.js';
 export { uuid } from './utils/uuid.js';
+export { copyText } from './utils/copy-text.js';
 // Pure and DOM-free, so the SSR barrel carries it too — and that is the point: a
 // consumer can assert their own duration logic in Node, with no browser.
 export { isSegmentSettled, segmentTiming, segmentDuration } from './utils/segments.js';
@@ -297,7 +315,25 @@ export type {
  * No-op on the server: custom elements only exist in the browser, where the
  * real `index.ts` registers them at import time. Wrappers can call this
  * unconditionally without a `typeof window` guard.
+ *
+ * With ONE thing to say. A `customElements` here means a DOM is present and this
+ * DOM-free entry was still the one that resolved — which is a test runner: vitest,
+ * jest and friends run on Node, so they take the `node` export condition, and jsdom
+ * then supplies the registry. Nothing upgrades, `<aparte-chat>` stays an
+ * `HTMLElement`, and every assertion about an element's own properties fails for a
+ * reason nothing on the page explains. The escape is `@aparte/core/browser`, which is
+ * why that entry exists; before it, the only way out was to reach into this package's
+ * `src/`. One warning, not a throw: the environment is legal, only surprising.
  */
 export function registerAllComponents(): void {
-    /* browser-only — nothing to register without a DOM */
+    if (typeof customElements !== 'undefined') {
+        console.warn(
+            "[aparte] A DOM is present but '@aparte/core' resolved to its DOM-free Node entry, "
+                + 'so no <aparte-*> element will upgrade. Test runners hit this: they run on Node, '
+                + "so they take the 'node' export condition. Point your runner at '@aparte/core/browser' "
+                + "(vitest: test.alias { '@aparte/core': '@aparte/core/browser' }).",
+        );
+    }
 }
+// Pure until called; the browser entry calls it at import.
+export { installDialogTriggersOnce } from './interop/dialog-triggers.js';

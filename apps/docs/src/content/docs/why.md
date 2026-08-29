@@ -30,7 +30,7 @@ document.body.innerHTML = '<aparte-chat style="height: 600px"></aparte-chat>';
 ```
 
 That includes what the snippet doesn't show: token streaming with typed segments (text,
-thinking, code, tool calls, artifacts), the [tool-calling loop with human-in-the-loop
+thinking, code, tool calls — and artifacts, through a plugin), the [tool-calling loop with human-in-the-loop
 approval](/guides/tools/), [retry/edit with conversation branching](/guides/conversations-branching/),
 attachments, markdown/highlight plugins, and localization.
 

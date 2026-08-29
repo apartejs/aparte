@@ -6,12 +6,12 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
 /**
  * Submit button primitive for <aparte-composer>.
  *
- * One control, four meanings: **send**, **stop** while the root is streaming, and — when
- * an elicitation panel is open — **submit** this answer or **advance** to the next
- * question. The panel outranks streaming: while one is open the button stays the answer
- * control and a streaming change is ignored. The icon moves with the meaning (paper
- * plane, square, check, chevron), because a check on a form with three questions left is
- * as wrong as a paper plane that means "answer". All four are decided by the root's state
+ * One control, three meanings: **send**, **stop** while the root is streaming, and — when
+ * an elicitation panel is open — **submit** the answer; a panel whose mode is `'none'`
+ * (its options settle on the click) takes the button out of the layout entirely. The
+ * panel outranks streaming: while one is open the button stays the answer control and a
+ * streaming change is ignored. The icon moves with the meaning (paper plane, square,
+ * check), because a paper plane that means "answer" is a lie. All three are decided by the root's state
  * — its `value`, `attachments`, `disabled`, `streaming` and the panel payload it
  * broadcasts — not by anything this element owns, which is why it recomputes its chrome
  * rather than re-rendering: a rebuild would put a paper plane back mid-stream, drop out
@@ -168,14 +168,14 @@ export class AparteComposerSend extends HTMLElement {
     }
 
     /**
-     * Panel open: this one button now means "answer", and WHICH answer depends on
-     * where you are in the form.
+     * Panel open: this one button now means "submit the answer".
      *
      * The icon has to move with the meaning: it drew a paper plane while the label
      * already said "Submit", so it read as "send a message" while it meant "answer
-     * this question". And a check on a form with three questions left was just as
-     * wrong — hence a chevron while there is more ahead. The visual is what a user
-     * reads.
+     * this question". It used to draw a chevron too, while a form had questions
+     * ahead, and turn into a "Next" — a second way to do what the panel's chips do,
+     * and a button whose meaning changed under the pointer. It is disabled instead
+     * until every question has an answer, which is what the chips' marks explain.
      */
     private _syncPanelState(): void {
         const panel = this._panel;
@@ -191,12 +191,9 @@ export class AparteComposerSend extends HTMLElement {
             this._button.disabled = true;
             return;
         }
-        const advancing = panel.mode === 'advance';
         this._button.disabled = !panel.submitEnabled;
-        this._button.innerHTML = advancing ? cfg.getIcon('nextBranch') : this._getSubmitIcon();
-        const label = advancing
-            ? (cfg.t('elicitationNext') || 'Next')
-            : (cfg.t('submitButton') || 'Submit');
+        this._button.innerHTML = this._getSubmitIcon();
+        const label = cfg.t('submitButton') || 'Submit';
         this._button.setAttribute('aria-label', label);
         this._button.setAttribute('title', label);
         this._button.classList.remove('aparte-is-streaming');

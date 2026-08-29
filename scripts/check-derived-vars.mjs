@@ -32,6 +32,19 @@
  *      and the first then reads like the value in force without being it.
  *   5. A DECLARED token is referenced without a fallback. The fallback is a second
  *      owner of the same default and drifts from it — 155 had, across 54 names.
+ *   6. A token referenced with NO fallback is declared somewhere, or written from JS.
+ *      This was the hole in rule 5: the scan returned the moment there was no comma, so
+ *      all three ownership rules keyed off the fallback and a bare `var(--typo)` — which
+ *      owns nothing, resolves to nothing and drops the whole declaration in silence —
+ *      was never compared against the declared set at all.
+ *   7. Every class core and the plugins EMIT is prefixed `aparte-` (or `language-`,
+ *      which is the highlighters' name, not ours). CLAUDE.md has stated this as policy
+ *      for a long time and no guard read it. Core is light DOM: an unprefixed rule is a
+ *      global rule in the consumer's page.
+ *   8. Every `.aparte-…` rule in a SEGMENT sheet is emitted by some source. That family
+ *      styles markup core's own renderers build, so an orphan is a rename done on one
+ *      side only. The recipe kit (`display/`, `surface/`, `button`, `field`) is
+ *      deliberately outside this: those classes exist for a consumer to wear.
  *
  * A note on testing this: jsdom does not resolve `var()`, so no unit test can assert
  * "the avatar follows the primary". The browser proof belongs in `pnpm e2e`; the
@@ -70,8 +83,12 @@ const LITERAL_SELECTORS = [':root', ':host'];
  * Raised 6 -> 7 on 2026-08-28: the bubble's action bar joins the coarse-pointer block
  * (`--aparte-action-bar-btn-size`, a size read from `--aparte-touch-target-size`), the
  * one control that block had left at 28px.
+ *
+ * Raised 7 -> 8 on 2026-08-29: the split's seam joins the coarse-pointer block
+ * (`--aparte-split-hit-area`, a size read from `--aparte-touch-target-size`) — a
+ * responsive SIZE, which is the case this exemption exists for.
  */
-const AT_RULE_CEILING = 7;
+const AT_RULE_CEILING = 8;
 /**
  * If the anchored count collapses, the matcher stopped matching — that is not a clean
  * file. Same reasoning as check-attr-escaping's SEEN_FLOOR.
@@ -246,6 +263,18 @@ for (const [key, names] of byBlock) {
  * owner — that is the "unset by default" knob, and it stays.
  */
 let refs = 0;
+/**
+ * `var(--x)` with NO fallback, naming a token no sheet declares. name -> `sheet:line`s.
+ *
+ * The hole this closes was measured, not imagined: the loop below used to `continue`
+ * the moment there was no comma, so a bare reference was counted and then dropped
+ * without ever being compared against `declaredNames`. All three ownership rules key
+ * off the FALLBACK, so a name that owns nothing was invisible to every one of them. The
+ * consequence in the browser is total silence — the declaration is invalid at
+ * computed-value time and the property drops to `initial`, so an element renders
+ * unstyled and 1817 references still report "single-owner".
+ */
+const bareUndeclared = new Map();
 for (const sheet of SHEETS) {
     const text = readFileSync(sheet, 'utf8');
     const textLines = text.split('\n');
@@ -260,7 +289,16 @@ for (const sheet of SHEETS) {
         const inner = text.slice(i + 4, j);
         const comma = inner.indexOf(',');
         refs++;
-        if (comma < 0) continue;
+        if (comma < 0) {
+            const bare = inner.trim();
+            // The shape test also keeps CSS COMMENTS out: this file's own prose says
+            // `var(--aparte-*)`, and an asterisk is not a token name.
+            if (/^--aparte-[a-z0-9-]+$/.test(bare) && !declaredNames.has(bare)) {
+                if (!bareUndeclared.has(bare)) bareUndeclared.set(bare, []);
+                bareUndeclared.get(bare).push(`${sheet}:${text.slice(0, i).split('\n').length}`);
+            }
+            continue;
+        }
         const name = inner.slice(0, comma).trim();
         if (!fallbacks.has(name)) fallbacks.set(name, new Set());
         fallbacks.get(name).add(inner.slice(comma + 1).trim().replace(/\s+/g, ' '));
@@ -294,6 +332,66 @@ if (refs < REF_FLOOR) {
     problems.push(
         `only ${refs} var() references scanned across ${SHEETS.length} sheets, floor is ${REF_FLOOR}.\n`
         + '      A collapsed count means the scanner stopped seeing the sheets.',
+    );
+}
+
+const CSSPROP_SOURCES = [
+    'packages/core/src',
+    'packages/plugins',
+];
+/**
+ * Every `.ts` under `CSSPROP_SOURCES`. Read once and shared: three rules below walk the
+ * same corpus (the `@cssprop` tags, the tokens written from JS, and the classes core and
+ * the plugins emit), and three copies of one walk is three chances for them to disagree
+ * about what "core's source" means.
+ */
+const cssPropFiles = [];
+{
+    const stack = [...CSSPROP_SOURCES];
+    while (stack.length) {
+        const p = stack.pop();
+        let st;
+        try { st = statSync(p); } catch { continue; }
+        if (st.isDirectory()) {
+            for (const e of readdirSync(p)) {
+                if (e === 'node_modules' || e === 'dist' || e === '__tests__') continue;
+                stack.push(p + '/' + e);
+            }
+        } else if (/[.]ts$/.test(p) && !/[.]test[.]ts$/.test(p)) {
+            cssPropFiles.push(p);
+        }
+    }
+}
+
+const cssPropDeclared = new Map();
+for (const f of cssPropFiles) {
+    for (const m of readFileSync(f, 'utf8').matchAll(/@cssprop\s+\[?(--aparte-[\w-]+)/g)) {
+        if (!cssPropDeclared.has(m[1])) cssPropDeclared.set(m[1], f);
+    }
+}
+
+/**
+ * One owner, fourth shape — and the one that owns NOTHING.
+ *
+ * A token written from JS is legitimately undeclared in CSS: `--aparte-split-position`
+ * and friends are set with `style.setProperty` at runtime, so a sheet reading one with
+ * no fallback is reading a value the element writes. Those are collected from the
+ * source rather than listed here, for the same reason the `@cssprop` rule walks the
+ * source: a hand-kept list of four names is a list that will be five.
+ */
+const JS_WRITTEN = new Set();
+for (const file of cssPropFiles) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/setProperty\(\s*['"`](--aparte-[a-z0-9-]+)/g)) JS_WRITTEN.add(m[1]);
+}
+for (const [name, where] of [...bareUndeclared].sort()) {
+    if (JS_WRITTEN.has(name)) continue;
+    problems.push(
+        `${where[0]}  ${name} is read with NO fallback and declared nowhere.\n`
+        + `      ${where.length} reference(s): ${where.join(', ')}\n`
+        + '      The declaration is invalid at computed-value time, so the property drops to\n'
+        + '      `initial` and the element renders unstyled — in total silence. Declare the\n'
+        + '      token, give the reference a fallback, or fix the name.',
     );
 }
 
@@ -356,33 +454,7 @@ if (anchored.length < ANCHORED_FLOOR) {
  * way a consumer-facing knob with a default is written, and 34 of them are shaped that
  * way on purpose.
  */
-const CSSPROP_SOURCES = [
-    'packages/core/src',
-    'packages/plugins',
-];
-const cssPropDeclared = new Map();
-{
-    const stack = [...CSSPROP_SOURCES];
-    const files = [];
-    while (stack.length) {
-        const p = stack.pop();
-        let st;
-        try { st = statSync(p); } catch { continue; }
-        if (st.isDirectory()) {
-            for (const e of readdirSync(p)) {
-                if (e === 'node_modules' || e === 'dist' || e === '__tests__') continue;
-                stack.push(p + '/' + e);
-            }
-        } else if (/[.]ts$/.test(p) && !/[.]test[.]ts$/.test(p)) {
-            files.push(p);
-        }
-    }
-    for (const f of files) {
-        for (const m of readFileSync(f, 'utf8').matchAll(/@cssprop\s+\[?(--aparte-[\w-]+)/g)) {
-            if (!cssPropDeclared.has(m[1])) cssPropDeclared.set(m[1], f);
-        }
-    }
-}
+
 /**
  * Same floor reasoning as everywhere else: a matcher that reads nothing is not a pass.
  * It is a COLLAPSE detector, not a count — deliberately deleting a knob is allowed and
@@ -406,6 +478,136 @@ if (cssPropDeclared.size < CSSPROP_FLOOR) {
             problems.push(
                 `\`${token}\` is documented as a @cssprop (${file}) but no stylesheet reads it. `
                 + 'The generated component page presents it as a working knob; setting it does nothing.',
+            );
+        }
+    }
+}
+
+/*
+ * ── Every class core emits is prefixed `aparte-` ────────────────────────────────
+ *
+ * CLAUDE.md has stated this as policy for a long time and NO guard read it: a sweep of
+ * `scripts/` for "prefix" returned one hit, and it was about `@keyframes`. The measured
+ * state when the policy was written was 146 prefixed component classes against 42 bare
+ * ones, and core is light DOM, so the bleed goes both ways — the outward direction being
+ * the serious one. A bare global rule like `.error-message { }` restyles the host's own
+ * error messages the moment they import the package. Inbound has bitten twice already:
+ * a bare `nav` rule on this repo's own docs site moved the artifact card's tabs, and
+ * `.segment` is Semantic UI's base class.
+ *
+ * It lives here rather than in a new script because this file already reads both halves
+ * of the question — every sheet, and every source file under `CSSPROP_SOURCES`.
+ *
+ * `language-*` is the one deliberate exception, and it is not ours: it is the name
+ * highlighters look for on a `<code>`.
+ */
+const CLASS_SITE_FLOOR = 250;
+const CLASS_TOKEN_FLOOR = 380;
+
+/**
+ * Files whose class attributes are NOT core's DOM.
+ *
+ * One entry, and it earns it: `preview-document.ts` builds the `srcdoc` of the artifact
+ * card's sandboxed iframe — a separate document in a separate origin, whose markup
+ * exists to be styled by the CSS the MODEL wrote. Prefixing `<div class="demo">` there
+ * would mean the model's own `.demo { }` no longer matches its own preview.
+ */
+const CLASS_EXEMPT_FILES = new Map([
+    ['packages/plugins/artifacts/src/preview-document.ts', "the sandboxed preview's srcdoc: a separate document, styled by the model's CSS"],
+]);
+
+let classSites = 0;
+let classTokens = 0;
+{
+    const badClasses = new Map();
+    // Rule 8 below reads this, so the two rules agree BY CONSTRUCTION on what "a class
+    // core emits" means. It used to keep a walk of its own — a bare `/aparte-[a-z0-9…]/`
+    // over raw source — which counted a name inside a docblock, inside an `@example`
+    // fence, or inside `--aparte-code-language` as an emission, and so kept an orphaned
+    // selector alive after exactly the rename the rule exists to catch.
+    const emittedClasses = new Set();
+    for (const file of cssPropFiles) {
+        if (CLASS_EXEMPT_FILES.has(file)) continue;
+        // Block comments and line comments first: a JSDoc `@example` here is a
+        // CONSUMER's markup by design (`class="my-typing"`, `class="fas fa-copy"`), and
+        // demanding an `aparte-` prefix of it would be demanding the opposite of what
+        // those examples teach.
+        let text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+        text = text.split(String.fromCharCode(10)).filter((l) => !/^\s*\/\//.test(l)).join(String.fromCharCode(10));
+
+        const record = (raw) => {
+            classSites++;
+            // `${…}` chunks are computed and unknowable here; the literal tokens around
+            // them are what this rule is about.
+            for (const token of raw.replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) {
+                if (!token) continue;
+                classTokens++;
+                emittedClasses.add(token);
+                if (token.startsWith('aparte-') || token.startsWith('language-')) continue;
+                if (!badClasses.has(token)) badClasses.set(token, new Set());
+                badClasses.get(token).add(file);
+            }
+        };
+        // `class="…"` allowing `${…}` to contain quotes of its own — without that, the
+        // scan stops at the apostrophe inside `${x || 'text'}` and reads `||` as a class.
+        for (const m of text.matchAll(/\sclass=["']((?:\$\{[^}]*\}|[^"'])*)["']/g)) record(m[1]);
+        for (const m of text.matchAll(/classList\.(?:add|remove|toggle)\(([^)]*)\)/g)) {
+            for (const s of m[1].matchAll(/['"`]([^'"`$]*)['"`]/g)) record(s[1]);
+        }
+        for (const m of text.matchAll(/\.className\s*=\s*['"`]([^'"`]*)['"`]/g)) record(m[1]);
+        for (const m of text.matchAll(/setAttribute\(\s*['"]class['"]\s*,\s*['"`]([^'"`]*)['"`]/g)) record(m[1]);
+    }
+
+    for (const [token, where] of [...badClasses].sort()) {
+        problems.push(
+            `class "${token}" is emitted without the \`aparte-\` prefix, from ${[...where].sort().join(', ')}.\n`
+            + '      Core is LIGHT DOM: an unprefixed rule is a global rule, so it restyles the\n'
+            + "      host's own markup and the host's own rules restyle ours. Prefix it, or — if\n"
+            + '      the markup genuinely is not core\'s DOM — name the file in CLASS_EXEMPT_FILES.',
+        );
+    }
+    if (classSites < CLASS_SITE_FLOOR || classTokens < CLASS_TOKEN_FLOOR) {
+        problems.push(
+            `[classes] read only ${classSites} class sites and ${classTokens} tokens across `
+            + `${cssPropFiles.length} source files (floors ${CLASS_SITE_FLOOR}/${CLASS_TOKEN_FLOOR}).\n`
+            + '      A collapsed corpus is what a broken matcher looks like, not a clean repo.',
+        );
+    }
+
+    /*
+     * …and the other direction: a `.aparte-…` rule nothing emits.
+     *
+     * Scoped to `styles/segment/**` deliberately, and the scope is a MEASUREMENT rather
+     * than a compromise. A segment sheet styles markup core's own renderers build and
+     * nothing else, so an orphan there is a class that was renamed on one side only —
+     * which is exactly what happened to `.aparte-code-language`. The rest of `styles/`
+     * cannot be judged this way: `display/`, `surface/`, `button.css` and `field.css` are
+     * a RECIPE KIT a consumer wears (`aparte-alert`, `aparte-badge`, `aparte-dialog` —
+     * 140 classes core deliberately emits nowhere), and `apps/docs` cannot be the corpus
+     * that rescues them because `reference/classes.mdx` is GENERATED from these same
+     * sheets, which would make the rule prove itself.
+     *
+     * Measured orphans in the families NOT covered, so widening this is a decision with
+     * numbers behind it rather than a rediscovery: components/composer.css 10,
+     * components/shell.css 1, components/elicitation.css 1, components/context.css 1,
+     * shell/split.css 2, everything else 0.
+     */
+    const EMITTED_SHEETS = SHEETS.filter((s) => s.includes('/styles/segment/'));
+    const SEGMENT_SHEET_FLOOR = 4;
+    if (EMITTED_SHEETS.length < SEGMENT_SHEET_FLOOR) {
+        problems.push(
+            `[classes] found only ${EMITTED_SHEETS.length} segment stylesheet(s), floor is `
+            + `${SEGMENT_SHEET_FLOOR}. They moved, and the orphan rule is now guarding nothing.`,
+        );
+    }
+    for (const sheet of EMITTED_SHEETS) {
+        const css = readFileSync(sheet, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+        for (const m of css.matchAll(/\.(aparte-[a-zA-Z0-9_-]+)/g)) {
+            if (emittedClasses.has(m[1])) continue;
+            problems.push(
+                `${sheet}  \`.${m[1]}\` is styled and no source emits it. A segment sheet styles\n`
+                + '      markup core builds itself, so an orphan here is a class renamed on one side\n'
+                + '      only — the rule is dead weight, and the markup is unstyled.',
             );
         }
     }
@@ -493,5 +695,7 @@ if (problems.length) {
 console.log(
     `[derived-vars] OK: ${anchored.length} derived declarations, all on the ${ANCHORS.length}-anchor layer; `
     + `the literal palette stays on \`${LITERAL_SELECTORS.join(', ')}\`; `
-    + `${atRuleExempt.length} responsive exemption(s); ${refs} var() refs, single-owner.`,
+    + `${atRuleExempt.length} responsive exemption(s); ${refs} var() refs, single-owner `
+    + `and each one declared or written from JS; ${classTokens} class tokens over `
+    + `${classSites} sites, all prefixed.`,
 );

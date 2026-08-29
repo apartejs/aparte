@@ -52,6 +52,21 @@ describe('AparteChat React Wrapper', () => {
         expect(bubbles[1].getAttribute('message-id')).toBe('2');
     });
 
+    it('an uncontrolled <AparteChat> (no messages prop) keeps what it appended across re-renders', async () => {
+        // The omitted-prop default used to be a fresh `[]` on every render: the
+        // parent-push effect compared it by identity, applied the empty list on every
+        // render — wiping the thread the host had just appended — and looped.
+        const ref = React.createRef<AparteChatImperativeApi>();
+        const { container, rerender } = render(<AparteChat ref={ref} onMessageSent={mockOnMessageSent} />);
+        await act(async () => {
+            ref.current?.appendMessage({ id: 'u1', role: 'user', content: 'kept', timestamp: 1 });
+        });
+        rerender(<AparteChat ref={ref} onMessageSent={mockOnMessageSent} placeholder="again" />);
+        rerender(<AparteChat ref={ref} onMessageSent={mockOnMessageSent} placeholder="and again" />);
+        expect(container.querySelectorAll('aparte-chat-bubble').length).toBe(1);
+        expect(ref.current?.getMessages().map((m) => m.id)).toEqual(['u1']);
+    });
+
     it('exposes getViewport() on the handle (cross-wrapper accessor)', () => {
         const ref = React.createRef<AparteChatImperativeApi>();
         const { container } = render(<AparteChat ref={ref} messages={[]} />);
@@ -101,6 +116,35 @@ describe('AparteChat React Wrapper', () => {
         const { container } = render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} />);
         expect(container.querySelector('aparte-composer-add-attachment')).toBeNull();
         expect(container.querySelector('aparte-composer-attachments')).toBeNull();
+    });
+
+    // Parity with core's <aparte-chat>, whose default composition ships the presenter:
+    // the approval gate and requestUserInput() ask through it, so a wrapper without one
+    // could not honour either — and the "no presenter" warning named a tag this wrapper
+    // never renders.
+    it('renders the elicitation presenter inside the host by default, before the composer', () => {
+        const { container } = render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} />);
+        const host = container.querySelector('[data-aparte-chat]')!;
+        const presenter = host.querySelector(':scope > aparte-elicitation');
+        expect(presenter).not.toBeNull();
+        expect(presenter!.nextElementSibling!.tagName.toLowerCase()).toBe('aparte-composer');
+    });
+
+    it('omits the presenter with elicitation={false}', () => {
+        const { container } = render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} elicitation={false} />);
+        expect(container.querySelector('aparte-elicitation')).toBeNull();
+    });
+
+    // A utility-first app sizes the chat column from JSX; core's own class must survive.
+    it('merges className and style onto the root element', () => {
+        const { container } = render(
+            <AparteChat messages={[]} onMessageSent={mockOnMessageSent} className="flex-1 min-h-0" style={{ minHeight: 4 }} />,
+        );
+        const host = container.querySelector('[data-aparte-chat]') as HTMLElement;
+        expect(host.classList.contains('aparte-chat-container')).toBe(true);
+        expect(host.classList.contains('flex-1')).toBe(true);
+        expect(host.classList.contains('min-h-0')).toBe(true);
+        expect(host.style.minHeight).toBe('4px');
     });
 
     it('mounts the picker and the chips strip with attachments', () => {

@@ -10,6 +10,7 @@ import {
     registerDefaultRenderers
 } from '../../segment-renderers.js';
 import { aparteGlobalConfig } from '../../../config/aparte-config.js';
+import { describeToolInput } from '../../../utils/tool-input.js';
 
 // Register the default renderers once, so the built-in under test is resolvable.
 registerDefaultRenderers();
@@ -65,6 +66,72 @@ describe('custom tool renderer (consumer registerToolRenderer)', () => {
         getSegmentRenderer('tool_call')!.setup!(host, seg as any);
         expect(seenEl).toBe(host);
         expect(seenSeg).toBe(seg);
+    });
+
+    // A registered renderer used to be rebuilt from `render()` on every change of the
+    // call, so anything with state in its markup — a mounted preview, an opened
+    // disclosure — was lost the moment the result landed. `update` lets it patch.
+    it('patches through the consumer update() instead of rebuilding, when declared', () => {
+        let renders = 0;
+        let patched: { el: HTMLElement; status: string | undefined } | null = null;
+        aparteGlobalConfig.registerToolRenderer('visual_tool', {
+            render: () => { renders++; return `<div class="my-visual"><iframe></iframe></div>`; },
+            update: (el, seg) => { patched = { el, status: seg.status }; },
+        });
+        const seg = {
+            id: 'vt5', type: 'tool_call',
+            toolCall: { id: 'c5', name: 'visual_tool', input: {} },
+            status: 'pending',
+        };
+        const renderer = getSegmentRenderer('tool_call')!;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderer.render(seg as any) as string;
+        const el = wrap.firstElementChild as HTMLElement;
+        const frame = el.querySelector('iframe');
+        renderer.update!(el, { ...seg, status: 'resolved', result: 'done' } as any);
+        expect(patched!.el).toBe(el);
+        expect(patched!.status).toBe('resolved');
+        expect(renders, 'no second render').toBe(1);
+        expect(el.querySelector('iframe'), 'the mounted frame survived').toBe(frame);
+    });
+
+    it('still rebuilds a consumer renderer that declares no update()', () => {
+        let renders = 0;
+        aparteGlobalConfig.registerToolRenderer('visual_tool', {
+            render: (s) => { renders++; return `<div class="my-visual" data-s="${s.status}"></div>`; },
+        });
+        const seg = {
+            id: 'vt6', type: 'tool_call',
+            toolCall: { id: 'c6', name: 'visual_tool', input: {} },
+            status: 'pending',
+        };
+        const renderer = getSegmentRenderer('tool_call')!;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderer.render(seg as any) as string;
+        renderer.update!(wrap.firstElementChild as HTMLElement, { ...seg, status: 'resolved' } as any);
+        expect(renders).toBe(2);
+        expect(wrap.firstElementChild!.getAttribute('data-s')).toBe('resolved');
+    });
+
+    it('forwards relabel() to the consumer renderer, and touches nothing without one', () => {
+        let relabelled = 0;
+        aparteGlobalConfig.registerToolRenderer('visual_tool', {
+            render: () => `<div class="my-visual"><span class="aparte-tool-icon">x</span></div>`,
+            relabel: () => { relabelled++; },
+        });
+        const seg = {
+            id: 'vt7', type: 'tool_call',
+            toolCall: { id: 'c7', name: 'visual_tool', input: {} },
+            status: 'resolved',
+        };
+        const renderer = getSegmentRenderer('tool_call')!;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = renderer.render(seg as any) as string;
+        const el = wrap.firstElementChild as HTMLElement;
+        renderer.relabel!(el, seg as any);
+        expect(relabelled).toBe(1);
+        // The built-in's own selectors are not applied to a consumer's markup.
+        expect(el.querySelector('.aparte-tool-icon')!.textContent).toBe('x');
     });
 
     it('lets a tool draw its own surface while it awaits approval', () => {
@@ -292,5 +359,50 @@ describe('tool detail — input and result wrap inside the bubble', () => {
         expect(rule![1]).toMatch(/overflow-wrap:\s*anywhere/);
         // …and exactly one: a second declaration elsewhere would be the drift that hid this.
         expect(sheet.match(/\.aparte-tool-part-body pre\s*\{/g)).toHaveLength(1);
+    });
+});
+
+/**
+ * The row and the approval panel read the same arguments, from the same function.
+ *
+ * When the panel started showing the call it asks about, the risk was two renderings
+ * of one value: a person approving a call they read differently from the one that
+ * runs. `describeToolInput` is the single body, in `utils/`, and the row's own
+ * `describeInput` is now a one-line call to it.
+ *
+ * And the row still does NOT open itself when a decision is pending. The panel is the
+ * decision surface now, so "open the disclosure so they can see what they are
+ * approving" has lost its last argument — the reasoning block stays closed while it is
+ * being produced, and a tool call has no stronger claim.
+ */
+describe('the arguments the panel shows are the ones the row shows', () => {
+    const call = {
+        id: 's-args', type: 'tool_call' as const, status: 'awaiting-approval' as const,
+        toolCall: { id: 'c1', name: 'delete_file', input: { path: 'a.ts', force: true } },
+    };
+
+    it('is the same text on both surfaces', () => {
+        const node = document.createElement('div');
+        // The built-in row renders a string; the seam allows an element too.
+        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never) as string;
+        const row = node.querySelector('[data-part="input"]')!.textContent!;
+        expect(row).toContain(describeToolInput(call.toolCall.input));
+    });
+
+    it('says nothing when there is nothing to say', () => {
+        expect(describeToolInput({})).toBe('');
+        expect(describeToolInput(undefined)).toBe('');
+        // A hand-built segment can carry a cyclic object; a broken bubble is worse
+        // than no arguments.
+        const cyclic: Record<string, unknown> = { a: 1 };
+        cyclic['self'] = cyclic;
+        expect(describeToolInput(cyclic)).toBe('');
+    });
+
+    it('leaves the row closed while a person is deciding', () => {
+        const node = document.createElement('div');
+        // The built-in row renders a string; the seam allows an element too.
+        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never) as string;
+        expect(node.querySelector('details')?.hasAttribute('open')).toBe(false);
     });
 });

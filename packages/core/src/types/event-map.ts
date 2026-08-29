@@ -21,8 +21,8 @@
  *
  * Events that carry NO detail stay out, and that is the whole exclusion:
  * `aparte-composer-submit`, `aparte-cancel`, `aparte-reset`, `aparte-reset-done`,
- * `aparte-compact-start`, `aparte-select-open`, `aparte-select-close` are all
- * dispatched as a bare `new CustomEvent(name)`. A map entry would type `e.detail`
+ * `aparte-select-open`, `aparte-select-close` are all dispatched as a bare
+ * `new CustomEvent(name)`. A map entry would type `e.detail`
  * as `null` and gain nothing.
  *
  * All names are kebab-case (`aparte-*`) so every framework can bind them in a
@@ -41,24 +41,24 @@ import type {
     AparteMessageInfoEventDetail,
     AparteMessageDoneEventDetail,
     AparteModelChangeEventDetail,
-    AparteArtifactStartEventDetail,
-    AparteArtifactDeltaEventDetail,
-    AparteArtifactReadyEventDetail,
-    AparteArtifactRedownloadEventDetail,
+    AparteApprovalModeChangeEventDetail,
     AparteMessageStartEventDetail,
     AparteMessageErrorEventDetail,
     AparteMessageAbortedEventDetail,
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
+    AparteCompactStartEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
-    AparteFileGenReadyEventDetail,
-    AparteFileGenErrorEventDetail,
+    AparteLinkClickEventDetail,
 } from './events.js';
 import type { AparteActionClickEventDetail } from '../components/composer/aparte-composer-action.js';
 import type { AparteSuggestionEventDetail } from '../components/suggestions/aparte-suggestions.js';
 import type { AparteContextThresholdEventDetail } from '../components/context/aparte-context.js';
+import type { AparteScrollRailJumpDetail } from '../components/scroll-rail/aparte-scroll-rail.js';
+import type { AparteSidebarToggleDetail } from '../components/sidebar/aparte-sidebar.js';
+import type { AparteSplitResizeDetail } from '../components/split/aparte-split.js';
 import type { AparteOptgroupToggleEventDetail } from '../primitives/select/aparte-optgroup.js';
 import type { AparteConfigChangeEventDetail } from '../config/aparte-config.js';
 import type { AparteToolApprovalRequestDetail } from './tools.js';
@@ -68,6 +68,8 @@ import type {
     AparteConversationSelectDetail,
     AparteConversationDeleteDetail,
     AparteConversationArchiveDetail,
+    AparteConversationPinDetail,
+    AparteConversationRenameDetail,
 } from '../components/conversation-list/aparte-conversation-list.js';
 // event-map is a top-level aggregator (imported by the barrel, never by a
 // component), so importing this component-coupled detail type is cycle-free.
@@ -93,20 +95,12 @@ interface AparteEventMap {
     'aparte-action': CustomEvent<AparteActionEventDetail>;
     'aparte-path-changed': CustomEvent<ApartePathChangedEventDetail>;
     'aparte-branch-navigate': CustomEvent<AparteBranchNavigateEventDetail>;
+    'aparte-link-click': CustomEvent<AparteLinkClickEventDetail>;
     'aparte-feedback': CustomEvent<AparteFeedbackEventDetail>;
     'aparte-message-info': CustomEvent<AparteMessageInfoEventDetail>;
     'aparte-message-done': CustomEvent<AparteMessageDoneEventDetail>;
     'aparte-model-change': CustomEvent<AparteModelChangeEventDetail>;
-    'aparte-artifact-start': CustomEvent<AparteArtifactStartEventDetail>;
-    'aparte-artifact-delta': CustomEvent<AparteArtifactDeltaEventDetail>;
-    'aparte-artifact-ready': CustomEvent<AparteArtifactReadyEventDetail>;
-    // Was keyed `aparte-artifact-open`, an event that has never existed: the only
-    // three mentions of that name in the repo were this line and its own type's
-    // JSDoc, which asserted it is "dispatched by the artifact pill when a user
-    // clicks it". Nothing dispatched it and nothing listened. The detail shape,
-    // however, is field-for-field what the Download button really dispatches, so
-    // the type moved to the live event instead of being deleted.
-    'aparte-artifact-redownload': CustomEvent<AparteArtifactRedownloadEventDetail>;
+    'aparte-approval-mode-change': CustomEvent<AparteApprovalModeChangeEventDetail>;
     'aparte-tool-approval-request': CustomEvent<AparteToolApprovalRequestDetail>;
     // Forwarded by the wrappers' AparteUi (in APARTE_DEFAULT_UI_EVENTS); detail is
     // component-coupled but event-map is a top-level aggregator, so typing it here.
@@ -129,6 +123,9 @@ interface AparteEventMap {
     'aparte-delete-conversation': CustomEvent<AparteConversationDeleteDetail>;
     'aparte-archive-conversation': CustomEvent<AparteConversationArchiveDetail>;
     'aparte-unarchive-conversation': CustomEvent<AparteConversationArchiveDetail>;
+    'aparte-rename-conversation': CustomEvent<AparteConversationRenameDetail>;
+    'aparte-pin-conversation': CustomEvent<AparteConversationPinDetail>;
+    'aparte-unpin-conversation': CustomEvent<AparteConversationPinDetail>;
 
     // ── The turn lifecycle, minus the one entry it used to have ────────────────
     // `aparte-message-done` was in the map alone. Its siblings — start, error,
@@ -139,17 +136,21 @@ interface AparteEventMap {
     'aparte-message-error': CustomEvent<AparteMessageErrorEventDetail>;
     'aparte-message-aborted': CustomEvent<AparteMessageAbortedEventDetail>;
 
-    // ── Commands a CONSUMER dispatches ────────────────────────────────────────
-    // Core listens for these and never sends them, which makes them the most
-    // public events in the set: without a type there was nothing to tell you what
-    // to put in `detail`. `aparte-file-gen-*` is the extreme case — core renders a
-    // "Running sandbox…" card and waits for an event nothing in the repo emits.
+    // ── The compaction conversation, and the one command core listens for ─────
+    // `aparte-abort` is the only one here core NEVER sends: it listens for it, so an
+    // app is always the sender. The other four are a round trip an app can join at
+    // either end — `<aparte-context auto-compact>` dispatches `aparte-compact` when
+    // the gauge reaches `danger` and so can your own button, `@aparte/plugin-compaction`
+    // answers it and reports back with `-start` / `-done` / `-error`. This block used
+    // to say "Core never sends these", which was false of four of the five and hid the
+    // gauge's own event from the manifest and from its docs page for as long.
+    // Either way they are the most public events in the set: without a type there was
+    // nothing to tell you what to put in `detail`.
     'aparte-abort': CustomEvent<AparteAbortEventDetail>;
     'aparte-compact': CustomEvent<AparteCompactEventDetail>;
+    'aparte-compact-start': CustomEvent<AparteCompactStartEventDetail>;
     'aparte-compact-done': CustomEvent<AparteCompactDoneEventDetail>;
     'aparte-compact-error': CustomEvent<AparteCompactErrorEventDetail>;
-    'aparte-file-gen-ready': CustomEvent<AparteFileGenReadyEventDetail>;
-    'aparte-file-gen-error': CustomEvent<AparteFileGenErrorEventDetail>;
 
     // ── Host-handler events (decision #8 tier b: off until you declare them) ───
     'aparte-attachment-preview': CustomEvent<AparteAttachmentPreviewEventDetail>;
@@ -158,6 +159,9 @@ interface AparteEventMap {
     'aparte-action-click': CustomEvent<AparteActionClickEventDetail>;
     'aparte-suggestion': CustomEvent<AparteSuggestionEventDetail>;
     'aparte-context-threshold': CustomEvent<AparteContextThresholdEventDetail>;
+    'aparte-scroll-rail-jump': CustomEvent<AparteScrollRailJumpDetail>;
+    'aparte-sidebar-toggle': CustomEvent<AparteSidebarToggleDetail>;
+    'aparte-split-resize': CustomEvent<AparteSplitResizeDetail>;
     'aparte-optgroup-toggle': CustomEvent<AparteOptgroupToggleEventDetail>;
     'aparte-config-change': CustomEvent<AparteConfigChangeEventDetail>;
 }

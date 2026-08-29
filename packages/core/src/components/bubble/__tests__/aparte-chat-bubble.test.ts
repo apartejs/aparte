@@ -1017,3 +1017,204 @@ describe('AparteChatBubble', () => {
         });
     });
 });
+
+/**
+ * `role="toolbar"` promises one tab stop and arrow keys. It now keeps that promise.
+ *
+ * The bar has announced itself as a toolbar since it existed, and a toolbar IS the
+ * roving-tabindex pattern: one member in the tab order, the arrows moving between
+ * them. What shipped was five independent tab stops per message — so a screen-reader
+ * user told "toolbar, five items" pressed Right and nothing moved, and a keyboard user
+ * tabbing through a long transcript walked every button of every message.
+ *
+ * The invariant is re-derived in `_syncFooterVisibility`, the single funnel all three
+ * build paths already run through, rather than in each builder — because the bar's
+ * `innerHTML` is rewritten on a `setBubbleActions`, on entering and leaving the inline
+ * editor, and on a config change, and a per-builder fix drifts the first time somebody
+ * adds a fourth path. The rebuild cases below are the ones that would catch that.
+ */
+describe('AparteChatBubble — the action bar is one tab stop with arrows', () => {
+    let bubble: BubbleEl;
+
+    afterEach(() => {
+        bubble?.remove();
+        aparteGlobalConfig.reset();
+    });
+
+    const buttons = (el: HTMLElement): HTMLButtonElement[] =>
+        [...el.querySelectorAll<HTMLButtonElement>('.aparte-action-bar button')];
+    const stops = (el: HTMLElement): HTMLButtonElement[] => buttons(el).filter((b) => b.tabIndex === 0);
+    const press = (el: HTMLElement, key: string): void => {
+        el.querySelector('.aparte-action-bar')!
+            .dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    };
+    const full = (): void => aparteGlobalConfig.setBubbleActions({
+        assistant: ['copy', 'retry', 'thumbUp', 'thumbDown'],
+    });
+
+    it('has exactly one tab stop, and it is the first button', () => {
+        full();
+        bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't1', content: 'hi' });
+        expect(buttons(bubble).length).toBe(4);
+        expect(stops(bubble)).toHaveLength(1);
+        expect(stops(bubble)[0]).toBe(buttons(bubble)[0]);
+        // Every other member is reachable by arrow, not by Tab.
+        expect(buttons(bubble).slice(1).every((b) => b.tabIndex === -1)).toBe(true);
+    });
+
+    it('keeps the tab stop on a one-button bar', () => {
+        // The degenerate case: a toolbar of one is still a toolbar, and dropping its
+        // tab stop would make the only action unreachable from the keyboard.
+        aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
+        bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't2', content: 'hi' });
+        expect(stops(bubble)).toHaveLength(1);
+    });
+
+    it('Right and Left rove, and both wrap', () => {
+        full();
+        bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't3', content: 'hi' });
+        const all = buttons(bubble);
+        all[0]!.focus();
+
+        press(bubble, 'ArrowRight');
+        expect(document.activeElement).toBe(all[1]);
+        expect(stops(bubble)[0], 'the tab stop follows the focus').toBe(all[1]);
+
+        press(bubble, 'ArrowLeft');
+        expect(document.activeElement).toBe(all[0]);
+
+        press(bubble, 'ArrowLeft');
+        expect(document.activeElement, 'Left from the first wraps to the last').toBe(all[3]);
+        press(bubble, 'ArrowRight');
+        expect(document.activeElement, 'Right from the last wraps to the first').toBe(all[0]);
+    });
+
+    it('Home and End jump to the ends', () => {
+        full();
+        bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't4', content: 'hi' });
+        const all = buttons(bubble);
+        all[1]!.focus();
+        press(bubble, 'End');
+        expect(document.activeElement).toBe(all[3]);
+        press(bubble, 'Home');
+        expect(document.activeElement).toBe(all[0]);
+    });
+
+    it('skips a disabled member — a busy transcript must not park focus on a dead control', () => {
+        full();
+        bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't5', content: 'hi' });
+        bubble.setTranscriptBusy(true);
+        const all = buttons(bubble);
+        const retry = bubble.querySelector<HTMLButtonElement>('[data-action="retry"]')!;
+        expect(retry.disabled).toBe(true);
+        // The tab stop is on a usable button, never on the disabled one.
+        expect(stops(bubble)).toHaveLength(1);
+        expect(stops(bubble)[0]!.disabled).toBe(false);
+
+        all[0]!.focus();
+        press(bubble, 'ArrowRight');
+        expect(document.activeElement).not.toBe(retry);
+    });
+
+    it('survives a rebuild — the invariant is re-derived, not set once', () => {
+        // This is the drift the pattern usually dies of: the bar's innerHTML is
+        // replaced wholesale, so every new button starts at tabIndex 0 unless
+        // something re-derives the model after the rewrite.
+        aparteGlobalConfig.setBubbleActions({ assistant: ['copy'] });
+        bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't6', content: 'hi' });
+        expect(stops(bubble)).toHaveLength(1);
+
+        aparteGlobalConfig.setBubbleActions({ assistant: ['copy', 'retry', 'thumbUp'] });
+        expect(buttons(bubble).length).toBe(3);
+        expect(stops(bubble), 'a second setBubbleActions left three tab stops').toHaveLength(1);
+    });
+
+    it('holds for the edit-mode bar too', () => {
+        aparteGlobalConfig.setBubbleActions({ user: ['edit'] });
+        bubble = createBubble({ 'data-role': 'user', 'message-id': 't7', content: 'hi' });
+        bubble.querySelector<HTMLButtonElement>('[data-action="edit"]')!.click();
+
+        const save = bubble.querySelector('[data-action="edit-save"]');
+        expect(save, 'the editor did not open').not.toBeNull();
+        expect(buttons(bubble).length).toBe(2);
+        expect(stops(bubble)).toHaveLength(1);
+    });
+
+    it('leaves other keys alone', () => {
+        full();
+        bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't8', content: 'hi' });
+        const all = buttons(bubble);
+        all[1]!.focus();
+        press(bubble, 'ArrowDown');
+        expect(document.activeElement, 'a vertical arrow is not this toolbar\u2019s business').toBe(all[1]);
+    });
+
+    // The arrows follow the READING direction, per the ARIA practices - in an RTL
+    // transcript Left is "next". Nothing else in this file sets `dir`, so without
+    // these three the branch could be inverted, or replaced by a hardcoded
+    // 'ArrowRight', with every assertion above still green. Core supports RTL as a
+    // first-class case: the viewport writes `dir` from `locale.direction`.
+    describe('in RTL, where Left is forward', () => {
+        let host: HTMLDivElement | null = null;
+
+        afterEach(() => {
+            host?.remove();
+            host = null;
+            document.documentElement.removeAttribute('dir');
+        });
+
+        /** Mount inside a `[dir]` ancestor - a bubble never carries one of its own. */
+        const mountIn = (dir: string): BubbleEl => {
+            host = document.createElement('div');
+            host.setAttribute('dir', dir);
+            document.body.appendChild(host);
+            const el = document.createElement('aparte-chat-bubble') as BubbleEl;
+            el.setAttribute('data-role', 'assistant');
+            el.setAttribute('message-id', `rtl-${dir}`);
+            el.setAttribute('content', 'hi');
+            host.appendChild(el);
+            return el;
+        };
+
+        it('reads the nearest [dir] ancestor: Left advances, Right goes back', () => {
+            full();
+            const el = mountIn('rtl');
+            const all = buttons(el);
+            expect(all.length).toBe(4);
+            all[0]!.focus();
+
+            press(el, 'ArrowLeft');
+            expect(document.activeElement, 'Left is "next" in RTL').toBe(all[1]);
+            expect(stops(el)[0], 'the tab stop follows the focus').toBe(all[1]);
+
+            press(el, 'ArrowRight');
+            expect(document.activeElement, 'Right is "previous" in RTL').toBe(all[0]);
+
+            press(el, 'ArrowRight');
+            expect(document.activeElement, 'previous from the first wraps to the last').toBe(all[3]);
+        });
+
+        it('falls back to the document direction when no ancestor declares one', () => {
+            document.documentElement.setAttribute('dir', 'rtl');
+            full();
+            bubble = createBubble({ 'data-role': 'assistant', 'message-id': 't9', content: 'hi' });
+            const all = buttons(bubble);
+            all[0]!.focus();
+            press(bubble, 'ArrowLeft');
+            expect(document.activeElement).toBe(all[1]);
+        });
+
+        it('an LTR ancestor under an RTL page keeps Right forward', () => {
+            // The nearest declaration wins, not the page's: a chat in an RTL shell
+            // rendering an LTR locale is what breaks if the lookup ever collapses to
+            // `document.documentElement.dir` alone.
+            document.documentElement.setAttribute('dir', 'rtl');
+            full();
+            const el = mountIn('ltr');
+            const all = buttons(el);
+            all[0]!.focus();
+            press(el, 'ArrowRight');
+            expect(document.activeElement).toBe(all[1]);
+        });
+    });
+});

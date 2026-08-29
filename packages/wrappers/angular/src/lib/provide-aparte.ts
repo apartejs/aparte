@@ -15,6 +15,7 @@ import {
     type AparteMarkdownProvider,
     type AparteModelConfig,
 } from '@aparte/core';
+import { DOCUMENT } from '@angular/common';
 import { APARTE_CLIENT_OPTIONS, AparteAiService } from './aparte-ai.service';
 
 /**
@@ -117,17 +118,28 @@ async function loadPlugins(options: ProvideAparteOptions): Promise<void> {
     await Promise.all(pending);
 }
 
-/** Reflect the theme mode on the document root. */
-function applyThemeMode(mode: 'light' | 'dark' | 'auto', destroyRef: DestroyRef): void {
+/**
+ * Reflect the theme mode on the document root.
+ *
+ * Angular's own document, not the global: under Universal the initializer runs on the
+ * server, where `document`/`window` do not exist and the injected DOCUMENT is Domino's.
+ * A media query needs a real window; without one the mode is applied once and left.
+ */
+function applyThemeMode(mode: 'light' | 'dark' | 'auto', doc: Document, destroyRef: DestroyRef): void {
     if (mode !== 'auto') {
-        document.documentElement.setAttribute('data-aparte-theme', mode);
+        doc.documentElement.setAttribute('data-aparte-theme', mode);
         return;
     }
-    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const win = doc.defaultView;
+    if (!win?.matchMedia) {
+        doc.documentElement.setAttribute('data-aparte-theme', 'light');
+        return;
+    }
+    const query = win.matchMedia('(prefers-color-scheme: dark)');
     const onChange = (e: MediaQueryListEvent) => {
-        document.documentElement.setAttribute('data-aparte-theme', e.matches ? 'dark' : 'light');
+        doc.documentElement.setAttribute('data-aparte-theme', e.matches ? 'dark' : 'light');
     };
-    document.documentElement.setAttribute('data-aparte-theme', query.matches ? 'dark' : 'light');
+    doc.documentElement.setAttribute('data-aparte-theme', query.matches ? 'dark' : 'light');
     query.addEventListener('change', onChange);
     // Released with the environment injector, so repeated bootstraps (TestBed, a
     // multi-instance embed) don't stack listeners on the media query forever.
@@ -161,6 +173,8 @@ export function provideAparte(options: ProvideAparteOptions = {}): EnvironmentPr
         { provide: APARTE_CLIENT_OPTIONS, useValue: options.clientOptions ?? {} },
         provideAppInitializer(async () => {
             const destroyRef = inject(DestroyRef);
+            // Before the first await, like `destroyRef`: inject() needs the context.
+            const doc = inject(DOCUMENT);
             // inject() only works before the first await — grab the service now,
             // connect at the end (after plugins) so the first send already sees
             // markdown/action providers. SSR-safe: no listener without a window.
@@ -178,7 +192,7 @@ export function provideAparte(options: ProvideAparteOptions = {}): EnvironmentPr
             }
             await loadPlugins(options);
             if (options.themeMode) {
-                applyThemeMode(options.themeMode, destroyRef);
+                applyThemeMode(options.themeMode, doc, destroyRef);
             }
             ai?.connect();
         }),

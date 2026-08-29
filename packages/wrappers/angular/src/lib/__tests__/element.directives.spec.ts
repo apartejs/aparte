@@ -276,7 +276,10 @@ describe('the element directives', () => {
             (selectConversation)="seen['selectConversation'] = true"
             (deleteConversation)="seen['deleteConversation'] = true"
             (archiveConversation)="seen['archiveConversation'] = true"
-            (unarchiveConversation)="seen['unarchiveConversation'] = true"></aparte-conversation-list>
+            (unarchiveConversation)="seen['unarchiveConversation'] = true"
+            (renameConversation)="seen['renameConversation'] = true"
+            (pinConversation)="seen['pinConversation'] = true"
+            (unpinConversation)="seen['unpinConversation'] = true"></aparte-conversation-list>
 
         <aparte-progress-spinner [value]="42"></aparte-progress-spinner>
     `,
@@ -369,6 +372,9 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-conversation-list', 'aparte-delete-conversation', 'deleteConversation'],
         ['aparte-conversation-list', 'aparte-archive-conversation', 'archiveConversation'],
         ['aparte-conversation-list', 'aparte-unarchive-conversation', 'unarchiveConversation'],
+        ['aparte-conversation-list', 'aparte-rename-conversation', 'renameConversation'],
+        ['aparte-conversation-list', 'aparte-pin-conversation', 'pinConversation'],
+        ['aparte-conversation-list', 'aparte-unpin-conversation', 'unpinConversation'],
     ];
 
     it.each(EVENTS)('%s forwards %s', (tag, event, key) => {

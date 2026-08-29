@@ -288,10 +288,45 @@ export function parseOpenAICompatStream(
     const decoder = new TextDecoder();
     let buffer = '';
 
-    // Tool call accumulation state (keyed by index)
-    let toolCallsById: Record<number, { id: string; name: string; args: string }> = {};
+    // Tool call accumulation state (keyed by the vendor's `index`). A null-prototype
+    // object: the key comes off the wire, and on a plain `{}` a chunk whose `index` is
+    // `"__proto__"` writes into Object.prototype for the whole page.
+    let toolCallsById: Record<number, { id: string; name: string; args: string }> = Object.create(null);
     let capturedUsage: AparteUsage | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
+    /*
+     * Emit the accumulated calls and clear the map.
+     *
+     * Called at EVERY graceful end of a turn, not only on `finish_reason: 'tool_calls'`:
+     * the accumulation spans the whole stream, and a vendor that ends with `stop`,
+     * `length` or a bare `[DONE]` after streaming tool-call deltas used to drop them —
+     * the model had asked for a tool and the loop never heard. `complete` says the
+     * model declared the calls finished: a parse failure there is malformed JSON (a
+     * real small-model failure) and the tool still runs, on `{}`. Elsewhere it is
+     * truncation, and running a tool on `{}` for a call the model never finished would
+     * be worse than dropping it — so those are dropped, with a breadcrumb.
+     */
+    const flushToolCalls = (controller: ReadableStreamDefaultController<AparteStreamEvent>, complete: boolean): void => {
+        for (const entry of Object.values(toolCallsById)) {
+            let input: Record<string, unknown> = {};
+            try {
+                input = entry.args.trim() ? JSON.parse(entry.args) : {};
+            } catch {
+                if (!complete) {
+                    console.warn(`[openai-compat] Tool "${entry.name}" was cut mid-arguments (the turn ended without finish_reason 'tool_calls'); the call is dropped. Raw:`, entry.args);
+                    continue;
+                }
+                console.warn(
+                    `[openai-compat] Tool "${entry.name}" returned malformed arguments JSON; ` +
+                    `passing empty input. Raw:`, entry.args,
+                );
+            }
+            const toolCall: AparteToolCall = { id: entry.id, name: entry.name, input };
+            controller.enqueue({ type: 'tool_use', ...toolCall });
+        }
+        toolCallsById = Object.create(null);
+    };
 
     return new ReadableStream<AparteStreamEvent>({
         async start(controller) {
@@ -310,6 +345,9 @@ export function parseOpenAICompatStream(
                         if (!trimmed.startsWith('data:')) continue;
                         const raw = trimmed.slice(5).trim();
                         if (raw === '[DONE]') {
+                            // A turn that streamed tool-call deltas and ended on `stop`,
+                            // `length` or a bare [DONE]: the calls are still the model's.
+                            flushToolCalls(controller, false);
                             controller.enqueue({ type: 'done', usage: capturedUsage });
                             return;
                         }
@@ -339,7 +377,10 @@ export function parseOpenAICompatStream(
                                 }
                                 if (delta.tool_calls) {
                                     for (const tc of delta.tool_calls) {
-                                        const idx: number = tc.index ?? 0;
+                                        // Made a number, not annotated as one: `index` is whatever
+                                        // the vendor's JSON put there.
+                                        const idx = Number(tc.index ?? 0);
+                                        if (!Number.isInteger(idx) || idx < 0) continue;
                                         if (!toolCallsById[idx]) {
                                             toolCallsById[idx] = { id: tc.id ?? '', name: tc.function?.name ?? '', args: '' };
                                         }
@@ -350,37 +391,15 @@ export function parseOpenAICompatStream(
                                 }
                             }
 
-                            // Emit tool_use events when the turn is done
-                            if (choice.finish_reason === 'tool_calls') {
-                                for (const entry of Object.values(toolCallsById)) {
-                                    let input: Record<string, unknown> = {};
-                                    // finish_reason is 'tool_calls' → the model considers the call
-                                    // COMPLETE, so a parse failure here is malformed tool-call JSON
-                                    // (a real small-model failure), not partial streaming. Surface it
-                                    // instead of silently handing the tool `{}`.
-                                    try {
-                                        input = JSON.parse(entry.args);
-                                    } catch {
-                                        console.warn(
-                                            `[openai-compat] Tool "${entry.name}" returned malformed arguments JSON; ` +
-                                            `passing empty input. Raw:`, entry.args,
-                                        );
-                                    }
-                                    const toolCall: AparteToolCall = { id: entry.id, name: entry.name, input };
-                                    controller.enqueue({ type: 'tool_use', ...toolCall });
-                                }
-                                // Do NOT emit `done` or return here: under
-                                // `include_usage` (which buildRequest requests) the
-                                // usage-only chunk arrives AFTER this finish chunk, so
-                                // stopping now dropped usage on every tool-call turn —
-                                // i.e. most turns of an agent. Keep reading; the single
-                                // `done` comes from `[DONE]` below, or from the
-                                // end-of-stream fallback if the socket just closes.
-                                // The map is cleared so a server that repeats the finish
-                                // chunk can't re-emit the same calls now that we stay in
-                                // the loop.
-                                toolCallsById = {};
-                            }
+                            // The model declared the calls complete: emit them now (and clear
+                            // the map, so a server that repeats the finish chunk cannot
+                            // re-emit them). Do NOT emit `done` or return here: under
+                            // `include_usage` (which buildRequest requests) the usage-only
+                            // chunk arrives AFTER this finish chunk, so stopping now dropped
+                            // usage on every tool-call turn — i.e. most turns of an agent.
+                            // Keep reading; the single `done` comes from `[DONE]` below, or
+                            // from the end-of-stream fallback if the socket just closes.
+                            if (choice.finish_reason === 'tool_calls') flushToolCalls(controller, true);
                         } catch {
                             // Every line here is a complete, newline-terminated SSE
                             // line (see buffer split above), so a parse failure is an
@@ -390,6 +409,8 @@ export function parseOpenAICompatStream(
                         }
                     }
                 }
+                // The socket closed without [DONE]: same rule, the calls are flushed first.
+                flushToolCalls(controller, false);
                 controller.enqueue({ type: 'done', usage: capturedUsage });
             } catch (err: unknown) {
                 // AbortError surfaces here when the caller's signal fires mid-stream:

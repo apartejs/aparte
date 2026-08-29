@@ -14,7 +14,8 @@ describe('APARTE_DEFAULT_ICON_FALLBACKS', () => {
         'copy', 'check', 'send', 'loading', 'error', 'expand', 'collapse',
         'terminal', 'paperclip', 'image', 'file', 'scrollDown', 'retry',
         'edit', 'thumbUp', 'thumbDown', 'prevBranch', 'nextBranch',
-        'tool', 'close', 'stop',
+        'tool', 'close', 'stop', 'info', 'archive', 'unarchive', 'download',
+        'more', 'pin', 'trash',
     ];
 
     it('has an entry for every icon name and every entry is a non-empty SVG string', () => {

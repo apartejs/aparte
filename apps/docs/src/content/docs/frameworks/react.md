@@ -90,6 +90,16 @@ For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
 :::
 
+The `<aparte-elicitation>` presenter — what the built-in approval gate and `requestUserInput()`
+ask through — renders inside the host **by default**, as it does in `<aparte-chat>`; pass
+`elicitation={false}` when you register a presenter of your own. The root element
+(`[data-aparte-chat]`) takes `className` and `style`, merged after core's own class, so a
+utility-first app sizes the chat column from JSX:
+
+```tsx
+<AparteChat className="flex-1 min-h-0" messages={messages} onMessageSent={send} />
+```
+
 ## Any aparté element: typed JSX
 
 The `aparte-*` tags are typed JSX intrinsics as soon as you import from `@aparte/react` — nothing to
@@ -135,3 +145,11 @@ not need for aparté's own — those are typed above.
 
 - `useConversationManager` — React-state view over the core `AparteConversationManager` (list / create /
   archive), for a multi-conversation sidebar.
+
+## Testing it
+
+Vitest, Jest — every runner — executes on Node, so `@aparte/core` resolves to its DOM-free
+entry and no `<aparte-*>` element upgrades under jsdom: the tag stays a plain
+`HTMLElement` and every assertion about it fails for a reason nothing explains. Alias the
+specifier to [`@aparte/core/browser`](/frameworks/elements/#testing-your-components), the
+entry with the elements in it.

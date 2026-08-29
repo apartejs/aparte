@@ -1,0 +1,135 @@
+/*
+ * aparté — the shell: the chrome a whole application puts around the chat. A sidebar
+ * of conversations, a header, and the grid that holds them beside the transcript —
+ * what a ChatGPT-style page is made of, so a site can be built on aparté alone.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ */
+
+/*
+ * aparte-sidebar — the column beside the chat.
+ * A sized column that becomes a drawer under 48rem of window. The recipe draws the
+ * column and its four regions; `<aparte-sidebar>` adds the behaviour (collapse, the
+ * drawer, the search filter) and sets `data-drawer` on itself from the media query,
+ * which is the one attribute the rules below read.
+ *
+ *     <aside class="aparte-sidebar">
+ *       <div class="aparte-sidebar__header">
+ *         <span class="aparte-sidebar__brand">aparté</span>
+ *         <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
+ *           <aparte-icon name="edit"></aparte-icon>
+ *         </button>
+ *       </div>
+ *       <div class="aparte-sidebar__search aparte-field-group">
+ *         <input class="aparte-field aparte-field--sm" type="search" placeholder="Search" data-aparte-sidebar-search>
+ *       </div>
+ *       <div class="aparte-sidebar__body">
+ *         <aparte-conversation-list></aparte-conversation-list>
+ *       </div>
+ *       <div class="aparte-sidebar__footer">
+ *         <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
+ *       </div>
+ *     </aside>
+ *
+ * The element wears the same class and adds the behaviour; `<aside class="aparte-sidebar">`
+ * is the look alone, which is what this page shows.
+ */
+aparte-sidebar,
+.aparte-sidebar {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: var(--aparte-sidebar-width);
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--aparte-sidebar-bg);
+  border-inline-end: var(--aparte-border-width) solid var(--aparte-border);
+  color: var(--aparte-text);
+  transition: width var(--aparte-duration-slow) var(--aparte-ease);
+}
+
+/* In the flow, collapsed means gone: the column folds to nothing and the chat takes
+   the room. The children keep their width so the fold is a slide, not a squash. */
+.aparte-sidebar[collapsed]:not([data-drawer]) {
+  width: 0;
+  border-inline-end-width: 0;
+}
+
+/* The children keep the column's width while it collapses, so nothing reflows during
+   the transition. BORDER-box, or a padded child is the column plus its padding: the
+   header's button sat flush against the edge and the search field ran off it, clipped
+   — measured at 292px in a 260px column. The search field carries margins as well,
+   which border-box does not cover; its own rule subtracts them. */
+.aparte-sidebar > * {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  min-width: var(--aparte-sidebar-width);
+}
+
+.aparte-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  padding: var(--aparte-space-4) var(--aparte-space-4) var(--aparte-space-2);
+}
+
+.aparte-sidebar__brand {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--aparte-font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aparte-sidebar__search {
+  margin: var(--aparte-space-2) var(--aparte-space-3);
+  min-width: calc(var(--aparte-sidebar-width) - 2 * var(--aparte-space-3));
+}
+
+/* The body is the one region that scrolls; the list inside keeps its own gap. */
+.aparte-sidebar__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--aparte-space-2) var(--aparte-space-3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
+}
+
+.aparte-sidebar__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  padding: var(--aparte-space-3) var(--aparte-space-4);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-border);
+  font-size: var(--aparte-font-size-sm);
+}
+
+/* The drawer: the same element, out of the flow, over the page. `inset-inline-start`
+   rather than a transform, so the scrim — a fixed child — stays relative to the
+   viewport and can cover the page from inside the element. */
+.aparte-sidebar[data-drawer] {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: var(--aparte-z-dropdown);
+  width: var(--aparte-sidebar-width);
+  box-shadow: var(--aparte-menu-shadow);
+  transition: inset-inline-start var(--aparte-duration-slower) var(--aparte-ease);
+}
+
+.aparte-sidebar[data-drawer][collapsed] {
+  inset-inline-start: calc(-1 * var(--aparte-sidebar-width) - var(--aparte-space-4));
+  box-shadow: none;
+}
+
+.aparte-sidebar__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--aparte-scrim);
+}

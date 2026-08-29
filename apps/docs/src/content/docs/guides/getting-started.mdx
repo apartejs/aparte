@@ -14,7 +14,8 @@ drop `<aparte-*>` elements onto a page, stream tokens into them, and style
 everything with CSS variables — no framework, and zero third-party dependencies.
 
 By the end of this page you'll have a working chat that streams a reply, running
-entirely in the browser.
+entirely in the browser — any browser from 2023 on, or Node 18+ on the server side; the
+exact floors are in the [support matrix](/reference/support/).
 
 :::tip[On React, Vue, Svelte or Angular?]
 Start from your framework's page instead — [React](/frameworks/react/),
@@ -65,9 +66,17 @@ CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
 
   registerDefaultRenderers();
   aparteGlobalConfig.registerAIProvider(createOpenAICompatProvider(presets.OLLAMA));
+  // Ollama lists its models over the network, so nothing is selected yet: name one.
+  // (A provider with a single model known up front — the scripted one, an in-browser
+  // one — is selected on its own; mount <aparte-model-selector auto-select> to let
+  // the user pick instead.)
+  aparteGlobalConfig.setModelConfig({ defaultProvider: 'ollama', defaultModel: 'llama3.2' });
   aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
   new AparteClient().start();
 </script>`} />
+
+A send with no model selected is **dropped**, and the console says so once — that line is
+what it points to.
 
 **Pin the same exact version on every URL.** A provider's bundle imports core at the exact
 version jsDelivr resolved for it (<code>/npm/@aparte/core@{CORE_VERSION}/+esm</code>); a different string on
@@ -249,6 +258,7 @@ in-browser Transformers.js provider. You can also register any object implementi
 - **[Theming](/guides/theming)** — restyle everything through CSS variables, no forking.
 - **[Customization](/guides/customization)** — icons, render hooks, action registries.
 - **[Conversations & branching](/guides/conversations-branching)** — retry / edit, branches, persistence.
+- **[Layout](/guides/layout)** and **[the app shell](/guides/app-shell)** — the five shapes a chat takes, and the sidebar, header and grid of a whole page.
 - **[Providers](/providers/)** — connect a real model: OpenAI-compatible, the AI SDK bridge, or in-browser Transformers.js.
 - **[Local models](/guides/local-models)** — the chat on a model running on your machine: Ollama, LM Studio, llama.cpp.
 - **[The agent engine](/guides/engine)** — the headless `runStreamAgent` loop and the `streamRunner` seam.

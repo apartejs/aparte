@@ -7,7 +7,12 @@ import { parseAparteEventStream } from '../parsers/index.js';
 export interface BackendTransportOptions {
     /** Your backend chat endpoint, e.g. `/api/chat`. */
     endpoint: string;
-    /** Extra headers to send with each request (session cookie is automatic). */
+    /**
+     * Extra headers to send with each request. A session cookie rides along
+     * automatically only for a SAME-ORIGIN `endpoint` — the request uses fetch's
+     * default `credentials: 'same-origin'`, so a cross-origin endpoint sends no
+     * cookie; authenticate it with a header here instead.
+     */
     headers?: Record<string, string>;
     /**
      * Override how the request is serialised to your backend. Default body is

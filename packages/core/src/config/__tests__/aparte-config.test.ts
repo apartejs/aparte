@@ -309,14 +309,15 @@ describe('aparteGlobalConfig', () => {
         it('defaults to nothing declared', () => {
             const h = aparteGlobalConfig.getHostHandlers();
             expect(h.attachmentPreview).toBe(false);
-            expect(h.artifactRedownload).toBe(false);
         });
 
-        it('merges partial declarations and keeps the rest undeclared', () => {
-            aparteGlobalConfig.setHostHandlers({ artifactRedownload: true });
-            const h = aparteGlobalConfig.getHostHandlers();
-            expect(h.artifactRedownload).toBe(true);
-            expect(h.attachmentPreview).toBe(false);
+        it('merges a declaration over the defaults, and an empty call changes nothing', () => {
+            aparteGlobalConfig.setHostHandlers({});
+            expect(aparteGlobalConfig.getHostHandlers().attachmentPreview).toBe(false);
+            aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
+            expect(aparteGlobalConfig.getHostHandlers().attachmentPreview).toBe(true);
+            aparteGlobalConfig.setHostHandlers({});
+            expect(aparteGlobalConfig.getHostHandlers().attachmentPreview, 'kept').toBe(true);
         });
 
         it('can be withdrawn again', () => {
@@ -329,18 +330,16 @@ describe('aparteGlobalConfig', () => {
             let fired = 0;
             const onChange = () => { fired++; };
             window.addEventListener('aparte-config-change', onChange);
-            aparteGlobalConfig.setHostHandlers({ artifactRedownload: true });
+            aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
             window.removeEventListener('aparte-config-change', onChange);
             expect(fired).toBeGreaterThan(0);
         });
 
         it('is cleared by reset()', () => {
             const c = new AparteConfig();
-            c.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
+            c.setHostHandlers({ attachmentPreview: true });
             c.reset();
-            const h = c.getHostHandlers();
-            expect(h.attachmentPreview).toBe(false);
-            expect(h.artifactRedownload).toBe(false);
+            expect(c.getHostHandlers().attachmentPreview).toBe(false);
         });
     });
 

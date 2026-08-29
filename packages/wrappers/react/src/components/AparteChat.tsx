@@ -59,6 +59,20 @@ export interface AparteChatProps {
      */
     attachments?: boolean;
     /**
+     * Render the `<aparte-elicitation>` presenter inside the host — **on by default**,
+     * as it is in `<aparte-chat>`: the built-in approval gate and `requestUserInput()`
+     * ask through it, and it renders nothing until something asks. Pass `false` when
+     * you mount a presenter of your own (`setElicitationPresenter`) or place the element
+     * yourself. The first consumer to hit this appended the element by hand next to the
+     * React tree, guided by a warning that named an `<aparte-chat>` this wrapper does not
+     * render.
+     */
+    elicitation?: boolean;
+    /** Extra class names for the root element (`[data-aparte-chat]`), merged after core's own. */
+    className?: string;
+    /** Inline style for the root element (`[data-aparte-chat]`). */
+    style?: React.CSSProperties;
+    /**
      * Active conversation id. When set, the wrapper loads/persists via the
      * `AparteConversationManager` registered in `aparteGlobalConfig` (set `null` to deselect).
      */
@@ -155,9 +169,18 @@ export interface AparteChatProps {
     config?: AparteConfig;
 }
 
+/**
+ * The omitted-prop default, hoisted out of the render: a destructuring default
+ * `messages = []` is a NEW array on every render, and the parent-push effect below
+ * compares by identity — so an uncontrolled `<AparteChat>` applied an empty list on
+ * every render, wiping its own thread, and looped. One module-level array is safe to
+ * share across instances: it is never mutated (the host replaces the list).
+ */
+const NO_MESSAGES: AparteMessage[] = [];
+
 export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(function AparteChat(
     {
-        messages = [],
+        messages = NO_MESSAGES,
         placeholder = 'Type a message...',
         disabled = false,
         isTyping = false,
@@ -166,6 +189,9 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
         attachments = false,
+        elicitation = true,
+        className,
+        style,
         conversationId = null,
         composer,
         renderBubble,
@@ -325,7 +351,8 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
 
     return (
         <div
-            className={`aparte-chat-container${centerWhenEmpty ? ' aparte-chat-container--auto-center' : ''}`}
+            className={`aparte-chat-container${centerWhenEmpty ? ' aparte-chat-container--auto-center' : ''}${className ? ` ${className}` : ''}`}
+            style={style}
             data-aparte-chat=""
             data-aparte-empty={centerWhenEmpty && renderMessages.length === 0 ? '' : undefined}
             id={hostId}
@@ -341,6 +368,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
                                 key={m.id}
                                 message-id={m.id}
                                 data-role={m.role}
+                                data-kind={m.compaction ? 'compaction' : undefined}
                                 timestamp={m.timestamp}
                                 content={m.content}
                                 streaming={isAwaitingReply(m) ? '' : undefined}
@@ -349,6 +377,8 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
                 ))}
                 <aparte-chat-status visible={typingActive ? '' : undefined} text={typingText} />
             </aparte-chat-viewport>
+
+            {elicitation && <aparte-elicitation />}
 
             {aboveComposer}
 

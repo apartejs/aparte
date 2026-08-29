@@ -113,11 +113,13 @@ interface Pending {
  * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
  * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
  * @cssprop [--aparte-approval-option-radius=8px] - Corner radius of an approval option button.
+ * @cssprop [--aparte-approval-args-max-height=8.5rem] - Height cap of the arguments block before it scrolls.
+ * @cssprop [--aparte-approval-args-size=var(--aparte-font-size-sm)] - Font size of the arguments block.
  *
  * @example
  * <!-- Renders nothing by itself: it registers as the presenter for its subtree, so a
  *      tool handler calling requestUserInput() gets its panel mounted in the composer. -->
- * <aparte-chat>
+ * <aparte-chat style="height: 20rem">
  *   <aparte-chat-viewport></aparte-chat-viewport>
  *   <aparte-elicitation></aparte-elicitation>
  *   <aparte-composer>
@@ -127,6 +129,22 @@ interface Pending {
  *     </div>
  *   </aparte-composer>
  * </aparte-chat>
+ *
+ * <script>
+ *   // `aparte` is the `@aparte/core` module the frame exposes; in your app this line is
+ *   // `import { requestUserInput } from '@aparte/core'`. A tool handler asks; the panel
+ *   // mounts in the composer of the chat whose presenter this element is.
+ *   aparte.requestUserInput({
+ *     message: 'Which environment should I deploy to?',
+ *     schema: {
+ *       type: 'enum',
+ *       options: [
+ *         { value: 'staging', label: 'Staging', recommended: true },
+ *         { value: 'prod', label: 'Production', description: 'Live traffic' },
+ *       ],
+ *     },
+ *   });
+ * </script>
  */
 export class AparteElicitation extends HTMLElement implements AparteConfigAware {
     private _pending: Pending | null = null;
@@ -349,7 +367,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                 const panel = runWithConfig(cfg, () =>
                     buildApprovalPanel(request.message, request.options ?? [], () => {
                         composer.setPanelSubmitEnabled(panel.isComplete(), approvalMode());
-                    }));
+                    }, request.details));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
                 this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
                 slot.token = composer.showPanel(panel.el, {
@@ -407,13 +425,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                  */
                 onEvict: () => fail(),
                 onSubmit: () => {
-                    // The same button advances through the form and submits at the end;
-                    // the panel is what knows which of the two this click is.
-                    if (panel.mode() === 'advance') {
-                        panel.proceed();
-                        composer.setPanelSubmitEnabled(panel.canProceed(), panel.mode());
-                        return;
-                    }
+                    // One meaning: submit the lot. Moving between questions is the chips'.
                     if (panel.isComplete()) settle({ action: 'accept', content: panel.getContent() });
                 },
             });

@@ -42,12 +42,13 @@ something*, not stuck; when it ends, how it ended. The transition is what a stre
 transcript is for: the row appears the moment the model emits the call, and changes in
 place when the result lands.
 
-aparté's row has five states — waiting for approval, running, completed, rejected by the
-user, stopped — with a spinner while running and a glyph once settled. The change is
-patched into the existing element, so a row a user has opened stays open across the
-update. A tool that wants the model to see a failure returns it *as its result*, and the
-row completes; a handler that throws ends the run instead, and surfaces as the message's
-error card.
+aparté's row has six states — waiting for approval, running, completed, rejected (by the
+user, or by an approval policy), stopped, failed — with a spinner while running and a
+glyph once settled. The change is patched into the existing element, so a row a user has
+opened stays open across the update. A tool that wants the model to see a failure returns
+it *as its result*, and the row completes; a handler that **throws** settles its row on
+*failed* with the crash's one line, and the run ends on that error — the message's error
+card follows. (The row used to keep spinning "Running" in that case.)
 
 ## 4. The result — and how much of it
 
@@ -61,8 +62,9 @@ document, a chart, a form the user filled in — its result should be rendered a
 not as JSON. That is what a **tool renderer** is for: a renderer registered for a tool
 name replaces the default row with a surface of its own. aparté's
 [`ask_user` plugin](/plugins/ask-user/) is the in-repo example — its result is drawn as a
-receipt card of the question and the answer — and the built-in `create_artifact` tool is
-the same shape: a call whose result is rendered richly. Register yours with
+receipt card of the question and the answer — and [`@aparte/plugin-artifacts`](/plugins/artifacts/)'
+`create_artifact` is the same shape: a call whose result is rendered richly, as a
+Code/Preview card. Register yours with
 `registerToolRenderer` (see [Customization](/guides/customization/)).
 
 ## 5. The approval, before the fact
@@ -74,11 +76,16 @@ meanwhile. Two things decide whether it is real: the gate has to be on the loop 
 that is drawn but does not block the call is decoration), and the answer has to be
 somewhere the user is already looking.
 
-aparté puts the approval where the user's attention already is: the composer. The row in
-the transcript says a call is waiting; the panel in the composer asks the question, and
-the loop does not proceed until it is answered. The same panel serves the general case —
-a tool that needs a choice, a yes/no or a small form from the user before it can finish
-— which is [elicitation](/guides/elicitation/).
+aparté puts the approval where the user's attention already is: the composer. The panel
+asks the question — *Run `delete_file`?* — and shows the call's arguments under it, as
+pretty-printed JSON, because the arguments are the thing being approved. The block is
+capped and scrolls, so a long input cannot push the buttons off a panel that is already
+capped at half the viewport. The row in the transcript stays the anchor, saying which
+call is waiting, and holds nothing clickable. The loop does not proceed until the panel
+is answered.
+
+The same panel serves the general case — a tool that needs a choice, a yes/no or a small
+form from the user before it can finish — which is [elicitation](/guides/elicitation/).
 
 ## What is deliberately not there (yet)
 

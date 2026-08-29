@@ -24,7 +24,6 @@
  * callers satisfy: core's client passes an `HTMLElement`, the adapter passes its
  * duck-typed target, and neither needs anything else.
  */
-import type { AparteArtifactSegment } from '../types/segments.js';
 
 /** Anything that can receive a DOM event and may carry an id. */
 export interface AparteLifecycleTarget {
@@ -52,65 +51,4 @@ export function dispatchLifecycleEvent(
         ? { targetId: id, ...(detail as Record<string, unknown>) }
         : detail;
     target.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: stamped }));
-}
-
-/**
- * Dispatch the artifact lifecycle: `aparte-artifact-start` once per segment id,
- * `aparte-artifact-delta` when the body actually grew, and `aparte-artifact-ready`
- * when `isFinal`. `progress` tracks the per-id length already broadcast, so a
- * re-render cannot replay a delta.
- *
- * The segment parameter is structural rather than `AparteArtifactSegment` because the
- * adapter builds its segments from stream events and never constructs the full type;
- * the import above keeps the two documented as the same thing.
- */
-export function dispatchArtifactLifecycle(
-    target: AparteLifecycleTarget,
-    messageId: string,
-    segment: Pick<AparteArtifactSegment, 'id'> & Partial<Pick<AparteArtifactSegment, 'content' | 'mimeType' | 'artifactType' | 'title'>>,
-    progress: Map<string, number>,
-    isFinal: boolean,
-): void {
-    const id = segment.id;
-    const content = segment.content ?? '';
-
-    if (progress.get(id) === undefined) {
-        target.dispatchEvent(new CustomEvent('aparte-artifact-start', {
-            bubbles: true,
-            composed: true,
-            detail: {
-                messageId,
-                segmentId: id,
-                mimeType: segment.mimeType,
-                artifactType: segment.artifactType,
-                title: segment.title,
-            },
-        }));
-        progress.set(id, 0);
-    }
-
-    const lastLen = progress.get(id) ?? 0;
-    if (content.length > lastLen) {
-        target.dispatchEvent(new CustomEvent('aparte-artifact-delta', {
-            bubbles: true,
-            composed: true,
-            detail: { segmentId: id, chunk: content.slice(lastLen) },
-        }));
-        progress.set(id, content.length);
-    }
-
-    if (isFinal) {
-        target.dispatchEvent(new CustomEvent('aparte-artifact-ready', {
-            bubbles: true,
-            composed: true,
-            detail: {
-                messageId,
-                segmentId: id,
-                mimeType: segment.mimeType,
-                artifactType: segment.artifactType,
-                title: segment.title,
-                content,
-            },
-        }));
-    }
 }

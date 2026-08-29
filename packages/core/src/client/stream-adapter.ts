@@ -15,7 +15,7 @@
  * hand any more. The hand-mirrored union this file used to carry, and the compile-time
  * guard in engine that policed it, went with the mirror (audit 2026-08-28, D1). A
  * consumer wires a runner through `AparteClientOptions.streamRunner` — the same
- * pattern as `approvalResolver` (HITL) and `compactionSelector`.
+ * pattern as `approvalResolver` (HITL).
  */
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
@@ -25,13 +25,11 @@ import type { AparteSegment, AparteMessage, AparteStreamEvent } from '../types/i
 import type {
     AparteThinkingSegment,
     AparteToolCallSegment,
-    AparteArtifactSegment,
-    AparteCodeSegment,
 } from '../types/segments.js';
 import type { AparteUsage } from '../types/chat.js';
 import type { StreamRunEvent, StreamRunEmitter, StreamRunOptions, StreamUsage } from '@aparte/engine';
 import { uuid } from '../utils/uuid.js';
-import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from './lifecycle-events.js';
+import { dispatchLifecycleEvent } from './lifecycle-events.js';
 import { injectToolRendererStyles } from '../renderers/segment-renderers.js';
 
 /**
@@ -85,15 +83,8 @@ export interface CreateStreamAdapterOptions {
     target: StreamAdapterTarget;
     /** Config for tool-renderer lookup + per-tool style injection. */
     config: AparteConfig;
-    /** The streamed assistant message id (carried in run/artifact events). */
+    /** The streamed assistant message id (carried in the run events). */
     messageId: string;
-    /**
-     * Code-fence promotion hint (`baseRequest._meta.artifactHint`). When set, the
-     * first `code` segment produced by the text parser is promoted to an artifact
-     * — the one `_streamLoop` mechanism that stays adapter-side (it needs the
-     * parser). Absent for the raw / XML / create_artifact modes.
-     */
-    artifactHint?: { mimeType: string; kind: string };
 }
 
 /**
@@ -103,19 +94,15 @@ export interface CreateStreamAdapterOptions {
  * by the engine parity test against the real loop).
  */
 export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStreamRunEmitter {
-    const { target, config, messageId, artifactHint } = opts;
+    const { target, config, messageId } = opts;
 
     // Per-turn streaming state (reset on `turn-start`, mirroring `_streamLoop`
     // creating a fresh parser / maps each outer iteration).
-    let parser = new AparteStreamParser();
+    let parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
     let streaming = new Set<string>();
     let thinkingId: string | null = null;
     let thinkingContent = '';
     let thinkingCollapsed = false;
-    let artifactProgress = new Map<string, number>();
-    let artifactPromoted = false;
-    // id → open-segment meta, so chunk/close can rebuild the full segment for the
-    // artifact-lifecycle dispatch (which reads mimeType/artifactType/title).
 
     return (e: AparteStreamRunEvent): void => {
         switch (e.type) {
@@ -124,13 +111,11 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'turn-start':
-                parser = new AparteStreamParser();
+                parser = new AparteStreamParser({ blocks: config.getStreamBlocks() });
                 streaming = new Set();
                 thinkingId = null;
                 thinkingContent = '';
                 thinkingCollapsed = false;
-                artifactProgress = new Map();
-                artifactPromoted = false;
                 break;
 
             case 'thinking-delta': {
@@ -167,29 +152,12 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     thinkingCollapsed = true;
                 }
                 const result = parser.parse(e.delta);
-                for (let segment of result.segments) {
-                    // Artifact-hint promotion: first code fence → artifact.
-                    if (artifactHint && !artifactPromoted && segment.type === 'code') {
-                        const codeSeg = segment as AparteCodeSegment;
-                        const promoted: AparteArtifactSegment = {
-                            id: codeSeg.id,
-                            type: 'artifact',
-                            mimeType: artifactHint.mimeType,
-                            artifactType: artifactHint.kind,
-                            title: codeSeg.filename ?? artifactHint.kind,
-                            content: codeSeg.content,
-                        };
-                        segment = promoted;
-                        artifactPromoted = true;
-                    }
+                for (const segment of result.segments) {
                     if (!streaming.has(segment.id)) {
                         target.addSegment?.(segment);
                         streaming.add(segment.id);
                     } else if ('content' in segment) {
                         target.updateSegment?.(segment.id, segmentContentUpdate(segment));
-                    }
-                    if (segment.type === 'artifact') {
-                        dispatchArtifactLifecycle(target, messageId, segment as AparteArtifactSegment, artifactProgress, true);
                     }
                 }
                 const active = parser.getState().activeSegment;
@@ -197,14 +165,8 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                     if (!streaming.has(active.id)) {
                         target.addSegment?.(active);
                         streaming.add(active.id);
-                        if (active.type === 'artifact') {
-                            dispatchArtifactLifecycle(target, messageId, active as AparteArtifactSegment, artifactProgress, false);
-                        }
                     } else {
                         target.updateSegment?.(active.id, segmentContentUpdate(active));
-                        if (active.type === 'artifact') {
-                            dispatchArtifactLifecycle(target, messageId, active as AparteArtifactSegment, artifactProgress, false);
-                        }
                     }
                 } else if (result.segments.length === 0) {
                 // Nothing: see the note on the other feeder. The parser is holding
@@ -216,45 +178,10 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'text-flush': {
                 const finals = parser.finalize();
-                // Finalize-time code-fence promotion (stream ended without ```).
-                if (artifactHint && !artifactPromoted) {
-                    const codeIdx = finals.findIndex(s => s.type === 'code');
-                    if (codeIdx !== -1) {
-                        const codeSeg = finals[codeIdx] as AparteCodeSegment;
-                        const promoted: AparteArtifactSegment = {
-                            id: codeSeg.id,
-                            type: 'artifact',
-                            mimeType: artifactHint.mimeType,
-                            artifactType: artifactHint.kind,
-                            title: codeSeg.filename ?? artifactHint.kind,
-                            content: codeSeg.content,
-                        };
-                        finals[codeIdx] = promoted;
-                        artifactPromoted = true;
-                        if (streaming.has(promoted.id)) {
-                            target.updateSegment?.(promoted.id, promoted as Partial<AparteSegment>);
-                        }
-                    }
-                }
                 for (const s of finals) {
                     if (!streaming.has(s.id)) target.addSegment?.(s);
                     else if ('content' in s) target.updateSegment?.(s.id, segmentContentUpdate(s));
-                    if (s.type === 'artifact') {
-                        dispatchArtifactLifecycle(target, messageId, s as AparteArtifactSegment, artifactProgress, true);
-                    }
                 }
-                break;
-            }
-
-            case 'artifact-ready': {
-                // One-shot create_artifact: full content up-front.
-                const seg: AparteArtifactSegment = {
-                    id: e.id, type: 'artifact',
-                    mimeType: e.mimeType, artifactType: e.kind, title: e.title,
-                    content: e.content,
-                };
-                target.addSegment?.(seg);
-                dispatchArtifactLifecycle(target, messageId, seg, artifactProgress, true);
                 break;
             }
 
@@ -290,11 +217,21 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
                 break;
 
             case 'tool-resolved':
-                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'resolved', result: e.result });
+                target.updateSegment?.(`tool-${e.toolCallId}`, {
+                    status: 'resolved',
+                    result: e.result,
+                    ...(e.structuredResult !== undefined ? { structuredResult: e.structuredResult } : {}),
+                });
                 break;
 
             case 'tool-aborted':
                 target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'aborted' });
+                break;
+
+            case 'tool-failed':
+                // The handler threw: the row settles on the crash's one line, and the run
+                // ends on the same error (the message's error card follows).
+                target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'failed', result: e.error });
                 break;
 
             case 'turn-limit-exceeded':

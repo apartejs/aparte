@@ -3,6 +3,7 @@ import type {
   AparteSegment,
   AparteAttachment,
   AparteBranchNavigateEventDetail,
+  AparteLinkClickEventDetail,
   AparteRetryEventDetail,
   AparteEditEventDetail,
   AparteFeedbackEventDetail,
@@ -16,6 +17,7 @@ import { writeStreamedMarkdown, type AparteMarkdownStreamHost } from '../../rend
 import { AparteConfig } from '../../config/aparte-config.js';
 import { resolveConfig, runWithConfig } from '../../config/config-context.js';
 import { cssEscape } from '../../utils/css-escape.js';
+import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
@@ -88,11 +90,23 @@ function resolveSegmentRenderer(
  * **HTMLElement** (used directly, so custom renderers can wire event listeners /
  * framework nodes with no innerHTML XSS surface). See {@link AparteSegmentRenderer}.
  */
-function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement | null {
-    if (result instanceof HTMLElement) return result;
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = result;
-    return wrapper.firstElementChild as HTMLElement | null;
+function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pick<AparteSegment, 'id'>): HTMLElement | null {
+    let el: HTMLElement | null;
+    if (result instanceof HTMLElement) {
+        el = result;
+    } else {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = result;
+        el = wrapper.firstElementChild as HTMLElement | null;
+    }
+    // The container finds its own children by id — this is where that invariant is
+    // owned, for both arms and for every renderer, not each renderer's to remember.
+    // A root without it made `_applySegmentUpdate` miss and fall back to the full
+    // wipe-and-rebuild, which destroys a mounted artifact preview, collapses an
+    // opened reasoning block and drops the focus — the ask_user receipt did exactly
+    // that on every tool update, since `AparteToolRenderer`'s contract never said so.
+    if (el && segment && !el.hasAttribute('data-segment-id')) el.setAttribute('data-segment-id', segment.id);
+    return el;
 }
 
 /**
@@ -154,6 +168,7 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
  * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
+ * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
  * @cssprop [--aparte-message-gap=12px] - Gap between the avatar column and the body (the viewport reuses it between messages).
  * @cssprop [--aparte-message-padding=16px 12px] - Padding around one message row.
@@ -161,7 +176,7 @@ function segmentRenderResultToElement(result: string | HTMLElement): HTMLElement
  *
  * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
  * @cssprop [--aparte-message-content-padding=10px 14px] - Padding of the USER box only; the assistant's content is plain full-width prose.
- * @cssprop [--aparte-message-content-bg-user=#efe7f6] - Background of the user box.
+ * @cssprop --aparte-message-content-bg-user - Background of the user box: a wash of `--aparte-primary` over `--aparte-surface-1`, derived in `theme.css` so a rebrand moves it (declare it to override).
  * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
  * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
  * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
@@ -376,11 +391,13 @@ export class AparteChatBubble extends HTMLElement {
     window.addEventListener('aparte-config-change', this._onConfigChange);
     // Delegated, so a re-render cannot lose a click on the branch arrows.
     this.addEventListener('click', this._onBranchPickerClick);
+    this.addEventListener('click', this._onLinkClick);
   }
 
   disconnectedCallback(): void {
     window.removeEventListener('aparte-config-change', this._onConfigChange);
     this.removeEventListener('click', this._onBranchPickerClick);
+    this.removeEventListener('click', this._onLinkClick);
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -587,7 +604,11 @@ export class AparteChatBubble extends HTMLElement {
       this._updateContent();
     }
     if ('segments' in updates) {
-      this._segments = updates.segments!;
+      // Copy IN, exactly as `setSegments` does and for the same reason: the
+      // viewport `Object.assign`s this very array into the repo message before
+      // forwarding it here, so adopting it by reference leaves one array with two
+      // writers — the doubling documented on `setSegments` above.
+      this._segments = [...updates.segments!];
       this._renderSegments();
     }
     if ('timestamp' in updates) {
@@ -617,7 +638,7 @@ export class AparteChatBubble extends HTMLElement {
     if (renderer) {
       // Renderers are plain functions with no element to resolve from — expose
       // this bubble's config as the ambient render config for the duration.
-      const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
+      const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
       if (el) {
         this._segmentsEl.appendChild(el);
         runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
@@ -641,7 +662,7 @@ export class AparteChatBubble extends HTMLElement {
     if (renderer.update) {
       runWithConfig(this._cfg, () => renderer.update!(el, segment));
     } else {
-      const newEl = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
+      const newEl = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
       if (newEl) {
         el.replaceWith(newEl);
         runWithConfig(this._cfg, () => renderer.setup?.(newEl, segment));
@@ -745,6 +766,11 @@ export class AparteChatBubble extends HTMLElement {
     this._segmentsEl = this.querySelector('.aparte-segments');
     this._attachmentsEl = this.querySelector('.aparte-attachments');
     this._actionBarEl = this.querySelector('.aparte-action-bar');
+    // ONE listener on the bar, not one per button: every build path rewrites the bar's
+    // innerHTML, so a per-button listener would have to be re-attached three times and
+    // would be lost the first time somebody added a fourth path. The bar element itself
+    // outlives every rewrite.
+    this._actionBarEl?.addEventListener('keydown', this._onActionBarKeydown);
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
     this._footerEl = this.querySelector('.aparte-footer');
 
@@ -969,7 +995,7 @@ export class AparteChatBubble extends HTMLElement {
     for (const segment of this._segments) {
       const renderer = resolveSegmentRenderer(segment.type, this._cfg);
       if (renderer) {
-        const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)));
+        const el = segmentRenderResultToElement(runWithConfig(this._cfg, () => renderer.render(segment)), segment);
         if (el) {
           this._segmentsEl.appendChild(el);
           runWithConfig(this._cfg, () => renderer.setup?.(el, segment));
@@ -1142,6 +1168,34 @@ export class AparteChatBubble extends HTMLElement {
   };
 
   /**
+   * A link the MODEL wrote is about to be followed. Announced as a cancelable event
+   * before the browser acts, so a host can route it — an external browser, a
+   * confirmation, an embedded view — without intercepting the DOM (issue #38). With
+   * no listener the browser follows it, which the sanitizer has already made open in
+   * a new tab for an external URL; `preventDefault()` on the event cancels the click.
+   *
+   * Only anchors inside the message body: the action bar and the branch picker are
+   * buttons, and an attachment tile is its own event.
+   */
+  private _onLinkClick = (event: Event): void => {
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!anchor || !this.contains(anchor)) return;
+    const detail: AparteLinkClickEventDetail = {
+      href: anchor.getAttribute('href') ?? '',
+      anchor,
+      messageId: this.getAttribute('message-id'),
+    };
+    const announced = this.dispatchEvent(new CustomEvent<AparteLinkClickEventDetail>('aparte-link-click', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      detail,
+    }));
+    if (!announced) event.preventDefault();
+  };
+
+  /**
    * Whether a reply is streaming somewhere in this bubble's transcript. Set by the
    * viewport (`data-busy` on it, pushed here), read once on connect for a bubble
    * mounted while the flag was already up. While busy, the branch arrows and the
@@ -1259,6 +1313,70 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /**
+   * `role="toolbar"` promises a keyboard model. This is it.
+   *
+   * The bar has announced itself as a toolbar since it existed, and a toolbar is ONE
+   * tab stop whose members are reached with the arrow keys — that is the whole of what
+   * the role means to a screen-reader user. What shipped was five independent tab
+   * stops per message, so the role described a behaviour that did not exist: a reader
+   * told to press Right heard nothing move, and tabbing through a long transcript
+   * walked every button of every message.
+   *
+   * The roving index is re-applied from `_syncFooterVisibility`, which is the single
+   * funnel all three build paths already run through (the flag-driven bar, the edit
+   * bar, and the branch picker's own visibility pass). Re-deriving it there rather
+   * than in each builder is what keeps the invariant true after a `setBubbleActions`
+   * rebuild — the drift this pattern usually dies of.
+   *
+   * DISABLED buttons are skipped, not merely un-tabbable: while the transcript is busy
+   * retry and edit are disabled, and a toolbar whose arrows stop on a dead control
+   * reads as broken. If every button is disabled the bar keeps one tab stop anyway, so
+   * focus sitting there when the turn ends is not thrown to the top of the page.
+   */
+  private _rovingButtons(): HTMLButtonElement[] {
+    if (!this._actionBarEl) return [];
+    return [...this._actionBarEl.querySelectorAll<HTMLButtonElement>('button')];
+  }
+
+  private _setRovingIndex(): void {
+    const buttons = this._rovingButtons();
+    if (!buttons.length) return;
+    const usable = buttons.filter((b) => !b.disabled);
+    const current = buttons.find((b) => b.tabIndex === 0 && !b.disabled);
+    const stop = current ?? usable[0] ?? buttons[0];
+    for (const button of buttons) button.tabIndex = button === stop ? 0 : -1;
+  }
+
+  /**
+   * Left/Right walk the bar, Home/End jump to its ends, and both wrap.
+   *
+   * Arrow keys follow the READING direction, per the ARIA practices: in an RTL
+   * transcript Left is "next". `dir` is resolved from the nearest ancestor that sets
+   * it — the viewport writes it from `locale.direction` — because a bubble has none of
+   * its own and `getComputedStyle` is not something jsdom can answer.
+   */
+  private _onActionBarKeydown = (e: Event): void => {
+    const event = e as KeyboardEvent;
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    const buttons = this._rovingButtons().filter((b) => !b.disabled);
+    if (buttons.length === 0) return;
+    const active = document.activeElement as HTMLElement | null;
+    const from = buttons.findIndex((b) => b === active);
+    if (from === -1 && event.key !== 'Home' && event.key !== 'End') return;
+    const rtl = (this.closest('[dir]')?.getAttribute('dir') ?? document.documentElement.dir) === 'rtl';
+    const forward = rtl ? 'ArrowLeft' : 'ArrowRight';
+    let next: number;
+    if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = buttons.length - 1;
+    else if (event.key === forward) next = (from + 1) % buttons.length;
+    else next = (from - 1 + buttons.length) % buttons.length;
+    event.preventDefault();
+    for (const button of this._rovingButtons()) button.tabIndex = button === buttons[next] ? 0 : -1;
+    buttons[next]?.focus();
+  };
+
+  /**
    * An empty action bar is not a bar: with every action off it was still a
    * `role="toolbar"` with nothing in it (announced as such), and it still reserved
    * its fixed height plus the footer's under every bubble. So both follow their
@@ -1267,6 +1385,7 @@ export class AparteChatBubble extends HTMLElement {
    */
   private _syncFooterVisibility(): void {
     if (this._actionBarEl) this._actionBarEl.hidden = this._actionBarEl.children.length === 0;
+    this._setRovingIndex();
     if (!this._footerEl) return;
     const barEmpty = !this._actionBarEl || this._actionBarEl.hidden;
     const pickerHidden = !this._branchPickerEl || this._branchPickerEl.hidden;
@@ -1393,7 +1512,7 @@ export class AparteChatBubble extends HTMLElement {
           .join('\n');
         const icons = this._cfg.getIconProvider();
         const locale = this._cfg.getLocale();
-        navigator.clipboard.writeText(text).then(() => {
+        copyText(text).then(() => {
           btn.innerHTML = icons.check();
           btn.setAttribute('data-copied', '');
           const copiedLabel = locale.copied ?? locale.copy ?? 'Copied';

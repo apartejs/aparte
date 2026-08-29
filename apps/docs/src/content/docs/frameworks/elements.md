@@ -157,13 +157,9 @@ Three things that follow from the directive, and none of them work through `<apa
 Outputs emit the event's **detail**, which is the Angular idiom — `(selectChange)="pick($event.value)"`.
 When you need the event itself (to call `stopPropagation`), add a plain host listener.
 
-The directives are `AparteChatViewportDirective`, `AparteChatBubbleDirective`,
-`AparteChatStatusDirective`, `AparteComposerDirective`, `AparteComposerInputDirective`,
-`AparteComposerActionDirective`, `AparteComposerAddAttachmentDirective`,
-`AparteComposerAttachmentsDirective`, `AparteComposerSendDirective`, `AparteComposerCancelDirective`,
-`AparteComposerToolbarDirective`, `AparteSelectDirective`, `AparteOptionDirective`,
-`AparteOptgroupDirective`, `AparteConversationListDirective`, `AparteProgressSpinnerDirective`,
-and `AparteElicitationDirective`.
+There is one directive per element, named `Aparte<Element>Directive` — every component
+page under [Components](/components/) shows the exact symbol in its Angular tab — and
+`APARTE_ELEMENT_DIRECTIVES` imports them all at once.
 
 [`<aparte-chat>`](/components/conversation/aparte-chat/) has no directive on purpose: `AparteChatComponent` already claims that tag and
 renders the whole turn.
@@ -292,6 +288,48 @@ line:
 Nothing here is a hard failure of the library: the elements are browser-only by nature, and
 the two wrappers with no guard simply leave that to you. It is written down so that leaving
 it to you is a decision you can see rather than one you discover.
+
+## Testing your components
+
+The same `node` condition that makes the server safe is what breaks a test runner, and the
+symptom does not look like a resolution problem at all: **vitest, jest and friends run on
+Node**, so they take the `node` condition, get the DOM-free entry, and no `<aparte-*>`
+element ever upgrades. Your jsdom `document.createElement('aparte-chat')` returns a plain
+`HTMLElement`, every assertion about the element's own properties fails, and nothing on the
+page says why.
+
+`@aparte/core/browser` is the entry with the elements in it, by name. Point your runner at
+it:
+
+```ts
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    alias: [
+      // Node resolves `@aparte/core` to the DOM-free entry — correct for SSR, useless
+      // under jsdom, where you want the elements to register.
+      //
+      // The array form matches on a REGEX, and that is the point: an object alias is a
+      // PREFIX alias, so `'@aparte/core': '@aparte/core/browser'` would also rewrite
+      // `@aparte/core/icons` and `@aparte/core/styles.css` to paths under `/browser`
+      // that the exports map does not carry.
+      { find: /^@aparte\/core$/, replacement: '@aparte/core/browser' },
+    ],
+  },
+});
+```
+
+`registerAllComponents()` says so out loud if you forget: called on the DOM-free entry with
+a DOM present, it logs one warning naming this specifier. It is a warning and not a throw —
+the environment is legal, only surprising.
+
+Two notes. The main entry is deliberately left alone: `.` must keep resolving `node` first,
+because that is what makes `import '@aparte/core'` safe in Next, Nuxt, SvelteKit and Angular
+Universal. And `@aparte/core/package.json` is exported too, so a config that would rather
+compute the path than hardcode it can call `require.resolve('@aparte/core/package.json')`.
 
 ## Where the facts come from
 

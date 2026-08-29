@@ -9,9 +9,9 @@ export const collections = {
   changelogs: defineCollection({
     loader: changelogsLoader([
       // pageSize covers every version, so the list has ONE page. With the default 10 the
-      // list paginated to /changelog/2/, and a topic's sidebar replaces the one Starlight
-      // derives its pagination from — so that second page became a route nothing linked
-      // to. check-doc-links caught it; neither plugin did.
+      // list paginated to /changelog/2/, a route the sidebar never linked to (found when
+      // the sidebar was split by a topics plugin, since removed; kept because a second
+      // list page still helps nobody). check-doc-links caught it; neither plugin did.
       { provider: 'changeset', base: 'changelog', changelog: '../../CHANGELOG.md', pageSize: 50 },
     ]),
   }),

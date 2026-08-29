@@ -13,11 +13,10 @@
  * both paths produced `targetId: undefined` and agreed — the one thing the suite
  * exists to compare was the one thing it normalised away.
  *
- * That is what these tests pin: the stamp, on an element that HAS an id, plus the
- * two behaviours the artifact dispatcher gets wrong if the progress map is misread.
+ * That is what these tests pin: the stamp, on an element that HAS an id.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { dispatchLifecycleEvent, dispatchArtifactLifecycle } from '../lifecycle-events.js';
+import { dispatchLifecycleEvent } from '../lifecycle-events.js';
 
 function host(id?: string): HTMLElement {
     const el = document.createElement('div');
@@ -80,55 +79,5 @@ describe('dispatchLifecycleEvent', () => {
         const onDocument = record(document.body, 'aparte-message-start');
         dispatchLifecycleEvent(el, 'aparte-message-start', { messageId: 'm1' });
         expect(onDocument).toHaveLength(1);
-    });
-});
-
-describe('dispatchArtifactLifecycle', () => {
-    const segment = { id: 's1', mimeType: 'text/html', artifactType: 'html', title: 'Page' };
-
-    it('fires start once per segment id, however many times it is called', () => {
-        const el = host('chat-a');
-        const starts = record(el, 'aparte-artifact-start');
-        const progress = new Map<string, number>();
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'ab' }, progress, false);
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'abcd' }, progress, false);
-        expect(starts).toHaveLength(1);
-    });
-
-    it('emits a delta only for the part that actually grew', () => {
-        const el = host('chat-a');
-        const deltas = record(el, 'aparte-artifact-delta') as { chunk: string }[];
-        const progress = new Map<string, number>();
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'ab' }, progress, false);
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'abcd' }, progress, false);
-        expect(deltas.map((d) => d.chunk)).toEqual(['ab', 'cd']);
-    });
-
-    it('emits no delta when a re-render replays the same content', () => {
-        // The progress map is what stops a re-render from replaying the body. Without
-        // it, a viewport re-render would re-stream the whole artifact to the host.
-        const el = host('chat-a');
-        const deltas = record(el, 'aparte-artifact-delta');
-        const progress = new Map<string, number>();
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'abcd' }, progress, false);
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'abcd' }, progress, false);
-        expect(deltas).toHaveLength(1);
-    });
-
-    it('carries the full content on ready, and only on ready', () => {
-        const el = host('chat-a');
-        const ready = record(el, 'aparte-artifact-ready') as { content: string; targetId?: string }[];
-        const progress = new Map<string, number>();
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'abcd' }, progress, false);
-        expect(ready).toHaveLength(0);
-        dispatchArtifactLifecycle(el, 'm1', { ...segment, content: 'abcd' }, progress, true);
-        expect(ready[0]?.content).toBe('abcd');
-    });
-
-    it('treats a missing content as empty rather than emitting "undefined"', () => {
-        const el = host('chat-a');
-        const ready = record(el, 'aparte-artifact-ready') as { content: string }[];
-        dispatchArtifactLifecycle(el, 'm1', segment, new Map(), true);
-        expect(ready[0]?.content).toBe('');
     });
 });

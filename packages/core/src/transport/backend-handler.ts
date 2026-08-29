@@ -88,7 +88,12 @@ export function createAparteChatHandler(
             return jsonError(400, 'Invalid JSON body.');
         }
 
-        const adapter = options.providers[providerId];
+        // The providerId is client-supplied, so index only OWN keys: on a plain
+        // object literal `providers["__proto__"]` / `["constructor"]` resolve to a
+        // truthy inherited value, which skipped this 400 and answered 500 instead.
+        const adapter = Object.hasOwn(options.providers, providerId)
+            ? options.providers[providerId]
+            : undefined;
         if (!adapter) {
             return jsonError(400, `Unknown providerId "${providerId}". Register it in the handler's providers map.`);
         }
@@ -122,7 +127,12 @@ export function createAparteChatHandler(
                 signal: req.signal, // a client disconnect aborts the vendor call too
             });
         } catch (err) {
-            return jsonError(502, `Vendor request failed: ${(err as Error)?.message ?? 'network error'}`);
+            // Same rule as the !vendor.ok block below: the vendor's prose is for
+            // the server's logs, never the client's. `authQuery` (Gemini's `?key=`)
+            // puts the key in `url`, and a custom `fetchImpl` names the URL in its
+            // error text (node-fetch: `request to ${url} failed, reason: ...`).
+            console.error('[aparte] vendor request failed', err);
+            return jsonError(502, 'Vendor request failed.');
         }
 
         // A vendor error is SUMMARISED, not relayed byte-for-byte.

@@ -53,10 +53,14 @@ interface ViewportApi {
     truncateResponsesAfter?(userMessageId: string): void;
     getMessage?(messageId: string): AparteMessage | undefined;
     appendMessage?(message: AparteMessage): void;
+    /** Framework-managed DOM: record a message in the tree without painting a bubble. */
+    addMessage?(message: AparteMessage): void;
     updateMessage?(messageId: string, updates: Partial<AparteMessage>): void;
+    /** The transcript's read-only-while-streaming flag; in framework-managed mode the host is its one writer. */
+    setTranscriptBusy?(busy: boolean): void;
     exportTree?(): ExportedMessageRepository;
     importTree?(tree: ExportedMessageRepository): void;
-    clearAll?(): void;
+    clearAll?(options?: { revokeAttachments?: boolean }): void;
     resetSpacer?(): void;
     configure?(config: { layoutTransitionMs?: number }): void;
     setAutoScroll?(enabled: boolean): void;
@@ -251,6 +255,12 @@ export class AparteChatHost {
         if (this._streamingId === id) return;
         this._streamingId = id;
         this.binding.onStreamingChange?.(id);
+        // The transcript's read-only-while-streaming flag has one writer per mode. In
+        // framework-managed mode the repository is not written during a turn, so the
+        // viewport could never derive it — retry, edit and the branch arrows stayed
+        // live on every other message while a reply streamed, under all four wrappers.
+        // This host already knows the truth for every wrapper: it says it.
+        this._vp()?.setTranscriptBusy?.(id !== null);
     }
 
     // ── conversation ───────────────────────────────────────────────────────
@@ -281,10 +291,10 @@ export class AparteChatHost {
             },
             appendMessage: (msg) => this.appendMessage(msg),
             getMessages: () => this.binding.getMessages(),
-            clearMessages: () => {
+            clearMessages: (options) => {
                 this._beginConversationSwap();
                 this.binding.setMessages([]);
-                this._vp()?.clearAll?.();
+                this._vp()?.clearAll?.(options);
             },
             exportTree: () => {
                 this.syncRepoFromMessages();
@@ -354,6 +364,12 @@ export class AparteChatHost {
                     }, []),
                 }
                 : message;
+        // Recorded in the viewport's tree by the same act that builds the list. It was
+        // not: a manual token stream (`streamTokens`, `appendToSegment`) then wrote to
+        // a message the repository did not know, the viewport invented it under the
+        // empty root, and the next branch operation re-parented the whole transcript
+        // under that phantom — the path came out reversed.
+        this._vp()?.addMessage?.(stored);
         this.binding.setMessages([...this.binding.getMessages(), stored]);
         this.binding.onMessageAppended?.(stored);
     }
@@ -588,11 +604,17 @@ export class AparteChatHost {
     /** Read the current message list. */
     getMessages(): AparteMessage[] { return this.binding.getMessages(); }
 
-    /** Clear all messages + reset viewport state. */
-    clearMessages(): void {
+    /**
+     * Clear all messages + reset viewport state. The option travels to the viewport
+     * untouched: a compaction passes `{ revokeAttachments: false }` because it re-appends
+     * the turns it keeps and revokes the dropped ones' object URLs itself — under a
+     * framework wrapper this bridge used to drop the argument, and every surviving
+     * attachment came back broken.
+     */
+    clearMessages(options?: { revokeAttachments?: boolean }): void {
         this._beginConversationSwap();
         this.binding.setMessages([]);
-        this._vp()?.clearAll?.();
+        this._vp()?.clearAll?.(options);
     }
 
     /** Create a new branch from a message (returns the new sibling index). */
@@ -833,6 +855,11 @@ export class AparteChatHost {
         host['addSiblingOf'] = (id: string, m: AparteMessage) => this.addSiblingOf(id, m);
         host['truncateFrom'] = (id: string) => this.truncateFrom(id);
         host['truncateResponsesAfter'] = (id: string) => this.truncateResponsesAfter(id);
+        // Installed since 0.16.0 for `@aparte/plugin-compaction`, which replaces a
+        // transcript through the element it resolves by id — under a wrapper, this root.
+        // Without it the host had `getMessages` and `appendMessage` but no way to empty
+        // itself, and the plugin could not tell it from a stray `[data-aparte-chat]`.
+        host['clearAll'] = (options?: { revokeAttachments?: boolean }) => this.clearMessages(options);
     }
 
     private _installLifecycleListeners(host: HTMLElement): void {

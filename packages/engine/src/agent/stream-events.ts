@@ -16,10 +16,11 @@
  * core types (`AparteStreamEvent`, `AparteUsage`, `AparteChatMessage`, `AparteToolCall`)
  * so the adapter passes the real objects through with zero runtime conversion.
  *
- * SCOPE: text · thinking · tool_use (+ HITL approval) · done · error · the built-in
- * create_artifact · synthetic toolChoice bypass. Code-fence promotion and `<artifact>`
- * tags in the text are adapter-side (they need the core parser); the raw / XML
- * artifact modes and the multi-phase pipeline were removed (audit 2026-08-28, D2).
+ * SCOPE: text · thinking · tool_use (+ HITL approval) · done · error · synthetic
+ * toolChoice bypass. Tagged blocks in the text are adapter-side (core's parser reads
+ * the grammars registered on the config); the built-in `create_artifact` left with
+ * the artifact (D7), and the raw / XML artifact modes and the multi-phase pipeline
+ * were removed before it (audit 2026-08-28, D2).
  */
 
 // ─── Duck-typed mirrors of @aparte/core (structural — NO import) ───────────────
@@ -183,7 +184,7 @@ export interface StreamChatRequest {
      * un-assignable — from the opposite direction to the `messages` mismatch.
      */
     modelId: string;
-    /** Per-turn hints carried through for the adapter (`artifactHint`, `prefixSegments`); the loop reads none. */
+    /** Per-turn hints carried through for the host (`prefixSegments`, and whatever the consumer puts there); the loop reads none. */
     _meta?: Record<string, unknown>;
     /** `'none'` makes the loop drop the tool inventory for that turn. */
     toolChoice?: 'auto' | 'none' | { name: string; input?: Record<string, unknown> };
@@ -195,12 +196,30 @@ export interface StreamChatRequest {
 export type StreamToolHandler = (
     call: StreamToolCall,
     signal: AbortSignal,
-) => Promise<{ content: string }>;
+) => Promise<{
+    /** What the model reads. */
+    content: string;
+    /** The same result as a value, forwarded on `tool-resolved` as `structuredResult`; the model never sees it. */
+    structuredContent?: unknown;
+}>;
 
 /** Per-tool loop configuration (mirrors the `AparteTool` subset the loop reads). */
 export interface StreamToolConfig {
     maxTurns?: number;
-    needsApproval?: boolean;
+    /**
+     * Whether a call of this tool pauses for a decision. A boolean is the tool's own
+     * declaration; a predicate decides PER CALL, from the arguments — the shape an
+     * approval policy needs ("a write to this path asks, a read does not"), and one a
+     * boolean could only approximate by gating every call and auto-approving most,
+     * which paints `awaiting-approval` on rows nobody was ever going to be asked about.
+     *
+     * The predicate has three answers, because a policy has three: `false` runs the
+     * call, `'ask'` (or `true`) puts it to someone — the loop announces the pause with
+     * `tool-awaiting-approval` — and `'deny'` means the decision is already made: the
+     * resolver is still consulted (it is the one channel that carries the refusal
+     * sentence back), but nothing is announced, since nobody is being asked.
+     */
+    needsApproval?: boolean | ((call: { id: string; name: string; input: Record<string, unknown> }) => boolean | 'ask' | 'deny');
 }
 
 /**
@@ -210,7 +229,18 @@ export interface StreamToolConfig {
 export type StreamApprovalResolver = (
     call: { id: string; name: string; input: Record<string, unknown> },
     signal: AbortSignal,
-) => Promise<{ approved: boolean; payload?: unknown; instruction?: string }>;
+) => Promise<{
+    approved: boolean;
+    payload?: unknown;
+    /** What the user said to do instead, on a refusal — quoted to the model as theirs. */
+    instruction?: string;
+    /**
+     * The refusal, verbatim, when nobody said anything — a policy that refused on its
+     * own ("plan mode: read-only tools only"). The sentence the loop would otherwise
+     * write attributes the refusal to the user, which would be a lie here.
+     */
+    reason?: string;
+}>;
 
 // ─── The events runStreamAgent emits ─────────────────────────────────────────
 
@@ -231,6 +261,7 @@ export type StreamApprovalResolver = (
  * - `tool-awaiting-approval` → updateSegment('awaiting-approval') + dispatch `aparte-tool-approval-request`
  * - `tool-approved`   → updateSegment('pending')
  * - `tool-rejected`   → updateSegment('rejected', result)
+ * - `tool-failed`     → updateSegment('failed', error) — the handler threw; the run then ends on that error
  * - `tool-resolved`   → updateSegment('resolved', result)
  * - `tool-aborted`    → updateSegment('aborted') (no-handler path, timeout/abort path, or per-tool maxTurns path)
  * - `turn-limit-exceeded` scope:'global' → addSegment(error 'MAX_TURNS_EXCEEDED');
@@ -244,14 +275,13 @@ export type StreamRunEvent =
     | { type: 'text-delta'; delta: string }
     | { type: 'text-flush' }
     | { type: 'thinking-delta'; delta: string }
-    // One-shot artifact from the built-in `create_artifact` tool: full content
-    // up-front → a single addSegment + lifecycle(true).
-    | { type: 'artifact-ready'; id: string; mimeType: string; kind: string; title: string; content: string }
     | { type: 'tool-start'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-awaiting-approval'; toolCallId: string; name: string; input: unknown }
     | { type: 'tool-approved'; toolCallId: string }
     | { type: 'tool-rejected'; toolCallId: string; reason: string }
-    | { type: 'tool-resolved'; toolCallId: string; result: string }
+    /** The handler threw (not an abort): the row hears of the crash before the run ends on it. */
+    | { type: 'tool-failed'; toolCallId: string; error: string }
+    | { type: 'tool-resolved'; toolCallId: string; result: string; structuredResult?: unknown }
     | { type: 'tool-aborted'; toolCallId: string }
     | { type: 'turn-limit-exceeded'; scope: 'global' | 'tool'; limit: number; toolCallId?: string }
     | { type: 'run-aborted' }

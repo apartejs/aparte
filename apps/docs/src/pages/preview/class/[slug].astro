@@ -13,7 +13,21 @@ export function getStaticPaths() {
     return CLASS_PREVIEWS.map((preview) => ({ params: { slug: preview.slug }, props: preview }));
 }
 
-const { name, markup } = Astro.props;
+const { name, markup, slug } = Astro.props;
+
+/*
+ * One family cannot be seen from its markup alone: a `<dialog>` without `open` is
+ * `display: none`, so the Dialog preview showed its trigger button and nothing else —
+ * "a recipe you cannot see is a list of names", on the one page that says so. The
+ * frame opens it MODALLY on arrival — the same state the button gives after a Cancel,
+ * backdrop and all; it used to open it in the flow with `show()`, which put the box
+ * above its own trigger with no backdrop, a state nothing in the kit produces. The frame
+ * keeps a floor of height for it (PreviewDocument). The code block a reader copies stays
+ * the sheet's own example, with no `open` hardcoded.
+ */
+const scripts = slug === 'dialog'
+    ? ["const d = document.querySelector('dialog.aparte-dialog'); if (d) d.showModal();"]
+    : [];
 ---
 
-<PreviewDocument title={`${name} classes — live preview`} markup={markup} scripts={[]} />
+<PreviewDocument title={`${name} classes — live preview`} markup={markup} scripts={scripts} />

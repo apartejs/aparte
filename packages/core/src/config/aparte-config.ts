@@ -10,7 +10,7 @@
 
 import { AparteIconProvider, AparteIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 import { AparteAvatarProvider } from './avatar-provider.js';
-import { AparteLocale, APARTE_DEFAULT_LOCALE } from './locale.js';
+import { AparteLocale, AparteLocaleExtensions, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
 import type { AparteStatusRenderer } from './status-renderer.js';
 import type { AparteErrorRenderer } from './error-renderer.js';
@@ -21,8 +21,12 @@ import type { AparteBubbleShellRenderer } from './bubble-shell-renderer.js';
 import type { AparteAIProvider, AparteAIModel, AparteModelConfig } from '../types/model-provider.js';
 import type { AparteTransport } from '../transport/index.js';
 import { AparteDirectTransport } from '../transport/index.js';
-import type { AparteTool, AparteToolHandler, AparteToolRenderer } from '../types/tools.js';
+import type {
+    AparteTool, AparteToolHandler, AparteToolRenderer, AparteToolCall,
+    AparteApprovalPolicy, AparteApprovalRuling,
+} from '../types/tools.js';
 import type { AparteSegmentDefaults } from '../types/segments.js';
+import type { AparteStreamBlock } from '../types/stream-blocks.js';
 import type { AparteBubbleActionsConfig, AparteBubbleActionName, AparteHostHandlersConfig } from '../types/models.js';
 import type { AparteConversationManager } from '../conversations/conversation-manager.js';
 import { defaultSanitizer, type AparteSanitizer } from './sanitize.js';
@@ -63,14 +67,12 @@ export const APARTE_DEFAULT_BUBBLE_ACTIONS = {
  * The host-handler declarations — nothing declared.
  *
  * Same rule as {@link APARTE_DEFAULT_BUBBLE_ACTIONS}, applied outside the action bar: an
- * image tile you can click, a Run button, a download button on a binary artifact
- * are all requests core forwards to the app. Undeclared, they are not rendered
- * (and the tile is not even signalled as clickable) instead of doing nothing.
+ * image tile you can click is a request core forwards to the app. Undeclared, it is
+ * not rendered (and the tile is not even signalled as clickable) instead of doing
+ * nothing.
  */
 export const APARTE_DEFAULT_HOST_HANDLERS = {
     attachmentPreview: false,
-    artifactRedownload: false,
-    artifactRehydrate: false,
 } as const;
 
 export interface AparteModelPreference {
@@ -106,17 +108,6 @@ export interface AparteStreamingMarkdownRenderer {
  */
 export type AparteStreamingMarkdownProvider = (target: HTMLElement) => AparteStreamingMarkdownRenderer;
 
-/**
- * Builds the HTML document used as an artifact preview iframe `srcdoc` for a
- * given artifact kind (react/html/svg/js/css/…). Supplied by the consuming app
- * — e.g. a React/Babel/Tailwind live preview that loads those libs from a CDN.
- * Core ships only a CDN-free fallback (svg/css/html/js render offline; other
- * kinds degrade to a read-only code view), so the engine stays zero-network and
- * framework-agnostic. The app opts into richer previews via
- * {@link AparteConfig.setArtifactPreviewBuilder}.
- */
-export type AparteArtifactPreviewBuilder = (kind: string, body: string, title: string) => string;
-
 /** The queue tail must never reject, so a failed request cannot wedge every later one. */
 const NOOP = (): void => { /* deliberately empty */ };
 
@@ -138,7 +129,6 @@ export class AparteConfig {
     private _iconProvider?: AparteIconProvider;
     private _avatarProvider?: AparteAvatarProvider;
     private _keyProvider?: AparteKeyProvider;
-    private _artifactPreviewBuilder?: AparteArtifactPreviewBuilder;
     private _locale: AparteLocale = APARTE_DEFAULT_LOCALE;
     private _actions: AparteAction[] = [];
     private _listeners: Set<() => void> = new Set();
@@ -165,10 +155,14 @@ export class AparteConfig {
     /** Host policy for the elicitation panel's free-text escape — see {@link setElicitationOptions}. */
     private _elicitationAllowOther = true;
     private _elicitationLayout: 'stepped' | 'stacked' = 'stepped';
+    /** Whether a single choice answers on the click (buttons) or keeps its radios + the composer's button. */
+    private _elicitationAnswerOnClick = true;
     private _elicitationFieldRenderer?: AparteElicitationFieldRenderer | undefined;
     // Transport: where chat requests go + how auth is handled (AparteDirectTransport = browser-direct).
     private _transport: AparteTransport = new AparteDirectTransport();
     private _modelPreferenceProvider?: AparteModelPreferenceProvider;
+    // Per-call approval policy (a mode: plan / ask / auto). `null` = the tools' own flags.
+    private _approvalPolicy: AparteApprovalPolicy | null = null;
 
     // Conversation persistence (optional, agnostic)
     private _conversationManager?: AparteConversationManager;
@@ -217,6 +211,8 @@ export class AparteConfig {
     // Tool Registry
     private _tools: Map<string, { tool: AparteTool; handler: AparteToolHandler }> = new Map();
     private _toolRenderers: Map<string, AparteToolRenderer> = new Map();
+    /** Tagged blocks the stream parser recognises in the prose — see {@link registerStreamBlock}. */
+    private _streamBlocks: Map<string, AparteStreamBlock> = new Map();
     private _segmentDefaults: Map<string, AparteSegmentDefaults> = new Map();
 
     // Host handlers — what the app declares it can actually complete.
@@ -280,7 +276,7 @@ export class AparteConfig {
      * @example
      * aparteGlobalConfig.setBubbleActions({ retry: true, edit: true }) // you run AparteClient
      * aparteGlobalConfig.setBubbleActions({ feedback: true })          // you listen for aparte-feedback
-     * aparteGlobalConfig.setBubbleActions({ copy: false })             // hide everything
+     * aparteGlobalConfig.setBubbleActions({ copy: false })             // hides copy; calls merge, so anything turned on above stays on
      * // Explicit per-role ordered sets (replace the flag defaults for that role):
      * aparteGlobalConfig.setBubbleActions({ user: ['edit', 'copy'], assistant: ['copy', 'thumbUp', 'thumbDown', 'retry'] })
      */
@@ -294,7 +290,7 @@ export class AparteConfig {
      * trigger only for the ones you claim — see {@link AparteHostHandlersConfig}.
      *
      * @example
-     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true, artifactRedownload: true });
+     * aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
      */
     setHostHandlers(config: AparteHostHandlersConfig): void {
         this._hostHandlers = { ...this._hostHandlers, ...config };
@@ -310,8 +306,6 @@ export class AparteConfig {
     getHostHandlers(): Required<AparteHostHandlersConfig> {
         return {
             attachmentPreview: this._hostHandlers.attachmentPreview ?? APARTE_DEFAULT_HOST_HANDLERS.attachmentPreview,
-            artifactRedownload: this._hostHandlers.artifactRedownload ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRedownload,
-            artifactRehydrate: this._hostHandlers.artifactRehydrate ?? APARTE_DEFAULT_HOST_HANDLERS.artifactRehydrate,
         };
     }
 
@@ -464,20 +458,6 @@ export class AparteConfig {
         this._notify();
     }
 
-    /**
-     * Register an artifact preview builder (app-level). When set, the artifact
-     * renderer uses it to build the preview iframe `srcdoc`; when unset, core's
-     * CDN-free fallback is used. This is how the product opts into a
-     * React/Babel/Tailwind live preview without leaking those into core.
-     */
-    setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void {
-        this._artifactPreviewBuilder = builder;
-    }
-
-    /** The registered artifact preview builder, or undefined for the core fallback. */
-    getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined {
-        return this._artifactPreviewBuilder;
-    }
 
     /**
      * The icon set as a **complete** provider: every name resolves, falling back
@@ -603,7 +583,7 @@ export class AparteConfig {
      * Set the current locale
      * @param locale AparteLocale object defining all strings
      */
-    setLocale(locale: AparteLocale): void {
+    setLocale(locale: AparteLocale & AparteLocaleExtensions): void {
         this._locale = locale;
         // A runtime language switch must propagate to already-mounted components,
         // same as every other live setter.
@@ -621,9 +601,19 @@ export class AparteConfig {
     }
 
     /**
-     * Get the current locale
+     * Get the current locale.
+     *
+     * Typed as the closed list PLUS the open half, and the asymmetry is the point:
+     * `t()` keys on `AparteLocale` alone — a typo there is a compile error — while a
+     * plugin reading its OWN key off this object gets `string | undefined` and
+     * supplies its own default at the call site.
+     *
+     * `t()` is the one that has to be narrow, because it is the one that fails
+     * silently: it returns `''` for a key nobody declared, and an empty label is
+     * invisible on screen and in the console. A misspelt read here is `undefined`,
+     * which the `?? 'fallback'` every caller already writes turns into the default.
      */
-    getLocale(): AparteLocale {
+    getLocale(): AparteLocale & AparteLocaleExtensions {
         return this._locale;
     }
 
@@ -632,7 +622,7 @@ export class AparteConfig {
      * Useful for plugins to register their own strings.
      * @param translations Partial locale object to merge
      */
-    extendLocale(translations: Partial<AparteLocale>): void {
+    extendLocale(translations: Partial<AparteLocale> & AparteLocaleExtensions): void {
         this._locale = { ...this._locale, ...translations };
         this._notify();
     }
@@ -706,6 +696,22 @@ export class AparteConfig {
             }
             this._aiProviders.set(provider.id, provider);
         }
+        /*
+         * One provider, one model, nothing selected: there is no choice to make, so it
+         * is made. A scripted provider (`@aparte/provider-scenario`) or an in-browser
+         * one offers exactly one model and knows it without a request — and without
+         * this, a page with no `<aparte-model-selector>` and no `setModelConfig()` sent
+         * nothing, silently (issue #29). Only the synchronous case: a provider whose
+         * list comes from a fetch has no model to select yet, and the selector's
+         * `auto-select` is what handles that one.
+         */
+        if (!this.hasSelectedModel() && this._aiProviders.size === 1) {
+            const only = [...this._aiProviders.values()][0]!;
+            const models = only.getModels();
+            if (models.length === 1) {
+                this._modelConfig = { ...this._modelConfig, defaultProvider: only.id, defaultModel: models[0]!.id };
+            }
+        }
         this._notify(); // Notify when providers change
     }
 
@@ -766,6 +772,52 @@ export class AparteConfig {
      */
     setModelPreferenceProvider(provider: AparteModelPreferenceProvider): void {
         this._modelPreferenceProvider = provider;
+    }
+
+    /**
+     * Decide per CALL whether a tool runs, asks, or is refused — a mode, not a flag.
+     *
+     * With a policy registered, the client's default approval channel evaluates it for
+     * every tool call: `allow` runs without asking, `ask` puts the call to the person
+     * exactly as a `needsApproval` tool is, `deny` refuses it with the policy's own
+     * `reason` as what the model reads. `undefined` leaves the tool's `needsApproval`
+     * to decide, as before. `null` removes the policy.
+     *
+     * `@aparte/plugin-approval` builds one from a classification of your tool names and
+     * a switchable mode (plan / ask / auto-edit / auto); a host that owns its own
+     * `approvalResolver` on `AparteClientOptions` is not affected — that resolver
+     * already decides everything.
+     *
+     * @example
+     * ```ts
+     * aparteGlobalConfig.setApprovalPolicy((call) =>
+     *   call.name === 'run_command'
+     *     ? { verdict: 'ask' }
+     *     : { verdict: 'allow' });
+     * ```
+     */
+    setApprovalPolicy(policy: AparteApprovalPolicy | null): void {
+        this._approvalPolicy = policy;
+        // Like every other registration: a mounted switch has to hear that a policy
+        // arrived after it did, or went away.
+        this._notify();
+    }
+
+    /** The registered approval policy, or `null`. */
+    getApprovalPolicy(): AparteApprovalPolicy | null {
+        return this._approvalPolicy;
+    }
+
+    /**
+     * What the policy says about one call, with the tool's own `needsApproval` as the
+     * answer when it has no opinion. The one place the two are combined, so the client's
+     * gate predicate and its approval channel cannot disagree.
+     */
+    ruleOnToolCall(call: AparteToolCall): AparteApprovalRuling {
+        const tool = this._tools.get(call.name)?.tool;
+        const ruling = this._approvalPolicy?.(call, tool);
+        if (ruling) return ruling;
+        return { verdict: tool?.needsApproval ? 'ask' : 'allow' };
     }
 
     /**
@@ -870,16 +922,27 @@ export class AparteConfig {
      * collecting structured data, not two different questions asked mid-conversation.
      * No product asks a person two questions by stacking them in one box; it is kept
      * as an option because the form case is real, not because it was the right default.
+     *
+     * `answerOnClick` decides how a question asked ON ITS OWN with a single choice — an
+     * `enum` without `multiple` or a `default`, a `boolean` without a `default` — is
+     * answered. `true` (default) renders the options as buttons and the click is the
+     * answer: one decision, one gesture, the shape every chat product uses for "which
+     * one?". `false` keeps the radios and the composer's button, so a person can
+     * change their mind before committing — the shape a form or a screen reader
+     * flow may prefer, and the one a host that wants a uniform "select, then send"
+     * across every question asks for. A form of several questions always collects and
+     * submits, whatever this says.
      */
-    setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked' }): void {
+    setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked'; answerOnClick?: boolean }): void {
         if (options.allowOther !== undefined) this._elicitationAllowOther = options.allowOther;
         if (options.layout !== undefined) this._elicitationLayout = options.layout;
+        if (options.answerOnClick !== undefined) this._elicitationAnswerOnClick = options.answerOnClick;
         this._notify();
     }
 
     /** The elicitation policy (see {@link setElicitationOptions}). */
-    getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' } {
-        return { allowOther: this._elicitationAllowOther, layout: this._elicitationLayout };
+    getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked'; answerOnClick: boolean } {
+        return { allowOther: this._elicitationAllowOther, layout: this._elicitationLayout, answerOnClick: this._elicitationAnswerOnClick };
     }
 
     /**
@@ -1110,6 +1173,41 @@ export class AparteConfig {
         return this._toolRenderers.get(toolName);
     }
 
+    /**
+     * Teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's
+     * prose becomes the segment `toSegment` builds, streamed delta by delta.
+     *
+     * The parser does the work once for every grammar — the earliest opening tag wins
+     * against a code fence and a reasoning delimiter, a tag cut at a chunk boundary is
+     * held back, attributes are parsed quoted or bare, and the block is closed at
+     * `</tag>` or at the end of the stream. What the segment IS is yours: a `type` of
+     * your own with a renderer from `registerSegmentRenderer`, or a built-in one. One
+     * grammar per tag; registering the same tag again replaces it.
+     *
+     * Read by the stream adapter when a turn starts, so a block registered mid-turn
+     * applies from the next turn. See {@link AparteStreamBlock}.
+     *
+     * @example
+     * aparteGlobalConfig.registerStreamBlock({
+     *   tag: 'cite',
+     *   toSegment: ({ attrs, id }) => ({ id, type: 'citation', url: attrs['url'] ?? '', content: '' }),
+     * });
+     */
+    registerStreamBlock(block: AparteStreamBlock): void {
+        this._streamBlocks.set(block.tag, block);
+        this._notify();
+    }
+
+    /** Forget a block grammar by its tag. */
+    unregisterStreamBlock(tag: string): void {
+        if (this._streamBlocks.delete(tag)) this._notify();
+    }
+
+    /** The registered block grammars, in registration order. */
+    getStreamBlocks(): AparteStreamBlock[] {
+        return Array.from(this._streamBlocks.values());
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Conversation Manager (optional, agnostic persistence layer)
     // ─────────────────────────────────────────────────────────────────────────
@@ -1261,7 +1359,10 @@ export class AparteConfig {
                     '[aparte] requestUserInput() was called with no elicitation presenter, '
                     + 'so it rejected with an AbortError — nothing was ever shown to anybody. '
                     + 'Add <aparte-elicitation></aparte-elicitation> '
-                    + 'inside your <aparte-chat>, or register your own by calling '
+                    + 'inside your <aparte-chat> (the Angular wrapper\'s tag too) — or, under the '
+                    + 'React/Vue/Svelte wrappers, inside their [data-aparte-chat] host (every wrapper '
+                    + 'renders it by default, unless you passed `elicitation={false}`) — or register '
+                    + 'your own by calling '
                     + 'setElicitationPresenter() on the config this chat resolves — '
                     + 'the scoped one if you passed a `config`, aparteGlobalConfig otherwise.',
                 );
@@ -1300,7 +1401,6 @@ export class AparteConfig {
         // consumer's `reset()` would do to a second chat.
         this._segmentDefaults.clear();
         this._avatarProvider = undefined;
-        this._artifactPreviewBuilder = undefined;
         this._keyProvider = undefined;
         this._conversationManager = undefined;
         this._elicitationPresenters = [];
@@ -1315,12 +1415,15 @@ export class AparteConfig {
         this._fetchedModels.clear();
         this._tools.clear();
         this._toolRenderers.clear();
+        this._streamBlocks.clear();
         this._modelConfig = {};
         this._requireModelSelection = false;
         this._elicitationAllowOther = true;
         this._elicitationLayout = 'stepped';
+        this._elicitationAnswerOnClick = true;
         this._elicitationFieldRenderer = undefined;
         this._modelPreferenceProvider = undefined;
+        this._approvalPolicy = null;
         this._bubbleActionsConfig = { ...APARTE_DEFAULT_BUBBLE_ACTIONS };
         this._hostHandlers = { ...APARTE_DEFAULT_HOST_HANDLERS };
         this._notify();

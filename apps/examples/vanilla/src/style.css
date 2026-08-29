@@ -30,13 +30,14 @@ body {
     color: var(--aparte-text, #f5f0e6);
 }
 
+/* Full width on purpose. Core centres the transcript and the composer at
+   --aparte-message-max-width (800px), so the page's own edge is where the scrollbar
+   lands — the layout ChatGPT and Claude use. A max-width HERE boxed the whole chat,
+   and with it the scrollbar, 200px in from the edge of a wide screen. */
 .app {
     display: flex;
     flex-direction: column;
     height: 100dvh;
-    max-width: 820px;
-    margin: 0 auto;
-    padding: 12px;
     gap: 10px;
 }
 
@@ -45,6 +46,8 @@ body {
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+    /* The inset the shell used to carry; the chat below it runs edge to edge. */
+    padding: 12px 12px 0;
 }
 .brand {
     font-weight: 700;
@@ -85,6 +88,17 @@ body {
    under the heading is this page's. */
 .welcome .aparte-suggestions {
     justify-content: center;
+}
+
+/* `?layout=split` and `?layout=shell`: whatever the page puts under the topbar takes
+   the room the same way the bare chat does — as a flex item, never as `height: 100%`
+   of a box that also has a header in it. `flex-basis: 0` is what makes the inline
+   `height: 100%` on the split harmless: in a column flex container the basis, not the
+   height, is the used main size. */
+.app > aparte-split,
+.app > .aparte-app-shell {
+    flex: 1;
+    min-height: 0;
 }
 
 aparte-chat {

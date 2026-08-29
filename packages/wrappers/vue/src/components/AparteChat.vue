@@ -39,6 +39,14 @@ interface Props {
    * `<aparte-composer-attachments>` in it yourself).
    */
   attachments?: boolean;
+  /**
+   * Render the `<aparte-elicitation>` presenter inside the host — **on by default**,
+   * as it is in `<aparte-chat>`: the built-in approval gate and `requestUserInput()`
+   * ask through it, and it renders nothing until something asks. Pass `false` when
+   * you mount a presenter of your own (`setElicitationPresenter`) or place the
+   * element yourself.
+   */
+  elicitation?: boolean;
   /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   conversationId?: string | null;
   /**
@@ -60,6 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
   layoutTransitionMs: 0,
   centerWhenEmpty: false,
   attachments: false,
+  elicitation: true,
   conversationId: null,
 });
 
@@ -211,6 +220,7 @@ defineExpose({
           <aparte-chat-bubble
             :message-id="m.id"
             :data-role="m.role"
+            :data-kind="m.compaction ? 'compaction' : undefined"
             :timestamp="m.timestamp"
             :content="m.content"
             :streaming="isAwaitingReply(m) ? '' : null"
@@ -219,6 +229,10 @@ defineExpose({
       </template>
       <aparte-chat-status :visible="typingActive ? '' : null" :text="typingText" />
     </aparte-chat-viewport>
+
+    <!-- The presenter for a request to the human (approval gate, ask_user…). Renders
+         nothing until something asks; on by default as in <aparte-chat>. -->
+    <aparte-elicitation v-if="elicitation"></aparte-elicitation>
 
     <!-- Content above the composer (banner, disclaimer, context chip). -->
     <slot name="above-composer" />

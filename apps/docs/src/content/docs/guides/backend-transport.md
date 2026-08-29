@@ -153,6 +153,16 @@ survive, which is what a client actually branches on; the vendor's prose belongs
 server's logs. (`AparteDirectTransport` has no such concern: there, the key is the
 caller's own.)
 
+The rest of the body is *not* constrained. `modelId`, the whole `messages` array (the
+`system` message included), `tools` and `maxTokens` come from the client and are forwarded
+to the adapter as-is — no size limit, no message count, no model allow-list. An authorized
+caller can therefore name any provider in your map and send a prompt of any length against
+your key: `authorize` decides *who* calls the route, never *what* they send. If your
+deployment needs that capped — per-tier models, a token budget — do it in your own wrapper
+around the handler, or inside `authorize` reading `req.clone().json()`. Clone it: the
+handler parses the original body itself, and a body read twice fails the request with a
+`400`.
+
 ## 2. Point the browser at it
 
 On the client, skip the provider adapter entirely — the browser only needs to know the
@@ -178,8 +188,9 @@ the provider's format adapter registered client-side, but something has to pick 
 `BackendTransportOptions`:
 
 - **`endpoint`** — your chat route, e.g. `/api/chat`.
-- **`headers`** — extra headers sent with every request (a session cookie is sent
-  automatically; add an app-specific auth header here if you need one).
+- **`headers`** — extra headers sent with every request. A session cookie is sent
+  automatically only when `endpoint` is same-origin (e.g. `/api/chat`); a cross-origin
+  endpoint sends none, so authenticate it with a header here.
 - **`buildBody`** — override how the request is serialized to your backend. Defaults to
   `{ providerId, request }`; return any JSON-serializable value if your route expects a
   different shape.

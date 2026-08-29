@@ -49,7 +49,7 @@ describe('createAskUserTool options', () => {
 describe('setupAskUser', () => {
     it('registers the tool and its receipt under the chosen name', () => {
         const config = new AparteConfig();
-        setupAskUser(config, { name: 'clarify' });
+        setupAskUser({ name: 'clarify' }, config);
         expect(config.getTools().map((t) => t.name)).toContain('clarify');
         expect(config.getToolRenderer('clarify')).toBeDefined();
         expect(config.getToolRenderer('ask_user')).toBeUndefined();
@@ -57,7 +57,7 @@ describe('setupAskUser', () => {
 
     it('renders nothing for the call when the receipt is declined', () => {
         const config = new AparteConfig();
-        setupAskUser(config, { receipt: false });
+        setupAskUser({ receipt: false }, config);
         const renderer = config.getToolRenderer('ask_user');
         expect(renderer).toBeDefined();
         expect(renderer!.render({} as never)).toBe('');

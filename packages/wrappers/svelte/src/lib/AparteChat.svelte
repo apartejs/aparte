@@ -36,6 +36,19 @@
    * `<aparte-composer-attachments>` in it yourself).
    */
   export let attachments = false;
+  /**
+   * Render the `<aparte-elicitation>` presenter inside the host — on by default, as it
+   * is in `<aparte-chat>`: the built-in approval gate and `requestUserInput()` ask
+   * through it, and it renders nothing until something asks. Pass `false` when you
+   * mount a presenter of your own (`setElicitationPresenter`) or place the element
+   * yourself.
+   */
+  export let elicitation = true;
+  /** Extra class names for the root element (`[data-aparte-chat]`), merged after core's own. */
+  let className = '';
+  export { className as class };
+  /** Inline style for the root element (`[data-aparte-chat]`). */
+  export let style: string | undefined = undefined;
   /** Active conversation id (loads/persists via the registered AparteConversationManager). */
   export let conversationId: string | null = null;
   /**
@@ -219,8 +232,9 @@
 </script>
 
 <div
-  class="aparte-chat-container"
+  class="aparte-chat-container {className}"
   class:aparte-chat-container--auto-center={centerWhenEmpty}
+  {style}
   data-aparte-chat
   data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 ? '' : null}
   id={hostId}
@@ -238,6 +252,7 @@
         <aparte-chat-bubble
           message-id={m.id}
           data-role={m.role}
+          data-kind={m.compaction ? 'compaction' : undefined}
           timestamp={m.timestamp}
           content={m.content}
           streaming={isAwaitingReply(m) ? '' : null}></aparte-chat-bubble>
@@ -245,6 +260,10 @@
     {/each}
     <aparte-chat-status visible={typingActive ? '' : null} text={typingText}></aparte-chat-status>
   </aparte-chat-viewport>
+
+  <!-- The presenter for a request to the human (approval gate, ask_user…). Renders
+       nothing until something asks; on by default as in <aparte-chat>. -->
+  {#if elicitation}<aparte-elicitation></aparte-elicitation>{/if}
 
   <!-- Content above the composer (banner, disclaimer, context chip). -->
   <slot name="above-composer" />

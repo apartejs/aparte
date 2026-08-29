@@ -50,7 +50,16 @@ function walk(dir, out = []) {
     return out;
 }
 
-const sources = walk(join(CORE, 'src')).filter((f) => f.endsWith('.ts'));
+/*
+ * Core's source AND every plugin's: since 0.16.0 the four compaction events go out from
+ * `@aparte/plugin-compaction`, on `window`, and a scan of core alone listed two of them as
+ * orphans and one as "you dispatch it" — wrong on the page rather than missing from it.
+ * The map, the `@event` prose and the groups stay core's; only the dispatch scan widens.
+ */
+const sources = [
+    ...walk(join(CORE, 'src')),
+    ...readdirSync(PLUGINS).flatMap((plugin) => (existsSync(join(PLUGINS, plugin, 'src')) ? walk(join(PLUGINS, plugin, 'src')) : [])),
+].filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
 
 // ── 1. the typed map: name -> detail type ────────────────────────────────────
 const mapSrc = readFileSync(join(CORE, 'src/types/event-map.ts'), 'utf8');
@@ -122,8 +131,18 @@ const where = new Map();
 /** Names core LISTENS for. Together with "core never dispatches it", this identifies the
  *  events a consumer sends INWARD — a direction the documentation had never named. */
 const listened = new Set();
+/** Who fires each event, read from the FILE the dispatch sits in: a plugin's package, an element's tag, else the client. */
+const credit = new Map();
+const packageNameOf = (file) => {
+    const dir = file.slice(PLUGINS.length + 1).split(/[\\/]/)[0];
+    try { return JSON.parse(readFileSync(join(PLUGINS, dir, 'package.json'), 'utf8')).name; } catch { return dir; }
+};
 for (const file of sources) {
-    const src = readFileSync(file, 'utf8');
+    // Comments stripped: an `@example` that dispatches `aparte-message-done` to give a
+    // preview its state is not a dispatch site, and it credited the gauge with the loop's event.
+    const src = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const defined = src.match(/customElements\.define\(\s*'(aparte-[\w-]+)'/);
+    const who = file.startsWith(PLUGINS) ? '`' + packageNameOf(file) + '`' : defined ? '`<' + defined[1] + '>`' : '`AparteClient`';
     for (const m of src.matchAll(/addEventListener\(\s*'(aparte-[\w-]+)'/g)) listened.add(m[1]);
     /*
      * A SET per name, because an event can legitimately go out from two places and picking
@@ -132,7 +151,10 @@ for (const file of sources) {
      * `window`. Keeping only the first put it under "on the chat host" above its own
      * description saying "Dispatched on `window`".
      */
-    const add = (name, target) => where.set(name, (where.get(name) ?? new Set()).add(target));
+    const add = (name, target) => {
+        where.set(name, (where.get(name) ?? new Set()).add(target));
+        credit.set(name, (credit.get(name) ?? new Set()).add(who));
+    };
     // The lifecycle helper: the chat host, bubbling, stamped with `targetId`.
     for (const m of src.matchAll(/dispatchLifecycleEvent\(\s*[\w.]+,\s*'(aparte-[\w-]+)'/g)) add(m[1], 'host');
     for (const m of src.matchAll(/(window|document|this|\w+)\.dispatchEvent\(\s*new CustomEvent[^(]*\(\s*'(aparte-[\w-]+)'/g)) {
@@ -161,7 +183,17 @@ const targetsOf = (name) => {
         .join(' + ');
 };
 
-const names = [...new Set([...detailOf.keys(), ...declared.keys(), ...tagged.keys(), ...where.keys()])].sort();
+/*
+ * `listened` is in the union, not only in the grouping.
+ *
+ * The four sources answer "what can I listen for". They all read DISPATCH — a typed
+ * map entry, a manifest `@fires`, an `@event` block, a `dispatchEvent` call — so an
+ * event core only LISTENS for was in none of them and appeared on no page, while the
+ * "ones you dispatch" group had been sitting here ready to render it. `aparte-reset`
+ * had been live and unpublished the whole time: a window listener that empties every
+ * transcript, which an app cannot use if it cannot learn the name.
+ */
+const names = [...new Set([...detailOf.keys(), ...declared.keys(), ...tagged.keys(), ...where.keys(), ...listened])].sort();
 
 if (names.length < EVENT_FLOOR) {
     console.error(
@@ -224,13 +256,13 @@ const GROUPS = [
     {
         id: 'window',
         title: 'On `window`',
-        lead: 'Page-level operations, dispatched on `window` because they concern the whole document rather than one chat. A listener on an element will never see these.',
+        lead: 'Page-level operations, dispatched on `window` because they concern the whole document rather than one chat — by core, or by a plugin (the compaction events are `@aparte/plugin-compaction`\x27s; `aparte-compact` itself is the gauge\x27s). A listener on an element will never see these.',
         of: (name) => primary(name) === 'window',
     },
     {
         id: 'inward',
         title: 'The ones you dispatch',
-        lead: 'The only two that travel the other way: core **listens** for these and never sends them. They are how your app answers a request it received — you generated the file, so you say when it is ready. Dispatch them on `window`.',
+        lead: 'The ones that travel the other way: core **listens** for these and never sends them, so they are COMMANDS your app issues rather than news it receives. Dispatch them on `window`; a listener will never see anything come back on the same name — the answer, when there is one, has a name of its own (`aparte-reset` is answered by `aparte-reset-done`).',
         of: (name) => !where.has(name) && listened.has(name),
     },
 ];
@@ -277,7 +309,10 @@ for (const group of GROUPS) {
         // Core never dispatches an inward event, so neither an element nor the client is
         // what fires it — saying `AparteClient` there was the same lie twice in one row.
         const inward = !where.has(name) && !declared.has(name) && listened.has(name);
-        const by = inward ? 'your app' : tags.length ? tags.map((t) => `\`<${t}>\``).join(', ') : '`AparteClient`';
+        // The manifest first (an element that declares it fires it), else whoever the dispatch
+        // scan saw — since 0.16.0 that can be a plugin package or an element dispatching on
+        // `window`, and "AparteClient" was a lie for the four compaction events.
+        const by = inward ? 'your app' : tags.length ? tags.map((t) => `\`<${t}>\``).join(', ') : [...(credit.get(name) ?? ['`AparteClient`'])].join(', ');
         md += `| \`${name}\` | ${detail ? `\`${esc(detail)}\`` : '—'} | ${targetsOf(name) || '`window`'} | ${by} |\n`;
     }
     md += `\n`;

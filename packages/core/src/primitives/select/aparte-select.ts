@@ -183,6 +183,10 @@ export class AparteSelect extends HTMLElement {
 
         // First render: capture any slotted children before modifying DOM
         const slottedChildren = Array.from(this.children);
+        // Resolved ONCE for this build: the chevron's provider and the search field's
+        // two strings all come from it, and three lookups of the same instance is how
+        // a component ends up reading two different configs in one render.
+        const cfg = resolveConfig(this);
 
         // Create wrapper structure
         const trigger = document.createElement('div');
@@ -213,7 +217,7 @@ export class AparteSelect extends HTMLElement {
         labelSpan.append(labelText, sizer);
         const chevronSpan = document.createElement('span');
         chevronSpan.className = 'aparte-select-chevron';
-        chevronSpan.innerHTML = resolveConfig(this).getIcon('expand');
+        chevronSpan.innerHTML = cfg.getIcon('expand');
         trigger.append(labelSpan, chevronSpan);
 
         // The dropdown is a plain shell: it also holds the search field, and a
@@ -227,8 +231,11 @@ export class AparteSelect extends HTMLElement {
             const searchInput = document.createElement('input');
             searchInput.type = 'text';
             searchInput.className = 'aparte-select-search';
-            searchInput.placeholder = 'Search...';
-            searchInput.setAttribute('aria-label', 'Search options');
+            // Two locale keys, not literals. The placeholder is VISIBLE text — a
+            // French page opened the model picker and read "Search..." in the box —
+            // and the aria-label is the field's only name.
+            searchInput.placeholder = cfg.t('selectSearchPlaceholder') || 'Search…';
+            searchInput.setAttribute('aria-label', cfg.t('selectSearchLabel') || 'Search options');
             dropdown.appendChild(searchInput);
         }
 

@@ -17,7 +17,7 @@ new AparteClient().start();
 ```
 
 Its core export is **`runStreamAgent`**: a DOM-free structured-stream loop that turns a
-transport's token stream into high-level run events (text, thinking, tool calls, artifacts),
+transport's token stream into high-level run events (text, thinking, tool calls),
 drives the tool-calling loop (with optional human-in-the-loop approval), and reports usage.
 
 `@aparte/core` runs this loop by default — it used to embed a copy of it inline, and the
@@ -26,9 +26,9 @@ with the loop's call sequences pinned as snapshots. `AparteClientOptions.streamR
 the seam to wrap it (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host
 that owns its transcript) or to replace it with a loop of your own emitting the same events.
 
-`@aparte/core` is not needed here — `runStreamAgent`, the parsers and the compactor import
-nothing from it; `createCompactionSelector` is typed structurally, so core's messages fit it
-without core being named.
+`@aparte/core` is not needed here — `runStreamAgent` and the parsers import nothing from it.
+Conversation compaction (the context budget, the selector, the summariser) is
+`@aparte/plugin-compaction`, not the engine: the loop reports usage and lets the caller decide.
 
 ## Owning the history (prefix-cache hosts)
 

@@ -25,6 +25,7 @@
 
 import type { AparteApprovalOption, AparteApprovalAnswer } from './types.js';
 import { contextConfig } from '../config/config-context.js';
+import { optionBody } from './panel.js';
 
 /** What the presenter drives. A superset of the question panel's useful half. */
 export interface BuiltApprovalPanel {
@@ -42,6 +43,9 @@ export interface BuiltApprovalPanel {
     relabel(): void;
 }
 
+/** Ids for the arguments heading, so two panels on one page cannot share one. */
+let labelSeq = 0;
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -53,6 +57,7 @@ export function buildApprovalPanel(
     message: string | (() => string),
     options: readonly AparteApprovalOption[],
     onChange: () => void,
+    details?: string,
 ): BuiltApprovalPanel {
     const cfg = contextConfig();
     const panel = el('div', 'aparte-elic-panel aparte-approval-panel');
@@ -62,6 +67,39 @@ export function buildApprovalPanel(
     // carry its arguments. The string arm of a render hook is a model-to-DOM XSS.
     const ask = askText() ? el('p', 'aparte-elic-message', askText()) : null;
     if (ask) panel.appendChild(ask);
+
+    /*
+     * What is being decided, under the question.
+     *
+     * The panel used to say "Run delete_file?" and stop there — the arguments, which
+     * are the whole of what a person approves, sat in the transcript row behind a
+     * closed disclosure. The guide had been promising the opposite ("name and
+     * arguments, since the arguments are what is being approved") the entire time.
+     *
+     * A `<pre>` filled with `textContent`, never innerHTML: this is model-authored
+     * text, on the one control in the library whose whole purpose is to stop a model
+     * doing something. The sheet caps its height and lets it scroll, so a long input
+     * cannot push the options off a panel that is already capped at half the viewport.
+     *
+     * A heading, because an unlabelled block of JSON under a question reads as part of
+     * the question. `aria-labelledby` ties the two, so a screen reader announces the
+     * region by the same word a sighted reader sees.
+     */
+    let argsLabel: HTMLElement | null = null;
+    if (details) {
+        argsLabel = el('div', 'aparte-approval-args-label', cfg.t('approvalArgsLabel'));
+        argsLabel.id = 'aparte-approval-args-' + (++labelSeq);
+        const pre = el('pre', 'aparte-approval-args');
+        pre.textContent = details;
+        pre.setAttribute('role', 'group');
+        pre.setAttribute('aria-labelledby', argsLabel.id);
+        // The block scrolls, and in WebKit a scrollable box that is not focusable
+        // cannot be scrolled from the keyboard at all (the same defect the transcript
+        // had). It sits BEFORE the options, and `focus()` still lands on the first
+        // option, so approving stays one gesture and reading the call is Shift+Tab.
+        pre.tabIndex = 0;
+        panel.append(argsLabel, pre);
+    }
 
     const dismiss = el('div', 'aparte-elic-dismiss');
     panel.appendChild(dismiss);
@@ -82,6 +120,14 @@ export function buildApprovalPanel(
     const labelled: Array<{ button: HTMLButtonElement; option: AparteApprovalOption }> = [];
     const textOf = (option: AparteApprovalOption): string =>
         typeof option.label === 'function' ? option.label() : option.label;
+    const descriptionOf = (option: AparteApprovalOption): string | undefined =>
+        typeof option.description === 'function' ? option.description() : option.description;
+    /**
+     * Label over description, the question panel's own body — so "Always allow this
+     * command" can say `git status` under it and "Always allow any git command" can
+     * say `git *`, which is the whole difference between the two (issue #37).
+     */
+    const bodyOf = (option: AparteApprovalOption): HTMLElement => optionBody(textOf(option), descriptionOf(option));
     /*
      * The button recipe, and nothing else. An option used to carry a 2px coloured edge
      * down its inline start — green for affirm, red for deny — and that was custom CSS
@@ -102,7 +148,7 @@ export function buildApprovalPanel(
         const tone = option.tone ?? 'affirm';
         const button = el('button', `aparte-btn aparte-btn--block aparte-btn--surface aparte-approval-option aparte-approval-option--${tone}`);
         button.type = 'button';
-        button.textContent = textOf(option);
+        button.appendChild(bodyOf(option));
         // First click settles. No confirm-then-submit: the decision IS the click.
         button.addEventListener('click', () => fire({ option: option.value }));
         row.appendChild(button);
@@ -149,10 +195,12 @@ export function buildApprovalPanel(
             row.setAttribute('aria-label', now.t('approvalOptionsLabel'));
             // The question, which was the half I left behind the first time.
             if (ask) ask.textContent = askText();
-            // Text only, in place, per the relabel contract: the buttons keep their
-            // listeners and — the part that matters — their FOCUS. This is the one
-            // control a keyboard user may be sitting on when the language changes.
-            for (const { button, option } of labelled) button.textContent = textOf(option);
+            if (argsLabel) argsLabel.textContent = now.t('approvalArgsLabel');
+            // In place, per the relabel contract: the buttons keep their listeners and —
+            // the part that matters — their FOCUS. This is the one control a keyboard
+            // user may be sitting on when the language changes. The body is replaced,
+            // the button is not.
+            for (const { button, option } of labelled) button.replaceChildren(bodyOf(option));
         },
     };
 }

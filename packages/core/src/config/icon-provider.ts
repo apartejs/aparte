@@ -70,6 +70,12 @@ export interface AparteIconProvider {
     unarchive?: () => string;
     /** Download / save to disk */
     download?: () => string;
+    /** A row's actions button (⋯) */
+    more?: () => string;
+    /** Pin a conversation */
+    pin?: () => string;
+    /** Delete (a bin) */
+    trash?: () => string;
 }
 
 /** Icon names available in the provider */

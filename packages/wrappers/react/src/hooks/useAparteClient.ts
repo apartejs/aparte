@@ -13,6 +13,12 @@ export interface UseAparteClient {
  * providers. Starts listening on mount, stops on unmount. React equivalent of
  * Angular's `AparteAiService`.
  *
+ * `options` is read ONCE, when the client is constructed on the first render. Later
+ * changes are not applied — a `keyResolver` (or any other function option) that closes
+ * over state keeps the closure it had on mount, so read the live value inside the
+ * function (a ref) rather than expecting a new object to take effect. To swap options
+ * wholesale, remount the component that owns the hook (`key`).
+ *
  * @example
  * const { abort } = useAparteClient({ keyResolver });
  */

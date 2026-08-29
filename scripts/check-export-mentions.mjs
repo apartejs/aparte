@@ -57,9 +57,19 @@ const BARRELS = [
     { pkg: '@aparte/plugin-streaming-markdown', types: 'packages/plugins/streaming-markdown/dist/index.d.ts', readme: 'packages/plugins/streaming-markdown/README.md' },
     { pkg: '@aparte/plugin-model-selector', types: 'packages/plugins/model-selector/dist/index.d.ts', readme: 'packages/plugins/model-selector/README.md' },
     { pkg: '@aparte/plugin-ask-user', types: 'packages/plugins/ask-user/dist/index.d.ts', readme: 'packages/plugins/ask-user/README.md' },
+    { pkg: '@aparte/plugin-artifacts', types: 'packages/plugins/artifacts/dist/index.d.ts', readme: 'packages/plugins/artifacts/README.md' },
     { pkg: '@aparte/provider-openai-compat', types: 'packages/providers/ai/openai-compat/dist/index.d.ts', readme: 'packages/providers/ai/openai-compat/README.md' },
     { pkg: '@aparte/provider-ai-sdk', types: 'packages/providers/ai/ai-sdk/dist/index.d.ts', readme: 'packages/providers/ai/ai-sdk/README.md' },
     { pkg: '@aparte/provider-transformers', types: 'packages/providers/ai/transformers/dist/index.d.ts', readme: 'packages/providers/ai/transformers/README.md' },
+    // Three published packages the list had simply missed — the same hand-maintained-list
+    // shape as check-node-import's SATELLITES, which omitted provider-scenario for the same
+    // reason. A package absent from this array is not "exempt", it is unmeasured.
+    { pkg: '@aparte/plugin-approval', types: 'packages/plugins/approval/dist/index.d.ts', readme: 'packages/plugins/approval/README.md' },
+    { pkg: '@aparte/plugin-compaction', types: 'packages/plugins/compaction/dist/index.d.ts', readme: 'packages/plugins/compaction/README.md' },
+    { pkg: '@aparte/provider-scenario', types: 'packages/providers/ai/scenario/dist/index.d.ts', readme: 'packages/providers/ai/scenario/README.md' },
+    // Published like the rest (`private` is unset), so its surface is measured here too
+    // even though the package is a Node CLI rather than part of the browser library.
+    { pkg: '@aparte/docs-mcp', types: 'packages/tools/docs-mcp/dist/index.d.ts', readme: 'packages/tools/docs-mcp/README.md' },
     { pkg: '@aparte/locale-fr', types: 'packages/locales/fr/dist/index.d.ts', readme: 'packages/locales/fr/README.md' },
 ];
 
@@ -124,9 +134,20 @@ const MAX_UNMENTIONED = new Map([
     ['@aparte/plugin-streaming-markdown', 0],
     ['@aparte/plugin-model-selector', 2],
     ['@aparte/plugin-ask-user', 6],
+    ['@aparte/plugin-artifacts', 0],
     ['@aparte/provider-openai-compat', 2],
     ['@aparte/provider-ai-sdk', 5],
     ['@aparte/provider-transformers', 9],
+    // First measurement of the three barrels above, same as the nine before them: the
+    // number is recorded so it cannot grow, and the pages are a lot of their own.
+    // plugin-approval's twelve are the ones that matter — createApprovalPolicy,
+    // getApprovalController, classifyTool and rulingFor are called by a consumer.
+    ['@aparte/plugin-approval', 12],
+    // plugin-compaction: every export is on its page — the four that matter
+    // (setupCompaction, createCompactionSelector, transcriptForSummary, the budget) in a fence.
+    ['@aparte/plugin-compaction', 0],
+    ['@aparte/provider-scenario', 6],
+    ['@aparte/docs-mcp', 7],
     ['@aparte/locale-fr', 0],
 ]);
 

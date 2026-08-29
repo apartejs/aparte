@@ -123,6 +123,25 @@ export interface AparteSiblingInfo {
 }
 
 /**
+ * Detail payload for `aparte-link-click`.
+ * Dispatched by the bubble, cancelable, when a link in a message body is about to be
+ * followed — a link the MODEL wrote. `preventDefault()` on the event keeps the browser
+ * from navigating, so a host routes the link itself (an external browser, a
+ * confirmation, an embedded view) without intercepting the DOM. With no listener the
+ * browser follows it; the sanitizer has made an external URL open in a new tab.
+ *
+ * @event aparte-link-click
+ */
+export interface AparteLinkClickEventDetail {
+    /** The `href` as written on the anchor, after sanitization. */
+    href: string;
+    /** The anchor itself, for a host that wants its text or its `rel`. */
+    anchor: HTMLAnchorElement;
+    /** The message the link sits in, or `null` for a bubble mounted without one. */
+    messageId: string | null;
+}
+
+/**
  * Detail payload for `aparte-branch-navigate`.
  * Dispatched by the bubble's branch-picker buttons; the viewport listens
  * (bubbling) and calls `navigateBranch(messageId, direction)` on its repo.
@@ -164,93 +183,6 @@ export interface AparteRetryEventDetail {
     messageId: string;
     /** Optional id of the host element (aparte-chat) — used by `scopeToTargetId`. */
     targetId?: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Artifact Lifecycle Events
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Detail payload for `aparte-artifact-start`.
- * Dispatched by the stream loop the moment an opening `<artifact …>` tag is parsed.
- * Apps typically use this to open a side panel and prepare a streaming code view.
- *
- * @event aparte-artifact-start
- */
-export interface AparteArtifactStartEventDetail {
-    /** Owning message id */
-    messageId: string;
-    /** Owning segment id (matches the segment dispatched to the bubble) */
-    segmentId: string;
-    /** Standard MIME from the `type=` attribute (e.g. `application/vnd.ant.react`) */
-    mimeType: string;
-    /** Convenience kind ('react'|'html'|'svg'|'js'|'css'|…) derived from `mimeType` */
-    artifactType: string;
-    /** Optional human title from the `title=` attribute */
-    title?: string;
-}
-
-/**
- * Detail payload for `aparte-artifact-delta`.
- * Dispatched once per chunk routed into an open artifact body.
- * Consumers append to the displayed buffer in real time.
- *
- * @event aparte-artifact-delta
- */
-export interface AparteArtifactDeltaEventDetail {
-    /** Owning segment id */
-    segmentId: string;
-    /** New content fragment to append */
-    chunk: string;
-}
-
-/**
- * Detail payload for `aparte-artifact-ready`.
- * Dispatched when the closing `</artifact>` tag is parsed (or the stream ends with
- * an active artifact segment). The full content is now available; consumers can
- * switch from streaming view to a final preview.
- *
- * @event aparte-artifact-ready
- */
-export interface AparteArtifactReadyEventDetail {
-    /** Owning message id */
-    messageId: string;
-    /** Owning segment id */
-    segmentId: string;
-    /** MIME type */
-    mimeType: string;
-    /** Convenience kind */
-    artifactType: string;
-    /** Optional title */
-    title?: string;
-    /** Final, complete content */
-    content: string;
-}
-
-/**
- * Detail payload for `aparte-artifact-redownload`.
- * Dispatched by an artifact card's Download button when the artifact is a BINARY
- * kind: core cannot produce the bytes itself, so it asks the host to re-run the
- * generation and save the file. Enable it with
- * `setHostHandlers({ artifactRedownload: true })` — ratified decision #8, tier (b).
- *
- * It was declared for `aparte-artifact-open` and said so, an event that exists
- * nowhere in the repo. The shape is field-for-field what the Download button really
- * dispatches, so the type moved rather than being deleted.
- *
- * @event aparte-artifact-redownload
- */
-export interface AparteArtifactRedownloadEventDetail {
-    /** Owning segment id */
-    segmentId: string;
-    /** MIME type */
-    mimeType: string;
-    /** Convenience kind */
-    artifactType: string;
-    /** Optional title */
-    title?: string;
-    /** Complete content */
-    content: string;
 }
 
 /**
@@ -396,10 +328,12 @@ export interface AparteAbortEventDetail {
 }
 
 /**
- * Detail payload for `aparte-compact` — a COMMAND the consumer dispatches on
- * `window` to ask the client to summarise the conversation so far.
+ * Detail payload for `aparte-compact` — a COMMAND dispatched on `window` to ask for
+ * the conversation so far to be summarised.
  *
- * Core listens and never dispatches it, so this type describes what YOU produce.
+ * `<aparte-context auto-compact>` dispatches it on reaching `danger`, and a host
+ * dispatches it from a button; `@aparte/plugin-compaction` is what answers it. Core
+ * itself neither listens for it nor compacts — the events below are the plugin's.
  *
  * @event aparte-compact
  */
@@ -409,21 +343,43 @@ export interface AparteCompactEventDetail {
 }
 
 /**
+ * Detail payload for `aparte-compact-start` — the summarisation began. The point for a
+ * host to show a spinner: summarising a long conversation is a model call and takes as
+ * long as one.
+ *
+ * @event aparte-compact-start
+ */
+export interface AparteCompactStartEventDetail {
+    /** The chat being compacted, when it has an id. */
+    targetId?: string;
+}
+
+/**
  * Detail payload for `aparte-compact-done`.
  *
  * A union flattened to optional fields, because the two outcomes carry different
  * payloads and a consumer cannot guess which: nothing to compact sends
- * `{ skipped: true }`, a real compaction sends `{ summary, kept }`.
+ * `{ skipped: true, reason }`, a real compaction sends `{ summary, kept, dropped }`.
  *
  * @event aparte-compact-done
  */
 export interface AparteCompactDoneEventDetail {
     /** `true` when there was nothing worth summarising; the other two are absent. */
     skipped?: boolean;
+    /**
+     * Why it was skipped: `empty` (no messages), `nothing-to-drop` (the selector kept
+     * everything), `running` (a compaction was already in flight), `streaming` (a turn
+     * is in flight in the transcript).
+     */
+    reason?: 'empty' | 'nothing-to-drop' | 'running' | 'streaming';
     /** The summary that replaced the compacted turns. */
     summary?: string;
     /** How many messages were kept verbatim after the summary. */
     kept?: number;
+    /** How many messages the summary replaced. */
+    dropped?: number;
+    /** The chat that was compacted, when it has an id — so a gauge on a multi-chat page resets only its own. */
+    targetId?: string;
 }
 
 /**
@@ -437,6 +393,8 @@ export interface AparteCompactDoneEventDetail {
 export interface AparteCompactErrorEventDetail {
     /** Human-readable failure reason. */
     error: string;
+    /** The chat the compaction was for, when it has an id. */
+    targetId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -460,42 +418,19 @@ export interface AparteAttachmentPreviewEventDetail {
 
 
 /**
- * Detail payload for `aparte-file-gen-ready` — dispatched by YOU, not by core.
+ * Detail for `aparte-approval-mode-change` — dispatched by `@aparte/plugin-approval`'s
+ * `<aparte-approval-mode>` after the person switched the approval mode. Bubbles and
+ * crosses shadow roots, so a host can persist the choice from any ancestor.
  *
- * A binary artifact (pdf, xlsx, docx…) is generated by running the model's code in
- * a sandbox, which core deliberately does not do. Core renders a "Running sandbox…"
- * card, listens on `window`, and swaps in the preview when this arrives. Nothing in
- * the repo dispatches it: the contract is entirely yours to fulfil, which is why
- * this type is the one most worth having.
+ * Declared here, like `aparte-model-change`, because a listener in any framework reads
+ * `e.detail` through the typed event map. The values are the plugin's four modes
+ * (`plan`, `ask`, `auto-edit`, `auto`); typed as strings so core names none of them.
  *
- * @event aparte-file-gen-ready
+ * @event aparte-approval-mode-change
  */
-export interface AparteFileGenReadyEventDetail {
-    /** Must match the artifact segment's id, or the event is ignored. */
-    segmentId: string;
-    /** File name to show and to download as. */
-    filename: string;
-    /** Size in bytes, for the card's label. */
-    bytes: number;
-    /** MIME type of the produced file. */
-    mime: string;
-    /** The file itself. */
-    buffer: Uint8Array | ArrayBuffer;
-    /** Optional HTML preview to show inside the card; `null` for none. */
-    previewHtml: string | null;
-}
-
-/**
- * Detail payload for `aparte-file-gen-error` — dispatched by YOU.
- * Its twin: without it a failed sandbox run leaves the card spinning forever.
- *
- * @event aparte-file-gen-error
- */
-export interface AparteFileGenErrorEventDetail {
-    /** Must match the artifact segment's id. */
-    segmentId: string;
-    /** Which stage failed, shown in the inline error. Defaults to `'exec'`. */
-    phase?: string;
-    /** The message shown to the user. Defaults to `'Unknown error'`. */
-    error?: string;
+export interface AparteApprovalModeChangeEventDetail {
+    /** The mode just switched to. */
+    mode: string;
+    /** The mode it replaced. */
+    previousMode: string;
 }

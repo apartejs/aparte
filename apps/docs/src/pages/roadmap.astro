@@ -1,0 +1,578 @@
+---
+import { readFileSync, readdirSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import Landing from '../layouts/Landing.astro';
+
+/*
+ * The roadmap.
+ *
+ * An Astro page, not a Starlight one — a sibling of index.astro on the SAME frame
+ * (src/layouts/Landing.astro: palette + landing.css, the nav, the footer, the
+ * pre-paint theme script and the toggle), so the site reads as one thing and the
+ * chrome exists once rather than twice. It is deliberately NOT in the docs: this
+ * page is a STATE, and a state that sits in the sidebar between two how-tos gets
+ * read as a reference and then goes stale unnoticed.
+ *
+ * Two rules it holds itself to.
+ *
+ *   1. NO DATES. Not a month, not a year, not a quarter, not "soon". A date is a
+ *      promise about the calendar; every line here is a promise about a CONDITION —
+ *      what has to be true for the next thing to ship. A condition can be checked by
+ *      the reader; a date can only be missed.
+ *   2. Nothing is claimed that is not on the tree. The numbers below were measured,
+ *      and the ones that are cheap to re-measure are read at build time (the version,
+ *      the gate, the stamped test count) rather than typed here — the same rule the
+ *      landing follows, for the same reason: a line that describes the code has to be
+ *      re-measured, not trusted.
+ *
+ * The road is one brass line down the left gutter, drawn PER STATION rather than as
+ * one page-long gradient, so that it dims ahead of the present station whatever
+ * length each station's prose turns out to be. State is encoded in a typographic
+ * glyph — the wordmark's own parentheses — and never in a date.
+ */
+
+/**
+ * Read at build time, anchored the way index.astro anchors: `process.cwd()` is the
+ * Astro project root (apps/docs) for every way this builds and is not rewritten by
+ * the bundler, so two levels up is the repo root wherever this frontmatter ends up.
+ * Counting `../` from `import.meta.url` is what broke the landing the day Astro
+ * started prerendering from bundled chunks.
+ */
+const REPO = new URL('../../', pathToFileURL(`${process.cwd()}/`).href);
+const at = (p: string) => new URL(p, REPO);
+
+/** The shipped version — the one npm serves. */
+const CORE_VERSION: string = JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')).version;
+
+/** The release gate, and how many of its steps are `check:*` guards. */
+const gate: string = JSON.parse(readFileSync(at('package.json'), 'utf8')).scripts.gate;
+const GATE_STEPS = gate.split('&&').length;
+const GATE_GUARDS = gate.split('&&').filter((s) => /pnpm check/.test(s)).length;
+
+/**
+ * How many tests actually RAN, stamped by `scripts/stamp-test-count.mjs` on every
+ * `pnpm test`. Absent (a fresh clone that has never run the suite) the page falls
+ * back to the last measured figures rather than to a guess.
+ */
+let TESTS = 2067;
+let FILES = 183;
+try {
+    const stamp = JSON.parse(readFileSync(at('apps/docs/src/data/test-counts.json'), 'utf8'));
+    TESTS = stamp.tests ?? TESTS;
+    FILES = stamp.files ?? FILES;
+} catch { /* never measured in this clone — the last measured figures stand */ }
+const TESTS_LABEL = TESTS.toLocaleString('en-US');
+
+/**
+ * Published packages — counted, never typed. The landing counts the SAME way
+ * (index.astro's `countPackages`), and it prints the figure twice: a number typed
+ * here would disagree with the page one click away the first time a package lands.
+ * It already had: this line said "fifteen", and the tree carries twenty.
+ */
+function countPackages(dir: URL): number {
+    let n = 0;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || ['node_modules', 'dist'].includes(entry.name)) continue;
+        const child = new URL(`${entry.name}/`, dir);
+        if (readdirSync(child).includes('package.json')) {
+            const pkg = JSON.parse(readFileSync(new URL('package.json', child), 'utf8'));
+            if (!pkg.private && pkg.name) n++;
+        }
+        n += countPackages(child);
+    }
+    return n;
+}
+const PACKAGES = countPackages(at('packages/'));
+
+const ROADMAP_TITLE = 'aparté — roadmap: where the library is, and what comes next';
+const ROADMAP_DESCRIPTION =
+    'Where aparté stands and what comes next: what npm serves, what the current branch carries, '
+    + 'the conditions the beta and 1.0 each have to meet, what is still to build — and what we '
+    + 'decided not to build. Conditions, not dates.';
+
+/**
+ * What the 1200x630 card actually shows — the same discipline landing-meta.ts
+ * carries, and for the same reason: astro-og-canvas bakes the map entry's title and
+ * description into the PNG as pixels, so an alt written from the meta tags beside it
+ * describes an image nobody sees. This one is written from the entry the port adds to
+ * `src/pages/og/[...slug].ts`; change one and change the other.
+ * ONE copy, read by both og:image:alt and twitter:image:alt — the landing's two
+ * drifted twice in one afternoon, which is why that module exists.
+ */
+const ROADMAP_IMAGE_ALT =
+    'A dark card with a brass edge and the aparté mascot, headed “One road, no dates”, '
+    + 'over the line “What npm serves, where the current branch stands, and the conditions '
+    + 'the beta and 1.0 each have to meet.”';
+---
+
+<Landing
+  title={ROADMAP_TITLE}
+  description={ROADMAP_DESCRIPTION}
+  canonical="https://apartejs.dev/roadmap/"
+  ogImage="https://apartejs.dev/og/roadmap.png"
+  ogImageAlt={ROADMAP_IMAGE_ALT}
+  current="roadmap"
+>
+      <div class="rd">
+        <header class="rd-head">
+          <p class="eyebrow">The road &mdash; <b>conditions, not dates</b></p>
+          <h1 class="thesis serif">One road, no <em>dates.</em></h1>
+          <p class="lede">
+            apart&eacute; ships when a barrier is cleared, not when a month arrives &#8212; so this
+            page carries no calendar. What npm serves, what the current branch holds, the conditions
+            the beta and 1.0 each have to meet, what is still to build, and what we decided
+            <b>not</b> to build, with the reason.
+          </p>
+          <ul class="legend" aria-label="What the marks mean">
+            <li><span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span> shipped</li>
+            <li><span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span> in progress</li>
+            <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span> open</li>
+          </ul>
+        </header>
+
+        <ol class="road">
+          <!-- ── station: what is already out ─────────────────────────────── -->
+          <li class="station st-shipped">
+            <span class="mark g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+            <p class="state is-done">Shipped</p>
+            <h2 class="serif">On <span class="paren">(</span>npm<span class="paren">)</span></h2>
+            <p class="st-lede">
+              <b>{CORE_VERSION}</b> is the line this site was built from: {PACKAGES} packages on a single version,
+              MIT. The docs site deploys from <code>main</code>.
+            </p>
+            <p class="st-links">
+              <a href="/changelog/">Every release, in full &#8594;</a>
+              <a href="https://www.npmjs.com/package/@aparte/core" target="_blank" rel="noopener">@aparte/core on npm &#8594;</a>
+              <a href="/guides/getting-started/">Getting started &#8594;</a>
+            </p>
+          </li>
+
+          <!-- ── station: the present. One card, one spotlight. ───────────── -->
+          <li class="station st-now">
+            <span class="mark g-now" aria-hidden="true">(<b>&#9680;</b>)</span>
+            <p class="state is-now">In progress</p>
+            <h2 class="serif">Where we <span class="paren">(</span>are<span class="paren">)</span></h2>
+            <div class="now-card">
+              <p class="st-lede">
+                The <code>next</code> branch carries the <b>pre-beta</b>, and it publishes as the
+                next minor. The library grew a shell, a layout vocabulary and a UI kit &#8212; and
+                core gave up the one thing that was never its own: compaction, now a plugin.
+              </p>
+
+              <div class="cluster">
+                <h3>In the library</h3>
+                <ul>
+                  <li>The <b>comfortable</b> default density.</li>
+                  <li>Compaction left core for <code>@aparte/plugin-compaction</code>.</li>
+                  <li><code>@aparte/plugin-artifacts</code> &#8212; the artifact card as a tool renderer, and as a stream block.</li>
+                  <li>The <code>ask_user</code> rework, and <code>@aparte/plugin-approval</code>.</li>
+                </ul>
+              </div>
+
+              <div class="cluster">
+                <h3>New elements and recipes</h3>
+                <ul>
+                  <li>The application shell: <code>&lt;aparte-sidebar&gt;</code>, plus the app-shell and app-header recipes.</li>
+                  <li><code>&lt;aparte-split&gt;</code> &#8212; two panes and a seam you can drag, arrow or collapse.</li>
+                  <li><code>&lt;aparte-scroll-rail&gt;</code>.</li>
+                  <li><code>&lt;aparte-context&gt;</code>, as a bar or as a ring.</li>
+                  <li><code>&lt;aparte-suggestions&gt;</code>.</li>
+                  <li><code>&lt;aparte-elicitation&gt;</code>, the typed-question panel.</li>
+                  <li>The kit dialog, on a native <code>&lt;dialog&gt;</code>.</li>
+                  <li>Markdown tables, styled like the prose around them.</li>
+                </ul>
+              </div>
+
+              <div class="cluster">
+                <h3>On the site, and on the project</h3>
+                <ul>
+                  <li>A live demo per <a href="/guides/layout/">layout family</a>: reading column, feed, builder split, side panel, empty state, an artifact in a pane.</li>
+                  <li>A <a href="/kit/button/">UI kit</a> section &#8212; twenty-five families, live preview first.</li>
+                  <li>The <a href="/components/">components</a> grouped by purpose: conversation, input, shell, utility.</li>
+                  <li>The <a href="/compare/">compare</a> page, and the <a href="/reference/support/">support matrix</a>.</li>
+                  <li><code>SECURITY.md</code>, and <code>main</code> protected.</li>
+                </ul>
+              </div>
+
+              <p class="fig-head">Counted on the tree</p>
+              <div class="figures">
+                <div class="fig"><b>24</b><span>elements</span></div>
+                <div class="fig"><b>25</b><span>kit families</span></div>
+                <div class="fig"><b>45</b><span>typed events</span></div>
+                <div class="fig"><b>456</b><span>CSS variables<em>documented</em></span></div>
+                <div class="fig"><b>351</b><span>CSS classes<em>across 44 sheets</em></span></div>
+                <div class="fig"><b>8</b><span>plugins</span></div>
+                <div class="fig"><b>4</b><span>wrappers<em>React, Vue, Svelte, Angular &#8212; plus vanilla</em></span></div>
+                <div class="fig"><b>{TESTS_LABEL}</b><span>tests<em>in {FILES} files</em></span></div>
+                <div class="fig"><b>{GATE_STEPS}</b><span>gate steps<em>{GATE_GUARDS} of them guards</em></span></div>
+                <div class="fig"><b>0</b><span>third-party deps<em>core&#8217;s one dependency is @aparte/engine, first-party</em></span></div>
+              </div>
+
+              <p class="st-note">
+                Before the pre-beta ships: a <b>cold audit</b> &#8212; read-only auditors, then an
+                adversarial verifier per finding &#8212; and its fixes. <em>In progress.</em>
+              </p>
+            </div>
+          </li>
+
+          <!-- ── station: beta ────────────────────────────────────────────── -->
+          <li class="station st-beta">
+            <span class="mark g-open" aria-hidden="true">(<b>&#160;</b>)</span>
+            <p class="state is-open">Open</p>
+            <h2 class="serif"><span class="paren">(</span>Beta<span class="paren">)</span></h2>
+            <p class="st-lede">
+              The beta is a dist-tag and a promise. A <b>declared surface</b> &#8212; elements,
+              attributes, events and their detail, barrel exports, CSS tokens and contract classes,
+              locale keys &#8212; stops changing without a notice release. The alpha broke cleanly;
+              the beta warns.
+            </p>
+            <p class="st-sub">The barrier, item by item</p>
+            <ol class="barrier">
+              <li>
+                <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+                <span class="b-text">One agent loop, one unified tool model.</span>
+                <em class="b-state">done</em>
+              </li>
+              <li>
+                <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+                <span class="b-text">No critical or major audit finding left open.</span>
+                <em class="b-state">done &#183; re-checked by the cold audit</em>
+              </li>
+              <li>
+                <span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span>
+                <span class="b-text">The frozen surface declared on a stability page.</span>
+                <em class="b-state">open &#183; drafted</em>
+              </li>
+              <li>
+                <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+                <span class="b-text">The visible UI defects fixed.</span>
+                <em class="b-state">done</em>
+              </li>
+              <li>
+                <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+                <span class="b-text">Professional hygiene: <code>SECURITY.md</code>, issue templates, <code>main</code> protected server-side.</span>
+                <em class="b-state">done</em>
+              </li>
+              <li>
+                <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+                <span class="b-text">Docs with no first-minute gap: every public export documented, the compare page, the support matrix.</span>
+                <em class="b-state">done</em>
+              </li>
+              <li>
+                <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
+                <span class="b-text">The browser matrix, the coverage floors, <code>publint</code> and <code>attw</code> green on every release.</span>
+                <em class="b-state">done &#183; recurring</em>
+              </li>
+              <li>
+                <span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span>
+                <span class="b-text">An external consumer that followed a release without breaking.</span>
+                <em class="b-state">in progress &#183; the first signs are in</em>
+              </li>
+            </ol>
+            <p class="st-note">And then the two things a checklist cannot hold: the cold audit, and soak time.</p>
+          </li>
+
+          <!-- ── station: 1.0 ─────────────────────────────────────────────── -->
+          <li class="station st-v1">
+            <span class="mark g-open" aria-hidden="true">(<b>&#160;</b>)</span>
+            <p class="state is-open">Open</p>
+            <h2 class="serif"><span class="paren">(</span>1.0<span class="paren">)</span></h2>
+            <p class="st-lede">The barrier from beta to 1.0.</p>
+            <ul class="checks">
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A quiet beta &#8212; no unannounced breaking change.</span></li>
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A published and guarded performance budget: token-to-paint, the memory of a 500-message conversation, gzip per package.</span></li>
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">SSR proven on Next, Nuxt and SvelteKit, in CI.</span></li>
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">An accessibility statement, and a real RTL audit.</span></li>
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">A locale-keys guard in the gate.</span></li>
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">npm provenance, and a written semver and deprecation policy.</span></li>
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">The 1.0 versioning decision, taken cold.</span></li>
+              <li><span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span><span class="b-text">The engine competitors re-evaluated (TanStack AI), and engine&#8217;s run events mapped onto the AG-UI / A2A vocabulary if interop becomes a demand.</span></li>
+            </ul>
+            <p class="st-note">
+              <b>What 1.0 promises:</b> strict semver &#8212; the elements and the event table stable
+              across 1.x.
+            </p>
+          </li>
+
+          <!-- ── station: still to build ──────────────────────────────────── -->
+          <li class="station st-build">
+            <span class="mark g-open" aria-hidden="true">(<b>&#160;</b>)</span>
+            <p class="state is-open">Open</p>
+            <h2 class="serif">Still to <span class="paren">(</span>build<span class="paren">)</span></h2>
+            <p class="st-lede">Named, and not scheduled. Every one of them waits on the same thing &#8212; the last line of this page.</p>
+
+            <div class="cluster">
+              <h3>Components</h3>
+              <ul>
+                <li><b>Sources and citations</b>, as an annotation on a range of a text segment: an inline marker, and a source list. The ai-sdk bridge drops source parts today.</li>
+                <li><b>A floating widget</b>: a launcher, and a fixed card that becomes a full-screen sheet under a breakpoint.</li>
+                <li><b>Theme presets</b>, as pure token sheets.</li>
+              </ul>
+            </div>
+            <div class="cluster">
+              <h3>Plugins</h3>
+              <ul>
+                <li><code>@aparte/plugin-storage-idb</code> &#8212; the reference IndexedDB adapter.</li>
+                <li><code>@aparte/plugin-katex</code>.</li>
+                <li>A one-line <code>setupDompurify()</code>.</li>
+                <li><code>@aparte/plugin-mermaid</code>.</li>
+                <li><code>@aparte/plugin-speech</code> &#8212; microphone input, over the Web Speech API.</li>
+                <li>More locales &#8212; <code>es</code>, <code>de</code>. The ideal first contribution.</li>
+              </ul>
+            </div>
+            <div class="cluster">
+              <h3>The site</h3>
+              <ul>
+                <li>The kit gallery on one page, and an <b>Examples</b> page: a ChatGPT-shaped app and a builder split, assembled and copyable.</li>
+                <li>Framework tabs on every demo &#8212; React, Vue, Svelte, Angular, vanilla.</li>
+                <li><b>The Builder</b>: a live chat beside a composition panel that exports the exact install and setup of your selection, with the theme editor folded in.</li>
+                <li>The landing where the chat is the hero, and the page splits open as you scroll.</li>
+              </ul>
+            </div>
+            <div class="cluster">
+              <h3>Not hostage to our UI</h3>
+              <ul>
+                <li>First <b>skin packs</b>, pure CSS.</li>
+                <li>Then a <b>control-renderer seam</b>, so a design system&#8217;s own buttons &#8212; PrimeNG under Angular, shadcn under React &#8212; draw apart&eacute;&#8217;s controls without a single CSS override.</li>
+              </ul>
+            </div>
+            <div class="cluster">
+              <h3>Also on the list</h3>
+              <ul>
+                <li>A raw-completion provider for llama.cpp, when a consumer needs one.</li>
+                <li>Conversation export &#8212; a recipe first.</li>
+              </ul>
+            </div>
+          </li>
+
+          <!-- ── station: the refusals ────────────────────────────────────── -->
+          <li class="station st-no">
+            <span class="mark g-none" aria-hidden="true">(<b>&#215;</b>)</span>
+            <p class="state is-open">Decided</p>
+            <h2 class="serif">What we said <span class="paren">(</span>no<span class="paren">)</span> to</h2>
+            <p class="st-lede">With the reason, so that nobody re-derives the answer from scratch.</p>
+            <dl class="nope">
+              <dt>Real-time voice sessions</dt>
+              <dd>Large, and vendor-specific. Microphone input yes; sessions no.</dd>
+              <dt>A workflow canvas</dt>
+              <dd>Another product.</dd>
+              <dt>Arbitrary generative UI</dt>
+              <dd>Custom segments and tool renderers are the sane version of it, and they are already here.</dd>
+              <dt>Multi-runtime adapters</dt>
+              <dd>Bring-your-own-loop covers it. A guide, not a package.</dd>
+              <dt>Routing, settings, persistence</dt>
+              <dd>The product&#8217;s, never the library&#8217;s.</dd>
+              <dt>A citation type in the segment union</dt>
+              <dd>An annotation on a range of text, not a member of the union &#8212; and it lands when a provider in this repo actually returns citations.</dd>
+            </dl>
+            <p class="principle">
+              A capability ships when an in-repo consumer exercises it end to end. A layer no caller
+              uses is a contract maintained for nobody.
+            </p>
+          </li>
+        </ol>
+      </div>
+
+  <style>
+      /*
+       * The road. Everything here is page-local and prefixed by its own classes;
+       * every colour goes through the brand tokens landing.css aliases, so both
+       * themes come out of the same declarations and nothing is defined only under
+       * [data-theme].
+       */
+      .rd { --rd-gutter: 58px; --rd-mark: 30px; --rd-gap: clamp(52px, 7vw, 86px); --rd-line: 1px; }
+
+      /* The reading column: ~68ch of prose plus the gutter the road lives in. */
+      .rd-head, .road { width: min(calc(68ch + var(--rd-gutter)), 100%); margin-inline: auto; }
+      .rd-head { padding: clamp(52px, 8vw, 96px) 0 clamp(30px, 4vw, 44px); padding-inline-start: var(--rd-gutter); }
+      .rd-head h1.thesis { font-size: clamp(38px, 5.2vw, 62px); }
+      .rd-head .lede { margin-bottom: 28px; }
+
+      /* The legend teaches the three glyphs before the first one is used. */
+      .legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 26px; margin: 0; padding: 14px 0 0; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; letter-spacing: .04em; }
+      .legend li { display: inline-flex; align-items: baseline; gap: 8px; }
+
+      /* The glyph: the wordmark's parentheses, carrying a state instead of a name.
+         The inner slot keeps its width when it is empty, or "open" would collapse
+         to a pair of touching brackets. */
+      /* `nowrap` is load-bearing, not tidiness: the mark's box is a fixed
+         `--rd-mark` (24px on a phone) and the PRESENT mark is set larger than the
+         others, so on every viewport under 720px it broke as `(◐` / `)` — two line
+         boxes, 40px tall against 21.3px for its five neighbours, on the one glyph the
+         page is built to spotlight. The box stays fixed and `text-align: center`
+         keeps the glyph on the road's axis; a wider mark now bleeds a pixel each side
+         instead of folding. */
+      .g, .mark { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; font-size: 15px; line-height: 1; letter-spacing: .02em; white-space: nowrap; }
+      .g b, .mark b { display: inline-block; inline-size: .78em; text-align: center; font-weight: 400; font-size: .82em; vertical-align: baseline; }
+      /* Past, present, future — and the accent spent on the present alone.
+         Solid ink for what is settled, brass for what is being done, an outline
+         for what is only named. The parentheses are always quieter than what
+         they hold, which is what makes the three read as one family. */
+      /* The parentheses are quieter than what they HOLD — that is the rule, and it is
+         what makes the three read as one family. It is not a per-state fade: "open"
+         has no ink inside it, so its brackets ARE the graphic, and WCAG 1.4.11 asks
+         3:1 of a meaningful non-text mark. At 58% they measured 2.30:1 on the cream
+         ground (3.17:1 dark) — the earlier fix was tuned on the dark stage only, and
+         light is the binding case because --dim sits closer to a light ground.
+         The past/present/future hierarchy is carried by the CONTENT of each pair
+         (solid ink, brass, nothing) and by the road dimming behind them. */
+      .g-done { color: color-mix(in oklab, var(--dim) 86%, transparent); } .g-done b { color: var(--text); }
+      .g-now  { color: color-mix(in oklab, var(--accent) 60%, transparent); } .g-now b { color: var(--accent); }
+      .g-open { color: color-mix(in oklab, var(--dim) 86%, transparent); } .g-open b { color: transparent; }
+      .g-none { color: color-mix(in oklab, var(--dim) 86%, transparent); } .g-none b { color: var(--dim); }
+
+      /* ── the road itself ──────────────────────────────────────────────────
+         Drawn per station, not as one gradient over the whole page: each segment
+         colours the piece of line beside its own station, so the fade lands on
+         the station AFTER the present one however long any station's prose runs.
+         A single page-long gradient would need percentage stops, and a paragraph
+         added anywhere would move the dimming to the wrong station. */
+      /* `margin: 0 auto`, not `margin: 0` — the shorthand above it sets the auto
+         inline margins that centre the column, and a later `margin: 0` silently
+         took them back: the road sat flush against the left edge of the wrap
+         while the header stayed centred. */
+      .road { list-style: none; margin: 0 auto; padding: 0; display: grid; gap: var(--rd-gap); }
+      .station { position: relative; padding-inline-start: var(--rd-gutter); }
+      .station::before {
+        content: ""; position: absolute; top: .5em; bottom: calc(var(--rd-gap) * -1);
+        inset-inline-start: calc(var(--rd-mark) / 2 - var(--rd-line) / 2); inline-size: var(--rd-line);
+      }
+      .station:last-child::before { bottom: 0; }
+      /* Brass while it is behind us and under our feet; dimmer with every station
+         ahead, and gone by the end — the road literally dims into the ground. */
+      .st-shipped::before { background: linear-gradient(to bottom, transparent, var(--accent) 55%); }
+      .st-now::before     { background: var(--accent); }
+      .st-beta::before    { background: linear-gradient(to bottom, var(--accent), color-mix(in oklab, var(--accent) 34%, transparent)); }
+      .st-v1::before      { background: linear-gradient(to bottom, color-mix(in oklab, var(--accent) 34%, transparent), var(--line)); }
+      .st-build::before   { background: linear-gradient(to bottom, var(--line), color-mix(in oklab, var(--line) 45%, transparent)); }
+      .st-no::before      { background: linear-gradient(to bottom, color-mix(in oklab, var(--line) 45%, transparent), transparent); }
+
+      /* The mark sits ON the line, and hides the millimetre of line behind it.
+         The patch is a radial fade, not a flat fill: `.stage-glow` is `position:
+         fixed`, so a solid `var(--ground)` rectangle never matches the glow-tinted
+         ground behind it — it read as a hard-edged 30x22 box beside every station,
+         and because the glow is fixed the box faded in and out as the page scrolled.
+         The line runs down the box's vertical centre, where the gradient is fully
+         opaque, so the cut is still clean; the edges dissolve into whatever the glow
+         is doing there. */
+      .mark {
+        position: absolute; top: 0; inset-inline-start: 0;
+        inline-size: var(--rd-mark); text-align: center; font-size: 16px;
+        padding-block: 3px;
+        background: radial-gradient(closest-side, var(--ground) 68%, transparent);
+      }
+      .st-now .mark { font-size: 19px; }
+
+      .state { margin: 0 0 6px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+      .state.is-now { color: var(--accent-text); }
+      .state.is-done { color: color-mix(in oklab, var(--dim) 80%, var(--text)); }
+
+      .station h2 { font-size: clamp(26px, 3.2vw, 36px); font-weight: 400; letter-spacing: -.02em; margin: 0 0 14px; }
+      .station h2 .paren { color: var(--accent); }
+      .st-lede { margin: 0 0 18px; color: var(--dim); font-size: 16.5px; line-height: 1.62; }
+      .st-lede b { color: var(--text); font-weight: 600; }
+      .st-sub { margin: 22px 0 12px; color: var(--dim); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+      .st-note { margin: 20px 0 0; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
+      .st-note b { color: var(--text); font-weight: 600; }
+      .st-note em { color: var(--accent-text); font-style: italic; font-family: Georgia, serif; }
+      .st-links { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; font-size: 14px; }
+      .st-links a { color: var(--accent-text); text-decoration: none; }
+      .st-links a:hover { text-decoration: underline; }
+      /* A package name is a NAME, not an accent. Brass is spent on the present
+         station and on links; forty package names in brass would spend it forty
+         times over on one card. A warm ink keeps them legible and quiet. */
+      .station code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em; color: color-mix(in oklab, var(--text) 82%, var(--accent-text)); }
+
+      /* `a.brand { text-decoration: none }` and the `[aria-current]` mark for the
+         current nav link used to be here. They moved to landing.css with the nav
+         itself: this <style> is SCOPED, so a rule in it compiles to a selector no
+         node the LAYOUT renders can match — the brand would have come back
+         underlined and the current page unmarked, with nothing on the page to say
+         why. A rule belongs in the sheet that owns the markup it describes. */
+      /* ── the present: the one card on the page ─────────────────────────── */
+      .now-card { background: var(--surface); border: 1px solid var(--line); border-radius: 15px; padding: 24px 26px 26px; position: relative; overflow: hidden; box-shadow: var(--shadow); }
+      /* The same brass hairline the landing's proof cards wear — the spotlight,
+         spent once, on the station the reader is standing in. */
+      .now-card::before { content: ""; position: absolute; inset-inline: 0; top: 0; block-size: 2px; background: linear-gradient(to right, var(--accent), transparent 78%); }
+
+      .cluster { margin-top: 22px; }
+      .cluster h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-text); font-weight: 600; }
+      .cluster ul { margin: 0; padding: 0; list-style: none; }
+      .cluster li { position: relative; padding: 6px 0 6px 18px; border-top: 1px solid var(--line); color: var(--dim); font-size: 14.5px; line-height: 1.5; }
+      .cluster li:first-child { border-top: none; }
+      /* A hairline dash rather than a bullet: the page already has one round mark
+         per station and a second dot vocabulary would compete with it. */
+      .cluster li::before { content: ""; position: absolute; inset-inline-start: 0; top: 1.02em; inline-size: 8px; block-size: 1px; background: var(--line); }
+      .cluster li b { color: var(--text); font-weight: 600; }
+      .cluster a { color: var(--accent-text); text-decoration: none; }
+      .cluster a:hover { text-decoration: underline; }
+
+      .fig-head { margin: 26px 0 12px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+      /* A grid, not the landing's flex-wrap recipe. That recipe was borrowed from
+         .proof, which holds exactly four cards and therefore cannot show the artifact:
+         ten figures in a wrapping flex row leave a REMAINDER, and flex-grow stretches
+         it — the last two tiles came out 2.07x the width of the eight above them, so a
+         block meant to read as a measured ledger ended on a different rhythm.
+         `auto-fill`, never `auto-fit`: auto-fit collapses the empty tracks and
+         re-stretches the last row, which is the same bug spelled differently. Empty
+         tracks are invisible here — the tile paints the background, the cell does not. */
+      .figures { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+      .fig { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px 13px; }
+      .fig b { display: block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 500; letter-spacing: -.02em; color: var(--text); line-height: 1.15; }
+      .fig span { display: block; margin-top: 4px; color: var(--dim); font-size: 12.5px; line-height: 1.35; }
+      /* --dim at full strength, not faded: at 72% this measured 3.73:1 dark and
+         2.83:1 light, and it is 11px text carrying whole sentences (the zero-dep
+         claim, "23 of them guards"). The 11px size and the line of its own are what
+         separate it from .fig span; the transparency was buying that same distinction
+         a second time, at the cost of the only thing that matters here. */
+      .fig em { display: block; margin-top: 3px; font-style: normal; font-size: 11px; line-height: 1.35; color: var(--dim); }
+
+      /* ── the two barriers ─────────────────────────────────────────────────
+         Numbered because the source list IS numbered — eight conditions people
+         refer to by number. The v1 list below is not, because it is a set. */
+      .barrier { margin: 0; padding: 0; list-style: none; counter-reset: barrier; }
+      .barrier > li, .checks > li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 2px 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--line); color: var(--dim); font-size: 15px; line-height: 1.5; }
+      .barrier > li:first-child, .checks > li:first-child { border-top: none; }
+      .barrier > li { counter-increment: barrier; }
+      .barrier > li .b-text::before { content: counter(barrier) ". "; font-family: Georgia, serif; font-style: italic; color: var(--accent-text); margin-right: 3px; }
+      .b-text { color: var(--text); }
+      .b-state { grid-column: 2; font-style: normal; font-size: 11.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--dim); }
+      .barrier > li:has(.g-now) .b-state { color: var(--accent-text); }
+      .checks { margin: 0; padding: 0; list-style: none; }
+
+      /* ── the refusals: the thing, and the reason, on one line each ─────── */
+      /* No column gap: each row is ruled by TWO borders, one under the term and one
+         under the reason, so a 24px gutter punched a visible hole through the middle of
+         every rule on a list the eye reads straight across. The spacing moves onto the
+         reason's leading padding instead, and the rule runs unbroken. One line-height
+         for both, too: 24px against 21.75px put a 2px step in the first baseline of
+         every row. */
+      .nope { display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: 0; margin: 4px 0 0; }
+      .nope dt { padding: 10px 0; border-top: 1px solid var(--line); color: var(--text); font-size: 15px; line-height: 24px; }
+      .nope dd { padding: 10px 0; padding-inline-start: 24px; border-top: 1px solid var(--line); margin: 0; color: var(--dim); font-size: 14.5px; line-height: 24px; }
+      .nope dt:first-of-type, .nope dt:first-of-type + dd { border-top: none; }
+
+      .principle { margin: 26px 0 0; padding-inline-start: 16px; border-inline-start: 2px solid var(--accent); font-family: Georgia, "Iowan Old Style", serif; font-style: italic; font-size: 17px; line-height: 1.55; color: var(--text); max-width: 56ch; }
+
+      /* Motion: a hover on the links, and nothing else. No scroll effect, nothing
+         that moves on its own. */
+      .st-links a, .cluster a { transition: color .2s; }
+      @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+      @media (max-width: 720px) {
+        /* The line comes inline with the text rather than sitting in a gutter of
+           its own — there is no room for a gutter, and a road that runs off the
+           left edge of a phone is a decoration nobody can read. */
+        .rd { --rd-gutter: 34px; --rd-mark: 24px; }
+        .mark { font-size: 15px; }
+        .st-now .mark { font-size: 17px; }
+        .now-card { padding: 20px 18px 22px; border-radius: 13px; }
+        .nope { grid-template-columns: 1fr; gap: 0; }
+        .nope dt { padding-bottom: 0; }
+        /* One column: the reason sits under its term, so the leading padding that
+           holds the two columns apart on a wide screen would only indent it. */
+        .nope dd { padding-top: 4px; padding-inline-start: 0; border-top: none; }
+        .nope dt:first-of-type + dd { border-top: none; }
+      }
+  </style>
+</Landing>

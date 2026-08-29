@@ -11,7 +11,7 @@ export type { AparteComposerEventMap, AparteComposerEventType, AparteComposerSta
 
 // Conversation list primitive
 export { AparteConversationList } from './conversation-list/index.js';
-export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail } from './conversation-list/index.js';
+export type { AparteConversationListItem, AparteConversationSelectDetail, AparteConversationDeleteDetail, AparteConversationArchiveDetail, AparteConversationPinDetail, AparteConversationRenameDetail } from './conversation-list/index.js';
 
 // Prompt starters
 export { AparteSuggestions } from './suggestions/index.js';
@@ -20,3 +20,15 @@ export type { AparteSuggestion, AparteSuggestionEventDetail } from './suggestion
 // Context-window gauge
 export { AparteContext } from './context/index.js';
 export type { AparteContextLevel, AparteContextThresholdEventDetail } from './context/index.js';
+
+// The ticks beside the transcript
+export { AparteScrollRail } from './scroll-rail/index.js';
+export type { AparteScrollRailJumpDetail, AparteScrollRailEvery } from './scroll-rail/index.js';
+
+// The shell's column
+export { AparteSidebar } from './sidebar/index.js';
+export type { AparteSidebarToggleDetail } from './sidebar/index.js';
+
+// The shell's seam
+export { AparteSplit } from './split/index.js';
+export type { AparteSplitResizeDetail } from './split/index.js';

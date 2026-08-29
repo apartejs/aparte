@@ -13,8 +13,8 @@ through a variable, so a well-made theme never has to touch the component intern
 
 ## How it works
 
-The default theme lives on `:root` (and `:host`, for shadow contexts). Override any
-variable wherever you like — globally, scoped to a subtree, or per chat instance:
+The default theme lives on `:root`. Override any variable wherever you like — globally,
+scoped to a subtree, or per chat instance:
 
 ```css
 /* Global: retheme every aparté chat on the page. */
@@ -30,6 +30,15 @@ variable wherever you like — globally, scoped to a subtree, or per chat instan
 
 Because they are plain CSS variables, they cascade and inherit like any other — no build
 step, no theme provider, no re-render.
+
+:::note[`:host` in the stylesheet is defensive, not a shadow root]
+Core has **no shadow DOM** — every element renders light DOM, which is why a plain
+`.aparte-message { … }` of yours reaches it. The stylesheet declares its tokens on
+`:root` and, a second time, on `:host` — only so the same sheet keeps working if *you*
+mount a chat inside a shadow root of your own (a web component of yours, a micro-frontend):
+there, `:root` is outside and `:host` is the boundary. Overriding from outside works the same in both cases — set
+the variable on any ancestor, or on the chat element itself.
+:::
 
 ## Light and dark
 
@@ -80,6 +89,19 @@ places across the stylesheets *and* feed the rest, which is why a rebrand is eig
 
 `--aparte-bg` is the one exception in that list: core paints no page background, so nothing
 in the library reads it. It is declared for *your* CSS to reference.
+:::
+
+:::note[What stays literal]
+Everything the chat paints follows the eight above — the user bubble's tint is a wash of
+`--aparte-primary` over `--aparte-surface-1`, `--aparte-surface-3` is `--aparte-surface-2`
+pulled toward the text, `--aparte-text-inverse` is `--aparte-surface-1`. What does **not**
+derive, because a brand decides it: the four status colours (`--aparte-info` / `-success` /
+`-warning` / `-error`) and the two secondary fills (`--aparte-secondary`, `--aparte-neutral`).
+A rebrand that leaves them keeps the defaults — the status four are the conventional
+blue/green/amber/red, the two fills lean plum, the default palette's second hue — and a
+rebrand that has an opinion declares them in the same block. The
+[CSS variables reference](/reference/css-variables/) marks each declared token's default, so a
+literal is recognisable there by its hex.
 :::
 
 :::note[The ink on a fill is worked out for you]
@@ -154,6 +176,23 @@ and the whole UI re-spaces or re-sizes coherently.
   --aparte-radius-lg: 4px;    /* squarer bubbles, inputs, cards */
 }
 ```
+
+The defaults sit where the kits people compare a chat against sit — radii of 3 to 18px,
+controls of 24/32/40px, 14px body text, a visible focus ring — since 0.16.0; before that
+they were one step denser on every axis, and the difference read as "plain". The scales are
+what moves the whole kit at once, so the older, denser look is four lines away:
+
+```css
+/* The "compact" preset: tighter, squarer, a size down. */
+:root {
+  --aparte-radius-unit: 2px;      /* radii become 2/4/6/8/12px */
+  --aparte-font-scale: 1;         /* 14px body text becomes 13px */
+  --aparte-btn-size-md: 28px;     /* the medium button, and every control on its scale */
+  --aparte-btn-size-lg: 36px;
+}
+```
+
+Compare the two on any [UI kit](/kit/button/) page: every family reads the same tokens.
 
 ## Token groups
 
@@ -245,6 +284,34 @@ once, and the same class marks a row of your own:
 did not happen — no tint, no bar, the muted text. Red is for what went wrong, not for
 "no": a declined request is quiet, a rejected tool call keeps the muted voice with a cross
 for a glyph, and a stopped one a stop square.
+
+### Check that every token you read exists
+
+A `var(--aparte-text-primary)` that names a token this library does not declare fails in
+**silence**: the declaration is invalid at computed-value time, the property is inherited,
+and the page looks almost right. A consumer read one such token in ten places for months,
+through four visual reviews. The stylesheet you already import declares every token, so the
+check is a script, not an eye — run it in your app, on your own CSS:
+
+```js
+// aparte-tokens.mjs — node aparte-tokens.mjs src/**/*.css
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const sheet = readFileSync(createRequire(import.meta.url).resolve('@aparte/core/styles.css'), 'utf8');
+const declared = new Set(sheet.match(/--aparte-[\w-]+(?=\s*:)/g));
+let bad = 0;
+for (const file of process.argv.slice(2)) {
+  for (const name of new Set(readFileSync(file, 'utf8').match(/--aparte-[\w-]+/g) ?? [])) {
+    if (!declared.has(name)) { bad++; console.log(`${file}: ${name} is not declared by @aparte/core`); }
+  }
+}
+process.exit(bad ? 1 : 0);
+```
+
+Put it in your test script and a typo cannot ship again. A name it reports that you declared
+yourself is fine — the `--aparte-` prefix is the library's, so a token of your own is better
+off under a prefix of your own.
 
 ## Per-instance themes
 

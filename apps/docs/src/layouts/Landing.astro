@@ -1,0 +1,239 @@
+---
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { UMAMI_SRC, UMAMI_WEBSITE_ID } from '../data/analytics';
+import '../styles/palette.css';
+import '../styles/landing.css';
+
+/*
+ * The site's own frame — every page that is NOT a Starlight one.
+ *
+ * There are two of them today (`/` and `/roadmap/`) and there was one when the
+ * roadmap was written, so the nav, the footer, the pre-paint theme script, the
+ * favicons and the analytics tag existed TWICE, in two files, with no mechanism
+ * keeping them in step. That is the failure this repo keeps finding in a different
+ * coat: a thing described in two places drifts, and the drift is invisible until
+ * someone opens both. A version chip that goes stale on one page, a footer link
+ * added to one and not the other, a theme key spelled differently — none of it
+ * would fail a build.
+ *
+ * So the chrome lives here, once, and a page is its CONTENT plus five head values.
+ * The rule that follows: anything a visitor sees on both pages belongs in this
+ * file, and anything only one page shows belongs in that page.
+ */
+
+interface Props {
+    /** `<title>`, `og:title`, `twitter:title` — one string, three tags. */
+    title: string;
+    /** `<meta name="description">` and the two social descriptions. */
+    description: string;
+    /** ABSOLUTE, with its trailing slash: it is both `<link rel=canonical>` and `og:url`. */
+    canonical: string;
+    /** Absolute URL of the generated card, e.g. `https://apartejs.dev/og/roadmap.png`.
+     *  The card itself is built by `src/pages/og/[...slug].ts`, which builds its map
+     *  from the docs collection — neither of these pages is in it, so BOTH are named
+     *  in that map by hand. A page passing an `ogImage` with no entry there advertises
+     *  a 404, and no guard catches it: check-doc-links.mjs reads `<a href>`, never
+     *  `<meta>`. */
+    ogImage: string;
+    /** What the 1200x630 image SHOWS — written from the og map entry, not from the
+     *  meta tags beside it, because astro-og-canvas bakes that entry into the PNG as
+     *  pixels. An alt written from the tags describes an image nobody sees. */
+    ogImageAlt: string;
+    /** Which nav link is the page you are on. */
+    current: 'index' | 'roadmap';
+}
+
+const { title, description, canonical, ogImage, ogImageAlt, current } = Astro.props;
+
+/**
+ * The version chip, read from the repo at build time so it cannot go stale.
+ *
+ * The anchor has to survive BUNDLING. It used to count `../` from `import.meta.url`
+ * on the landing, which worked only while that URL was the source file: Astro 7
+ * prerenders from bundled chunks in `dist/.prerender/chunks/`, so the same four
+ * levels landed on `apps/packages/core` and the page failed to render at all.
+ *
+ * `process.cwd()` is the Astro project root (`apps/docs`) for every way this builds
+ * — `pnpm --filter`, `nx run`, or `astro build` by hand — and it is not rewritten by
+ * the bundler, so two levels up is the repo root wherever the code ends up. That is
+ * also why this layout can sit in `src/layouts/` and read the same path the page in
+ * `src/pages/` reads: the anchor is the working directory, not this file.
+ *
+ * `.href` rather than the URL object: `pathToFileURL` is typed against @types/node's
+ * own `URL`, which no longer matches the global one (the iterator-helper methods on
+ * `searchParams`), and a string base sidesteps the clash without a cast.
+ */
+const REPO = new URL('../../', pathToFileURL(`${process.cwd()}/`).href);
+
+/** The shipped version. `index.astro` reads the same file for its JSON-LD; that is a
+ *  duplicated READ of one file at build time, not a duplicated value, so the two
+ *  cannot disagree. */
+const CORE_VERSION: string = JSON.parse(
+    readFileSync(new URL('packages/core/package.json', REPO), 'utf8'),
+).version;
+
+/**
+ * The chip SAYS a version, so it goes to that version's release notes rather than to the
+ * list. Derived from the same string it displays — starlight-changelogs slugs a version by
+ * replacing dots with dashes — so it cannot point at a release the chip is not showing.
+ * `pnpm version-packages` bumps package.json and writes the CHANGELOG section in one step,
+ * and check:doc-links fails the gate if the two ever disagree.
+ */
+const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-')}/`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- These pages are Astro pages, not Starlight ones, so they inherit none of the
+         head Starlight builds: the landing had NO Open Graph at all, while being the
+         most-shared URL of the site. Every link to it rendered as a bare line of text
+         in Slack, Discord, LinkedIn and X. The card itself is generated at build time
+         like every docs page's (src/pages/og/), so this stays a list of pointers, not
+         a second design. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="aparté" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogImageAlt} />
+    <meta property="og:locale" content="en" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
+
+    <!-- What a page adds to its own head and no other page needs — the landing's
+         JSON-LD is the one caller today. It stays in the page on purpose: it
+         describes @aparte/core, not "a page of this site", so pulling it up here
+         would either make the roadmap claim to be the library or need a flag saying
+         which page is allowed to. -->
+    <slot name="head" />
+
+    <!-- `/` is where a crawler looks for the site's icon — so the links live here
+         too, not only in the Starlight config (that one covers the docs pages).
+         SVG for browsers, .ico as the raster search engines prefer. -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48 32x32 16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <script is:inline>
+      // Shared light/dark with the Starlight docs: read the SAME localStorage key
+      // Starlight uses (`starlight-theme`) and apply `data-theme` before paint, so
+      // the choice made on the docs carries over to the landing with no flash.
+      (() => {
+        const stored = localStorage.getItem('starlight-theme') || 'auto';
+        const theme =
+          stored === 'light' || stored === 'dark'
+            ? stored
+            : matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+
+    <!-- Self-hosted Umami: cookieless, no personal data, so no consent banner. Built
+         sites only, so `astro dev` never files a visit from localhost. The same tag
+         is in src/components/Head.astro because THESE pages carry their own head and
+         inherit nothing from Starlight; src/data/analytics.ts holds the two values
+         once, and names the CSP that has to allow the host. -->
+    {import.meta.env.PROD && (
+      <script is:inline defer src={UMAMI_SRC} data-website-id={UMAMI_WEBSITE_ID}></script>
+    )}
+  </head>
+  <body>
+    <div class="stage-glow" aria-hidden="true"></div>
+
+    <main class="wrap">
+      <nav class="site-nav">
+        <!-- The wordmark is a link on every page, `/` included. A site's logo goes
+             home; making it a <div> on the home page and an <a> everywhere else is
+             two navs, which is the thing this layout exists to stop. It needs
+             `a.brand { text-decoration: none }` in landing.css, because
+             `.nav-links a` cannot reach it — the brand is a SIBLING of `.nav-links`,
+             not a child, and it rendered underlined the first time. -->
+        <a
+          class="brand serif"
+          href="/"
+          aria-label="aparté — home"
+          aria-current={current === 'index' ? 'page' : undefined}
+        ><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></a>
+        <div class="nav-links">
+          <a class="ver" href={CORE_VERSION_HREF} title={`What changed in ${CORE_VERSION}`}>
+            <b>v{CORE_VERSION}</b><span class="alpha">alpha</span>
+          </a>
+          <a href="/why/" class="hide-sm">Why apart&eacute;</a>
+          <!-- `hide-sm` like its neighbours: the nav row is already at the edge of a
+               390px screen with the version chip, GitHub and the toggle, and one more
+               word overflowed the page by 41px. The frame's own mechanism, not a new
+               one. -->
+          <a
+            href="/roadmap/"
+            class="hide-sm"
+            aria-current={current === 'roadmap' ? 'page' : undefined}
+          >Roadmap</a>
+          <a href="/guides/getting-started/" class="hide-sm">Docs</a>
+          <a href="https://github.com/apartejs/aparte" target="_blank" rel="noopener">GitHub</a>
+          <button class="toggle" id="themeToggle" aria-label="Switch theme" title="Switch theme">&#9789;</button>
+        </div>
+      </nav>
+
+      <slot />
+
+      <footer>
+        <div class="brand serif"><span class="paren">(</span>&#8202;apart&eacute;&#8202;<span class="paren">)</span></div>
+        <div class="foot-links">
+          <a href="/why/">Why apart&eacute;</a>
+          <a href="/guides/getting-started/">Docs</a>
+          <a href="/changelog/">Changelog</a>
+          <a href="https://github.com/apartejs/aparte" target="_blank" rel="noopener">GitHub</a>
+          <!-- External links leave the site, so they open in their own tab. `rel` is
+               `noopener` and deliberately NOT `noreferrer`: the opener reference is
+               the security concern, while the Referer header is how GitHub and npm
+               attribute traffic back to this page. -->
+          <a href="https://www.npmjs.com/org/aparte" target="_blank" rel="noopener">npm</a>
+        </div>
+        <div>A private word, in any framework.</div>
+      </footer>
+    </main>
+
+    <script is:inline>
+      // The toggle, for every page on this frame.
+      //
+      // It owns ONE thing — the document's theme, persisted to the same key Starlight
+      // reads so the choice follows a reader across the landing, the docs and the
+      // roadmap — and then it SAYS so, on `document`. A page that has more to do on a
+      // theme change (the landing re-runs its palette preset over the live chat) adds
+      // a listener; a page that does not, like the roadmap, adds nothing and the
+      // toggle already works. The alternative was a layout that knows about
+      // `applySkin`, i.e. the frame reaching into one page's demo.
+      //
+      // `is:inline` on purpose: this is four lines that must not wait on a module
+      // graph, and an early press now toggles the theme even if the landing's own
+      // bundle has not evaluated yet (before, that press did nothing at all).
+      (() => {
+        const root = document.documentElement;
+        document.getElementById('themeToggle')?.addEventListener('click', () => {
+          const now =
+            root.getAttribute('data-theme') ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          const next = now === 'dark' ? 'light' : 'dark';
+          localStorage.setItem('starlight-theme', next);
+          root.setAttribute('data-theme', next);
+          document.dispatchEvent(new CustomEvent('site-theme-change', { detail: { theme: next } }));
+        });
+      })();
+    </script>
+  </body>
+</html>

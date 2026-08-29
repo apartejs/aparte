@@ -33,6 +33,7 @@
 @import './surface/accordion.css';
 @import './surface/menu.css';
 @import './surface/popover.css';
+@import './surface/dialog.css';
 @import './surface/tooltip.css';
 @import './primitives/select.css';
 @import './primitives/progress-spinner.css';
@@ -44,10 +45,14 @@
 @import './segment/tool-call.css';
 @import './segment/error.css';
 @import './segment/text.css';
-@import './segment/artifact.css';
 @import './components/elicitation.css';
 @import './components/conversation.css';
 @import './components/suggestions.css';
 @import './components/context.css';
+@import './components/scroll-rail.css';
+@import './shell/sidebar.css';
+@import './shell/app-header.css';
+@import './shell/app-shell.css';
+@import './shell/split.css';
 @import './prose.css';
 @import './responsive.css';

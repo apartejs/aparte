@@ -68,10 +68,49 @@ export interface AparteToolCall {
     input: Record<string, unknown>;
 }
 
+/**
+ * What an approval policy says about one call.
+ *
+ * `allow` runs it without asking; `ask` puts it to the person the way a
+ * `needsApproval` tool is put to them; `deny` refuses it on the spot, and `reason` is
+ * the sentence the model reads about that refusal — verbatim, because nobody said
+ * anything ("Plan mode: `write_file` changes files; only read-only tools run.").
+ */
+export interface AparteApprovalRuling {
+    verdict: 'allow' | 'ask' | 'deny';
+    reason?: string;
+}
+
+/**
+ * Decides, per CALL, whether a tool runs, asks, or is refused.
+ *
+ * A tool's own `needsApproval` is a declaration about the tool; a policy is a decision
+ * about the call — the same `run_command` can be a read (`ls`) or an execution, and a
+ * mode ("plan": read-only, "auto": never ask) is a policy the host switches, not a
+ * flag on twenty definitions. Registered with `setApprovalPolicy()`; the client's
+ * default approval channel consults it before asking. Return `undefined` to have no
+ * opinion, in which case the tool's `needsApproval` decides as before.
+ *
+ * Pure and synchronous: it is evaluated once to decide whether the call pauses at all
+ * (so an allowed call never flashes "awaiting approval") and once to answer.
+ */
+export type AparteApprovalPolicy = (
+    call: AparteToolCall,
+    tool: AparteTool | undefined,
+) => AparteApprovalRuling | undefined;
+
 /** Result returned after a tool handler resolves */
 export interface AparteToolResult {
     toolCallId: string;
+    /** What the model reads. */
     content: string;
+    /**
+     * The same result as a value, for a renderer or the host — MCP's name for exactly
+     * this field, beside `content`. Optional and additive: a handler that returns prose
+     * alone behaves as before, and the model never sees this. It lands on the
+     * transcript's segment as `AparteToolCallSegment.structuredResult`.
+     */
+    structuredContent?: unknown;
 }
 
 /**
@@ -150,10 +189,33 @@ export interface AparteToolRenderer {
      *
      * Return an empty string to render nothing (e.g. a UI-only tool like
      * `ask_user`).
+     *
+     * The root you return is the segment's element in the bubble: core stamps
+     * `data-segment-id="<segment.id>"` on it if you did not, so an update to the
+     * call (its result landing, an approval decision) is patched into that element
+     * rather than rebuilding every segment of the bubble — a rebuild destroys a
+     * mounted artifact preview, collapses an opened reasoning block and drops the
+     * focus. Keep your markup's root a single element for that reason.
      */
     render: (segment: AparteToolCallSegment) => string | HTMLElement;
     /** Optional DOM setup (event listeners etc.) called after HTML is injected */
     setup?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
+    /**
+     * Patch the element in place when the call changes — its result landing, an
+     * approval decided, a `failed` status. Without it core rebuilds your markup from
+     * `render()` on every change, which is right for a receipt and wrong for anything
+     * with state: a mounted preview, an opened disclosure, a focused control are all
+     * lost in a rebuild. Same contract as `AparteSegmentRenderer.update`: never
+     * re-render, never touch what the reader opened.
+     */
+    update?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
+    /**
+     * Re-read the locale and the icon provider without touching the DOM shape —
+     * called on every config change (`setLocale`, `setIconProvider`, `reset()`), for
+     * as long as the element is on the page. Add or remove no child node; replace
+     * text and glyphs only.
+     */
+    relabel?: (element: HTMLElement, segment: AparteToolCallSegment) => void;
     /** Optional CSS to inject once into document.head */
     getStyles?: () => string;
 }

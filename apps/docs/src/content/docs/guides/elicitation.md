@@ -1,6 +1,6 @@
 ---
 title: Asking the user a typed question
-description: Pause a run and ask for typed input — a choice, a yes/no, a free-text answer, or a small form — with requestUserInput and the built-in panel.
+description: "Pause a run and ask the user for typed input — a choice, a free-text answer, a small form — or for a decision (an approval, kind 'approval') — with requestUserInput and the built-in panel in the composer; replace the panel with your own presenter."
 sidebar:
   order: 13
 ---
@@ -53,6 +53,21 @@ Three fields cover most questions:
 
 An `enum` also offers a free-text **Other…** entry by default; pass
 `allowOther: false` to close it.
+
+A single choice asked on its own — an `enum` without `multiple` or a `default`, a
+`boolean` without a `default` — renders its options as **buttons, and the click is the
+answer**: one decision, one gesture. That is the host's policy, and it has a switch:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+aparteGlobalConfig.setElicitationOptions({ answerOnClick: false });
+```
+
+With it off, the same question keeps its radios and the composer's button — select, then
+send — so a person can change their mind before committing, and every question on the page
+answers the same way. A form of several questions always collects and submits, whatever the
+switch says.
 
 ## Asking for several things at once
 
@@ -109,8 +124,10 @@ void answer;
 ```
 
 The protocol does not change: the answer is still one object with every key, and the
-composer's send button still means *submit*, enabled only once every required question
-has an answer. Advancing between questions is the panel's own affordance.
+composer's send button means *submit* throughout, enabled only once every required
+question has an answer. Moving between questions is the chips' affordance — a click on a
+choice selects, a chip switches question, one button submits the lot — and an answered
+chip wears a check mark, so what is left is visible at a glance.
 
 If what you actually want is a **form** — several fields filled in one go, which is
 what structured data collection looks like — ask for it:
@@ -174,12 +191,18 @@ import { requestUserInput } from '@aparte/core';
 const answer = await requestUserInput({
   kind: 'approval',
   message: 'Run delete_files?',
+  // What is being approved, under the question. Rendered as text, never as markup —
+  // the panel is the surface where the user clicks, so the arguments belong on it.
+  details: JSON.stringify({ paths: ['src/legacy/old-client.ts'] }, null, 2),
   options: [
     { value: 'allow', label: 'Approve', tone: 'affirm' },
     // Two options may share a `value` and differ only in reach: this is what
     // "Yes" and "Yes, and always" are. YOU write the label, because only you can
-    // honour it — core has nowhere to remember a grant.
-    { value: 'allow', label: 'Approve, and always for this tool', tone: 'affirm' },
+    // honour it — core has nowhere to remember a grant. Say what the reach IS in
+    // `description`: it is drawn under the label, so a user sees the difference
+    // between "this command" and "any git command" before clicking.
+    { value: 'allow', label: 'Approve, and always for this command', description: 'git status', tone: 'affirm' },
+    { value: 'allow', label: 'Approve, and always for git', description: 'git *', tone: 'affirm' },
     { value: 'deny', label: 'Reject', tone: 'deny' },
   ],
 });
@@ -296,14 +319,15 @@ presenter needs to drive it:
 | `getContent()` | the current response, shaped to the schema |
 | `isComplete()` | every required field has a usable value |
 | `focus()` | focus the first input, after you mount it |
-| `mode()` | what the composer's one button means here: `'advance'`, `'submit'`, or `'none'` when the panel has nothing for it to do |
+| `mode()` | what the composer's one button means here: `'submit'`, or `'none'` when the panel has nothing for it to do |
 | `onSettle(cb)` | the answer arrived without the button — a single-choice question settles on the click, and this is the only path by which that reaches you |
 | `canProceed()` | whether that button is enabled |
-| `proceed()` | act on it — advancing shows the next question; submitting is yours |
+| `proceed()` | kept for the contract; a form does nothing here — submitting is yours |
 | `relabel()` | re-apply the locale's strings in place, without rebuilding a half-filled form |
 
 The last four are what make "one question at a time" work: the panel has no Next button
-of its own, because the composer's button already changes meaning and gains a fourth.
+of its own, and the composer's button is no "Next" either — the chips are the navigation,
+the button submits, and `canProceed()` is simply "every required question answered".
 
 There is **no promise**: settling is the presenter's job, which is why the built-in one
 wires `getContent()` to the composer's send button and `canProceed()` to whether that

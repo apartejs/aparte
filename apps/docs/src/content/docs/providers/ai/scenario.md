@@ -45,7 +45,7 @@ A turn is a string (one text step) or a list of steps:
 
 | Step | What it does |
 |---|---|
-| `{ text }` | Streams the text, chunk by chunk. Markdown and `<artifact>` tags are parsed by core as usual. |
+| `{ text }` | Streams the text, chunk by chunk. Markdown is parsed by core as usual; an `<artifact>` tag becomes a card once [`@aparte/plugin-artifacts`](/plugins/artifacts/) is set up (it is prose otherwise). |
 | `{ thinking }` | Streams reasoning — the thinking block. |
 | `{ tool, input?, id? }` | Calls the tool of that name. The loop runs the handler you registered and calls the provider again with the result. |
 | `{ error }` | Fails the turn with that message — what a provider error looks like to the UI. |
@@ -76,6 +76,39 @@ The `get_weather` above only does something if the app registered a tool of that
 (`aparteGlobalConfig.registerTool`); an unregistered tool fails the call the way it
 would with a real model, which is also a scenario worth having.
 
+`match` returns the scenario's **key**, not the scenario — the second argument hands you
+the objects, so returning one is an easy slip. When no scenario is found for a call the
+provider streams an empty turn and says so in the console, naming what `match()` returned
+and the keys it knows.
+
+### Branching on what the user answered
+
+`after:` routes on which tool ran, not on what it returned. To pick the next scenario from
+the *value* — the option the user chose in an `ask_user` question, the branch of a wizard —
+let the tool's handler put the answer in its result and read it back in `match`, from the
+last `tool_result` message. The provider stays stateless; the conversation carries the state:
+
+```ts
+createScenarioProvider({
+  scenarios: {
+    start:    { turn: [{ tool: 'ask_user', input: { question: 'Where do you run?', options: [{ title: 'browser' }, { title: 'server' }] } }] },
+    browser:  { turn: 'In the browser, then: the direct transport, your key stays local.' },
+    server:   { turn: 'On a server: the backend transport, the key never leaves it.' },
+  },
+  match: (request, scenarios) => {
+    const last = [...request.messages].reverse().find((m) => m.role === 'tool_result');
+    if (!last) return 'start';
+    const picked = String(last.content).trim();          // "browser" or "server" — the tool's own result
+    return picked in scenarios ? picked : undefined;      // undefined → the default rule
+  },
+});
+```
+
+`ask_user`'s result is the chosen label as prose (and, since 0.16, the same answer as a
+value on the segment), so the handler needs no encoding for a single choice; a handler of
+your own can write whatever its `match` reads back — `content: 'mode=browser'` is a
+perfectly good contract between the two.
+
 ## Pace, usage, the model picker
 
 `pacing: { chunk: 12, delay: 24 }` (the defaults) streams twelve characters every 24 ms;
@@ -98,7 +131,7 @@ aparteGlobalConfig.registerAIProvider(createScenarioProvider({ scenarios: showca
 
 `showcase` answers *haiku*, *table*, *code*, *weather* (a tool round-trip), *ask me a
 question* (an `ask_user` call, answered by `@aparte/plugin-ask-user`'s panel), *survey*
-(two questions in one call — the panel's stepper), *artifact*, *slow* and *fail* — the
+(two questions in one call — the panel's stepper), *artifact* (a card with the artifacts plugin set up), *slow* and *fail* — the
 surface a chat has, in one registration. It is what the docs'
 live frames run on.
 

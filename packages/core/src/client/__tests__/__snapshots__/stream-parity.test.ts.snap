@@ -6,8 +6,15 @@ exports[`runStreamAgent — parity on the paths that STOP > a per-tool turn ceil
     "updateMessage ["assistant-1",{"status":"streaming"}]",
     "addSegment [{"id":"seg-#0","type":"text","content":"searching","isStreaming":false}]",
     "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"search","input":{"q":"x"}},"status":"pending"}]",
-    "updateSegment ["tool-c1",{"status":"aborted"}]",
+    "updateSegment ["tool-c1",{"status":"awaiting-approval"}]",
+    "dispatchEvent [{"type":"aparte-tool-approval-request","detail":{"toolCallId":"c1","toolName":"search","input":{"q":"x"}}}]",
+    "updateSegment ["tool-c1",{"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"resolved","result":"RESULT"}]",
     "updateSegment ["seg-#0",{"content":"searching","isStreaming":false}]",
+    "addSegment [{"id":"seg-#1","type":"text","content":"searching","isStreaming":false}]",
+    "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"search","input":{"q":"x"}},"status":"pending"}]",
+    "updateSegment ["tool-c1",{"status":"aborted"}]",
+    "updateSegment ["seg-#1",{"content":"searching","isStreaming":false}]",
     "updateMessage ["assistant-1",{"status":"completed"}]",
   ],
   "error": undefined,
@@ -21,8 +28,8 @@ exports[`runStreamAgent — parity on the paths that STOP > a stop mid-stream un
     "updateMessage ["assistant-1",{"status":"streaming"}]",
     "addSegment [{"id":"seg-#0","type":"text","content":"Partial answer so far","isStreaming":false}]",
     "updateSegment ["seg-#0",{"content":"Partial answer so far"}]",
-    "dispatchEvent [{"type":"aparte-message-aborted","detail":{"messageId":"assistant-1"}}]",
     "updateSegment ["seg-#0",{"content":"Partial answer so far","isStreaming":false}]",
+    "dispatchEvent [{"type":"aparte-message-aborted","detail":{"messageId":"assistant-1"}}]",
     "updateMessage ["assistant-1",{"status":"completed"}]",
   ],
   "error": undefined,
@@ -70,42 +77,9 @@ exports[`runStreamAgent — parity on the paths that STOP > the global turn ceil
     "updateSegment ["seg-#0",{"content":"again","isStreaming":false}]",
     "addSegment [{"id":"seg-#1","type":"text","content":"again","isStreaming":false}]",
     "addSegment [{"id":"tool-c1","type":"tool_call","toolCall":{"id":"c1","name":"save","input":{}},"status":"pending"}]",
-    "updateSegment ["tool-c1",{"status":"aborted"}]",
+    "updateSegment ["tool-c1",{"status":"resolved","result":"SAVED"}]",
     "updateSegment ["seg-#1",{"content":"again","isStreaming":false}]",
-    "updateMessage ["assistant-1",{"status":"completed"}]",
-  ],
-  "error": undefined,
-  "usage": undefined,
-}
-`;
-
-exports[`the client's loop — the engine through the adapter, pinned > artifactHint mode — first code fence promoted to an artifact 1`] = `
-{
-  "calls": [
-    "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"seg-#0","type":"code","language":"html","content":"<h1>Hi</h1>","isStreaming":false}]",
-    "updateSegment ["seg-#0",{"content":"<h1>Hi</"}]",
-    "updateSegment ["seg-#0",{"content":"<h1>Hi</h1>"}]",
-    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"seg-#0","mimeType":"text/html","artifactType":"html","title":"html"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"seg-#0","chunk":"<h1>Hi</h1>"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"seg-#0","mimeType":"text/html","artifactType":"html","title":"html","content":"<h1>Hi</h1>"}}]",
-    "updateMessage ["assistant-1",{"status":"completed"}]",
-  ],
-  "error": undefined,
-  "usage": undefined,
-}
-`;
-
-exports[`the client's loop — the engine through the adapter, pinned > create_artifact built-in — one-shot artifact then reply 1`] = `
-{
-  "calls": [
-    "updateMessage ["assistant-1",{"status":"streaming"}]",
-    "addSegment [{"id":"artifact-c1","type":"artifact","mimeType":"text/html","artifactType":"html","title":"Page","content":"<h1>Hi</h1>"}]",
-    "dispatchEvent [{"type":"aparte-artifact-start","detail":{"messageId":"assistant-1","segmentId":"artifact-c1","mimeType":"text/html","artifactType":"html","title":"Page"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-delta","detail":{"segmentId":"artifact-c1","chunk":"<h1>Hi</h1>"}}]",
-    "dispatchEvent [{"type":"aparte-artifact-ready","detail":{"messageId":"assistant-1","segmentId":"artifact-c1","mimeType":"text/html","artifactType":"html","title":"Page","content":"<h1>Hi</h1>"}}]",
-    "addSegment [{"id":"seg-#0","type":"text","content":"Made it.","isStreaming":false}]",
-    "updateSegment ["seg-#0",{"content":"Made it.","isStreaming":false}]",
+    "addSegment [{"id":"max-turns-#2","type":"error","content":"Stopped after 2 tool calls to prevent an infinite loop.","details":"MAX_TURNS_EXCEEDED"}]",
     "updateMessage ["assistant-1",{"status":"completed"}]",
   ],
   "error": undefined,

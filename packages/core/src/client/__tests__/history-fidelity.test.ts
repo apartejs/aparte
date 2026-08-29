@@ -90,16 +90,24 @@ describe('history reconstruction prefers what was RENDERED', () => {
         expect(history, 'and which language it is').toContain('py');
     });
 
-    it('does not drop an artifact the model produced', async () => {
+    it('does not drop a segment of a type it does not know, when it carries content', async () => {
+        // A registered block grammar (an artifact, a citation, a file) builds a type
+        // core has no branch for. Dropping it made a document the model had just
+        // produced invisible on the very next turn, so it could not be asked to
+        // change the thing it had built — hence the generic rule: content, else
+        // fallback, else nothing.
         const { cfg, el, seen } = harness(fenceOpeningReply('', [
             { id: 's1', type: 'text', content: 'Built it:' } as never,
             { id: 's2', type: 'artifact', title: 'Page', artifactType: 'html', content: '<h1>Hi</h1>' } as never,
+            { id: 's3', type: 'custom', subType: 'chart', fallback: '[chart: sales by month]' } as never,
         ]));
         const client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => el as never });
         await (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
             new CustomEvent('aparte-send', { detail: { content: 'change the title' } }),
         );
-        expect(historyOf(seen), 'the artifact is invisible next turn').toContain('Page');
+        const history = historyOf(seen);
+        expect(history, 'the document is invisible next turn').toContain('<h1>Hi</h1>');
+        expect(history, 'a segment with only a fallback still says what it was').toContain('[chart: sales by month]');
     });
 
     it('still falls back to `content` when there are no segments', async () => {

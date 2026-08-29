@@ -52,6 +52,8 @@ export const AparteUi = forwardRef<AparteUiHandle, AparteUiProps>(function Apart
     const elRef = useRef<HTMLElement | null>(null);
     const cbRef = useRef(onElementEvent);
     cbRef.current = onElementEvent;
+    const propsRef = useRef(props);
+    propsRef.current = props;
 
     const evts = events ?? APARTE_DEFAULT_UI_EVENTS;
     const evtsKey = evts.join('|');
@@ -62,6 +64,10 @@ export const AparteUi = forwardRef<AparteUiHandle, AparteUiProps>(function Apart
         if (!host) return;
         const el = document.createElement(name);
         elRef.current = el;
+        // The props effect below compares `props` by identity, so a memoized prop bag
+        // never re-applies on a `name`/`events` change. Apply through a ref here — the
+        // same shape Vue/Svelte/Angular use inside their own create().
+        applyElementProps(el, propsRef.current);
         const cleanups: Array<() => void> = [];
         for (const ev of evtsKey.split('|').filter(Boolean)) {
             const listener = (e: Event) => cbRef.current?.(e as CustomEvent);

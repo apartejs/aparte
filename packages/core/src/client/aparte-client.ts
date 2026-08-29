@@ -9,9 +9,10 @@ import type { AparteStreamRunner, AparteStreamRunEmitter, StreamAdapterTarget } 
 import type { AparteSegment, AparteStreamEvent, AparteMessage, AparteErrorSegment } from '../types/index.js';
 import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool } from '../types/tools.js';
-import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage, contentToText } from '../types/chat.js';
+import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { uuid } from '../utils/uuid.js';
+import { describeToolInput } from '../utils/tool-input.js';
 import { requestUserInput } from '../elicitation/index.js';
 
 /**
@@ -68,21 +69,17 @@ export type AparteToolApprovalResolver = (
      * that returns a bare `{ approved }` behaves exactly as before.
      */
     instruction?: string;
+    /**
+     * The refusal, verbatim, when nobody said anything — an approval policy that
+     * refused on its own. Without it the model is told "the user rejected this",
+     * which for a mode is a lie; with it, it reads the policy's own sentence.
+     */
+    reason?: string;
 }>;
 
-/**
- * Decides how a conversation is compacted: which messages are summarized away
- * (`drop`) and which are preserved verbatim (`keep`). Pure — no LLM call.
- *
- * The default selector drops the whole history (summarize everything, replace
- * all), which is the built-in behaviour. Inject a budget-aware selector (e.g.
- * wrapping `@aparte/engine`'s `compactConversation`) so the compaction badge and
- * the `compact()` action share one selection and only the old turns are sent to
- * the summarizer — the budget is closed over by the consumer, not core's to know.
- */
-export type AparteCompactionSelector = (
-    messages: AparteMessage[],
-) => { keep: AparteMessage[]; drop: AparteMessage[] };
+/** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
+const COMPACTION_PREAMBLE =
+    'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
 
 /**
  * Configuration options for AparteClient
@@ -101,25 +98,24 @@ export interface AparteClientOptions {
      * decide from the call itself — it receives `(call, signal)` — or to drive
      * approval from a headless source (CLI / webhook) with no DOM.
      *
-     * It may return an `instruction`, which the model reads as part of the refusal.
+     * It owns the WHOLE decision: with one injected, an `AparteApprovalPolicy`
+     * registered through `setApprovalPolicy()` — and therefore
+     * `@aparte/plugin-approval`'s modes — is not consulted at all, neither for the
+     * gate nor for the answer, and the tool's own `needsApproval` decides which
+     * calls reach this resolver. Rule on the call here, or drop this option and use
+     * a policy; do not expect both.
+     *
+     * On a refusal it may return an `instruction` (the user's words) or a `reason`
+     * (nobody spoke), which the model reads as the tool result.
      */
     approvalResolver?: AparteToolApprovalResolver;
-
-    /**
-     * Custom compaction selection strategy. Defaults to dropping the entire
-     * history (summarize all, replace all — the built-in behaviour). Inject a
-     * budget-aware selector so only old turns are summarized and recent ones are
-     * kept verbatim. See {@link AparteCompactionSelector}.
-     */
-    compactionSelector?: AparteCompactionSelector;
 
     /**
      * The stream-loop runner. Default: `@aparte/engine`'s `runStreamAgent`, rendered
      * through the core adapter ({@link createStreamAdapter}). Set it to wrap that loop
      * — `(opts) => runStreamAgent({ ...opts, onHistoryAppend })` for a host that owns
      * its transcript — or to replace it with a loop of your own that emits the same
-     * events. Same injection pattern as {@link approvalResolver} /
-     * {@link compactionSelector}. See {@link AparteStreamRunner}.
+     * events. Same injection pattern as {@link approvalResolver}. See {@link AparteStreamRunner}.
      */
     streamRunner?: AparteStreamRunner;
 
@@ -251,17 +247,15 @@ export interface AparteClientOptions {
 export class AparteClient {
     private _boundHandler: ((e: Event) => void) | null = null;
     private _boundAbortHandler: (() => void) | null = null;
-    private _boundCompactHandler: ((e: Event) => void) | null = null;
     private _boundRetryHandler: ((e: Event) => void) | null = null;
     private _boundEditHandler: ((e: Event) => void) | null = null;
-    private _activeToolControllers: Set<AbortController> = new Set();
     private _isAborted = false;
 
     /**
      * Does this window event belong to this client?
      *
-     * One rule for all five handlers, because it used to be four near-copies and
-     * one omission: `aparte-compact` had no guard at all, so in the two-client
+     * One rule for all four handlers, because it used to be near-copies and
+     * one omission: `aparte-compact` (answered here until 0.16.0) had no guard at all, so in the two-client
      * layout the JSDoc documents, a single compact event made BOTH clients run —
      * two paid summarisation calls against whichever chat the DOM scan found
      * first, and a global reset that wiped the other conversation.
@@ -316,8 +310,6 @@ export class AparteClient {
     }
     /** Aborts the in-flight vendor/transport fetch when the user stops a stream. */
     private _streamController: AbortController | null = null;
-    /** Aborts an in-flight `compact()` summarisation — its own slot, see `compact`. */
-    private _compactController: AbortController | null = null;
 
     private options: AparteClientOptions;
     /** Config read by this client — an instance config, or the global default. */
@@ -354,18 +346,15 @@ export class AparteClient {
      * erased an abort that arrived while the user was still waiting for a large attachment
      * to be read.
      *
-     * Cancelling the previous turn's tool controllers used to happen only on `aparte-send`.
-     * Retry and edit reset the flag and left them running, so a tool handler from the turn
-     * being superseded stayed alive — with its timeout still counting — while its reply was
-     * already off the active path. A cold audit found the asymmetry; three callers, one
-     * rule, no third copy to fall out of step.
+     * The superseded turn's TOOL handlers are not cancelled here, and do not need a
+     * registry of their own: `_streamTurn` aborts the previous `_streamController`, and
+     * the engine links every tool handler's controller to that run signal
+     * (`invokeToolHandler`), so cutting the stream cuts its tools. A `Set<AbortController>`
+     * used to sit here for that job and was never added to — three lines of loop over an
+     * empty set, plus a paragraph describing a cancellation the method did not perform.
      */
     private _beginUserTurn(): void {
         this._isAborted = false;
-        for (const controller of this._activeToolControllers) {
-            controller.abort();
-        }
-        this._activeToolControllers.clear();
     }
 
     /**
@@ -404,15 +393,6 @@ export class AparteClient {
             };
         }
         window.addEventListener('aparte-abort', this._boundAbortHandler);
-        if (!this._boundCompactHandler) {
-            this._boundCompactHandler = (e: Event) => {
-                if (!this._isForThisInstance(e)) return;
-                const detail = (e as CustomEvent).detail as { targetId?: string } | undefined;
-                void this.compact(detail?.targetId);
-            };
-        }
-        window.addEventListener('aparte-compact', this._boundCompactHandler);
-
         if (!this._boundRetryHandler) {
             this._boundRetryHandler = (e: Event) => {
                 const evt = e as CustomEvent;
@@ -454,10 +434,6 @@ export class AparteClient {
             window.removeEventListener('aparte-abort', this._boundAbortHandler);
             this._boundAbortHandler = null;
         }
-        if (this._boundCompactHandler) {
-            window.removeEventListener('aparte-compact', this._boundCompactHandler);
-            this._boundCompactHandler = null;
-        }
         if (this._boundRetryHandler) {
             window.removeEventListener('aparte-retry', this._boundRetryHandler);
             this._boundRetryHandler = null;
@@ -475,11 +451,6 @@ export class AparteClient {
     abort(): void {
         this._isAborted = true;
         this._streamController?.abort();
-        this._compactController?.abort();
-        for (const controller of this._activeToolControllers) {
-            controller.abort();
-        }
-        this._activeToolControllers.clear();
     }
 
     /*
@@ -503,9 +474,14 @@ export class AparteClient {
      * one queue, one panel slot, one teardown, and the same behaviour whether the
      * request came from a tool handler or from this gate.
      *
-     * The tool NAME is the question; the arguments stay in the transcript, on the pill
-     * this request is anchored to. A panel capped at 50vh cannot hold a diff or a plan,
-     * and the transcript is already scrollable, copyable and persisted.
+     * The tool NAME is the question and its ARGUMENTS are the body, because the
+     * arguments are what is being approved — a decision surface that names the act and
+     * hides its subject asks for a signature on a blank page. This paragraph used to
+     * say the opposite ("the arguments stay in the transcript"), and the guide beside
+     * it had always promised what the panel did not do. The transcript row stays the
+     * anchor; it is no longer the only place the call can be read. The panel is capped
+     * at 50vh and the block inside it scrolls, so a long input cannot push the options
+     * off the surface they are asked on.
      *
      * `aparte-tool-decision` is GONE with the buttons that dispatched it, and so is the
      * `document` listener that answered it. It existed only because a segment renderer
@@ -532,6 +508,11 @@ export class AparteClient {
                 const loc = this._config.getLocale();
                 return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name);
             },
+            // A plain string, not a function: the arguments are wire format — the JSON
+            // the model sent — and re-reading them on a language switch would produce
+            // exactly the same bytes. Same text the transcript row shows, from the same
+            // function, so the two surfaces cannot disagree about what is being run.
+            details: describeToolInput(event.input),
             // Functions, not strings, same as the question: these follow a language
             // switch while the request is open, which a resolved string cannot.
             options: [
@@ -617,9 +598,13 @@ export class AparteClient {
             return;
         }
         dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
+        // This turn's own controller: the terminal below is decided from ITS signal, not
+        // from the client-wide `_isAborted`, which the next send resets before the
+        // superseded turn has returned.
+        const streamController = new AbortController();
         try {
-            const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig);
-            if (this._isAborted) {
+            const usage = await this._streamLoop(targetElement, messageId, provider, baseRequest, authConfig, streamController);
+            if (this._isAborted || streamController.signal.aborted) {
                 // A stopped turn is FINISHED, and someone has to say so. The inline
                 // loop marks the message completed on its way out; the injected
                 // runner returns through `run-aborted` and never emits `run-done`,
@@ -641,193 +626,13 @@ export class AparteClient {
             // `reader.read()` nor the one on the `error` event can see it — and
             // `_handleLifecycleError` would REPLACE the message with an error
             // segment, turning a deliberate stop into a rendered failure.
-            if (this._isAborted) {
+            if (this._isAborted || streamController.signal.aborted) {
                 dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
                 return;
             }
             const aparteError = AparteError.from(error, AparteErrorCode.UNKNOWN_ERROR);
             this._handleLifecycleError(targetElement, messageId, aparteError);
-        }
-    }
-
-    /**
-     * Compact the current conversation: summarize all messages via the AI,
-     * clear the viewport, then inject the summary as a single context message.
-     *
-     * Triggered programmatically or by dispatching `window.dispatchEvent(new CustomEvent('aparte-compact'))`.
-     * Dispatches `aparte-compact-done` on window when complete, or `aparte-compact-error` on failure.
-     */
-    async compact(targetId?: string): Promise<void> {
-        // 1. Resolve target element — through the same resolver every other
-        // handler uses, so an explicit id wins over a document-wide scan. The
-        // scan alone meant a scoped client summarised whichever chat happened to
-        // come first in the DOM, not its own.
-        let target = this._resolveTarget<AparteChatTargetElement>(targetId);
-        if (target && typeof target.getMessages !== 'function') target = null;
-        if (!target) {
-            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: 'No aparte-chat target found' } }));
-            return;
-        }
-
-        const messages: AparteMessage[] = target.getMessages?.() ?? [];
-        if (messages.length === 0) {
-            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { skipped: true } }));
-            return;
-        }
-
-        // Decide what to summarize (`drop`) vs preserve verbatim (`keep`).
-        // Default: drop everything (summarize all, replace all — legacy behaviour).
-        const selector = this.options.compactionSelector
-            ?? ((m: AparteMessage[]) => ({ keep: [] as AparteMessage[], drop: m }));
-        const { keep, drop } = selector(messages);
-        if (drop.length === 0) {
-            // Nothing old enough to summarize (e.g. already within budget).
-            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { skipped: true } }));
-            return;
-        }
-
-        // 2. Resolve provider + model
-        const config = this._config.getModelConfig();
-        const providerId = config.defaultProvider;
-        if (!providerId) {
-            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: 'No provider configured' } }));
-            return;
-        }
-        const provider = this._config.getAIProvider(providerId);
-        if (!provider) {
-            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: `Provider '${providerId}' not found` } }));
-            return;
-        }
-
-        /**
-         * Compaction began — the point for a host to show a spinner, since summarising a
-         * long conversation is a model call and takes as long as one.
-         *
-         * On `window` rather than on the chat, because compaction is a page-level operation
-         * a host triggers; and with no detail, because everything worth knowing arrives on
-         * the three events that follow it.
-         *
-         * @event aparte-compact-start
-         */
-        window.dispatchEvent(new CustomEvent('aparte-compact-start'));
-
-        try {
-            // 4. Resolve auth
-            const authConfig = await this._resolveAuth(providerId);
-
-            // 5. Build summarize request — only over the dropped (old) turns
-            const historyMessages: AparteChatMessage[] = drop
-                .filter(m => m.role === 'user' || (m.role === 'assistant' && m.status === 'completed'))
-                .map(m => ({
-                    role: m.role as 'user' | 'assistant',
-                    content: this._extractText(m)
-                }))
-                .filter(m => contentToText(m.content).length > 0);
-
-            const summarizeRequest: AparteChatRequest = {
-                messages: [
-                    {
-                        role: 'system',
-                        content:
-                            'You are a conversation summarizer. ' +
-                            'Create a concise but complete summary of the conversation below. ' +
-                            'Capture: key topics, conclusions, decisions, ongoing tasks, and any context needed to continue the conversation. ' +
-                            'Write in third person. Be factual and brief. No preamble, just the summary.'
-                    },
-                    ...historyMessages,
-                    {
-                        role: 'user',
-                        content: 'Please summarize this conversation.'
-                    }
-                ],
-                modelId: config.defaultModel || '',
-                stream: false
-            };
-
-            // 6. Call provider (non-streaming), WITH a signal.
-            //
-            // This call had none, so `abort()` could not stop it: a summarisation the
-            // user cancelled kept running and kept being billed, and its result
-            // arrived to overwrite a conversation the user had moved on from. It goes
-            // through the same controller slot as a turn so `abort()` and `stop()`
-            // reach it.
-            // Its OWN slot. It used to take over `_streamController`, so a compaction
-            // started during a turn left that turn unabortable — Stop reached only the
-            // summarisation while the reply kept streaming and kept being billed.
-            const compactController = new AbortController();
-            this._compactController = compactController;
-            const response = await this._config.getTransport().chat(
-                provider, summarizeRequest, authConfig,
-                { providerId: provider.id, signal: compactController.signal },
-            );
-            let summary: string;
-            if (typeof response === 'string') {
-                summary = response;
-            } else {
-                // Collect stream fallback
-                const reader = (response as ReadableStream<AparteStreamEvent>).getReader();
-                const chunks: string[] = [];
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    if (value.type === 'text') chunks.push(value.delta);
-                }
-                reader.releaseLock();
-                summary = chunks.join('');
-            }
-
-            if (!summary.trim()) {
-                throw new Error('Empty summary returned by model');
-            }
-
-            // 7. Clear THIS viewport and inject the summary. The global
-            // `aparte-reset` used to go out instead, and every mounted viewport
-            // listens for it — so compacting one chat cleared the others too,
-            // with no summary injected into them. The broadcast remains only as
-            // the fallback for a host whose target exposes no clearAll.
-            const clearAll = (target as { clearAll?: () => void }).clearAll;
-            if (typeof clearAll === 'function') clearAll.call(target);
-            /**
-             * Empty every mounted transcript. A BROADCAST, and that is why it is the
-             * fallback rather than the path: every viewport on the page listens, so a
-             * host with two chats loses both. It goes out only when the target exposes
-             * no `clearAll()` of its own.
-             *
-             * No detail — there is nothing to say beyond "clear".
-             *
-             * @event aparte-reset
-             */
-            else window.dispatchEvent(new CustomEvent('aparte-reset'));
-
-            // Small delay to let clearAll() finish DOM cleanup
-            await new Promise<void>(resolve => setTimeout(resolve, 50));
-
-            target.appendMessage?.({
-                id: uuid(),
-                role: 'assistant',
-                // Through the locale, like every string the user reads — this was a
-                // hardcoded English title (with an emoji) in an otherwise localised
-                // transcript. The engine compactor's `summaryLabel` is a separate,
-                // per-call knob; this is the UI's own title.
-                content: `**${this._config.t('compactionSummaryTitle')}**\n\n${summary}`,
-                timestamp: Date.now(),
-                status: 'completed'
-            });
-
-            // 7b. Re-append the preserved recent turns verbatim after the summary.
-            // (No-op with the default selector, which keeps nothing.)
-            for (const kept of keep) {
-                target.appendMessage?.(kept);
-            }
-
-            // 8. Done
-            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary, kept: keep.length } }));
-
-        } catch (err: unknown) {
-            console.error('[AparteClient] compact() failed:', err);
-            const message = err instanceof Error ? err.message : String(err);
-            window.dispatchEvent(new CustomEvent('aparte-compact-error', { detail: { error: message } }));
         }
     }
 
@@ -1069,9 +874,12 @@ export class AparteClient {
             .filter(m => m.role === 'user' || m.role === 'assistant')
             .map(m => ({
                 role: m.role as 'user' | 'assistant',
-                content: this._extractText(m)
+                content: this._wireText(m)
             }));
     }
+
+    /** The "no model selected" warning is said once per client, not once per dropped send. */
+    private _warnedNoModel = false;
 
     private async _handleSend(event: CustomEvent): Promise<void> {
         const { content, modelId, providerId: explicitProviderId } = event.detail;
@@ -1177,6 +985,19 @@ export class AparteClient {
 
         // 1. Initial Checks (Sync Errors)
         if (!providerId) {
+            // Said once to the developer, who is the one who can fix it: the error
+            // segment below is appended to a message that does not exist yet, so on a
+            // page with no listener the send was simply dropped — the user's message
+            // sat there and nothing said why (issue #29).
+            if (!this._warnedNoModel) {
+                this._warnedNoModel = true;
+                console.warn(
+                    '[AparteClient] Send dropped: no model is selected. Call '
+                    + 'aparteGlobalConfig.setModelConfig({ defaultProvider, defaultModel }), mount '
+                    + '<aparte-model-selector auto-select>, or register one provider with a single '
+                    + 'model — that one is selected on its own.',
+                );
+            }
             this._handleLifecycleError(targetElement, messageId, new AparteError(
                 'No provider selected. Please configure a provider.',
                 AparteErrorCode.CONFIG_NO_PROVIDER
@@ -1272,9 +1093,20 @@ export class AparteClient {
             })
             .map(m => ({
                 role: m.role as 'user' | 'assistant',
-                content: this._extractText(m)
+                content: this._wireText(m)
             }))
             .filter(m => m.content.length > 0);
+    }
+
+    /**
+     * A message's text as the MODEL should read it — the one mapper both history
+     * paths use, so the compaction preamble cannot be applied on retry and edit and
+     * forgotten on the ordinary send, which is what the first review of this feature
+     * caught: the summary went out on every normal turn as something the user said.
+     */
+    private _wireText(message: AparteMessage): string {
+        const text = this._extractText(message);
+        return message.compaction ? `${COMPACTION_PREAMBLE}\n\n${text}` : text;
     }
 
     /**
@@ -1311,28 +1143,38 @@ export class AparteClient {
      *
      * Fences and the language tag are kept. Without them the model re-reads its own
      * code as prose — which is how it starts explaining a snippet it believes it
-     * wrote in English. Artifacts are included for the same reason: dropping them
-     * made an artifact the model had just produced invisible on the very next turn,
-     * so it could not be asked to change the thing it had built.
+     * wrote in English.
      *
-     * `thinking` stays out on purpose — it is the model's own scratchpad, and most
-     * APIs neither want it back nor bill for it kindly.
+     * A type core does not know — a registered block grammar's (an artifact, a
+     * citation, a file), a consumer's custom segment — follows one rule: its
+     * `content` if it has one, else its `fallback`, else nothing. Dropping such a
+     * segment made a document the model had just produced invisible on the very next
+     * turn, so it could not be asked to change the thing it had built; there used to
+     * be an `artifact` branch here for exactly that, and the rule is what replaces it
+     * now that the artifact is a plugin's type like any other.
+     *
+     * `thinking` and `tool_call` stay out on purpose — the first is the model's own
+     * scratchpad, and most APIs neither want it back nor bill for it kindly; the
+     * second is already in the history as a call and a result.
      */
     private _segmentsToText(segments: AparteMessage['segments']): string {
         if (!segments?.length) return '';
         const fence = '```';
         const parts: string[] = [];
         for (const segment of segments) {
-            const content = (segment as { content?: string }).content ?? '';
+            const content = (segment as { content?: string }).content;
             if (segment.type === 'text') {
                 if (content) parts.push(content);
             } else if (segment.type === 'code') {
                 const lang = (segment as { language?: string }).language ?? '';
-                parts.push(`${fence}${lang}\n${content}\n${fence}`);
-            } else if (segment.type === 'artifact') {
-                const title = (segment as { title?: string }).title ?? 'artifact';
-                const kind = (segment as { artifactType?: string }).artifactType ?? '';
-                parts.push(`${fence}${kind}\n<!-- artifact: ${title} -->\n${content}\n${fence}`);
+                parts.push(`${fence}${lang}\n${content ?? ''}\n${fence}`);
+            } else if (segment.type === 'thinking' || segment.type === 'tool_call' || segment.type === 'error') {
+                continue;
+            } else if (typeof content === 'string' && content) {
+                parts.push(content);
+            } else {
+                const fallback = (segment as { fallback?: string }).fallback;
+                if (fallback) parts.push(fallback);
             }
         }
         return parts.join('\n').trim();
@@ -1420,7 +1262,9 @@ export class AparteClient {
         messageId: string,
         provider: AparteAIProvider,
         baseRequest: AparteChatRequest,
-        authConfig: string | Record<string, string> | undefined
+        authConfig: string | Record<string, string> | undefined,
+        // Defaulted for a caller that drives the loop directly (the parity suite does).
+        streamController: AbortController = new AbortController(),
     ): Promise<AparteUsage | undefined> {
         // Fetch-level abort: aborting this controller (via `abort()`) cuts the
         // in-flight vendor request, so a user "stop" halts server-side generation
@@ -1442,7 +1286,11 @@ export class AparteClient {
         // assistant turns on one chat is not a state this UI has — and "we walked away
         // from a stream, so cancel it" is already the rule everywhere else here.
         this._streamController?.abort();
-        const streamController = new AbortController();
+        // The controller is the TURN's, created by `_streamTurn` and handed in, so the
+        // turn can read its own signal when it ends: `_isAborted` is client-wide and
+        // is reset by the next send, so a turn superseded by a retry on an earlier
+        // bubble came back to find it false and announced `aparte-message-done` for a
+        // reply that was cut mid-stream — clearing the NEW turn's streaming state.
         this._streamController = streamController;
 
         // The loop is the engine's. `streamRunner` lets a host wrap or replace it
@@ -1476,12 +1324,10 @@ export class AparteClient {
     ): Promise<AparteUsage | undefined> {
         const signal = streamController.signal;
 
-        const artifactHint = baseRequest._meta?.artifactHint;
         const adapter = createStreamAdapter({
             target: targetElement as StreamAdapterTarget,
             config: this._config,
             messageId,
-            artifactHint,
         });
         // `prefixSegments` (`_meta`) land right after the runner's `run-start` — the
         // flip to `status: 'streaming'` — so they sit on a streaming bubble, in the
@@ -1513,17 +1359,48 @@ export class AparteClient {
             const context = { target: targetElement as unknown as HTMLElement, config: this._config };
             return (call: AparteToolCall, sig: AbortSignal) => handler(call, sig, context);
         };
+        // The gate is decided per CALL, from the arguments, by the same ruling the
+        // channel below answers with — read live, not snapshotted, so a policy
+        // installed mid-turn governs the gate and the answer alike. With no policy
+        // registered `ruleOnToolCall` is exactly the tool's own flag. `'ask'` pauses
+        // and is announced; `'deny'` refuses without announcing a pause nobody will
+        // answer; `false` runs.
+        //
+        // A host that injected its own resolver owns the whole decision, so the policy
+        // must not decide the gate either — an `allow` would skip that resolver.
+        const hostOwnsDecision = Boolean(this.options.approvalResolver);
         const toolConfigLookup = (name: string) => {
             const tool = this._config.getTools().find(t => t.name === name);
-            return tool ? { maxTurns: tool.maxTurns, needsApproval: tool.needsApproval } : undefined;
+            if (!tool) return undefined;
+            return {
+                maxTurns: tool.maxTurns,
+                needsApproval: hostOwnsDecision
+                    ? tool.needsApproval
+                    : (call: AparteToolCall) => {
+                        const verdict = this._config.ruleOnToolCall(call).verdict;
+                        return verdict === 'allow' ? false : verdict;
+                    },
+            };
         };
         // The SAME channel the inline loop had. It used to be the `document` listener
         // while the inline loop asked at the composer — two loops asking two different
         // ways, which the parity suite cannot see because it supplies its own resolver
         // to both sides.
+        //
+        // A host's own resolver decides everything and sees no policy: it already
+        // chose to own the decision. The default channel consults the policy first — a
+        // `deny` refuses with the policy's own reason, never "the user rejected this".
         const approvalResolver = this.options.approvalResolver
-            ?? ((call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) =>
-                this._askForApproval(call, sig, targetElement as unknown as HTMLElement));
+            ?? (async (call: { id: string; name: string; input: Record<string, unknown> }, sig: AbortSignal) => {
+                const ruling = this._config.ruleOnToolCall(call);
+                if (ruling.verdict === 'allow') return { approved: true };
+                if (ruling.verdict === 'deny') {
+                    // Truthiness, not `??`: an empty reason would otherwise be the whole
+                    // tool_result, or fall through to "the user rejected this" downstream.
+                    return { approved: false, reason: ruling.reason?.trim() || 'Tool execution was refused by the approval policy.' };
+                }
+                return this._askForApproval(call, sig, targetElement as unknown as HTMLElement);
+            });
 
         const usage = await streamRunner({
             messageId,

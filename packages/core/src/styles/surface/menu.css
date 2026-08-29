@@ -11,7 +11,27 @@
          <button class="aparte-menu__item" role="menuitem">Retry</button>
          <div class="aparte-menu__separator" role="separator"></div>
          <button class="aparte-menu__item" role="menuitem" disabled>Delete</button>
+         <div class="aparte-menu__separator" role="separator"></div>
+         <span class="aparte-menu__label">Mode</span>
+         <button class="aparte-menu__item" role="menuitemradio" aria-checked="true">
+           <span class="aparte-menu__body">
+             Ask
+             <span class="aparte-menu__description">Every tool call waits for you</span>
+           </span>
+         </button>
+         <button class="aparte-menu__item" role="menuitemradio" aria-checked="false">
+           <span class="aparte-menu__body">
+             Auto
+             <span class="aparte-menu__description">Runs everything, reports after</span>
+           </span>
+         </button>
        </div>
+
+   The check mark is DRAWN HERE, not by you: an item carrying `aria-checked` (a
+   `menuitemradio` or `menuitemcheckbox`) reserves a gutter, and the glyph shows when
+   the value is `"true"` — so set the attribute and do not add a "✓" of your own, or the
+   row shows two. A two-line item wraps its name and its `__description` in a `__body`;
+   the gutter then spans both lines.
 
    WHERE it sits is yours. There is no positioning here and no anchoring logic —
    floating a box next to a trigger needs collision detection and a scroll listener,
@@ -118,6 +138,30 @@
 
 .aparte-menu__item[aria-checked='true']::before {
   visibility: visible;
+}
+
+/* A two-line item: a name and, under it, what choosing it means (a mode picker, a
+   model with its size). `__body` stacks the two so the check gutter spans both lines
+   — a consumer laid a grid over the item to get exactly this, and that grid was the
+   only piece of specificity CSS his menu needed. */
+.aparte-menu__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--aparte-space-1) / 2);
+  min-width: 0;
+}
+
+.aparte-menu__description {
+  font-size: var(--aparte-font-size-xs);
+  font-weight: var(--aparte-font-weight-normal);
+  color: var(--aparte-text-muted);
+  text-align: start;
+}
+
+.aparte-menu__item:disabled .aparte-menu__description,
+.aparte-menu__item[aria-disabled='true'] .aparte-menu__description {
+  color: inherit;
 }
 
 .aparte-menu__separator {

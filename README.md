@@ -125,8 +125,9 @@ Runnable examples for every framework (plus vanilla) live in
 | `@aparte/provider-ai-sdk` | Vercel AI SDK bridge (Anthropic, Google, 25+ vendors) |
 | `@aparte/provider-transformers` | In-browser inference via Transformers.js |
 | `@aparte/provider-scenario` | A scripted model — replays turns you wrote, for demos, docs and your own tests |
+| `@aparte/docs-mcp` | The docs as an MCP server — `npx @aparte/docs-mcp` lets your coding agent search and read them |
 | `@aparte/plugin-marked` · `-streaming-markdown` · `-shiki` | Markdown rendering + syntax highlighting |
-| `@aparte/plugin-model-selector` · `-ask-user` | A provider/model picker; a question-elicitation UI |
+| `@aparte/plugin-model-selector` · `-ask-user` · `-approval` · `-compaction` | A provider/model picker; a question-elicitation UI; approval modes (plan / ask / auto-edit / auto); conversation compaction |
 | `@aparte/locale-fr` | French UI strings (English is core's built-in default) |
 
 ## Documentation

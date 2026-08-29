@@ -37,7 +37,7 @@ import type {
 
 /** One thing the scripted model does, in order. */
 export type ScenarioStep =
-    /** Stream this text, chunk by chunk at the configured pace. Markdown and `<artifact>` tags are fine: core parses them. */
+    /** Stream this text, chunk by chunk at the configured pace. Markdown is parsed by core; a tagged block (`<artifact>`…) is too, once a grammar for it is registered (`@aparte/plugin-artifacts` does). */
     | { text: string }
     /** Stream this as reasoning (the thinking block). */
     | { thinking: string }
@@ -266,6 +266,18 @@ export function createScenarioProvider(options: ScenarioProviderOptions = {}): A
         }
         const key = match(request, scenarios) ?? defaultMatch(request, scenarios);
         const scenario = key !== undefined ? scenarios[key] : undefined;
+        if (!scenario) {
+            // Said, because the alternative was "Typing…" forever with an empty reply
+            // and nothing in the console (issue #29). The usual cause: `match()`
+            // returned the scenario OBJECT — the second argument hands you the objects,
+            // so it is an easy slip — where the loop needs its KEY.
+            const got = key === undefined ? 'nothing' : typeof key === 'string' ? `"${key}"` : `a ${typeof key}`;
+            console.warn(
+                `[provider-scenario] no scenario for this call: match() returned ${got}, and the keys are `
+                + `${Object.keys(scenarios).map((k) => `"${k}"`).join(', ') || '(none)'}. Return a key, or `
+                + '`undefined` to fall back to the default rule. Streaming an empty turn.',
+            );
+        }
         return scenario?.turn ?? '';
     };
 

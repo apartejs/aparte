@@ -63,15 +63,20 @@ type keeps the keys honest at compile time.
 
 ## Localising a plugin
 
-A plugin's strings live in the **same flat object** as core's — `AparteLocale` carries an index
-signature, so a key of your own is a key like any other, and `t()` returns it:
+A plugin's strings live in the **same flat object** as core's: `setLocale` and `extendLocale` accept
+keys of your own alongside core's, and `getLocale()` hands them back.
+
+Read it off `getLocale()`, not through `t()`. `AparteLocale` is the **closed** list of the strings
+core itself renders, and `t(key)` is deliberately narrow against it — that is what makes a misspelt
+core key a compile error instead of an empty label nobody notices. Your key is not on that list, so
+it is read directly and defaulted at the call site, which is where its English belongs anyway:
 
 ```ts
 import { aparteGlobalConfig, subscribeConfigChange, APARTE_DEFAULT_LOCALE } from '@aparte/core';
 
-// Your plugin owns both halves: the key AND its English. `t()` returns '' for a key
-// nobody supplied, so the plugin's own default belongs at the call site.
-const label = (): string => aparteGlobalConfig.t('myPluginRetry') || 'Try again';
+// Your plugin owns both halves: the key AND its English. An absent key reads
+// `undefined`, so the plugin's own default belongs at the call site.
+const label = (): string => aparteGlobalConfig.getLocale().myPluginRetry || 'Try again';
 
 // Relabel on a live language switch — the same seam core's own components use.
 // It returns an unsubscribe; call it when your element disconnects.

@@ -54,7 +54,8 @@
             <aparte-composer-toolbar>
               <!-- The context gauge: how full the model's window is. Hidden until the
                    first turn reports a usage and the model declares a window; with
-                   auto-compact it asks the client to compact on reaching 90 %. -->
+                   auto-compact it asks for a compaction on reaching 90 % — answered by
+                   `@aparte/plugin-compaction`, set up in main.ts. -->
               <aparte-context auto-compact style="flex: 1"></aparte-context>
               <aparte-model-selector style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
             </aparte-composer-toolbar>

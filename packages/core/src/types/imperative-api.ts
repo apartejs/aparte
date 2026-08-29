@@ -41,7 +41,7 @@ export interface AparteChatImperativeApi {
      */
     appendToSegment: (segmentId: string, content: string) => void;
     getMessages: () => AparteMessage[];
-    clearMessages: () => void;
+    clearMessages: (options?: { revokeAttachments?: boolean }) => void;
     // ── branch / edit ──
     addBranch: (messageId: string) => number;
     addSiblingOf: (existingId: string, message: AparteMessage) => string | null;

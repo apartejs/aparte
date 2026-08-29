@@ -41,11 +41,12 @@ apartejs/
 ├── e2e/                      Playwright browser smoke tests — drives the examples
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
-│   ├── engine/               @aparte/engine   — runStreamAgent + parity suites
+│   ├── engine/               @aparte/engine   — runStreamAgent (the loop, nothing else)
 │   ├── locales/              @aparte/locale-fr   (EN = core's built-in APARTE_DEFAULT_LOCALE)
 │   ├── providers/            @aparte/provider-{openai-compat, ai-sdk, transformers}
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
-│   │                         model-selector (light), ask-user}
+│   │                         model-selector (light), ask-user, approval, compaction}
+│   ├── tools/                @aparte/docs-mcp — the docs as an MCP server (Node, not in the lib)
 │   └── wrappers/             @aparte/{react, vue, svelte, angular}
 └── nx.json
 ```
@@ -97,14 +98,19 @@ put down on purpose, so a future session does not re-derive the answer from scra
   contract maintained for nobody. *Trigger: a consumer that wants the default row with a
   body of its own — which is the request to listen for, since it is the one thing
   `registerToolRenderer` cannot do today without copying core's markup.*
-- **The artifact rework (Paul's lot, direction decided — D7).** The artifact is today a
-  bidirectional app protocol living beside the segment system (file-gen events the app
-  dispatches, redownload/rehydrate, a preview builder, a binary cache, three ingestion
-  modes). The built-in `create_artifact` already proves the cleaner shape: **an artifact
-  is a tool call whose result is rendered richly** — a tool, a tool renderer, an
-  app-owned execution. Direction: converge toward that seam; keep only the `<artifact>`
-  stream recognition as a parser concern. D2 clears the ground first (two of the three
-  ingestion modes go). *Trigger: Paul opens the lot.*
+- **The artifact rework (D7) — DONE 2026-08-29.** It was a bidirectional app protocol
+  living beside the segment system (file-gen events the app dispatched,
+  redownload/rehydrate, a preview builder, a binary cache, three ingestion modes, a
+  built-in the engine executed outside any policy). It is `@aparte/plugin-artifacts`
+  now, end to end: a real `create_artifact` tool, the card as a tool renderer on its
+  structured result, the `<artifact>` grammar registered on the parser through
+  `registerStreamBlock`, the same card as the segment renderer, and `onBinary` in place
+  of the event handshake. Core keeps nothing artifact-shaped — what it gained is
+  generic: the block-grammar seam (`registerStreamBlock`, the model conventions
+  `<think>`/`<artifact>`/`<file>`/`<cite>` are one shape), `AparteToolRenderer.update`,
+  and one rule in the history serializer (an unknown type contributes its `content`,
+  else its `fallback`). Paul's second correction set the line — "la reconnaissance doit
+  être plugin": not even the tag is core's.
 
 ---
 
@@ -208,8 +214,9 @@ put down on purpose, so a future session does not re-derive the answer from scra
     - **D5** — `aparte-send` declares `modelId`/`providerId` (per-message model override).
     - **D6** — two legacies drop, as renames: the bubble's `role` attribute as message role
       (`data-role` only) and the viewport's `maxMessages` alias.
-    - **D7** — the artifact rework's direction is recorded, its lot is Paul's to open:
-      converge toward the tool/renderer seam (an artifact is a tool result rendered richly).
+    - **D7** — the artifact rework: converge toward the tool/renderer seam (an artifact is a
+      tool result rendered richly). Executed 2026-08-29 as `@aparte/plugin-artifacts` — see
+      the "Deferred" list above for what core kept (a generic seam) and what left (all of it).
 
 ---
 
@@ -255,7 +262,7 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
 ## ✅ Conventions & before you ship
 
 - **`pnpm gate` at the end of a lot, not per commit** — and `pnpm gate:full` (adds
-  `pnpm e2e`) before anything reaches `main`, always. The gate is now 30 steps, 23 of them
+  `pnpm e2e`) before anything reaches `main`, always. The gate is now 31 steps, 24 of them
   `check:*` guards (count them, don't trust this line:
   `node -e "const g=require('./package.json').scripts.gate.split('&&'); console.log(g.length, g.filter(s=>/pnpm check/.test(s)).length)"`):
   a full build, coverage with per-glob floors, `publint`/`attw` on 15
@@ -277,7 +284,7 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
   incomplete).
 - **A built-in's CSS goes in `packages/core/src/styles/`, never in a
-  `getStyles()` template literal.** Thirty-seven sheets there, one family each — count
+  `getStyles()` template literal.** Forty-three sheets there, one family each — count
   them, don't trust this line:
   `node -e "const s=require('fs').readFileSync('packages/core/src/index.ts','utf8');console.log((s.match(/^import '\.\/styles\//gm)||[]).length)"`.
   `theme.css` holds every token (light palette, dark overrides, derived layer);

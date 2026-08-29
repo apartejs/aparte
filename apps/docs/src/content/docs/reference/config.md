@@ -52,32 +52,7 @@ show/hide, class hooks). Each accepts `string | HTMLElement` and `null` clears i
 - `setSiblingNavRenderer(renderer: AparteSiblingNavRenderer | null): void` / `getSiblingNavRenderer(): AparteSiblingNavRenderer | null` — the `‹ N / M ›` branch-position indicator.
 - `setBubbleShellRenderer(renderer: AparteBubbleShellRenderer | null): void` / `getBubbleShellRenderer(): AparteBubbleShellRenderer | null` — the structural skeleton of `<aparte-chat-bubble>` (advanced; must honor the `.aparte-message` class-hook contract).
 - `setAvatarProvider(provider: AparteAvatarProvider | null): void` / `getAvatarProvider(): AparteAvatarProvider | null` — fills the avatar host element with custom DOM (e.g. a mounted framework component).
-- `setArtifactPreviewBuilder(builder: AparteArtifactPreviewBuilder): void` / `getArtifactPreviewBuilder(): AparteArtifactPreviewBuilder | undefined` — builds the `srcdoc` HTML for an artifact preview iframe. **This replaces the containment, not just the markup** — see below.
-
-:::danger[A preview builder replaces the sandbox's policy]
-The default builder injects a `<meta http-equiv="Content-Security-Policy">` into the
-document it produces: `default-src 'none'` with inline script and style only, no fetch,
-no XHR, no websocket, no remote image or font. The iframe's `csp` attribute carries the
-same policy, but that attribute is **Chromium-only** — on Firefox and Safari the meta tag
-is the only policy the frame has. So a builder that does not emit it hands
-model-authored code a frame that can load and run anything it likes from any origin.
-
-If you replace the builder, emit that meta tag yourself. Loading a library from a CDN
-inside a preview means dropping the policy, which is the whole reason the default does not.
-
-**What the sandbox contains either way**, because it is worth knowing precisely: the frame
-has `sandbox="allow-scripts"` and nothing else — no `allow-same-origin` (an opaque origin,
-so it cannot read your page, your storage, or your API key), no `allow-forms`, no
-`allow-top-navigation`.
-
-**What nothing contains:** the frame navigating *itself*. Assigning `location.href` is a
-navigation, not a fetch — CSP's `navigate-to` was removed from the spec and never shipped,
-and a parent-page `frame-src` does not apply to it. A previewed artifact can therefore
-phone home once, and on Firefox and Safari render the page it navigated to inside the card.
-Verified in all three engines. Treat previewing model-authored HTML as running untrusted
-content in a box, not as running nothing — which is why the Preview tab requires a click
-rather than opening on its own.
-:::
+- The artifact preview builder is not here any more: an artifact is [`@aparte/plugin-artifacts`](/plugins/artifacts/)'s, and its `preview` option takes the builder (with the sandbox note that used to sit on this page).
 
 ### Markdown, highlight & sanitizer
 
@@ -91,8 +66,8 @@ HTML before it is injected via `innerHTML`.
 - `setHighlightProvider(fn: AparteHighlightProvider): void` — a syntax highlighter, sync or async: `(code, lang) => string | Promise<string>`.
 - `hasHighlightProvider(): boolean` — whether a highlighter is registered.
 - `highlightCode(code: string, lang: string): Promise<string>` — highlight via the registered provider (sanitized), falling back to a plain `<pre><code>`.
-- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only).
-- `sanitizeHtml(html: string): string` — run the active sanitizer over provider-produced HTML.
+- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only). **What a link in a reply does by default:** the built-in sanitizer sends every link that resolves off-site to its own tab (`target="_blank" rel="noopener noreferrer"`) — `https://…`, `http://…`, and the spellings that resolve off-site just the same: the scheme-relative `//host`, a value written with leading whitespace, a backslash where a slash is expected (`/\host`), and a single slash after a scheme (`http:/host`). The link was written by the model and a bare anchor navigates the frame the chat lives in — in an Electron window, the whole app. A `target` in the model's own markup is a wish, not a decision: `_self` is honoured only on a link that was staying here anyway, anything else (`_top`, `_parent`, a named frame — and `_self` on an off-site link, where it would be a downgrade of the default rather than a preference) becomes that same new tab, and a model-written `rel` never survives. Same-site and in-page links are left as written. To route links yourself, listen for the bubble's cancelable `aparte-link-click` (`detail: { href, anchor, messageId }`, bubbles to the chat host) and call `preventDefault()`; no DOM interception needed.
+- `sanitizeHtml(html: string): string` — run the active sanitizer over provider-produced HTML. **Off the browser** (SSR, Node, a test runner with no `DOMParser`), the built-in degrades to a regex net: it drops the same dangerous tags — content and all, except the three document-structure tags (`html`, `head`, `body`), whose tags go but whose content stays, as a real parser would — and the same inline handlers and executable URL schemes, but a regex is not a parser and has known evasions. It is a safety net, not a security boundary; on a non-browser runtime rendering untrusted HTML, register a real sanitizer (DOMPurify + jsdom) here.
 
 ### System prompt
 
@@ -107,9 +82,9 @@ HTML before it is injected via `innerHTML`.
 Translatable UI strings (composer placeholder, Copy/Retry buttons, "thinking…", etc.).
 English ships in core as `APARTE_DEFAULT_LOCALE`; other languages are injected.
 
-- `setLocale(locale: AparteLocale): void` — replace the active locale.
-- `getLocale(): AparteLocale` — the active locale.
-- `extendLocale(translations: Partial<AparteLocale>): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
+- `setLocale(locale: AparteLocale & AparteLocaleExtensions): void` — replace the active locale. `AparteLocaleExtensions` is the open half (`Record<string, string | undefined>`): a plugin's own keys live there, while `t()` accepts only the keys `AparteLocale` declares — a typo in a key is a compile error, not an empty label.
+- `getLocale(): AparteLocale & AparteLocaleExtensions` — the active locale.
+- `extendLocale(translations: Partial<AparteLocale> & AparteLocaleExtensions): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
 - `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `APARTE_DEFAULT_LOCALE`.
 - `resetLocale(): void` — go back to `APARTE_DEFAULT_LOCALE`, dropping anything `setLocale`/`extendLocale` put there.
 
@@ -141,63 +116,14 @@ merged registry, a `zones` parameter picks where each appears.
 The affordances core renders but cannot complete — it only asks, through a DOM event, and
 your app does the work. Declare what you handle; the rest isn't offered.
 
-- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare any of **three**:
+- `setHostHandlers(config: AparteHostHandlersConfig): void` — declare what you handle. One today:
   - `attachmentPreview` — image tiles ask for a lightbox via `aparte-attachment-preview`.
-  - `artifactRedownload` — the download button on a **binary** artifact → `aparte-artifact-redownload`.
-  - `artifactRehydrate` — re-generating a **persisted** binary artifact when a saved conversation is re-opened → `aparte-artifact-ready`, dispatched on mount rather than at the end of a stream. Off by default for a stronger reason than the others: it is an automatic dispatch nobody asked for, carrying model-authored content the receiving app is expected to run. Reloading a conversation would otherwise re-execute whatever a prompt injection had persuaded the model to persist, on every reload.
 
-  All three default to `false`.
-- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, all three fields present. `Required<…>` on purpose: adding a fourth handler then fails to compile until every reader handles it, which is how the third came to be added at all.
+  Off by default. (`artifactRedownload` and `artifactRehydrate` left with the artifact: the plugin's `onBinary` is a function, not a declaration.)
+- `getHostHandlers(): Required<AparteHostHandlersConfig>` — the resolved declarations, every field present. `Required<…>` on purpose: adding a handler then fails to compile until every reader handles it.
 - `APARTE_DEFAULT_HOST_HANDLERS` — the shipped defaults (nothing declared).
 
 See the [Customization](/guides/customization/) guide.
-
-#### Completing a binary artifact: the file-generation handshake
-
-For a `pdf`, `xlsx` or `docx` artifact, core renders the card and then **waits on
-your app**: it owns no sandbox and no file generator. It dispatches
-`aparte-artifact-ready` on `window`, and the card stays at *Running sandbox…* until
-you answer with one of two events. Answering is not optional — a card with no answer
-waits forever.
-
-```ts
-// The artifact core wants generated.
-window.addEventListener('aparte-artifact-ready', async (e) => {
-  // `AparteArtifactReadyEventDetail`: the artifact's identity plus its content —
-  // { messageId, segmentId, mimeType, artifactType, title?, content }.
-  const { segmentId, content, mimeType } = e.detail;
-  try {
-    // Your generator, in your sandbox. Core never executes the model's code.
-    const { buffer, mime, filename, previewHtml } = await generateInSandbox(content, mimeType);
-    window.dispatchEvent(new CustomEvent('aparte-file-gen-ready', {
-      detail: {
-        segmentId,
-        filename,
-        buffer,                       // the file itself: Uint8Array | ArrayBuffer
-        bytes: buffer.byteLength,     // its SIZE, for the card's label
-        mime,
-        previewHtml,                  // markup for the preview pane, or null
-      },
-    }));
-  } catch (error) {
-    window.dispatchEvent(new CustomEvent('aparte-file-gen-error', {
-      detail: { segmentId, phase: 'generate', error: String(error) },
-    }));
-  }
-});
-```
-
-`aparte-file-gen-ready` carries
-`{ segmentId, filename, buffer, bytes, mime, previewHtml }`. Note the two that read
-alike: `buffer` is the file (`Uint8Array | ArrayBuffer`), `bytes` is its **size** as
-a number. `previewHtml` is markup for the card's preview pane, or `null`.
-`aparte-file-gen-error` carries
-`{ segmentId, phase?, error? }` and puts the card into its failed state. Both are
-matched on `segmentId`, so several artifacts can be in flight at once.
-
-Re-opening a saved conversation dispatches `aparte-artifact-ready` again only if you
-declared `artifactRehydrate` — see the handler list above for why that is off by
-default.
 
 ### Tools & tool renderers
 
@@ -205,9 +131,14 @@ default.
 - `unregisterTool(name: string): void` — remove a tool by name.
 - `getTools(): AparteTool[]` — all registered tool definitions (passed in the chat request).
 - `getToolHandler(name: string): AparteToolHandler | undefined` — the handler for a tool by name.
-- `registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void` — a per-tool segment renderer, controlling what appears in the bubble when that tool is called.
+- `registerToolRenderer(toolName: string, renderer: AparteToolRenderer): void` — a per-tool segment renderer, controlling what appears in the bubble when that tool is called: `render`, and optionally `setup`, `update` (patch in place when the call changes, instead of a rebuild), `relabel` (re-read the locale on a config change) and `getStyles`.
 - `unregisterToolRenderer(toolName: string): void` — remove a per-tool renderer.
+- `registerStreamBlock(block: AparteStreamBlock): void` — teach the stream parser a tagged block: `<tag attr="…">…</tag>` in the model's prose becomes the segment `block.toSegment` builds, streamed delta by delta (see [Teach the parser a block](/guides/customization/#teach-the-parser-a-block)). One grammar per tag; read when a turn starts.
+- `unregisterStreamBlock(tag: string): void` / `getStreamBlocks(): AparteStreamBlock[]` — forget a grammar; list the registered ones.
 - `getToolRenderer(toolName: string): AparteToolRenderer | undefined` — the renderer for a tool name, if any.
+- `setApprovalPolicy(policy: AparteApprovalPolicy | null): void` — decide per **call** whether a tool runs, asks, or is refused: `allow` runs without asking, `ask` puts the call to the person exactly as a `needsApproval` tool is, `deny` refuses it with the ruling's own `reason` as what the model reads. Returning `undefined` leaves the tool's `needsApproval` to decide; `null` removes the policy. A host that owns its `approvalResolver` on `AparteClientOptions` is not affected — that resolver already decides everything. The four modes ready-made: [`@aparte/plugin-approval`](/plugins/approval/).
+- `getApprovalPolicy(): AparteApprovalPolicy | null` — the registered policy, or `null`.
+- `ruleOnToolCall(call: AparteToolCall): AparteApprovalRuling` — what the policy says about one call, with the tool's own `needsApproval` as the answer when it has no opinion. The one place the two are combined, so the client's gate predicate and its approval channel cannot disagree.
 
 See the [Tools & human-in-the-loop](/guides/tools/) guide.
 
@@ -234,7 +165,7 @@ See the [Conversation persistence](/guides/conversation-persistence/) guide.
 - `setElicitationPresenter(presenter: AparteElicitationPresenter | null): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default.
 - `getElicitationPresenter(): AparteElicitationPresenter | undefined` — the registered presenter, if any.
 - `removeElicitationPresenter(presenter: AparteElicitationPresenter): void` — withdraw ONE presenter by identity, leaving the others registered. This is what an unmounting `<aparte-elicitation>` needs: `setElicitationPresenter(null)` clears the slot and takes every other mounted chat's presenter with it. Removing one that is not registered is a no-op.
-- `setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked' }): void` — how the built-in panel presents a request: whether a free-text "other" answer is offered alongside the choices, and whether questions come one at a time or all at once.
+- `setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked'; answerOnClick?: boolean }): void` — how the built-in panel presents a request: whether a free-text "other" answer is offered alongside the choices, whether questions come one at a time or all at once, and whether a single choice answers on the click (buttons, the default) or keeps its radios and the composer's button.
 - `getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' }` — the options in force, both resolved.
 - `setElicitationFieldRenderer(fn: AparteElicitationFieldRenderer | null): void` — draw one field of the panel yourself; `null` restores the built-in.
 - `getElicitationFieldRenderer(): AparteElicitationFieldRenderer | undefined` — the registered field renderer, if any.
@@ -258,7 +189,7 @@ setting them later does not change segments already on screen.
 ## `AparteClient`
 
 `AparteClient` (`packages/core/src/client/aparte-client.ts`) is "the automatic transmission for
-aparté" — it listens for `aparte-send` (and `aparte-retry`/`aparte-edit`/`aparte-abort`/`aparte-compact`)
+aparté" — it listens for `aparte-send` (and `aparte-retry`/`aparte-edit`/`aparte-abort`)
 on `window`, resolves the provider + key, calls the transport, and streams the parsed segments
 into the target element.
 
@@ -278,8 +209,7 @@ Constructor options (all optional):
 | Option | Type | Purpose |
 |---|---|---|
 | `keyResolver` | `(providerId: string) => string \| Record<string,string> \| Promise<... \| undefined \| null> \| undefined \| null` | Resolve the API key/config for a provider. |
-| `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`. |
-| `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: drop everything. |
+| `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` (the user's words) or a `reason` (nobody spoke) the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`, after consulting the `setApprovalPolicy()` policy if one is registered. With one, it owns the whole decision: the policy (and `@aparte/plugin-approval`'s modes) is not consulted at all. |
 | `fileInjectFilter` | `(file: File) => boolean` | Decide which attached files are read and sent to the model. Return `false` to keep one out of the request — e.g. `(f) => !/(^\|\.)env$\|\.(pem\|key)$/i.test(f.name)`. Without one, every attachment is sent. |
 | `streamRunner` | `AparteStreamRunner` | The loop runner — `@aparte/engine`'s `runStreamAgent` by default. Set it to wrap that loop's options (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })`) or to replace it with a loop of your own emitting the same events. |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |
@@ -295,10 +225,10 @@ Constructor options (all optional):
 ### Public methods
 
 - `constructor(options: AparteClientOptions = {})`
-- `start(): void` — attach the `aparte-send` / `aparte-abort` / `aparte-compact` / `aparte-retry` / `aparte-edit` listeners on `window`. Nothing streams before this is called.
+- `start(): void` — attach the `aparte-send` / `aparte-abort` / `aparte-retry` / `aparte-edit` listeners on `window`. Nothing streams before this is called.
 - `stop(): void` — remove all listeners.
 - `abort(): void` — abort the current streaming response and all active tool calls; dispatches `aparte-message-aborted` on the target element.
-- `compact(targetId?: string): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary. The `targetId` compacts ONE chat when several share a client, which is what `scopeToTargetId` exists for (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
+- Compaction is not a method of the client any more: `@aparte/plugin-compaction`'s `setupCompaction()` answers `aparte-compact` and summarises through the same transport — see [the plugin](/plugins/compaction/).
 
 ### The turn lifecycle events
 
@@ -307,8 +237,7 @@ host's `targetId` so several chats on one page stay isolated. All four are in th
 typed event map, so `e.detail` is typed on an `<aparte-chat>` or a viewport — and,
 since 0.8.0, under the `node` export condition too.
 
-The seven are `aparte-message-start`, `-done`, `-aborted` and `-error`, plus
-`aparte-artifact-start`, `-delta` and `-ready`. Their detail types and what each one
+The four are `aparte-message-start`, `-done`, `-aborted` and `-error`. Their detail types and what each one
 means are in the [events reference](/reference/events/#on-the-chat-host), which is
 generated from the source — this page used to repeat them in a table of its own, and a
 second copy of a list is a second copy to keep in step.

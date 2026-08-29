@@ -31,4 +31,4 @@ provider re-renders the finished message at full fidelity.
 The streaming path writes DOM nodes directly, so it bypasses the one-shot HTML sanitiser. To keep the
 same URL policy **live**, the plugin drops any `href`/`src` whose scheme fails core's `isSafeUrl` as it
 streams — a `[x](javascript:…)` token never becomes a clickable `javascript:` link, even if the scheme
-is split across two chunks. The one-shot re-render at completion remains the full re-sanitisation.
+is split across two chunks — and a link that resolves off-site (`https://…`, `//host`, a leading space, `http:/host`) gets `target="_blank" rel="noopener noreferrer"` live, the rule the sanitiser applies. The one-shot re-render at completion remains the full re-sanitisation.

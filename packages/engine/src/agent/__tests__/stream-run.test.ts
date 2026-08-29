@@ -241,6 +241,132 @@ describe('runStreamAgent — tools & HITL', () => {
         expect(handler).not.toHaveBeenCalled();
     });
 
+    it('a needsApproval PREDICATE gates per call: the allowed call never pauses, the other does', async () => {
+        const t = scriptedTransport([
+            [
+                { type: 'tool_use', id: 'c1', name: 'run', input: { cmd: 'ls' } },
+                { type: 'tool_use', id: 'c2', name: 'run', input: { cmd: 'rm -rf x' } },
+                { type: 'done' },
+            ],
+            [{ type: 'text', delta: 'Done.' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'ok' }));
+        const resolver = vi.fn(async () => ({ approved: true }));
+        const gate = vi.fn((call: { id: string; name: string; input: Record<string, unknown> }) => call.input['cmd'] !== 'ls');
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: gate }),
+            approvalResolver: resolver,
+        }));
+
+        // The predicate is handed the whole call — `name` is what a policy dispatches on.
+        expect(gate.mock.calls.map(c => c[0])).toEqual([
+            { id: 'c1', name: 'run', input: { cmd: 'ls' } },
+            { id: 'c2', name: 'run', input: { cmd: 'rm -rf x' } },
+        ]);
+        // One gate, for c2 only: c1 went straight from tool-start to tool-resolved.
+        const awaiting = rec.events.filter(e => e.type === 'tool-awaiting-approval');
+        expect(awaiting.map(e => (e as { toolCallId: string }).toolCallId)).toEqual(['c2']);
+        expect(resolver).toHaveBeenCalledOnce();
+        expect(handler).toHaveBeenCalledTimes(2);
+    });
+
+    it("a `'deny'` predicate refuses without announcing a pause — nobody is being asked", async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'write', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'Understood.' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: () => 'deny' }),
+            approvalResolver: async () => ({ approved: false, reason: 'Plan mode.' }),
+        }));
+        expect(rec.types()).not.toContain('tool-awaiting-approval');
+        expect(rec.types()).toContain('tool-rejected');
+        expect(handler).not.toHaveBeenCalled();
+        expect(t.calls[1]!.messages.find(m => m.role === 'tool_result')?.content).toBe('Plan mode.');
+    });
+
+    it('a refusal with a `reason` reaches the model verbatim — nobody said "the user rejected"', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'write', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'Understood.' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'nope' }));
+        const reason = 'Plan mode: write changes files; only read-only tools run.';
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ needsApproval: true }),
+            approvalResolver: async () => ({ approved: false, reason }),
+        }));
+
+        expect(handler).not.toHaveBeenCalled();
+        const rejected = rec.events.find(e => e.type === 'tool-rejected') as { reason: string } | undefined;
+        expect(rejected?.reason).toBe(reason);
+        const result = t.calls[1]!.messages.find(m => m.role === 'tool_result');
+        expect(result?.content).toBe(reason);
+        expect(String(result?.content)).not.toContain('user');
+    });
+
+    it("a handler's structuredContent rides on tool-resolved as structuredResult, and the model never sees it", async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'ask', input: {} }, { type: 'done' }],
+            [{ type: 'done' }],
+        ]);
+        const rec = recorder();
+        const value = { action: 'accept', answers: [{ question: 'Colour?', value: 'blue' }] };
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => async () => ({ content: 'Colour? → blue', structuredContent: value }),
+        }));
+        const resolved = rec.events.find(e => e.type === 'tool-resolved') as { result: string; structuredResult?: unknown };
+        expect(resolved.result).toBe('Colour? → blue');
+        expect(resolved.structuredResult).toEqual(value);
+        // The history carries the prose only: the value is for a renderer, not the model.
+        const toolResult = t.calls[1]!.messages.find(m => m.role === 'tool_result');
+        expect(toolResult?.content).toBe('Colour? → blue');
+        expect(JSON.stringify(toolResult)).not.toContain('structured');
+    });
+
+    it('a handler that throws settles its row on tool-failed BEFORE the run ends on that error', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'boom', input: {} }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        await expect(runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => async () => { throw new Error('disk full'); },
+        }))).rejects.toThrow('disk full');
+        // The row was announced with tool-start; it gets exactly one terminal event.
+        const failed = rec.events.find(e => e.type === 'tool-failed') as { toolCallId: string; error: string } | undefined;
+        expect(failed).toMatchObject({ toolCallId: 'c1', error: 'disk full' });
+        expect(rec.types().filter(x => x === 'tool-resolved' || x === 'tool-aborted')).toEqual([]);
+    });
+
+    it('a Stop during a handler ends the run with run-aborted — the terminal the host clears its state on', async () => {
+        const ac = new AbortController();
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'slow', input: {} }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter, signal: ac.signal,
+            toolLookup: () => (_call, signal) => new Promise((_resolve, reject) => {
+                signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+                ac.abort();
+            }),
+        }));
+        expect(rec.types()).toContain('tool-aborted');
+        expect(rec.types().slice(-2)).toEqual(['run-aborted', 'run-done']);
+    });
+
     it('a needsApproval tool with no resolver aborts rather than inventing a refusal', async () => {
         const t = scriptedTransport([[{ type: 'tool_use', id: 'c1', name: 'danger', input: {} }, { type: 'done' }]]);
         const rec = recorder();
@@ -283,19 +409,40 @@ describe('runStreamAgent — tools & HITL', () => {
 });
 
 describe('runStreamAgent — limits, abort & error', () => {
-    it('stops with a tool-scoped turn-limit when a tool maxTurns is reached', async () => {
+    it('stops with a tool-scoped turn-limit when a tool maxTurns is exceeded — the same arithmetic as the global cap', async () => {
         const t = scriptedTransport([
             [{ type: 'tool_use', id: 'c1', name: 'loop', input: {} }, { type: 'done' }],
             [{ type: 'tool_use', id: 'c2', name: 'loop', input: {} }, { type: 'done' }],
+            [{ type: 'tool_use', id: 'c3', name: 'loop', input: {} }, { type: 'done' }],
         ]);
         const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'again' }));
         await runStreamAgent(baseOpts({
             transportCall: t.transportCall, emitter: rec.emitter,
-            toolLookup: () => async () => ({ content: 'again' }),
+            toolLookup: () => handler,
             toolConfigLookup: () => ({ maxTurns: 2 }),
             maxTurns: 10,
         }));
-        expect(rec.events.find(e => e.type === 'turn-limit-exceeded')).toMatchObject({ scope: 'tool', limit: 2, toolCallId: 'c2' });
+        // `maxTurns: 2` on the tool means two calls, like `maxTurns: 2` on the run means
+        // two transport calls: the tool ran on turns 1 and 2 and is refused on turn 3.
+        expect(handler).toHaveBeenCalledTimes(2);
+        expect(rec.events.find(e => e.type === 'turn-limit-exceeded')).toMatchObject({ scope: 'tool', limit: 2, toolCallId: 'c3' });
+    });
+
+    it('a tool with maxTurns: 1 is callable once — it used to be un-callable', async () => {
+        const t = scriptedTransport([
+            [{ type: 'tool_use', id: 'c1', name: 'once', input: {} }, { type: 'done' }],
+            [{ type: 'text', delta: 'done' }, { type: 'done' }],
+        ]);
+        const rec = recorder();
+        const handler = vi.fn<StreamToolHandler>(async () => ({ content: 'ok' }));
+        await runStreamAgent(baseOpts({
+            transportCall: t.transportCall, emitter: rec.emitter,
+            toolLookup: () => handler,
+            toolConfigLookup: () => ({ maxTurns: 1 }),
+        }));
+        expect(handler).toHaveBeenCalledOnce();
+        expect(rec.types()).not.toContain('turn-limit-exceeded');
     });
 
     it('stops with a global turn-limit when maxTurns is exceeded', async () => {
@@ -334,8 +481,10 @@ describe('runStreamAgent — limits, abort & error', () => {
             transportCall: async () => streamOf([{ type: 'text', delta: 'a' }, { type: 'text', delta: 'b' }]),
             emitter, signal: ctrl.signal,
         }));
-        // 'b' is never read; text-flush still runs on the abort-break (like finalize()).
-        expect(events.map(e => e.type)).toEqual(['run-start', 'turn-start', 'text-delta', 'run-aborted', 'text-flush', 'run-done']);
+        // 'b' is never read; text-flush still runs on the abort-break (like finalize()),
+        // and `run-aborted` is decided once at the loop's exit — after the flush, so the
+        // withheld text lands before the abort is announced.
+        expect(events.map(e => e.type)).toEqual(['run-start', 'turn-start', 'text-delta', 'text-flush', 'run-aborted', 'run-done']);
     });
 
     it('throws on a stream error event without emitting run-done (caller handles it)', async () => {
@@ -346,37 +495,6 @@ describe('runStreamAgent — limits, abort & error', () => {
         ).rejects.toThrow('boom');
         // The throw escapes before text-flush and run-done (like _streamLoop).
         expect(rec.types()).toEqual(['run-start', 'turn-start', 'text-delta']);
-    });
-});
-
-describe('runStreamAgent — create_artifact built-in', () => {
-    it('bypasses the tool path (one-shot artifact-ready + success tool_result)', async () => {
-        const t = scriptedTransport([
-            [{ type: 'tool_use', id: 'c1', name: 'create_artifact', input: { mimeType: 'text/html', title: 'Page', content: '<h1>Hi</h1>' } }, { type: 'done' }],
-            [{ type: 'text', delta: 'Made it.' }, { type: 'done' }],
-        ]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: rec.emitter }));
-
-        expect(rec.types()).not.toContain('tool-start');
-        expect(rec.events.find(e => e.type === 'artifact-ready')).toEqual({
-            type: 'artifact-ready', id: 'artifact-c1', mimeType: 'text/html', kind: 'html', title: 'Page', content: '<h1>Hi</h1>',
-        });
-        const second = t.calls[1]!.messages;
-        expect(second.some(m => m.role === 'tool_result' && m.content === 'Artifact created successfully.' && m.toolCallId === 'c1')).toBe(true);
-        expect(second.some(m => m.role === 'tool_call' && m.toolCalls?.[0]?.id === 'c1')).toBe(true);
-    });
-
-    it('defaults mimeType/title/content when the input omits them', async () => {
-        const t = scriptedTransport([
-            [{ type: 'tool_use', id: 'c9', name: 'create_artifact', input: {} }, { type: 'done' }],
-            [{ type: 'done' }],
-        ]);
-        const rec = recorder();
-        await runStreamAgent(baseOpts({ transportCall: t.transportCall, emitter: rec.emitter }));
-        expect(rec.events.find(e => e.type === 'artifact-ready')).toEqual({
-            type: 'artifact-ready', id: 'artifact-c9', mimeType: 'text/plain', kind: 'text', title: 'text', content: '',
-        });
     });
 });
 

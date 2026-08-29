@@ -21,14 +21,22 @@
  * so listing ours would privilege our packages over theirs. Pass the names you need —
  * `events: ['aparte-model-change']` — which is one line for everyone equally.
  *
- * Two events are deliberately NOT here for a different reason. `aparte-abort` and
- * `aparte-message-aborted` go out through `window.dispatchEvent` — they concern the whole page, not one subtree —
- * so an element-level listener can never receive them and listing them would promise a
- * forward that cannot happen.
+ * Three events are deliberately NOT here for a different reason: `aparte-abort`,
+ * `aparte-compact` and `aparte-config-change` go out through `window.dispatchEvent` —
+ * they concern the whole page, not one subtree — so an element-level listener can never
+ * receive them and listing them would promise a forward that cannot happen.
  *
- * Keep in step with `packages/core/dist/custom-elements.json`: this list is what a
- * consumer gets without passing their own, so an event missing here is an event they
- * cannot hear through the proxy.
+ * `aparte-message-aborted` used to be named in that sentence, and it was wrong.
+ * `dispatchLifecycleEvent` dispatches it — with the other four lifecycle events — on the
+ * HOST ELEMENT, bubbling and composed (`client/lifecycle-events.ts`), and the composer's
+ * `window` dispatch is a SECOND, page-wide broadcast, not the only one. So the proxy
+ * could have forwarded it all along, and a wrapper consumer watching a turn end had to
+ * reach past `<AparteUi>` to `window` for no reason. The five lifecycle events are here
+ * now; the sentence above lists only what a `window` dispatch is the sole path for.
+ *
+ * `scripts/check-event-map.mjs` now asserts this list against every non-`window`
+ * dispatch in core, so "verified against core" is a check rather than a claim — which
+ * is what the first version of this docblock said while carrying seven of twenty-five.
  */
 export const APARTE_DEFAULT_UI_EVENTS = [
     // <aparte-composer> and its parts
@@ -45,6 +53,7 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-feedback',
     'aparte-message-info',
     'aparte-branch-navigate',
+    'aparte-link-click',
     // <aparte-chat-viewport>
     'aparte-segment-update',
     'aparte-reset-done',
@@ -54,11 +63,26 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-delete-conversation',
     'aparte-archive-conversation',
     'aparte-unarchive-conversation',
+    'aparte-rename-conversation',
+    'aparte-pin-conversation',
+    'aparte-unpin-conversation',
     // the select primitives
     'aparte-select-change',
     'aparte-select-open',
     'aparte-select-close',
     'aparte-optgroup-toggle',
+    // the shell and the transcript's own elements — the five the sweep found missing
+    'aparte-suggestion',
+    'aparte-context-threshold',
+    'aparte-scroll-rail-jump',
+    'aparte-sidebar-toggle',
+    'aparte-split-resize',
+    // the turn's lifecycle, dispatched on the HOST element by `dispatchLifecycleEvent`
+    'aparte-message-start',
+    'aparte-message-done',
+    'aparte-message-error',
+    'aparte-message-aborted',
+    'aparte-tool-approval-request',
 ] as const satisfies readonly string[];
 
 /**

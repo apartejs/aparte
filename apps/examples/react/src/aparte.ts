@@ -2,6 +2,7 @@ import '@aparte/core/styles.css';
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupArtifacts } from '@aparte/plugin-artifacts';
 import '@aparte/plugin-model-selector'; // registers <aparte-model-selector>
 import { applySystemPrompt, loadSettings, settingsKeyResolver } from './settings-store';
 
@@ -17,6 +18,8 @@ export function setupAparte(): void {
     started = true;
 
     setupMarkedProvider();
+    // The artifact is a plugin: tool, `<artifact>` grammar and the Code/Preview card.
+    setupArtifacts();
 
     // Both LOCAL and keyless: zero setup, zero account. A cloud provider used to
     // be registered here; its only visible trace was a key field for a service the

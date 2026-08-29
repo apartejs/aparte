@@ -88,14 +88,21 @@ export default defineConfig({
         // suite, the real-stream stamping test and the renderer-additivity tests
         // moved the global to 84.67% lines and 80.05% functions. The ratchet guard
         // asked for it — that is what a two-sided floor is for.
-        lines: 85,
-        statements: 85,
+        // Raised 85 -> 87 on 2026-08-28: `@aparte/docs-mcp` (fully covered) and the
+        // `copyText` fallback moved the global to 88.02%; the ratchet asked again.
+        // Raised 87 -> 89 on 2026-08-29 by the layout lot: `<aparte-split>` (49 tests
+        // over a pure geometry module and the element) and the settle suites moved the
+        // global to 90.20%. The ratchet asked a third time.
+        lines: 89,
+        statements: 89,
         // Raised with the typed element directives: 19 directives with a setter per
         // attribute and a listener per event moved the function and branch numbers, and
         // the table-driven suite in
         // `packages/wrappers/angular/src/lib/__tests__/element.directives.spec.ts`
         // exercises the whole surface rather than a sample.
-        functions: 81,
+        // Functions 81 -> 83 with D7 (2026-08-29): the artifact code that left core was
+        // its least-covered; measured 84.09% after. The ratchet asked for it.
+        functions: 83,
         branches: 85,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
@@ -113,7 +120,12 @@ export default defineConfig({
         // measures 95.34% branches on its own. What the client keeps is the glue around
         // that loop, which the suites reach less densely: measured 82.31%. Lines held
         // (86.99%), and functions rose to 98.08%, so 95 -> 97 — the ratchet asked.
-        'packages/core/src/client/**': { lines: 85, statements: 85, functions: 97, branches: 81 },
+        // Branches 81 -> 90 on 2026-08-29: the approval-policy suite (mid-turn policy, deny
+        // without a reason, the host resolver with the bypassing verdict) and the issue #29
+        // gate fixture moved the measurement to 91.56%; the two-sided ratchet asked.
+        // Lines/statements 85 -> 87 with D7 (2026-08-29): the artifact-hint promotion and
+        // the artifact lifecycle dispatcher left the client; measured 88.03% after.
+        'packages/core/src/client/**': { lines: 87, statements: 87, functions: 97, branches: 90 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -147,7 +159,12 @@ export default defineConfig({
         // already inside the band.
         // Functions raised 83 -> 85 after the audit lots of 2026-08-28 (the pipeline-waiting
         // renderer left with D2): measured 86.11%. The ratchet asked for it.
-        'packages/core/src/renderers/**': { lines: 75, statements: 75, functions: 85, branches: 72 },
+        // All four raised at once by D7 (2026-08-29): the artifact card, its binary path
+        // and its preview builder — ~1 200 lines, the least-covered code in the glob —
+        // left for `@aparte/plugin-artifacts`, and what stays measures 95.53% lines /
+        // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
+        // ~1.5 points under the measurement, as the ratchet asked.
+        'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 80 },
       },
     },
   },
