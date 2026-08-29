@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { defaultSanitizer as s } from '../sanitize';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { defaultSanitizer as s, DANGEROUS_TAGS } from '../sanitize';
 import { AparteConfig } from '../aparte-config';
 
 describe('defaultSanitizer', () => {
@@ -197,10 +197,135 @@ describe('defaultSanitizer', () => {
             expect(s('<a href="mailto:a@b.c">x</a>')).not.toContain('target=');
         });
 
-        it('respects a target the markup already carries', () => {
-            const out = s('<a href="https://x.com" target="_self">x</a>');
-            expect(out).toContain('target="_self"');
-            expect(out).not.toContain('noopener');
+        /*
+         * A model does not choose where its link lands. `target` used to be
+         * allowlisted and copied through, so `_top`/`_parent` broke out of the
+         * frame the chat lives in, and a NAMED target (`target="victimframe"`)
+         * kept a live `window.opener` on the opened page — reverse tabnabbing,
+         * the exact thing the `_blank` branch below exists to prevent. `rel` was
+         * allowlisted too, so `rel="opener"` cancelled the hardening.
+         */
+        describe('a model-supplied target is clamped', () => {
+            for (const wish of ['_top', '_parent', '_search', 'victimframe', '_TOP']) {
+                it(`turns target="${wish}" into a new tab it cannot reach back into`, () => {
+                    const out = s(`<a href="https://x.com" target="${wish}">x</a>`);
+                    expect(out).toContain('target="_blank"');
+                    expect(out).toContain('rel="noopener noreferrer"');
+                    expect(out.toLowerCase()).not.toContain(wish.toLowerCase());
+                });
+            }
+
+            it('clamps a named target on a SAME-SITE link too — the frame escape does not need an external URL', () => {
+                const out = s('<a href="/docs" target="_top">x</a>');
+                expect(out).toContain('target="_blank"');
+                expect(out).toContain('rel="noopener noreferrer"');
+                expect(out).not.toContain('_top');
+            });
+
+            it('respects target="_self" on a link that was staying here anyway', () => {
+                const out = s('<a href="/docs" target="_self">x</a>');
+                expect(out).toContain('target="_self"');
+                expect(out).not.toContain('noopener');
+            });
+
+            /*
+             * `_self` is honoured only where it changes nothing a browser would
+             * not already do. On an EXTERNAL href it is the one value that
+             * downgrades the protection: the same link with no `target` opens a
+             * new tab, so honouring the model's `_self` would hand it exactly the
+             * outcome the clamp exists to refuse — the chat's own frame replaced,
+             * in an Electron window the whole application.
+             */
+            it('refuses target="_self" on an external link — it is a downgrade, not a preference', () => {
+                const out = s('<a href="https://evil.example" target="_self">Continue</a>');
+                expect(out).toContain('target="_blank"');
+                expect(out).toContain('rel="noopener noreferrer"');
+                expect(out).not.toContain('_self');
+            });
+
+            it('drops rel="opener", which would have cancelled the hardening', () => {
+                const out = s('<a href="https://x.com" rel="opener">x</a>');
+                expect(out).toContain('rel="noopener noreferrer"');
+                expect(out).not.toMatch(/rel="[^"]*\bopener\b/);
+            });
+
+            it('drops a model rel entirely when the link stays in this tab', () => {
+                const out = s('<a href="/docs" target="_self" rel="opener noreferrer">x</a>');
+                expect(out).toContain('target="_self"');
+                expect(out).not.toContain('rel=');
+            });
+        });
+
+        /*
+         * `//host` and a leading space are the two spellings of an external URL
+         * the accept path already normalises (`isSafeUrl` strips control/space
+         * chars) but the hardening below did not: it tested the RAW attribute
+         * against `^https?://`, so both walked past `target="_blank"` and landed
+         * in the chat's own frame.
+         */
+        describe('external links written to dodge the check', () => {
+            for (const [label, href] of [
+                ['scheme-relative', '//attacker.example/phish'],
+                ['leading space', ' https://evil.example'],
+                ['leading newline', '\nhttps://evil.example'],
+                ['leading tab', '\thttps://evil.example'],
+                // A backslash IS a slash to a URL parser on a special scheme, and
+                // a single slash after a scheme that differs from the page's enters
+                // authority state. All three resolve to a host — measured with
+                // Node's WHATWG URL against base `https://site.example/chat/`:
+                // `/\evil.example` → https://evil.example/, `http:/evil.example`
+                // and `http:/\evil.example` → http://evil.example/.
+                ['backslash for slash', '/\\evil.example'],
+                ['one slash after a scheme', 'http:/evil.example'],
+                ['one slash and a backslash', 'http:/\\evil.example'],
+            ] as const) {
+                it(`hardens a ${label} URL like every other external link`, () => {
+                    const out = s(`<a href="${href}">x</a>`);
+                    expect(out).toContain('target="_blank"');
+                    expect(out).toContain('rel="noopener noreferrer"');
+                });
+            }
+
+            for (const href of ['/docs', '#top', './rel', '?q=1', 'mailto:a@b.c', 'tel:+15550100']) {
+                it(`leaves ${href} in this tab`, () => {
+                    const out = s(`<a href="${href}">x</a>`);
+                    expect(out).not.toContain('target=');
+                    expect(out).not.toContain('rel=');
+                });
+            }
+        });
+    });
+
+    /*
+     * `class` is allowlisted (a highlighter's output is mostly classes), which
+     * let model-authored markup WEAR core's own names: a bubble containing
+     * `<div class="aparte-approval-option aparte-btn">Approve</div>` painted a
+     * pixel-perfect approval button inside the transcript. Core owns the
+     * `aparte-` prefix everywhere it emits a class, so nothing arriving from a
+     * provider may carry one. `language-*` is the one class a highlighter needs
+     * and it is not ours.
+     */
+    describe('model markup cannot wear core class names', () => {
+        it('strips an aparte- class token', () => {
+            const out = s('<div class="aparte-approval-option aparte-btn">Approve</div>');
+            expect(out).toContain('Approve');
+            expect(out).not.toContain('aparte-');
+            expect(out).not.toContain('class=');
+        });
+
+        it('keeps every class that is not ours, in the same attribute', () => {
+            const out = s('<span class="shiki aparte-btn token">x</span>');
+            expect(out).toContain('shiki');
+            expect(out).toContain('token');
+            expect(out).not.toContain('aparte-btn');
+        });
+
+        it('keeps language-* — the class a highlighter is identified by', () => {
+            expect(s('<code class="language-ts">x</code>')).toContain('language-ts');
+        });
+
+        it('is case-insensitive: HTML class matching is not the whole story, but the spoof is', () => {
+            expect(s('<div class="APARTE-Btn">x</div>')).not.toMatch(/aparte-/i);
         });
     });
 
@@ -215,7 +340,11 @@ describe('defaultSanitizer', () => {
  * targeted cases above with the harder evasions a real attacker reaches for.
  */
 describe('defaultSanitizer — XSS bypass corpus', () => {
-    const FORBIDDEN = /\son[a-z]+\s*=|javascript:|vbscript:|<script|<svg|<iframe|<object|<embed|<form|<math|<applet|expression\s*\(|formaction/i;
+    // `rel="noopener noreferrer"` contains the letters of `opener`, so the marker
+    // is word-bounded: it fires on `rel="opener"` and never on the hardening.
+    // `target="_self"` is in the list because on an external href it is the one
+    // wish that DOWNGRADES the default (a new tab) back to the chat's own frame.
+    const FORBIDDEN = /\son[a-z]+\s*=|javascript:|vbscript:|<script|<svg|<iframe|<object|<embed|<form|<math|<applet|expression\s*\(|formaction|target="_(?:top|parent|self)"|rel="[^"]*\bopener\b/i;
     const PAYLOADS = [
         // event handlers — quoting / spacing / casing
         '<img src=x onerror=alert(1)>',
@@ -250,6 +379,15 @@ describe('defaultSanitizer — XSS bypass corpus', () => {
         // malformed / mutation
         '<img src=x onerror=alert(1)//',
         '<p><script>alert(1)</script>ok</p>',
+        // frame escape / reverse tabnabbing (the target is the model's, not ours)
+        '<a href="https://x.com" target="_top">x</a>',
+        '<a href="/docs" target="_parent">x</a>',
+        '<a href="https://x.com" rel="opener">x</a>',
+        '<a href="https://x.com" target="_blank" rel="opener">x</a>',
+        '<a href="https://x.com" target="_self">x</a>',
+        // an off-site URL `^https?://` never saw, asking to stay in this frame
+        '<a href="/\\evil.example" target="_self">x</a>',
+        '<a href="http:/evil.example" target="_self">x</a>',
     ];
     for (const payload of PAYLOADS) {
         it(`neutralizes ${JSON.stringify(payload).slice(0, 56)}`, () => {
@@ -350,5 +488,106 @@ describe('defaultSanitizer — srcset follows the same URL allowlist as src', ()
     it('allows data:image on <source> too — inside a <picture> it feeds an <img>', () => {
         expect(attr('<picture><source srcset="data:image/webp;base64,AAA 1x"></picture>'))
             .toContain('data:image/webp');
+    });
+});
+
+/**
+ * The Node/SSR path — `defaultSanitizer` degrades to a regex net when there is
+ * no `DOMParser`, and until this suite existed the ENTIRE branch was untested.
+ *
+ * Two defects it hid. The net's two tag lists disagreed: `svg`, `math` and
+ * `form` were only in the paired pass, so an UNCLOSED one walked straight
+ * through. And its handler stripper demanded whitespace before `on…`, while
+ * HTML also ends an attribute at `/` and at the closing quote — so
+ * `<img src=x/onerror=…>` kept its handler.
+ *
+ * Both lists are now derived from `DANGEROUS_TAGS`, which is why this suite
+ * loops over the Set rather than a copy of it.
+ */
+describe('fallbackScrub (no DOMParser — the Node/SSR path)', () => {
+    const noDom = (html: string): string => {
+        vi.stubGlobal('DOMParser', undefined);
+        return s(html);
+    };
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    it('is the branch under test (a stubbed-away DOMParser really is gone)', () => {
+        vi.stubGlobal('DOMParser', undefined);
+        expect(typeof DOMParser).toBe('undefined');
+    });
+
+    describe('`/` and a closing quote separate attributes, just like a space', () => {
+        for (const payload of [
+            '<img src=x onerror=alert(1)>',
+            '<img src=x/onerror=alert(1)>',
+            '<img src="x"onerror="alert(1)">',
+            "<img src='x'onerror='alert(1)'>",
+            '<img/onerror=alert(1) src=x>',
+        ]) {
+            it(`strips the handler in ${payload}`, () => {
+                expect(noDom(payload)).not.toMatch(/onerror/i);
+            });
+        }
+
+        /*
+         * Two handlers written back to back. The match CONSUMES the separator
+         * in front of it, so a single pass eats the quote that would have
+         * separated the second one and leaves it standing — a live `on*`
+         * attribute out of the very net this branch exists to be. Every payload
+         * above carries one handler, which is why one pass looked sufficient.
+         */
+        for (const payload of [
+            '<img src=x onload="0"onerror="alert(1)">',
+            '<img src=x/onload="0"onerror="alert(1)">',
+            "<img src=x onload='0'onerror='alert(1)'>",
+            '<img src=x onload=0 onerror=alert(1)>',
+        ]) {
+            it(`strips BOTH handlers in ${payload}`, () => {
+                const out = noDom(payload);
+                expect(out).not.toMatch(/onerror/i);
+                expect(out).not.toMatch(/onload/i);
+            });
+        }
+    });
+
+    describe('every dangerous tag, closed or not', () => {
+        // Content is kept for the three document-structure tags: a real parser
+        // hoists them away and keeps what they wrap, so eating the text would
+        // lose the answer rather than protect anyone.
+        const UNWRAPPED = new Set(['html', 'body', 'head']);
+
+        it('reads the whole Set (a corpus that silently shrinks is the failure worth catching)', () => {
+            expect(DANGEROUS_TAGS.size).toBeGreaterThanOrEqual(26);
+        });
+
+        for (const tag of DANGEROUS_TAGS) {
+            it(`removes a lone <${tag}> open tag`, () => {
+                const out = noDom(`<${tag} onload=alert(1)>after`);
+                expect(out).not.toContain(`<${tag}`);
+                expect(out).not.toMatch(/onload/i);
+                expect(out).toContain('after');
+            });
+
+            it(`removes <${tag}>…</${tag}> ${UNWRAPPED.has(tag) ? 'but keeps what it wrapped' : 'content and all'}`, () => {
+                const out = noDom(`<${tag}>secret</${tag}>`);
+                expect(out).not.toContain(`<${tag}`);
+                if (UNWRAPPED.has(tag)) expect(out).toContain('secret');
+                else expect(out).not.toContain('secret');
+            });
+        }
+
+        it('removes an unclosed <svg>/<math>/<form> — the case the two lists disagreed about', () => {
+            for (const tag of ['svg', 'math', 'form']) {
+                expect(noDom(`<${tag} onload=alert(1)>tail`)).not.toContain(`<${tag}`);
+            }
+        });
+    });
+
+    it('still strips a javascript: href', () => {
+        expect(noDom('<a href="javascript:alert(1)">x</a>')).not.toContain('javascript:');
+    });
+
+    it('leaves ordinary prose alone', () => {
+        expect(noDom('<p>hello <strong>world</strong></p>')).toBe('<p>hello <strong>world</strong></p>');
     });
 });

@@ -17,8 +17,15 @@
 
 export type AparteSanitizer = (html: string) => string;
 
-/** Tags dropped wholesale — content and all (never unwrapped to text). */
-const DANGEROUS_TAGS = new Set([
+/**
+ * Tags dropped wholesale — content and all (never unwrapped to text).
+ *
+ * Exported for the DOM-free path's own suite: both of `fallbackScrub`'s regexes
+ * are built from this Set, and the test that proves it loops over the Set rather
+ * than a copy. Not re-exported from the package barrel — it is core's list, not
+ * a contract.
+ */
+export const DANGEROUS_TAGS = new Set([
     'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed',
     'applet', 'form', 'button', 'textarea', 'select', 'option', 'optgroup',
     'link', 'meta', 'base', 'title', 'head', 'html', 'body', 'template',
@@ -48,7 +55,10 @@ const GLOBAL_ATTRS = new Set([
 
 /** Extra attributes allowed on specific tags. */
 const TAG_ATTRS: Record<string, Set<string>> = {
-    a: new Set(['href', 'target', 'rel']), // legacy `name` dropped — obsolete + a DOM-clobbering vector
+    // `target` and `rel` are NOT copied from the model's markup — `copyAttributes`
+    // decides both below. Legacy `name` is dropped too (obsolete + a DOM-clobbering
+    // vector).
+    a: new Set(['href']),
     img: new Set(['src', 'alt', 'width', 'height', 'loading', 'srcset', 'sizes', 'decoding']),
     source: new Set(['src', 'srcset', 'type', 'media', 'sizes']),
     input: new Set(['type', 'checked', 'disabled']),
@@ -85,6 +95,40 @@ const SAFE_DATA_IMG = /^data:image\/(?:png|jpe?g|gif|webp|avif|bmp|x-icon|svg\+x
 /** Whitespace + C0 control chars, used to obfuscate a scheme (e.g. " javascript:" or "java\tscript:"). */
 // eslint-disable-next-line no-control-regex -- stripping C0 control chars is intentional (anti-obfuscation)
 const CONTROL_WS = /[\u0000-\u0020]+/g;
+
+/**
+ * A URL that leaves this site: `https://host`, `http://host`, the scheme-relative
+ * `//host` a browser resolves against the page's own scheme, and the two
+ * spellings of those a URL parser accepts but a reader does not expect.
+ *
+ * It is tested against a value already run through `CONTROL_WS`, the same
+ * normalisation the accept path (`isSafeUrl`) applies. The check used to read the
+ * RAW attribute against `^https?:\/\//`, so `//attacker.example` and
+ * `" https://attacker.example"` — both accepted, both external — kept the default
+ * target and navigated the frame the chat lives in, which is the one thing the
+ * hardening in `copyAttributes` exists to prevent.
+ *
+ * Two more spellings then survived that widening, and the allowlist accepts both:
+ * a BACKSLASH is a slash to a URL parser on a special scheme (`/\evil.example`
+ * matches `RELATIVE_URL`'s leading `/`), and a SINGLE slash after an explicit
+ * scheme enters authority state when that scheme differs from the page's
+ * (`http:/evil.example` matches `SAFE_URL`). Measured with Node's WHATWG URL
+ * against base `https://site.example/chat/`: `/\evil.example` →
+ * `https://evil.example/`, `http:/evil.example` and `http:/\evil.example` →
+ * `http://evil.example/`. Hence `[/\\]` in both branches.
+ *
+ * `https:/path` — a single slash after the SAME scheme — matches too and resolves
+ * same-site. Sending that one degenerate spelling to a new tab is harmless; the
+ * alternative is resolving, which is exactly what this must not do.
+ *
+ * Deliberately NOT `new URL(v, document.baseURI)`: this module has a documented
+ * DOM-free path, and resolving would silently turn the rule into "cross-origin"
+ * rather than "external".
+ */
+const EXTERNAL_URL = /^(?:https?:)?[/\\]{2}|^https?:[/\\]/i;
+
+/** Core owns this prefix on every class it emits, so nothing model-authored may wear one. */
+const APARTE_CLASS = /^aparte-/i;
 
 /**
  * True when a URL is safe to place in a `href`/`src` attribute. Exported so a
@@ -237,6 +281,20 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
             dest.setAttribute('style', scrubbed);
             continue;
         }
+        if (name === 'class') {
+            // `class` is allowlisted because a highlighter's output is mostly
+            // classes — and that let model-authored markup WEAR core's own names:
+            // `<div class="aparte-approval-option aparte-btn">Approve</div>` painted
+            // a pixel-perfect approval button inside the transcript, and every other
+            // core surface can be forged the same way. Core owns the `aparte-` prefix
+            // wherever it emits a class, so nothing arriving from a provider keeps
+            // one. Everything else survives, `language-*` included — that is the
+            // class highlighters are identified by, and it is not ours.
+            const kept = value.split(/\s+/).filter((token) => token && !APARTE_CLASS.test(token));
+            if (!kept.length) continue;
+            dest.setAttribute('class', kept.join(' '));
+            continue;
+        }
         dest.setAttribute(name, value);
     }
     if (tag === 'a') {
@@ -246,12 +304,25 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
         // sets no `target`, so until now every reply link did exactly that. A host that
         // routes links itself listens for the bubble's cancelable `aparte-link-click`.
         // Same-site and in-page links (relative, `#`, `mailto:`) are left as written.
-        const href = dest.getAttribute('href') ?? '';
-        if (/^https?:\/\//i.test(href) && !dest.hasAttribute('target')) {
+        //
+        // What the model does NOT get is the choice. `target` used to be copied
+        // through, so `_top`/`_parent` broke out of the frame anyway — no external URL
+        // required — and a NAMED target (`target="victimframe"`) opened a page holding
+        // a live `window.opener`, the reverse-tabnabbing this code hardens against two
+        // lines down. `rel` came through too, so `rel="opener"` simply cancelled it.
+        // So the attribute is read as a WISH and clamped: `_self` is honoured
+        // where it changes nothing a browser would not already do — i.e. on a link
+        // that was staying here anyway — and anything else becomes a new tab that
+        // cannot reach back. `_self` on an EXTERNAL href is not a preference, it
+        // is a downgrade: the same link with no `target` opens a new tab, so
+        // honouring it would hand the model precisely the outcome named above.
+        const href = (dest.getAttribute('href') ?? '').replace(CONTROL_WS, '');
+        const wish = (src.getAttribute('target') ?? '').trim().toLowerCase();
+        if (wish === '_self' && !EXTERNAL_URL.test(href)) {
+            dest.setAttribute('target', '_self');
+        } else if (wish || EXTERNAL_URL.test(href)) {
             dest.setAttribute('target', '_blank');
-        }
-        // Harden links opened in a new tab against reverse-tabnabbing.
-        if (dest.getAttribute('target') === '_blank') {
+            // Harden links opened in a new tab against reverse-tabnabbing.
             dest.setAttribute('rel', 'noopener noreferrer');
         }
     }
@@ -279,18 +350,61 @@ function sanitizeChildren(src: Node, dest: Node, doc: Document): void {
 }
 
 /**
+ * The three document-structure tags, kept out of the paired pass below: a real
+ * parser hoists them and keeps what they wrapped, so eating their content would
+ * lose the answer rather than protect anyone. Their tags still go (the lone pass
+ * takes them, `<body onload=…>` included).
+ */
+const UNWRAPPED_TAGS = new Set(['html', 'head', 'body']);
+
+const DANGEROUS_ALT = Array.from(DANGEROUS_TAGS).join('|');
+const DANGEROUS_PAIRED_ALT = Array.from(DANGEROUS_TAGS).filter((t) => !UNWRAPPED_TAGS.has(t)).join('|');
+
+/** `<script>…</script>` — the tag and everything it wrapped. */
+const PAIRED_DANGEROUS = new RegExp(`<\\s*(${DANGEROUS_PAIRED_ALT})\\b[\\s\\S]*?<\\s*\\/\\s*\\1\\s*>`, 'gi');
+/** Whatever the pass above could not pair: an unclosed `<svg>`, a stray `</form>`. */
+const LONE_DANGEROUS = new RegExp(`<\\s*\\/?\\s*(?:${DANGEROUS_ALT})\\b[^>]*>`, 'gi');
+/**
+ * An inline handler, and what may sit in front of it. HTML ends an attribute at a
+ * space, at `/`, and at the closing quote of the previous value — so
+ * `<img src=x/onerror=…>` and `<img src="x"onerror="…">` are both handlers, and a
+ * leading `\s` saw neither. The match is replaced by a SPACE, not by nothing, so
+ * removing the attribute cannot glue its neighbours into one token.
+ */
+const INLINE_HANDLER = /["'/\s]on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+/**
+ * A URL-bearing attribute carrying an executable (or document-typed) scheme.
+ * Unanchored on purpose: unlike the handler above it requires no separator, so
+ * demanding one would only create a hole (`<a x=1href=javascript:…>`).
+ */
+const UNSAFE_SCHEME_ATTR = /(?:href|src|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript|data):[^"]*"|'\s*(?:javascript|vbscript|data):[^']*'|(?:javascript|vbscript|data):[^\s>]*)/gi;
+
+/**
  * Best-effort scrub for environments WITHOUT a DOM parser (SSR/Node). A regex
  * pass cannot match a real HTML parser and has known evasions (split attributes,
  * unclosed tags, entity tricks): it is a safety net, **not** a security boundary.
  * For untrusted content on a non-browser runtime, register a real sanitizer
  * (e.g. DOMPurify + jsdom) via `aparteGlobalConfig.setHtmlSanitizer`.
+ *
+ * Both tag passes read `DANGEROUS_TAGS`, the one list the DOM path uses. They
+ * used to be two hand-written lists that disagreed — `svg`, `math` and `form`
+ * were only in the paired pass, so an UNCLOSED one walked straight through, and
+ * `button`/`select`/`title`/… were in neither.
  */
 function fallbackScrub(html: string): string {
-    return html
-        .replace(/<\s*(script|style|iframe|object|embed|form|svg|math|applet|template)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-        .replace(/<\s*(script|style|iframe|object|embed|applet|template|link|meta|base|frame|frameset)\b[^>]*>/gi, '')
-        .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-        .replace(/(?:href|src|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript|data):[^"]*"|'\s*(?:javascript|vbscript|data):[^']*'|(?:javascript|vbscript|data):[^\s>]*)/gi, '');
+    let out = html.replace(PAIRED_DANGEROUS, '').replace(LONE_DANGEROUS, '');
+    // Run the handler pass to a FIXED POINT. The match consumes the separator in
+    // front of it, so two handlers written back to back
+    // (`<img src=x onload="0"onerror="alert(1)">`) lose the quote that would have
+    // separated the second one and it survives a single pass — a live `on*`
+    // attribute out of the very net this function is. The replacement inserts a
+    // space, which restores the separator for the next round. Bounded: every
+    // match is at least six characters and becomes one, so each pass is strictly
+    // shorter.
+    for (let next = out.replace(INLINE_HANDLER, ' '); next !== out; next = out.replace(INLINE_HANDLER, ' ')) {
+        out = next;
+    }
+    return out.replace(UNSAFE_SCHEME_ATTR, ' ');
 }
 
 /**

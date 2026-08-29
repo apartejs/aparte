@@ -118,7 +118,7 @@ setupArtifacts({ onBinary: makeFile });
 
 Once the source settles the card asks `onBinary` once per artifact, shows the filename and
 size and enables Download when it resolves, and shows the failure in the card when it
-throws. A `previewHtml` on the result (a spreadsheet rendered as a table) is shown in the
+throws. A `previewHtml` on the result (a spreadsheet rendered as a table) goes through the same sanitiser as a reply — an `aparte-*` class in it is stripped, so a preview built from model bytes cannot dress itself as core's own controls — and is shown in the
 preview pane after sanitisation. Without `onBinary` a binary artifact shows its source and
 offers no download: the library holds no bytes, so it declares no button.
 
