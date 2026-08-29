@@ -1628,7 +1628,12 @@ export class AparteChatViewport extends HTMLElement {
         if (this._settleRafId !== null) return;      // one chain; the deadline re-arms it
         const step = (): void => {
             this._settleRafId = null;
-            if (!this._container || !this._isAutoScrollEnabled) { this._settleUntil = 0; return; }
+            // A detached viewport has nothing to settle. `_cleanup` cancels the chain on
+            // disconnect, but a document that goes away whole — a closed window, a test
+            // environment torn down — fires no disconnectedCallback, and the next frame
+            // then ran against globals that no longer existed (27 errors after teardown
+            // in the wrapper suites, whose rAF stub is a 0ms timer that survives it).
+            if (!this.isConnected || !this._container || !this._isAutoScrollEnabled) { this._settleUntil = 0; return; }
             const max = this._container.scrollHeight - this._container.clientHeight;
             // A closed gap is NOT the end: the churn re-opens it (891 -> 1091 -> 891).
             if (max - this._container.scrollTop > 1) {
