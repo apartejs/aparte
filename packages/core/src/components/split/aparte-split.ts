@@ -134,6 +134,13 @@ export class AparteSplit extends HTMLElement {
     private _position = DEFAULT_POSITION;
     /** What `reset()` — and a double-click on the seam — goes back to. */
     private _initialPosition = DEFAULT_POSITION;
+    /**
+     * `_initialPosition` has been taken from the markup once. A re-parent runs
+     * `connectedCallback` again, and by then the attribute holds the LAST COMMIT, not
+     * what the author wrote: capturing a second time makes a framework re-render, a tab
+     * switch or a drag-and-drop of the panel redefine what "reset" means.
+     */
+    private _initialCaptured = false;
     /** The size the primary pane had before it was collapsed, for the second Enter. */
     private _preCollapsePosition: number | null = null;
 
@@ -268,7 +275,10 @@ export class AparteSplit extends HTMLElement {
         this.pane = which;
     }
 
-    /** Back to the position the split was connected with. What a double-click does. */
+    /**
+     * Back to the position the split was FIRST connected with — a re-parent restores
+     * that, it does not redefine it. What a double-click on the seam does.
+     */
     reset(): void {
         this._position = this._initialPosition;
         this._setLive(this._position);
@@ -294,13 +304,21 @@ export class AparteSplit extends HTMLElement {
                 DEFAULT_POSITION,
             );
         }
-        this._initialPosition = this._position;
+        if (!this._initialCaptured) {
+            this._initialPosition = this._position;
+            this._initialCaptured = true;
+        }
         // A `collapsed` present in the markup is applied HERE, not by the attribute
         // callback: that one fires during upgrade, before this runs, and early-returns
         // on `!_ready`. Without this the attribute and the render disagree from the
         // first frame — server-rendered `<aparte-split collapsed>` came up open.
         if (this.collapsed) {
-            this._preCollapsePosition = this._position;
+            // …but only if it is arriving folded, not COMING BACK folded. `_lastCollapsed`
+            // survives `disconnectedCallback` and is reassigned four lines down, so here
+            // it still answers "was it folded when it left" — and a split that left folded
+            // has `position="0"` on it, so capturing again would record 0 as the size to
+            // restore and `expand()` would reopen onto nothing.
+            if (this._lastCollapsed !== true) this._preCollapsePosition = this._position;
             this._position = 0;
             this._setLive(0);
         }
@@ -854,17 +872,32 @@ export class AparteSplit extends HTMLElement {
 
     /**
      * Entering the stacked state shows the START pane: the chat, never a preview of
-     * nothing — the same judgement that makes the sidebar's drawer enter closed.
-     * Leaving it restores both panes, and with them the seam and its tab stop.
+     * nothing — the same judgement that makes the sidebar's drawer enter closed. Unless
+     * the markup already named one, which is an answer to the same question and a better
+     * one. Leaving it restores both panes, and with them the seam and its tab stop.
+     *
+     * `was` is the ATTRIBUTE, not the `stacked` getter: the getter also counts
+     * `.aparte-split--only-*`, the CSS route a host takes when it owns its breakpoints
+     * and sets `breakpoint="none"`. Read through the getter, that mount looks like a
+     * split leaving a stacked state it never entered — and the `pane` the author wrote
+     * is deleted on the way in.
      */
     private _applyStacked(stacked: boolean): void {
-        const was = this.stacked;
+        const was = this.hasAttribute('data-stacked');
         // Crossing the breakpoint mid-drag hides the seam under the pointer. Cancel
         // first, while there is still a two-pane layout to measure and restore against.
         if (stacked && !was && this._dragging) this._endDrag('pointer', this._dragStartPercent);
         this.toggleAttribute('data-stacked', stacked);
-        if (stacked && !was) this.showPane('start');
-        else if (!stacked && was) this.removeAttribute('pane');
+        if (stacked && !was) {
+            if (!this.hasAttribute('pane')) this.showPane('start');
+        } else if (!stacked && was) {
+            this.removeAttribute('pane');
+        }
+        // Both writes above can happen before `_ready`, from the mount's own
+        // `_watchBreakpoint()` — and `attributeChangedCallback` early-returns there, so
+        // nothing records them. Left unstamped, the NEXT `showPane` back to the value the
+        // markup held reads as "no change" and commits nothing.
+        this._lastPane = this.pane;
         this._stampHandle();
         if (stacked !== was) this._measureBounds();
     }

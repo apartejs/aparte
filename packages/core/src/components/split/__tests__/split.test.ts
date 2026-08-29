@@ -650,6 +650,43 @@ describe('aparte-split', () => {
             expect(el.position).toBe(38);
             expect(seen[1]).toMatchObject({ position: 38, source: 'api' });
         });
+
+        it('a re-parent restores the split, it does not redefine what reset() goes back to', () => {
+            const el = mount({ position: '38' });
+            fakeLayout(el);
+            const handle = handleOf(el);
+
+            handle.dispatchEvent(key('keydown', 'ArrowRight', true));
+            handle.dispatchEvent(key('keyup', 'ArrowRight', true));
+            expect(el.position).toBe(48);
+            expect(el.getAttribute('position')).toBe('48');
+
+            // A framework re-render, a tab switch, a drag-and-drop of the panel: the same
+            // element, moved. Its authored position is what it was authored with.
+            const host = document.createElement('div');
+            document.body.appendChild(host);
+            host.appendChild(el);
+            fakeLayout(el);
+
+            el.reset();
+            expect(el.position, 'the markup said 38; the last drag did not rewrite the markup').toBe(38);
+        });
+
+        it('a split moved while folded reopens at the size it had', () => {
+            const el = mount({ position: '38' });
+            fakeLayout(el);
+            el.collapse();
+            expect(el.position).toBe(0);
+
+            const host = document.createElement('div');
+            document.body.appendChild(host);
+            host.appendChild(el);
+            fakeLayout(el);
+
+            expect(el.collapsed, 'it left folded and it comes back folded').toBe(true);
+            el.expand();
+            expect(el.position, 'expand() reopens it, it does not leave it at zero').toBe(38);
+        });
     });
 
     describe('one pane at a time', () => {
@@ -667,6 +704,31 @@ describe('aparte-split', () => {
             expect(el.stacked).toBe(false);
             expect(el.hasAttribute('pane')).toBe(false);
             expect(handle.getAttribute('tabindex')).toBe('0');
+        });
+
+        it('<aparte-split pane="end"> loading on a narrow screen keeps the pane its markup named', () => {
+            // `mediaMatches` BEFORE the mount: every other case in this file crosses the
+            // breakpoint after connecting, which is why the suite is green on this.
+            mediaMatches = true;
+            const el = mount({ position: '38', pane: 'end' });
+            expect(el.stacked).toBe(true);
+            expect(el.getAttribute('pane'), 'the markup chose the pane, not the mount').toBe('end');
+
+            const seen = events(el);
+            el.showPane('start');
+            expect(seen.at(-1), 'and the switch after it is announced').toMatchObject({ pane: 'start', stacked: true });
+            el.showPane('end');
+            expect(seen.at(-1)).toMatchObject({ pane: 'end', stacked: true });
+            expect(seen).toHaveLength(2);
+        });
+
+        it('breakpoint="none" over a CSS-stacked split leaves the authored pane alone', () => {
+            // `.aparte-split--only-end` is the stacked state as the recipe writes it. The
+            // element's own breakpoint is off, so nothing was crossed — and unstacking a
+            // split that never stacked must not delete what the markup asked for.
+            const el = mount({ position: '38', pane: 'end', breakpoint: 'none', class: 'aparte-split--only-end' });
+            expect(el.stacked).toBe(true);
+            expect(el.getAttribute('pane'), 'no breakpoint was crossed; nothing to restore').toBe('end');
         });
 
         it('stacking keeps the position instead of measuring a hidden pane', () => {
