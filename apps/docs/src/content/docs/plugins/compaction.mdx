@@ -88,7 +88,7 @@ setupCompaction({
 | --- | --- |
 | `selector` | `(messages) => { keep, drop }` — which messages are summarised. Default: `createCompactionSelector` over the current model. |
 | `keepWithoutWindow` | How many of the newest messages stay when the model declares no window. Default `4`. |
-| `prompt` | The summariser's system prompt. Default: an English instruction asking for the decisions, the open tasks and the tool results that still matter. |
+| `prompt` | The summariser's instruction, sent in the ask itself rather than as a `system` message — a provider that imposes its own system prompt would drop that, silently, and the model would answer the bare "summarize" with something plausible. Default: an English instruction asking for the decisions, the open tasks and the tool results that still matter. |
 | `keyResolver` | The key for the provider when it is not on the config — the same resolver `AparteClient` takes. `config.getKey()` is the fallback. |
 | `summarize` | `(request, signal) => Promise<string>` — replace the model call: your own endpoint, a cheaper model. With one, no provider needs to be configured. |
 | `resolveTarget` | `(targetId?) => { getMessages, clearAll, appendMessage } \| null` — a transcript that lives in a store rather than in the DOM. The plugin calls `clearAll({ revokeAttachments: false })`, re-appends the turns it keeps, and revokes the dropped turns' object URLs itself. |

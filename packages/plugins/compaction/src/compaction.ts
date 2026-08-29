@@ -96,10 +96,11 @@ export interface CompactionSetupOptions {
     /** How many of the newest messages stay when the model declares no window. Default 4 — the last two exchanges. */
     keepWithoutWindow?: number;
     /**
-     * The summariser's system prompt. English by default — an instruction to the
-     * model, not a string the user reads — asking for the decisions, the open tasks
-     * and the tool results that still matter. Replace it to steer the summary (a
-     * language, a domain, a length).
+     * The summariser's instruction — carried by the ask itself, not by a `system`
+     * message, so a provider that imposes its own system prompt cannot drop it.
+     * English by default — it is addressed to the model, not to the user — asking for
+     * the decisions, the open tasks and the tool results that still matter. Replace it
+     * to steer the summary (a language, a domain, a length).
      */
     prompt?: string;
     /**
@@ -109,10 +110,11 @@ export interface CompactionSetupOptions {
      */
     keyResolver?: CompactionKeyResolver;
     /**
-     * Replace the model call entirely. The request carries the summariser's system
-     * prompt, the transcript of the dropped turns and `_meta: { compaction: true }`;
-     * return the summary text. For a host with an endpoint of its own, or a cheaper
-     * model for summaries. With one, no provider needs to be configured at all.
+     * Replace the model call entirely. The request carries the transcript of the
+     * dropped turns, then a final `user` message holding the summariser's instruction
+     * and the ask, and `_meta: { compaction: true }`; return the summary text. For a
+     * host with an endpoint of its own, or a cheaper model for summaries. With one, no
+     * provider needs to be configured at all.
      */
     summarize?: CompactionSummarizer;
     /**
@@ -230,9 +232,26 @@ function buildRequest(drop: AparteMessage[], prompt: string, modelId: string): A
         .filter((m) => contentToText(m.content).length > 0);
     return {
         messages: [
-            { role: 'system', content: prompt },
             ...history,
-            { role: 'user', content: 'Please summarize this conversation.' },
+            // The instruction rides the USER turn, not a `system` message.
+            //
+            // A system message is a persona, and a provider is entitled to own that: one
+            // serving a local model under a fixed training contract replaces the request's
+            // system message with its own, by design. When it does, the summarisation
+            // instruction simply never arrives — and nothing errors, because the request is
+            // still well formed. The model reads the bare "Please summarize this
+            // conversation." after somebody else's persona and answers something plausible:
+            // measured on a consumer's local model, one reply refused for want of internet
+            // access, one said "noted, I'll do it", and one invented figures for a client
+            // that appears nowhere in the transcript — which then landed in the transcript
+            // as the summary notice and became the premise of every following turn.
+            //
+            // The instruction is not a persona: it is the task of this one request, and the
+            // task belongs where every provider must look. Reported as #45 by a consumer who
+            // only found it by reading the output closely.
+            { role: 'user', content: `${prompt}
+
+Please summarize the conversation above.` },
         ],
         modelId,
         stream: false,
@@ -389,11 +408,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             }
 
             const request = buildRequest(drop, options.prompt ?? DEFAULT_COMPACTION_PROMPT, modelConfig.defaultModel || '');
-            // The instruction and the ask, and nothing between them: the turns being
-            // deleted say nothing a summary could carry. Paying a model to summarise an
-            // empty transcript and then replacing the conversation with the answer is
-            // worse than doing nothing.
-            if (request.messages.length <= 2) return fail('Nothing summarisable in the dropped turns');
+            // The ask alone, with nothing above it: the turns being deleted say nothing a
+            // summary could carry. Paying a model to summarise an empty transcript and then
+            // replacing the conversation with the answer is worse than doing nothing. (One,
+            // not two: the instruction rides the ask now — see `buildRequest`.)
+            if (request.messages.length <= 1) return fail('Nothing summarisable in the dropped turns');
             const abort = new AbortController();
             running = { targetId, abort };
             if (hasWindow) window.dispatchEvent(new CustomEvent<AparteCompactStartEventDetail>('aparte-compact-start', { detail: { targetId } }));
