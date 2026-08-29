@@ -136,11 +136,16 @@ interface AparteEventMap {
     'aparte-message-error': CustomEvent<AparteMessageErrorEventDetail>;
     'aparte-message-aborted': CustomEvent<AparteMessageAbortedEventDetail>;
 
-    // ── Commands a CONSUMER dispatches ────────────────────────────────────────
-    // Core never sends these (`aparte-abort` it listens for; `aparte-compact` the
-    // gauge dispatches and `@aparte/plugin-compaction` answers, with the three
-    // `-start` / `-done` / `-error` events), which makes them the most public events
-    // in the set: without a type there was nothing to tell you what to put in `detail`.
+    // ── The compaction conversation, and the one command core listens for ─────
+    // `aparte-abort` is the only one here core NEVER sends: it listens for it, so an
+    // app is always the sender. The other four are a round trip an app can join at
+    // either end — `<aparte-context auto-compact>` dispatches `aparte-compact` when
+    // the gauge reaches `danger` and so can your own button, `@aparte/plugin-compaction`
+    // answers it and reports back with `-start` / `-done` / `-error`. This block used
+    // to say "Core never sends these", which was false of four of the five and hid the
+    // gauge's own event from the manifest and from its docs page for as long.
+    // Either way they are the most public events in the set: without a type there was
+    // nothing to tell you what to put in `detail`.
     'aparte-abort': CustomEvent<AparteAbortEventDetail>;
     'aparte-compact': CustomEvent<AparteCompactEventDetail>;
     'aparte-compact-start': CustomEvent<AparteCompactStartEventDetail>;

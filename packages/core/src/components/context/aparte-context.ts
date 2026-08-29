@@ -1,5 +1,5 @@
 import { resolveConfig } from '../../config/index.js';
-import type { AparteMessageDoneEventDetail, AparteCompactDoneEventDetail } from '../../types/events.js';
+import type { AparteMessageDoneEventDetail, AparteCompactDoneEventDetail, AparteCompactEventDetail } from '../../types/events.js';
 
 /** How full the window is, against the two thresholds. */
 export type AparteContextLevel = 'ok' | 'warn' | 'danger';
@@ -87,6 +87,7 @@ const ringSvg = (): SVGSVGElement => {
  * @attr {boolean} data-empty - Reflected BY the element while it has nothing to show. Read-only.
  *
  * @fires {CustomEvent<AparteContextThresholdEventDetail>} aparte-context-threshold - The level changed. Bubbles.
+ * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Dispatched on `window` when `auto-compact` is set and the gauge first reaches `danger`: compact this target's transcript. Once per crossing, and only while the attribute is present. `@aparte/plugin-compaction` answers it; with no listener nothing happens.
  *
  * @cssprop [--aparte-context-ring-size=22px] - Diameter of the ring variant.
  * @cssprop [--aparte-context-ring-stroke=4] - Thickness of the ring, in its own units (the ring is drawn on a 36-unit box).
@@ -133,10 +134,22 @@ export class AparteContext extends HTMLElement {
      */
     private _onCompacted = (e: Event): void => {
         const detail = (e as CustomEvent<AparteCompactDoneEventDetail>).detail;
-        if (detail?.skipped || !this._isMine(detail?.targetId)) return;
-        this._used = null;
+        if (!this._isMine(detail?.targetId)) return;
+        // The request is spent whatever the outcome. A skip (`empty`, `nothing-to-drop`,
+        // `running`, `streaming`) used to return before this line, so with the usage
+        // still climbing the level never left `danger` and the gauge never asked again
+        // for the life of the element — one refused compaction latched auto-compact off.
         this._compactRequested = false;
+        if (detail?.skipped) return;
+        this._used = null;
         this._render();
+    };
+
+    /** A failed compaction spends the request too; the next `danger` asks again. */
+    private _onCompactError = (e: Event): void => {
+        const detail = (e as CustomEvent<{ targetId?: string }>).detail;
+        if (!this._isMine(detail?.targetId)) return;
+        this._compactRequested = false;
     };
 
     private _onRerender = (): void => this._render();
@@ -159,6 +172,7 @@ export class AparteContext extends HTMLElement {
     connectedCallback(): void {
         window.addEventListener('aparte-message-done', this._onDone);
         window.addEventListener('aparte-compact-done', this._onCompacted);
+        window.addEventListener('aparte-compact-error', this._onCompactError);
         // The model's window is read again at every render, so a model change shows
         // on the next turn; no listener on the picker's event, which is an element's.
         window.addEventListener('aparte-config-change', this._onRerender);
@@ -168,6 +182,7 @@ export class AparteContext extends HTMLElement {
     disconnectedCallback(): void {
         window.removeEventListener('aparte-message-done', this._onDone);
         window.removeEventListener('aparte-compact-done', this._onCompacted);
+        window.removeEventListener('aparte-compact-error', this._onCompactError);
         window.removeEventListener('aparte-config-change', this._onRerender);
     }
 
@@ -236,10 +251,25 @@ export class AparteContext extends HTMLElement {
             root.append(meter, text);
             this.replaceChildren(root);
         }
-        const format = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+        /*
+         * The locale's tag, not the browser's.
+         *
+         * `Intl.NumberFormat(undefined, …)` means "follow the BROWSER", which is not
+         * the locale the app chose — the exact bug `AparteLocale.tag` exists to close,
+         * and which `<aparte-conversation-list>` and the bubble's clock already read
+         * it for. On a French page `128 000` came out `128K` and the ring read `14%`
+         * where French writes `14 %`; on `ja-JP`, `12.8万` is the compact notation
+         * and the gauge showed `128K`.
+         *
+         * `|| undefined` and not `??`: an empty tag is not a language, and passing
+         * `''` to `Intl` throws a RangeError rather than falling back.
+         */
+        const cfg = resolveConfig(this);
+        const tag = cfg.getLocale().tag || undefined;
+        const format = new Intl.NumberFormat(tag, { notation: 'compact', maximumFractionDigits: 1 });
         const reading = `${format.format(used)} / ${format.format(capacity)}`;
         const percent = Math.round(ratio * 100);
-        const label = resolveConfig(this).t('contextLabel') || 'Context window';
+        const label = cfg.t('contextLabel') || 'Context window';
         if (ring) {
             const value = meter.querySelector<SVGElement>('.aparte-context__value');
             value?.style.setProperty('--aparte-context-ratio', String(percent));
@@ -257,7 +287,7 @@ export class AparteContext extends HTMLElement {
         // The label is the SAME integer the dash draws — formatted, not rounded again: two
         // roundings of one ratio disagreed by a point on real windows (0.145 → 14 and "15 %").
         text.textContent = ring
-            ? new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 }).format(percent / 100)
+            ? new Intl.NumberFormat(tag, { style: 'percent', maximumFractionDigits: 0 }).format(percent / 100)
             : reading;
 
         if (level !== this._level) {
@@ -265,11 +295,15 @@ export class AparteContext extends HTMLElement {
             const targetId = this._ownTargetId();
             const detail: AparteContextThresholdEventDetail = { level, used, window: capacity, ratio, targetId };
             this.dispatchEvent(new CustomEvent<AparteContextThresholdEventDetail>('aparte-context-threshold', { detail, bubbles: true, composed: true }));
-            if (level === 'danger' && this.hasAttribute('auto-compact') && !this._compactRequested) {
-                this._compactRequested = true;
-                window.dispatchEvent(new CustomEvent('aparte-compact', { detail: { targetId } }));
-            }
             if (level !== 'danger') this._compactRequested = false;
+        }
+        // Asked per TURN, not per level change: one request stays open until the
+        // plugin answers (done, skipped or failed), and the next turn in danger asks
+        // again. Tied to the level change, a refused compaction — nothing to drop yet,
+        // a stream in flight — left the level at danger and the gauge silent for good.
+        if (level === 'danger' && this.hasAttribute('auto-compact') && !this._compactRequested) {
+            this._compactRequested = true;
+            window.dispatchEvent(new CustomEvent<AparteCompactEventDetail>('aparte-compact', { detail: { targetId: this._ownTargetId() } }));
         }
     }
 }
