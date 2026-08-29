@@ -171,6 +171,20 @@ export interface AparteApprovalOption {
      */
     label: string | (() => string);
     /**
+     * What choosing it commits to, drawn under the label — the scope of an "always".
+     *
+     * A label can say "Always allow" and not what that reaches: one host remembered
+     * the first word of a command (`git`, for `git status`) while the button said
+     * "Always allow", so the user authorised every git command believing they had
+     * authorised one. The panel could not show the difference, because an option had
+     * nowhere to put it. Two options that differ only in reach now differ on screen:
+     * `description: 'git status'` beside `description: 'git *'`.
+     *
+     * Same two arms as `label`, for the same reason: it follows a language switch
+     * while the request is open.
+     */
+    description?: string | (() => string);
+    /**
      * How it is drawn. `'affirm'` and `'deny'` are the two poles a decision has; a
      * third would be a preference, not a meaning, so there is no `'neutral'`.
      */

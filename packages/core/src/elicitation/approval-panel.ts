@@ -25,6 +25,7 @@
 
 import type { AparteApprovalOption, AparteApprovalAnswer } from './types.js';
 import { contextConfig } from '../config/config-context.js';
+import { optionBody } from './panel.js';
 
 /** What the presenter drives. A superset of the question panel's useful half. */
 export interface BuiltApprovalPanel {
@@ -82,6 +83,14 @@ export function buildApprovalPanel(
     const labelled: Array<{ button: HTMLButtonElement; option: AparteApprovalOption }> = [];
     const textOf = (option: AparteApprovalOption): string =>
         typeof option.label === 'function' ? option.label() : option.label;
+    const descriptionOf = (option: AparteApprovalOption): string | undefined =>
+        typeof option.description === 'function' ? option.description() : option.description;
+    /**
+     * Label over description, the question panel's own body — so "Always allow this
+     * command" can say `git status` under it and "Always allow any git command" can
+     * say `git *`, which is the whole difference between the two (issue #37).
+     */
+    const bodyOf = (option: AparteApprovalOption): HTMLElement => optionBody(textOf(option), descriptionOf(option));
     /*
      * The button recipe, and nothing else. An option used to carry a 2px coloured edge
      * down its inline start — green for affirm, red for deny — and that was custom CSS
@@ -102,7 +111,7 @@ export function buildApprovalPanel(
         const tone = option.tone ?? 'affirm';
         const button = el('button', `aparte-btn aparte-btn--block aparte-btn--surface aparte-approval-option aparte-approval-option--${tone}`);
         button.type = 'button';
-        button.textContent = textOf(option);
+        button.appendChild(bodyOf(option));
         // First click settles. No confirm-then-submit: the decision IS the click.
         button.addEventListener('click', () => fire({ option: option.value }));
         row.appendChild(button);
@@ -149,10 +158,11 @@ export function buildApprovalPanel(
             row.setAttribute('aria-label', now.t('approvalOptionsLabel'));
             // The question, which was the half I left behind the first time.
             if (ask) ask.textContent = askText();
-            // Text only, in place, per the relabel contract: the buttons keep their
-            // listeners and — the part that matters — their FOCUS. This is the one
-            // control a keyboard user may be sitting on when the language changes.
-            for (const { button, option } of labelled) button.textContent = textOf(option);
+            // In place, per the relabel contract: the buttons keep their listeners and —
+            // the part that matters — their FOCUS. This is the one control a keyboard
+            // user may be sitting on when the language changes. The body is replaced,
+            // the button is not.
+            for (const { button, option } of labelled) button.replaceChildren(bodyOf(option));
         },
     };
 }

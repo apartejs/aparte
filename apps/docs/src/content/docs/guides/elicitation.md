@@ -195,8 +195,11 @@ const answer = await requestUserInput({
     { value: 'allow', label: 'Approve', tone: 'affirm' },
     // Two options may share a `value` and differ only in reach: this is what
     // "Yes" and "Yes, and always" are. YOU write the label, because only you can
-    // honour it — core has nowhere to remember a grant.
-    { value: 'allow', label: 'Approve, and always for this tool', tone: 'affirm' },
+    // honour it — core has nowhere to remember a grant. Say what the reach IS in
+    // `description`: it is drawn under the label, so a user sees the difference
+    // between "this command" and "any git command" before clicking.
+    { value: 'allow', label: 'Approve, and always for this command', description: 'git status', tone: 'affirm' },
+    { value: 'allow', label: 'Approve, and always for git', description: 'git *', tone: 'affirm' },
     { value: 'deny', label: 'Reject', tone: 'deny' },
   ],
 });

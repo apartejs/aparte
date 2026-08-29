@@ -31,6 +31,39 @@ describe('buildApprovalPanel', () => {
         expect(labels).toEqual(['Approve', 'Approve, and always for this tool', 'Reject']);
     });
 
+    it('draws an option\'s description under its label, so two "always" scopes differ on screen (#37)', () => {
+        const panel = buildApprovalPanel('Run run_shell?', [
+            { value: 'allow', label: 'Always allow this command', description: 'git status' },
+            { value: 'allow', label: 'Always allow any git command', description: 'git *' },
+            { value: 'deny', label: 'Refuse', tone: 'deny' },
+        ], NOOP);
+        const buttons = [...panel.el.querySelectorAll<HTMLButtonElement>('.aparte-approval-option')];
+
+        expect(buttons[0]!.querySelector('.aparte-elic-option-title')?.textContent).toBe('Always allow this command');
+        expect(buttons[0]!.querySelector('.aparte-elic-option-desc')?.textContent).toBe('git status');
+        expect(buttons[1]!.querySelector('.aparte-elic-option-desc')?.textContent).toBe('git *');
+        // The accessible name carries the scope too: a screen reader hears the reach.
+        expect(buttons[1]!.textContent).toContain('git *');
+        expect(buttons[2]!.querySelector('.aparte-elic-option-desc'), 'no description, no empty line').toBeNull();
+    });
+
+    it('re-reads a function description on relabel, in place, without losing focus', () => {
+        let lang = 'en';
+        const panel = buildApprovalPanel('?', [
+            { value: 'allow', label: () => (lang === 'fr' ? 'Toujours' : 'Always'), description: () => (lang === 'fr' ? 'toutes les commandes git' : 'any git command') },
+        ], NOOP);
+        document.body.appendChild(panel.el);
+        const button = panel.el.querySelector<HTMLButtonElement>('.aparte-approval-option')!;
+        button.focus();
+
+        lang = 'fr';
+        panel.relabel();
+
+        expect(button.querySelector('.aparte-elic-option-title')?.textContent).toBe('Toujours');
+        expect(button.querySelector('.aparte-elic-option-desc')?.textContent).toBe('toutes les commandes git');
+        expect(document.activeElement).toBe(button);
+    });
+
     it('offers no options when the request carried none', () => {
         // Not a crash and not a default pair: a gate that declares nothing has nothing
         // core can honour, and inventing Approve/Reject here would be core deciding what

@@ -139,8 +139,12 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, t
     return node;
 }
 
-/** The label an option shows. Identical in both shapes; only what wraps it differs. */
-function optionBody(label: string, description?: string, recommended?: boolean): HTMLElement {
+/**
+ * The label an option shows. Identical in both shapes; only what wraps it differs —
+ * and the approval panel draws its options with it too, so a scope written as a
+ * `description` sits under its label the same way in both panels.
+ */
+export function optionBody(label: string, description?: string, recommended?: boolean): HTMLElement {
     const body = el('span', 'aparte-elic-option-body');
     const title = el('span', 'aparte-elic-option-title', label);
     if (recommended) {
