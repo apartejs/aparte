@@ -14,11 +14,11 @@ export function getStaticPaths() {
     return GUIDE_DEMOS.map((demo) => ({ params: { id: demo.id }, props: demo }));
 }
 
-const { title, html } = Astro.props;
+const { title, html, plugins } = Astro.props;
 
 const SCRIPT = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
 const scripts = [...html.matchAll(SCRIPT)].map((match) => match[1] ?? '');
 const markup = html.replace(SCRIPT, '').trim();
 ---
 
-<PreviewDocument title={`${title} — live demo`} markup={markup} scripts={scripts} />
+<PreviewDocument title={`${title} — live demo`} markup={markup} scripts={scripts} plugins={plugins} />

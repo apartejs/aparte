@@ -31,6 +31,10 @@ tool's result (`registerToolRenderer`), the grammar on core's parser
 (`registerSegmentRenderer`). The call returns a function that removes all four; a second
 argument scopes everything to one `AparteConfig` instead of the global one.
 
+The card in a builder layout — the chat in one pane, the document in the other — is the
+[running demo on the layout guide](/guides/layout/#with-an-artifact-in-the-pane), with the
+markup and the script that produce it.
+
 ## Two ways in, one card
 
 **A model with tools** calls `create_artifact` with `{ mimeType, title, content }`. The

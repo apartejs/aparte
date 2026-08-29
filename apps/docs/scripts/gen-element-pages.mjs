@@ -91,6 +91,7 @@ const GROUP = {
   'aparte-context': 'conversation',
   'aparte-scroll-rail': 'conversation',
   'aparte-sidebar': 'shell',
+  'aparte-split': 'shell',
   'aparte-composer': 'input',
   'aparte-elicitation': 'input',
   'aparte-suggestions': 'input',
@@ -436,7 +437,7 @@ before finding them.
 :::
 
 `;
-  for (const group of ['conversation', 'input', 'utility', 'other']) {
+  for (const group of ['conversation', 'input', 'shell', 'utility', 'other']) {
     const list = pagesByGroup[group] ?? [];
     if (!list.length) continue;
     md += `\n## ${GROUP_LABEL[group]}\n\n| Component | What it is |\n| --- | --- |\n`;

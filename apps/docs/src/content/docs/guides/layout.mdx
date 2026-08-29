@@ -72,6 +72,8 @@ The scroll surface reserves its scrollbar gutter on both edges (`scrollbar-gutte
 stable both-edges`), so the column does not shift by half a scrollbar the moment the
 first reply overflows.
 
+<Demo id="layout-reading-column" caption="The column is a token on the content, not a box around the chat — so the transcript still spans the frame and the scrollbar stays on its edge." />
+
 :::note[Why the page does not own the scroll]
 It is tempting to make the transcript `overflow: visible` and let the document scroll.
 It breaks silently: an element that does not scroll reports `scrollHeight ===
@@ -92,9 +94,9 @@ width is the one token that changes between them.
 | --- | --- | --- |
 | **Reading column** | ChatGPT, Claude, Gemini, Perplexity | the section above: an unboxed chat, `--aparte-message-max-width` for the column |
 | **Full-width feed** | Slack, Discord, a "wide mode" toggle | `--aparte-message-max-width: none` |
-| **Builder split** | Lovable, bolt, v0, Canvas, Artifacts | a grid: the chat in a narrow first column, your pane in the wide second |
+| **Builder split** | Lovable, bolt, v0, Canvas, Artifacts | `<aparte-split>`: the chat in one pane, yours in the other, a seam you can drag between them |
 | **Side panel** | Cursor, Copilot Chat, a browser sidebar | the host gives the width; `--aparte-message-max-width: none`, `height: 100%` |
-| **Floating widget** | Intercom, Crisp | a launcher and a fixed card — the one shape that needs an element of its own, on the roadmap |
+| **Floating widget** | Intercom, Crisp | a launcher and a fixed card — the one shape that needs an element of its own, and it is not this one: a launcher, a fixed card, a full-screen overlay under a breakpoint and a focus trap. On the roadmap; ask for it and it moves up |
 
 ### Full-width feed
 
@@ -105,15 +107,126 @@ each side. Set the token on the chat rather than on `:root` to keep it to one in
 
 ### Builder split
 
-The chat is a flex or grid item like any other: a width for its column, a height on the
-row, and `min-width: 0` so a long code line cannot widen it. Below about 48rem of window,
-show one pane at a time — the builders all do — rather than two crushed ones.
+The chat in one pane, what it is building in the other, and a seam the reader can move.
+`<aparte-split>` is that seam. Two panes, one handle, and a pane **contains** a chat — a
+chat never contains a split.
 
-<Demo id="layout-split" caption="A narrow chat beside a wide pane. The pane is yours: a preview frame, an editor, a canvas." />
+<Demo id="layout-split" caption="Drag the seam, or tab to it and use the arrows. The frame itself resizes too: its handle is at the bottom right and Full widens it to the page." />
+
+The grid is the whole mechanism. `--aparte-split-position` is the primary pane's size and
+`--aparte-split-min` / `--aparte-split-max` are CSS `clamp()` bounds, so the browser does
+the clamping and nothing in JavaScript parses a unit — px, `%`, `rem` and `ch` all work.
+The element adds only what CSS cannot: the drag, the arrow keys, the ARIA of an APG window
+splitter, and one pane at a time under a breakpoint. Used **without** the element,
+`.aparte-split` is still a split; it just does not move.
+
+`position` sizes the primary pane, `primary="end"` makes that the second one instead
+(the shape you want when the chat is the narrow strip on the right), `orientation="vertical"`
+stacks the panes and puts the seam between them, `collapsed` folds the primary pane to its
+minimum, and `disabled` keeps the seam drawn but inert — no drag, no keys, no tab stop.
+The `AparteSplit` class exposes `position`, `orientation`, `primary`, `collapsed`, `pane`,
+`disabled` and a read-only `stacked`, plus `collapse()`, `expand()`, `toggleCollapse()`,
+`showPane('start' | 'end')` and `reset()`. Keys on the seam: the arrows step 1%, Shift
+steps 10%, Home and End reach the extremes, Enter collapses and a second Enter restores
+the size it had, and a double-click resets it to the position it was connected with.
+
+**It stores nothing.** `position` goes in; one `aparte-split-resize` comes out when the
+position *settles* — a release, a key up, a double-click, a property set — and never during
+a drag, so a framework's reconciler is not in the drag loop. Persistence is four lines and
+it is yours:
+
+```html
+<aparte-split id="workspace" position="38" style="height: 100dvh">
+  <aparte-chat></aparte-chat>
+  <section class="aparte-split__pane">your pane</section>
+</aparte-split>
+
+<script type="module">
+  import '@aparte/core';
+
+  const split = document.getElementById('workspace');
+  const saved = localStorage.getItem('split-position');
+  if (saved) split.setAttribute('position', saved);
+
+  // `detail` is an AparteSplitResizeDetail: the ACHIEVED position after the CSS clamp,
+  // plus `collapsed`, `stacked`, `pane`, `orientation` and `source` ('pointer' |
+  // 'keyboard' | 'api'). One event per settle, so this writes once per gesture.
+  split.addEventListener('aparte-split-resize', (event) => {
+    localStorage.setItem('split-position', String(event.detail.position));
+  });
+</script>
+```
+
+**On a narrow screen, one pane.** Below `breakpoint` — a length, `48rem` by default, or
+`none` to never stack — the split shows a single pane and hides the seam along with its tab
+stop. Any control on the page carrying `data-aparte-split-pane` switches which one, with no
+script. The attribute picks the split first and the pane second: the value `start` or `end`
+shows that pane of the split the control sits inside — or, for a control outside every split,
+of the first `<aparte-split>` on the page; an empty value toggles that same split; and any
+other value names a split's `id` and toggles that one. So to reach a specific pane of a
+specific split, put the control inside it.
+
+Above the breakpoint the buttons change nothing on screen. The attribute still moves, so
+hide them with the same media query rather than leaving two controls that look dead:
+
+```html
+<div class="aparte-app-header">
+  <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="start">Chat</button>
+  <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="end">Preview</button>
+</div>
+
+<style>
+  .aparte-app-header .aparte-btn[data-aparte-split-pane] { display: none }
+  @media (max-width: 60rem) {
+    .aparte-app-header .aparte-btn[data-aparte-split-pane] { display: inline-flex }
+  }
+</style>
+
+<!-- 60rem rather than the default 48rem: a split whose pane needs room stacks earlier. -->
+<aparte-split breakpoint="60rem" style="height: 100dvh">…</aparte-split>
+```
+
+If your host already owns its breakpoints, set `breakpoint="none"` and put the state on the
+element yourself: `.aparte-split--only-start` and `.aparte-split--only-end` carry rules
+byte-identical to the ones `data-stacked` selects, and the element reads them the same way —
+the seam loses its tab stop, and nothing measures the single track it is now showing. The
+same two classes are what stack a split that has no element at all:
+
+```html
+<!-- Your breakpoint, not the element's: toggle the class where you toggle the rest. -->
+<aparte-split breakpoint="none" class="aparte-split--only-start" style="height: 100dvh">
+  <aparte-chat></aparte-chat>
+  <section class="aparte-split__pane">your pane</section>
+</aparte-split>
+
+<!-- Or no element at all: a static split, stacked by the same class. -->
+<div class="aparte-split aparte-split--only-start" style="height: 100dvh">
+  <div>the chat</div>
+  <div class="aparte-split__handle"></div>
+  <div class="aparte-split__pane">your pane</div>
+</div>
+```
+
+**Right to left.** The seam follows the writing direction on its own: a grid container in
+`rtl` already reverses its columns, every rule is written in logical properties, and the
+element reads the *computed* direction — so ArrowLeft and ArrowRight swap and the pointer
+delta is negated, while ArrowUp and ArrowDown never do. Nothing to configure, and a
+subtree flipped with `dir="rtl"` is enough; `document.dir` is never consulted.
 
 Below 520px of *chat* width the transcript switches to its narrow spacing on its own — a
-container query on the chat, not a media query on the page — so the narrow column of a
-split and the phone share the same CSS.
+container query on the chat, not a media query on the page — so the narrow pane of a split
+and the phone share the same CSS. Every attribute, event and knob is on the
+[element page](/components/shell/aparte-split/); the recipe on its own, with its markup, is
+in [the UI kit](/kit/split/).
+
+#### With an artifact in the pane
+
+The split's reason to exist: the model returns a document, and the reader wants it beside
+the conversation rather than scrolled away inside it.
+[`@aparte/plugin-artifacts`](/plugins/artifacts/) renders the document as a Code / Preview
+card with Copy and Download, and the pane is where your app mounts the result.
+
+<Demo id="layout-artifact" caption="One setupArtifacts() call, and the card is the reply. The pane beside it is the same document, mounted — that part is your app's, not the library's." />
 
 ### Side panel
 
@@ -123,6 +236,36 @@ there is no room for a column inside it, so it is the feed recipe in a band:
 ```css
 .panel aparte-chat { height: 100%; --aparte-message-max-width: none; }
 ```
+
+<Demo id="layout-side-panel" caption="A 20rem strip beside the file. Nothing sets the narrow spacing: below 520px of chat width a container query on the chat does it." />
+
+## The empty state
+
+A conversation starts with nothing in it, and a composer pinned to the bottom of an empty
+box reads as a page that failed to load. `center-empty` on `<aparte-chat>` keeps the
+composer in the middle until the first message lands, then slides it down — the element
+watches its own viewport, so nothing of yours runs. While it is centred the chat carries
+`data-empty`, which is the hook for your own welcome copy.
+
+```html
+<aparte-chat center-empty style="height: 100dvh">
+  <aparte-chat-viewport></aparte-chat-viewport>
+  <aparte-composer></aparte-composer>
+</aparte-chat>
+```
+
+```css
+/* Your greeting, above the centred composer, gone the moment a reply arrives. */
+.welcome { display: none; text-align: center; }
+aparte-chat[data-empty] .welcome { display: block; }
+```
+
+<Demo id="layout-empty-state" caption="Press Send one: the composer slides from the middle to the bottom, and data-empty comes off the chat." />
+
+The attribute needs a viewport somewhere inside, which hand-written markup always has. The
+one path where it does nothing is `framework-managed` — React, Vue and Svelte own that
+subtree and ship their own centred layout. Full details on the
+[element page](/components/conversation/aparte-chat/).
 
 ## Where you are in a long thread
 
@@ -174,6 +317,25 @@ nothing more than a height each. Theming per instance is on the
 | `--aparte-chat-bottom-gap` | `--aparte-space-8` | the space under the composer |
 | `--aparte-scrollbar-width` | `6px` | the WebKit scrollbar (Firefox uses `scrollbar-width: thin`) |
 | `--aparte-scrollbar-thumb` / `-track` | `--aparte-neutral` / `transparent` | its colours |
+| `--aparte-split-position` | `38%` | the primary pane's size — and the live value while the seam is being dragged |
+| `--aparte-split-min` | `20rem` | the primary pane's floor. Any length or percentage; the browser clamps |
+| `--aparte-split-max` | `60%` | its ceiling |
+| `--aparte-split-handle-size` | `4px` | the visible seam |
+| `--aparte-split-hit-area` | `12px` | the invisible grab zone around it; it grows to the touch target under a coarse pointer |
 
 The complete list, with what reads each one, is the generated
 [CSS variables](/reference/css-variables/) reference.
+
+Two of these layouts are driven by attributes rather than by tokens, because what they set
+is a state and not a size:
+
+| Attribute | On | What it does |
+| --- | --- | --- |
+| `center-empty` | `<aparte-chat>` | centres the composer until the first message, and carries `data-empty` while it does |
+| `position` | `<aparte-split>` | the primary pane's size, as a percentage. Reflected back on every settle |
+| `orientation` | `<aparte-split>` | `horizontal` (side by side, the default) or `vertical` (stacked). It names the *container's* axis |
+| `primary` | `<aparte-split>` | `start` (default) or `end` — which pane `position` sizes |
+| `collapsed` | `<aparte-split>` | the primary pane folded to its minimum; Enter on the seam toggles it |
+| `breakpoint` | `<aparte-split>` | the width below which one pane is shown. A length (`48rem`), or `none` |
+| `pane` | `<aparte-split>` | `start` (default) or `end` — which pane is shown while stacked |
+| `disabled` | `<aparte-split>` | the seam stays drawn, and does nothing: no drag, no keys, no tab stop |

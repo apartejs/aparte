@@ -16,6 +16,8 @@
  * - It is "open this demo in its own tab" for free, and it is what a screenshot would
  *   point at.
  */
+import ArtifactsRuntime from './ArtifactsRuntime.astro';
+
 interface Props {
     /** The document title, which is also what the frame is announced as. */
     title: string;
@@ -23,9 +25,20 @@ interface Props {
     markup: string;
     /** Script sources held back until the library has loaded. See the note below. */
     scripts: string[];
+    /**
+     * Packages this document must load beyond core — today only `'artifacts'`.
+     *
+     * CONDITIONAL, and that is the point rather than tidiness: one unconditional
+     * `import '@aparte/plugin-artifacts'` here would put the plugin's chunk in every
+     * element, segment, class and demo frame on the site, for the one demo that uses it.
+     * Astro renders a script only on the pages that actually render it, so the chunk is
+     * fetched by `/preview/demo/layout-artifact/` and by nothing else — verified by
+     * grepping the built `dist` for the chunk's name.
+     */
+    plugins?: string[];
 }
 
-const { title, markup, scripts } = Astro.props;
+const { title, markup, scripts, plugins = [] } = Astro.props;
 ---
 
 <html lang="en">
@@ -131,6 +144,12 @@ const { title, markup, scripts } = Astro.props;
         {/* Inert until the script below revives them — a `<template>`'s content is parsed
             but never executed, which is exactly the holding pen this needs. */}
         {scripts.map((source) => <template class="aparte-deferred">{source}</template>)}
+        {/* One demo needs a plugin, and only that demo pays for it — see the component's own
+            note. Rendered ABOVE the module script below, because module scripts run in
+            document order and the deferred demo scripts are revived down there. The in-repo
+            precedent for a preview route knowing that one entry needs more than the others is
+            the dialog special case in `preview/class/[slug].astro`. */}
+        {plugins.includes('artifacts') && <ArtifactsRuntime />}
         <script>
             // The real package, resolved exactly as a consumer's bundler resolves it: source in
             // `pnpm run docs`, the published `dist` in a build.
@@ -191,11 +210,39 @@ const { title, markup, scripts } = Astro.props;
              * whichever is further down — and it is re-posted on DOM mutations as well as
              * on resizes, because opening that list resizes nothing the observer watches.
              */
+            /*
+             * …but only as far down as it is actually PAINTED. A scroller's content still
+             * reports its full box: the artifact card's code body is capped at
+             * `--aparte-artifact-body-max` and scrolls, while the wrapper inside it boxes
+             * the whole document — 250px past the body, which pinned that frame to the
+             * parent's 640px ceiling for a 544px demo and put back exactly the band of
+             * empty stage this measurement exists to avoid. So a candidate is clamped to
+             * the ancestors that clip it, and the walk stops at the first positioned
+             * layer: an `absolute` or `fixed` box is what an overflow ancestor does NOT
+             * clip, and seeing one is why the loop looks past the body at all.
+             */
+            const paintedBottom = (el: Element, from: number) => {
+                let bottom = from;
+                let node: Element | null = el;
+                while (node && node !== document.body) {
+                    const position = getComputedStyle(node).position;
+                    if (position === 'absolute' || position === 'fixed') return bottom;
+                    const parent: HTMLElement | null = node.parentElement;
+                    if (!parent) return bottom;
+                    if (getComputedStyle(parent).overflowY !== 'visible') {
+                        bottom = Math.min(bottom, parent.getBoundingClientRect().bottom);
+                    }
+                    node = parent;
+                }
+                return bottom;
+            };
             const height = () => {
                 let bottom = document.body.getBoundingClientRect().height;
                 for (const el of document.body.querySelectorAll('*')) {
                     const r = el.getBoundingClientRect();
-                    if (r.height > 0 && r.bottom > bottom) bottom = r.bottom;
+                    // The clamp runs only on a candidate that would raise the answer, so
+                    // it costs a handful of walks per pass and never lowers the floor.
+                    if (r.height > 0 && r.bottom > bottom) bottom = Math.max(bottom, paintedBottom(el, r.bottom));
                 }
                 /*
                  * A modal <dialog> is in the top layer: centred in THIS frame's viewport

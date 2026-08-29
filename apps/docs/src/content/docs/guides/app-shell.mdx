@@ -46,6 +46,46 @@ below it by title as the user types, case- and accent-insensitive; a date group 
 nothing left hides with its rows. Client-side, on the titles the list already holds — an
 index over message bodies belongs to your storage adapter.
 
+## A pane beside the chat
+
+A builder is this shell with one more piece: the sidebar, then the chat, then a seam, then
+whatever the chat is producing. `<aparte-split>` goes in `__main`, and **a pane contains a
+chat; a chat never contains a split** — the shell's rule is a direct-child selector, so a
+split nested *inside* an `<aparte-chat>` would sit between the transcript and the composer,
+where nothing sizes it.
+
+```html
+<div class="aparte-app-shell">
+  <aparte-sidebar>…</aparte-sidebar>
+  <header class="aparte-app-header">
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button"
+            aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <span class="aparte-app-header__title">Landing page</span>
+    <div class="aparte-app-header__actions">
+      <!-- Under the split's breakpoint these switch the visible pane; above it they
+           change nothing on screen. The `pane` attribute still moves, so hide them with
+           the same media query rather than leaving two controls that look dead. -->
+      <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="start">Chat</button>
+      <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="end">Preview</button>
+    </div>
+  </header>
+  <main class="aparte-app-shell__main">
+    <aparte-split position="38">
+      <aparte-chat>
+        <aparte-chat-viewport></aparte-chat-viewport>
+        <aparte-composer></aparte-composer>
+      </aparte-chat>
+      <section class="aparte-split__pane">your pane</section>
+    </aparte-split>
+  </main>
+</div>
+```
+
+No height on the split and none on the chat: the shell's grid gives `__main` its row, the
+sheet gives a split or a chat sitting directly in `__main` the full height of it, and the
+chat inside a pane fills the pane. The seam, the drag, the arrow keys, the breakpoint and
+the persistence event are all on the [layout guide](/guides/layout/#builder-split).
+
 ## Settings, in a dialog
 
 A settings hub is a modal, and the kit's modal is the browser's own `<dialog>` wearing
