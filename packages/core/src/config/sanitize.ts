@@ -239,9 +239,21 @@ function copyAttributes(src: Element, dest: Element, tag: string): void {
         }
         dest.setAttribute(name, value);
     }
-    // Harden external links opened in a new tab against reverse-tabnabbing.
-    if (tag === 'a' && dest.getAttribute('target') === '_blank') {
-        dest.setAttribute('rel', 'noopener noreferrer');
+    if (tag === 'a') {
+        // An external link opens in its own tab by default. The link was written by
+        // the model, and a bare `<a href="https://…">` navigates the frame the chat
+        // lives in — in an Electron window, the whole application (issue #38). `marked`
+        // sets no `target`, so until now every reply link did exactly that. A host that
+        // routes links itself listens for the bubble's cancelable `aparte-link-click`.
+        // Same-site and in-page links (relative, `#`, `mailto:`) are left as written.
+        const href = dest.getAttribute('href') ?? '';
+        if (/^https?:\/\//i.test(href) && !dest.hasAttribute('target')) {
+            dest.setAttribute('target', '_blank');
+        }
+        // Harden links opened in a new tab against reverse-tabnabbing.
+        if (dest.getAttribute('target') === '_blank') {
+            dest.setAttribute('rel', 'noopener noreferrer');
+        }
     }
 }
 

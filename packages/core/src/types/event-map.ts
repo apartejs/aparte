@@ -50,6 +50,7 @@ import type {
     AparteCompactDoneEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
+    AparteLinkClickEventDetail,
 } from './events.js';
 import type { AparteActionClickEventDetail } from '../components/composer/aparte-composer-action.js';
 import type { AparteSuggestionEventDetail } from '../components/suggestions/aparte-suggestions.js';
@@ -90,6 +91,7 @@ interface AparteEventMap {
     'aparte-action': CustomEvent<AparteActionEventDetail>;
     'aparte-path-changed': CustomEvent<ApartePathChangedEventDetail>;
     'aparte-branch-navigate': CustomEvent<AparteBranchNavigateEventDetail>;
+    'aparte-link-click': CustomEvent<AparteLinkClickEventDetail>;
     'aparte-feedback': CustomEvent<AparteFeedbackEventDetail>;
     'aparte-message-info': CustomEvent<AparteMessageInfoEventDetail>;
     'aparte-message-done': CustomEvent<AparteMessageDoneEventDetail>;

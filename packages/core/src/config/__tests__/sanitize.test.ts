@@ -81,9 +81,9 @@ describe('defaultSanitizer', () => {
     });
 
     describe('legitimate content is preserved', () => {
-        it('keeps common markdown HTML intact', () => {
+        it('keeps common markdown HTML intact — the one addition is the external link opening in its own tab', () => {
             const md = '<h2>Title</h2><p>A <strong>bold</strong> <a href="https://x.com">link</a> and <code>x</code>.</p><ul><li>one</li></ul>';
-            expect(s(md)).toBe(md);
+            expect(s(md)).toBe(md.replace('<a href="https://x.com">', '<a href="https://x.com" target="_blank" rel="noopener noreferrer">'));
         });
 
         it('preserves highlighter output (classes + inline style colours)', () => {
@@ -183,6 +183,24 @@ describe('defaultSanitizer', () => {
         it('adds rel=noopener to target=_blank links (reverse-tabnabbing)', () => {
             const out = s('<a href="https://x.com" target="_blank">x</a>');
             expect(out).toContain('rel="noopener noreferrer"');
+        });
+
+        it('opens an external link in its own tab by default (#38): marked sets no target, and a bare anchor navigated the frame the chat lives in', () => {
+            const out = s('<a href="https://x.com">x</a>');
+            expect(out).toContain('target="_blank"');
+            expect(out).toContain('rel="noopener noreferrer"');
+        });
+
+        it('leaves same-site, in-page and mailto links as written', () => {
+            expect(s('<a href="/docs">x</a>')).not.toContain('target=');
+            expect(s('<a href="#top">x</a>')).not.toContain('target=');
+            expect(s('<a href="mailto:a@b.c">x</a>')).not.toContain('target=');
+        });
+
+        it('respects a target the markup already carries', () => {
+            const out = s('<a href="https://x.com" target="_self">x</a>');
+            expect(out).toContain('target="_self"');
+            expect(out).not.toContain('noopener');
         });
     });
 

@@ -123,6 +123,25 @@ export interface AparteSiblingInfo {
 }
 
 /**
+ * Detail payload for `aparte-link-click`.
+ * Dispatched by the bubble, cancelable, when a link in a message body is about to be
+ * followed — a link the MODEL wrote. `preventDefault()` on the event keeps the browser
+ * from navigating, so a host routes the link itself (an external browser, a
+ * confirmation, an embedded view) without intercepting the DOM. With no listener the
+ * browser follows it; the sanitizer has made an external URL open in a new tab.
+ *
+ * @event aparte-link-click
+ */
+export interface AparteLinkClickEventDetail {
+    /** The `href` as written on the anchor, after sanitization. */
+    href: string;
+    /** The anchor itself, for a host that wants its text or its `rel`. */
+    anchor: HTMLAnchorElement;
+    /** The message the link sits in, or `null` for a bubble mounted without one. */
+    messageId: string | null;
+}
+
+/**
  * Detail payload for `aparte-branch-navigate`.
  * Dispatched by the bubble's branch-picker buttons; the viewport listens
  * (bubbling) and calls `navigateBranch(messageId, direction)` on its repo.

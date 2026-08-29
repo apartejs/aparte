@@ -3,6 +3,7 @@ import type {
   AparteSegment,
   AparteAttachment,
   AparteBranchNavigateEventDetail,
+  AparteLinkClickEventDetail,
   AparteRetryEventDetail,
   AparteEditEventDetail,
   AparteFeedbackEventDetail,
@@ -167,6 +168,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @fires {CustomEvent<AparteMessageInfoEventDetail>} aparte-message-info - The info affordance was pressed.
  * @fires {CustomEvent<AparteBranchNavigateEventDetail>} aparte-branch-navigate - The `‹1/2›` picker moved between sibling versions.
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
+ * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
  * @cssprop [--aparte-message-gap=12px] - Gap between the avatar column and the body (the viewport reuses it between messages).
  * @cssprop [--aparte-message-padding=16px 12px] - Padding around one message row.
@@ -389,11 +391,13 @@ export class AparteChatBubble extends HTMLElement {
     window.addEventListener('aparte-config-change', this._onConfigChange);
     // Delegated, so a re-render cannot lose a click on the branch arrows.
     this.addEventListener('click', this._onBranchPickerClick);
+    this.addEventListener('click', this._onLinkClick);
   }
 
   disconnectedCallback(): void {
     window.removeEventListener('aparte-config-change', this._onConfigChange);
     this.removeEventListener('click', this._onBranchPickerClick);
+    this.removeEventListener('click', this._onLinkClick);
     if (this._avatarCleanup) {
       try { this._avatarCleanup(); } catch { /* ignore */ }
       this._avatarCleanup = null;
@@ -1156,6 +1160,34 @@ export class AparteChatBubble extends HTMLElement {
       composed: true,
       detail,
     }));
+  };
+
+  /**
+   * A link the MODEL wrote is about to be followed. Announced as a cancelable event
+   * before the browser acts, so a host can route it — an external browser, a
+   * confirmation, an embedded view — without intercepting the DOM (issue #38). With
+   * no listener the browser follows it, which the sanitizer has already made open in
+   * a new tab for an external URL; `preventDefault()` on the event cancels the click.
+   *
+   * Only anchors inside the message body: the action bar and the branch picker are
+   * buttons, and an attachment tile is its own event.
+   */
+  private _onLinkClick = (event: Event): void => {
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!anchor || !this.contains(anchor)) return;
+    const detail: AparteLinkClickEventDetail = {
+      href: anchor.getAttribute('href') ?? '',
+      anchor,
+      messageId: this.getAttribute('message-id'),
+    };
+    const announced = this.dispatchEvent(new CustomEvent<AparteLinkClickEventDetail>('aparte-link-click', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      detail,
+    }));
+    if (!announced) event.preventDefault();
   };
 
   /**

@@ -66,7 +66,7 @@ HTML before it is injected via `innerHTML`.
 - `setHighlightProvider(fn: AparteHighlightProvider): void` — a syntax highlighter, sync or async: `(code, lang) => string | Promise<string>`.
 - `hasHighlightProvider(): boolean` — whether a highlighter is registered.
 - `highlightCode(code: string, lang: string): Promise<string>` — highlight via the registered provider (sanitized), falling back to a plain `<pre><code>`.
-- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only).
+- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only). **What a link in a reply does by default:** the built-in sanitizer makes every external `http(s)` link open in its own tab (`target="_blank" rel="noopener noreferrer"`), because the link was written by the model and a bare anchor navigates the frame the chat lives in — in an Electron window, the whole app. Same-site and in-page links are left as written. To route links yourself, listen for the bubble's cancelable `aparte-link-click` (`detail: { href, anchor, messageId }`, bubbles to the chat host) and call `preventDefault()`; no DOM interception needed.
 - `sanitizeHtml(html: string): string` — run the active sanitizer over provider-produced HTML.
 
 ### System prompt

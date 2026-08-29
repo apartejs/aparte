@@ -45,6 +45,7 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-feedback',
     'aparte-message-info',
     'aparte-branch-navigate',
+    'aparte-link-click',
     // <aparte-chat-viewport>
     'aparte-segment-update',
     'aparte-reset-done',

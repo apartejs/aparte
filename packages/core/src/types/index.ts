@@ -33,6 +33,7 @@ export type {
     AparteSendEventDetail,
     AparteSiblingInfo,
     AparteBranchNavigateEventDetail,
+    AparteLinkClickEventDetail,
     ApartePathChangedEventDetail,
     AparteRetryEventDetail,
     AparteEditEventDetail,
