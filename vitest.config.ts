@@ -90,8 +90,11 @@ export default defineConfig({
         // asked for it — that is what a two-sided floor is for.
         // Raised 85 -> 87 on 2026-08-28: `@aparte/docs-mcp` (fully covered) and the
         // `copyText` fallback moved the global to 88.02%; the ratchet asked again.
-        lines: 87,
-        statements: 87,
+        // Raised 87 -> 89 on 2026-08-29 by the layout lot: `<aparte-split>` (49 tests
+        // over a pure geometry module and the element) and the settle suites moved the
+        // global to 90.20%. The ratchet asked a third time.
+        lines: 89,
+        statements: 89,
         // Raised with the typed element directives: 19 directives with a setter per
         // attribute and a listener per event moved the function and branch numbers, and
         // the table-driven suite in
