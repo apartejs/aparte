@@ -2,7 +2,7 @@
 "@aparte/core": minor
 ---
 
-`clearMessages()` takes `{ revokeAttachments?: boolean }` and passes it to the viewport, so a caller that empties the transcript and re-appends some of the same turns keeps their attachments working.
+The host's `clearMessages()` takes `{ revokeAttachments?: boolean }` and passes it to the viewport's `clearAll()`, so a caller that empties the transcript and re-appends some of the same turns keeps their attachments working.
 
 Emptying the transcript releases the `blob:` object URL of every attachment it drops — a deliberate leak fix. A caller that puts some of those turns straight back (a compaction is the case in this repo) therefore re-appended them with dead URLs: every image and file chip on a surviving turn came back broken. Passing `{ revokeAttachments: false }` keeps the URLs alive and leaves the caller to release the ones it really dropped.
 
