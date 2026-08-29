@@ -41,6 +41,12 @@ setup, serve a docs build yourself and point the server at it:
 APARTE_DOCS_URL=http://localhost:4321 npx @aparte/docs-mcp
 ```
 
+That URL is the only origin the server ever fetches from. The index it reads lists one
+URL per topic, and those are absolute production URLs even in a local build — so the
+server takes their **path** and asks `APARTE_DOCS_URL` for it. A local build is therefore
+read locally, and an index entry naming some other host is not a request your machine
+makes. Anything that does not resolve to `http`/`https` is refused.
+
 ## Embedding it
 
 ```ts

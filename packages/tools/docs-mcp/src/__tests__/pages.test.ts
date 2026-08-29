@@ -122,10 +122,71 @@ describe('DocsSource', () => {
         expect(set?.url).toBe('https://apartejs.dev/_llms-txt/tools.txt');
         await source.pagesOf(set!);
         await source.pagesOf(set!);
-        expect(fetched).toEqual(['https://example.test/llms.txt', 'https://apartejs.dev/_llms-txt/tools.txt']);
+        // The set's own host is NOT what gets fetched: only its path, under `baseUrl`.
+        expect(fetched).toEqual(['https://example.test/llms.txt', 'https://example.test/_llms-txt/tools.txt']);
         // The two dumps are not searched by default: a topic set is.
         expect((await source.scope()).map((s) => s.label)).toEqual(['Tools, approval and asking the user', 'Theming and the UI kit']);
         expect(await source.scope('nothing like this')).toEqual([]);
+    });
+
+    it('never fetches a host the index names — an entry pointing at the metadata service is re-based', async () => {
+        // An index is remote text. Fetched verbatim it made the agent's own machine
+        // issue the request: link-local metadata, an intranet host, a localhost port.
+        const evil = `## Documentation Sets
+
+- [Cloud](http://127.0.0.1:9/latest/meta-data/): nope
+`;
+        const seen: string[] = [];
+        const source = new DocsSource({
+            baseUrl: 'https://apartejs.dev',
+            fetchText: async (url) => { seen.push(url); return url.endsWith('/llms.txt') ? evil : ''; },
+        });
+        await source.pagesOf((await source.sets())[0]!);
+        expect(seen).toEqual(['https://apartejs.dev/llms.txt', 'https://apartejs.dev/latest/meta-data/']);
+        expect(seen.join(' ')).not.toContain('127.0.0.1');
+    });
+
+    it('a local build really is read locally: the production index re-bases onto baseUrl', async () => {
+        const seen: string[] = [];
+        const source = new DocsSource({
+            baseUrl: 'http://localhost:4321',
+            fetchText: async (url) => { seen.push(url); return url.endsWith('/llms.txt') ? INDEX : TOOLS_SET; },
+        });
+        const set = await source.findSet('approval');
+        expect(set!.url, 'the set keeps the URL the index printed').toBe('https://apartejs.dev/_llms-txt/tools.txt');
+        await source.pagesOf(set!);
+        expect(seen).toEqual(['http://localhost:4321/llms.txt', 'http://localhost:4321/_llms-txt/tools.txt']);
+    });
+
+    it('a baseUrl with a path prefix carries it once, for an absolute entry and a relative one', async () => {
+        const rel = `## Documentation Sets
+
+- [Tools](_llms-txt/tools.txt): relative
+- [Theming](https://apartejs.dev/_llms-txt/theming.txt): absolute
+`;
+        const seen: string[] = [];
+        const source = new DocsSource({
+            baseUrl: 'https://example.test/docs/',
+            fetchText: async (url) => { seen.push(url); return url.endsWith('/llms.txt') ? rel : TOOLS_SET; },
+        });
+        const sets = await source.sets();
+        await source.pagesOf(sets[0]!);
+        await source.pagesOf(sets[1]!);
+        expect(seen).toEqual([
+            'https://example.test/docs/llms.txt',
+            'https://example.test/docs/_llms-txt/tools.txt',
+            'https://example.test/docs/_llms-txt/theming.txt',
+        ]);
+    });
+
+    it('refuses a set URL that is not http(s)', async () => {
+        const bad = `## Documentation Sets
+
+- [Local](file:///etc/passwd): nope
+`;
+        const source = new DocsSource({ baseUrl: 'https://apartejs.dev', fetchText: async () => bad });
+        const set = (await source.sets())[0]!;
+        await expect(source.pagesOf(set)).rejects.toThrow(/file:/);
     });
 
     it('falls back to the complete dump alone when the index lists no topic set', async () => {

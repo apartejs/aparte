@@ -14,6 +14,12 @@
  * you installed, and the package stays a few kilobytes. It needs the network; point
  * `baseUrl` at a local `astro build` output served on localhost to work offline.
  *
+ * `baseUrl` is the only origin this server ever talks to. An index is remote text, and
+ * the URLs it lists are taken for their PATH alone — a set entry naming another host
+ * would otherwise have made the machine running the agent fetch it (a metadata service,
+ * an intranet address), and `APARTE_DOCS_URL=http://localhost:4321` would have gone on
+ * reading production, since a production index lists production URLs.
+ *
  * Every page in those files starts with `# Title` then `> description` (the plugin's
  * format), which is what the page splitter relies on.
  *
@@ -42,7 +48,11 @@ export const DEFAULT_BASE_URL = 'https://apartejs.dev';
 export interface DocsSet {
     /** The set's label as printed in the index, e.g. "Tools, approval and asking the user". */
     label: string;
-    /** Absolute URL of the set's text file. */
+    /**
+     * The URL the index printed, as printed — usually absolute and on the production
+     * site. It is NOT what gets fetched: only its path is, under the configured
+     * `baseUrl`. See {@link DocsSource.pagesOf}.
+     */
     url: string;
     /** The one-sentence description the index gives it. */
     description: string;
@@ -70,7 +80,11 @@ export interface DocsHit {
 export type TextFetcher = (url: string) => Promise<string>;
 
 export interface DocsMcpOptions {
-    /** Defaults to {@link DEFAULT_BASE_URL} when unset, empty or blank. A trailing slash is tolerated. */
+    /**
+     * Defaults to {@link DEFAULT_BASE_URL} when unset, empty or blank. A trailing slash
+     * is tolerated. This is the only origin the server fetches from: a set the index
+     * lists contributes its path, never its host.
+     */
     baseUrl?: string;
     /** Defaults to global `fetch` + `response.text()`; a non-2xx status throws. */
     fetchText?: TextFetcher;
@@ -203,10 +217,34 @@ export class DocsSource {
             ?? sets.find((s) => s.label.toLowerCase().includes(wanted));
     }
 
-    /** The pages of one set, fetched once per set. */
+    /**
+     * The URL to actually fetch for something the index named: its path (and query),
+     * under `baseUrl`. The host the index printed is discarded — an index is text from
+     * the network, and following it verbatim is a request made from the machine running
+     * the agent. It is also what made `APARTE_DOCS_URL` a half-measure: a local build
+     * serves the production index, whose entries are absolute production URLs, so
+     * pointing the server at localhost still read the live site.
+     *
+     * Anything that does not resolve to http(s) — `file:`, `data:`, a bare scheme — is
+     * refused rather than quietly re-based, because it is not a docs URL at all.
+     */
+    private resolve(url: string): string {
+        // Against the ORIGIN, not against `base`: a path the index gives is a path from
+        // the docs root, so a `baseUrl` that carries a prefix (`https://host/docs`) must
+        // prepend it once, not resolve under it and then prepend it again.
+        const parsed = new URL(url, `${new URL(this.base).origin}/`);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            throw new Error(`Refusing to fetch "${url}": ${parsed.protocol} is not a documentation URL`);
+        }
+        return `${this.base}${parsed.pathname}${parsed.search}`;
+    }
+
+    /** The pages of one set, fetched once per set — from `baseUrl`, whatever host the index named. */
     pagesOf(set: DocsSet): Promise<DocsPage[]> {
-        let p = this.pages.get(set.url);
-        if (!p) { p = this.fetchText(set.url).then(splitPages); this.pages.set(set.url, p); }
+        let url: string;
+        try { url = this.resolve(set.url); } catch (error) { return Promise.reject(error as Error); }
+        let p = this.pages.get(url);
+        if (!p) { p = this.fetchText(url).then(splitPages); this.pages.set(url, p); }
         return p;
     }
 
