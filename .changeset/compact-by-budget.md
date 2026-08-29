@@ -1,9 +1,0 @@
----
-"@aparte/core": minor
----
-
-`AparteClient.compact()` and `compactionSelector` are removed: compaction is `@aparte/plugin-compaction` now (`setupCompaction()`), and the client no longer listens for `aparte-compact`. Replace `client.compact()` with `setupCompaction({ keyResolver }).compact()` — the resolver you gave the client, if any — and `compactionSelector` with the plugin's `selector` (its `prompt` option is how you replace the summarising instruction). The type `AparteCompactionSelector` is gone with them. `client.abort()` no longer reaches a compaction: the stop button still does (the plugin listens for `aparte-abort`), and from code you call the controller's own `abort()`.
-
-What core keeps is the contract the plugin (or a host summarising by other means) relies on: a message with `compaction: true` is drawn as a notice by the viewport (`data-kind="compaction"` on the bubble — centred, no avatar, no actions) and sent to the model under a fixed preamble saying what it is, on every history path; `_meta.compaction` on a request names a summarisation for a backend transport; `<aparte-context auto-compact>` dispatches `aparte-compact` and resets on `aparte-compact-done`. The events gain a chat: `aparte-compact-start` now carries `{ targetId }` (typed as `AparteCompactStartEventDetail`, in the event map), `aparte-compact-done` gains `targetId` and `reason` (`empty` / `nothing-to-drop` / `running` / `streaming`), `aparte-compact-error` gains `targetId` — so a gauge on a multi-chat page resets only its own.
-
-Why: no UI kit compacts and every agent SDK ships it as an opt-in module — a session wrapper, a middleware, a memory block. A summariser inside the client was another product's habit wearing core's type; the seam was already clean (the plugin uses only public APIs), so the behaviour moved and the seam stayed.

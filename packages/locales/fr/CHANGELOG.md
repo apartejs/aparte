@@ -1,5 +1,51 @@
 # @aparte/locale-fr
 
+## 0.16.0
+
+### Minor Changes
+
+- 99da790: The application shell: three recipes and one element, so a ChatGPT-style page can be built on aparté alone. `.aparte-app-shell` is the grid (sidebar beside, header above, `__main` in the rest); `.aparte-app-header` is the bar (a toggle shown under 48rem, a title, an `__actions` zone); `<aparte-sidebar>` wears the `.aparte-sidebar` recipe (`__header`, `__search`, `__body`, `__footer`) and carries the three behaviours a column has — it collapses (`collapsed`, reflected; any `[data-aparte-sidebar-toggle]` toggles it; `aparte-sidebar-toggle` fires), it becomes a drawer under 48rem — or under the length its `breakpoint` attribute names, and never with `breakpoint="none"` — (`data-drawer`, a scrim, Escape, focus returned to the opener), and an input carrying `data-aparte-sidebar-search` filters the conversation list by title. Tokens: `--aparte-sidebar-width`, `--aparte-sidebar-bg`, `--aparte-app-header-height`, `--aparte-scrim`; locale key `sidebarLabel`. A guide, "An application shell", shows the whole page with a live demo.
+
+  The line was drawn on 2026-08-29: shell chrome without product state is the library's, like the viewport is; a recipe draws, an element exists only where there is behaviour — a header has none, a sidebar has three. What stays with the product: routing, authentication, the storage adapter, the contents of a settings panel.
+
+- 7be58c9: `elicitationNext` (« Suivant ») is removed with the composer button's "advance" meaning; `elicitationRecommended` (« Recommandé ») is added for the tag a recommended option now wears, and `approvalModeLabel` (« Mode d'approbation ») for the accessible name of `@aparte/plugin-approval`'s switch.
+- 3590e4a: The attachment ✕ label and the searchable select's placeholder are now translatable (`removeAttachment`, `selectSearchPlaceholder`, `selectSearchLabel`).
+
+  Three strings were hardcoded English. `aria-label="Remove {file}"` on the pending attachment's ✕ and `aria-label="Search options"` on a searchable `<aparte-select>`'s filter are each the whole of what a screen-reader user hears on an unlabelled control. The third is worse: `placeholder="Search..."` is VISIBLE text, so a French page opened the model picker and read English in the box.
+
+  `removeAttachment` uses the `{name}` convention `approvalAsk` and `deleteConversationConfirm` already use, and the file name is interpolated raw and escaped once at the end — reusing the tile's already-escaped name would have escaped a `&` twice and read "rapport &amp;amp; co". All three are translated in `@aparte/locale-fr`, and each keeps its English literal as a fallback so a custom locale that omits one renders a word rather than an empty box.
+
+  `node scripts/check-locale-keys.mjs` now cross-checks the two lists in both directions: a `t('…')` naming no declared key, a declared key with no default, and — the half TypeScript cannot see, because every locale key is optional — a key `@aparte/locale-fr` does not translate.
+
+- 575ec7e: Removed the unused locale key `tokensPerSecondLabel`; nothing rendered it.
+
+  If you set it, delete the line — it is ignored. A locale annotated `: AparteLocale` (the shape `@aparte/locale-fr` uses) now fails to compile on it; a bare object literal handed straight to `setLocale` still does not, because the open half of that parameter accepts any extra key. Nothing on screen changes: it was the one key of the eighty-odd with no reader anywhere in the repo, and its JSDoc named a "tokens-per-second perf chip" this library does not have.
+
+  A locale key is a public contract a translator pays for, so one that renders nowhere is work asked of every locale author for no screen. `config/__tests__/locale.test.ts` now asserts that every declared key appears somewhere outside its two declaration sites, over a corpus with a floor — because a walk that silently shrinks would report "no unread keys" while reading four files.
+
+- e4b1fbe: French strings for the conversation row's menu and date groups: `deleteConversation`, `archiveConversation`, `unarchiveConversation` become the bare verbs ("Supprimer", "Archiver", "Désarchiver"), and the new keys are translated — `conversationActions`, `renameConversation`, `conversationTitle`, `pinConversation`, `unpinConversation`, `deleteConversationConfirm`, `cancel`, `conversationGroupPinned/Today/Yesterday/Week/Month`.
+- d284c7e: New element `<aparte-scroll-rail>`: a rail of ticks beside the transcript, one per user turn (`every="message"` for one per message), that marks which message is under the reader and jumps back to any of them on a click. Place it as a direct child of `<aparte-chat>` (or the wrapper's host); it floats on the transcript's end edge, hides under a coarse pointer, and renders nothing below two ticks. A click fires a cancelable `aparte-scroll-rail-jump` (`{ messageId }`) before the `scrollIntoView`, so a host that pages history in can load it first. Four knobs: `--aparte-scroll-rail-width`, `-tick-size`, `-tick-thickness`, `-gap`; one locale key, `scrollRailLabel`.
+
+  It reads the transcript and never owns it: which bubbles exist (a mutation observer on the chat), which one is under the reader (an intersection observer on the scroll surface), and the first words of each for the tick's name. No product ships this natively — it exists as browser extensions and as open requests — which is why it is here.
+
+- ea6fe97: Add `<aparte-split>`: two panes and a seam you can drag, arrow or collapse — the builder split, as an element.
+
+  `position` in and one `aparte-split-resize` out on release; the library stores nothing, so persistence is one `localStorage.setItem` in your listener. The attribute is written on COMMIT only — a release, a key up, a double-click, a property set — and the live value during a drag travels on `--aparte-split-position`, so a framework's reconciler is never in the drag loop. The number you get back is the ACHIEVED size after the clamp, so the attribute, `aria-valuenow` and the event's detail are one number.
+
+  The bounds are CSS: `--aparte-split-min` (20rem) and `--aparte-split-max` (60%) are clamp arguments in the grid template, so px, %, rem and ch all work and nothing in JS parses a unit. `--aparte-split-handle-size` (4px) is the seam and `--aparte-split-hit-area` (12px, the touch target on a coarse pointer) is the invisible zone you can grab it by.
+
+  Keys, on the seam: the arrows step 1%, Shift 10% (an ecosystem convention, not the APG), Home and End go to the bounds, Enter collapses and a second Enter restores the size it had, Escape cancels a drag in flight. `aria-orientation` on the seam is the inverse of the element's `orientation` — the attribute names the SEPARATOR's axis, which is what ARIA 1.2 and the APG's window splitter mean by it.
+
+  Under `breakpoint` (48rem by default, `none` to never stack) it shows one pane and writes `data-stacked`; any `[data-aparte-split-pane="start|end"]` on the page switches it with no script, the way `[data-aparte-sidebar-toggle]` drives the sidebar. The value picks the split first and the pane second: `start` or `end` reaches the split the control sits inside — or the first one on the page — and any other value names a split's `id` and toggles that one, so a control aimed at a particular pane goes inside its split. If you own your own breakpoints, set `breakpoint="none"` and put `.aparte-split--only-start` / `--only-end` on the element yourself: it reads those classes exactly as it reads `data-stacked`. `orientation="vertical"` stacks the panes and moves the seam to the block axis; `primary="end"` sizes the last pane instead of the first.
+
+  The recipe works without the element: `.aparte-split` is a grid you can set a position on from your own media query, `.aparte-split--vertical` / `--primary-end` / `--only-start` / `--only-end` are the class form of the four states, and `.aparte-split__pane` is the scrolling wrapper for the pane that is not a chat. A pane CONTAINS a chat; a chat never contains a split.
+
+  New locale key `splitHandleLabel` ("Resize the panes", "Redimensionner les panneaux") names the seam.
+
+### Patch Changes
+
+- a7528d1: `toolFailed` (« Échec ») for the tool row's new _failed_ state.
+
 ## 0.15.1
 
 ## 0.15.0

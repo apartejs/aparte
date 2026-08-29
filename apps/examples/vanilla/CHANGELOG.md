@@ -1,5 +1,97 @@
 # @aparte-workspace/playground-vanilla
 
+## 0.0.16
+
+### Patch Changes
+
+- Updated dependencies [99da790]
+- Updated dependencies [41aaee8]
+- Updated dependencies [bec58ff]
+- Updated dependencies [c2cab7f]
+- Updated dependencies [45574cd]
+- Updated dependencies [45574cd]
+- Updated dependencies [45574cd]
+- Updated dependencies [ec4b2a5]
+- Updated dependencies [ec4b2a5]
+- Updated dependencies [ec4b2a5]
+- Updated dependencies [4123389]
+- Updated dependencies [b6f4cc9]
+- Updated dependencies [22fe79e]
+- Updated dependencies [22fe79e]
+- Updated dependencies [22fe79e]
+- Updated dependencies [22fe79e]
+- Updated dependencies [4123389]
+- Updated dependencies [5e0c4e7]
+- Updated dependencies [5e0c4e7]
+- Updated dependencies [4123389]
+- Updated dependencies [3a0f593]
+- Updated dependencies [a7528d1]
+- Updated dependencies [95613d0]
+- Updated dependencies [95613d0]
+- Updated dependencies [95613d0]
+- Updated dependencies [4a508e4]
+- Updated dependencies [9eccccc]
+- Updated dependencies [00126e3]
+- Updated dependencies [08bbdae]
+- Updated dependencies [81d0b54]
+- Updated dependencies [3590e4a]
+- Updated dependencies [3590e4a]
+- Updated dependencies [3590e4a]
+- Updated dependencies [b90c4c4]
+- Updated dependencies [3c2e507]
+- Updated dependencies [3c2e507]
+- Updated dependencies [3c2e507]
+- Updated dependencies [3c2e507]
+- Updated dependencies [3c2e507]
+- Updated dependencies [575ec7e]
+- Updated dependencies [3a0f593]
+- Updated dependencies [4a508e4]
+- Updated dependencies [5e0c4e7]
+- Updated dependencies [3a0f593]
+- Updated dependencies [575ec7e]
+- Updated dependencies [33c62b5]
+- Updated dependencies [4123389]
+- Updated dependencies [a9a3ce4]
+- Updated dependencies [ecd50e2]
+- Updated dependencies [ef6913c]
+- Updated dependencies [1b1a715]
+- Updated dependencies [1b1a715]
+- Updated dependencies [4123389]
+- Updated dependencies [8b1a1d8]
+- Updated dependencies [e4b1fbe]
+- Updated dependencies [bc75c30]
+- Updated dependencies [d67fa45]
+- Updated dependencies [32762be]
+- Updated dependencies [46dfbdb]
+- Updated dependencies [fb14521]
+- Updated dependencies [0556897]
+- Updated dependencies [0556897]
+- Updated dependencies [6ba8397]
+- Updated dependencies [c546d09]
+- Updated dependencies [37f2450]
+- Updated dependencies [59016b1]
+- Updated dependencies [9a29df6]
+- Updated dependencies [d284c7e]
+- Updated dependencies [b6f4cc9]
+- Updated dependencies [4b8bd15]
+- Updated dependencies [ea6fe97]
+- Updated dependencies [0e20e36]
+- Updated dependencies [2f8fa7c]
+- Updated dependencies [99f7e4a]
+- Updated dependencies [259e785]
+- Updated dependencies [ebe003e]
+- Updated dependencies [1a9da39]
+- Updated dependencies [4e04443]
+  - @aparte/core@0.16.0
+  - @aparte/engine@0.16.0
+  - @aparte/plugin-ask-user@0.16.0
+  - @aparte/plugin-compaction@0.16.0
+  - @aparte/plugin-artifacts@0.16.0
+  - @aparte/provider-openai-compat@0.16.0
+  - @aparte/provider-scenario@0.16.0
+  - @aparte/plugin-marked@0.16.0
+  - @aparte/plugin-model-selector@0.16.0
+
 ## 0.0.15
 
 ### Patch Changes

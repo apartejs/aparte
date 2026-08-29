@@ -1,5 +1,31 @@
 # @aparte/plugin-ask-question
 
+## 0.16.0
+
+### Minor Changes
+
+- 45574cd: `ask_user` now returns its answer structured as well as in prose: `structuredContent` is `{ action: 'accept', answers: [{ question, value }] }` — `value` a string for a single choice, a `string[]` for a multiple one — or `{ action: 'decline' }` (types `AskUserStructuredResult`, `AskUserAnswer`). The prose `content` the model reads is unchanged; `ASK_USER_DECLINED` stays what that prose says on a decline. The receipt in the transcript reads the structure when it is there and falls back to the prose for a result that came from elsewhere.
+
+  MCP's elicitation result is exactly this shape (an `action` beside the content), and a consumer had written a converter to get it back out of the sentence.
+
+- 3c2e507: `buildSafePreviewDocument`, `PREVIEW_CSP`, `ASK_USER_DECLINED` and `receiptRows` now import on the server too — they used to throw a SyntaxError under Node.
+
+  All four are pure: string work over `escapeHtml`/`escapeAttr` and over a tool call's own input, with no DOM anywhere in their path. They were simply absent from the packages' `node` barrels, and the consequence was not a missing feature but a hard `SyntaxError: The requested module does not provide an export named …` the moment an SSR build evaluated the import — the exact failure those barrels were written to end. `buildReceipt` stays browser-only: it returns an element. `receiptRows` is the data half, and it is the one a server rendering a transcript wants.
+
+  `ReceiptRow` and `ReceiptSource` are exported as types on both entries. `receiptRows` returned an interface no consumer could name.
+
+  `ArtifactsSetupOptions` is now declared once. Each barrel declared its own, and they were not the same shape: the node copy omitted the render half, so `preview` and `onBinary` were a type error against the SSR entry and valid against the browser one. One name meant two contracts depending on which condition resolved. The server still ignores those two fields — it registers no renderer — which is the point: the same options object can be written once and passed on both sides.
+
+- b6f4cc9: `setupAskUser` and `setupApproval` now take their options first and the config last, like every other `setup*` — `setupAskUser({ maxOptions: 6 })`, `setupApproval({ classify })`, and `setupAskUser({}, config)` for a scoped chat. `setupAskUser(config, options)` and `setupApproval(config, options)` no longer compile.
+
+  The plugins overview stated the rule ("every `setup*` takes the config instance as its last argument, defaulting to the global") and these two broke it; the leading `undefined` the ask-user page had to write to reach the options was the symptom. Pre-1.0, a rename is a rename.
+
+### Patch Changes
+
+- b6f4cc9: The receipt in the transcript reads its answers from the tool's `structuredResult`: the shipped renderer hands it the structured value alongside the prose.
+
+  `structuredResult` is new this release (`AparteToolResult.structuredContent` travelling with the call), and the receipt reads that path first, falling back to parsing the prose. The renderer the plugin ships passed only the prose, so on the default wiring the structured path was never taken and the receipt was reconstructing what it had been handed.
+
 ## 0.15.1
 
 ## 0.15.0

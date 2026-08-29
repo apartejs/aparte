@@ -1,6 +1,6 @@
 {
     "name": "@aparte/docs-mcp",
-    "version": "0.15.1",
+    "version": "0.16.0",
     "description": "The aparté documentation as an MCP server — a coding agent searches the guides, reads a page or a whole topic (tools & approval, bring your own loop, theming & the UI kit…), always the version that ships, straight from apartejs.dev.",
     "type": "module",
     "sideEffects": false,

@@ -1,6 +1,6 @@
 {
     "name": "@aparte/svelte",
-    "version": "0.15.1",
+    "version": "0.16.0",
     "description": "Svelte wrapper for aparté — an ergonomic <AparteChat> component plus stores over the framework-agnostic web components. Works on Svelte 4 and 5.",
     "type": "module",
     "sideEffects": false,
@@ -47,7 +47,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.15.1 <1.0.0",
+        "@aparte/core": ">=0.16.0 <1.0.0",
         "svelte": "^4.0.0 || ^5.0.0"
     },
     "devDependencies": {
