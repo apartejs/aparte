@@ -1,10 +1,12 @@
 ---
 title: Sizing and layout
-description: How to size an aparté chat — a fixed box, a full page like ChatGPT with the scrollbar at the window's edge, or a pane beside a sidebar — and why the transcript, not the page, is what scrolls.
+description: How to size an aparté chat — a fixed box, a full page like ChatGPT with the scrollbar at the window's edge, a full-width feed, a chat beside a preview pane — and why the transcript, not the page, is what scrolls.
 sidebar:
   order: 17
   label: Layout
 ---
+
+import Demo from '../../../components/Demo.astro';
 
 An `<aparte-chat>` is a flex column — the transcript above, the composer below — and the
 **transcript is the element that scrolls**. That one fact decides every layout on this
@@ -66,6 +68,10 @@ from 998px to 1200px and the bubbles stayed at 200–1000px. Nothing about scrol
 changed — the transcript still owns it, so following a streaming reply, the scroll-to-
 bottom button and the "you scrolled up, we stop following" rule all keep working.
 
+The scroll surface reserves its scrollbar gutter on both edges (`scrollbar-gutter:
+stable both-edges`), so the column does not shift by half a scrollbar the moment the
+first reply overflows.
+
 :::note[Why the page does not own the scroll]
 It is tempting to make the transcript `overflow: visible` and let the document scroll.
 It breaks silently: an element that does not scroll reports `scrollHeight ===
@@ -75,6 +81,48 @@ quiet — the page just gets longer. Every one of those behaviours was tuned aga
 transcript being the scroller, on real regressions. Keep it that way and size the chat
 instead.
 :::
+
+## The five layouts, one element
+
+Every chat product on the market is one of five shapes, and each is a way of sizing the
+host around the same `<aparte-chat>` — no attribute, no second component. The column
+width is the one token that changes between them.
+
+| Layout | Who | The recipe |
+| --- | --- | --- |
+| **Reading column** | ChatGPT, Claude, Gemini, Perplexity | the section above: an unboxed chat, `--aparte-message-max-width` for the column |
+| **Full-width feed** | Slack, Discord, a "wide mode" toggle | `--aparte-message-max-width: none` |
+| **Builder split** | Lovable, bolt, v0, Canvas, Artifacts | a grid: the chat in a narrow first column, your pane in the wide second |
+| **Side panel** | Cursor, Copilot Chat, a browser sidebar | the host gives the width; `--aparte-message-max-width: none`, `height: 100%` |
+| **Floating widget** | Intercom, Crisp | a launcher and a fixed card — the one shape that needs an element of its own, on the roadmap |
+
+### Full-width feed
+
+Lift the column and bubbles run edge to edge, with only the transcript's own padding on
+each side. Set the token on the chat rather than on `:root` to keep it to one instance.
+
+<Demo id="layout-feed" caption="No reading column: `--aparte-message-max-width: none` on this one chat." />
+
+### Builder split
+
+The chat is a flex or grid item like any other: a width for its column, a height on the
+row, and `min-width: 0` so a long code line cannot widen it. Below about 48rem of window,
+show one pane at a time — the builders all do — rather than two crushed ones.
+
+<Demo id="layout-split" caption="A narrow chat beside a wide pane. The pane is yours: a preview frame, an editor, a canvas." />
+
+Below 520px of *chat* width the transcript switches to its narrow spacing on its own — a
+container query on the chat, not a media query on the page — so the narrow column of a
+split and the phone share the same CSS.
+
+### Side panel
+
+A docked strip in a host window — an editor, a browser sidebar — gives the chat its width;
+there is no room for a column inside it, so it is the feed recipe in a band:
+
+```css
+.panel aparte-chat { height: 100%; --aparte-message-max-width: none; }
+```
 
 ## A pane beside a sidebar
 
@@ -87,10 +135,6 @@ The chat is one flex item like any other. Give the row a height and the chat `mi
 .workspace aparte-chat { flex: 1; min-width: 0; }
 ```
 
-Below 520px of *chat* width the transcript switches to its narrow spacing on its own — a
-container query on the chat, not a media query on the page — so the same CSS serves the
-pane and the phone.
-
 ## Several chats on one page
 
 Each `<aparte-chat>` scrolls on its own, so two side by side or one above another need
@@ -101,7 +145,7 @@ nothing more than a height each. Theming per instance is on the
 
 | Token | Default | Moves |
 | --- | --- | --- |
-| `--aparte-message-max-width` | `800px` | the centred column — bubbles and the composer |
+| `--aparte-message-max-width` | `800px` | the centred column — bubbles and the composer; `none` lifts it |
 | `--aparte-viewport-padding` | `--aparte-space-8` | the transcript's inset from the chat's edges |
 | `--aparte-chat-bottom-gap` | `--aparte-space-8` | the space under the composer |
 | `--aparte-scrollbar-width` | `6px` | the WebKit scrollbar (Firefox uses `scrollbar-width: thin`) |

@@ -94,6 +94,11 @@ aparte-chat-viewport {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
+  /* The gutter is reserved on BOTH edges whether or not the bar is showing, so the
+     centred column does not shift by half a scrollbar the moment the first reply
+     overflows — the same rule the reference kits' scroll surfaces carry. Symmetric,
+     because the column is centred: a gutter on one side alone moves it. */
+  scrollbar-gutter: stable both-edges;
 }
 
 .aparte-viewport-container::-webkit-scrollbar {
@@ -168,6 +173,9 @@ aparte-chat-viewport[framework-managed] {
   padding-bottom: calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px));
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
+  /* Same gutter rule as `.aparte-viewport-container` above: the host is the scroll
+     surface here, so it is the host that reserves it. */
+  scrollbar-gutter: stable both-edges;
 }
 
 /* The framework wrapper renders bubbles as DIRECT flex children of the viewport

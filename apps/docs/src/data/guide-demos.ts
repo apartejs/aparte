@@ -66,4 +66,39 @@ export const GUIDE_DEMOS: GuideDemo[] = [
   ]);
 </script>`,
     },
+    {
+        id: 'layout-split',
+        title: 'The builder split: a narrow chat beside a wide pane',
+        html: `<!-- Two panes in a row. The chat is a flex item like any other: a width, a height
+     on the row, and \`min-width: 0\` so a long code line cannot widen it. The pane on the
+     right is yours — a preview iframe, an editor, a canvas. On a narrow screen show one
+     at a time instead. -->
+<div style="display: grid; grid-template-columns: minmax(16rem, 2fr) 3fr; height: 22rem; gap: 1px; background: var(--aparte-border)">
+  <aparte-chat style="min-width: 0; background: var(--aparte-surface)">
+    <aparte-chat-viewport>
+      <aparte-chat-bubble message-id="u1" data-role="user" content="Make the header sticky."></aparte-chat-bubble>
+      <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Done — it now stays at the top while the page scrolls."></aparte-chat-bubble>
+    </aparte-chat-viewport>
+    <aparte-composer></aparte-composer>
+  </aparte-chat>
+  <div style="display: grid; place-items: center; background: var(--aparte-surface-2); color: var(--aparte-text-muted); font-size: 0.85rem">
+    your preview pane
+  </div>
+</div>`,
+    },
+    {
+        id: 'layout-feed',
+        title: 'The full-width feed: no reading column',
+        html: `<!-- \`--aparte-message-max-width: none\` lifts the centred column: bubbles and the
+     composer run edge to edge with the transcript's own padding, the way a team-chat
+     feed does. The same token, set on the chat rather than on :root, keeps it to this
+     one instance. -->
+<aparte-chat style="height: 18rem; --aparte-message-max-width: none">
+  <aparte-chat-viewport>
+    <aparte-chat-bubble message-id="u1" data-role="user" content="Is this the whole width?"></aparte-chat-bubble>
+    <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Yes — no column here, just the transcript's padding on each side."></aparte-chat-bubble>
+  </aparte-chat-viewport>
+  <aparte-composer></aparte-composer>
+</aparte-chat>`,
+    },
 ];
