@@ -26,6 +26,7 @@ export const fr: AparteLocale = {
     elicitationAnswerLabel: "Votre réponse",
     approvalInstructionPlaceholder: "Ou dites-lui quoi faire à la place…",
     approvalOptionsLabel: "Votre décision",
+    approvalArgsLabel: "Arguments",
     approvalAsk: "Exécuter {tool} ?",
     approvalWaiting: "en attente de vous",
     scrollToBottom: "Aller en bas de la conversation",
@@ -40,6 +41,9 @@ export const fr: AparteLocale = {
     toolInput: "Entrée",
     toolOutput: "Sortie",
     actionUpload: "Joindre un fichier",
+    removeAttachment: "Retirer {name}",
+    selectSearchPlaceholder: "Rechercher…",
+    selectSearchLabel: "Rechercher parmi les options",
     download: "Télécharger",
     previewPending: "Appuyez sur Aperçu pour exécuter cet artefact.",
     sandboxError: "Le bac à sable a échoué pendant la génération.",
@@ -69,7 +73,6 @@ export const fr: AparteLocale = {
     nextResponse: "Réponse suivante",
     approveTool: "Approuver",
     rejectTool: "Rejeter",
-    tokensPerSecondLabel: "tok/s",
     messageInfo: "Détails",
     newChat: "Nouvelle conversation",
     deleteConversation: "Supprimer",
@@ -90,6 +93,7 @@ export const fr: AparteLocale = {
     scrollRailLabel: "Plan de la conversation",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Redimensionner les panneaux",
+    transcript: "Transcription",
     tag: "fr-FR",
     direction: 'ltr'
 };

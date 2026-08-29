@@ -1,12 +1,24 @@
 /**
- * Aparte Locale Interface
+ * Every translatable string core itself renders — the CLOSED list.
  *
- * Defines all translatable strings for the chat interface.
- * The core keeps only the English default in memory.
- * Other languages are injected via aparteGlobalConfig.setLocale().
+ * Core keeps only the English default in memory (`APARTE_DEFAULT_LOCALE`); other
+ * languages arrive through `aparteGlobalConfig.setLocale()`.
+ *
+ * Closed, and an alias rather than an interface, on purpose. This used to end with
+ * `[key: string]: string | undefined`, and that one line disabled the only
+ * compile-time check the locale had: `AparteConfig.t(key: keyof AparteLocale)` looks
+ * airtight, but with an index signature `keyof` widens to `string` and EVERY literal
+ * typechecks. A renamed key compiled clean, `t()` returned `''` at runtime, and the UI
+ * rendered an empty label with no error and no warning — which is how `submitButton`,
+ * `stopButton` and `actionUpload` each shipped read-but-never-declared, the last one
+ * reported by a user from a live language switcher.
+ *
+ * The open half is {@link AparteLocaleExtensions}, and an ALIAS is what lets the two
+ * meet: TypeScript gives a type alias an implicit index signature and an interface
+ * none, so only this form is assignable to the extensions record that
+ * `setLocale`/`extendLocale` accept and `getLocale` returns.
  */
-
-export interface AparteLocale {
+export type AparteLocale = {
     // --- Input Area ---
     inputPlaceholder: string;
     sendButton: string;
@@ -51,8 +63,6 @@ export interface AparteLocale {
     approveTool?: string;
     /** Reject button on a tool awaiting human approval (default: "Reject") */
     rejectTool?: string;
-    /** Short suffix for tokens-per-second perf chip (default: "tok/s") */
-    tokensPerSecondLabel?: string;
     /** Aria-label / tooltip for the message info ("i") action button (default: "Details") */
     messageInfo?: string;
 
@@ -105,6 +115,14 @@ export interface AparteLocale {
     sidebarLabel?: string;
     /** Accessible name of the seam between a split's two panes (default: "Resize the panes") */
     splitHandleLabel?: string;
+    /**
+     * Accessible name of the transcript itself (default: "Transcript").
+     *
+     * The scroll surface is a tab stop, because in WebKit a scrollable region that is
+     * not focusable cannot be scrolled from the keyboard at all. A tab stop with no
+     * name is announced as "group", so the name ships with the tab stop, not after it.
+     */
+    transcript?: string;
 
     // --- Elicitation (the panel a tool's question is asked in) ---
     /** The free-text fallback option in a choice (default: "Other…") */
@@ -236,6 +254,15 @@ export interface AparteLocale {
     toolOutput?: string;
     /** Accessible name for the group of approval options (default: "Your decision") */
     approvalOptionsLabel?: string;
+    /**
+     * Heading over the call's arguments in the approval panel (default: "Arguments").
+     *
+     * The panel named the tool and nothing else, while the arguments — the thing
+     * actually being approved — stayed in the transcript row behind a closed
+     * disclosure. Same word family as {@link toolInput} and deliberately not that
+     * key: that one heads a section of a transcript row, this one heads a decision.
+     */
+    approvalArgsLabel?: string;
 
     /**
      * The composer's attach-file button (default: "Attach file").
@@ -252,6 +279,27 @@ export interface AparteLocale {
      * these declarations on the other.
      */
     actionUpload?: string;
+    /**
+     * The ✕ on a pending attachment, named after the file it drops (default:
+     * "Remove {name}").
+     *
+     * `{name}` is substituted with the file's own name — the convention
+     * `approvalAsk` and `deleteConversationConfirm` already use. The button is
+     * icon-only, so this string is the whole of what a screen-reader user hears.
+     */
+    removeAttachment?: string;
+
+    // --- The searchable <aparte-select>, the primitive the model selector wears ---
+    /**
+     * Placeholder of a searchable select's filter field (default: "Search…").
+     *
+     * VISIBLE text, which is what separates it from most of this file: it was a
+     * literal in the primitive, so a French page opened the model picker and read
+     * "Search..." in the box.
+     */
+    selectSearchPlaceholder?: string;
+    /** Accessible name of that filter field, which has no visible label (default: "Search options") */
+    selectSearchLabel?: string;
 
     // --- Plugin chrome — read by `@aparte/plugin-model-selector` and
     // `@aparte/plugin-approval`, declared here for the same reason as the Artifacts
@@ -346,10 +394,27 @@ export interface AparteLocale {
     tag?: string;
     /** Direction of the text (ltr or rtl) - defaults to ltr */
     direction?: 'ltr' | 'rtl';
+};
 
-    /** Allow extensions for plugins */
-    [key: string]: string | undefined;
-}
+/**
+ * The extension half: any other key a plugin or an app wants to carry.
+ *
+ * This used to be an index signature ON `AparteLocale` — `[key: string]: string |
+ * undefined` — and it silently disabled the only compile-time check the locale had.
+ * `AparteConfig.t(key: keyof AparteLocale)` looks airtight; with an index signature,
+ * `keyof` widens to `string` and EVERY literal typechecks. A renamed key
+ * (`t('copy')` typed as `t('copyCodeBlock')`) compiled clean, `t()` returned `''`
+ * at runtime, and the UI rendered an empty label with no error and no warning. It was
+ * one of the six deliberate mistakes an audit planted, and the only guard that could
+ * have caught it was this type.
+ *
+ * So the two halves are separate now: {@link AparteLocale} is CLOSED — it is the list
+ * `t()` keys on — and this is the open bag beside it. {@link AparteConfig.setLocale}
+ * and {@link AparteConfig.extendLocale} accept the intersection, so a plugin still
+ * ships its own strings in the same object; only `t()` stays narrow, which is where
+ * the typo has to be caught.
+ */
+export type AparteLocaleExtensions = Record<string, string | undefined>;
 
 /**
  * Default English Locale (Zero-dependency)
@@ -387,7 +452,11 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     toolInput: "Input",
     toolOutput: "Output",
     approvalOptionsLabel: "Your decision",
+    approvalArgsLabel: "Arguments",
     actionUpload: "Attach file",
+    removeAttachment: "Remove {name}",
+    selectSearchPlaceholder: "Search…",
+    selectSearchLabel: "Search options",
     download: "Download",
     previewPending: "Press Preview to run this artifact.",
     sandboxError: "The sandbox failed during generation.",
@@ -417,7 +486,6 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     nextResponse: "Next response",
     approveTool: "Approve",
     rejectTool: "Reject",
-    tokensPerSecondLabel: "tok/s",
     messageInfo: "Details",
     newChat: "New Chat",
     deleteConversation: "Delete",
@@ -438,5 +506,6 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     scrollRailLabel: "Conversation outline",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Resize the panes",
+    transcript: "Transcript",
     direction: 'ltr'
 };

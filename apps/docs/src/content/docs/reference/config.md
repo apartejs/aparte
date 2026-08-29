@@ -66,8 +66,8 @@ HTML before it is injected via `innerHTML`.
 - `setHighlightProvider(fn: AparteHighlightProvider): void` — a syntax highlighter, sync or async: `(code, lang) => string | Promise<string>`.
 - `hasHighlightProvider(): boolean` — whether a highlighter is registered.
 - `highlightCode(code: string, lang: string): Promise<string>` — highlight via the registered provider (sanitized), falling back to a plain `<pre><code>`.
-- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only). **What a link in a reply does by default:** the built-in sanitizer makes every external `http(s)` link open in its own tab (`target="_blank" rel="noopener noreferrer"`), because the link was written by the model and a bare anchor navigates the frame the chat lives in — in an Electron window, the whole app. Same-site and in-page links are left as written. To route links yourself, listen for the bubble's cancelable `aparte-link-click` (`detail: { href, anchor, messageId }`, bubbles to the chat host) and call `preventDefault()`; no DOM interception needed.
-- `sanitizeHtml(html: string): string` — run the active sanitizer over provider-produced HTML.
+- `setHtmlSanitizer(sanitizer: AparteSanitizer | null): void` — replace the built-in allowlist sanitizer, or pass `null` to disable it (trusted content only). **What a link in a reply does by default:** the built-in sanitizer sends every link that resolves off-site to its own tab (`target="_blank" rel="noopener noreferrer"`) — `https://…`, `http://…`, and the spellings that resolve off-site just the same: the scheme-relative `//host`, a value written with leading whitespace, a backslash where a slash is expected (`/\host`), and a single slash after a scheme (`http:/host`). The link was written by the model and a bare anchor navigates the frame the chat lives in — in an Electron window, the whole app. A `target` in the model's own markup is a wish, not a decision: `_self` is honoured only on a link that was staying here anyway, anything else (`_top`, `_parent`, a named frame — and `_self` on an off-site link, where it would be a downgrade of the default rather than a preference) becomes that same new tab, and a model-written `rel` never survives. Same-site and in-page links are left as written. To route links yourself, listen for the bubble's cancelable `aparte-link-click` (`detail: { href, anchor, messageId }`, bubbles to the chat host) and call `preventDefault()`; no DOM interception needed.
+- `sanitizeHtml(html: string): string` — run the active sanitizer over provider-produced HTML. **Off the browser** (SSR, Node, a test runner with no `DOMParser`), the built-in degrades to a regex net: it drops the same dangerous tags — content and all, except the three document-structure tags (`html`, `head`, `body`), whose tags go but whose content stays, as a real parser would — and the same inline handlers and executable URL schemes, but a regex is not a parser and has known evasions. It is a safety net, not a security boundary; on a non-browser runtime rendering untrusted HTML, register a real sanitizer (DOMPurify + jsdom) here.
 
 ### System prompt
 
@@ -82,9 +82,9 @@ HTML before it is injected via `innerHTML`.
 Translatable UI strings (composer placeholder, Copy/Retry buttons, "thinking…", etc.).
 English ships in core as `APARTE_DEFAULT_LOCALE`; other languages are injected.
 
-- `setLocale(locale: AparteLocale): void` — replace the active locale.
-- `getLocale(): AparteLocale` — the active locale.
-- `extendLocale(translations: Partial<AparteLocale>): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
+- `setLocale(locale: AparteLocale & AparteLocaleExtensions): void` — replace the active locale. `AparteLocaleExtensions` is the open half (`Record<string, string | undefined>`): a plugin's own keys live there, while `t()` accepts only the keys `AparteLocale` declares — a typo in a key is a compile error, not an empty label.
+- `getLocale(): AparteLocale & AparteLocaleExtensions` — the active locale.
+- `extendLocale(translations: Partial<AparteLocale> & AparteLocaleExtensions): void` — merge partial translations onto the current locale (e.g. for a plugin registering its own strings).
 - `t(key: keyof AparteLocale): string` — look up a translated string, falling back to `APARTE_DEFAULT_LOCALE`.
 - `resetLocale(): void` — go back to `APARTE_DEFAULT_LOCALE`, dropping anything `setLocale`/`extendLocale` put there.
 

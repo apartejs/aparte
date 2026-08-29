@@ -10,7 +10,7 @@
 
 import { AparteIconProvider, AparteIconName, APARTE_DEFAULT_ICON_FALLBACKS } from './icon-provider.js';
 import { AparteAvatarProvider } from './avatar-provider.js';
-import { AparteLocale, APARTE_DEFAULT_LOCALE } from './locale.js';
+import { AparteLocale, AparteLocaleExtensions, APARTE_DEFAULT_LOCALE } from './locale.js';
 import { AparteAction, AparteActionZone } from './action-provider.js';
 import type { AparteStatusRenderer } from './status-renderer.js';
 import type { AparteErrorRenderer } from './error-renderer.js';
@@ -583,7 +583,7 @@ export class AparteConfig {
      * Set the current locale
      * @param locale AparteLocale object defining all strings
      */
-    setLocale(locale: AparteLocale): void {
+    setLocale(locale: AparteLocale & AparteLocaleExtensions): void {
         this._locale = locale;
         // A runtime language switch must propagate to already-mounted components,
         // same as every other live setter.
@@ -601,9 +601,19 @@ export class AparteConfig {
     }
 
     /**
-     * Get the current locale
+     * Get the current locale.
+     *
+     * Typed as the closed list PLUS the open half, and the asymmetry is the point:
+     * `t()` keys on `AparteLocale` alone — a typo there is a compile error — while a
+     * plugin reading its OWN key off this object gets `string | undefined` and
+     * supplies its own default at the call site.
+     *
+     * `t()` is the one that has to be narrow, because it is the one that fails
+     * silently: it returns `''` for a key nobody declared, and an empty label is
+     * invisible on screen and in the console. A misspelt read here is `undefined`,
+     * which the `?? 'fallback'` every caller already writes turns into the default.
      */
-    getLocale(): AparteLocale {
+    getLocale(): AparteLocale & AparteLocaleExtensions {
         return this._locale;
     }
 
@@ -612,7 +622,7 @@ export class AparteConfig {
      * Useful for plugins to register their own strings.
      * @param translations Partial locale object to merge
      */
-    extendLocale(translations: Partial<AparteLocale>): void {
+    extendLocale(translations: Partial<AparteLocale> & AparteLocaleExtensions): void {
         this._locale = { ...this._locale, ...translations };
         this._notify();
     }
