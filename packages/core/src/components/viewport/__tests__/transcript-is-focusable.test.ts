@@ -97,3 +97,30 @@ describe('the transcript name is locale text', () => {
         expect(framework.getAttribute('aria-label')).toBe('Transcription');
     });
 });
+
+describe('the scroll-to-bottom button and the tab order', () => {
+    const geometry = (box: HTMLElement, top: number, height: number, client: number): void => {
+        Object.defineProperty(box, 'scrollHeight', { value: height, configurable: true });
+        Object.defineProperty(box, 'clientHeight', { value: client, configurable: true });
+        box.scrollTop = top;
+        box.dispatchEvent(new Event('scroll'));
+    };
+
+    it('leaves the tab order while hidden, and comes back when it shows', () => {
+        // Hidden was opacity 0 and no pointer, which Tab cannot see: the button stayed a
+        // stop while invisible, and with the transcript's own stop in front of it the
+        // composer slid past the eighth Tab on the vanilla example.
+        const el = mount();
+        const box = surface(el);
+        const btn = el.querySelector<HTMLButtonElement>('.aparte-scroll-btn')!;
+        geometry(box, 0, 500, 500);   // nothing below the fold: hidden
+        expect(btn.classList.contains('aparte-scroll-btn--hidden')).toBe(true);
+        expect(btn.getAttribute('tabindex')).toBe('-1');
+        expect(btn.getAttribute('aria-hidden')).toBe('true');
+
+        geometry(box, 0, 2000, 500);  // a screen and more below: shown, and reachable
+        expect(btn.classList.contains('aparte-scroll-btn--hidden')).toBe(false);
+        expect(btn.hasAttribute('tabindex')).toBe(false);
+        expect(btn.hasAttribute('aria-hidden')).toBe(false);
+    });
+});

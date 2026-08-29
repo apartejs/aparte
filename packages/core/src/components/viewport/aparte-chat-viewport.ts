@@ -1733,7 +1733,22 @@ export class AparteChatViewport extends HTMLElement {
      * whatever a framework's render timing does in between.
      */
     private _updateScrollButton(): void {
-        this._scrollBtn?.classList.toggle('aparte-scroll-btn--hidden', this._isAtBottom());
+        const btn = this._scrollBtn;
+        if (!btn) return;
+        const hidden = this._isAtBottom();
+        btn.classList.toggle('aparte-scroll-btn--hidden', hidden);
+        // Hidden is opacity 0 and no pointer, which the tab order cannot see: the
+        // button stayed a stop while invisible, so a keyboard user landed on nothing
+        // between the transcript and the composer — and the transcript's own stop,
+        // once it had one, pushed the composer past the eighth Tab on the vanilla
+        // example. A control nobody can see is not a control anybody can reach.
+        if (hidden) {
+            btn.setAttribute('tabindex', '-1');
+            btn.setAttribute('aria-hidden', 'true');
+        } else {
+            btn.removeAttribute('tabindex');
+            btn.removeAttribute('aria-hidden');
+        }
     }
 
     /**

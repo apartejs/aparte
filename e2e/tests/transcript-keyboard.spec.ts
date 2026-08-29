@@ -74,11 +74,16 @@ test('the transcript is reachable by Tab and scrolls from the keyboard', async (
     const bottom = await metrics(page);
     expect(bottom.scrollTop, 'could not reach the bottom to scroll up from').toBeGreaterThan(0);
 
-    await page.keyboard.press('PageUp');
+    // Pressed inside the poll, not once before it: the viewport keeps confirming its
+    // bottom for a few hundred milliseconds after a scroll of its own (the settle
+    // window), and under CI load a single PageUp landing inside that window is put
+    // back — measured as one flaky run on vanilla-webkit. A reader presses again;
+    // so does the test.
     await expect
-        .poll(async () => (await metrics(page)).scrollTop, {
-            message: 'PageUp on the focused transcript did not scroll it — the WebKit defect',
-        })
+        .poll(async () => {
+            await page.keyboard.press('PageUp');
+            return (await metrics(page)).scrollTop;
+        }, { message: 'PageUp on the focused transcript did not scroll it — the WebKit defect' })
         .toBeLessThan(bottom.scrollTop);
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
