@@ -24,7 +24,9 @@
  * where the JSDoc already is. This page is about what YOU can wear.
  *
  * Output (git-ignored, always regenerated):
- *   src/content/docs/reference/classes.mdx
+ *   src/content/docs/reference/classes.mdx   — the exhaustive index
+ *   src/content/docs/kit/index.mdx           — the gallery, previews only
+ *   src/content/docs/kit/<family>.mdx        — one page per family, preview first
  *   src/generated/class-previews.ts
  */
 import { readFileSync, mkdirSync } from 'node:fs';
@@ -341,6 +343,106 @@ md += `
 {/* Generated from packages/core/src/styles/ by apps/docs/scripts/gen-css-classes.mjs — edit the stylesheet's header comment, not this file. */}
 `;
 
+/*
+ * THE KIT SECTION — one page per family, the preview first.
+ *
+ * The reference above is exhaustive and reads as an index: every class, code before
+ * picture, under "Reference". The maintainer's verdict on it (2026-08-29) was "compact,
+ * hard to read, and there is no page where the UI library is easily visible" — the same
+ * signal as issue #31, where the first consumer rebuilt controls the kit already had.
+ * shadcn, Radix and Mantine all do the opposite: a top-level section, one page per
+ * family, the live example above the code, and a gallery.
+ *
+ * Same parse, same previews, a second output: `kit/index.mdx` is the gallery, and
+ * `kit/<family>.mdx` is one family with its preview, its markup folded under it, its
+ * prose and its classes. The reference page stays the exhaustive index. Nothing is
+ * written twice by hand — a banner edited in a sheet lands on all three pages.
+ */
+const KIT_DIR = resolve(here, '../src/content/docs/kit');
+const yaml = (s) => `'${String(s).replace(/'/g, "''")}'`;
+/**
+ * A banner opens with its own name — `aparté — the button.`, `aparte-tag — small count
+ * or status pill` — which is the convention the parser keys on and not a sentence a
+ * page should start with under a heading that already says "Button". Dropped here, and
+ * the first letter promoted, so the prose reads as prose.
+ */
+const headlineFree = (text) =>
+    String(text ?? '')
+        .replace(/^apart(?:é|e-[a-z0-9-]+)\s*[—-]\s*/i, '')
+        .replace(/^[a-z]/, (c) => c.toUpperCase());
+const firstSentence = (text) => {
+    const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+    const cut = flat.match(/^(.{20,200}?[.!?])(\s|$)/);
+    return (cut ? cut[1] : flat.slice(0, 160)).trim();
+};
+const kitPages = [];
+let kitOrder = 0;
+let gallery = `---
+title: UI kit
+description: Every ready-made class aparté ships, shown live — buttons, fields, tags, alerts, menus, tabs and the rest, on plain elements, themed like the chat.
+sidebar:
+  label: Gallery
+  order: 0
+---
+
+import ClassPreview from '../../../components/ClassPreview.astro';
+
+Core is **light DOM**: it writes ordinary classes onto ordinary elements, and so can you.
+Put \`aparte-btn\` on a button of yours and it looks like the send button — no component to
+mount, no framework involved, and the same [CSS variables](/reference/css-variables/) paint
+it and the chat. Each family below has its own page with the markup; this one is the kit
+at a glance. The exhaustive list, class by class, is the
+[classes reference](/reference/classes/).
+`;
+
+for (const group of GROUPS) {
+    const members = sheets.filter((s) => group.match(s.rel) && s.classes.length);
+    if (!members.length) continue;
+    const intro = group.introFrom ? members.find((m) => m.rel === group.introFrom)?.lead : null;
+    gallery += `\n## ${group.title}\n\n${mdxSafe(firstSentence(headlineFree(group.lead || intro?.prose || '')))}\n`;
+    if (intro?.example) gallery += `\n<ClassPreview slug="${group.id}-overview" />\n`;
+
+    for (const family of members) {
+        const prose = family.prose === intro?.prose ? '' : headlineFree(family.prose);
+        const example = family.example && family.example !== intro?.example ? family.example : '';
+        if (!prose && !example) continue;
+        kitOrder += 1;
+        const name = familyName(family.id);
+        gallery += `\n### [${name}](/kit/${family.id}/)\n\n`;
+        if (example) gallery += `<ClassPreview slug="${family.id}" />\n`;
+        else gallery += `${mdxSafe(firstSentence(prose))}\n`;
+
+        let page = `---
+title: ${yaml(name)}
+description: ${yaml(firstSentence(prose) || `The ${name} classes of the aparté UI kit, with their markup.`)}
+sidebar:
+  order: ${kitOrder}
+---
+
+import ClassPreview from '../../../components/ClassPreview.astro';
+`;
+        if (example) {
+            page += `\n<ClassPreview slug="${family.id}" />\n\n<details>\n<summary>The markup</summary>\n\n\`\`\`html\n${example}\n\`\`\`\n\n</details>\n`;
+        }
+        if (prose) page += `\n${mdxSafe(prose)}\n`;
+        page += `\n## Classes\n\n${family.classes.map((c) => `\`.${c}\``).join(' · ')}\n`;
+        page += `\nThe tokens these read are on the [CSS variables](/reference/css-variables/) reference; every class of the kit, on one page, is the [classes reference](/reference/classes/).\n`;
+        page += `\n{/* Generated from packages/core/src/styles/${family.rel} by apps/docs/scripts/gen-css-classes.mjs — edit the stylesheet's header comment, not this file. */}\n`;
+        kitPages.push({ file: join(KIT_DIR, `${family.id}.mdx`), page });
+    }
+}
+gallery += `\n{/* Generated from packages/core/src/styles/ by apps/docs/scripts/gen-css-classes.mjs — edit the stylesheet's header comment, not this file. */}\n`;
+
+/* A floor here too: a kit section with three pages is a matcher that stopped matching. */
+const KIT_FLOOR = 15;
+if (kitPages.length < KIT_FLOOR) {
+    console.error(`[gen-css-classes] only ${kitPages.length} kit page(s), floor is ${KIT_FLOOR}. A family is a banner in its sheet; either the banners moved or the matcher did.`);
+    process.exit(1);
+}
+mkdirSync(KIT_DIR, { recursive: true });
+let kitWrote = writeIfChanged(join(KIT_DIR, 'index.mdx'), gallery) ? 1 : 0;
+for (const { file, page } of kitPages) if (writeIfChanged(file, page)) kitWrote += 1;
+
 mkdirSync(dirname(OUT), { recursive: true });
 mkdirSync(GENERATED, { recursive: true });
 writeIfChanged(
@@ -360,5 +462,5 @@ writeIfChanged(
 const wrote = writeIfChanged(OUT, md);
 console.log(
     `[gen-css-classes] ${wroteOrNot(wrote)} ${total} classes across ${sheets.length} sheets ` +
-        `(${previews.length} with a live example) → ${OUT}`,
+        `(${previews.length} with a live example) → ${OUT}; kit: ${kitPages.length} family pages + gallery (${kitWrote} written) → ${KIT_DIR}`,
 );

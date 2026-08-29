@@ -429,7 +429,7 @@ thing — data somebody renders, with no tag at all.
 Buttons, fields, switches, tags, alerts, menus, tabs and avatars ship as **plain classes on
 plain elements** — no tag, themed by the same variables as the chat — for the controls your
 own page puts around it. They are listed with their HTML in
-[the UI kit reference](/reference/classes/); a consumer who started here rewrote his own
+[the UI kit](/kit/), one page per family with its live preview; a consumer who started here rewrote his own
 before finding them.
 :::
 
