@@ -315,3 +315,5 @@ export type {
 export function registerAllComponents(): void {
     /* browser-only — nothing to register without a DOM */
 }
+// Pure until called; the browser entry calls it at import.
+export { installDialogTriggersOnce } from './interop/dialog-triggers.js';

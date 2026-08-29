@@ -137,6 +137,45 @@ export const GUIDE_DEMOS: GuideDemo[] = [
 </script>`,
     },
     {
+        id: 'dialog',
+        title: 'A settings dialog on the native <dialog>',
+        html: `<!-- The browser's <dialog> wearing the kit's recipe. No script: the button's
+     \`data-aparte-dialog-open\` names the dialog, \`data-aparte-dialog-close\` closes it,
+     the backdrop click closes it too. -->
+<button class="aparte-btn aparte-btn--surface" type="button" data-aparte-dialog-open="settings">Open settings</button>
+<p class="aparte-field-hint" id="settings-result">Nothing saved yet.</p>
+
+<dialog class="aparte-dialog" id="settings" aria-labelledby="settings-title">
+  <div class="aparte-dialog__header">
+    <h2 class="aparte-dialog__title" id="settings-title">Settings</h2>
+    <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-dialog__close" type="button" aria-label="Close" data-aparte-dialog-close>
+      <aparte-icon name="close"></aparte-icon>
+    </button>
+  </div>
+  <div class="aparte-dialog__body">
+    <div class="aparte-tabs aparte-tabs--underline" role="tablist">
+      <button class="aparte-tabs__tab" role="tab" aria-selected="true" type="button">Model</button>
+      <button class="aparte-tabs__tab" role="tab" aria-selected="false" type="button">Appearance</button>
+    </div>
+    <label class="aparte-field-label" for="endpoint">Endpoint</label>
+    <input class="aparte-field" id="endpoint" value="http://localhost:11434/v1">
+    <p class="aparte-field-hint">Any OpenAI-compatible server.</p>
+  </div>
+  <div class="aparte-dialog__footer">
+    <button class="aparte-btn aparte-btn--ghost" type="button" data-aparte-dialog-close>Cancel</button>
+    <button class="aparte-btn aparte-btn--primary aparte-btn--solid" type="button" data-aparte-dialog-close="saved">Save</button>
+  </div>
+</dialog>
+
+<script>
+  // The native close event carries the value of the control that closed it.
+  document.getElementById('settings').addEventListener('close', (e) => {
+    document.getElementById('settings-result').textContent =
+      e.target.returnValue === 'saved' ? 'Saved.' : 'Closed without saving.';
+  });
+</script>`,
+    },
+    {
         id: 'layout-feed',
         title: 'The full-width feed: no reading column',
         html: `<!-- \`--aparte-message-max-width: none\` lifts the centred column: bubbles and the

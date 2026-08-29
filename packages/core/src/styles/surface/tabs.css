@@ -2,9 +2,11 @@
  * aparté — layered surfaces. Ready-made classes for the things that float ABOVE the
  * transcript: tabs, an accordion, a dropdown menu, a popover, a tooltip.
  *
- * Dialog, drawer and toast are deliberately NOT here. A modal needs a portal and a
- * stack manager — something that owns exactly one top layer for the whole page — and
- * that is the consuming application's job, not a component stylesheet's.
+ * Drawer and toast are deliberately NOT here: each needs a stack manager — something
+ * that owns the order of what floats over the page — and that is the consuming
+ * application's job, not a component stylesheet's. The dialog was on that list until
+ * 0.16.0; it has its own recipe now (`dialog.css`), because the browser's `<dialog>`
+ * brings the top layer, the focus trap and Escape with it.
  *
  * Everything below is the LOOK only. Where and when a surface opens is markup and
  * script the caller owns: a <details open> toggling itself, a positioning library placing

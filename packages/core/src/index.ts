@@ -34,6 +34,7 @@ import './styles/surface/tabs.css';
 import './styles/surface/accordion.css';
 import './styles/surface/menu.css';
 import './styles/surface/popover.css';
+import './styles/surface/dialog.css';
 import './styles/surface/tooltip.css';
 import './styles/primitives/select.css';
 import './styles/primitives/progress-spinner.css';
@@ -372,3 +373,10 @@ export function registerAllComponents(): void {
         console.warn('[Aparte] Some components may not be registered. Ensure all component files are imported.');
     }
 }
+
+// The dialog wiring — three `data-aparte-dialog-*` attributes on the browser's own
+// <dialog>, installed once at import like the default renderers. Exported for a host
+// that builds its page before importing core; idempotent.
+import { installDialogTriggersOnce } from './interop/dialog-triggers.js';
+export { installDialogTriggersOnce };
+if (typeof document !== 'undefined') installDialogTriggersOnce();

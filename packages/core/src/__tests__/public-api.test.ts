@@ -84,6 +84,7 @@ describe('@aparte/core public API', () => {
             "getAllRenderers",
             "getSegmentRenderer",
             "installDefaultRenderersOnce",
+            "installDialogTriggersOnce",
             "isAwaitingReply",
             "isFormatAdapter",
             "isSafeUrl",

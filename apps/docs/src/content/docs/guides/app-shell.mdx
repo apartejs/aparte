@@ -46,6 +46,22 @@ below it by title as the user types, case- and accent-insensitive; a date group 
 nothing left hides with its rows. Client-side, on the titles the list already holds — an
 index over message bodies belongs to your storage adapter.
 
+## Settings, in a dialog
+
+A settings hub is a modal, and the kit's modal is the browser's own `<dialog>` wearing
+`.aparte-dialog`: `showModal()` gives the top layer, the focus trap, Escape and the focus
+return, and the recipe gives the box — header, a body that scrolls, footer, the backdrop, a
+full-screen sheet under 40rem. Three attributes wire it without a line of script: a control
+with `data-aparte-dialog-open="id"` opens the dialog it names, `data-aparte-dialog-close`
+inside one closes it (its value becomes `returnValue`, read in the native `close` event), and
+a click on the backdrop closes it unless the dialog carries `data-aparte-dialog-static`.
+
+<Demo id="dialog" caption="The kit's dialog on a native <dialog>: open it, tab through it, press Escape or click the backdrop." />
+
+The tabs of a settings hub are [`.aparte-tabs`](/kit/tabs/); what goes in each panel is
+yours. The wiring is installed when `@aparte/core` is imported; a page built before that
+import calls `installDialogTriggersOnce()` itself, once.
+
 ## Wiring the data
 
 The sidebar renders what you put in it, and the list is the

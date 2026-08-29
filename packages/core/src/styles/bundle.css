@@ -33,6 +33,7 @@
 @import './surface/accordion.css';
 @import './surface/menu.css';
 @import './surface/popover.css';
+@import './surface/dialog.css';
 @import './surface/tooltip.css';
 @import './primitives/select.css';
 @import './primitives/progress-spinner.css';
