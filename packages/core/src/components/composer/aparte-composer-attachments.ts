@@ -56,7 +56,7 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
  *     <aparte-composer-attachments></aparte-composer-attachments>
  *     <div class="aparte-composer-row">
  *       <aparte-composer-add-attachment></aparte-composer-add-attachment>
- *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-input></aparte-composer-input>
  *       <aparte-composer-send></aparte-composer-send>
  *     </div>
  *   </div>

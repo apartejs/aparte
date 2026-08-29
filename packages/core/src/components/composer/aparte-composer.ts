@@ -177,7 +177,7 @@ export interface AparteComposerChangeEventDetail {
  * <aparte-composer placeholder="Ask anything…">
  *   <div class="aparte-composer-shell">
  *     <div class="aparte-composer-row">
- *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-input></aparte-composer-input>
  *       <aparte-composer-send></aparte-composer-send>
  *     </div>
  *   </div>

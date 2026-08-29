@@ -53,6 +53,23 @@ The provider owns its I/O (it runs inference locally), so `AparteDirectTransport
 Downloading and status are **methods on the provider** you registered:
 
 - `TransformersProvider.prepareModel(modelId, onProgress)` — download + load a model, reporting progress.
+
+  A first load is tens or hundreds of megabytes, so `onProgress` is the whole point of
+  calling it. It receives a `ModelLoadProgress` (exported by `@aparte/core`):
+
+  ```ts
+  onProgress({
+    status: 'downloading',        // 'downloading' | 'loading' | 'cached' | 'ready' | 'error'
+    file: 'model_q4.onnx',        // optional — absent between files, and on 'ready'
+    progress: 42,                 // optional, and it is a PERCENTAGE: 0–100, not 0–1
+    message: undefined,           // optional, human-readable
+  });
+  ```
+
+  `downloading` arrives many times per file, `loading` once the bytes are in and the
+  runtime is building the pipeline, `ready` last. `cached` means there was nothing to
+  fetch. Drive a bar off `progress` and a caption off `file`.
+
 - `TransformersProvider.getModelStatus(modelId)` — `'ready'` \| `'cached'` \| `'not-downloaded'`.
 
 Cache and hardware are **standalone helpers** — import them from `@aparte/provider-transformers`:
