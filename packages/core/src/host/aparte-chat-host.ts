@@ -60,7 +60,7 @@ interface ViewportApi {
     setTranscriptBusy?(busy: boolean): void;
     exportTree?(): ExportedMessageRepository;
     importTree?(tree: ExportedMessageRepository): void;
-    clearAll?(): void;
+    clearAll?(options?: { revokeAttachments?: boolean }): void;
     resetSpacer?(): void;
     configure?(config: { layoutTransitionMs?: number }): void;
     setAutoScroll?(enabled: boolean): void;
@@ -291,10 +291,10 @@ export class AparteChatHost {
             },
             appendMessage: (msg) => this.appendMessage(msg),
             getMessages: () => this.binding.getMessages(),
-            clearMessages: () => {
+            clearMessages: (options) => {
                 this._beginConversationSwap();
                 this.binding.setMessages([]);
-                this._vp()?.clearAll?.();
+                this._vp()?.clearAll?.(options);
             },
             exportTree: () => {
                 this.syncRepoFromMessages();
@@ -604,11 +604,17 @@ export class AparteChatHost {
     /** Read the current message list. */
     getMessages(): AparteMessage[] { return this.binding.getMessages(); }
 
-    /** Clear all messages + reset viewport state. */
-    clearMessages(): void {
+    /**
+     * Clear all messages + reset viewport state. The option travels to the viewport
+     * untouched: a compaction passes `{ revokeAttachments: false }` because it re-appends
+     * the turns it keeps and revokes the dropped ones' object URLs itself — under a
+     * framework wrapper this bridge used to drop the argument, and every surviving
+     * attachment came back broken.
+     */
+    clearMessages(options?: { revokeAttachments?: boolean }): void {
         this._beginConversationSwap();
         this.binding.setMessages([]);
-        this._vp()?.clearAll?.();
+        this._vp()?.clearAll?.(options);
     }
 
     /** Create a new branch from a message (returns the new sibling index). */
@@ -853,7 +859,7 @@ export class AparteChatHost {
         // transcript through the element it resolves by id — under a wrapper, this root.
         // Without it the host had `getMessages` and `appendMessage` but no way to empty
         // itself, and the plugin could not tell it from a stray `[data-aparte-chat]`.
-        host['clearAll'] = () => this.clearMessages();
+        host['clearAll'] = (options?: { revokeAttachments?: boolean }) => this.clearMessages(options);
     }
 
     private _installLifecycleListeners(host: HTMLElement): void {

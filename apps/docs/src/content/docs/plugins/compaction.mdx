@@ -91,7 +91,7 @@ setupCompaction({
 | `prompt` | The summariser's system prompt. Default: an English instruction asking for the decisions, the open tasks and the tool results that still matter. |
 | `keyResolver` | The key for the provider when it is not on the config — the same resolver `AparteClient` takes. `config.getKey()` is the fallback. |
 | `summarize` | `(request, signal) => Promise<string>` — replace the model call: your own endpoint, a cheaper model. With one, no provider needs to be configured. |
-| `resolveTarget` | `(targetId?) => { getMessages, clearAll, appendMessage } \| null` — a transcript that lives in a store rather than in the DOM. |
+| `resolveTarget` | `(targetId?) => { getMessages, clearAll, appendMessage } \| null` — a transcript that lives in a store rather than in the DOM. The plugin calls `clearAll({ revokeAttachments: false })`, re-appends the turns it keeps, and revokes the dropped turns' object URLs itself. |
 | `scopeToTargetId` | Answer only the events that name this chat; one setup per chat on a multi-chat page. |
 | `listen` | Listen for `aparte-compact` / `aparte-abort` on `window`. Default `true`. |
 
@@ -157,7 +157,7 @@ Three things are core's, and stay so whether or not this plugin is installed:
 | `CompactionController` | What `setupCompaction` returns: `compact()`, `abort()`, `running`, `dispose()`. |
 | `CompactionOutcome` | What `compact()` resolves to — done, skipped with a `CompactionSkipReason`, or failed. |
 | `CompactionSkipReason` | `'empty' \| 'nothing-to-drop' \| 'running' \| 'streaming'`. |
-| `CompactionTarget` | What `resolveTarget` returns: `getMessages()`, `clearAll()`, `appendMessage()`. |
+| `CompactionTarget` | What `resolveTarget` returns: `getMessages()`, `clearAll(options?: { revokeAttachments?: boolean })`, `appendMessage()`. |
 | `CompactionMessageSelector` | The `selector` option: `(messages: AparteMessage[]) => { keep, drop }`. |
 | `CompactionKeyResolver` | The `keyResolver` option — the same signature as `AparteClientOptions.keyResolver`. |
 | `CompactionSummarizer` | The `summarize` option: `(request, signal) => Promise<string>`. |

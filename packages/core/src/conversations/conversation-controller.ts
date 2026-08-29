@@ -28,7 +28,7 @@ export interface AparteChatBinding {
     /** Read the current message list. */
     getMessages(): AparteMessage[];
     /** Clear all messages (e.g. when starting a new conversation). */
-    clearMessages(): void;
+    clearMessages(options?: { revokeAttachments?: boolean }): void;
     /**
      * Export the full conversation tree for persistence.
      * Optional: only available when the binding wraps a `AparteMessageRepository`

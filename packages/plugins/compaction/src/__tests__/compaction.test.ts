@@ -13,6 +13,18 @@ const exchange = (n: number, text: string): AparteMessage[] => [
     { id: `a${n}`, role: 'assistant', content: `${text} answer ${n}`, timestamp: n * 2 + 1, status: 'completed' },
 ];
 
+/**
+ * The same exchange with NO `status` on either turn — the shape a host that appends
+ * its own messages produces, and the one the docs' own snippet writes.
+ */
+const bareExchange = (n: number, text: string): AparteMessage[] => [
+    { id: `u${n}`, role: 'user', content: `${text} question ${n}`, timestamp: n * 2 },
+    { id: `a${n}`, role: 'assistant', content: `${text} answer ${n}`, timestamp: n * 2 + 1 },
+];
+
+/** The message a compaction refuses to land with, spelled once. */
+const CHANGED = 'The transcript changed while the summary was being written';
+
 /** A transcript that behaves like the viewport's: the active path, emptied, appended. */
 function makeTarget(initial: AparteMessage[]): CompactionTarget & { messages: AparteMessage[]; appended: AparteMessage[] } {
     const store = {
@@ -181,7 +193,10 @@ describe('setupCompaction — the request', () => {
         expect(request.messages.at(-1)).toEqual({ role: 'user', content: 'Please summarize this conversation.' });
     });
 
-    it('leaves out a reply that never completed, and a turn with nothing to say', async () => {
+    it('carries a reply that ended in an error, and leaves out a turn with nothing to say', async () => {
+        // What the user read is what is being deleted: a reply that errored half-way
+        // still said something, so the summary carries it. Only a turn whose text is
+        // empty contributes nothing and is dropped.
         const messages: AparteMessage[] = [
             { id: 'u1', role: 'user', content: 'q', timestamp: 1, status: 'completed' },
             { id: 'a1', role: 'assistant', content: 'half', timestamp: 2, status: 'error' },
@@ -192,7 +207,26 @@ describe('setupCompaction — the request', () => {
         const { cfg, last } = makeConfig();
         await setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => target, listen: false }, cfg).compact();
         const history = last().request.messages.slice(1, -1);
-        expect(history).toEqual([{ role: 'user', content: 'q' }, { role: 'assistant', content: 'done' }]);
+        expect(history).toEqual([
+            { role: 'user', content: 'q' },
+            { role: 'assistant', content: 'half' },
+            { role: 'assistant', content: 'done' },
+        ]);
+    });
+
+    it('summarises the turns it is about to delete, `status` or no `status`', async () => {
+        // A host that appends its own messages sets no status; the turns were deleted
+        // and never reached the summariser, so the summary silently lost them.
+        const target = makeTarget([...bareExchange(1, 'old'), ...bareExchange(2, 'recent')]);
+        const { cfg, last } = makeConfig();
+
+        const outcome = await setup({ selector: (m) => ({ keep: m.slice(2), drop: m.slice(0, 2) }), resolveTarget: () => target, listen: false }, cfg).compact();
+
+        expect(last().request.messages.slice(1, -1)).toEqual([
+            { role: 'user', content: 'old question 1' },
+            { role: 'assistant', content: 'old answer 1' },
+        ]);
+        expect(outcome).toMatchObject({ ok: true, skipped: false, dropped: 2 });
     });
 
     it('takes a prompt of the host over the default instruction', async () => {
@@ -267,6 +301,21 @@ describe('setupCompaction — declining and failing', () => {
         const outcome = await setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => target, listen: false }, cfg).compact();
         expect(outcome).toMatchObject({ skipped: true, reason: 'streaming' });
         expect(chat).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the dropped turns carry nothing to summarise — no model call, no deletion', async () => {
+        const target = makeTarget([
+            { id: 'u1', role: 'user', content: '', timestamp: 1, status: 'completed' },
+            { id: 'a1', role: 'assistant', content: '', timestamp: 2, status: 'completed' },
+            ...exchange(2, 'recent'),
+        ]);
+        const { cfg, chat } = makeConfig();
+
+        const outcome = await setup({ selector: (m) => ({ keep: m.slice(2), drop: m.slice(0, 2) }), resolveTarget: () => target, listen: false }, cfg).compact();
+
+        expect(outcome).toEqual({ ok: false, error: 'Nothing summarisable in the dropped turns', targetId: undefined });
+        expect(chat, 'nothing is paid for a summary of nothing').not.toHaveBeenCalled();
+        expect(target.appended).toEqual([]);
     });
 
     it('an empty summary is an error, and the transcript is untouched', async () => {
@@ -386,6 +435,48 @@ describe('setupCompaction — while a summary is being written', () => {
 
         expect(target.messages.map((m) => m.id)).toEqual([target.messages[0]!.id, 'u2', 'a2', 'u3']);
         expect(target.messages[0]).toMatchObject({ compaction: true });
+    });
+
+    it('a transcript replaced meanwhile is refused: nothing is written over the new one', async () => {
+        const old = exchange(1, 'old');
+        const recent = exchange(2, 'recent');
+        const target = makeTarget([...old, ...recent]);
+        const gate = pending();
+        const { cfg, chat } = makeConfig(gate.reply);
+        const c = setup({ selector: () => ({ keep: recent, drop: old }), resolveTarget: () => target, listen: false }, cfg);
+        const errored = once<any>('aparte-compact-error');
+
+        const running = c.compact();
+        await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
+        // The user switched conversation while the summary was being written: the
+        // transcript now holds conversation B, and shares no message with A.
+        target.messages = exchange(9, 'other');
+        gate.resolve('S');
+
+        expect(await running).toEqual({ ok: false, error: CHANGED, targetId: undefined });
+        await expect(errored).resolves.toMatchObject({ error: CHANGED });
+        expect(target.appended, 'nothing is written over conversation B').toEqual([]);
+        expect(target.messages.map((m) => m.id)).toEqual(['u9', 'a9']);
+    });
+
+    it('one surviving selected turn is enough — a partly-cleared transcript still compacts', async () => {
+        // The guard against the naive fix: "the ids are not exactly what they were"
+        // would refuse this, and a user deleting one old turn mid-summary would lose
+        // the compaction they paid for.
+        const old = exchange(1, 'old');
+        const recent = exchange(2, 'recent');
+        const target = makeTarget([...old, ...recent]);
+        const gate = pending();
+        const { cfg, chat } = makeConfig(gate.reply);
+        const c = setup({ selector: () => ({ keep: recent, drop: old }), resolveTarget: () => target, listen: false }, cfg);
+
+        const running = c.compact();
+        await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
+        target.messages = target.messages.filter((m) => m.id !== 'u1' && m.id !== 'a1' && m.id !== 'u2');
+        gate.resolve('S');
+
+        expect(await running).toMatchObject({ ok: true, skipped: false, summary: 'S' });
+        expect(target.messages.map((m) => m.id)).toEqual([target.messages[0]!.id, 'a2']);
     });
 
     it('a kept turn updated meanwhile comes back once, as it is now — the repository replaces the object on update', async () => {

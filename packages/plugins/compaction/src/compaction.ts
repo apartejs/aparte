@@ -15,8 +15,11 @@
  *   - a transcript with a turn in flight is left alone — summarising under a streaming
  *     reply would drop it;
  *   - the summarisation has its OWN abort controller, reached by `abort()` and by an
- *     `aparte-abort` addressed to the chat, so a summary the user cancelled never lands
- *     over a conversation they moved on from;
+ *     `aparte-abort` addressed to the chat, so a summary the user cancelled stops there;
+ *   - and a summary nobody cancelled is refused too when the transcript it was written
+ *     from is gone: if not one selected turn is left on the target when the model
+ *     answers, the conversation was switched (or reset) underneath, and the summary
+ *     would land over a transcript it never read;
  *   - what arrived while the summary was being written is kept: the replacement is
  *     summary, then the kept turns, then anything newer than the selection;
  *   - a chat is addressed by id through the same rule the gauge and the client use, and
@@ -24,7 +27,7 @@
  */
 
 import {
-    aparteGlobalConfig, contentToText, resolveConfig, uuid,
+    aparteGlobalConfig, contentToText, resolveConfig, revokeAttachmentUrls, uuid,
     type AparteConfig, type AparteMessage, type AparteChatMessage, type AparteChatRequest, type AparteStreamEvent,
     type AparteAIProvider, type AparteCompactDoneEventDetail, type AparteCompactErrorEventDetail,
     type AparteCompactStartEventDetail,
@@ -40,7 +43,15 @@ import { DEFAULT_COMPACTION_PROMPT, transcriptForSummary } from './transcript.js
  */
 export interface CompactionTarget {
     getMessages(): AparteMessage[];
-    clearAll(): void;
+    /**
+     * Empty the transcript. A compaction passes `{ revokeAttachments: false }`,
+     * because it puts the kept turns straight back: `<aparte-chat-viewport>` releases
+     * every message's object URLs on the way out, which killed the images and files of
+     * the turns the compaction was keeping. It revokes the summarised-away ones itself
+     * afterwards. A target that ignores the argument keeps working — it just leaks the
+     * URLs of what it drops, which is what it did before this existed.
+     */
+    clearAll(options?: { revokeAttachments?: boolean }): void;
     appendMessage(message: AparteMessage): void;
 }
 
@@ -201,11 +212,21 @@ function defaultSelector(config: AparteConfig, keepWithoutWindow: number): Compa
     };
 }
 
-/** The summarisation request: the instruction, the dropped turns as a transcript, the ask. */
+/**
+ * The summarisation request: the instruction, the dropped turns as a transcript, the ask.
+ *
+ * Every turn being deleted is summarised, minus the ones still in flight — the same
+ * `inFlight` predicate `compact()` guards the whole transcript with, so the two cannot
+ * disagree. The clause here used to be hand-written and demanded `status: 'completed'`
+ * on an assistant turn, which meant a host appending its own messages (no `status` at
+ * all — the shape the docs teach) had its replies deleted without ever reaching the
+ * summariser. A turn that ended in an error is summarised too: the user read it, and it
+ * is about to be deleted.
+ */
 function buildRequest(drop: AparteMessage[], prompt: string, modelId: string): AparteChatRequest {
     const history: AparteChatMessage[] = drop
-        .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.status === 'completed'))
-        .map((m) => ({ role: m.role as 'user' | 'assistant', content: transcriptForSummary(m) }))
+        .filter((m) => !inFlight(m))
+        .map((m) => ({ role: m.role, content: transcriptForSummary(m) }))
         .filter((m) => contentToText(m.content).length > 0);
     return {
         messages: [
@@ -368,6 +389,11 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
             }
 
             const request = buildRequest(drop, options.prompt ?? DEFAULT_COMPACTION_PROMPT, modelConfig.defaultModel || '');
+            // The instruction and the ask, and nothing between them: the turns being
+            // deleted say nothing a summary could carry. Paying a model to summarise an
+            // empty transcript and then replacing the conversation with the answer is
+            // worse than doing nothing.
+            if (request.messages.length <= 2) return fail('Nothing summarisable in the dropped turns');
             const abort = new AbortController();
             running = { targetId, abort };
             if (hasWindow) window.dispatchEvent(new CustomEvent<AparteCompactStartEventDetail>('aparte-compact-start', { detail: { targetId } }));
@@ -394,9 +420,15 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
                 const selectedIds = new Set(messages.map((m) => m.id));
                 const keptIds = new Set(keep.map((m) => m.id));
                 const live = target.getMessages();
+                // Nothing selected survived: this is not the transcript that was summarised.
+                // A conversation switch (or a reset) replaces the whole active path, and the
+                // summary of A would otherwise be written over B — and persisted with it.
+                if (!live.some((m) => selectedIds.has(m.id))) return fail('The transcript changed while the summary was being written');
                 const kept = live.filter((m) => keptIds.has(m.id));
                 const arrived = live.filter((m) => !selectedIds.has(m.id));
-                target.clearAll();
+                // Not a plain `clearAll()`: the viewport revokes the object URLs of
+                // everything it drops, and the kept turns are going straight back in.
+                target.clearAll({ revokeAttachments: false });
                 target.appendMessage({
                     id: uuid(),
                     role: 'user',
@@ -407,6 +439,10 @@ export function setupCompaction(options: CompactionSetupOptions = {}, config: Ap
                 });
                 for (const message of kept) target.appendMessage(message);
                 for (const message of arrived) target.appendMessage(message);
+                // Now the real casualties: a summarised-away turn is off the screen for
+                // good, so its `blob:` URLs are released here rather than leaked.
+                const survivors = new Set([...kept, ...arrived].map((m) => m.id));
+                for (const message of drop) if (!survivors.has(message.id)) revokeAttachmentUrls(message.attachments);
 
                 const outcome: CompactionOutcome = { ok: true, skipped: false, summary, kept: kept.length, dropped: drop.length, targetId };
                 if (hasWindow) window.dispatchEvent(new CustomEvent<AparteCompactDoneEventDetail>('aparte-compact-done', { detail: { summary, kept: kept.length, dropped: drop.length, targetId } }));
