@@ -30,10 +30,12 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  *
  * **Drawer.** Under 48rem of window the sidebar leaves the flow and slides over the
  * page (`data-drawer`, set by the element from a media query); open, it draws a
- * scrim, closes on Escape or on a click outside, and hands the focus back to the
- * control that opened it. Nothing here is a portal: the drawer is the same element
- * in the same place, positioned fixed, which is all a sidebar needs and what a
- * dialog would not get away with.
+ * scrim, moves the focus to its first focusable child, closes on Escape from anywhere
+ * on the page or on a click outside, and hands the focus back to the control that
+ * opened it. Nothing here is a portal: the drawer is the same element in the same
+ * place, positioned fixed, which is all a sidebar needs and what a dialog would not
+ * get away with. Collapsed — folded as a column or slid off as a drawer — it carries
+ * `inert` and `aria-hidden`, so nothing invisible keeps a tab stop.
  *
  * **Search.** An input carrying `data-aparte-sidebar-search` filters the conversation
  * list below it by title as the user types — rows that do not match are hidden, and a
@@ -94,6 +96,45 @@ export class AparteSidebar extends HTMLElement {
     private _opener: HTMLElement | null = null;
     private _lastCollapsed: boolean | null = null;
 
+    /**
+     * `connectedCallback` has run and the element knows what its markup asked for.
+     *
+     * Not `isConnected`: during an UPGRADE the element is already in the document, so
+     * `attributeChangedCallback` fires for every authored attribute — connected, and
+     * before `connectedCallback` — which is the ordinary case for a server-rendered
+     * `<aparte-sidebar collapsed>` upgraded when the module loads. Announcing there
+     * tells the host its sidebar just closed when all that happened is that the markup
+     * was read, and says `drawer: false` because the media query has not run yet.
+     */
+    private _ready = false;
+
+    /**
+     * The host (or the markup) asked for the column to be folded, so widening the
+     * window must not unfold it. Only a collapse taken OUTSIDE the drawer state counts:
+     * dismissing an overlay says nothing about what a wide window should show.
+     */
+    private _closedByHost = false;
+
+    /**
+     * `_closedByHost` has been taken from the markup once. A re-parent runs
+     * `connectedCallback` again, and by then `collapsed` may be the BREAKPOINT's own
+     * write — a drawer closes itself on the way in — so reading it back a second time
+     * records the element's own doing as the host's word and the column never reopens.
+     * Like `_initialCaptured` on `<aparte-split>`, it must survive the move.
+     */
+    private _hostIntentSeeded = false;
+
+    /** Raised around `_applyDrawer`'s own writes, so the breakpoint is never read as a host's intent. */
+    private _auto = false;
+
+    /**
+     * The element wrote `inert`/`aria-hidden` and may take them back. A host that inerts
+     * the sidebar behind its own modal wrote them itself, and `_syncHidden` runs on every
+     * breakpoint re-evaluation: without this it would un-inert the page behind the overlay.
+     * Same convention as `_relabel`, which leaves a host-authored `aria-label` alone.
+     */
+    private _ownHidden = false;
+
     /** Whether the sidebar is collapsed (hidden in the flow, or closed as a drawer). */
     get collapsed(): boolean {
         return this.hasAttribute('collapsed');
@@ -112,12 +153,25 @@ export class AparteSidebar extends HTMLElement {
         if (!this.classList.contains('aparte-sidebar')) this.classList.add('aparte-sidebar');
         if (!this.getAttribute('role')) this.setAttribute('role', 'complementary');
         this._relabel();
-        this._lastCollapsed = this.collapsed;
+        // Before the breakpoint runs, and only the FIRST time: whatever the markup asked
+        // for is the host's word. On a later connect `collapsed` may be our own.
+        if (!this._hostIntentSeeded) {
+            this._closedByHost = this.collapsed;
+            this._hostIntentSeeded = true;
+        }
         this.addEventListener('input', this._onInput);
-        this.addEventListener('keydown', this._onKeydown);
+        // On the DOCUMENT, not on the element: an overlay that only answers Escape when
+        // the focus is already inside it answers nobody — the focus is on the page the
+        // drawer is covering.
+        document.addEventListener('keydown', this._onKeydown);
         document.addEventListener('click', this._onDocumentClick);
         window.addEventListener('aparte-config-change', this._onConfigChange);
         this._watchBreakpoint();
+        this._syncHidden();
+        // Last: `_watchBreakpoint` may have closed the sidebar on its way in, and that
+        // close is the drawer entering, not a change to announce.
+        this._lastCollapsed = this.collapsed;
+        this._ready = true;
     }
 
     /**
@@ -142,15 +196,16 @@ export class AparteSidebar extends HTMLElement {
 
     disconnectedCallback(): void {
         this.removeEventListener('input', this._onInput);
-        this.removeEventListener('keydown', this._onKeydown);
+        document.removeEventListener('keydown', this._onKeydown);
         document.removeEventListener('click', this._onDocumentClick);
         window.removeEventListener('aparte-config-change', this._onConfigChange);
         this._media?.removeEventListener('change', this._onMediaChange);
         this._media = null;
+        this._ready = false;
     }
 
     attributeChangedCallback(name: string): void {
-        if (!this.isConnected) return;
+        if (!this._ready) return;
         if (name === 'breakpoint') {
             this._watchBreakpoint();
             return;
@@ -159,10 +214,16 @@ export class AparteSidebar extends HTMLElement {
         const collapsed = this.collapsed;
         if (collapsed === this._lastCollapsed) return;
         this._lastCollapsed = collapsed;
+        // A collapse taken in the flow is a preference about the COLUMN, and survives a
+        // resize. One taken over a drawer, or by the breakpoint itself, is not.
+        if (!this._auto && !this.drawer) this._closedByHost = collapsed;
         this._syncScrim();
+        this._syncHidden();
         if (collapsed && this.drawer && this._opener?.isConnected) {
             this._opener.focus();
             this._opener = null;
+        } else if (!collapsed && this.drawer) {
+            this._focusFirst();
         }
         this.dispatchEvent(new CustomEvent<AparteSidebarToggleDetail>('aparte-sidebar-toggle', {
             detail: { collapsed, drawer: this.drawer },
@@ -200,9 +261,54 @@ export class AparteSidebar extends HTMLElement {
     private _applyDrawer(drawer: boolean): void {
         const was = this.drawer;
         this.toggleAttribute('data-drawer', drawer);
-        if (drawer && !was) this.collapsed = true;
-        else if (!drawer && was) this.collapsed = false;
+        this._auto = true;
+        try {
+            if (drawer && !was) this.collapsed = true;
+            else if (!drawer && was && !this._closedByHost) this.collapsed = false;
+        } finally {
+            this._auto = false;
+        }
         this._syncScrim();
+        this._syncHidden();
+    }
+
+    /**
+     * A collapsed sidebar is invisible — folded to nothing in the flow, slid off the
+     * screen as a drawer — so it must not keep its tab stops or its place in the
+     * accessibility tree. `inert` covers focus and the pointer, `aria-hidden` covers
+     * the readers that predate it; a browser without `inert` still gets the second.
+     *
+     * It removes only what it wrote. Both are standard global attributes a host sets
+     * itself — inerting the sidebar behind its own modal is the ordinary pattern — and
+     * this runs on every breakpoint re-evaluation, so clearing them unconditionally lets
+     * an unrelated resize re-expose the page under an overlay. Same convention as
+     * `_relabel`, which leaves a host-authored `aria-label` alone.
+     *
+     * Neither is declared `@attr`, and `data-drawer` is not the precedent: a `@attr` on a
+     * STANDARD name displaces the wrappers' own prop for it — React's JSX props are
+     * `Omit<HTMLAttributes, keyof T>`, so declaring `inert` here would retype
+     * `<aparte-sidebar inert={busy}>` out of existence. The class docblock says it in prose.
+     */
+    private _syncHidden(): void {
+        if (this.collapsed) {
+            this.toggleAttribute('inert', true);
+            this.setAttribute('aria-hidden', 'true');
+            this._ownHidden = true;
+        } else if (this._ownHidden) {
+            this.removeAttribute('inert');
+            this.removeAttribute('aria-hidden');
+            this._ownHidden = false;
+        }
+    }
+
+    /**
+     * The drawer covers the page, so the focus has to follow it in — otherwise the next
+     * Tab walks the transcript under the overlay. The host owns the children, so this
+     * takes the first thing that can hold focus and leaves the rest alone; a drawer with
+     * nothing focusable in it keeps the focus where it was, which is the honest outcome.
+     */
+    private _focusFirst(): void {
+        this.querySelector<HTMLElement>(FOCUSABLE)?.focus();
     }
 
     private _syncScrim(): void {
@@ -275,6 +381,16 @@ export class AparteSidebar extends HTMLElement {
         this.dataset['ownLabel'] = 'locale';
     }
 }
+
+/** What the drawer hands the focus to when it opens. The host owns the children. */
+const FOCUSABLE = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled]):not([type="hidden"])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+].join(',');
 
 /** The sidebar a toggle belongs to: the closest ancestor, else the first on the page. */
 function nearestSidebar(control: HTMLElement): Element | null {

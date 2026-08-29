@@ -411,10 +411,15 @@ test.describe('at phone width', () => {
             document.activeElement?.hasAttribute('data-aparte-sidebar-toggle') === true),
         ).toBe(true);
 
-        // And Escape from inside the drawer closes it too.
+        // Opening it moves the focus INTO it — an overlay the next Tab walks past is an
+        // overlay nobody can reach — and Escape then closes it from wherever focus is.
+        // No `focus()` here on purpose: putting the focus in the drawer by hand is what
+        // made this pass while Escape was answered only by the element itself.
         await toggle.click();
         await expect(sidebar).not.toHaveAttribute('collapsed', '');
-        await sidebar.locator('[data-aparte-sidebar-search]').focus();
+        expect(await page.evaluate(() =>
+            document.querySelector('aparte-sidebar')?.contains(document.activeElement) === true),
+        ).toBe(true);
         await page.keyboard.press('Escape');
         await expect(sidebar).toHaveAttribute('collapsed', '');
 

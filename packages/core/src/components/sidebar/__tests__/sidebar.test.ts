@@ -8,7 +8,8 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import '../aparte-sidebar.js';
 import '../../conversation-list/aparte-conversation-list.js';
-import type { AparteSidebar, AparteSidebarToggleDetail } from '../aparte-sidebar.js';
+import { AparteSidebar } from '../aparte-sidebar.js';
+import type { AparteSidebarToggleDetail } from '../aparte-sidebar.js';
 import type { AparteConversationListItem } from '../../conversation-list/aparte-conversation-list.js';
 
 type MediaListener = (e: { matches: boolean }) => void;
@@ -39,6 +40,39 @@ function mount(html = ''): AparteSidebar {
     return el;
 }
 
+/** The same, with the attributes present BEFORE the element is connected. */
+function mountWith(attrs: Record<string, string>, html = ''): AparteSidebar {
+    const el = document.createElement('aparte-sidebar') as AparteSidebar;
+    for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, value);
+    el.innerHTML = html;
+    document.body.appendChild(el);
+    return el;
+}
+
+let tagSeq = 0;
+
+/**
+ * Author the markup FIRST, then define the element — the only route to the UPGRADE
+ * path, where `attributeChangedCallback` fires for every authored attribute while the
+ * element is already in the document and before `connectedCallback` has run. `mount()`
+ * cannot reach it: `createElement` on a defined tag hands back an upgraded element.
+ */
+function upgrade(markup: string, html = ''): AparteSidebar {
+    const tag = `x-sidebar-${++tagSeq}`;
+    document.body.innerHTML = `<${tag} ${markup}>${html}</${tag}>`;
+    customElements.define(tag, class extends AparteSidebar {});
+    customElements.upgrade(document.body);
+    return document.body.firstElementChild as AparteSidebar;
+}
+
+/** Toggles heard on the body, so an upgrade that fires one before we hold the element is seen. */
+function watchToggles(): { seen: AparteSidebarToggleDetail[]; stop: () => void } {
+    const seen: AparteSidebarToggleDetail[] = [];
+    const onToggle = (e: Event): void => { seen.push((e as CustomEvent<AparteSidebarToggleDetail>).detail); };
+    document.body.addEventListener('aparte-sidebar-toggle', onToggle);
+    return { seen, stop: () => document.body.removeEventListener('aparte-sidebar-toggle', onToggle) };
+}
+
 const events = (el: HTMLElement): AparteSidebarToggleDetail[] => {
     const seen: AparteSidebarToggleDetail[] = [];
     el.addEventListener('aparte-sidebar-toggle', (e) => seen.push((e as CustomEvent<AparteSidebarToggleDetail>).detail));
@@ -64,6 +98,32 @@ describe('aparte-sidebar', () => {
         el.toggle();
         expect(el.collapsed).toBe(false);
         expect(seen).toEqual([{ collapsed: true, drawer: false }, { collapsed: false, drawer: false }]);
+    });
+
+    it('an authored `collapsed` is markup, not a change: the upgrade announces nothing', () => {
+        mediaMatches = true;
+        const { seen, stop } = watchToggles();
+        try {
+            const el = upgrade('collapsed');
+            expect(seen, 'the markup is the starting state, not a toggle').toEqual([]);
+            expect(el.collapsed).toBe(true);
+            expect(el.drawer, 'and it came up over a real drawer').toBe(true);
+        } finally {
+            stop();
+        }
+    });
+
+    it('mounted already narrow, the FIRST open() is still announced', () => {
+        // The guard against the naive fix: stamp `_lastCollapsed` before the breakpoint
+        // runs and the drawer's own close is never recorded, so the first open reads as
+        // "no change" and the host hears nothing.
+        mediaMatches = true;
+        const el = mount();
+        expect(el.drawer).toBe(true);
+        expect(el.collapsed).toBe(true);
+        const seen = events(el);
+        el.open();
+        expect(seen).toEqual([{ collapsed: false, drawer: true }]);
     });
 
     it('a [data-aparte-sidebar-toggle] anywhere toggles the nearest sidebar, or the one it names', () => {
@@ -117,9 +177,129 @@ describe('aparte-sidebar', () => {
             expect(document.activeElement).toBe(opener);
 
             opener.click();
-            el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            // On the element the listener sits on, Escape proves nothing about where the
+            // reader's focus is — and opening the drawer moves it inside.
+            document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
             expect(el.collapsed).toBe(true);
             expect(document.activeElement).toBe(opener);
+        });
+
+        it('Escape closes it from wherever focus is, not only from inside', () => {
+            mediaMatches = true;
+            const el = mount('<button class="in">in</button>');
+            const outside = document.createElement('button');
+            document.body.appendChild(outside);
+            el.open();
+            outside.focus();
+            expect(document.activeElement, 'focus is on the page, not in the drawer').toBe(outside);
+
+            outside.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            expect(el.collapsed).toBe(true);
+        });
+
+        it('opening the drawer moves focus into it', () => {
+            mediaMatches = true;
+            const el = mount('<div class="aparte-sidebar__search"><input type="search" data-aparte-sidebar-search></div>');
+            const opener = document.createElement('button');
+            opener.setAttribute('data-aparte-sidebar-toggle', '');
+            document.body.appendChild(opener);
+            opener.focus();
+
+            opener.click();
+            expect(el.collapsed).toBe(false);
+            expect(document.activeElement, 'an overlay nobody can reach is not open').toBe(el.querySelector('input'));
+        });
+
+        it('a closed sidebar leaves the tab order and the a11y tree', () => {
+            const el = mount('<button class="in">in</button>');
+            expect(el.hasAttribute('inert')).toBe(false);
+            expect(el.hasAttribute('aria-hidden')).toBe(false);
+
+            el.close();
+            expect(el.hasAttribute('inert'), 'a folded column is no tab stop').toBe(true);
+            expect(el.getAttribute('aria-hidden')).toBe('true');
+
+            el.open();
+            expect(el.hasAttribute('inert')).toBe(false);
+            expect(el.hasAttribute('aria-hidden')).toBe(false);
+        });
+
+        it('it only ever takes back the inert it put there — a host hiding an open sidebar keeps it', () => {
+            // A host inerting the sidebar behind its own modal is the standard pattern.
+            // Any re-evaluation of the breakpoint reaches `_syncHidden`, and an element
+            // that removes what it did not write un-inerts the page behind the overlay.
+            const el = mount('<button class="in">in</button>');
+            el.setAttribute('inert', '');
+            el.setAttribute('aria-hidden', 'true');
+
+            el.setAttribute('breakpoint', 'none');
+            expect(el.collapsed, 'nothing about the collapse changed').toBe(false);
+            expect(el.hasAttribute('inert'), "the host's inert is the host's").toBe(true);
+            expect(el.getAttribute('aria-hidden')).toBe('true');
+        });
+
+        it('a collapse the host asked for survives the window widening, and announces nothing', () => {
+            const el = mount();
+            el.close();
+            const seen = events(el);
+
+            narrow(true);
+            expect(el.drawer).toBe(true);
+            expect(el.collapsed).toBe(true);
+
+            narrow(false);
+            expect(el.drawer).toBe(false);
+            expect(el.collapsed, 'a resize is not the host changing its mind').toBe(true);
+            expect(seen, 'and nothing was announced either').toEqual([]);
+        });
+
+        it('<aparte-sidebar collapsed> loading narrow stays collapsed when the window widens', () => {
+            mediaMatches = true;
+            const el = mountWith({ collapsed: '' });
+            expect(el.drawer).toBe(true);
+            narrow(false);
+            expect(el.collapsed, 'the markup asked for it').toBe(true);
+        });
+
+        it('closing the DRAWER is not a column preference: widening reopens the column', () => {
+            mediaMatches = true;
+            const el = mount();
+            el.open();
+            el.close();
+
+            narrow(false);
+            expect(el.collapsed, 'dismissing an overlay is not folding a column').toBe(false);
+        });
+
+        it('a re-parent does not turn the breakpoint\'s own close into a host preference', () => {
+            // The drawer closed itself on the way in. Moving the element — a framework
+            // re-render, a tab swap, a drag of the panel — runs `connectedCallback` again,
+            // and reading `collapsed` back there would record the element's OWN write as
+            // the host's word, so the column would never reopen.
+            mediaMatches = true;
+            const el = mount();
+            expect(el.collapsed).toBe(true);
+
+            const box = document.createElement('div');
+            document.body.appendChild(box);
+            box.appendChild(el);
+
+            narrow(false);
+            expect(el.collapsed, 'a wide window has room for the column').toBe(false);
+        });
+
+        it('a collapse the host asked for survives a re-parent too', () => {
+            // The other half: the intent is seeded once, so moving the element must not
+            // forget it either.
+            const el = mount();
+            el.close();
+            const box = document.createElement('div');
+            document.body.appendChild(box);
+            box.appendChild(el);
+
+            narrow(true);
+            narrow(false);
+            expect(el.collapsed, 'the host folded the column before the move').toBe(true);
         });
 
         it('breakpoint="none" keeps the column in the flow whatever the window; a length sets the query', () => {
