@@ -177,6 +177,24 @@ and the whole UI re-spaces or re-sizes coherently.
 }
 ```
 
+The defaults are one step denser than the kits people compare a chat against — radii of
+2 to 12px, controls of 20/28/36px, 13px body text, where shadcn or Radix sit at 6 to 12px,
+32/36/40px and 14px. The scales are what closes that gap, in four lines, without touching
+a single component:
+
+```css
+/* The "comfortable" preset: rounder, roomier, a size up. */
+:root {
+  --aparte-radius-unit: 3px;      /* radii become 3/6/9/12/18px */
+  --aparte-font-scale: 1.08;      /* 13px body text becomes 14px */
+  --aparte-btn-size-md: 32px;     /* the medium button, and every control on its scale */
+  --aparte-btn-size-lg: 40px;
+}
+```
+
+Compare the two on the [UI kit gallery](/kit/): every family reads the same tokens, so the
+whole kit moves at once.
+
 ## Token groups
 
 Variables are grouped by region. The most-reached-for ones:
