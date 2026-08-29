@@ -160,12 +160,37 @@ aparteGlobalConfig.registerTool(deleteFilesTool, async (call) => {
 Before running the handler, `AparteClient` flips the segment to
 `status: 'awaiting-approval'` and **asks at the composer** — the same place every other
 request for the user is answered, through the same `requestUserInput` a tool handler
-calls. The panel offers the choices and a free-text field; the row in the transcript is
-the **anchor**, saying which tool is waiting, and holds nothing clickable.
+calls. The panel carries the question, the call's **arguments** under it, the choices and
+a free-text field; the row in the transcript is the **anchor**, saying which tool is
+waiting, and holds nothing clickable.
 
-That split is deliberate. The panel is capped at half the viewport, so it cannot hold a
-diff or a plan, while the transcript is already scrollable, copyable and persisted: the
-thing being judged stays in the thread, the decision moves to where the user answers.
+The arguments are on the panel because they are what is being approved — the same text
+the row shows, from the same function, so the two surfaces cannot disagree about what is
+about to run. The panel is capped at half the viewport and the block inside it scrolls,
+so a diff or a plan does not push the buttons off the surface they are asked on; the full
+version stays in the thread, which is already scrollable, copyable and persisted.
+
+Set `details` on your own `requestUserInput({ kind: 'approval' })` call to put text
+there — it is rendered through `textContent`, never as markup, so a model-chosen path
+cannot become markup on the surface someone clicks Approve on:
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+
+const answer = await aparteGlobalConfig.requestUserInput({
+  kind: 'approval',
+  message: 'Run delete_file?',
+  // The call being approved, shown under the question. Text, never markup.
+  details: JSON.stringify({ path: 'src/index.ts' }, null, 2),
+  options: [
+    { value: 'allow', label: 'Approve', tone: 'affirm' },
+    { value: 'deny', label: 'Reject', tone: 'deny' },
+  ],
+});
+```
+
+The [complete example](#complete-example-approvereject-with-no-backend) below passes it
+the same way.
 
 It also dispatches **`aparte-tool-approval-request`** on the target element
 (`detail: { toolCallId, toolName, input }`) — observation only, for an app that wants to
@@ -366,7 +391,8 @@ const vp = () => (chat as any).viewport;
 let n = 0;
 
 function reply(text: string) {
-  vp().appendMessage({ id: `a-${++n}`, role: 'assistant', content: text, timestamp: Date.now() });
+  // `status` is part of the shape, not decoration: a finished assistant turn says so.
+  vp().appendMessage({ id: `a-${++n}`, role: 'assistant', content: text, timestamp: Date.now(), status: 'completed' });
 }
 
 // Human-in-the-loop with no client and no loop: the row is the anchor in the
@@ -375,7 +401,7 @@ function reply(text: string) {
 async function askApproval() {
   const id = `a-${++n}`;
   const segId = `seg-${n}`;
-  vp().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now() });
+  vp().appendMessage({ id, role: 'assistant', content: '', timestamp: Date.now(), status: 'streaming' });
   vp().addSegment(id, {
     id: segId,
     type: 'tool_call',
@@ -387,6 +413,9 @@ async function askApproval() {
     const answer = await aparteGlobalConfig.requestUserInput({
       kind: 'approval',
       message: 'Run delete_files?',
+      // What is being approved, under the question. Rendered through `textContent`,
+      // never as markup — a model-chosen path is not trusted here either.
+      details: JSON.stringify({ path: '~/notes/todo.md' }, null, 2),
       // The options are YOURS. Core cannot write "and always for this tool" or know
       // that your app has somewhere to remember it.
       options: [

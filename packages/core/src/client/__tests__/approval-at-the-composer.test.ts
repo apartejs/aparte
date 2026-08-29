@@ -97,6 +97,12 @@ describe('the built-in gate asks at the composer', () => {
 
         await vi.waitFor(() => expect(document.querySelector('.aparte-approval-panel')).not.toBeNull());
         expect(document.querySelector('.aparte-elic-message')?.textContent).toBe('Run delete_file?');
+        // And WHICH file. The tool's name alone is a question with its subject missing:
+        // the arguments the model chose are the thing being approved, and they used to
+        // exist only in the transcript row, behind a disclosure that stays closed.
+        const args = document.querySelector('.aparte-approval-args');
+        expect(args?.textContent, 'the panel names the tool but not the call').toContain('a.ts');
+        expect(args?.textContent).toContain('path');
         expect(document.querySelector('aparte-composer')?.hasAttribute('data-panel-active')).toBe(true);
         // The decision surface used to be here. Nothing in the transcript is clickable.
         expect(document.querySelector('[data-tool-decision]')).toBeNull();

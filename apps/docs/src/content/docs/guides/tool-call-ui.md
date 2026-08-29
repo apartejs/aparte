@@ -76,11 +76,16 @@ meanwhile. Two things decide whether it is real: the gate has to be on the loop 
 that is drawn but does not block the call is decoration), and the answer has to be
 somewhere the user is already looking.
 
-aparté puts the approval where the user's attention already is: the composer. The row in
-the transcript says a call is waiting; the panel in the composer asks the question, and
-the loop does not proceed until it is answered. The same panel serves the general case —
-a tool that needs a choice, a yes/no or a small form from the user before it can finish
-— which is [elicitation](/guides/elicitation/).
+aparté puts the approval where the user's attention already is: the composer. The panel
+asks the question — *Run `delete_file`?* — and shows the call's arguments under it, as
+pretty-printed JSON, because the arguments are the thing being approved. The block is
+capped and scrolls, so a long input cannot push the buttons off a panel that is already
+capped at half the viewport. The row in the transcript stays the anchor, saying which
+call is waiting, and holds nothing clickable. The loop does not proceed until the panel
+is answered.
+
+The same panel serves the general case — a tool that needs a choice, a yes/no or a small
+form from the user before it can finish — which is [elicitation](/guides/elicitation/).
 
 ## What is deliberately not there (yet)
 

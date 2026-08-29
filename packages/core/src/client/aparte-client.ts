@@ -12,6 +12,7 @@ import type { AparteToolCall, AparteTool } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
 import { uuid } from '../utils/uuid.js';
+import { describeToolInput } from '../utils/tool-input.js';
 import { requestUserInput } from '../elicitation/index.js';
 
 /**
@@ -473,9 +474,14 @@ export class AparteClient {
      * one queue, one panel slot, one teardown, and the same behaviour whether the
      * request came from a tool handler or from this gate.
      *
-     * The tool NAME is the question; the arguments stay in the transcript, on the pill
-     * this request is anchored to. A panel capped at 50vh cannot hold a diff or a plan,
-     * and the transcript is already scrollable, copyable and persisted.
+     * The tool NAME is the question and its ARGUMENTS are the body, because the
+     * arguments are what is being approved — a decision surface that names the act and
+     * hides its subject asks for a signature on a blank page. This paragraph used to
+     * say the opposite ("the arguments stay in the transcript"), and the guide beside
+     * it had always promised what the panel did not do. The transcript row stays the
+     * anchor; it is no longer the only place the call can be read. The panel is capped
+     * at 50vh and the block inside it scrolls, so a long input cannot push the options
+     * off the surface they are asked on.
      *
      * `aparte-tool-decision` is GONE with the buttons that dispatched it, and so is the
      * `document` listener that answered it. It existed only because a segment renderer
@@ -502,6 +508,11 @@ export class AparteClient {
                 const loc = this._config.getLocale();
                 return (loc.approvalAsk ?? 'Run {tool}?').replace('{tool}', event.name);
             },
+            // A plain string, not a function: the arguments are wire format — the JSON
+            // the model sent — and re-reading them on a language switch would produce
+            // exactly the same bytes. Same text the transcript row shows, from the same
+            // function, so the two surfaces cannot disagree about what is being run.
+            details: describeToolInput(event.input),
             // Functions, not strings, same as the question: these follow a language
             // switch while the request is open, which a resolved string cannot.
             options: [

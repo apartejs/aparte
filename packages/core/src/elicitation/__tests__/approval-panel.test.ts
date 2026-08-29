@@ -147,3 +147,73 @@ describe('buildApprovalPanel', () => {
         expect(panel.el.querySelector('.aparte-approval-instruction')).toBe(field);
     });
 });
+
+/**
+ * The panel shows the CALL, not only its name.
+ *
+ * "Run delete_file?" over Approve/Reject asks for a signature on a blank page: which
+ * file, which path, which amount is the whole of what a person is deciding, and it
+ * lived only in the transcript row, behind a disclosure that stays closed on purpose.
+ *
+ * `details` is model-authored text on the one control whose job is to stop a model, so
+ * the escaping half is not decoration: a string arm here would be a model-to-DOM XSS
+ * with the user's own click as the trigger.
+ */
+describe('buildApprovalPanel — the arguments under the question', () => {
+    const JSON_ARGS = '{\n  "path": "a.ts"\n}';
+
+    it('renders them, in order, between the question and the options', () => {
+        const panel = buildApprovalPanel('Run delete_file?', OPTIONS, NOOP, JSON_ARGS);
+        const pre = panel.el.querySelector('.aparte-approval-args');
+        expect(pre?.textContent).toBe(JSON_ARGS);
+        const order = [...panel.el.children].map((c) => c.className.split(' ')[0]);
+        expect(order.indexOf('aparte-elic-message')).toBeLessThan(order.indexOf('aparte-approval-args'));
+        expect(order.indexOf('aparte-approval-args')).toBeLessThan(order.indexOf('aparte-approval-options'));
+    });
+
+    it('renders nothing at all when there are no arguments', () => {
+        // Decision #8: a region that reveals nothing is an affordance that lies. A tool
+        // with no input gets the panel it had.
+        const panel = buildApprovalPanel('Run list_files?', OPTIONS, NOOP);
+        expect(panel.el.querySelector('.aparte-approval-args')).toBeNull();
+        expect(panel.el.querySelector('.aparte-approval-args-label')).toBeNull();
+    });
+
+    it('is TEXT: markup in an argument is shown, never parsed', () => {
+        const payload = '{"note": "<img src=x onerror=alert(1)><script>alert(2)</script>"}';
+        const panel = buildApprovalPanel('Run write_note?', OPTIONS, NOOP, payload);
+        const pre = panel.el.querySelector('.aparte-approval-args')!;
+        expect(pre.textContent).toBe(payload);
+        expect(pre.querySelector('img')).toBeNull();
+        expect(pre.querySelector('script')).toBeNull();
+        expect(panel.el.querySelectorAll('img,script').length).toBe(0);
+    });
+
+    it('is named, and the name follows a language switch', () => {
+        const panel = buildApprovalPanel('Run delete_file?', OPTIONS, NOOP, JSON_ARGS);
+        const label = panel.el.querySelector<HTMLElement>('.aparte-approval-args-label')!;
+        const pre = panel.el.querySelector<HTMLElement>('.aparte-approval-args')!;
+        expect(label.textContent).toBe('Arguments');
+        // The heading names the region, rather than reading as part of the question.
+        expect(pre.getAttribute('aria-labelledby')).toBe(label.id);
+        expect(label.id).not.toBe('');
+
+        aparteGlobalConfig.setLocale({ ...aparteGlobalConfig.getLocale(), approvalArgsLabel: 'Paramètres' });
+        panel.relabel();
+        expect(label.textContent).toBe('Paramètres');
+    });
+
+    it('can be scrolled from the keyboard, since it is a capped scroll box', () => {
+        // The transcript's own defect, on a smaller surface: WebKit gives an
+        // unfocusable overflow box no keyboard scroll at all.
+        const panel = buildApprovalPanel('Run apply_patch?', OPTIONS, NOOP, JSON_ARGS);
+        expect(panel.el.querySelector<HTMLElement>('.aparte-approval-args')!.tabIndex).toBe(0);
+    });
+
+    it('gives two panels on one page two different heading ids', () => {
+        const a = buildApprovalPanel('?', OPTIONS, NOOP, JSON_ARGS);
+        const b = buildApprovalPanel('?', OPTIONS, NOOP, JSON_ARGS);
+        const idOf = (p: { el: HTMLElement }) => p.el.querySelector('.aparte-approval-args-label')!.id;
+        expect(idOf(a)).not.toBe(idOf(b));
+    });
+});

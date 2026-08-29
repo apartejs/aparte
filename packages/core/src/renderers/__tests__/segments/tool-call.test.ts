@@ -10,6 +10,7 @@ import {
     registerDefaultRenderers
 } from '../../segment-renderers.js';
 import { aparteGlobalConfig } from '../../../config/aparte-config.js';
+import { describeToolInput } from '../../../utils/tool-input.js';
 
 // Register the default renderers once, so the built-in under test is resolvable.
 registerDefaultRenderers();
@@ -358,5 +359,48 @@ describe('tool detail — input and result wrap inside the bubble', () => {
         expect(rule![1]).toMatch(/overflow-wrap:\s*anywhere/);
         // …and exactly one: a second declaration elsewhere would be the drift that hid this.
         expect(sheet.match(/\.aparte-tool-part-body pre\s*\{/g)).toHaveLength(1);
+    });
+});
+
+/**
+ * The row and the approval panel read the same arguments, from the same function.
+ *
+ * When the panel started showing the call it asks about, the risk was two renderings
+ * of one value: a person approving a call they read differently from the one that
+ * runs. `describeToolInput` is the single body, in `utils/`, and the row's own
+ * `describeInput` is now a one-line call to it.
+ *
+ * And the row still does NOT open itself when a decision is pending. The panel is the
+ * decision surface now, so "open the disclosure so they can see what they are
+ * approving" has lost its last argument — the reasoning block stays closed while it is
+ * being produced, and a tool call has no stronger claim.
+ */
+describe('the arguments the panel shows are the ones the row shows', () => {
+    const call = {
+        id: 's-args', type: 'tool_call' as const, status: 'awaiting-approval' as const,
+        toolCall: { id: 'c1', name: 'delete_file', input: { path: 'a.ts', force: true } },
+    };
+
+    it('is the same text on both surfaces', () => {
+        const node = document.createElement('div');
+        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never);
+        const row = node.querySelector('[data-part="input"]')!.textContent!;
+        expect(row).toContain(describeToolInput(call.toolCall.input));
+    });
+
+    it('says nothing when there is nothing to say', () => {
+        expect(describeToolInput({})).toBe('');
+        expect(describeToolInput(undefined)).toBe('');
+        // A hand-built segment can carry a cyclic object; a broken bubble is worse
+        // than no arguments.
+        const cyclic: Record<string, unknown> = { a: 1 };
+        cyclic['self'] = cyclic;
+        expect(describeToolInput(cyclic)).toBe('');
+    });
+
+    it('leaves the row closed while a person is deciding', () => {
+        const node = document.createElement('div');
+        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never);
+        expect(node.querySelector('details')?.hasAttribute('open')).toBe(false);
     });
 });

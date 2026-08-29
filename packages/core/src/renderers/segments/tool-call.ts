@@ -12,24 +12,18 @@ import type {
     AparteToolCallSegment,
 } from '../../types/index.js';
 import { injectToolRendererStyles } from '../segment-renderers.js';
+import { describeToolInput } from '../../utils/tool-input.js';
 
 /**
  * The arguments as text, or `''` when there are none worth showing.
  *
- * Pretty-printed JSON, because that is what the model actually sent and what every
- * reference implementation shows — a prose summary would be core inventing a reading
- * of arguments it knows nothing about. `JSON.stringify` can throw on a cyclic value,
- * which a tool input should never be but a hand-built segment can be, so a failure
- * degrades to no input rather than to a broken bubble.
+ * The body moved to `utils/tool-input.ts` when the approval panel started showing the
+ * same arguments: the row is the anchor and the panel is where the decision is made,
+ * so a person must not be able to read the two differently. See that file for why it
+ * is pretty-printed JSON.
  */
 function describeInput(segment: AparteToolCallSegment): string {
-    const input = segment.toolCall?.input;
-    if (!input || typeof input !== 'object' || Object.keys(input).length === 0) return '';
-    try {
-        return JSON.stringify(input, null, 2);
-    } catch {
-        return '';
-    }
+    return describeToolInput(segment.toolCall?.input);
 }
 
 /**

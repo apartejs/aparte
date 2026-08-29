@@ -191,6 +191,9 @@ import { requestUserInput } from '@aparte/core';
 const answer = await requestUserInput({
   kind: 'approval',
   message: 'Run delete_files?',
+  // What is being approved, under the question. Rendered as text, never as markup —
+  // the panel is the surface where the user clicks, so the arguments belong on it.
+  details: JSON.stringify({ paths: ['src/legacy/old-client.ts'] }, null, 2),
   options: [
     { value: 'allow', label: 'Approve', tone: 'affirm' },
     // Two options may share a `value` and differ only in reach: this is what

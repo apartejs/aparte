@@ -246,6 +246,43 @@ textarea.aparte-elic-text {
    recipe. See `buildApprovalPanel` for why colour lost: an alert's vocabulary on a
    control, and 2.19:1 on the dark palette when it was tried as a fill instead. */
 
+/* What is being decided, between the question and the options.
+
+   The panel used to carry the tool's NAME and nothing else, so the arguments — the
+   whole of what a person approves — were only in the transcript row, behind a closed
+   disclosure. Capped and scrollable rather than unbounded: the panel itself is capped
+   at half the viewport, and a plan or a diff arriving as a tool argument would
+   otherwise push the Approve button off the bottom of the surface it is asked on.
+
+   Monospace, because it is JSON: the model's own bytes, not prose about them. */
+.aparte-approval-args-label {
+  margin: var(--aparte-space-3) var(--aparte-space-3) 0;
+  font-size: var(--aparte-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--aparte-text-muted);
+}
+
+.aparte-approval-args {
+  margin: var(--aparte-space-1) var(--aparte-space-3) 0;
+  padding: var(--aparte-space-3);
+  max-height: var(--aparte-approval-args-max-height, 8.5rem);
+  overflow: auto;
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-approval-args-size, var(--aparte-font-size-sm));
+  line-height: var(--aparte-line-height-snug);
+  color: var(--aparte-text);
+  background: var(--aparte-surface-2);
+  border-radius: var(--aparte-radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.aparte-approval-args:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: 1px;
+}
+
 /* The refusal's reason, in the user's words. Quiet by default and one line tall: it is
    the exception, not the expected act, and a box sized for a paragraph invites one. */
 .aparte-approval-instruction {

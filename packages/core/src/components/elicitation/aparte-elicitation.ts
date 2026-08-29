@@ -113,6 +113,8 @@ interface Pending {
  * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
  * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
  * @cssprop [--aparte-approval-option-radius=8px] - Corner radius of an approval option button.
+ * @cssprop [--aparte-approval-args-max-height=8.5rem] - Height cap of the arguments block before it scrolls.
+ * @cssprop [--aparte-approval-args-size=var(--aparte-font-size-sm)] - Font size of the arguments block.
  *
  * @example
  * <!-- Renders nothing by itself: it registers as the presenter for its subtree, so a
@@ -365,7 +367,7 @@ export class AparteElicitation extends HTMLElement implements AparteConfigAware 
                 const panel = runWithConfig(cfg, () =>
                     buildApprovalPanel(request.message, request.options ?? [], () => {
                         composer.setPanelSubmitEnabled(panel.isComplete(), approvalMode());
-                    }));
+                    }, request.details));
                 panel.onSettle((answer) => settle({ action: 'accept', content: answer }));
                 this._pending = { abort: () => fail(), composer, relabel: () => panel.relabel() };
                 slot.token = composer.showPanel(panel.el, {
