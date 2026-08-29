@@ -4,7 +4,6 @@ import { unified } from '@astrojs/markdown-remark';
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs';
 import starlightLlmsTxt from 'starlight-llms-txt';
 import starlightLinksValidator from 'starlight-links-validator';
-import starlightSidebarTopics from 'starlight-sidebar-topics';
 
 // Dev only: read @aparte/core from source (see the `vite` block below). Production
 // builds keep consuming the published `dist`, so deploys are unchanged.
@@ -88,6 +87,50 @@ export default defineConfig({
         { tag: 'link', attrs: { rel: 'icon', href: '/favicon.ico', sizes: '48x48 32x32 16x16' } },
         { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' } },
       ],
+      // ONE sidebar, in collapsible groups — Starlight's own. It used to be four sidebars
+      // switched from a picker at the top (`starlight-sidebar-topics`): the reader saw a
+      // quarter of the site at a time and had to know which quarter held the page, and
+      // the maintainer named it as the thing that made the docs hard to read. The order
+      // inside each group still comes from each page's `sidebar.order` frontmatter,
+      // which is what keeps theming second in Guides. Groups a first visit does not need
+      // open start collapsed; Starlight opens whichever holds the current page.
+      sidebar: [
+        { label: 'Why aparté', link: '/why/' },
+        // The page the category's intent queries land on ("X alternative"): named,
+        // fair, and the one place the runtime/catalogue split is said in full.
+        { label: 'Compare', link: '/compare/' },
+        { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
+        // The catalogue. One autogenerate over `components/`, whose subdirectories ARE
+        // the groups — conversation, input, utility. Every page here is GENERATED from
+        // the manifest, so shipping an element ships its page.
+        { label: 'Components', items: [{ autogenerate: { directory: 'components' } }] },
+        // Segments are data with no tag, so a different page shape entirely.
+        { label: 'Segments', collapsed: true, items: [{ autogenerate: { directory: 'segments' } }] },
+        { label: 'Frameworks', items: [{ autogenerate: { directory: 'frameworks' } }] },
+        {
+          label: 'Providers',
+          collapsed: true,
+          items: [
+            { label: 'Overview', link: '/providers/' },
+            { label: 'AI', items: [{ autogenerate: { directory: 'providers/ai' } }] },
+          ],
+        },
+        { label: 'Plugins', collapsed: true, items: [{ autogenerate: { directory: 'plugins' } }] },
+        { label: 'Reference', collapsed: true, items: [{ autogenerate: { directory: 'reference' } }] },
+        {
+          label: 'Changelog',
+          collapsed: true,
+          // `latest` first, because the group's first link must be a RELEASE and not the
+          // list: the list renders every version's full body, so landing there is the
+          // 3087-line page again under a new URL. `recent` is set past the version count
+          // so the group carries them all — the sidebar and the page then agree.
+          items: makeChangelogsSidebarLinks([
+            { type: 'latest', base: 'changelog', label: 'Latest release' },
+            { type: 'all', base: 'changelog', label: 'All versions' },
+            { type: 'recent', base: 'changelog', count: 50 },
+          ]),
+        },
+      ],
       // Renders the release notes as a paginated version LIST at /changelog/ plus one
       // page per version at /changelog/version/<v>/. The 14 versions used to be one
       // 3087-line page — 26% of the whole docs corpus, with two releases alone (0.10.0
@@ -112,88 +155,6 @@ export default defineConfig({
           // build. Excluded by prefix rather than one link at a time, since the whole
           // subtree has the same cause.
           exclude: ['/changelog/**'],
-        }),
-        // FOUR sidebars rather than one, switched from a picker at the top: after the
-        // catalogue lands this list is ~61 entries, and the complaint that started this lot
-        // was volume in a flat list. Topics group pages BY THEIR EXISTING PATHS, so no URL
-        // moved and nothing had to be rewritten.
-        //
-        // The order inside each group still comes from each page's `sidebar.order`
-        // frontmatter, which is what keeps theming second in Guides.
-        starlightSidebarTopics([
-          {
-            label: 'Learn',
-            link: '/why/',
-            items: [
-              { label: 'Why aparté', link: '/why/' },
-              // The page the category's intent queries land on ("X alternative"): named,
-              // fair, and the one place the runtime/catalogue split is said in full.
-              { label: 'Compare', link: '/compare/' },
-              { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
-            ],
-          },
-          {
-            // The catalogue. Three families because the source tree draws them: generic
-            // primitives, the chat surface, and segments — which are data with no tag, so a
-            // different page shape entirely. Every page here is GENERATED from the manifest
-            // and from the segment union, so shipping an element ships its page.
-            label: 'Components',
-            link: '/components/',
-            items: [
-              { label: 'Overview', link: '/components/' },
-              // One autogenerate over `components/`, whose subdirectories ARE the groups —
-              // conversation, input, utility. Grouped by what a reader is looking for, which is
-              // what all six surveyed sites do; "primitives vs components" was our source tree.
-              { autogenerate: { directory: 'components' } },
-              { label: 'Segments', items: [{ autogenerate: { directory: 'segments' } }] },
-            ],
-          },
-          {
-            label: 'Integrations',
-            link: '/frameworks/',
-            items: [
-              { label: 'Frameworks', items: [{ autogenerate: { directory: 'frameworks' } }] },
-              {
-                label: 'Providers',
-                items: [
-                  { label: 'Overview', link: '/providers/' },
-                  { label: 'AI', items: [{ autogenerate: { directory: 'providers/ai' } }] },
-                ],
-              },
-              { label: 'Plugins', items: [{ autogenerate: { directory: 'plugins' } }] },
-            ],
-          },
-          {
-            label: 'Reference',
-            // Not /reference/api/: that page is now one page per element under /components/,
-            // and a topic whose landing URL redirects into ANOTHER topic is a navigation bug a
-            // link checker cannot see, since the redirect makes the URL resolve.
-            link: '/reference/config/',
-            items: [{ autogenerate: { directory: 'reference' } }],
-          },
-          // Still its own topic, for the reason recorded when it was moved OUT of Reference:
-          // it lived there for a few hours and nobody found it. A topic is as top-level as a
-          // sidebar entry was, and the version list becomes its sidebar instead of one link.
-          {
-            id: 'changelog',
-            label: 'Changelog',
-            link: '/changelog/',
-            // `latest` first, because the topic's landing page must be a RELEASE and not the
-            // list: the list renders every version's full body, so landing there is the
-            // 3087-line page again under a new URL. `recent` is set past the version count so
-            // the sidebar carries them all — the left column and the page then agree, which
-            // they did not when it showed five against fourteen.
-            items: makeChangelogsSidebarLinks([
-              { type: 'latest', base: 'changelog', label: 'Latest release' },
-              { type: 'all', base: 'changelog', label: 'All versions' },
-              { type: 'recent', base: 'changelog', count: 50 },
-            ]),
-          },
-        ], {
-          // The changelog's version pages are generated by starlight-changelogs, which knows
-          // nothing about topics, so they appear in no `items` array and the plugin cannot
-          // place them. This is the option documented for exactly that case.
-          topics: { changelog: ['/changelog/**'] },
         }),
         // Replaces apps/docs/scripts/gen-llms-txt.mjs. llmstxt.org is an external spec
         // that will keep moving, and tracking a spec is the thing to delegate rather

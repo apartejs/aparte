@@ -128,16 +128,6 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
 }
 :root:not([data-theme='light']) ::-webkit-scrollbar-thumb:hover { background: #463a54; }
 
-/* starlight-sidebar-topics draws the CURRENT topic ("Learn", "Reference") with a
-   light-mode-only rule of its own — `[data-theme='light'] a.…-current { color:
-   var(--sl-color-accent) }` — which reaches past `--sl-color-text-accent` and
-   lands back on the fill brass at 3.2:1. Its assumption holds for Starlight's
-   own blue accent and not for ours, so the topic label needs the text brass
-   named explicitly. `:root` outranks the plugin's bare attribute selector. */
-:root[data-theme='light'] a.starlight-sidebar-topics-current {
-  color: var(--brand-brass-text);
-}
-
 /* A reference table is DATA, not prose. Starlight lets it shrink to the column, which on
    a phone crushed `aparte-archive-conversation` onto three lines AND still clipped the
    second column — the type name simply could not be read, and nothing scrolled. Below the
