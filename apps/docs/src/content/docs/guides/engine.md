@@ -35,7 +35,7 @@ you can install `@aparte/engine` alone. If you wire it into core's client (below
 | Area | Exports | Status |
 |------|---------|--------|
 | **Structured-stream loop** | `runStreamAgent`, `StreamRunEvent` | Ready — the seam below |
-| **Context compaction** | `compactConversation` + token-budget / sliding-window helpers | Ready |
+| **Context budget** | `createCompactionSelector` + the token-budget helpers (`computeHistoryBudget`, `splitHistoryBudget`, `estimateTokens`) | Ready — what `compact()` and the gauge run |
 
 Everything is a plain function or class — no globals, no side effects (`sideEffects: false`), fully
 tree-shakeable, so you pull in only what you use.
@@ -49,10 +49,13 @@ at 75 % and 90 % (the `warn` / `danger` attributes), fires `aparte-context-thres
 level changes — and with `auto-compact` dispatches `aparte-compact` for its chat on reaching
 danger, once, until the level drops. Before the first turn, or without a window, it shows nothing.
 
-In the engine, `createCompactionSelector` is the budget-aware `compactionSelector` for
-`AparteClient.compact()`: the newest turns that still fit the history budget stay verbatim, the
-older ones are summarised. Without it `compact()` summarises the whole history — the built-in
-behaviour, which is a fine default for a small model and a wasteful one for a long conversation.
+In the engine, `createCompactionSelector` is the budget-aware `compactionSelector` of
+`AparteClient.compact()`, and since 0.16.0 it is the **default**: the newest turns that still fit
+the history budget stay verbatim, the older ones are summarised — with their tool calls, which the
+summariser reads as `[tool name] input → result` lines — and the summary comes back as a notice in
+the transcript rather than as a reply. When the current model declares no window, the last two
+exchanges stay. You build the selector yourself only to close over a budget the app knows better
+than the model's declared window:
 
 ```ts
 import { AparteClient, aparteGlobalConfig } from '@aparte/core';
@@ -60,9 +63,11 @@ import { createCompactionSelector } from '@aparte/engine';
 
 new AparteClient({
   compactionSelector: createCompactionSelector({
-    contextWindow: () => aparteGlobalConfig.getCurrentModel()?.contextWindow,
+    contextWindow: 32_000,                                  // yours, not the model's
     systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
+    minKeep: 6,                                             // never summarise the last three exchanges
   }),
+  compactionPrompt: 'Summarise in French, for a support agent picking up the ticket.',
 }).start();
 ```
 

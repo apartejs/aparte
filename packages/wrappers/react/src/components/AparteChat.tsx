@@ -368,6 +368,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
                                 key={m.id}
                                 message-id={m.id}
                                 data-role={m.role}
+                                data-kind={m.compaction ? 'compaction' : undefined}
                                 timestamp={m.timestamp}
                                 content={m.content}
                                 streaming={isAwaitingReply(m) ? '' : undefined}

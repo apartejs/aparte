@@ -314,3 +314,28 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
 .aparte-message[data-empty] {
   display: none;
 }
+
+/* ─── The compaction notice ────────────────────────────────────────────────────
+   A message with `compaction: true` — the summary `compact()` injected in place of
+   the turns it replaced — is a notice, not a reply: centred, muted, without avatar,
+   name, time or actions. Its role on the wire is `user` (context handed to the
+   model), and the bubble would otherwise draw it as something the user said. */
+aparte-chat-bubble[data-kind="compaction"] .aparte-avatar,
+aparte-chat-bubble[data-kind="compaction"] .aparte-header,
+aparte-chat-bubble[data-kind="compaction"] .aparte-footer,
+aparte-chat-bubble[data-kind="compaction"] .aparte-action-bar,
+aparte-chat-bubble[data-kind="compaction"] .aparte-branch-picker {
+  display: none;
+}
+
+aparte-chat-bubble[data-kind="compaction"] .aparte-message {
+  justify-content: center;
+}
+
+aparte-chat-bubble[data-kind="compaction"] .aparte-message-content {
+  max-width: 100%;
+  background: var(--aparte-surface-2);
+  color: var(--aparte-text-muted);
+  border: var(--aparte-border-width) dashed var(--aparte-border);
+  font-size: var(--aparte-font-size-sm);
+}

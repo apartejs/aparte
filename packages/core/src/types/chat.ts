@@ -153,6 +153,12 @@ export interface AparteRequestMeta {
      * order, and never sent to the model.
      */
     prefixSegments?: AparteSegment[];
+    /**
+     * Set by `AparteClient.compact()` on the summarisation request, and on nothing
+     * else. A backend transport can route it — a cheaper model, a shorter timeout —
+     * without inspecting the messages to guess what the request is for.
+     */
+    compaction?: true;
     /** Consumer-specific context (open channel). */
     [key: string]: unknown;
 }

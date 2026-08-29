@@ -77,6 +77,7 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
               #bubble
               [attr.message-id]="message.id"
               [attr.data-role]="message.role"
+              [attr.data-kind]="message.compaction ? 'compaction' : null"
               [attr.timestamp]="message.timestamp"
               [attr.content]="message.content"
               [attr.streaming]="awaitingReply(message) ? '' : null"

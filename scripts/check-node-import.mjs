@@ -44,7 +44,7 @@ check('@aparte/core resolves its DOM-free node entry', async () => {
 check('@aparte/engine imports and exposes the headless loop', async () => {
     const engine = await import('@aparte/engine');
     assert.equal(typeof engine.runStreamAgent, 'function');
-    assert.equal(typeof engine.compactConversation, 'function');
+    assert.equal(typeof engine.createCompactionSelector, 'function');
 });
 
 check('@aparte/provider-openai-compat is usable from Node', async () => {

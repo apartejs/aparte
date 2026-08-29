@@ -356,6 +356,8 @@ export interface AparteCompactDoneEventDetail {
     summary?: string;
     /** How many messages were kept verbatim after the summary. */
     kept?: number;
+    /** How many messages the summary replaced. */
+    dropped?: number;
 }
 
 /**

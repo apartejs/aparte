@@ -1,6 +1,6 @@
 import { aparteGlobalConfig, AparteConfig } from '../config/aparte-config.js';
 import { resolveConfig } from '../config/config-context.js';
-import { runStreamAgent } from '@aparte/engine';
+import { runStreamAgent, createCompactionSelector } from '@aparte/engine';
 
 import { registerDefaultRenderers, declineDefaultRenderers } from '../renderers/segment-renderers.js';
 import { createStreamAdapter, readableToAsyncIterable } from './stream-adapter.js';
@@ -80,11 +80,11 @@ export type AparteToolApprovalResolver = (
  * Decides how a conversation is compacted: which messages are summarized away
  * (`drop`) and which are preserved verbatim (`keep`). Pure — no LLM call.
  *
- * The default selector drops the whole history (summarize everything, replace
- * all), which is the built-in behaviour. Inject a budget-aware selector (e.g.
- * wrapping `@aparte/engine`'s `compactConversation`) so the compaction badge and
- * the `compact()` action share one selection and only the old turns are sent to
- * the summarizer — the budget is closed over by the consumer, not core's to know.
+ * The default selector is `@aparte/engine`'s `createCompactionSelector` over the
+ * current model — the newest turns that fit the window's budget stay verbatim, the
+ * older ones are summarised; without a known window the last two exchanges stay.
+ * Inject a selector of your own so the compaction badge and the `compact()` action
+ * share one selection, or to close over a budget only the app knows.
  */
 export type AparteCompactionSelector = (
     messages: AparteMessage[],
@@ -93,6 +93,34 @@ export type AparteCompactionSelector = (
 /**
  * Configuration options for AparteClient
  */
+/**
+ * The summariser's instruction. English, because it is addressed to the model and not
+ * to the user; a host that wants another language or emphasis sets `compactionPrompt`.
+ */
+const DEFAULT_COMPACTION_PROMPT =
+    'You are compacting a conversation between a user and an assistant so that it can continue ' +
+    'with less context. Write a summary the assistant can pick the work up from: what the user ' +
+    'wants and why, the decisions taken and their reasons, the tasks still open, the facts and ' +
+    'tool results that still matter (file names, values, errors, outcomes), and anything the ' +
+    'assistant would otherwise have to ask again. Lines marked [tool …] are tool calls with their ' +
+    'result. Write in the third person, factually, as compact as completeness allows. No preamble.';
+
+/** What a compaction summary goes out under, so the model reads it as context and not as the user's words. */
+const COMPACTION_PREAMBLE =
+    'The earlier part of this conversation was compacted. This is a summary of what came before; continue from it.';
+
+/** Without a window to budget against: the last two exchanges stay verbatim. */
+const COMPACTION_KEEP_WITHOUT_WINDOW = 4;
+
+const clip = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max)}…` : text);
+const safeJson = (value: unknown): string => {
+    try {
+        return JSON.stringify(value) ?? '';
+    } catch {
+        return String(value);
+    }
+};
+
 export interface AparteClientOptions {
     /**
      * Function to resolve API keys for a given provider.
@@ -120,12 +148,25 @@ export interface AparteClientOptions {
     approvalResolver?: AparteToolApprovalResolver;
 
     /**
-     * Custom compaction selection strategy. Defaults to dropping the entire
-     * history (summarize all, replace all — the built-in behaviour). Inject a
-     * budget-aware selector so only old turns are summarized and recent ones are
-     * kept verbatim. See {@link AparteCompactionSelector}.
+     * Which messages `compact()` summarises away and which it keeps verbatim.
+     *
+     * Default: `@aparte/engine`'s `createCompactionSelector` over the current model
+     * — its `contextWindow`, the resolved system prompt and the registered tools set
+     * the budget, and the newest turns that fit the window stay. When the current
+     * model declares no window there is no budget to walk, so the last two
+     * exchanges (four messages) stay and the rest is summarised. Inject your own to
+     * close over a budget only the app knows. See {@link AparteCompactionSelector}.
      */
     compactionSelector?: AparteCompactionSelector;
+
+    /**
+     * The system prompt of the summariser `compact()` calls. English by default —
+     * it is an instruction to the model, not a string the user reads — and it asks
+     * for the decisions, the open tasks, the tool results that still matter, and
+     * nothing the model would need to re-ask. Replace it to steer the summary (a
+     * language, a domain, a length).
+     */
+    compactionPrompt?: string;
 
     /**
      * The stream-loop runner. Default: `@aparte/engine`'s `runStreamAgent`, rendered
@@ -686,10 +727,11 @@ export class AparteClient {
             return;
         }
 
-        // Decide what to summarize (`drop`) vs preserve verbatim (`keep`).
-        // Default: drop everything (summarize all, replace all — legacy behaviour).
-        const selector = this.options.compactionSelector
-            ?? ((m: AparteMessage[]) => ({ keep: [] as AparteMessage[], drop: m }));
+        // Decide what to summarize (`drop`) vs preserve verbatim (`keep`). The default
+        // walks the current model's budget; it used to drop everything, which turned a
+        // long conversation into one paragraph — the opposite of what every product
+        // does, and the reason a consumer had to know about the engine's selector.
+        const selector = this.options.compactionSelector ?? this._defaultCompactionSelector();
         const { keep, drop } = selector(messages);
         if (drop.length === 0) {
             // Nothing old enough to summarize (e.g. already within budget).
@@ -726,25 +768,21 @@ export class AparteClient {
             // 4. Resolve auth
             const authConfig = await this._resolveAuth(providerId);
 
-            // 5. Build summarize request — only over the dropped (old) turns
+            // 5. Build summarize request — only over the dropped (old) turns, WITH their
+            // tool calls. The transcript used to carry the prose alone: a long session
+            // of tool work compacted into a summary that had never seen a tool run, so
+            // what the model had found was gone the moment it was summarised.
             const historyMessages: AparteChatMessage[] = drop
                 .filter(m => m.role === 'user' || (m.role === 'assistant' && m.status === 'completed'))
                 .map(m => ({
                     role: m.role as 'user' | 'assistant',
-                    content: this._extractText(m)
+                    content: this._transcriptForSummary(m)
                 }))
                 .filter(m => contentToText(m.content).length > 0);
 
             const summarizeRequest: AparteChatRequest = {
                 messages: [
-                    {
-                        role: 'system',
-                        content:
-                            'You are a conversation summarizer. ' +
-                            'Create a concise but complete summary of the conversation below. ' +
-                            'Capture: key topics, conclusions, decisions, ongoing tasks, and any context needed to continue the conversation. ' +
-                            'Write in third person. Be factual and brief. No preamble, just the summary.'
-                    },
+                    { role: 'system', content: this.options.compactionPrompt ?? DEFAULT_COMPACTION_PROMPT },
                     ...historyMessages,
                     {
                         role: 'user',
@@ -752,7 +790,9 @@ export class AparteClient {
                     }
                 ],
                 modelId: config.defaultModel || '',
-                stream: false
+                stream: false,
+                // Named as what it is, so a backend can route it to a cheaper model.
+                _meta: { compaction: true },
             };
 
             // 6. Call provider (non-streaming), WITH a signal.
@@ -813,26 +853,31 @@ export class AparteClient {
             // Small delay to let clearAll() finish DOM cleanup
             await new Promise<void>(resolve => setTimeout(resolve, 50));
 
+            // The summary is a NOTICE, not a reply: `compaction: true` makes the viewport
+            // draw it centred, without avatar or actions, and `_messagesToChatMessages`
+            // send it under a preamble that says what it is. Its role is `user` — the
+            // summary is context handed to the model, and a `system` message in the
+            // middle of a conversation is refused by some providers. It used to be an
+            // assistant reply, indistinguishable in the markup from an answer.
             target.appendMessage?.({
                 id: uuid(),
-                role: 'assistant',
+                role: 'user',
+                compaction: true,
                 // Through the locale, like every string the user reads — this was a
                 // hardcoded English title (with an emoji) in an otherwise localised
-                // transcript. The engine compactor's `summaryLabel` is a separate,
-                // per-call knob; this is the UI's own title.
+                // transcript.
                 content: `**${this._config.t('compactionSummaryTitle')}**\n\n${summary}`,
                 timestamp: Date.now(),
                 status: 'completed'
             });
 
             // 7b. Re-append the preserved recent turns verbatim after the summary.
-            // (No-op with the default selector, which keeps nothing.)
             for (const kept of keep) {
                 target.appendMessage?.(kept);
             }
 
             // 8. Done
-            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary, kept: keep.length } }));
+            window.dispatchEvent(new CustomEvent('aparte-compact-done', { detail: { summary, kept: keep.length, dropped: drop.length } }));
 
         } catch (err: unknown) {
             console.error('[AparteClient] compact() failed:', err);
@@ -1079,8 +1124,54 @@ export class AparteClient {
             .filter(m => m.role === 'user' || m.role === 'assistant')
             .map(m => ({
                 role: m.role as 'user' | 'assistant',
-                content: this._extractText(m)
+                content: this._wireText(m)
             }));
+    }
+
+    /**
+     * The default `compactionSelector`: the engine's budget walk over the current
+     * model. Read at each call — the getters see a model change — and, when the model
+     * declares no window, the last two exchanges stay and the rest is summarised,
+     * because "no budget" must not mean "nothing to do" for a host that asked.
+     */
+    private _defaultCompactionSelector(): AparteCompactionSelector {
+        const config = this._config;
+        const budgeted = createCompactionSelector({
+            contextWindow: () => config.getCurrentModel()?.contextWindow,
+            systemPrompt: () => config.resolveSystemPrompt(),
+            tools: () => config.getTools(),
+        });
+        return (messages: AparteMessage[]) => {
+            if (config.getCurrentModel()?.contextWindow) return budgeted(messages);
+            const cut = Math.max(0, messages.length - COMPACTION_KEEP_WITHOUT_WINDOW);
+            return { keep: messages.slice(cut), drop: messages.slice(0, cut) };
+        };
+    }
+
+    /**
+     * A message as the summariser should read it: its text, then one line per tool
+     * call — the name, the input, the result or the status — and one per error.
+     * `_extractText` leaves tool calls out on purpose (the history already carries
+     * them as a call and a result); a summary is where they would otherwise be lost.
+     */
+    private _transcriptForSummary(message: AparteMessage): string {
+        const lines: string[] = [];
+        const text = this._extractText(message);
+        if (text) lines.push(text);
+        for (const segment of message.segments ?? []) {
+            if (segment.type === 'tool_call') {
+                const call = segment.toolCall;
+                const input = clip(safeJson(call.input), 300);
+                const outcome = segment.result !== undefined
+                    ? `→ ${clip(segment.result, 600)}`
+                    : `(${segment.status})`;
+                lines.push(`[tool ${call.name}] ${input} ${outcome}`);
+            } else if (segment.type === 'error') {
+                const content = (segment as { content?: string }).content;
+                if (content) lines.push(`[error] ${clip(content, 300)}`);
+            }
+        }
+        return lines.join('\n');
     }
 
     /** The "no model selected" warning is said once per client, not once per dropped send. */
@@ -1298,9 +1389,20 @@ export class AparteClient {
             })
             .map(m => ({
                 role: m.role as 'user' | 'assistant',
-                content: this._extractText(m)
+                content: this._wireText(m)
             }))
             .filter(m => m.content.length > 0);
+    }
+
+    /**
+     * A message's text as the MODEL should read it — the one mapper both history
+     * paths use, so the compaction preamble cannot be applied on retry and edit and
+     * forgotten on the ordinary send, which is what the first review of this feature
+     * caught: the summary went out on every normal turn as something the user said.
+     */
+    private _wireText(message: AparteMessage): string {
+        const text = this._extractText(message);
+        return message.compaction ? `${COMPACTION_PREAMBLE}\n\n${text}` : text;
     }
 
     /**

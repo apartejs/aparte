@@ -673,6 +673,7 @@ export class AparteChatViewport extends HTMLElement {
                 const bubble = document.createElement('aparte-chat-bubble') as HTMLElement;
                 bubble.setAttribute('message-id', message.id);
                 bubble.setAttribute('data-role', message.role);
+                if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
                 if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
                 if (message.content) bubble.setAttribute('content', message.content);
                 // Also true for an empty assistant message with no status: an
@@ -1159,6 +1160,7 @@ export class AparteChatViewport extends HTMLElement {
             const bubble = document.createElement('aparte-chat-bubble');
             bubble.setAttribute('message-id', message.id);
             bubble.setAttribute('data-role', message.role);
+            if (message.compaction) bubble.setAttribute('data-kind', 'compaction');
             if (message.timestamp) bubble.setAttribute('timestamp', String(message.timestamp));
             if (isAwaitingReply(message)) {
                 bubble.setAttribute('streaming', '');

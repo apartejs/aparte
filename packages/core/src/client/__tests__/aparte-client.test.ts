@@ -1042,22 +1042,135 @@ describe('AparteClient — compaction selector', () => {
         expect(appended).toContainEqual(recent[0]);
     });
 
-    it('defaults to summarizing the whole history when no selector is given', async () => {
-        const messages = [
-            { id: 'u1', role: 'user', content: 'aaa', timestamp: 1, status: 'completed' },
-            { id: 'a1', role: 'assistant', content: 'bbb', timestamp: 2, status: 'completed' },
-        ];
+    const exchange = (n: number, text: string): AparteMessage[] => [
+        { id: `u${n}`, role: 'user', content: `${text} question ${n}`, timestamp: n * 2, status: 'completed' },
+        { id: `a${n}`, role: 'assistant', content: `${text} answer ${n}`, timestamp: n * 2 + 1, status: 'completed' },
+    ];
+
+    it('without a known window, the default keeps the last two exchanges and summarises the rest', async () => {
+        const messages = [...exchange(1, 'old'), ...exchange(2, 'recent'), ...exchange(3, 'recent')];
         const target = makeCompactTarget(messages);
         const { cfg, captured } = makeCapturingConfig();
         const detail = done();
 
         client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target });
         await client.compact();
-        await detail;
+        const result = await detail;
 
         const sent = JSON.stringify(captured().messages);
-        expect(sent).toContain('aaa');
-        expect(sent).toContain('bbb');
+        expect(sent).toContain('old question 1');
+        expect(sent).not.toContain('recent question 2');
+        expect(result).toMatchObject({ kept: 4, dropped: 2 });
+        // The four recent messages come back verbatim, after the summary.
+        const appended = target.appendMessage.mock.calls.map((c: any[]) => c[0]);
+        expect(appended.slice(1)).toEqual([...exchange(2, 'recent'), ...exchange(3, 'recent')]);
+    });
+
+    it('without a known window and nothing older than two exchanges, it skips', async () => {
+        const target = makeCompactTarget([...exchange(1, 'a'), ...exchange(2, 'b')]);
+        const { cfg } = makeCapturingConfig();
+        const detail = done();
+        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target });
+        await client.compact();
+        await expect(detail).resolves.toMatchObject({ skipped: true });
+        expect(target.appendMessage).not.toHaveBeenCalled();
+    });
+
+    it("with a window, the default walks the model's budget: what no longer fits is summarised", async () => {
+        // A tiny window: the budget keeps roughly the newest exchange and no more.
+        const long = (n: number, text: string) => exchange(n, text).map((m) => ({ ...m, content: `${m.content} ${'x'.repeat(2000)}` }));
+        const messages = [...long(1, 'old'), ...long(2, 'old'), ...long(3, 'recent')];
+        const target = makeCompactTarget(messages);
+        const { cfg, captured } = makeCapturingConfig();
+        cfg.registerAIProvider({
+            id: 'windowed',
+            getMetadata: () => ({ id: 'windowed', name: 'W' }),
+            getModels: () => [{ id: 'w', name: 'W', contextWindow: 6000 }],
+            chat: vi.fn(),
+        } as any);
+        cfg.setModelConfig({ defaultProvider: 'windowed', defaultModel: 'w' });
+        const detail = done();
+
+        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target });
+        await client.compact();
+        const result = await detail;
+
+        const sent = JSON.stringify(captured().messages);
+        expect(sent).toContain('old question 1');
+        expect(sent).not.toContain('recent question 3');
+        expect(result.dropped).toBeGreaterThan(0);
+        expect(result.kept).toBeGreaterThan(0);
+    });
+
+    it('sends the summarised turns WITH their tool calls and errors, and names the request', async () => {
+        const messages: AparteMessage[] = [
+            { id: 'u1', role: 'user', content: 'list the files', timestamp: 1, status: 'completed' },
+            {
+                id: 'a1', role: 'assistant', timestamp: 2, status: 'completed',
+                segments: [
+                    { id: 's1', type: 'text', content: 'Listing.' },
+                    { id: 's2', type: 'tool_call', status: 'resolved', toolCall: { id: 't1', name: 'list_files', input: { path: 'src' } }, result: 'a.ts, b.ts' } as any,
+                    { id: 's3', type: 'error', content: 'disk quota exceeded' } as any,
+                ],
+            },
+        ];
+        const target = makeCompactTarget(messages);
+        const { cfg, captured } = makeCapturingConfig();
+        const detail = done();
+
+        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target, compactionSelector: (m) => ({ keep: [], drop: m }) });
+        await client.compact();
+        await detail;
+
+        const request = captured();
+        const assistantTurn = request.messages.find((m: any) => m.role === 'assistant' && m.content.includes('Listing.'));
+        expect(assistantTurn.content).toContain('[tool list_files] {"path":"src"} → a.ts, b.ts');
+        expect(assistantTurn.content).toContain('[error] disk quota exceeded');
+        expect(request._meta).toEqual({ compaction: true });
+        expect(request.messages[0].content).toContain('[tool …]');
+    });
+
+    it('takes a compactionPrompt of the host over the default instruction', async () => {
+        const target = makeCompactTarget(exchange(1, 'x'));
+        const { cfg, captured } = makeCapturingConfig();
+        const detail = done();
+        client = new AparteClient({
+            config: cfg, autoRegister: false, targetResolver: () => target,
+            compactionSelector: (m) => ({ keep: [], drop: m }),
+            compactionPrompt: 'Résume en français.',
+        });
+        await client.compact();
+        await detail;
+        expect(captured().messages[0]).toEqual({ role: 'system', content: 'Résume en français.' });
+    });
+
+    it('injects the summary as a notice — a user-role message flagged compaction — and sends it under a preamble', async () => {
+        const target = makeCompactTarget(exchange(1, 'x'));
+        const { cfg } = makeCapturingConfig();
+        const detail = done();
+        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target, compactionSelector: (m) => ({ keep: [], drop: m }) });
+        await client.compact();
+        await detail;
+
+        const injected = target.appendMessage.mock.calls[0]![0] as AparteMessage;
+        expect(injected.role).toBe('user');
+        expect(injected.compaction).toBe(true);
+        expect(injected.content).toContain('SUMMARY');
+
+        // On the wire, the same message says what it is before saying what it holds —
+        // on BOTH history paths: retry/edit's, and the ordinary send's. The first review
+        // of this feature found the preamble on the first and not on the second, which
+        // is the path every normal turn takes.
+        const viaRetry = (client as any)._messagesToChatMessages([injected, ...exchange(2, 'next')]);
+        expect(viaRetry[0].role).toBe('user');
+        expect(viaRetry[0].content).toMatch(/^The earlier part of this conversation was compacted\./);
+        expect(viaRetry[0].content).toContain('SUMMARY');
+        expect(viaRetry[1].content).toBe('next question 2');
+
+        const viaSend = (client as any)._toHistoryMessages([injected, ...exchange(2, 'next')]);
+        expect(viaSend[0].role).toBe('user');
+        expect(viaSend[0].content).toMatch(/^The earlier part of this conversation was compacted\./);
+        expect(viaSend[0].content).toContain('SUMMARY');
     });
 });
 
@@ -1096,7 +1209,7 @@ describe('AparteClient — compaction summary title', () => {
         const done = new Promise<void>(res =>
             window.addEventListener('aparte-compact-done', () => res(), { once: true }),
         );
-        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target });
+        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target, compactionSelector: (m) => ({ keep: [], drop: m }) });
         await client.compact();
         await done;
 
@@ -1145,7 +1258,7 @@ describe('AparteClient — abort() reaches an in-flight compaction', () => {
         const errored = new Promise<any>(res =>
             window.addEventListener('aparte-compact-error', (e: any) => res(e.detail), { once: true }),
         );
-        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target });
+        client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => target, compactionSelector: (m) => ({ keep: [], drop: m }) });
         const running = client.compact();
         await vi.waitFor(() => expect(seen).toBeDefined());
         expect(seen!.aborted).toBe(false);
