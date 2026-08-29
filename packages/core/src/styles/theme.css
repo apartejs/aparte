@@ -89,8 +89,8 @@
      a large-type page grow twice over. Wanting rem spacing anyway is now a
      one-line change here — which is the point of having a master at all. */
   --aparte-space-unit: 2px;
-  --aparte-radius-unit: 2px;
-  --aparte-font-scale: 1;
+  --aparte-radius-unit: 3px;
+  --aparte-font-scale: 1.08;
 
   /* Not a step of the radius scale: a pill is a shape, not a size. */
   --aparte-radius-full: 9999px;
@@ -428,9 +428,9 @@
   --aparte-skeleton-text-last-width: 60%;
   --aparte-progress-indeterminate-width: 40%;
 
-  --aparte-btn-size-sm: 20px;
-  --aparte-btn-size-md: 28px;
-  --aparte-btn-size-lg: 36px;
+  --aparte-btn-size-sm: 24px;
+  --aparte-btn-size-md: 32px;
+  --aparte-btn-size-lg: 40px;
 
   --aparte-focus-outline-offset: -2px;
   --aparte-tool-spinner-size: 10px;
@@ -754,7 +754,7 @@ aparte-chat {
   --aparte-avatar-error-ring: 0 0 0 2px var(--aparte-error-solid);
 
   /* Focus ring — derived from the accent so it themes automatically. */
-  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 15%, transparent);
+  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 30%, transparent);
 
   /* Messages */
   --aparte-message-content-text-user: var(--aparte-text);

@@ -177,23 +177,22 @@ and the whole UI re-spaces or re-sizes coherently.
 }
 ```
 
-The defaults are one step denser than the kits people compare a chat against — radii of
-2 to 12px, controls of 20/28/36px, 13px body text, where shadcn or Radix sit at 6 to 12px,
-32/36/40px and 14px. The scales are what closes that gap, in four lines, without touching
-a single component:
+The defaults sit where the kits people compare a chat against sit — radii of 3 to 18px,
+controls of 24/32/40px, 14px body text, a visible focus ring — since 0.16.0; before that
+they were one step denser on every axis, and the difference read as "plain". The scales are
+what moves the whole kit at once, so the older, denser look is four lines away:
 
 ```css
-/* The "comfortable" preset: rounder, roomier, a size up. */
+/* The "compact" preset: tighter, squarer, a size down. */
 :root {
-  --aparte-radius-unit: 3px;      /* radii become 3/6/9/12/18px */
-  --aparte-font-scale: 1.08;      /* 13px body text becomes 14px */
-  --aparte-btn-size-md: 32px;     /* the medium button, and every control on its scale */
-  --aparte-btn-size-lg: 40px;
+  --aparte-radius-unit: 2px;      /* radii become 2/4/6/8/12px */
+  --aparte-font-scale: 1;         /* 14px body text becomes 13px */
+  --aparte-btn-size-md: 28px;     /* the medium button, and every control on its scale */
+  --aparte-btn-size-lg: 36px;
 }
 ```
 
-Compare the two on the [UI kit gallery](/kit/): every family reads the same tokens, so the
-whole kit moves at once.
+Compare the two on the [UI kit gallery](/kit/): every family reads the same tokens.
 
 ## Token groups
 
