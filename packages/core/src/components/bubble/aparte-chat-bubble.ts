@@ -766,6 +766,11 @@ export class AparteChatBubble extends HTMLElement {
     this._segmentsEl = this.querySelector('.aparte-segments');
     this._attachmentsEl = this.querySelector('.aparte-attachments');
     this._actionBarEl = this.querySelector('.aparte-action-bar');
+    // ONE listener on the bar, not one per button: every build path rewrites the bar's
+    // innerHTML, so a per-button listener would have to be re-attached three times and
+    // would be lost the first time somebody added a fourth path. The bar element itself
+    // outlives every rewrite.
+    this._actionBarEl?.addEventListener('keydown', this._onActionBarKeydown);
     this._branchPickerEl = this.querySelector('.aparte-branch-picker');
     this._footerEl = this.querySelector('.aparte-footer');
 
@@ -1308,6 +1313,70 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /**
+   * `role="toolbar"` promises a keyboard model. This is it.
+   *
+   * The bar has announced itself as a toolbar since it existed, and a toolbar is ONE
+   * tab stop whose members are reached with the arrow keys — that is the whole of what
+   * the role means to a screen-reader user. What shipped was five independent tab
+   * stops per message, so the role described a behaviour that did not exist: a reader
+   * told to press Right heard nothing move, and tabbing through a long transcript
+   * walked every button of every message.
+   *
+   * The roving index is re-applied from `_syncFooterVisibility`, which is the single
+   * funnel all three build paths already run through (the flag-driven bar, the edit
+   * bar, and the branch picker's own visibility pass). Re-deriving it there rather
+   * than in each builder is what keeps the invariant true after a `setBubbleActions`
+   * rebuild — the drift this pattern usually dies of.
+   *
+   * DISABLED buttons are skipped, not merely un-tabbable: while the transcript is busy
+   * retry and edit are disabled, and a toolbar whose arrows stop on a dead control
+   * reads as broken. If every button is disabled the bar keeps one tab stop anyway, so
+   * focus sitting there when the turn ends is not thrown to the top of the page.
+   */
+  private _rovingButtons(): HTMLButtonElement[] {
+    if (!this._actionBarEl) return [];
+    return [...this._actionBarEl.querySelectorAll<HTMLButtonElement>('button')];
+  }
+
+  private _setRovingIndex(): void {
+    const buttons = this._rovingButtons();
+    if (!buttons.length) return;
+    const usable = buttons.filter((b) => !b.disabled);
+    const current = buttons.find((b) => b.tabIndex === 0 && !b.disabled);
+    const stop = current ?? usable[0] ?? buttons[0];
+    for (const button of buttons) button.tabIndex = button === stop ? 0 : -1;
+  }
+
+  /**
+   * Left/Right walk the bar, Home/End jump to its ends, and both wrap.
+   *
+   * Arrow keys follow the READING direction, per the ARIA practices: in an RTL
+   * transcript Left is "next". `dir` is resolved from the nearest ancestor that sets
+   * it — the viewport writes it from `locale.direction` — because a bubble has none of
+   * its own and `getComputedStyle` is not something jsdom can answer.
+   */
+  private _onActionBarKeydown = (e: Event): void => {
+    const event = e as KeyboardEvent;
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    const buttons = this._rovingButtons().filter((b) => !b.disabled);
+    if (buttons.length === 0) return;
+    const active = document.activeElement as HTMLElement | null;
+    const from = buttons.findIndex((b) => b === active);
+    if (from === -1 && event.key !== 'Home' && event.key !== 'End') return;
+    const rtl = (this.closest('[dir]')?.getAttribute('dir') ?? document.documentElement.dir) === 'rtl';
+    const forward = rtl ? 'ArrowLeft' : 'ArrowRight';
+    let next: number;
+    if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = buttons.length - 1;
+    else if (event.key === forward) next = (from + 1) % buttons.length;
+    else next = (from - 1 + buttons.length) % buttons.length;
+    event.preventDefault();
+    for (const button of this._rovingButtons()) button.tabIndex = button === buttons[next] ? 0 : -1;
+    buttons[next]?.focus();
+  };
+
+  /**
    * An empty action bar is not a bar: with every action off it was still a
    * `role="toolbar"` with nothing in it (announced as such), and it still reserved
    * its fixed height plus the footer's under every bubble. So both follow their
@@ -1316,6 +1385,7 @@ export class AparteChatBubble extends HTMLElement {
    */
   private _syncFooterVisibility(): void {
     if (this._actionBarEl) this._actionBarEl.hidden = this._actionBarEl.children.length === 0;
+    this._setRovingIndex();
     if (!this._footerEl) return;
     const barEmpty = !this._actionBarEl || this._actionBarEl.hidden;
     const pickerHidden = !this._branchPickerEl || this._branchPickerEl.hidden;
