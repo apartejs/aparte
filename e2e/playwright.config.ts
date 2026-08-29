@@ -177,6 +177,14 @@ const SEGMENT_META = /segment-metadata\.spec\.ts/;
 // custom-property behaviour. jsdom cannot host it at all: it does not substitute
 // `var()`, so every assertion in that spec passes there on a broken stylesheet.
 const THEMING = /theming\.spec\.ts/;
+// The shell layouts: <aparte-split> dragged, arrowed and stacked, and the application
+// shell's drawer. `vanilla` only, because it is the app that HAS the layouts
+// (`?layout=split`, `?layout=shell`) — and it is the whole point of them: a pointer
+// drag has no jsdom equivalent (no layout, no PointerEvent, no pointer capture), and
+// the case the drag scrim exists for is a pointer crossing an <iframe>, which only a
+// real engine can produce. Anchored on the separator so it does not also match
+// `bubble-layout.spec.ts`.
+const SHELL_LAYOUT = /[\\/]layout\.spec\.ts$/;
 
 // Which specs a given app runs.
 //
@@ -193,7 +201,7 @@ const THEMING = /theming\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep
@@ -233,6 +241,13 @@ const skipWebkit = !process.env.CI && process.env.E2E_NO_WEBKIT === '1';
 // decides whether anyone runs this locally.
 const FIREFOX_APPS: AppKey[] = ['vanilla', 'react'];
 const FIREFOX_SUITE: RegExp[] = [SMOKE, AXE];
+// Plus the shell layouts on `vanilla`, the one app that has them — and the one suite
+// where a third engine buys coverage rather than correlation: the split is this
+// library's first drag interaction, and Gecko is the engine whose `pointermove`
+// reports 0 for a button that is still down (the reason the release check is in
+// `pointermove` and never on `pointerleave`).
+const firefoxSuiteFor = (k: AppKey): RegExp[] =>
+    k === 'vanilla' ? [...FIREFOX_SUITE, SHELL_LAYOUT] : FIREFOX_SUITE;
 const skipFirefox = !process.env.CI && process.env.E2E_NO_FIREFOX === '1';
 
 export default defineConfig({
@@ -294,7 +309,7 @@ export default defineConfig({
         ...(skipFirefox ? [] : selected.filter((k) => FIREFOX_APPS.includes(k))).map((k) => ({
             name: `${k}-firefox`,
             use: { ...devices['Desktop Firefox'], baseURL: url(k) },
-            testMatch: FIREFOX_SUITE,
+            testMatch: firefoxSuiteFor(k),
             expect: { timeout: 20_000 },
         })),
     ],
