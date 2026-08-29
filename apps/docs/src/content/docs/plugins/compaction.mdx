@@ -80,7 +80,7 @@ setupCompaction({
     minKeep: 6,                       // never summarise the last three exchanges
   }),
   prompt: 'Summarise in French, for a support agent picking up the ticket.',
-  keyResolver: (providerId) => settings.keys[providerId],   // the resolver you gave AparteClient
+  keyResolver: (providerId) => localStorage.getItem(`key:${providerId}`),   // the resolver you gave AparteClient
 }, aparteGlobalConfig);               // the config last, like every setup*: it defaults to the global
 ```
 
