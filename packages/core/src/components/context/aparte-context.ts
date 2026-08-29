@@ -62,8 +62,17 @@ const el = (tag: string, className: string): HTMLElement => {
  *
  * @example
  * <aparte-composer-toolbar>
- *   <aparte-context auto-compact style="flex: 1"></aparte-context>
+ *   <aparte-context window="128000" auto-compact style="flex: 1"></aparte-context>
  * </aparte-composer-toolbar>
+ *
+ * <script>
+ *   // The gauge reads what each turn reports; it draws nothing before the first one.
+ *   // This is a provider's usage after a long conversation: 78% of a 128k window,
+ *   // past the `warn` threshold.
+ *   window.dispatchEvent(new CustomEvent('aparte-message-done', {
+ *     detail: { usage: { inputTokens: 99400, outputTokens: 600 } },
+ *   }));
+ * </script>
  */
 export class AparteContext extends HTMLElement {
     static get observedAttributes(): string[] {
