@@ -271,6 +271,30 @@ describe('aparte-split', () => {
             expect(seen[0]).toMatchObject({ position: 38, collapsed: false });
         });
 
+        it('upgrading server-rendered markup publishes nothing', () => {
+            // The upgrade order is the trap. The element is ALREADY in the document, so
+            // the custom-element reactions run `attributeChangedCallback` for every
+            // authored attribute BEFORE `connectedCallback` — connected the whole time,
+            // which is why the guard cannot be `isConnected`. Left ungated, the position
+            // case commits a measurement of a layout the element has not set up yet: no
+            // `data-stacked` written, so under the breakpoint the probe reads the stacked
+            // pane, reflects a number the author never wrote over the one they did, and
+            // sends it to the storage the guide tells hosts to write from.
+            const seen: AparteSplitResizeDetail[] = [];
+            const listener = (e: Event): void => { seen.push((e as CustomEvent<AparteSplitResizeDetail>).detail); };
+            document.addEventListener('aparte-split-resize', listener);
+            try {
+                document.body.innerHTML =
+                    `<aparte-split position="42" collapsed>${PANES}</aparte-split>`;
+                const el = document.querySelector('aparte-split') as AparteSplit;
+                expect(el, 'the definition is loaded, so this upgraded').toBeInstanceOf(HTMLElement);
+                expect(el.getAttribute('position'), 'the authored value, untouched').toBe('42');
+                expect(seen, 'and nothing was announced before the host could listen').toEqual([]);
+            } finally {
+                document.removeEventListener('aparte-split-resize', listener);
+            }
+        });
+
         it('an attribute change while disconnected fires nothing', () => {
             const el = mount({ position: '38' });
             const seen = events(el);
@@ -513,7 +537,7 @@ describe('aparte-split', () => {
             expect(el.getAttribute('position')).toBe('38');
         });
 
-        it('a press on the seam that moves nothing commits nothing', () => {
+        it('a press on the seam that moves nothing commits nothing', async () => {
             const el = mount({ position: '38' });
             fakeLayout(el);
             const handle = handleOf(el);
@@ -524,7 +548,17 @@ describe('aparte-split', () => {
             window.dispatchEvent(pointer('pointerup', { clientX: 380, buttons: 0 }));
             expect(seen, 'clicking the seam is how it takes focus').toEqual([]);
             expect(handle.hasAttribute('data-dragging')).toBe(false);
-            expect(el.querySelector('.aparte-split__scrim')).toBeNull();
+            // A press that never moved RETIRES its scrim rather than removing it: the
+            // release happened over the overlay (nothing captured the pointer), and
+            // WebKit works out what a click hit by walking that node's live ancestors —
+            // take it out inside the handler and no `click`, and so no `dblclick`, is
+            // fired at all, and the seam never resets. Measured on vanilla-webkit; the
+            // event trace is in `e2e/tests/layout.spec.ts`. What has to be true HERE is
+            // that the page is live again at once: the node is inert, and it leaves on
+            // its own shortly after.
+            const retired = el.querySelector<HTMLElement>('.aparte-split__scrim');
+            expect(retired, 'still in the document, so the click can be resolved').not.toBeNull();
+            expect(retired!.style.pointerEvents, 'and inert, so the page is not dead').toBe('none');
 
             // …which is why a double-click sends one event, the reset, and not three.
             handle.dispatchEvent(pointer('pointerdown', { clientX: 380 }));
@@ -532,6 +566,31 @@ describe('aparte-split', () => {
             handle.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
             expect(seen).toHaveLength(1);
             expect(seen[0]).toMatchObject({ position: 38, source: 'api' });
+        });
+
+        it('a retired overlay leaves the document on its own', () => {
+            // The other half of the retirement, and the half nothing else can see: the
+            // node goes inert at once (asserted above) and is removed a moment later.
+            // Drop the timer and every assertion in this file stays green while a
+            // consuming app collects one `position: fixed` overlay per press of the seam.
+            vi.useFakeTimers();
+            try {
+                const el = mount({ position: '38' });
+                fakeLayout(el);
+                const handle = handleOf(el);
+                spyCapture(handle);
+
+                for (let i = 0; i < 10; i++) {
+                    handle.dispatchEvent(pointer('pointerdown', { clientX: 380 }));
+                    window.dispatchEvent(pointer('pointerup', { clientX: 380, buttons: 0 }));
+                }
+                expect(el.querySelectorAll('.aparte-split__scrim'), 'each press retires its own').toHaveLength(10);
+
+                vi.advanceTimersByTime(400);
+                expect(el.querySelectorAll('.aparte-split__scrim'), 'and nothing piles up').toHaveLength(0);
+            } finally {
+                vi.useRealTimers();
+            }
         });
 
         it('a second pointer does not end the first one\'s drag', () => {
@@ -633,6 +692,30 @@ describe('aparte-split', () => {
             narrow(false);
             expect(el.position, 'and it comes back to the size it was left at').toBe(38);
             expect(el.getAttribute('position')).toBe('38');
+        });
+
+        it('the CSS route stacks it too, and every guard reads that', () => {
+            // `.aparte-split--only-start` / `--only-end` are the recipe form of the
+            // stacked state, for a host that owns its own breakpoints and turns the
+            // element's off. The sheet gives them rules byte-identical to the ones
+            // `data-stacked` selects, so the element has to read them the same way —
+            // otherwise the seam keeps a tab stop nothing can see and the first commit
+            // measures the one-track grid and writes `position="100"`.
+            const el = mount({ position: '38', breakpoint: 'none', class: 'aparte-split--only-start' });
+            fakeLayout(el);
+            // The shown pane spans the whole container, which is what the sheet draws.
+            Object.defineProperty(el.children[0] as HTMLElement, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => rect(1000),
+            });
+            const seen = events(el);
+
+            expect(el.stacked).toBe(true);
+            expect(handleOf(el).hasAttribute('tabindex'), 'a hidden seam is no tab stop').toBe(false);
+
+            el.showPane('end');
+            expect(el.getAttribute('position'), 'not the 100 a single track measures').toBe('38');
+            expect(seen.at(-1)).toMatchObject({ position: 38, pane: 'end', stacked: true });
         });
 
         it('breakpoint="none" never asks matchMedia', () => {

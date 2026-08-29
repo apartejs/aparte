@@ -65,11 +65,18 @@ aparte-split > *,
 /* The outside-the-shell half of the direct-child trap: <aparte-chat> is `height: 100%`
    of a parent that has none unless the grid track gives it one. Inside the app shell
    the same fix lives on `.aparte-app-shell__main`; split.css is imported after
-   app-shell.css, so a chat in a pane inside a shell reads this one. */
+   app-shell.css, so a chat in a pane inside a shell reads this one.
+
+   `box-sizing` with it, because the chat's own sheet gives it a bottom padding — the
+   16px of breathing room under the composer that core owns on purpose. Left in the
+   default content-box that padding lands OUTSIDE the 100%, so the chat's border box
+   overflows its track by exactly the gap and `.aparte-split`'s `overflow: hidden`
+   eats it: the composer sits flush on the seam's bottom edge and the gap is gone. */
 aparte-split > aparte-chat,
 aparte-split > [data-aparte-chat],
 .aparte-split > aparte-chat,
 .aparte-split > [data-aparte-chat] {
+  box-sizing: border-box;
   height: 100%;
   min-height: 0;
 }

@@ -23,6 +23,13 @@ const STACK_QUERY = '(max-width: 48rem)';
 /** The primary pane's size when nothing else says — the same number `theme.css` declares. */
 const DEFAULT_POSITION = 38;
 
+/**
+ * How long a retired drag overlay stays in the document after it goes inert. Long
+ * enough to outlive the `click` and `dblclick` a press produces on any engine, short
+ * enough that nothing accumulates. See `_removeScrim`.
+ */
+const SCRIM_RETIRE_MS = 300;
+
 /** Keep a percentage inside 0..100; anything unreadable answers `fallback`. */
 function toPercent(raw: string | null | undefined, fallback: number): number {
     const value = Number.parseFloat(raw ?? '');
@@ -81,8 +88,8 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  *      chat cannot be dragged narrower than 16rem whatever the percentage says. Under
  *      48rem of window the split shows one pane, and the buttons switch it. -->
  * <div class="aparte-app-header">
- *   <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>
- *   <button class="aparte-btn aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>
+ *   <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="start">Chat</button>
+ *   <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="end">Preview</button>
  * </div>
  * <aparte-split position="38" style="height: 22rem; --aparte-split-min: 16rem">
  *   <aparte-chat>
@@ -137,6 +144,19 @@ export class AparteSplit extends HTMLElement {
 
     /** What an attribute-driven commit blames. Raised around a key that changes state. */
     private _source: AparteSplitResizeDetail['source'] = 'api';
+
+    /**
+     * `connectedCallback` has run and the element knows what its markup asked for.
+     *
+     * Not `isConnected`: during an UPGRADE the element is already in the document, so
+     * `attributeChangedCallback` fires for every authored attribute — connected, and
+     * before `connectedCallback` — which is the ordinary case for a server-rendered
+     * `<aparte-split position="38">` upgraded when the module loads. Committing there
+     * measures a layout the element has not set up yet (no `data-stacked`, so on a
+     * phone the probe reads the stacked pane and writes `position="84"`), reflects that
+     * over the authored number, and sends it to whatever the host persists.
+     */
+    private _ready = false;
 
     private _dragging = false;
     private _captured = false;
@@ -209,9 +229,22 @@ export class AparteSplit extends HTMLElement {
         this.toggleAttribute('disabled', value);
     }
 
-    /** True while the split is under its breakpoint and showing one pane. Read-only. */
+    /**
+     * True while the split is showing one pane. Read-only.
+     *
+     * Both routes into that state count. `data-stacked` is the one this element writes
+     * from its own breakpoint; `.aparte-split--only-start` / `--only-end` are the CSS
+     * route a host takes when it owns its breakpoints and sets `breakpoint="none"`. The
+     * sheet gives the two byte-identical rules, so the element has to read them the same
+     * way — every guard downstream keys on this getter, and a split stacked by the class
+     * alone would measure a one-track grid and commit `position="100"`.
+     */
     get stacked(): boolean {
-        return this.hasAttribute('data-stacked');
+        return (
+            this.hasAttribute('data-stacked')
+            || this.classList.contains('aparte-split--only-start')
+            || this.classList.contains('aparte-split--only-end')
+        );
     }
 
     // ─── Public API ───────────────────────────────────────────────────────
@@ -264,7 +297,7 @@ export class AparteSplit extends HTMLElement {
         this._initialPosition = this._position;
         // A `collapsed` present in the markup is applied HERE, not by the attribute
         // callback: that one fires during upgrade, before this runs, and early-returns
-        // on `!isConnected`. Without this the attribute and the render disagree from the
+        // on `!_ready`. Without this the attribute and the render disagree from the
         // first frame — server-rendered `<aparte-split collapsed>` came up open.
         if (this.collapsed) {
             this._preCollapsePosition = this._position;
@@ -288,6 +321,9 @@ export class AparteSplit extends HTMLElement {
         window.addEventListener('aparte-config-change', this._onConfigChange);
         this._watchBreakpoint();
         this._watchSize();
+        // Last: everything above reads the markup directly, and until it has run an
+        // attribute change is the upgrade replaying what the author already wrote.
+        this._ready = true;
     }
 
     disconnectedCallback(): void {
@@ -313,10 +349,11 @@ export class AparteSplit extends HTMLElement {
         this._handle?.removeAttribute('data-dragging');
         this._dragging = false;
         this._keying = false;
+        this._ready = false;
     }
 
     attributeChangedCallback(name: string): void {
-        if (!this.isConnected) return;
+        if (!this._ready) return;
         switch (name) {
             case 'position': {
                 const next = toPercent(this.getAttribute('position'), this._position);
@@ -650,7 +687,11 @@ export class AparteSplit extends HTMLElement {
         this._moved = false;
         this._releasePointer();
         this._handle?.removeAttribute('data-dragging');
-        this._removeScrim();
+        // A gesture that MOVED was captured, so its release already targets the handle
+        // and the overlay can go at once. A press that did not move is the one a
+        // double-click is built from, and its release landed on the scrim — that one is
+        // retired rather than removed. See `_removeScrim`.
+        this._removeScrim(!moved);
         if (restore !== undefined) {
             this._position = restore;
             this._setLive(restore);
@@ -693,9 +734,35 @@ export class AparteSplit extends HTMLElement {
         this._scrim = scrim;
     }
 
-    private _removeScrim(): void {
-        this._scrim?.remove();
+    /**
+     * Take the overlay off.
+     *
+     * `retire` is the press that never moved — the one a click, and then a double-click,
+     * is built from. Its release happened ON the scrim (nothing captured the pointer
+     * yet), and WebKit works out what a click hit by walking the pointerup target's LIVE
+     * ancestors: take the node out here and that chain is rooted nowhere, so no `click`
+     * fires at all, no `dblclick` follows, and the seam never resets. Chromium and Gecko
+     * resolve the target before dispatch and do not care.
+     *
+     * So a retired scrim goes INERT immediately — `pointer-events: none`, which is what
+     * actually matters, since a full-page overlay left hit-testable is a page dead to the
+     * pointer — and leaves the document a moment later. Not on the next task: a first
+     * measurement removed it there and it still raced the click under a loaded machine
+     * (the trace is in `e2e/tests/layout.spec.ts`). The reference is dropped either way,
+     * so the next press builds its own; an inert one on its way out costs nothing.
+     *
+     * Teardown never retires: `disconnectedCallback` takes the live one out at once.
+     */
+    private _removeScrim(retire = false): void {
+        const scrim = this._scrim;
         this._scrim = null;
+        if (!scrim) return;
+        if (!retire) {
+            scrim.remove();
+            return;
+        }
+        scrim.style.pointerEvents = 'none';
+        setTimeout(() => scrim.remove(), SCRIM_RETIRE_MS);
     }
 
     private _onDoubleClick = (): void => {
