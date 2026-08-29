@@ -1736,6 +1736,14 @@ export class AparteChatViewport extends HTMLElement {
         const btn = this._scrollBtn;
         if (!btn) return;
         const hidden = this._isAtBottom();
+        // This runs on every scroll event of a streaming transcript, so it writes only
+        // what changes: `classList.toggle` is already idempotent, `setAttribute` is not
+        // — it produces a mutation record whatever the value it writes, and the two
+        // below sit in the hottest path the component has. The state is read back from
+        // the button rather than cached in a field, because the button is rebuilt on
+        // every re-render and a cached flag would skip the stamp on the new one.
+        if (btn.classList.contains('aparte-scroll-btn--hidden') === hidden
+            && btn.hasAttribute('tabindex') === hidden) return;
         btn.classList.toggle('aparte-scroll-btn--hidden', hidden);
         // Hidden is opacity 0 and no pointer, which the tab order cannot see: the
         // button stayed a stop while invisible, so a keyboard user landed on nothing
