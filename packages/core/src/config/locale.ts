@@ -103,6 +103,8 @@ export interface AparteLocale {
     scrollRailLabel?: string;
     /** Accessible name of `<aparte-sidebar>` (default: "Conversations") */
     sidebarLabel?: string;
+    /** Accessible name of the seam between a split's two panes (default: "Resize the panes") */
+    splitHandleLabel?: string;
 
     // --- Elicitation (the panel a tool's question is asked in) ---
     /** The free-text fallback option in a choice (default: "Other…") */
@@ -435,5 +437,6 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     conversationGroupMonth: "Previous 30 days",
     scrollRailLabel: "Conversation outline",
     sidebarLabel: "Conversations",
+    splitHandleLabel: "Resize the panes",
     direction: 'ltr'
 };

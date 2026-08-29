@@ -28,3 +28,7 @@ export type { AparteScrollRailJumpDetail, AparteScrollRailEvery } from './scroll
 // The shell's column
 export { AparteSidebar } from './sidebar/index.js';
 export type { AparteSidebarToggleDetail } from './sidebar/index.js';
+
+// The shell's seam
+export { AparteSplit } from './split/index.js';
+export type { AparteSplitResizeDetail } from './split/index.js';

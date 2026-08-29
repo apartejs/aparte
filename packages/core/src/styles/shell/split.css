@@ -1,0 +1,246 @@
+/*
+ * aparté — the seam: two panes side by side, and the grid that lets one grow while
+ * the other gives way. The fourth piece of the shell, after the sidebar, the header
+ * and the grid that holds them.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ */
+
+/*
+ * aparte-split — two panes and a draggable seam. The chat in one, your pane in the
+ * other: a preview frame, an editor, an artifact card.
+ *
+ * The grid is the whole mechanism. `--aparte-split-position` is the primary pane's
+ * size; `--aparte-split-min` and `--aparte-split-max` are clamp bounds, so the
+ * browser does the clamping and nothing in JS parses a unit — px, %, rem and ch all
+ * work. Used without <aparte-split> this is a static split: set the position from
+ * your own media query and there is no drag, which is the Canvas shape.
+ *
+ * A pane CONTAINS a chat; a chat never contains a split.
+ *
+ *     <div class="aparte-split" style="height: 18rem">
+ *       <div>the chat</div>
+ *       <div class="aparte-split__handle"></div>
+ *       <div class="aparte-split__pane">the pane</div>
+ *     </div>
+ *
+ * The element wears the same class and adds the behaviour (drag, arrow keys, the APG
+ * separator's ARIA, one pane at a time under a breakpoint); `<div class="aparte-split">`
+ * is the look alone, which is what this page shows.
+ */
+
+/* The outer clamp is a guard, not decoration: a `--aparte-split-min` wider than the
+   container would otherwise eat the free pane whole and push the handle off the end.
+   Three tracks, always — the primary pane, the seam, the rest. */
+aparte-split,
+.aparte-split {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns:
+    clamp(
+      0px,
+      clamp(var(--aparte-split-min), var(--aparte-split-position), var(--aparte-split-max)),
+      calc(100% - var(--aparte-split-handle-size))
+    )
+    var(--aparte-split-handle-size)
+    minmax(0, 1fr);
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* A grid item's automatic minimum size is its content, so one long line in either
+   pane refuses to shrink and the seam stops tracking the pointer.
+
+   The tag is listed beside the class here and below for the reason the grid rule
+   lists it: the element adds the class at connect, so between parse and upgrade a
+   server-rendered split would be a grid whose items keep their content minimum. */
+aparte-split > *,
+.aparte-split > * {
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+/* The outside-the-shell half of the direct-child trap: <aparte-chat> is `height: 100%`
+   of a parent that has none unless the grid track gives it one. Inside the app shell
+   the same fix lives on `.aparte-app-shell__main`; split.css is imported after
+   app-shell.css, so a chat in a pane inside a shell reads this one. */
+aparte-split > aparte-chat,
+aparte-split > [data-aparte-chat],
+.aparte-split > aparte-chat,
+.aparte-split > [data-aparte-chat] {
+  height: 100%;
+  min-height: 0;
+}
+
+/* The seam. `touch-action: none` so a drag on a touch screen resizes rather than
+   scrolling the page — without it the browser claims the gesture at the first move
+   and the pointer events stop arriving. */
+.aparte-split__handle {
+  position: relative;
+  box-sizing: border-box;
+  border: 0;
+  padding: 0;
+  background: var(--aparte-border);
+  cursor: col-resize;
+  touch-action: none;
+  transition: background-color var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-split__handle:hover,
+.aparte-split__handle[data-dragging] {
+  background: var(--aparte-primary);
+}
+
+.aparte-split__handle:focus-visible {
+  outline: none;
+  box-shadow: var(--aparte-focus-ring);
+}
+
+/* The hit slop: a 4px seam is a 4px target, and a pointer misses it. The pseudo-element
+   is wider than the seam and centred on it, so the grab zone reaches into both panes
+   without the seam itself getting bigger. */
+.aparte-split__handle::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--aparte-split-hit-area) / -2 + var(--aparte-split-handle-size) / 2);
+  inline-size: var(--aparte-split-hit-area);
+}
+
+/* The drag overlay, a child of the HANDLE for the duration of one gesture. Being the
+   topmost hit target it swallows an iframe pane's hit-testing (a drag over a frame is
+   otherwise lost to the frame's document), stops a text selection from starting, and
+   paints the drag cursor across the whole page. A child of the handle rather than of
+   the body so `click` — and therefore `dblclick` — still dispatches at the handle,
+   their nearest common ancestor.
+
+   It is `position: fixed`, so nothing between it and the viewport may establish a
+   containing block: `.aparte-split` must never get `container-type`, `transform`,
+   `filter` or `backdrop-filter`, or the overlay covers the split alone. */
+.aparte-split__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--aparte-z-dropdown);
+  cursor: col-resize;
+}
+
+/* An optional wrapper for the pane that is not a chat — the pane equivalent of
+   `.aparte-sidebar__body`. The chat pane does not use it: the viewport scrolls itself. */
+.aparte-split__pane {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  background: var(--aparte-surface-1);
+}
+
+/* `primary="end"` sizes the LAST pane instead of the first: the same three tracks,
+   read the other way round. */
+aparte-split[primary='end'],
+.aparte-split--primary-end {
+  grid-template-columns:
+    minmax(0, 1fr)
+    var(--aparte-split-handle-size)
+    clamp(
+      0px,
+      clamp(var(--aparte-split-min), var(--aparte-split-position), var(--aparte-split-max)),
+      calc(100% - var(--aparte-split-handle-size))
+    );
+}
+
+/* The other axis. The attribute and the class are selected in the same rule so the
+   static recipe and the live element can never draw two different things. */
+aparte-split[orientation='vertical'],
+.aparte-split--vertical {
+  grid-template-columns: none;
+  grid-template-rows:
+    clamp(
+      0px,
+      clamp(var(--aparte-split-min), var(--aparte-split-position), var(--aparte-split-max)),
+      calc(100% - var(--aparte-split-handle-size))
+    )
+    var(--aparte-split-handle-size)
+    minmax(0, 1fr);
+}
+
+/* The one rule in this sheet that out-specifies the stacked block below — two
+   attributes against its one — so it has to opt out of the stacked state by hand or a
+   vertical `primary="end"` split keeps three rows while showing one pane, and the two
+   empty tracks take the height off the pane that is left. */
+aparte-split[orientation='vertical'][primary='end']:not([data-stacked]),
+.aparte-split--vertical.aparte-split--primary-end:not(.aparte-split--only-start):not(.aparte-split--only-end) {
+  grid-template-rows:
+    minmax(0, 1fr)
+    var(--aparte-split-handle-size)
+    clamp(
+      0px,
+      clamp(var(--aparte-split-min), var(--aparte-split-position), var(--aparte-split-max)),
+      calc(100% - var(--aparte-split-handle-size))
+    );
+}
+
+aparte-split[orientation='vertical'] > .aparte-split__handle,
+.aparte-split--vertical > .aparte-split__handle {
+  cursor: row-resize;
+}
+
+aparte-split[orientation='vertical'] > .aparte-split__handle::after,
+.aparte-split--vertical > .aparte-split__handle::after {
+  inset-block: calc(var(--aparte-split-hit-area) / -2 + var(--aparte-split-handle-size) / 2) auto;
+  inset-inline: 0;
+  inline-size: auto;
+  block-size: var(--aparte-split-hit-area);
+}
+
+aparte-split[orientation='vertical'] .aparte-split__scrim,
+.aparte-split--vertical .aparte-split__scrim {
+  cursor: row-resize;
+}
+
+/* One pane at a time. `data-stacked` is written by the element from its breakpoint;
+   the two modifier classes are the byte-identical CSS route for a host that owns its
+   own breakpoint. The shown pane spans all three tracks and the seam goes with the
+   pane it no longer separates — including its tab stop, which the element removes.
+
+   Not "position: 100% and a zero-size handle": that leaves a focusable separator of
+   no width sitting in the tab order. */
+aparte-split[data-stacked],
+.aparte-split--only-start,
+.aparte-split--only-end {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+aparte-split[data-stacked] > .aparte-split__handle,
+.aparte-split--only-start > .aparte-split__handle,
+.aparte-split--only-end > .aparte-split__handle {
+  display: none;
+}
+
+aparte-split[data-stacked]:not([pane='end']) > :nth-child(3),
+.aparte-split--only-start > :nth-child(3) {
+  display: none;
+}
+
+aparte-split[data-stacked][pane='end'] > :nth-child(1),
+.aparte-split--only-end > :nth-child(1) {
+  display: none;
+}
+
+/* `disabled` is inert, so it must not look grabbable: the element takes the tab stop
+   away and swallows the pointer, and a resize cursor plus a hover highlight on a seam
+   that answers nothing is exactly the half-rendered affordance the house rule forbids.
+   The seam itself stays drawn — it still separates two panes.
+
+   Last in the sheet because it must out-rank the vertical `cursor: row-resize` above,
+   which it ties with on specificity. Attribute only: the static recipe has no
+   behaviour, so there is no live-versus-static pair to keep in step. */
+aparte-split[disabled] > .aparte-split__handle {
+  cursor: default;
+}
+
+aparte-split[disabled] > .aparte-split__handle:hover {
+  background: var(--aparte-border);
+}

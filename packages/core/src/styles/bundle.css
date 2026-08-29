@@ -53,5 +53,6 @@
 @import './shell/sidebar.css';
 @import './shell/app-header.css';
 @import './shell/app-shell.css';
+@import './shell/split.css';
 @import './prose.css';
 @import './responsive.css';

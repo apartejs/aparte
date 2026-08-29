@@ -343,10 +343,20 @@
   --aparte-context-ring-size: 22px;
   --aparte-context-ring-stroke: 4;
 
-  /* Shell — the sidebar's column and the header's row. */
+  /* Shell — the sidebar's column, the header's row and the split's seam. */
   --aparte-sidebar-width: 260px;
   --aparte-app-header-height: 48px;
   --aparte-scrim: rgba(0, 0, 0, 0.35);
+  /* The split's primary pane and the bounds it moves between. Any length or
+     percentage: the browser clamps them in the grid template, so nothing in JS
+     parses a unit. The seam is 4px because that is a seam; the grab zone around it
+     is 12px because that is a target, and it grows to the touch target on a coarse
+     pointer (responsive.css). */
+  --aparte-split-position: 38%;
+  --aparte-split-min: 20rem;
+  --aparte-split-max: 60%;
+  --aparte-split-handle-size: 4px;
+  --aparte-split-hit-area: 12px;
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather
      than sitting as a magic number in a rule. Literal, like every other size

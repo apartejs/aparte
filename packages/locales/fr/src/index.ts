@@ -89,6 +89,7 @@ export const fr: AparteLocale = {
     conversationGroupMonth: "30 derniers jours",
     scrollRailLabel: "Plan de la conversation",
     sidebarLabel: "Conversations",
+    splitHandleLabel: "Redimensionner les panneaux",
     tag: "fr-FR",
     direction: 'ltr'
 };

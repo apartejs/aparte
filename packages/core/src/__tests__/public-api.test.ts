@@ -61,6 +61,7 @@ describe('@aparte/core public API', () => {
             "AparteScrollRail",
             "AparteSelect",
             "AparteSidebar",
+            "AparteSplit",
             "AparteStreamParser",
             "AparteSuggestions",
             "aparteGlobalConfig",

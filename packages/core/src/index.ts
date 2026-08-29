@@ -54,6 +54,7 @@ import './styles/components/scroll-rail.css';
 import './styles/shell/sidebar.css';
 import './styles/shell/app-header.css';
 import './styles/shell/app-shell.css';
+import './styles/shell/split.css';
 import './styles/prose.css';
 import './styles/responsive.css';
 
@@ -221,6 +222,8 @@ export { AparteScrollRail } from './components/index.js';
 export type { AparteScrollRailJumpDetail, AparteScrollRailEvery } from './components/index.js';
 export { AparteSidebar } from './components/index.js';
 export type { AparteSidebarToggleDetail } from './components/index.js';
+export { AparteSplit } from './components/index.js';
+export type { AparteSplitResizeDetail } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';

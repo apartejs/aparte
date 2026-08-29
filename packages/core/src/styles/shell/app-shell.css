@@ -66,8 +66,14 @@
   flex-direction: column;
 }
 
+/* A chat — or a split holding one — fills the main area. Stated for the direct child
+   because that is where the height comes from: `<aparte-chat>` is `height: 100%` of a
+   parent that has none until this rule gives it one, and a split between the two is
+   the same case one level out. A pane CONTAINS a chat; a chat never contains a split. */
 .aparte-app-shell__main > aparte-chat,
-.aparte-app-shell__main > [data-aparte-chat] {
+.aparte-app-shell__main > [data-aparte-chat],
+.aparte-app-shell__main > aparte-split,
+.aparte-app-shell__main > .aparte-split {
   flex: 1;
   min-height: 0;
   height: auto;

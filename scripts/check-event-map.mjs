@@ -54,7 +54,8 @@ const PKG_ROOTS = ['packages'];
 // lost its one dispatch site in core — the client's fallback broadcast in `compact()` —
 // and is now listened for only, so this scan no longer sees it. The event is not gone
 // (the viewport still honours it); the evidence this guard counts is a dispatch.
-const SEEN_FLOOR = 44;
+// 44 → 45 with 'aparte-split-resize'.
+const SEEN_FLOOR = 45;
 
 function* walk(dir) {
     for (const name of readdirSync(dir)) {

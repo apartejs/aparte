@@ -137,8 +137,10 @@ export type {
     AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel,
     AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar,
     AparteSuggestions, AparteContext, AparteConversationList, AparteScrollRail, AparteSidebar,
+    AparteSplit,
 } from './components/index.js';
 export type { AparteScrollRailJumpDetail, AparteScrollRailEvery, AparteSidebarToggleDetail } from './components/index.js';
+export type { AparteSplitResizeDetail } from './components/index.js';
 export type { AparteElicitation } from './components/elicitation/aparte-elicitation.js';
 export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';

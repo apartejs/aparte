@@ -70,8 +70,12 @@ const LITERAL_SELECTORS = [':root', ':host'];
  * Raised 6 -> 7 on 2026-08-28: the bubble's action bar joins the coarse-pointer block
  * (`--aparte-action-bar-btn-size`, a size read from `--aparte-touch-target-size`), the
  * one control that block had left at 28px.
+ *
+ * Raised 7 -> 8 on 2026-08-29: the split's seam joins the coarse-pointer block
+ * (`--aparte-split-hit-area`, a size read from `--aparte-touch-target-size`) — a
+ * responsive SIZE, which is the case this exemption exists for.
  */
-const AT_RULE_CEILING = 7;
+const AT_RULE_CEILING = 8;
 /**
  * If the anchored count collapses, the matcher stopped matching — that is not a clean
  * file. Same reasoning as check-attr-escaping's SEEN_FLOOR.
