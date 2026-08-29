@@ -20,3 +20,7 @@ export type { AparteSuggestion, AparteSuggestionEventDetail } from './suggestion
 // Context-window gauge
 export { AparteContext } from './context/index.js';
 export type { AparteContextLevel, AparteContextThresholdEventDetail } from './context/index.js';
+
+// The ticks beside the transcript
+export { AparteScrollRail } from './scroll-rail/index.js';
+export type { AparteScrollRailJumpDetail, AparteScrollRailEvery } from './scroll-rail/index.js';

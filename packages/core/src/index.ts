@@ -49,6 +49,7 @@ import './styles/components/elicitation.css';
 import './styles/components/conversation.css';
 import './styles/components/suggestions.css';
 import './styles/components/context.css';
+import './styles/components/scroll-rail.css';
 import './styles/prose.css';
 import './styles/responsive.css';
 
@@ -211,6 +212,8 @@ export { AparteSuggestions } from './components/index.js';
 export type { AparteSuggestion, AparteSuggestionEventDetail } from './components/index.js';
 export { AparteContext } from './components/index.js';
 export type { AparteContextLevel, AparteContextThresholdEventDetail } from './components/index.js';
+export { AparteScrollRail } from './components/index.js';
+export type { AparteScrollRailJumpDetail, AparteScrollRailEvery } from './components/index.js';
 
 // Export conversation list primitive
 export { AparteConversationList } from './components/index.js';

@@ -48,5 +48,6 @@
 @import './components/conversation.css';
 @import './components/suggestions.css';
 @import './components/context.css';
+@import './components/scroll-rail.css';
 @import './prose.css';
 @import './responsive.css';

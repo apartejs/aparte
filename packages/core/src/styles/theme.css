@@ -329,6 +329,13 @@
 
   /* Conversation List */
   --aparte-conv-action-btn-size: 20px;
+
+  /* Scroll rail — the ticks beside the transcript. Off-scale on purpose: a 2px line
+     and a 14px mark are a minimap's measures, not spacing steps. */
+  --aparte-scroll-rail-width: 20px;
+  --aparte-scroll-rail-tick-size: 14px;
+  --aparte-scroll-rail-tick-thickness: 2px;
+  --aparte-scroll-rail-gap: 8px;
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather
      than sitting as a magic number in a rule. Literal, like every other size

@@ -124,5 +124,10 @@
     opacity: 1;
     --aparte-conv-action-btn-size: 28px;
   }
+
+  /* A 2px tick is no target for a finger; the minimaps of the market hide on touch too. */
+  aparte-scroll-rail {
+    display: none;
+  }
 }
 

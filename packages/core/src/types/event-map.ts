@@ -55,6 +55,7 @@ import type {
 import type { AparteActionClickEventDetail } from '../components/composer/aparte-composer-action.js';
 import type { AparteSuggestionEventDetail } from '../components/suggestions/aparte-suggestions.js';
 import type { AparteContextThresholdEventDetail } from '../components/context/aparte-context.js';
+import type { AparteScrollRailJumpDetail } from '../components/scroll-rail/aparte-scroll-rail.js';
 import type { AparteOptgroupToggleEventDetail } from '../primitives/select/aparte-optgroup.js';
 import type { AparteConfigChangeEventDetail } from '../config/aparte-config.js';
 import type { AparteToolApprovalRequestDetail } from './tools.js';
@@ -148,6 +149,7 @@ interface AparteEventMap {
     'aparte-action-click': CustomEvent<AparteActionClickEventDetail>;
     'aparte-suggestion': CustomEvent<AparteSuggestionEventDetail>;
     'aparte-context-threshold': CustomEvent<AparteContextThresholdEventDetail>;
+    'aparte-scroll-rail-jump': CustomEvent<AparteScrollRailJumpDetail>;
     'aparte-optgroup-toggle': CustomEvent<AparteOptgroupToggleEventDetail>;
     'aparte-config-change': CustomEvent<AparteConfigChangeEventDetail>;
 }

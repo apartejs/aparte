@@ -1,0 +1,87 @@
+/*
+ * aparté — <aparte-scroll-rail>: the ticks beside the transcript.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ *
+ * The rail floats on the transcript's end edge, vertically centred, as a child of the
+ * chat host. `:has()` gives the host its containing block only while a rail is inside
+ * it — a bare `position: relative` on every chat would have moved any absolutely
+ * positioned child a consumer already placed there.
+ */
+aparte-chat:has(> aparte-scroll-rail),
+[data-aparte-chat]:has(> aparte-scroll-rail) {
+  position: relative;
+}
+
+aparte-scroll-rail {
+  position: absolute;
+  inset-inline-end: var(--aparte-space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--aparte-z-floating);
+  display: block;
+  width: var(--aparte-scroll-rail-width);
+  max-height: calc(100% - 2 * var(--aparte-space-8));
+  overflow: hidden;
+}
+
+aparte-scroll-rail[hidden],
+aparte-scroll-rail[data-empty] {
+  display: none;
+}
+
+.aparte-scroll-rail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--aparte-scroll-rail-gap);
+}
+
+/* A tick is a real button, drawn as a line. The hit area is the gap around it, drawn
+   by the pseudo-element so the line itself can stay two pixels. */
+.aparte-scroll-rail__tick {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  display: block;
+  width: var(--aparte-scroll-rail-tick-size);
+  height: var(--aparte-scroll-rail-tick-thickness);
+  padding: 0;
+  border: 0;
+  border-radius: var(--aparte-radius-full);
+  background: var(--aparte-border);
+  cursor: pointer;
+  transition:
+    width var(--aparte-duration-fast) var(--aparte-ease),
+    background var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-scroll-rail__tick::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--aparte-scroll-rail-gap) / 2) calc(-1 * var(--aparte-space-2));
+}
+
+.aparte-scroll-rail__tick:hover {
+  background: var(--aparte-text-muted);
+}
+
+.aparte-scroll-rail__tick[aria-current="true"] {
+  width: calc(var(--aparte-scroll-rail-tick-size) * 1.6);
+  background: var(--aparte-primary);
+}
+
+.aparte-scroll-rail__tick:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline-offset: var(--aparte-focus-outline-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparte-scroll-rail__tick {
+    transition: none;
+  }
+}

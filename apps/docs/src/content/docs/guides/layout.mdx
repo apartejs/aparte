@@ -124,6 +124,30 @@ there is no room for a column inside it, so it is the feed recipe in a band:
 .panel aparte-chat { height: 100%; --aparte-message-max-width: none; }
 ```
 
+## Where you are in a long thread
+
+The scrollbar says how far down you are, not which question you are under. Put an
+`<aparte-scroll-rail>` inside the chat and it draws one tick per user turn on the
+transcript's end edge, marks the one under the reader, and jumps back to any of them on a
+click — the minimap of a code editor reduced to its ticks:
+
+```html
+<aparte-chat style="height: 100dvh">
+  <aparte-chat-viewport></aparte-chat-viewport>
+  <aparte-scroll-rail></aparte-scroll-rail>   <!-- every="message" for one tick per message -->
+  <aparte-composer></aparte-composer>
+</aparte-chat>
+```
+
+It reads the transcript and never owns it; the viewport keeps its scroll. A click fires a
+cancelable `aparte-scroll-rail-jump` (`AparteScrollRailJumpDetail`, `{ messageId }`) before
+the `scrollIntoView`, so a host that pages history in can load it first. `every` takes an
+`AparteScrollRailEvery` — `user` (the default) or `message`. The `AparteScrollRail` class
+exposes `jumpTo(messageId)` and `currentMessageId` for a control of your own — a "back to
+my question" button, say. It hides under a coarse pointer,
+where a two-pixel tick is no target, and renders nothing below two ticks. The
+[element page](/components/conversation/aparte-scroll-rail/) has the live demo and the knobs.
+
 ## A pane beside a sidebar
 
 The chat is one flex item like any other. Give the row a height and the chat `min-width:

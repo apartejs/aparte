@@ -40,6 +40,7 @@ import type { AparteComposerAction } from '../components/composer/aparte-compose
 import type { AparteComposerToolbar } from '../components/composer/aparte-composer-toolbar.js';
 import type { AparteConversationList } from '../components/conversation-list/aparte-conversation-list.js';
 import type { AparteElicitation } from '../components/elicitation/aparte-elicitation.js';
+import type { AparteScrollRail } from '../components/scroll-rail/aparte-scroll-rail.js';
 import type { AparteSelect } from '../primitives/select/aparte-select.js';
 import type { AparteOption } from '../primitives/select/aparte-option.js';
 import type { AparteOptgroup } from '../primitives/select/aparte-optgroup.js';
@@ -67,6 +68,7 @@ declare global {
         // Standalone components
         'aparte-conversation-list': AparteConversationList;
         'aparte-elicitation': AparteElicitation;
+        'aparte-scroll-rail': AparteScrollRail;
 
         // Primitives
         'aparte-select': AparteSelect;

@@ -284,7 +284,7 @@ pnpm run docs                # apps/docs (Starlight dev) — `run` required: bar
   (`warn` and `error` stay allowed: core uses them to tell a developer their setup is
   incomplete).
 - **A built-in's CSS goes in `packages/core/src/styles/`, never in a
-  `getStyles()` template literal.** Thirty-eight sheets there, one family each — count
+  `getStyles()` template literal.** Thirty-nine sheets there, one family each — count
   them, don't trust this line:
   `node -e "const s=require('fs').readFileSync('packages/core/src/index.ts','utf8');console.log((s.match(/^import '\.\/styles\//gm)||[]).length)"`.
   `theme.css` holds every token (light palette, dark overrides, derived layer);

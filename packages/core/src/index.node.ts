@@ -135,8 +135,9 @@ export type {
     AparteChat, AparteChatBubble, AparteChatViewport, AparteChatStatus,
     AparteComposer, AparteComposerInput, AparteComposerSend, AparteComposerCancel,
     AparteComposerAttachments, AparteComposerAddAttachment, AparteComposerAction, AparteComposerToolbar,
-    AparteSuggestions, AparteContext, AparteConversationList,
+    AparteSuggestions, AparteContext, AparteConversationList, AparteScrollRail,
 } from './components/index.js';
+export type { AparteScrollRailJumpDetail, AparteScrollRailEvery } from './components/index.js';
 export type { AparteElicitation } from './components/elicitation/aparte-elicitation.js';
 export type { AparteSelect, AparteOption, AparteOptgroup, AparteIcon, AparteProgressSpinner } from './primitives/index.js';
 export type { AparteSelectChangeDetail, AparteOptgroupToggleEventDetail } from './primitives/index.js';

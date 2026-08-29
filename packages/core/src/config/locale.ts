@@ -98,6 +98,10 @@ export interface AparteLocale {
     /** … in the thirty days before that (default: "Previous 30 days"). Older rows are headed by their month, formatted with `tag`. */
     conversationGroupMonth?: string;
 
+    // --- Scroll rail ---
+    /** Accessible name of `<aparte-scroll-rail>`, the ticks beside the transcript (default: "Conversation outline") */
+    scrollRailLabel?: string;
+
     // --- Elicitation (the panel a tool's question is asked in) ---
     /** The free-text fallback option in a choice (default: "Other…") */
     elicitationOther?: string;
@@ -430,5 +434,6 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     conversationGroupYesterday: "Yesterday",
     conversationGroupWeek: "Previous 7 days",
     conversationGroupMonth: "Previous 30 days",
+    scrollRailLabel: "Conversation outline",
     direction: 'ltr'
 };
