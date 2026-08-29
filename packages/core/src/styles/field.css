@@ -158,6 +158,9 @@
   background: var(--aparte-surface-1);
   border: var(--aparte-border-width) solid var(--aparte-border);
   border-radius: var(--aparte-field-radius);
+  /* The addons' ground follows the group's corners; the focus ring is a shadow on the
+     group itself, outside this box, so it is not clipped. */
+  overflow: hidden;
   transition:
     border-color var(--aparte-duration-fast) var(--aparte-ease),
     box-shadow var(--aparte-duration-fast) var(--aparte-ease);
@@ -179,14 +182,23 @@
   box-shadow: none;
 }
 
+/* An addon has a ground of its own and a rule against the field: on the field's own
+   ground, in muted text, "https://" read as the start of what the user had typed. */
 .aparte-field-group__prefix,
 .aparte-field-group__suffix {
   display: inline-flex;
   align-items: center;
   padding-inline: var(--aparte-space-3);
+  background: var(--aparte-surface-2);
   font-size: var(--aparte-font-size-sm);
   color: var(--aparte-text-muted);
   white-space: nowrap;
+}
+.aparte-field-group__prefix {
+  border-inline-end: var(--aparte-border-width) solid var(--aparte-border);
+}
+.aparte-field-group__suffix {
+  border-inline-start: var(--aparte-border-width) solid var(--aparte-border);
 }
 
 .aparte-field-group:hover:not(:has(.aparte-field:disabled)) {
