@@ -41,9 +41,11 @@ const el = (tag: string, className: string): HTMLElement => {
  * Two thresholds turn it `warn` then `danger` (`data-level`), and crossing one fires
  * `aparte-context-threshold`. With `auto-compact`, reaching `danger` dispatches
  * `aparte-compact` for its chat — once, until the level drops again — which is what
- * a gauge that turns red and then does nothing was missing. `AparteClient.compact()`
- * summarises the whole history by default; give the client `@aparte/engine`'s
- * `createCompactionSelector` and only what no longer fits the window is summarised.
+ * a gauge that turns red and then does nothing was missing. What answers the command
+ * is `@aparte/plugin-compaction` (`setupCompaction()`): it summarises what no longer
+ * fits the window and keeps the recent turns. Core itself does not compact — the
+ * gauge asks, the plugin does, and a page without the plugin gets a gauge that only
+ * measures.
  *
  * The bar wears the `aparte-progress` recipe; this element declares no custom
  * property of its own.
@@ -94,12 +96,13 @@ export class AparteContext extends HTMLElement {
     /**
      * After a real compaction the context is smaller by an amount nobody has measured
      * yet — the next turn's usage will say. Until then the gauge shows nothing rather
-     * than a number it knows to be wrong. (`aparte-compact-done` names no chat: on a
-     * multi-chat page every gauge resets, and each is right again one turn later.)
+     * than a number it knows to be wrong. The event names the chat it compacted, so on a
+     * multi-chat page only that chat's gauge resets; an unnamed one resets every gauge,
+     * and each is right again one turn later.
      */
     private _onCompacted = (e: Event): void => {
         const detail = (e as CustomEvent<AparteCompactDoneEventDetail>).detail;
-        if (detail?.skipped) return;
+        if (detail?.skipped || !this._isMine(detail?.targetId)) return;
         this._used = null;
         this._compactRequested = false;
         this._render();

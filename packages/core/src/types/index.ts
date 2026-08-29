@@ -145,6 +145,7 @@ export type {
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
+    AparteCompactStartEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
     AparteMessageInfoEventDetail,

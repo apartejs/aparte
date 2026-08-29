@@ -198,14 +198,11 @@ export interface AparteLocale {
     /** Accessible name of the `<aparte-context>` gauge. Optional, like the keys above. */
     contextLabel?: string;
     /**
-     * Title line of the message `compact()` injects in place of the summarised
-     * turns (default: "Conversation summary").
-     *
-     * It was hardcoded — with an emoji — inside the client, so a French chat
-     * compacted into an English header. The engine compactor's `summaryLabel`
-     * is a separate, per-call knob (the compactor deliberately ships no locale
-     * system); this key is the UI-side title and follows the locale like every
-     * other string the user reads.
+     * Title line of the summary message `@aparte/plugin-compaction` injects in place
+     * of the summarised turns (default: "Conversation summary"). The plugin reads it
+     * through `config.t()`, so the notice follows the locale like every other string
+     * the user reads — it used to be hardcoded, with an emoji, so a French chat
+     * compacted into an English header.
      */
     compactionSummaryTitle?: string;
     /**

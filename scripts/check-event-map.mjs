@@ -50,8 +50,11 @@ const PKG_ROOTS = ['packages'];
 // 39 → 42 when the conversation row grew its menu: `aparte-rename-conversation`,
 // `aparte-pin-conversation`, `aparte-unpin-conversation`. 42 → 43 with
 // `aparte-link-click` (issue #38). 43 → 44 with `aparte-scroll-rail-jump`, 45 with
-// `aparte-sidebar-toggle`.
-const SEEN_FLOOR = 45;
+// `aparte-sidebar-toggle`. 45 → 44 when compaction became a plugin (0.16.0): `aparte-reset`
+// lost its one dispatch site in core — the client's fallback broadcast in `compact()` —
+// and is now listened for only, so this scan no longer sees it. The event is not gone
+// (the viewport still honours it); the evidence this guard counts is a dispatch.
+const SEEN_FLOOR = 44;
 
 function* walk(dir) {
     for (const name of readdirSync(dir)) {

@@ -328,10 +328,12 @@ export interface AparteAbortEventDetail {
 }
 
 /**
- * Detail payload for `aparte-compact` — a COMMAND the consumer dispatches on
- * `window` to ask the client to summarise the conversation so far.
+ * Detail payload for `aparte-compact` — a COMMAND dispatched on `window` to ask for
+ * the conversation so far to be summarised.
  *
- * Core listens and never dispatches it, so this type describes what YOU produce.
+ * `<aparte-context auto-compact>` dispatches it on reaching `danger`, and a host
+ * dispatches it from a button; `@aparte/plugin-compaction` is what answers it. Core
+ * itself neither listens for it nor compacts — the events below are the plugin's.
  *
  * @event aparte-compact
  */
@@ -341,23 +343,43 @@ export interface AparteCompactEventDetail {
 }
 
 /**
+ * Detail payload for `aparte-compact-start` — the summarisation began. The point for a
+ * host to show a spinner: summarising a long conversation is a model call and takes as
+ * long as one.
+ *
+ * @event aparte-compact-start
+ */
+export interface AparteCompactStartEventDetail {
+    /** The chat being compacted, when it has an id. */
+    targetId?: string;
+}
+
+/**
  * Detail payload for `aparte-compact-done`.
  *
  * A union flattened to optional fields, because the two outcomes carry different
  * payloads and a consumer cannot guess which: nothing to compact sends
- * `{ skipped: true }`, a real compaction sends `{ summary, kept }`.
+ * `{ skipped: true, reason }`, a real compaction sends `{ summary, kept, dropped }`.
  *
  * @event aparte-compact-done
  */
 export interface AparteCompactDoneEventDetail {
     /** `true` when there was nothing worth summarising; the other two are absent. */
     skipped?: boolean;
+    /**
+     * Why it was skipped: `empty` (no messages), `nothing-to-drop` (the selector kept
+     * everything), `running` (a compaction was already in flight), `streaming` (a turn
+     * is in flight in the transcript).
+     */
+    reason?: 'empty' | 'nothing-to-drop' | 'running' | 'streaming';
     /** The summary that replaced the compacted turns. */
     summary?: string;
     /** How many messages were kept verbatim after the summary. */
     kept?: number;
     /** How many messages the summary replaced. */
     dropped?: number;
+    /** The chat that was compacted, when it has an id — so a gauge on a multi-chat page resets only its own. */
+    targetId?: string;
 }
 
 /**
@@ -371,6 +393,8 @@ export interface AparteCompactDoneEventDetail {
 export interface AparteCompactErrorEventDetail {
     /** Human-readable failure reason. */
     error: string;
+    /** The chat the compaction was for, when it has an id. */
+    targetId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

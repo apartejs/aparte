@@ -189,7 +189,7 @@ setting them later does not change segments already on screen.
 ## `AparteClient`
 
 `AparteClient` (`packages/core/src/client/aparte-client.ts`) is "the automatic transmission for
-aparté" — it listens for `aparte-send` (and `aparte-retry`/`aparte-edit`/`aparte-abort`/`aparte-compact`)
+aparté" — it listens for `aparte-send` (and `aparte-retry`/`aparte-edit`/`aparte-abort`)
 on `window`, resolves the provider + key, calls the transport, and streams the parsed segments
 into the target element.
 
@@ -210,8 +210,6 @@ Constructor options (all optional):
 |---|---|---|
 | `keyResolver` | `(providerId: string) => string \| Record<string,string> \| Promise<... \| undefined \| null> \| undefined \| null` | Resolve the API key/config for a provider. |
 | `approvalResolver` | `AparteToolApprovalResolver` | Custom human-in-the-loop approval for `needsApproval` tools — receives the whole call `(call, signal)`, and may return an `instruction` (the user's words) or a `reason` (nobody spoke) the model reads on a refusal. Without one, the gate asks at the composer through `requestUserInput`, after consulting the `setApprovalPolicy()` policy if one is registered. With one, it owns the whole decision: the policy (and `@aparte/plugin-approval`'s modes) is not consulted at all. |
-| `compactionSelector` | `AparteCompactionSelector` | Decide which messages `compact()` summarizes away vs. keeps verbatim. Default: the engine's budget walk over the current model (the last two exchanges when it declares no window). |
-| `compactionPrompt` | `string` | The summariser's system prompt. Default: an English instruction asking for decisions, open tasks and the tool results that still matter. |
 | `fileInjectFilter` | `(file: File) => boolean` | Decide which attached files are read and sent to the model. Return `false` to keep one out of the request — e.g. `(f) => !/(^\|\.)env$\|\.(pem\|key)$/i.test(f.name)`. Without one, every attachment is sent. |
 | `streamRunner` | `AparteStreamRunner` | The loop runner — `@aparte/engine`'s `runStreamAgent` by default. Set it to wrap that loop's options (`(opts) => runStreamAgent({ ...opts, onHistoryAppend })`) or to replace it with a loop of your own emitting the same events. |
 | `requestInterceptor` | `(request: AparteChatRequest) => AparteChatRequest \| Promise<AparteChatRequest>` | Modify the chat request before it is sent. |
@@ -227,10 +225,10 @@ Constructor options (all optional):
 ### Public methods
 
 - `constructor(options: AparteClientOptions = {})`
-- `start(): void` — attach the `aparte-send` / `aparte-abort` / `aparte-compact` / `aparte-retry` / `aparte-edit` listeners on `window`. Nothing streams before this is called.
+- `start(): void` — attach the `aparte-send` / `aparte-abort` / `aparte-retry` / `aparte-edit` listeners on `window`. Nothing streams before this is called.
 - `stop(): void` — remove all listeners.
 - `abort(): void` — abort the current streaming response and all active tool calls; dispatches `aparte-message-aborted` on the target element.
-- `compact(targetId?: string): Promise<void>` — summarize the conversation via the configured provider/model, clear the viewport, and inject the summary. The `targetId` compacts ONE chat when several share a client, which is what `scopeToTargetId` exists for (dispatches `aparte-compact-start` / `aparte-compact-done` / `aparte-compact-error` on `window`).
+- Compaction is not a method of the client any more: `@aparte/plugin-compaction`'s `setupCompaction()` answers `aparte-compact` and summarises through the same transport — see [the plugin](/plugins/compaction/).
 
 ### The turn lifecycle events
 

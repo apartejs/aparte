@@ -204,8 +204,8 @@ export interface AparteMessage {
     usage?: import('./chat.js').AparteUsage;
 
     /**
-     * This message is the summary `AparteClient.compact()` injected in place of the
-     * turns it summarised. Its role is `user` — the summary is context handed to the
+     * This message is the summary `@aparte/plugin-compaction` injected in place of the
+     * turns it summarised (a host that summarises by other means sets the flag too). Its role is `user` — the summary is context handed to the
      * model, and a `system` message mid-conversation is refused by some providers —
      * but it is not something the user said: the viewport renders it as a notice
      * (`data-kind="compaction"` on the bubble: centred, no avatar, no actions) and

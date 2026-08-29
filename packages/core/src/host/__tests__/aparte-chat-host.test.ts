@@ -106,11 +106,20 @@ describe('AparteChatHost', () => {
         for (const m of [
             'appendMessage', 'updateMessage', 'updateLastMessage', 'addSegment', 'updateSegment',
             'removeSegment', 'appendToSegment', 'getMessages', 'addBranch', 'addSiblingOf',
-            'truncateFrom', 'truncateResponsesAfter',
+            'truncateFrom', 'truncateResponsesAfter', 'clearAll',
         ]) {
             expect(typeof (h.host as unknown as Record<string, unknown>)[m]).toBe('function');
         }
         expect(h.vpApi.setFrameworkManagedDOM).toHaveBeenCalledWith(true);
+    });
+
+    it('clearAll on the host element empties the framework state and the viewport — what a compaction resolves by id', () => {
+        const h = makeHarness();
+        h.host.appendMessage(msg('u1', 'user', { content: 'first' }));
+        expect(h.getMessages()).toHaveLength(1);
+        (h.host as unknown as { clearAll: () => void }).clearAll();
+        expect(h.getMessages()).toEqual([]);
+        expect(h.vpApi.clearAll).toHaveBeenCalled();
     });
 
     it('appendMessage is optimistic, emits messageAppended, re-enables autoscroll for user msgs', () => {

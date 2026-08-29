@@ -71,6 +71,7 @@ export type {
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
+    AparteCompactStartEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
     AparteLinkClickEventDetail,
@@ -237,7 +238,7 @@ export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer,
 
 // ── Client + runtime ─────────────────────────────────────────────────────────
 export { AparteClient } from './client/aparte-client.js';
-export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
+export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';
 export { AparteMessageRepository } from './runtime/message-repository.js';

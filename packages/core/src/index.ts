@@ -124,6 +124,7 @@ export type {
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
+    AparteCompactStartEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
     AparteLinkClickEventDetail,
@@ -312,7 +313,7 @@ export { isSegmentSettled, segmentDuration, segmentTiming } from './utils/segmen
 // `setHostHandlers` / `setKeyProvider` had to re-declare the shape by hand.
 export type { AparteHostHandlersConfig } from './types/models.js';
 export type { AparteKeyProvider } from './config/aparte-config.js';
-export type { AparteClientOptions, AparteToolApprovalResolver, AparteCompactionSelector } from './client/aparte-client.js';
+export type { AparteClientOptions, AparteToolApprovalResolver } from './client/aparte-client.js';
 // Structured-stream adapter — DOM half of the runStreamAgent loop (see stream-adapter.ts).
 export { createStreamAdapter, readableToAsyncIterable } from './client/stream-adapter.js';
 export type { AparteStreamRunEvent, AparteStreamRunEmitter, StreamAdapterTarget, CreateStreamAdapterOptions, AparteStreamRunner, AparteStreamRunOptions } from './client/stream-adapter.js';

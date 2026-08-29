@@ -154,7 +154,7 @@ export interface AparteRequestMeta {
      */
     prefixSegments?: AparteSegment[];
     /**
-     * Set by `AparteClient.compact()` on the summarisation request, and on nothing
+     * Set by `@aparte/plugin-compaction` on the summarisation request, and on nothing
      * else. A backend transport can route it — a cheaper model, a shorter timeout —
      * without inspecting the messages to guess what the request is for.
      */

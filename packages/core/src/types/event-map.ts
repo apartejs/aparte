@@ -21,8 +21,8 @@
  *
  * Events that carry NO detail stay out, and that is the whole exclusion:
  * `aparte-composer-submit`, `aparte-cancel`, `aparte-reset`, `aparte-reset-done`,
- * `aparte-compact-start`, `aparte-select-open`, `aparte-select-close` are all
- * dispatched as a bare `new CustomEvent(name)`. A map entry would type `e.detail`
+ * `aparte-select-open`, `aparte-select-close` are all dispatched as a bare
+ * `new CustomEvent(name)`. A map entry would type `e.detail`
  * as `null` and gain nothing.
  *
  * All names are kebab-case (`aparte-*`) so every framework can bind them in a
@@ -48,6 +48,7 @@ import type {
     AparteAbortEventDetail,
     AparteCompactEventDetail,
     AparteCompactDoneEventDetail,
+    AparteCompactStartEventDetail,
     AparteCompactErrorEventDetail,
     AparteAttachmentPreviewEventDetail,
     AparteLinkClickEventDetail,
@@ -135,11 +136,13 @@ interface AparteEventMap {
     'aparte-message-aborted': CustomEvent<AparteMessageAbortedEventDetail>;
 
     // ── Commands a CONSUMER dispatches ────────────────────────────────────────
-    // Core listens for these and never sends them, which makes them the most
-    // public events in the set: without a type there was nothing to tell you what
-    // to put in `detail`.
+    // Core never sends these (`aparte-abort` it listens for; `aparte-compact` the
+    // gauge dispatches and `@aparte/plugin-compaction` answers, with the three
+    // `-start` / `-done` / `-error` events), which makes them the most public events
+    // in the set: without a type there was nothing to tell you what to put in `detail`.
     'aparte-abort': CustomEvent<AparteAbortEventDetail>;
     'aparte-compact': CustomEvent<AparteCompactEventDetail>;
+    'aparte-compact-start': CustomEvent<AparteCompactStartEventDetail>;
     'aparte-compact-done': CustomEvent<AparteCompactDoneEventDetail>;
     'aparte-compact-error': CustomEvent<AparteCompactErrorEventDetail>;
 

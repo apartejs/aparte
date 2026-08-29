@@ -849,6 +849,11 @@ export class AparteChatHost {
         host['addSiblingOf'] = (id: string, m: AparteMessage) => this.addSiblingOf(id, m);
         host['truncateFrom'] = (id: string) => this.truncateFrom(id);
         host['truncateResponsesAfter'] = (id: string) => this.truncateResponsesAfter(id);
+        // Installed since 0.16.0 for `@aparte/plugin-compaction`, which replaces a
+        // transcript through the element it resolves by id — under a wrapper, this root.
+        // Without it the host had `getMessages` and `appendMessage` but no way to empty
+        // itself, and the plugin could not tell it from a stray `[data-aparte-chat]`.
+        host['clearAll'] = () => this.clearMessages();
     }
 
     private _installLifecycleListeners(host: HTMLElement): void {

@@ -15,7 +15,7 @@
  * hand any more. The hand-mirrored union this file used to carry, and the compile-time
  * guard in engine that policed it, went with the mirror (audit 2026-08-28, D1). A
  * consumer wires a runner through `AparteClientOptions.streamRunner` — the same
- * pattern as `approvalResolver` (HITL) and `compactionSelector`.
+ * pattern as `approvalResolver` (HITL).
  */
 
 import { AparteStreamParser } from '../parsers/aparte-stream-parser.js';
