@@ -1,0 +1,61 @@
+/*
+ * aparté — the grid that holds a sidebar, a header and the chat.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ */
+
+/*
+ * aparte-app-shell — sidebar beside, header above, the chat in the rest.
+ * A recipe: two columns and two rows, the sidebar spanning both rows, the header and
+ * the main area stacked in the second column. The chat fills `__main`, which is what
+ * gives it the height it needs to scroll (see the layout guide). Size the shell —
+ * `height: 100dvh` for a page — and everything inside follows. Under 48rem the sidebar
+ * leaves the grid to become a drawer, and the header's toggle appears.
+ *
+ *     <div class="aparte-app-shell" style="height: 100dvh">
+ *       <aparte-sidebar>…</aparte-sidebar>
+ *       <header class="aparte-header">…</header>
+ *       <main class="aparte-app-shell__main">
+ *         <aparte-chat>…</aparte-chat>
+ *       </main>
+ *     </div>
+ */
+.aparte-app-shell {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+  background: var(--aparte-surface);
+}
+
+.aparte-app-shell > aparte-sidebar,
+.aparte-app-shell > .aparte-sidebar {
+  grid-row: 1 / -1;
+}
+
+/* A drawer is out of the flow, so the grid closes the column it left. */
+.aparte-app-shell > .aparte-sidebar[data-drawer] {
+  grid-row: auto;
+}
+
+.aparte-app-shell > .aparte-header {
+  grid-column: 2;
+}
+
+.aparte-app-shell__main {
+  grid-column: 2;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.aparte-app-shell__main > aparte-chat,
+.aparte-app-shell__main > [data-aparte-chat] {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}

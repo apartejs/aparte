@@ -336,6 +336,11 @@
   --aparte-scroll-rail-tick-size: 14px;
   --aparte-scroll-rail-tick-thickness: 2px;
   --aparte-scroll-rail-gap: 8px;
+
+  /* Shell — the sidebar's column and the header's row. */
+  --aparte-sidebar-width: 260px;
+  --aparte-header-height: 48px;
+  --aparte-scrim: rgba(0, 0, 0, 0.35);
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather
      than sitting as a magic number in a rule. Literal, like every other size
@@ -847,6 +852,9 @@ aparte-chat {
 
   /* Input (composer) */
   --aparte-input-line-height: var(--aparte-line-height-normal);
+
+  /* Shell */
+  --aparte-sidebar-bg: var(--aparte-surface-2);
 
   /* Conversation List */
   --aparte-conv-item-radius: var(--aparte-radius-md);

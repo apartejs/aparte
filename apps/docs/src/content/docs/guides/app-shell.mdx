@@ -1,0 +1,69 @@
+---
+title: An application shell
+description: A sidebar of conversations, a header and the chat — the ChatGPT-style page, built from aparté's shell recipes and one element with behaviour.
+sidebar:
+  order: 18
+  label: App shell
+---
+
+import Demo from '../../../components/Demo.astro';
+
+A chat product is the transcript plus the chrome around it: a column of conversations
+with a new-chat button and a search field, a header with the title and a model picker,
+and the chat in the rest of the window. aparté ships that chrome as three recipes and one
+element — enough to build the whole page on the library alone, and nothing that owns your
+data.
+
+<Demo id="app-shell" caption="The shell: a sidebar, a header, the chat. Narrow the frame under 48rem and the sidebar becomes a drawer behind the header's toggle." />
+
+## The three pieces
+
+| Piece | What it is | Why |
+| --- | --- | --- |
+| `.aparte-app-shell` | a recipe: a two-column, two-row grid — sidebar beside, header above, `__main` in the rest | a grid has no behaviour |
+| `.aparte-header` | a recipe: a toggle (shown under 48rem), a title, an `__actions` zone pushed to the end | a header has no behaviour either |
+| `<aparte-sidebar>` | an element wearing the `.aparte-sidebar` recipe | it collapses, it becomes a drawer, and its search filters the list — three behaviours |
+
+That split is the rule the whole kit follows: a recipe draws, an element exists only where
+there is something to do. The [UI kit](/kit/) has every recipe with its markup; the
+[element page](/components/shell/aparte-sidebar/) has the sidebar's attributes and events.
+
+## What the sidebar does
+
+**Collapse.** `collapsed` is an attribute — set it, read it, persist it. Any element
+carrying `data-aparte-sidebar-toggle` toggles the nearest sidebar (or the one whose id the
+attribute names), so the header's hamburger needs no script. `aparte-sidebar-toggle` fires
+on every change, whoever caused it (`AparteSidebarToggleDetail`: `{ collapsed, drawer }`);
+the `AparteSidebar` class exposes `open()`, `close()`, `toggle()` and `filter(query)`.
+
+**Drawer.** Under 48rem of window the sidebar leaves the grid and slides over the page:
+open, it draws a scrim, closes on Escape or a click outside, and hands the focus back to the
+control that opened it. It is the same element in the same place, positioned fixed — no
+portal, which is what a sidebar can do and a dialog cannot.
+
+**Search.** An input carrying `data-aparte-sidebar-search` filters the conversation list
+below it by title as the user types, case- and accent-insensitive; a date group with
+nothing left hides with its rows. Client-side, on the titles the list already holds — an
+index over message bodies belongs to your storage adapter.
+
+## Wiring the data
+
+The sidebar renders what you put in it, and the list is the
+[conversation list](/components/conversation/aparte-conversation-list/) you already wire
+to a manager — see [persistence](/guides/conversation-persistence/). The header's title is
+the active conversation's, the new-chat button calls `manager.createNew()`, and the model
+picker is [`@aparte/plugin-model-selector`](/plugins/model-selector/) in `__actions`. What
+stays yours: routing, authentication, the storage adapter, and the contents of a settings
+panel.
+
+## The knobs
+
+| Token | Default | Moves |
+| --- | --- | --- |
+| `--aparte-sidebar-width` | `260px` | the column, and the drawer |
+| `--aparte-sidebar-bg` | `--aparte-surface-2` | the column's ground |
+| `--aparte-header-height` | `48px` | the header row's minimum height |
+| `--aparte-scrim` | `rgba(0, 0, 0, 0.35)` | the shade behind an open drawer |
+
+The breakpoint is 48rem, written in the sheets rather than a token: a media query cannot
+read a custom property.

@@ -90,6 +90,7 @@ const GROUP = {
   'aparte-conversation-list': 'conversation',
   'aparte-context': 'conversation',
   'aparte-scroll-rail': 'conversation',
+  'aparte-sidebar': 'shell',
   'aparte-composer': 'input',
   'aparte-elicitation': 'input',
   'aparte-suggestions': 'input',
@@ -104,6 +105,7 @@ const LEAD = ['aparte-chat', 'aparte-chat-viewport', 'aparte-chat-bubble', 'apar
 const GROUP_LABEL = {
   conversation: 'The conversation',
   input: 'Input',
+  shell: 'The shell',
   utility: 'Utility',
   other: 'Other',
 };

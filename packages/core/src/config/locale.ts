@@ -101,6 +101,8 @@ export interface AparteLocale {
     // --- Scroll rail ---
     /** Accessible name of `<aparte-scroll-rail>`, the ticks beside the transcript (default: "Conversation outline") */
     scrollRailLabel?: string;
+    /** Accessible name of `<aparte-sidebar>` (default: "Conversations") */
+    sidebarLabel?: string;
 
     // --- Elicitation (the panel a tool's question is asked in) ---
     /** The free-text fallback option in a choice (default: "Other…") */
@@ -435,5 +437,6 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     conversationGroupWeek: "Previous 7 days",
     conversationGroupMonth: "Previous 30 days",
     scrollRailLabel: "Conversation outline",
+    sidebarLabel: "Conversations",
     direction: 'ltr'
 };

@@ -75,6 +75,13 @@ const GROUPS = [
         introFrom: 'surface/tabs.css',
         match: (rel) => rel.startsWith('surface/'),
     },
+    {
+        id: 'shell',
+        title: 'Shell',
+        lead: '',
+        introFrom: 'shell/sidebar.css',
+        match: (rel) => rel.startsWith('shell/'),
+    },
 ];
 
 /** A block comment, normalised: no `/*`, no `*`, no rule lines, no common indent. */

@@ -24,3 +24,7 @@ export type { AparteContextLevel, AparteContextThresholdEventDetail } from './co
 // The ticks beside the transcript
 export { AparteScrollRail } from './scroll-rail/index.js';
 export type { AparteScrollRailJumpDetail, AparteScrollRailEvery } from './scroll-rail/index.js';
+
+// The shell's column
+export { AparteSidebar } from './sidebar/index.js';
+export type { AparteSidebarToggleDetail } from './sidebar/index.js';

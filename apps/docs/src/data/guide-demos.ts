@@ -87,6 +87,56 @@ export const GUIDE_DEMOS: GuideDemo[] = [
 </div>`,
     },
     {
+        id: 'app-shell',
+        title: 'The application shell: sidebar, header, chat',
+        html: `<!-- Three pieces: the grid and the header are recipes, the sidebar is an element
+     because it has behaviour. The toggle in the header needs no script — the sidebar
+     listens for \`data-aparte-sidebar-toggle\` itself, and shows under 48rem. -->
+<div class="aparte-app-shell" style="height: 24rem">
+  <aparte-sidebar>
+    <div class="aparte-sidebar__header">
+      <span class="aparte-sidebar__brand">aparté</span>
+      <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
+        <aparte-icon name="edit"></aparte-icon>
+      </button>
+    </div>
+    <div class="aparte-sidebar__search aparte-field-group">
+      <input class="aparte-field aparte-field--sm" type="search" placeholder="Search conversations" data-aparte-sidebar-search>
+    </div>
+    <div class="aparte-sidebar__body">
+      <aparte-conversation-list active-id="c1"></aparte-conversation-list>
+    </div>
+    <div class="aparte-sidebar__footer">
+      <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
+    </div>
+  </aparte-sidebar>
+  <header class="aparte-header">
+    <button class="aparte-btn aparte-btn--icon aparte-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <span class="aparte-header__title">Deploy checklist</span>
+    <div class="aparte-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
+  </header>
+  <main class="aparte-app-shell__main">
+    <aparte-chat>
+      <aparte-chat-viewport>
+        <aparte-chat-bubble message-id="u1" data-role="user" content="Where does the sidebar's state live?"></aparte-chat-bubble>
+        <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="On the element: collapsed is an attribute you can set, read and persist."></aparte-chat-bubble>
+      </aparte-chat-viewport>
+      <aparte-composer></aparte-composer>
+    </aparte-chat>
+  </main>
+</div>
+
+<script>
+  const day = 864e5;
+  document.querySelector('aparte-conversation-list').conversations = [
+    { id: 'c1', title: 'Deploy checklist', updatedAt: Date.now() },
+    { id: 'c2', title: 'Rename the segment types', updatedAt: Date.now() - day },
+    { id: 'c3', title: 'Tokens, not selectors', updatedAt: Date.now() - 4 * day },
+    { id: 'c4', title: 'The first release', updatedAt: Date.now() - 60 * day },
+  ];
+</script>`,
+    },
+    {
         id: 'layout-feed',
         title: 'The full-width feed: no reading column',
         html: `<!-- \`--aparte-message-max-width: none\` lifts the centred column: bubbles and the

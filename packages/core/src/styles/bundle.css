@@ -49,5 +49,8 @@
 @import './components/suggestions.css';
 @import './components/context.css';
 @import './components/scroll-rail.css';
+@import './shell/sidebar.css';
+@import './shell/header.css';
+@import './shell/app-shell.css';
 @import './prose.css';
 @import './responsive.css';

@@ -1,0 +1,62 @@
+/*
+ * aparté — the header row of an application shell.
+ *
+ * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
+ * them concatenated in that same order, the way a browser does.
+ */
+
+/*
+ * aparte-header — the bar above the chat.
+ * A recipe and nothing more, because a header has no behaviour of its own: a toggle
+ * for the sidebar (which `<aparte-sidebar>` wires from the `data-aparte-sidebar-toggle`
+ * attribute), the conversation's title, and an actions zone pushed to the end — a
+ * model selector, a share button, whatever the page needs. The toggle shows only
+ * under 48rem, where the sidebar is a drawer; above it the column is simply there.
+ *
+ *     <header class="aparte-header">
+ *       <button class="aparte-btn aparte-btn--icon aparte-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+ *       <span class="aparte-header__title">Deploy checklist</span>
+ *       <div class="aparte-header__actions">
+ *         <span class="aparte-tag">gpt-4.1</span>
+ *         <button class="aparte-btn aparte-btn--sm aparte-btn--ghost" type="button">Share</button>
+ *       </div>
+ *     </header>
+ */
+.aparte-header {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-3);
+  min-height: var(--aparte-header-height);
+  padding: var(--aparte-space-2) var(--aparte-space-4);
+  background: var(--aparte-surface-1);
+  border-block-end: var(--aparte-border-width) solid var(--aparte-border);
+  color: var(--aparte-text);
+}
+
+.aparte-header__title {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--aparte-font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aparte-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--aparte-space-2);
+  margin-inline-start: auto;
+}
+
+.aparte-header__toggle {
+  display: none;
+}
+
+/* The same 48rem the sidebar turns into a drawer at (`sidebar.css`). */
+@media (max-width: 48rem) {
+  .aparte-header__toggle {
+    display: inline-flex;
+  }
+}
