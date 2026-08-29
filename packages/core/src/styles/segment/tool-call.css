@@ -9,7 +9,16 @@
    reply text beside it for attention it did not deserve. */
 .aparte-tool-summary {
     display: flex; align-items: center; gap: var(--aparte-space-4);
-    padding: var(--aparte-space-2) var(--aparte-space-3); margin-inline-start: calc(var(--aparte-space-3) * -1);
+    /* The negative margin is what puts the row's CONTENT on the message column rather
+       than one padding in from it — the padding here is the hover surface, not the
+       column. So it has to be given back on BOTH sides. It used to be
+       `margin-inline-start` alone: the name, the icon and the chevron landed on the
+       column, and the trailing state stopped `--aparte-space-3` short of the right edge
+       every line of prose reaches. Measured at a 512px chat: text L26/R26, the state's
+       right edge at R32 — six pixels, on the one line of a turn whose whole job is to
+       read as a quiet aside beside the text. `margin-inline` puts it at R26 and makes
+       the hover surface symmetric with it. */
+    padding: var(--aparte-space-2) var(--aparte-space-3); margin-inline: calc(var(--aparte-space-3) * -1);
     border-radius: var(--aparte-tool-row-radius);
     cursor: pointer; list-style: none;
 }
