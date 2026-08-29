@@ -52,7 +52,7 @@ import './styles/components/suggestions.css';
 import './styles/components/context.css';
 import './styles/components/scroll-rail.css';
 import './styles/shell/sidebar.css';
-import './styles/shell/header.css';
+import './styles/shell/app-header.css';
 import './styles/shell/app-shell.css';
 import './styles/prose.css';
 import './styles/responsive.css';

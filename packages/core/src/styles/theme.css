@@ -339,7 +339,7 @@
 
   /* Shell — the sidebar's column and the header's row. */
   --aparte-sidebar-width: 260px;
-  --aparte-header-height: 48px;
+  --aparte-app-header-height: 48px;
   --aparte-scrim: rgba(0, 0, 0, 0.35);
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather

@@ -72,10 +72,10 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  *       <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
  *     </div>
  *   </aparte-sidebar>
- *   <header class="aparte-header">
- *     <button class="aparte-btn aparte-btn--icon aparte-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
- *     <span class="aparte-header__title">Deploy checklist</span>
- *     <div class="aparte-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
+ *   <header class="aparte-app-header">
+ *     <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+ *     <span class="aparte-app-header__title">Deploy checklist</span>
+ *     <div class="aparte-app-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
  *   </header>
  *   <main class="aparte-app-shell__main">
  *     <aparte-chat>

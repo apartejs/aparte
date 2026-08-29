@@ -18,7 +18,7 @@
  *         <div class="aparte-sidebar__header"><span class="aparte-sidebar__brand">aparté</span></div>
  *         <div class="aparte-sidebar__body"><aparte-conversation-list></aparte-conversation-list></div>
  *       </aside>
- *       <header class="aparte-header"><span class="aparte-header__title">Deploy checklist</span></header>
+ *       <header class="aparte-app-header"><span class="aparte-app-header__title">Deploy checklist</span></header>
  *       <main class="aparte-app-shell__main">
  *         <aparte-chat>
  *           <aparte-chat-viewport></aparte-chat-viewport>
@@ -54,7 +54,7 @@
   grid-row: auto;
 }
 
-.aparte-app-shell > .aparte-header {
+.aparte-app-shell > .aparte-app-header {
   grid-column: 2;
 }
 
