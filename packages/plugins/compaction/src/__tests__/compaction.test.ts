@@ -478,7 +478,7 @@ describe('setupCompaction — the window events and the page', () => {
         shell.setAttribute('data-aparte-chat', '');
         document.body.appendChild(shell);
 
-        const direct = document.createElement('div') as HTMLElement & CompactionTarget;
+        const direct = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
         direct.id = 'chat-direct';
         const store = makeTarget(exchange(1, 'd'));
         direct.getMessages = store.getMessages;
@@ -523,7 +523,7 @@ describe('setupCompaction — the window events and the page', () => {
 
     it('a setup on a config of its own answers only the chats that resolve that config; the global one answers all', async () => {
         const hostOf = (id: string, store: CompactionTarget): HTMLElement => {
-            const el = document.createElement('div') as HTMLElement & CompactionTarget;
+            const el = document.createElement('div') as unknown as HTMLElement & CompactionTarget;
             el.id = id;
             el.setAttribute('data-aparte-chat', '');
             el.getMessages = store.getMessages;

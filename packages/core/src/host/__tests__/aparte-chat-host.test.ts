@@ -115,9 +115,10 @@ describe('AparteChatHost', () => {
 
     it('clearAll on the host element empties the framework state and the viewport — what a compaction resolves by id', () => {
         const h = makeHarness();
-        h.host.appendMessage(msg('u1', 'user', { content: 'first' }));
+        const host = h.host as unknown as { appendMessage: (m: AparteMessage) => void; clearAll: () => void };
+        host.appendMessage(msg('u1', 'user', { content: 'first' }));
         expect(h.getMessages()).toHaveLength(1);
-        (h.host as unknown as { clearAll: () => void }).clearAll();
+        host.clearAll();
         expect(h.getMessages()).toEqual([]);
         expect(h.vpApi.clearAll).toHaveBeenCalled();
     });
