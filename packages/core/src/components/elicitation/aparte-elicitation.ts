@@ -127,6 +127,22 @@ interface Pending {
  *     </div>
  *   </aparte-composer>
  * </aparte-chat>
+ *
+ * <script>
+ *   // `aparte` is the `@aparte/core` module the frame exposes; in your app this line is
+ *   // `import { requestUserInput } from '@aparte/core'`. A tool handler asks; the panel
+ *   // mounts in the composer of the chat whose presenter this element is.
+ *   aparte.requestUserInput({
+ *     message: 'Which environment should I deploy to?',
+ *     schema: {
+ *       type: 'enum',
+ *       options: [
+ *         { value: 'staging', label: 'Staging', recommended: true },
+ *         { value: 'prod', label: 'Production', description: 'Live traffic' },
+ *       ],
+ *     },
+ *   });
+ * </script>
  */
 export class AparteElicitation extends HTMLElement implements AparteConfigAware {
     private _pending: Pending | null = null;

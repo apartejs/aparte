@@ -99,10 +99,10 @@ export const GUIDE_DEMOS: GuideDemo[] = [
         html: `<!-- Three pieces: the grid and the header are recipes, the sidebar is an element
      because it has behaviour. The toggle in the header needs no script — the sidebar
      listens for \`data-aparte-sidebar-toggle\` itself, and shows under 48rem.
-     breakpoint="none" only because this frame is narrower than that: drop it and the
-     column becomes a drawer on a phone. -->
+     breakpoint="30rem" only because this frame is narrower than the shell's own 48rem:
+     the column shows here, and at a phone's width it is a drawer behind the toggle. -->
 <div class="aparte-app-shell" style="height: 24rem">
-  <aparte-sidebar breakpoint="none">
+  <aparte-sidebar breakpoint="30rem">
     <div class="aparte-sidebar__header">
       <span class="aparte-sidebar__brand">aparté</span>
       <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
@@ -119,10 +119,10 @@ export const GUIDE_DEMOS: GuideDemo[] = [
       <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
     </div>
   </aparte-sidebar>
-  <header class="aparte-header">
-    <button class="aparte-btn aparte-btn--icon aparte-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
-    <span class="aparte-header__title">Deploy checklist</span>
-    <div class="aparte-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
+  <header class="aparte-app-header">
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <span class="aparte-app-header__title">Deploy checklist</span>
+    <div class="aparte-app-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
   </header>
   <main class="aparte-app-shell__main">
     <aparte-chat>

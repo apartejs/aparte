@@ -100,8 +100,9 @@ const { src, label, caption } = Astro.props;
         width: 100%;
         /* A floor until the frame reports its own height, so the box never collapses to
            nothing on a slow load. The cap is applied in script, not here: it has to beat the
-           height the frame asks for. */
-        height: 22rem;
+           height the frame asks for. 10rem and not 22: most previews are shorter, and a
+           placeholder taller than the demo read as a big box that then shrinks. */
+        height: 10rem;
         border: 0;
         /*
          * NO transition on the height. It used to animate over 0.2s, to make the correction

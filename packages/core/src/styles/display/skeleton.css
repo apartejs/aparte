@@ -3,11 +3,20 @@
    =========================================
    Decorative: give the element aria-hidden="true" (or wrap the group behind a
    single aria-busy region) so a screen reader does not read out an empty box.
+   A skeleton is a block with no margin of its own: the recipe spaces consecutive
+   text lines and nothing else, so a GROUP is laid out by its container — a grid
+   with a gap, the way the real card it stands in for is. Four lines glued edge to
+   edge is what the example used to show.
 
-       <span class="aparte-skeleton aparte-skeleton--circle"></span>
-       <span class="aparte-skeleton aparte-skeleton--text"></span>
-       <span class="aparte-skeleton aparte-skeleton--text" style="inline-size: 60%"></span>
-       <span class="aparte-skeleton aparte-skeleton--rect" style="block-size: 64px"></span>
+       <div style="display: grid; grid-template-columns: auto 1fr; gap: var(--aparte-space-3); align-items: start" aria-busy="true">
+         <span class="aparte-skeleton aparte-skeleton--circle" aria-hidden="true"></span>
+         <div>
+           <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
+           <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
+           <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
+         </div>
+         <span class="aparte-skeleton aparte-skeleton--rect" style="grid-column: 1 / -1; block-size: 64px" aria-hidden="true"></span>
+       </div>
    */
 
 .aparte-skeleton {

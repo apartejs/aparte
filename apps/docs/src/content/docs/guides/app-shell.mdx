@@ -14,14 +14,14 @@ and the chat in the rest of the window. aparté ships that chrome as three recip
 element — enough to build the whole page on the library alone, and nothing that owns your
 data.
 
-<Demo id="app-shell" caption="The shell: a sidebar, a header, the chat. Narrow the frame under 48rem and the sidebar becomes a drawer behind the header's toggle." />
+<Demo id="app-shell" caption="The shell: a sidebar, a header, the chat. Narrow the frame to 375 and the sidebar becomes a drawer behind the header's toggle (the demo sets the breakpoint to 30rem; the shell's own default is 48rem, wider than this frame)." />
 
 ## The three pieces
 
 | Piece | What it is | Why |
 | --- | --- | --- |
 | `.aparte-app-shell` | a recipe: a two-column, two-row grid — sidebar beside, header above, `__main` in the rest | a grid has no behaviour |
-| `.aparte-header` | a recipe: a toggle (shown under 48rem), a title, an `__actions` zone pushed to the end | a header has no behaviour either |
+| `.aparte-app-header` | a recipe: a toggle (shown under 48rem), a title, an `__actions` zone pushed to the end | a header has no behaviour either |
 | `<aparte-sidebar>` | an element wearing the `.aparte-sidebar` recipe | it collapses, it becomes a drawer, and its search filters the list — three behaviours |
 
 That split is the rule the whole kit follows: a recipe draws, an element exists only where
@@ -78,7 +78,7 @@ panel.
 | --- | --- | --- |
 | `--aparte-sidebar-width` | `260px` | the column, and the drawer |
 | `--aparte-sidebar-bg` | `--aparte-surface-2` | the column's ground |
-| `--aparte-header-height` | `48px` | the header row's minimum height |
+| `--aparte-app-header-height` | `48px` | the header row's minimum height |
 | `--aparte-scrim` | `rgba(0, 0, 0, 0.35)` | the shade behind an open drawer |
 
 The breakpoint is 48rem, written in the sheets rather than a token: a media query cannot

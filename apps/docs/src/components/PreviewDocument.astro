@@ -85,6 +85,20 @@ const { title, markup, scripts } = Astro.props;
             body {
                 margin: 0;
             }
+            /* Painted BEFORE core's sheet arrives (it comes through the module import below):
+               the two ground colours are theme.css's own, repeated here so the first frame is
+               not white in a dark page. `color-scheme` matters as much as the colour — a frame
+               whose scheme differs from its embedder's gets an OPAQUE canvas from the browser,
+               which is the white flash a dark reader saw on every page with a preview. */
+            html {
+                color-scheme: light;
+                background: #f6f2ea;
+            }
+            html[data-aparte-theme='dark'] {
+                color-scheme: dark;
+                background: #17141c;
+            }
+
             body {
                 /* Room to breathe. 1rem pressed every example into the top-left corner of
                    its frame, which made a two-tile row or a lone icon read as debris
@@ -122,6 +136,14 @@ const { title, markup, scripts } = Astro.props;
             // `pnpm run docs`, the published `dist` in a build.
             import '@aparte/core';
             import '@aparte/core/styles.css';
+            import * as aparte from '@aparte/core';
+            /*
+             * The module, for the examples' classic scripts: they cannot `import`, and a few
+             * states only a function can produce — a question asked through
+             * `requestUserInput()` is the one that made this necessary. An example that uses
+             * it says so in its first line, with the import a real app writes instead.
+             */
+            (window as unknown as { aparte: typeof aparte }).aparte = aparte;
 
             /*
              * The import above has already run, so every element core defines is defined and

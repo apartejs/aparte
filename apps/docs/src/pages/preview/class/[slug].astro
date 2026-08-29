@@ -19,12 +19,14 @@ const { name, markup, slug } = Astro.props;
  * One family cannot be seen from its markup alone: a `<dialog>` without `open` is
  * `display: none`, so the Dialog preview showed its trigger button and nothing else —
  * "a recipe you cannot see is a list of names", on the one page that says so. The
- * frame opens it in the flow (`show()`, then static so the frame's height follows the
- * box); Cancel closes it, and the button reopens it modally, inside the frame. The code
- * block a reader copies stays the sheet's own example, with no `open` hardcoded.
+ * frame opens it MODALLY on arrival — the same state the button gives after a Cancel,
+ * backdrop and all; it used to open it in the flow with `show()`, which put the box
+ * above its own trigger with no backdrop, a state nothing in the kit produces. The frame
+ * keeps a floor of height for it (PreviewDocument). The code block a reader copies stays
+ * the sheet's own example, with no `open` hardcoded.
  */
 const scripts = slug === 'dialog'
-    ? ["const d = document.querySelector('dialog.aparte-dialog'); if (d) { d.show(); d.style.position = 'static'; }"]
+    ? ["const d = document.querySelector('dialog.aparte-dialog'); if (d) d.showModal();"]
     : [];
 ---
 

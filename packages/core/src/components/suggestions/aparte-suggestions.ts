@@ -63,11 +63,17 @@ const promptOf = (s: AparteSuggestion): string => (typeof s === 'string' ? s : (
  *     being filled or submitted.
  *
  * @example
+ * <!-- The starters sit above the input, inside the composer; a click fills and sends. -->
  * <aparte-composer>
  *   <aparte-suggestions empty-only
  *     suggestions='["What is aparté?", {"label": "Write a haiku", "prompt": "Write a haiku about web components."}]'>
  *   </aparte-suggestions>
- *   <div class="aparte-composer-shell">…</div>
+ *   <div class="aparte-composer-shell">
+ *     <div class="aparte-composer-row">
+ *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-send></aparte-composer-send>
+ *     </div>
+ *   </div>
  * </aparte-composer>
  */
 export class AparteSuggestions extends HTMLElement {
