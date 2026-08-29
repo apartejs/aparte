@@ -4,7 +4,9 @@ import { APARTE_DEFAULT_LOCALE, aparteGlobalConfig } from '@aparte/core';
 
 describe('@aparte/locale-fr', () => {
     it('covers every key of the English default (no missing translation)', () => {
-        const missing = Object.keys(APARTE_DEFAULT_LOCALE).filter((k) => fr[k] === undefined);
+        // The locale is a closed type now, so a string key needs the open view to index it.
+        const open = fr as Record<string, string | undefined>;
+        const missing = Object.keys(APARTE_DEFAULT_LOCALE).filter((k) => open[k] === undefined);
         expect(missing).toEqual([]);
     });
 

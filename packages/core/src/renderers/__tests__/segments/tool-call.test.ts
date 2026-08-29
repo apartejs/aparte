@@ -383,7 +383,8 @@ describe('the arguments the panel shows are the ones the row shows', () => {
 
     it('is the same text on both surfaces', () => {
         const node = document.createElement('div');
-        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never);
+        // The built-in row renders a string; the seam allows an element too.
+        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never) as string;
         const row = node.querySelector('[data-part="input"]')!.textContent!;
         expect(row).toContain(describeToolInput(call.toolCall.input));
     });
@@ -400,7 +401,8 @@ describe('the arguments the panel shows are the ones the row shows', () => {
 
     it('leaves the row closed while a person is deciding', () => {
         const node = document.createElement('div');
-        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never);
+        // The built-in row renders a string; the seam allows an element too.
+        node.innerHTML = getSegmentRenderer('tool_call')!.render(call as never) as string;
         expect(node.querySelector('details')?.hasAttribute('open')).toBe(false);
     });
 });

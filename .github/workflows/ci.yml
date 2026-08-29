@@ -173,6 +173,8 @@ jobs:
 
       - name: Check derived CSS variables re-anchor where a palette changes
         run: pnpm check:derived-vars
+      - name: Locale keys (every t() read declared, every key read, fr complete)
+        run: pnpm check:locale-keys
 
       - name: Check the typed event map is honest
         run: pnpm check:event-map
