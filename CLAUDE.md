@@ -41,11 +41,11 @@ apartejs/
 ├── e2e/                      Playwright browser smoke tests — drives the examples
 ├── packages/
 │   ├── core/                 @aparte/core     — vanilla TS web components, ZERO deps
-│   ├── engine/               @aparte/engine   — runStreamAgent + parity suites
+│   ├── engine/               @aparte/engine   — runStreamAgent (the loop, nothing else)
 │   ├── locales/              @aparte/locale-fr   (EN = core's built-in APARTE_DEFAULT_LOCALE)
 │   ├── providers/            @aparte/provider-{openai-compat, ai-sdk, transformers}
 │   ├── plugins/              @aparte/plugin-{marked, streaming-markdown, shiki,
-│   │                         model-selector (light), ask-user, approval}
+│   │                         model-selector (light), ask-user, approval, compaction}
 │   ├── tools/                @aparte/docs-mcp — the docs as an MCP server (Node, not in the lib)
 │   └── wrappers/             @aparte/{react, vue, svelte, angular}
 └── nx.json

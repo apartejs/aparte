@@ -44,7 +44,6 @@ check('@aparte/core resolves its DOM-free node entry', async () => {
 check('@aparte/engine imports and exposes the headless loop', async () => {
     const engine = await import('@aparte/engine');
     assert.equal(typeof engine.runStreamAgent, 'function');
-    assert.equal(typeof engine.createCompactionSelector, 'function');
 });
 
 check('@aparte/provider-openai-compat is usable from Node', async () => {
@@ -128,6 +127,7 @@ check('createAparteChatHandler answers a real Request in Node', async () => {
 const SATELLITES = [
     ['@aparte/plugin-ask-user', 'packages/plugins/ask-user'],
     ['@aparte/plugin-approval', 'packages/plugins/approval'],
+    ['@aparte/plugin-compaction', 'packages/plugins/compaction'],
     ['@aparte/plugin-artifacts', 'packages/plugins/artifacts'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector'],
     ['@aparte/plugin-marked', 'packages/plugins/marked'],

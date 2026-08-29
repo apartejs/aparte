@@ -65,6 +65,7 @@ const BARRELS = [
     // shape as check-node-import's SATELLITES, which omitted provider-scenario for the same
     // reason. A package absent from this array is not "exempt", it is unmeasured.
     { pkg: '@aparte/plugin-approval', types: 'packages/plugins/approval/dist/index.d.ts', readme: 'packages/plugins/approval/README.md' },
+    { pkg: '@aparte/plugin-compaction', types: 'packages/plugins/compaction/dist/index.d.ts', readme: 'packages/plugins/compaction/README.md' },
     { pkg: '@aparte/provider-scenario', types: 'packages/providers/ai/scenario/dist/index.d.ts', readme: 'packages/providers/ai/scenario/README.md' },
     // Published like the rest (`private` is unset), so its surface is measured here too
     // even though the package is a Node CLI rather than part of the browser library.
@@ -142,6 +143,9 @@ const MAX_UNMENTIONED = new Map([
     // plugin-approval's twelve are the ones that matter — createApprovalPolicy,
     // getApprovalController, classifyTool and rulingFor are called by a consumer.
     ['@aparte/plugin-approval', 12],
+    // plugin-compaction: every export is on its page — the four that matter
+    // (setupCompaction, createCompactionSelector, transcriptForSummary, the budget) in a fence.
+    ['@aparte/plugin-compaction', 0],
     ['@aparte/provider-scenario', 6],
     ['@aparte/docs-mcp', 7],
     ['@aparte/locale-fr', 0],

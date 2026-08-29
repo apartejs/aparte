@@ -1,0 +1,170 @@
+---
+title: Compaction
+description: "Conversation compaction — summarise the turns that no longer fit the model's window, keep the recent ones verbatim, and answer the context gauge's aparte-compact; setupCompaction, createCompactionSelector and the budget helpers."
+sidebar:
+  order: 9
+  label: compaction
+---
+
+A long conversation outgrows the model's window. **Compaction** summarises the older turns
+and keeps the recent ones verbatim, so the conversation can go on with what it needs and
+nothing it does not. Core draws the gauge and the notice; this plugin does the compacting.
+
+```bash
+npm install @aparte/plugin-compaction @aparte/core
+```
+
+```ts
+import { setupCompaction } from '@aparte/plugin-compaction';
+
+const compaction = setupCompaction();   // the global config, the current model's budget
+```
+
+```html
+<aparte-composer-toolbar>
+  <!-- asks for a compaction on reaching 90 % of the window; the plugin answers -->
+  <aparte-context auto-compact style="flex: 1"></aparte-context>
+</aparte-composer-toolbar>
+```
+
+`@aparte/core` is the only **peer dependency**. Nothing in core compacts by itself: the
+survey behind this package found no UI kit that does, and every agent SDK ships it as an
+opt-in module — a session wrapper, a middleware, a memory block. So does aparté: the seams
+are core's (the command the gauge dispatches, the notice the viewport draws, the preamble the
+history sends), the behaviour is one `setupCompaction()` away.
+
+## What a compaction does
+
+1. **Resolves the chat** — the one `aparte-compact` names, else the scoped one, else the
+   first `<aparte-chat>` on the page. A chat with a turn in flight is left alone.
+2. **Selects** what to summarise. By default, the budget-aware selector over the current
+   model: its `contextWindow`, the resolved system prompt and the registered tools set the
+   budget, and the newest turns that still fit stay verbatim. When the model declares no
+   window there is no budget to walk, so the last two exchanges stay (`keepWithoutWindow`).
+   Nothing to drop means nothing happens — no model call.
+3. **Summarises** the dropped turns through the config's transport, with their tool calls
+   (`[tool name] input → result`) and errors, so a session of tool work survives its own
+   compaction. The request carries `_meta: { compaction: true }`, so a backend transport can
+   route it to a cheaper model.
+4. **Replaces** the transcript: the summary as a **notice** — a `user`-role message flagged
+   `compaction: true`, which the viewport (and the four wrappers) draw centred, without
+   avatar or actions, and the history sends under a fixed preamble saying what it is — then
+   the kept turns verbatim, then whatever arrived while the summary was being written.
+
+```ts
+const outcome = await compaction.compact();   // never throws
+// { ok: true, skipped: false, summary, kept, dropped }
+// { ok: true, skipped: true, reason: 'empty' | 'nothing-to-drop' | 'running' | 'streaming' }
+// { ok: false, error }
+compaction.abort();      // the summarisation in flight; the transcript is untouched
+compaction.running;      // true meanwhile
+compaction.dispose();    // remove the listeners
+```
+
+One compaction at a time per setup — a second request while one runs is reported
+`skipped` with `reason: 'running'`, not started twice. An `aparte-abort` addressed to the
+chat (or to none) aborts the summarisation the way `abort()` does; a summary the user
+cancelled never lands over a conversation they moved on from.
+
+## The options
+
+```ts
+import { aparteGlobalConfig } from '@aparte/core';
+import { setupCompaction, createCompactionSelector } from '@aparte/plugin-compaction';
+
+setupCompaction({
+  // your own selection — here the budget-aware one over a window you know better
+  selector: createCompactionSelector({
+    contextWindow: 32_000,
+    systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
+    minKeep: 6,                       // never summarise the last three exchanges
+  }),
+  prompt: 'Summarise in French, for a support agent picking up the ticket.',
+  keyResolver: (providerId) => settings.keys[providerId],   // the resolver you gave AparteClient
+}, aparteGlobalConfig);               // the config last, like every setup*: it defaults to the global
+```
+
+| Option | Purpose |
+| --- | --- |
+| `selector` | `(messages) => { keep, drop }` — which messages are summarised. Default: `createCompactionSelector` over the current model. |
+| `keepWithoutWindow` | How many of the newest messages stay when the model declares no window. Default `4`. |
+| `prompt` | The summariser's system prompt. Default: an English instruction asking for the decisions, the open tasks and the tool results that still matter. |
+| `keyResolver` | The key for the provider when it is not on the config — the same resolver `AparteClient` takes. `config.getKey()` is the fallback. |
+| `summarize` | `(request, signal) => Promise<string>` — replace the model call: your own endpoint, a cheaper model. With one, no provider needs to be configured. |
+| `resolveTarget` | `(targetId?) => { getMessages, clearAll, appendMessage } \| null` — a transcript that lives in a store rather than in the DOM. |
+| `scopeToTargetId` | Answer only the events that name this chat; one setup per chat on a multi-chat page. |
+| `listen` | Listen for `aparte-compact` / `aparte-abort` on `window`. Default `true`. |
+
+## The events
+
+All on `window`, each naming the chat (`targetId`) when it has an id — so a gauge on a
+multi-chat page resets only its own:
+
+- `aparte-compact` — the **command**. `<aparte-context auto-compact>` dispatches it on
+  reaching `danger`; a button of yours dispatches it the same way:
+  `window.dispatchEvent(new CustomEvent('aparte-compact', { detail: { targetId } }))`.
+- `aparte-compact-start` — the summarisation began; show a spinner, it is a model call.
+- `aparte-compact-done` — `{ summary, kept, dropped }`, or `{ skipped: true, reason }`.
+- `aparte-compact-error` — `{ error }`.
+
+They are typed in core's event map (`AparteCompactEventDetail`,
+`AparteCompactStartEventDetail`, `AparteCompactDoneEventDetail`,
+`AparteCompactErrorEventDetail`), and the [events reference](/reference/events/) lists them.
+
+## The budget
+
+The selector walks a budget the plugin computes without a tokenizer — a chars-per-token
+heuristic, ±10 %, which is enough for budgeting and cheap enough to run on every call:
+
+```text
+budget = contextWindow − systemPrompt − tools − reservedThinking
+                      − reservedGeneration − autocompactBuffer − safetyMargin
+```
+
+`computeHistoryBudget({ systemPrompt, toolsArray, config })` returns it with its
+breakdown, `splitHistoryBudget(budget)` splits it between the running summary and the
+verbatim window (`{ summary, window }`), `estimateTokens(text)` / `estimateTokensJson(obj)`
+are the heuristic, and `DEFAULT_COMPACTION_CONFIG` holds the reserves and ratios a
+`CompactionConfig` can override. The gauge, the selector and the model speak the same
+numbers: the window is the model's, the budget is this one, and the reading the gauge shows
+is what the provider reported — nothing is estimated twice.
+
+For a `summarize` of your own that wants the same transcript, `transcriptForSummary(message)`
+renders a message the way the default summariser reads it (text, then `[tool …]` and
+`[error …]` lines), `messageText(message)` gives the text alone, and
+`DEFAULT_COMPACTION_PROMPT` is the instruction.
+
+## Under the hood — the seams in core
+
+Three things are core's, and stay so whether or not this plugin is installed:
+
+- **`<aparte-context>`** is a gauge, not a compactor: it reads the usage each turn reports
+  and the window the current model declares, turns `warn` and `danger`, and with
+  `auto-compact` dispatches the command. Without an answer it only measures — an
+  affordance core cannot honour end to end is not honoured half-way.
+- **The notice.** A message with `compaction: true` is drawn as a notice by the viewport and
+  by every wrapper (`data-kind="compaction"` on the bubble), and `AparteClient` sends it to
+  the model under a preamble that says what it is, on every history path. A host that
+  summarises by other means sets the flag and gets the same treatment.
+- **The request flag.** `_meta.compaction` on the summarisation request, for a backend
+  transport that wants to route it.
+
+## The types
+
+| Type | What it is |
+| --- | --- |
+| `CompactionSetupOptions` | The options above. |
+| `CompactionController` | What `setupCompaction` returns: `compact()`, `abort()`, `running`, `dispose()`. |
+| `CompactionOutcome` | What `compact()` resolves to — done, skipped with a `CompactionSkipReason`, or failed. |
+| `CompactionSkipReason` | `'empty' \| 'nothing-to-drop' \| 'running' \| 'streaming'`. |
+| `CompactionTarget` | What `resolveTarget` returns: `getMessages()`, `clearAll()`, `appendMessage()`. |
+| `CompactionMessageSelector` | The `selector` option: `(messages: AparteMessage[]) => { keep, drop }`. |
+| `CompactionKeyResolver` | The `keyResolver` option — the same signature as `AparteClientOptions.keyResolver`. |
+| `CompactionSummarizer` | The `summarize` option: `(request, signal) => Promise<string>`. |
+| `CompactionSelectorOptions` | What `createCompactionSelector` takes: `contextWindow`, `systemPrompt`, `tools`, `config`, `minKeep`. |
+| `CompactionSelector` | What it returns — generic in the message type, so a host's own messages fit. |
+| `CompactableMessage` | The least a message must carry to be costed: `content`, or `segments` with text. |
+| `CompactionSelection` | `{ keep, drop }`. |
+| `CompactionConfig` | The reserves and ratios of the budget; `DEFAULT_COMPACTION_CONFIG` is one. |
+| `BudgetResult` / `BudgetBreakdown` | What `computeHistoryBudget` returns: the budget, and each cost it subtracted. |
+| `SplitBudget` | What `splitHistoryBudget` returns: `{ summary, window }`. |
