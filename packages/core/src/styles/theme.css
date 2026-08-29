@@ -335,7 +335,13 @@
   --aparte-scroll-rail-width: 20px;
   --aparte-scroll-rail-tick-size: 14px;
   --aparte-scroll-rail-tick-thickness: 2px;
+
   --aparte-scroll-rail-gap: 8px;
+
+  /* Context gauge, ring variant — a diameter, and a stroke in the ring's own 36-unit
+     box. Literals like the rail's: a 22px ring is a toolbar's measure, not a spacing step. */
+  --aparte-context-ring-size: 22px;
+  --aparte-context-ring-stroke: 4;
 
   /* Shell — the sidebar's column and the header's row. */
   --aparte-sidebar-width: 260px;

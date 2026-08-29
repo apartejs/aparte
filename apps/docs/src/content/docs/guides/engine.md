@@ -46,6 +46,7 @@ provider's `/models` fetch fills it in, or set the `window` attribute), turns `w
 at 75 % and 90 % (the `warn` / `danger` attributes), fires `aparte-context-threshold` when the
 level changes — and with `auto-compact` dispatches `aparte-compact` for its chat on reaching
 danger, once, until the level drops. Before the first turn, or without a window, it shows nothing.
+`variant="ring"` draws it as a ring with the percentage, for a toolbar with no width to give.
 
 What answers that command is not the engine: the loop reports usage and lets the caller decide,
 and compaction — the budget, the selector, the summariser — is

@@ -104,3 +104,64 @@ describe('<aparte-context>', () => {
         expect(el.used).toBe(700);
     });
 });
+
+describe('<aparte-context variant="ring">', () => {
+    const ring = (el: HTMLElement) => el.querySelector<SVGElement>('.aparte-context__ring');
+    const value = (el: HTMLElement) => el.querySelector<SVGElement>('.aparte-context__value');
+
+    it('draws a ring meter whose dash is the percentage, with the percentage beside it and the reading on hover', () => {
+        const el = mount(`<aparte-context window="1000" variant="ring"></aparte-context>`);
+        turn(700, 80);
+        const svg = ring(el)!;
+        expect(svg.getAttribute('role')).toBe('meter');
+        expect(svg.getAttribute('aria-valuenow')).toBe('780');
+        expect(svg.getAttribute('aria-valuemax')).toBe('1000');
+        expect(svg.getAttribute('aria-label')).toMatch(/^Context window: /);
+        expect(value(el)!.getAttribute('pathLength')).toBe('100');
+        expect(value(el)!.style.getPropertyValue('--aparte-context-ratio')).toBe('78');
+        expect(el.querySelector('.aparte-context__text')!.textContent).toMatch(/^78\s?%$/);
+        expect(el.querySelector<HTMLElement>('.aparte-context')!.title).toMatch(/780 \/ 1(,|\.)?0?0?0?/);
+        expect(bar(el), 'no bar in the ring variant').toBeNull();
+        expect(el.getAttribute('data-level')).toBe('warn');
+    });
+
+    it('switching the variant rebuilds the meter, and keeps the reading', () => {
+        const el = mount(`<aparte-context window="1000"></aparte-context>`);
+        turn(200, 50);
+        expect(bar(el)).not.toBeNull();
+        el.setAttribute('variant', 'ring');
+        expect(bar(el)).toBeNull();
+        expect(value(el)!.style.getPropertyValue('--aparte-context-ratio')).toBe('25');
+        el.removeAttribute('variant');
+        expect(ring(el)).toBeNull();
+        expect(bar(el)!.style.getPropertyValue('--aparte-progress-value')).toBe('25');
+    });
+
+    it('caps the ring at the window', () => {
+        const el = mount(`<aparte-context window="1000" variant="ring"></aparte-context>`);
+        turn(1500, 0);
+        expect(value(el)!.style.getPropertyValue('--aparte-context-ratio')).toBe('100');
+        expect(el.getAttribute('data-level')).toBe('danger');
+    });
+});
+
+describe('<aparte-context variant="ring"> — the label is the dash', () => {
+    it('rounds once: a ratio on a .5 boundary gives the same integer to the ring and to the text', () => {
+        const el = mount(`<aparte-context window="128000" variant="ring"></aparte-context>`);
+        turn(18560, 0); // 0.145 → 14.499999… in binary
+        const dash = el.querySelector<SVGElement>('.aparte-context__value')!.style.getPropertyValue('--aparte-context-ratio');
+        const text = el.querySelector('.aparte-context__text')!.textContent!;
+        expect(text.replace(/\D/g, '')).toBe(dash);
+    });
+});
+
+describe('<aparte-context variant="ring"> — nothing used', () => {
+    it('draws no value at 0 %: a zero-length dash with round caps would still be a dot', () => {
+        const el = mount(`<aparte-context window="1000" variant="ring"></aparte-context>`);
+        turn(0, 0);
+        const value = el.querySelector<SVGElement>('.aparte-context__value')!;
+        expect(value.classList.contains('aparte-context__value--empty')).toBe(true);
+        turn(100, 0);
+        expect(value.classList.contains('aparte-context__value--empty')).toBe(false);
+    });
+});

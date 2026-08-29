@@ -28,6 +28,29 @@ const el = (tag: string, className: string): HTMLElement => {
     return node;
 };
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * The ring: a track and a value circle on a 36-unit box. `pathLength="100"` makes the
+ * value's dash the percentage itself (`stroke-dasharray: <ratio> 100`, in the sheet), so
+ * the element sets one custom property per render and no geometry.
+ */
+const ringSvg = (): SVGSVGElement => {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'aparte-context__ring');
+    svg.setAttribute('viewBox', '0 0 36 36');
+    for (const part of ['track', 'value'] as const) {
+        const circle = document.createElementNS(SVG_NS, 'circle');
+        circle.setAttribute('class', `aparte-context__${part}`);
+        circle.setAttribute('cx', '18');
+        circle.setAttribute('cy', '18');
+        circle.setAttribute('r', '15.5');
+        if (part === 'value') circle.setAttribute('pathLength', '100');
+        svg.appendChild(circle);
+    }
+    return svg;
+};
+
 /**
  * A gauge of the model's context window: how much of it the conversation uses.
  *
@@ -47,8 +70,10 @@ const el = (tag: string, className: string): HTMLElement => {
  * gauge asks, the plugin does, and a page without the plugin gets a gauge that only
  * measures.
  *
- * The bar wears the `aparte-progress` recipe; this element declares no custom
- * property of its own.
+ * The bar wears the `aparte-progress` recipe. `variant="ring"` draws the same reading
+ * as a ring with the percentage beside it — for a toolbar, where a bar wants a width
+ * and a ring wants none; the full reading is the ring's `title`. The two share the
+ * levels, the events and the accessible name; only the drawing differs.
  *
  * @element aparte-context
  *
@@ -57,14 +82,20 @@ const el = (tag: string, className: string): HTMLElement => {
  * @attr {number} danger - Fraction at which it turns `danger`. Default `0.9`.
  * @attr {boolean} auto-compact - Dispatch `aparte-compact` on reaching `danger` (once per crossing).
  * @attr {string} target - The id of the `<aparte-chat>` to watch, when the element is not under it.
+ * @attr {string} variant - `bar` (default) or `ring`: a progress bar with the reading beside it, or a ring with the percentage.
  * @attr {string} data-level - Reflected BY the element: `ok`, `warn` or `danger`. Read-only.
  * @attr {boolean} data-empty - Reflected BY the element while it has nothing to show. Read-only.
  *
  * @fires {CustomEvent<AparteContextThresholdEventDetail>} aparte-context-threshold - The level changed. Bubbles.
  *
+ * @cssprop [--aparte-context-ring-size=22px] - Diameter of the ring variant.
+ * @cssprop [--aparte-context-ring-stroke=4] - Thickness of the ring, in its own units (the ring is drawn on a 36-unit box).
+ *
  * @example
+ * <!-- The same gauge twice: the bar takes the room it is given, the ring takes none. -->
  * <aparte-composer-toolbar>
  *   <aparte-context window="128000" auto-compact style="flex: 1"></aparte-context>
+ *   <aparte-context window="128000" variant="ring"></aparte-context>
  * </aparte-composer-toolbar>
  *
  * <script>
@@ -78,7 +109,7 @@ const el = (tag: string, className: string): HTMLElement => {
  */
 export class AparteContext extends HTMLElement {
     static get observedAttributes(): string[] {
-        return ['window', 'warn', 'danger', 'target'];
+        return ['window', 'warn', 'danger', 'target', 'variant'];
     }
 
     private _used: number | null = null;
@@ -187,26 +218,47 @@ export class AparteContext extends HTMLElement {
         const level: AparteContextLevel = ratio >= danger ? 'danger' : ratio >= warn ? 'warn' : 'ok';
         this.setAttribute('data-level', level);
 
-        let bar = this.querySelector<HTMLElement>('.aparte-progress');
+        const ring = this.getAttribute('variant') === 'ring';
+        let root = this.querySelector<HTMLElement>('.aparte-context');
+        // A variant change rebuilds: the bar and the ring share nothing but their text.
+        if (root && root.classList.contains('aparte-context--ring') !== ring) {
+            this.replaceChildren();
+            root = null;
+        }
+        let meter = this.querySelector<HTMLElement | SVGElement>('[role="meter"]');
         let text = this.querySelector<HTMLElement>('.aparte-context__text');
-        if (!bar || !text) {
-            const root = el('div', 'aparte-context');
-            bar = el('div', 'aparte-progress');
-            bar.setAttribute('role', 'meter');
-            bar.appendChild(el('div', 'aparte-progress__bar'));
+        if (!root || !meter || !text) {
+            root = el('div', ring ? 'aparte-context aparte-context--ring' : 'aparte-context');
+            meter = ring ? ringSvg() : el('div', 'aparte-progress');
+            meter.setAttribute('role', 'meter');
+            if (!ring) meter.appendChild(el('div', 'aparte-progress__bar'));
             text = el('span', 'aparte-context__text');
-            root.append(bar, text);
+            root.append(meter, text);
             this.replaceChildren(root);
         }
         const format = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
         const reading = `${format.format(used)} / ${format.format(capacity)}`;
+        const percent = Math.round(ratio * 100);
         const label = resolveConfig(this).t('contextLabel') || 'Context window';
-        bar.style.setProperty('--aparte-progress-value', String(Math.round(ratio * 100)));
-        bar.setAttribute('aria-valuemin', '0');
-        bar.setAttribute('aria-valuemax', String(capacity));
-        bar.setAttribute('aria-valuenow', String(used));
-        bar.setAttribute('aria-label', `${label}: ${reading}`);
-        text.textContent = reading;
+        if (ring) {
+            const value = meter.querySelector<SVGElement>('.aparte-context__value');
+            value?.style.setProperty('--aparte-context-ratio', String(percent));
+            // A zero-length dash with round caps is still a dot; at 0 the value is not drawn.
+            value?.classList.toggle('aparte-context__value--empty', percent === 0);
+            // The ring shows the percentage; the reading behind it is one hover away.
+            root.title = reading;
+        } else {
+            meter.style.setProperty('--aparte-progress-value', String(percent));
+        }
+        meter.setAttribute('aria-valuemin', '0');
+        meter.setAttribute('aria-valuemax', String(capacity));
+        meter.setAttribute('aria-valuenow', String(used));
+        meter.setAttribute('aria-label', `${label}: ${reading}`);
+        // The label is the SAME integer the dash draws — formatted, not rounded again: two
+        // roundings of one ratio disagreed by a point on real windows (0.145 → 14 and "15 %").
+        text.textContent = ring
+            ? new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 }).format(percent / 100)
+            : reading;
 
         if (level !== this._level) {
             this._level = level;

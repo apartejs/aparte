@@ -40,3 +40,47 @@ aparte-context[data-level="warn"] .aparte-progress__bar {
 aparte-context[data-level="danger"] .aparte-progress__bar {
   background: var(--aparte-error);
 }
+
+/* The ring variant: a track and a value circle on a 36-unit box, sized by the two tokens.
+   `pathLength="100"` on the value circle (set by the element) makes the dash the
+   percentage itself, so the sheet needs no circumference. Rotated a quarter turn so the
+   value starts at twelve o'clock. */
+.aparte-context--ring {
+  gap: var(--aparte-space-1);
+}
+
+.aparte-context__ring {
+  flex: none;
+  width: var(--aparte-context-ring-size);
+  height: var(--aparte-context-ring-size);
+  transform: rotate(-90deg);
+}
+
+.aparte-context__track,
+.aparte-context__value {
+  fill: none;
+  stroke-width: var(--aparte-context-ring-stroke);
+}
+
+.aparte-context__track {
+  stroke: var(--aparte-surface-3);
+}
+
+.aparte-context__value {
+  --aparte-context-ratio: 0;
+  stroke: var(--aparte-progress-fill);
+  stroke-linecap: round;
+  stroke-dasharray: var(--aparte-context-ratio) 100;
+  transition: stroke-dasharray var(--aparte-duration-fast) var(--aparte-ease);
+}
+
+.aparte-context__value--empty {
+  visibility: hidden;
+}
+
+aparte-context[data-level="warn"] .aparte-context__value {
+  stroke: var(--aparte-warning);
+}
+aparte-context[data-level="danger"] .aparte-context__value {
+  stroke: var(--aparte-error);
+}
