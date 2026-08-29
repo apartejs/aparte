@@ -1,6 +1,6 @@
 ---
 title: The agent engine
-description: "@aparte/engine is the headless, zero-dependency agent loop — runStreamAgent, the loop AparteClient runs, plus the agnostic conversation compactor and the budget-aware compaction selector."
+description: "@aparte/engine is the headless, zero-dependency agent loop — runStreamAgent, the loop AparteClient runs, plus the seam a host uses to wrap or replace it."
 sidebar:
   order: 5
 ---
@@ -14,7 +14,7 @@ dependencies, no DOM, runs in the browser or Node. Its headline export, **`runSt
 the loop `AparteClient` runs — and the same function a backend runs server-side, so the two
 behave identically by construction rather than by parity.
 
-It is deliberately **just the loop core drives, plus the agnostic conversation compactor**.
+It is deliberately **just the loop core drives**.
 Opt-in *tools* (ask-user, RAG, skills, code execution) belong in `plugins/*`; product
 behaviour (memory, intent orchestration) and the not-yet-wired text agent loop live elsewhere.
 None of that ships here.
@@ -35,40 +35,27 @@ you can install `@aparte/engine` alone. If you wire it into core's client (below
 | Area | Exports | Status |
 |------|---------|--------|
 | **Structured-stream loop** | `runStreamAgent`, `StreamRunEvent` | Ready — the seam below |
-| **Context budget** | `createCompactionSelector` + the token-budget helpers (`computeHistoryBudget`, `splitHistoryBudget`, `estimateTokens`) | Ready — what `compact()` and the gauge run |
 
 Everything is a plain function or class — no globals, no side effects (`sideEffects: false`), fully
 tree-shakeable, so you pull in only what you use.
 
-## Keep the context under budget: the gauge and the selector
+## The context gauge, and where compaction lives
 
-Two pieces, one on each side of the seam. In core, `<aparte-context>` is a gauge of the model's
-window: it reads the usage each turn reports and the window the current model declares (a
+`<aparte-context>` in core is a gauge of the model's window: it reads the usage each turn reports and the window the current model declares (a
 provider's `/models` fetch fills it in, or set the `window` attribute), turns `warn` and `danger`
 at 75 % and 90 % (the `warn` / `danger` attributes), fires `aparte-context-threshold` when the
 level changes — and with `auto-compact` dispatches `aparte-compact` for its chat on reaching
 danger, once, until the level drops. Before the first turn, or without a window, it shows nothing.
 
-In the engine, `createCompactionSelector` is the budget-aware `compactionSelector` of
-`AparteClient.compact()`, and since 0.16.0 it is the **default**: the newest turns that still fit
-the history budget stay verbatim, the older ones are summarised — with their tool calls, which the
-summariser reads as `[tool name] input → result` lines — and the summary comes back as a notice in
-the transcript rather than as a reply. When the current model declares no window, the last two
-exchanges stay. You build the selector yourself only to close over a budget the app knows better
-than the model's declared window:
+What answers that command is not the engine: the loop reports usage and lets the caller decide,
+and compaction — the budget, the selector, the summariser — is
+[`@aparte/plugin-compaction`](/plugins/compaction/). The budget and selector lived here until
+0.16.0; they moved with their one consumer, same names, same signatures:
 
 ```ts
-import { AparteClient, aparteGlobalConfig } from '@aparte/core';
-import { createCompactionSelector } from '@aparte/engine';
+import { setupCompaction } from '@aparte/plugin-compaction';
 
-new AparteClient({
-  compactionSelector: createCompactionSelector({
-    contextWindow: 32_000,                                  // yours, not the model's
-    systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
-    minKeep: 6,                                             // never summarise the last three exchanges
-  }),
-  compactionPrompt: 'Summarise in French, for a support agent picking up the ticket.',
-}).start();
+setupCompaction();   // the gauge's auto-compact is answered; the recent turns stay verbatim
 ```
 
 ```html
@@ -78,7 +65,7 @@ new AparteClient({
 ```
 
 The gauge, the selector and the model speak the same numbers: the window is the model's, the
-budget is the compactor's, and the reading is what the provider reported — nothing is estimated
+budget is the plugin's, and the reading is what the provider reported — nothing is estimated
 twice.
 
 ## The `streamRunner` seam

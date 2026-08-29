@@ -15,7 +15,7 @@ answers one question:
 | [CSS variables](/reference/css-variables/) | *Which `--aparte-*` token do I set to change this?* Every declared variable with its default, and the ones a component reads with a fallback. |
 | [Events](/reference/events/) | *What does aparté dispatch, with what `detail`?* The kebab-case event map, one row per event. |
 | [Config](/reference/config/) | *What can `aparteGlobalConfig` (or a per-chat `AparteConfig`) be told?* Providers, transports, renderers, hooks, host handlers. |
-| [Engine](/reference/engine/) | *What does `@aparte/engine` export?* The loop, its run events, the compaction selector. |
+| [Engine](/reference/engine/) | *What does `@aparte/engine` export?* The loop and its run events. |
 | [Wrappers](/reference/wrappers/) | *What is the same on React, Vue, Svelte and Angular?* The one imperative contract and how each framework spells it. |
 | [Icons](/reference/icons/) | *Which glyphs exist, and how do I swap them?* The built-in set and the extended set behind `@aparte/core/icons`. |
 | [Support matrix](/reference/support/) | *Does it run where my users are?* The browser, Node, framework, bundler and TypeScript floors — each derived from what the code uses — beside the versions CI runs. |
