@@ -35,7 +35,7 @@
  *     </dialog>
  *     <button class="aparte-btn aparte-btn--surface" type="button" data-aparte-dialog-open="settings">Open settings</button>
  *
- * Sizes: `--sm` (24rem), the default (32rem), `--lg` (48rem); under 40rem of window
+ * Sizes: `--sm` (24rem), the default (32rem), `--lg` (48rem); under 30rem of window
  * every size becomes a full-screen sheet, which is what a settings hub is on a phone.
  * The value passed to `data-aparte-dialog-close="…"` becomes the dialog's
  * `returnValue`, read in its native `close` event.
@@ -122,13 +122,14 @@ body:has(.aparte-dialog[open]) {
   overflow: hidden;
 }
 
-/* A phone: every size is the whole screen. */
-@media (max-width: 40rem) {
-  .aparte-dialog,
-  .aparte-dialog--sm,
-  .aparte-dialog--lg {
-    width: 100vw;
-    max-width: 100vw;
+/* A phone: every size is the whole screen — when shown MODALLY. `:modal` and not the
+   bare class: a dialog opened with `show()` sits in the flow of its container (the
+   kit's own preview does that), and a sheet the height of the viewport inside a
+   narrow column was the wrong reading of a rule meant for a phone. */
+@media (max-width: 30rem) {
+  .aparte-dialog:modal {
+    width: 100%;
+    max-width: 100%;
     height: 100dvh;
     max-height: 100dvh;
     margin: 0;
