@@ -441,10 +441,15 @@
      has to live here where `:checked` can override it — a central default could never
      react to the class + state combo. */
   --aparte-switch-track: var(--aparte-surface-3);
-  --aparte-switch-width: 36px;
-  --aparte-switch-height: 20px;
-  --aparte-switch-thumb-size: 16px;
+  --aparte-switch-width: 40px;
+  --aparte-switch-height: 22px;
   --aparte-switch-thumb-inset: 2px;
+  /* DERIVED from the track, not a fourth literal to keep in step with the other three:
+     the thumb used to be 16px in a 20px track with a 1px border and a 2px top inset —
+     2px of air above it and none below, visibly low ("le cercle pas centré"). The
+     thumb is what is left once the border and the inset are paid on both sides, so
+     it is centred by construction, whatever the track's size. */
+  --aparte-switch-thumb-size: calc(var(--aparte-switch-height) - 2 * var(--aparte-border-width) - 2 * var(--aparte-switch-thumb-inset));
   /* No shared shadow token fits a small thumb like this one, so it's a plain literal —
      kept the same in both themes rather than reaching for a per-theme split this file
      has no other precedent for. */
