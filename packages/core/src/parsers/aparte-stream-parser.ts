@@ -97,6 +97,14 @@ export class AparteStreamParser {
     /** The registered block grammars, in registration order. */
     private _blocks: AparteStreamBlock[];
     private _state: AparteParserState;
+    /**
+     * A block already BUILT and waiting for its turn to be emitted — a self-closing
+     * tag that followed prose, whose text run has to go out first. One segment per
+     * step, but `toSegment` is still called exactly once, as `AparteStreamBlock`
+     * documents: re-reading the tag on the next step called a consumer's grammar
+     * twice for one tag.
+     */
+    private _pendingSegment: AparteSegment | null = null;
 
     constructor(options: AparteStreamParserOptions = {}) {
         const delims = options.thinkingDelimiters;
@@ -125,7 +133,10 @@ export class AparteStreamParser {
 
         const completedSegments: AparteSegment[] = [];
 
-        while (this._state.buffer.length > 0) {
+        // `_pendingSegment` in the condition: a self-closing tag that ends the buffer
+        // leaves the block itself waiting behind the text run it followed, and an
+        // empty buffer must not end the chunk before it is emitted.
+        while (this._state.buffer.length > 0 || this._pendingSegment) {
             const parsed = this._parseNext();
 
             if (!parsed) {
@@ -171,12 +182,24 @@ export class AparteStreamParser {
             }
             finalSegments.push(this._closed(this._state.activeSegment));
             this._state.activeSegment = null;
-            this._state.buffer = '';
         } else if (this._state.buffer.trim()) {
             // Remaining buffer becomes text segment
             finalSegments.push(this._closed(this._createTextSegment(stripTrailingFence(this._state.buffer))));
-            this._state.buffer = '';
         }
+
+        // The reply is over, and so is the mode it ended in. This class is a public
+        // export and reusable, and a reply cut off inside a fence, a reasoning block
+        // or a registered block used to leave `mode` armed with a closing delimiter
+        // that would never come — so the first characters of the NEXT reply were
+        // eaten by it, silently. (The built-in client is not the caller that hits it:
+        // `createStreamAdapter` builds a fresh parser on every `turn-start`. A
+        // consumer keeping one across replies is.) Unconditional: the `.trim()`
+        // branch above can leave whitespace in the buffer.
+        this._state.mode = 'text';
+        this._state.buffer = '';
+        this._state.codeLanguage = undefined;
+        this._state.thinkingEnd = undefined;
+        this._state.blockEnd = undefined;
 
         return finalSegments;
     }
@@ -186,6 +209,7 @@ export class AparteStreamParser {
      */
     reset(): void {
         this._state = this._createInitialState();
+        this._pendingSegment = null;
     }
 
     /**
@@ -200,6 +224,12 @@ export class AparteStreamParser {
     // ─────────────────────────────────────────────────────────────────────────
 
     private _parseNext(): { segment: AparteSegment | null; remaining: string } | null {
+        if (this._pendingSegment) {
+            const segment = this._pendingSegment;
+            this._pendingSegment = null;
+            return { segment, remaining: this._state.buffer };
+        }
+
         const buffer = this._state.buffer;
 
         switch (this._state.mode) {
@@ -316,13 +346,11 @@ export class AparteStreamParser {
             }
             // A self-closing tag is a block with no body, opened and closed in one
             // step. One segment per step: when text preceded it, emit the text now and
-            // leave the tag in the buffer — the next step finds it at index 0 with no
-            // text pending and emits the block itself.
+            // hold the block — already built — for the next step. The tag itself is
+            // consumed here, so the grammar is never asked to build it twice.
             if (res.segment && segmentToEmit) {
-                this._state.mode = 'text';
-                this._state.activeSegment = null;
-                this._state.blockEnd = undefined;
-                return { segment: segmentToEmit, remaining: buffer };
+                this._pendingSegment = res.segment;
+                return { segment: segmentToEmit, remaining: res.remaining };
             }
             return { segment: segmentToEmit ?? res.segment, remaining: res.remaining };
         }
@@ -485,13 +513,48 @@ export class AparteStreamParser {
     }
 
     /**
+     * Where the opening `<tag …>` ends, or -1 while it is still incomplete.
+     *
+     * The first `>` is not the answer: `<note title="v1 -> v2">` carries one inside
+     * a quoted value, and cutting there loses every attribute AND leaks the rest of
+     * the tag into the body as raw markup. A quote only OPENS after an `=`, so a
+     * stray `"` written in an attribute-less tag cannot hold the buffer open.
+     *
+     * A quote the model never closes must not hold it open either. `-1` means
+     * "wait", and waiting on a value that runs to the end of the reply freezes the
+     * stream: nothing is emitted until `finalize()` flushes the whole tail as raw
+     * text. These tag conventions are single-line, so a newline reached inside an
+     * open value says the quote was a typo — and the tag is then read the way it
+     * has always been read, at its first `>`.
+     */
+    private _tagEnd(buffer: string, tag: string): number {
+        let quote: string | null = null;
+        let afterEquals = false;
+        let firstGt = -1;
+        for (let i = 1 + tag.length; i < buffer.length; i++) {
+            const c = buffer[i]!;
+            if (c === '>' && firstGt === -1) firstGt = i;
+            if (quote) {
+                if (c === quote) quote = null;
+                else if (c === '\n') return firstGt;
+                continue;
+            }
+            if (c === '>') return i;
+            if (c === '=') { afterEquals = true; continue; }
+            if (afterEquals && (c === '"' || c === "'")) { quote = c; afterEquals = false; continue; }
+            if (!/\s/.test(c)) afterEquals = false;
+        }
+        return -1;
+    }
+
+    /**
      * Open a registered block. The buffer starts with `<tag`; the whole opening tag
      * must be present (its `>`) or we wait. Attributes are read as written —
      * `a="x"`, `a='x'`, `a=x` — and a self-closing `<tag …/>` is a block with no
      * body, returned closed at once.
      */
     private _startBlock(buffer: string, block: AparteStreamBlock): { segment: AparteSegment | null; remaining: string } | null {
-        const tagEnd = buffer.indexOf('>');
+        const tagEnd = this._tagEnd(buffer, block.tag);
         if (tagEnd === -1) return null;
         const inner = buffer.slice(1 + block.tag.length, tagEnd);
         const selfClosing = inner.trimEnd().endsWith('/');

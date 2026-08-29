@@ -124,6 +124,82 @@ describe('registered stream blocks', () => {
         expect(texts(out)).toEqual(['a ', ' b']);
     });
 
+    it('reads an attribute value containing >, and keeps the tag out of the body', () => {
+        const src = '<note kind="a>b" title="t > u">the body</note>';
+        for (const chunks of [[src], src.split('')]) {
+            const out = run(chunks);
+            const [n] = notes(out);
+            expect(n, chunks.length + ' chunk(s)').toBeDefined();
+            expect(n!.kind, chunks.length + ' chunk(s)').toBe('a>b');
+            expect(n!.title, chunks.length + ' chunk(s)').toBe('t > u');
+            expect(n!.content, chunks.length + ' chunk(s)').toBe('the body');
+            expect(texts(out).join(''), 'no raw tag leaked as text').toBe('');
+        }
+    });
+
+    it('a / inside a quoted value does not make the tag self-closing', () => {
+        const out = run(['<note kind="src/">body</note>']);
+        expect(out.map((s) => s.type)).toEqual(['note']);
+        expect(notes(out)[0]!.kind).toBe('src/');
+        expect(notes(out)[0]!.content).toBe('body');
+        // …and the genuinely self-closing form still is one.
+        const closed = run(['<note kind="src/"/>']);
+        expect(closed.map((s) => s.type)).toEqual(['note']);
+        expect(notes(closed)[0]!.kind).toBe('src/');
+    });
+
+    it('a quote the model never closes does not hold the stream past the end of the line', () => {
+        // `kind="oops>` — the value is never closed, so every `>` after it is inside a
+        // quoted value as far as the tag reader is concerned. Waiting for the close
+        // would park the whole rest of the reply in the buffer and emit nothing until
+        // `finalize()`. The newline ends the wait, and the tag reads at its first `>`.
+        const parser = new AparteStreamParser({ blocks: [note] });
+        const seen: AparteSegment[][] = [];
+        for (const c of ['Intro. <note kind="oops>', 'the body</note>', ' and a tail.\nA second line.']) {
+            seen.push(parser.parse(c).segments);
+        }
+        const out = [...seen.flat(), ...parser.finalize()];
+        expect(out.map((s) => s.type)).toEqual(['text', 'note', 'text']);
+        expect(notes(out)[0]!.content).toBe('the body');
+        expect(texts(out)).toEqual(['Intro. ', ' and a tail.\nA second line.']);
+        // …and it was emitted while streaming, not held back to `finalize()`.
+        expect(seen[2]!.map((s) => s.type)).toEqual(['text', 'note']);
+    });
+
+    it('a reply that never breaks a line after an unclosed quote keeps its text', () => {
+        // The one case the newline cannot rescue: nothing is lost, but the tag and
+        // everything after it arrive as plain text when the reply ends.
+        const out = run(['Intro. <note kind="oops>the body</note> and a tail.']);
+        expect(out.map((s) => s.type)).toEqual(['text']);
+        expect(texts(out)).toEqual(['Intro. <note kind="oops>the body</note> and a tail.']);
+    });
+
+    it('builds a self-closing block exactly once, whatever preceded it', () => {
+        let calls = 0;
+        const counted: AparteStreamBlock = {
+            tag: 'note',
+            toSegment: ({ attrs, id }) => {
+                calls++;
+                return { id, type: 'note', kind: attrs['kind'] ?? 'plain', content: '' } as unknown as AparteSegment & { content: string };
+            },
+        };
+        for (const [chunks, types] of [
+            [['a <note kind="k"/> b'], ['text', 'note', 'text']],
+            [['a ', '<note kind="k"/>', ' b'], ['text', 'note', 'text']],
+            [['a <no', 'te kind="k"/> b'], ['text', 'note', 'text']],
+            // The tag ends the buffer: the block still lands, and still once.
+            [['a <note kind="k"/>'], ['text', 'note']],
+            // No prose before it — the path that was already correct.
+            [['<note kind="k"/> b'], ['note', 'text']],
+        ] as [string[], string[]][]) {
+            calls = 0;
+            const out = run(chunks, [counted]);
+            expect(out.map((s) => s.type), chunks.join('|')).toEqual(types);
+            expect(calls, chunks.join('|')).toBe(1);
+            expect(notes(out)[0]!.kind, chunks.join('|')).toBe('k');
+        }
+    });
+
     it('several grammars coexist, and a tag not registered stays text', () => {
         const cite: AparteStreamBlock = {
             tag: 'cite',
