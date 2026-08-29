@@ -1,5 +1,30 @@
 # @aparte/engine
 
+## 0.16.0
+
+### Minor Changes
+
+- c2cab7f: `StreamToolConfig.needsApproval` accepts a predicate `(call) => boolean | 'ask' | 'deny'` beside the boolean, so the gate can be decided per call from the arguments — `'deny'` reaches the resolver without announcing `tool-awaiting-approval`, since nobody is being asked; and an approval resolver may return `reason`, a refusal the loop hands the model verbatim instead of "The user rejected this tool call".
+
+  Both serve a policy that refuses on its own (a plan mode): without the predicate, every call would have to pause and be auto-approved, painting _awaiting approval_ on rows nobody was asked about; without `reason`, the model would be told a person refused when a mode did.
+
+- 45574cd: A tool handler may return `structuredContent` beside `content`; the loop forwards it on the `tool-resolved` event as `structuredResult`, so a renderer reads the value instead of re-parsing the sentence the model was given.
+- b90c4c4: `runStreamAgent` always emits a terminal event: a Stop now ends the run with `run-aborted` wherever it lands, and a tool handler that throws emits a new `tool-failed` event (`{ toolCallId, error }`) before the run ends on that error. Widen an exhaustive `switch` over `StreamRunEvent` for the new type.
+
+  Three of the six abort exits — a Stop during a tool call, during an approval wait, or with no resolver — emitted nothing at all, so a host never cleared its typing indicator or its streaming id. `run-aborted` is decided once now, at the loop's exit, from the signal, and lands after `text-flush`. `tool-failed` replaces a row that used to say "Running" for the rest of the session.
+
+  Per-tool `maxTurns` uses the same arithmetic as the global cap: `maxTurns: 1` is one call, not none. It was `>=` against a `>`, so one number meant two things on the two knobs and `maxTurns: 1` made a tool un-callable on the very first turn.
+
+  The `tool_call` envelope declares a call only once it is committed to a `tool_result`. A call halted before that point — no handler, turn limit reached, an abort — no longer appears in the serialized history as a call that never gets a result.
+
+- 1b1a715: The conversation module leaves the engine: `estimateTokens`, `estimateTokensJson`, `computeHistoryBudget`, `splitHistoryBudget`, `DEFAULT_COMPACTION_CONFIG`, `CompactionConfig`, `BudgetBreakdown`, `BudgetResult`, `SplitBudget`, `createCompactionSelector`, `CompactionSelectorOptions`, `CompactableMessage`, `CompactionSelection` and `CompactionSelector` are `@aparte/plugin-compaction`'s now, same names, same signatures — change the import. Gone with them, not moved: `assembleCompacted`, `compactConversation`, `CompactionMessage`, `CompactionInput`, `CompactionResult`, `RetrievedTurn`, the `ragHist*` / `ragIntroLabel` / `summaryLabel` fields of `CompactionConfig` and the `ragHist` slot of `SplitBudget`, and the `triggerSummaryThresholdPct` / `summarizeEveryNTurns` fields nothing read.
+
+  The engine is the loop, and only the loop: `runStreamAgent` reports usage and lets the caller decide. Nothing in it ever read the budget — the one reader was `AparteClient.compact()`, which has moved to the same plugin — and a module with no in-package consumer is a contract maintained for nobody.
+
+- 46dfbdb: The built-in `create_artifact` is gone from the loop, with the `artifact-ready` run event and `deriveArtifactKind`: a model calling `create_artifact` now reaches a registered tool of that name or gets "unknown tool" like any other call. Install `@aparte/plugin-artifacts` (`setupArtifacts()`) to register the tool, or register your own.
+
+  The name was compared in the loop and dispatched before the tool path — no `tool-start`, no approval gate, no handler, a result of its own — the fast path that once orphaned the next tool's result. A tool is a tool: it goes through the gate (a policy may class writing a document as a `write`), the handler and the envelope, and its result reaches the renderer as `structuredResult`. `idGen` keeps its one remaining use, the synthetic call of a forced `toolChoice`.
+
 ## 0.15.1
 
 ## 0.15.0

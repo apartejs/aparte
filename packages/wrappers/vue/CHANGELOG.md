@@ -1,5 +1,23 @@
 # @aparte/vue
 
+## 0.16.0
+
+### Minor Changes
+
+- e4b1fbe: The conversation-manager helper of each wrapper (`useConversationManager`, `createConversationManager`, `ConversationManagerService`) exposes `pin(id)`, `unpin(id)` and `updateTitle(id, title)`, so the list's new `aparte-pin-conversation`, `aparte-unpin-conversation` and `aparte-rename-conversation` events can be wired without reaching for the manager. Angular's `<aparte-conversation-list>` directive gains the matching `(pinConversation)`, `(unpinConversation)` and `(renameConversation)` outputs.
+- 4e04443: The four wrappers render `<aparte-elicitation>` inside their host by default; pass `elicitation={false}` (`:elicitation="false"` in Vue, `[elicitation]="false"` in Angular) to opt out. **If your app registers its own presenter with `setElicitationPresenter()`, you must pass it**: the built-in presenter registers with the chat as its owner and wins the match for that chat's requests, so without the opt-out your questions would open core's panel instead of your presenter.
+
+  Core's `<aparte-chat>` has shipped the presenter in its default composition since the built-in approval gate started asking through it, and the wrappers had not followed: a `requestUserInput()` under `<AparteChat>` rejected with the "no presenter" warning, and that warning told you to add the element "inside your `<aparte-chat>`" — a tag the wrappers do not render. The first consumer to hit it appended the element to `[data-aparte-chat]` by hand. The warning now names the framework host too, and the composer's docblock names the four lifecycle events that drive its `streaming` flag (`aparte-message-start` sets it; `-done` / `-error` / `-aborted` clear it) instead of "lifecycle events on window".
+
+### Patch Changes
+
+- 1b1a715: The bubble each wrapper renders carries `data-kind="compaction"` when the message is the summary `compact()` injected (`message.compaction`), so the notice is drawn as a notice — centred, no avatar, no actions — under a framework too, not only under the vanilla viewport.
+- 4123389: `<AparteUi>` forwards ten events it used to swallow when you pass no `events` of your own: `aparte-suggestion`, `aparte-context-threshold`, `aparte-scroll-rail-jump`, `aparte-sidebar-toggle`, `aparte-split-resize`, and the turn's lifecycle — `aparte-message-start`, `aparte-message-done`, `aparte-message-error`, `aparte-message-aborted` and `aparte-tool-approval-request`.
+
+  No wrapper code changed: the default list is `APARTE_DEFAULT_UI_EVENTS`, it lives in `@aparte/core`, and the ten names joined it there. It is repeated here because this is the CHANGELOG a wrapper consumer reads, and the effect is theirs — watching a turn end used to mean reaching past `<AparteUi>` for a `window` listener, and this release's shell elements (`<aparte-sidebar>`, `<aparte-split>`, `<aparte-scroll-rail>`) speak through the proxy from their first version. This release's own new events — `aparte-link-click`, `aparte-rename-conversation`, `aparte-pin-conversation`, `aparte-unpin-conversation` — joined the same list at birth, so the constant grew by fourteen names in all.
+
+  If you pass your own `events` array you are unaffected: that list is used verbatim, as before.
+
 ## 0.15.1
 
 ## 0.15.0
