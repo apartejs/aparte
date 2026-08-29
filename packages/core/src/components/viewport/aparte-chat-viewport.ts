@@ -1599,12 +1599,27 @@ export class AparteChatViewport extends HTMLElement {
             && now - this._ownScrollAt < this._ownScrollWindowMs
             && now - this._readerInputAt >= this._ownScrollWindowMs;
         const readerWentUp = drop > 1 && !settlingOurs;
+        // The same decrease, asked of the reader's HAND rather than of its size. The
+        // generosity below is for layout drift; a gesture we can see is not drift, however
+        // few pixels it moved.
+        const readerHandOnIt = drop > 1 && now - this._readerInputAt < this._ownScrollWindowMs;
         this._lastScrollTop = top;
         this._lastScrollHeight = height;
 
-        if (this._isAtBottom()) {
+        if (this._isAtBottom() && !readerHandOnIt) {
             // `_isAtBottom()` stays deliberately generous (`_scrollThreshold`, 50px): a
             // few pixels of drift must not read as "the reader walked away".
+            //
+            // But generosity that outranks the reader PINS them. A wheel notch over the
+            // transcript moves WebKit ~33px at a time; 33 < 50, so this branch re-armed
+            // the follow, and the settle chain — which re-anchors every frame while
+            // armed — undid the notch one millisecond later. Measured in CI: wheel at
+            // 135ms, the reader at 565, `scrollTop = 598` from `_settleAtBottom`'s step
+            // at 155ms, repeat for every one of twelve notches. Mid-stream on WebKit the
+            // reader simply could not read back. So the branch yields when the decrease
+            // came with a gesture: `_readerInputAt` already tells the two apart, and
+            // `settlingOurs` already trusts it — this is the same evidence, read on the
+            // arming side, where it was missing.
             this._isAutoScrollEnabled = true;
         } else if (readerWentUp) {
             this._isAutoScrollEnabled = false;
