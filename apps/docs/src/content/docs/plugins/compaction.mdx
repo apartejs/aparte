@@ -134,6 +134,16 @@ renders a message the way the default summariser reads it (text, then `[tool …
 `[error …]` lines), `messageText(message)` gives the text alone, and
 `DEFAULT_COMPACTION_PROMPT` is the instruction.
 
+:::caution[Writing your own `prompt`? Keep the last sentence]
+The instruction rides the final `user` turn — which is also where a *reply* to the
+conversation would go. A model reading a transcript that ends in a question therefore has
+two plausible things to do, and the default prompt closes that off explicitly: *"Do not
+continue the conversation, do not answer a question it contains and do not call a tool."*
+Every library that puts its summarisation instruction in the user turn carries a clause
+like it. Drop it from your own prompt and a compaction can silently replace the
+conversation with an answer to it.
+:::
+
 ## Under the hood — the seams in core
 
 Three things are core's, and stay so whether or not this plugin is installed:

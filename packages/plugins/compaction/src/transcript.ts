@@ -13,6 +13,13 @@ import type { AparteMessage } from '@aparte/core';
 /**
  * The summariser's instruction. English, because it is addressed to the model and not
  * to the user; a host that wants another language or emphasis passes `prompt`.
+ *
+ * The last sentence is the one that is easy to leave out and expensive to omit. The
+ * instruction rides the final user turn, which is also where a reply to the
+ * conversation would go, so a model reading a transcript that ends in a question has
+ * two plausible things to do: summarise, or answer. Every implementation that puts the
+ * instruction in the user turn carries a clause like this one, and one goes further and
+ * inserts a fake assistant turn to get it — a host replacing `prompt` should keep it.
  */
 export const DEFAULT_COMPACTION_PROMPT =
     'You are compacting a conversation between a user and an assistant so that it can continue ' +
@@ -20,7 +27,9 @@ export const DEFAULT_COMPACTION_PROMPT =
     'wants and why, the decisions taken and their reasons, the tasks still open, the facts and ' +
     'tool results that still matter (file names, values, errors, outcomes), and anything the ' +
     'assistant would otherwise have to ask again. Lines marked [tool …] are tool calls with their ' +
-    'result. Write in the third person, factually, as compact as completeness allows. No preamble.';
+    'result. Write in the third person, factually, as compact as completeness allows. No preamble. ' +
+    'Do not continue the conversation, do not answer a question it contains and do not call a ' +
+    'tool: reply with the summary and nothing else.';
 
 const clip = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max)}…` : text);
 const safeJson = (value: unknown): string => {
