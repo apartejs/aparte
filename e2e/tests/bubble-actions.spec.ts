@@ -265,6 +265,23 @@ test('swapping a branch at the bottom of a scrollable transcript leaves no scrol
     try {
         await expect(scrollBtn, 'a branch swap must not invent a scroll-to-bottom button')
             .toHaveClass(/aparte-scroll-btn--hidden/);
+        // The button is DERIVED from this number, so assert the number too: a failure
+        // then says how short the transcript was without decoding the attached log.
+        // 50 is the component's own `_scrollThreshold`. (In framework-managed mode the
+        // scroll surface is the host element - there is no container div.)
+        await expect.poll(
+            () => page.evaluate(() => {
+                const surface = document.querySelector('.aparte-viewport-container')
+                    ?? document.querySelector('aparte-chat-viewport');
+                // No surface is not "at the bottom": a 0 here would make the assertion
+                // green the day the class or the tag name moves, which is the blindness
+                // it was added to remove. Infinity round-trips through the serializer,
+                // and the poll still tolerates a surface that mounts a moment late.
+                if (!surface) return Number.POSITIVE_INFINITY;
+                return surface.scrollHeight - surface.clientHeight - surface.scrollTop;
+            }),
+            { message: 'the transcript itself must be at the bottom, not just the button hidden' },
+        ).toBeLessThanOrEqual(50);
     } catch (error) {
         await attachScrollLog(page);
         throw error;

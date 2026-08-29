@@ -152,6 +152,12 @@ export class AparteChatViewport extends HTMLElement {
     private _readerInputAt = Number.NEGATIVE_INFINITY;
     /** A decrease inside this window after our own scroll, with no gesture, is the browser's. */
     private readonly _ownScrollWindowMs = 1000;
+    /** How long after a scroll of ours we keep re-anchoring while the layout churns.
+     *  Not `readonly`: a test shortens it to run past the window's end in a few frames. */
+    private _settleWindowMs = 400;
+    /** Deadline of the settle in flight (0 = none). Pushed forward, never stacked. */
+    private _settleUntil = 0;
+    private _settleRafId: number | null = null;
     /** The keys that scroll a focused scroll container — the only keydowns that are a gesture. */
     private readonly _scrollKeys = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
     private _scrollThreshold: number = 50;
@@ -1548,6 +1554,29 @@ export class AparteChatViewport extends HTMLElement {
             this._isAutoScrollEnabled = true;
         } else if (readerWentUp) {
             this._isAutoScrollEnabled = false;
+        } else if (drop > 1 && settlingOurs && this._isAutoScrollEnabled) {
+            // Armed, and a gap the reader did not open. Nothing else will close it: the
+            // rebuild's mutations are over, the host's border box did not change (so the
+            // ResizeObserver is silent in framework mode), and the settle may be spent.
+            // Measured on react-webkit: top 763 -> 759 -> 720 while the max churned
+            // 891 -> 1091 -> 891, leaving the transcript 171px short with the follow
+            // still armed and no code path acting on it. Classifying the churn was only
+            // half the job — the other half is doing something about it.
+            //
+            // Gated on `settlingOurs`, so it can never reach a reader: a drag-selection
+            // upward (a decrease with the height standing still) and a find-in-page jump
+            // (outside the one-second shadow) both take the disarm branch above.
+            //
+            // And gated on `drop > 1`, the same threshold `readerWentUp` uses: only a
+            // DECREASE is a gap the layout opened, which is the whole of the measured
+            // mechanism. A scroll of ours that is still moving DOWN is `settlingOurs`
+            // too (`drop` is negative, so the churn test passes trivially) — and that is
+            // every frame of a native smooth scroll: `requestSmoothScroll()`, the
+            // scroll-to-bottom button, the glide after a user's send. Re-anchoring one
+            // of those frames assigns `scrollTop`, which per CSSOM-View performs an
+            // instant scroll and ABORTS the running animation, so every glide became a
+            // one-frame stutter and a jump.
+            this._settleAtBottom();
         }
         this._updateScrollButton();
     }
@@ -1556,7 +1585,7 @@ export class AparteChatViewport extends HTMLElement {
         if (!this._container) return;
         this._ownScrollAt = performance.now();
         this._container.scrollTop = this._container.scrollHeight;
-        this._settleAtBottom(4);
+        this._settleAtBottom();
     }
 
     /**
@@ -1580,19 +1609,36 @@ export class AparteChatViewport extends HTMLElement {
      * A BOUNDED retry, not one corrective frame: a single frame lands on the same
      * stale layout and was measured leaving a wider gap than doing nothing. Bounded
      * so it always terminates; re-reads `_isAutoScrollEnabled` every frame so a
-     * reader who scrolls away mid-settle is left alone; stops as soon as the gap is
-     * closed, so the common case costs one frame that does nothing.
+     * reader who scrolls away mid-settle is left alone.
+     *
+     * Bounded by TIME, and it does not stop at the first closed gap — both of those
+     * were the second half of the same bug. It used to be four frames (~64ms on an
+     * idle 60Hz machine) and to return permanently the frame the gap first closed.
+     * A branch swap at the bottom of a long transcript on react-webkit falsified
+     * both at once: the rebuild's scrollable max churned 891 -> 1091 -> 891, the gap
+     * WAS closed for a frame against the tall layout, the chain returned, the height
+     * fell back with WebKit holding `scrollTop` at 720 — and the transcript stood
+     * 171px short with auto-follow still armed. A frame count is a proxy for time
+     * that fails exactly on the slow engine, so the budget is real milliseconds now,
+     * and a closed gap only ends the chain when the window is over. One chain, not
+     * one per call: during a stream every token used to start its own.
      */
-    private _settleAtBottom(framesLeft: number): void {
-        if (framesLeft <= 0) return;
-        requestAnimationFrame(() => {
-            if (!this._container || !this._isAutoScrollEnabled) return;
+    private _settleAtBottom(): void {
+        this._settleUntil = performance.now() + this._settleWindowMs;
+        if (this._settleRafId !== null) return;      // one chain; the deadline re-arms it
+        const step = (): void => {
+            this._settleRafId = null;
+            if (!this._container || !this._isAutoScrollEnabled) { this._settleUntil = 0; return; }
             const max = this._container.scrollHeight - this._container.clientHeight;
-            if (max - this._container.scrollTop <= 1) return;
-            this._ownScrollAt = performance.now();
-            this._container.scrollTop = max;
-            this._settleAtBottom(framesLeft - 1);
-        });
+            // A closed gap is NOT the end: the churn re-opens it (891 -> 1091 -> 891).
+            if (max - this._container.scrollTop > 1) {
+                this._ownScrollAt = performance.now();
+                this._container.scrollTop = max;
+            }
+            if (performance.now() < this._settleUntil) this._settleRafId = requestAnimationFrame(step);
+            else this._settleUntil = 0;
+        };
+        this._settleRafId = requestAnimationFrame(step);
     }
 
     private _smoothScrollToBottom(): void {
@@ -1770,6 +1816,13 @@ export class AparteChatViewport extends HTMLElement {
             cancelAnimationFrame(this._spacerRafId);
             this._spacerRafId = null;
         }
+        // A custom element is re-connected on every DOM move, so a settle left in flight
+        // would accumulate one chain per move.
+        if (this._settleRafId !== null) {
+            cancelAnimationFrame(this._settleRafId);
+            this._settleRafId = null;
+        }
+        this._settleUntil = 0;
     }
 }
 
