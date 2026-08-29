@@ -39,6 +39,25 @@ function page(extra = ''): { dialog: HTMLDialogElement; opener: HTMLButtonElemen
     };
 }
 
+/**
+ * A pointer gesture, in the order the engines send it: `pointerdown` where the press
+ * landed, `pointerup` where it was released, then one `click` on their common ancestor
+ * — which for a drag out of the box IS the `<dialog>` itself. jsdom has no
+ * `PointerEvent`; a `MouseEvent` carries everything the listeners read.
+ */
+function press(from: HTMLElement, to: HTMLElement): void {
+    const mouse = (type: string): MouseEvent => new MouseEvent(type, { bubbles: true, cancelable: true });
+    from.dispatchEvent(mouse('pointerdown'));
+    to.dispatchEvent(mouse('pointerup'));
+    (from === to ? from : commonAncestor(from, to)).dispatchEvent(mouse('click'));
+}
+
+function commonAncestor(a: HTMLElement, b: HTMLElement): HTMLElement {
+    let node: HTMLElement | null = a;
+    while (node && !node.contains(b)) node = node.parentElement;
+    return node ?? document.body;
+}
+
 describe('the dialog triggers', () => {
     it('data-aparte-dialog-open shows the dialog it names, modally', () => {
         const { dialog, opener } = page();
@@ -74,28 +93,54 @@ describe('the dialog triggers', () => {
     it('a click on the backdrop — the dialog element itself — closes it', () => {
         const { dialog, opener } = page();
         opener.click();
-        dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        press(dialog, dialog);
         expect(dialog.open).toBe(false);
     });
 
     it('a click inside the box does not', () => {
         const { dialog, opener } = page();
         opener.click();
-        (document.getElementById('field') as HTMLInputElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        const field = document.getElementById('field') as HTMLInputElement;
+        press(field, field);
         expect(dialog.open).toBe(true);
+    });
+
+    it('a selection drag that starts in the box and ends on the backdrop does not close it', () => {
+        const { dialog, opener } = page();
+        opener.click();
+        // Select the text in the body and overshoot: the release lands on the <dialog>
+        // itself, so the click's target IS the backdrop even though nobody clicked it.
+        press(document.getElementById('field') as HTMLElement, dialog);
+        expect(dialog.open, 'a drag-select is not a dismissal').toBe(true);
+    });
+
+    it('a press on the backdrop released inside the box does not close it either', () => {
+        const { dialog, opener } = page();
+        opener.click();
+        press(dialog, document.getElementById('field') as HTMLElement);
+        expect(dialog.open).toBe(true);
+    });
+
+    it('a programmatic click() on the dialog does not close it — close() does', () => {
+        const { dialog, opener } = page();
+        opener.click();
+        dialog.click();
+        expect(dialog.open, 'no press, no release, no dismissal').toBe(true);
+        dialog.close();
+        expect(dialog.open).toBe(false);
     });
 
     it('data-aparte-dialog-static keeps the backdrop click from closing', () => {
         const { dialog, opener } = page('data-aparte-dialog-static');
         opener.click();
-        dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        press(dialog, dialog);
         expect(dialog.open).toBe(true);
     });
 
     it('leaves a dialog that is not the kit\'s alone on a backdrop click', () => {
         document.body.innerHTML = `<dialog id="mine" open><p>theirs</p></dialog>`;
         const dialog = document.getElementById('mine') as HTMLDialogElement;
-        dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        press(dialog, dialog);
         expect(dialog.open).toBe(true);
     });
 

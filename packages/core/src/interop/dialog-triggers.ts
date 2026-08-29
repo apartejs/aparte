@@ -22,6 +22,29 @@
 
 const INSTALLED = Symbol.for('aparte.dialogTriggers');
 
+/**
+ * Where the last gesture pressed and where it released. A `click` fires on the nearest
+ * common ancestor of the two, so selecting text in the dialog's body and letting go a
+ * few pixels past the box targets the `<dialog>` ITSELF — indistinguishable, from the
+ * click alone, from a deliberate press on the backdrop. Every engine does it, in both
+ * directions (press outside → release inside targets the backdrop too).
+ *
+ * So the backdrop dismissal asks for both ends on the backdrop. The cost is that a
+ * programmatic `dialog.click()` no longer closes the dialog: it never pressed anything.
+ * That is the right trade — `close()` is the API for closing a dialog.
+ */
+let pressTarget: EventTarget | null = null;
+let releaseTarget: EventTarget | null = null;
+
+function onPointerDown(event: Event): void {
+    pressTarget = event.target;
+    releaseTarget = null;
+}
+
+function onPointerUp(event: Event): void {
+    releaseTarget = event.target;
+}
+
 function onClick(event: Event): void {
     const target = event.target as HTMLElement | null;
     if (!target?.closest) return;
@@ -52,9 +75,13 @@ function onClick(event: Event): void {
 
     // The backdrop: a click whose target is the <dialog> element itself lands outside
     // its box, since the box is what its children cover. Only for the kit's own class,
-    // so a host's dialogs keep whatever they do.
+    // so a host's dialogs keep whatever they do — and only when the gesture BEGAN and
+    // ENDED there, so a selection dragged out of the box is not read as a dismissal.
     if (target instanceof HTMLDialogElement && target.open && target.classList.contains('aparte-dialog') && !target.hasAttribute('data-aparte-dialog-static')) {
-        target.close();
+        const deliberate = pressTarget === target && releaseTarget === target;
+        pressTarget = null;
+        releaseTarget = null;
+        if (deliberate) target.close();
     }
 }
 
@@ -66,5 +93,9 @@ export function installDialogTriggersOnce(doc: Document = document): void {
     const marked = doc as Document & { [INSTALLED]?: true };
     if (marked[INSTALLED]) return;
     marked[INSTALLED] = true;
+    // Capture, so a host that stops the gesture from propagating still lets the two ends
+    // be recorded — the alternative is a backdrop that silently stops dismissing.
+    doc.addEventListener('pointerdown', onPointerDown, true);
+    doc.addEventListener('pointerup', onPointerUp, true);
     doc.addEventListener('click', onClick);
 }
