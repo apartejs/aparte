@@ -117,7 +117,7 @@ interface Pending {
  * @example
  * <!-- Renders nothing by itself: it registers as the presenter for its subtree, so a
  *      tool handler calling requestUserInput() gets its panel mounted in the composer. -->
- * <aparte-chat>
+ * <aparte-chat style="height: 20rem">
  *   <aparte-chat-viewport></aparte-chat-viewport>
  *   <aparte-elicitation></aparte-elicitation>
  *   <aparte-composer>
