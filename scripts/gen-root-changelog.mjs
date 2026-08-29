@@ -2,11 +2,15 @@
  * Generates the ROOT CHANGELOG.md — the human entry point for a release.
  *
  * Every `@aparte/*` package is versioned in lockstep (`fixed` in
- * .changeset/config.json), so a release moves all fifteen at once and thirteen of
- * their per-package changelogs end up saying nothing but "Updated dependencies".
+ * .changeset/config.json), so a release moves all of them at once and most of their
+ * per-package changelogs end up saying nothing but "Updated dependencies".
  * That is the cost of the lockstep, and this file is what pays it back: one
  * section per version, grouped by package, with the dependency-bump noise dropped
  * and the packages that only moved for the ride reduced to a footnote.
+ *
+ * (This header used to say "all fifteen … thirteen of". It was written when there were
+ * fifteen; a count in prose beside a list that grows is a count that will be wrong, and
+ * the same drift is what the corpus below was built to survive.)
  *
  * Source of truth stays the per-package CHANGELOG.md files (npm reads those, and
  * changesets owns them). This script only aggregates the entries of the CURRENT
@@ -21,7 +25,7 @@
  * so the "Version Packages" PR already carries the root section.
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -29,30 +33,69 @@ const root = resolve(here, '..');
 const OUT = join(root, 'CHANGELOG.md');
 const REPO_URL = 'https://github.com/apartejs/aparte';
 
-/** Package directories, in the order a reader cares about them. */
-const PACKAGE_GLOBS = [
+/**
+ * Reading order, as PREFIXES — not as the corpus.
+ *
+ * This used to be the corpus: a hand-kept list of six globs, each walked exactly one
+ * level deep. `packages/tools` was not on it, so `@aparte/docs-mcp` — published like
+ * every other package — contributed nothing to the root changelog, and its own
+ * announcement changeset would have vanished from the 0.16.0 release notes entirely.
+ * A directory family that has to be added by hand is a directory family somebody will
+ * forget, and the failure is silent by construction: a missing package looks exactly
+ * like a package with nothing to say.
+ *
+ * So the corpus is now a walk (`packageDirs()` below) and this array only decides what
+ * a reader sees first. Anything the walk finds that matches no prefix sorts last,
+ * alphabetically — it appears, badly ordered, rather than disappearing.
+ */
+const ORDER = [
     'packages/core',
     'packages/engine',
-    'packages/providers/ai',
+    'packages/providers',
     'packages/plugins',
     'packages/wrappers',
     'packages/locales',
+    'packages/tools',
 ];
 
-/** Every directory holding a package.json under the globs above. */
+/**
+ * Below this many publishable packages, the walk has broken and this script is about to
+ * write a changelog that quietly omits most of the release. 20 the day this was written.
+ */
+const PACKAGE_FLOOR = 20;
+
+/**
+ * Every directory under `packages/` holding a non-private package.json, in reading
+ * order. Same walk shape as `scripts/check-peer-ranges.mjs`, for the same reason.
+ */
 function packageDirs() {
     const dirs = [];
-    for (const glob of PACKAGE_GLOBS) {
-        const abs = join(root, glob);
-        if (!existsSync(abs)) continue;
-        if (existsSync(join(abs, 'package.json'))) { dirs.push(abs); continue; }
-        for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    const walk = (dir) => {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
             if (!entry.isDirectory()) continue;
-            const child = join(abs, entry.name);
-            if (existsSync(join(child, 'package.json'))) dirs.push(child);
+            if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'src') continue;
+            const child = join(dir, entry.name);
+            const manifest = join(child, 'package.json');
+            if (existsSync(manifest)) {
+                const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+                if (!pkg.private) dirs.push(child);
+            }
+            walk(child);
         }
-    }
-    return dirs;
+    };
+    const base = join(root, 'packages');
+    if (existsSync(base)) walk(base);
+
+    // Compared as PATHS (`join` + `sep`) rather than as normalised strings: this runs on
+    // Windows too, where a hand-written forward slash matches nothing.
+    const rank = (dir) => {
+        const i = ORDER.findIndex((prefix) => {
+            const abs = join(root, prefix);
+            return dir === abs || dir.startsWith(abs + sep);
+        });
+        return i === -1 ? ORDER.length : i;
+    };
+    return dirs.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
 /**
@@ -245,10 +288,33 @@ const corePkg = JSON.parse(readFileSync(join(root, 'packages/core/package.json')
 const version = corePkg.version;
 
 /** Published packages with a changelog, in reading order. */
+const dirs = packageDirs();
+if (dirs.length < PACKAGE_FLOOR) {
+    console.error(
+        `[gen-root-changelog] found only ${dirs.length} publishable package(s) under packages/, `
+        + `floor is ${PACKAGE_FLOOR}. The walk broke, and writing the changelog now would drop `
+        + 'most of the release from the notes without saying so.',
+    );
+    process.exit(1);
+}
+// `--list-packages` prints the corpus, one package name per line, and exits. It is what
+// makes the walk testable from outside (`scripts/__tests__/gen-root-changelog.test.ts`
+// diffs it against its own walk) and what a human runs when a package is missing from
+// the notes: the answer is either "it is not in this list" or "it has nothing to say",
+// and those two used to be indistinguishable.
+if (process.argv.includes('--list-packages')) {
+    for (const dir of dirs) {
+        process.stdout.write(`${JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).name}
+`);
+    }
+    process.exit(0);
+}
+
 const packages = [];
-for (const dir of packageDirs()) {
+for (const dir of dirs) {
+    // `private` is already filtered by the walk; a package with no CHANGELOG.md has
+    // simply never been released.
     const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
-    if (pkg.private) continue;
     const changelogPath = join(dir, 'CHANGELOG.md');
     if (!existsSync(changelogPath)) continue;
     packages.push({ name: pkg.name, changelog: readFileSync(changelogPath, 'utf8') });

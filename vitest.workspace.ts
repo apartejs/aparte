@@ -14,4 +14,9 @@ export default defineWorkspace([
     // Found the day the first tool package landed: a root `vitest run packages/tools/x`
     // reported "No test files found, exiting with code 0" — a silence that reads as green.
     'packages/tools/*/vitest.config.ts',
+    // Not a package: the repo's own tooling. `scripts/` sat outside every glob above, so
+    // nothing in it was ever executed by a test — which is how a generator that walked a
+    // hand-kept list of directories could drop a whole published package from the
+    // release notes with no symptom at all.
+    'scripts/vitest.config.ts',
 ]);
