@@ -12,7 +12,7 @@
  * reply carries a `usage`, which is what would otherwise summon the ⓘ.
  */
 
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { installLlmMock, MOCK_REPLY_MARK } from '../helpers/mock-llm.js';
 import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
@@ -52,6 +52,52 @@ async function pressUntilSwapped(picker: Locator, from: RegExp): Promise<void> {
         }
         await expect(picker).not.toContainText(from, { timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
+}
+
+/**
+ * A timestamped record of what the scroll surface did, armed before the swap below.
+ *
+ * The last assertion of that test went red on CI twice, first attempt only, on
+ * `react-webkit` — green on retry, green twenty times locally, and the failure
+ * screenshot showed the transcript a little short of the bottom. That is not noise,
+ * it is a defect nobody can see from a screenshot: whether the surface really moved
+ * (a settle after the rebuild, a resize) or the button's flag went stale while the
+ * geometry stayed at the bottom. Each line is a scroll, a resize, a branch event or a
+ * change of the button's class, with the surface's `scrollTop` against its maximum
+ * at that instant. Attached to the report only when the assertion fails.
+ */
+async function armScrollLog(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const w = window as unknown as { __aparteScrollLog?: string[] };
+        const log: string[] = (w.__aparteScrollLog = []);
+        const t0 = performance.now();
+        const surface = document.querySelector('.aparte-viewport-container') ?? document.querySelector('aparte-chat-viewport');
+        const geometry = (): string =>
+            surface ? `top=${Math.round(surface.scrollTop)} max=${Math.round(surface.scrollHeight - surface.clientHeight)}` : 'no surface';
+        const line = (what: string): void => { log.push(`${(performance.now() - t0).toFixed(1)}ms ${what} ${geometry()}`); };
+        surface?.addEventListener('scroll', () => line('scroll'));
+        // Capture on window: it sees an event dispatched anywhere below, bubbling or not.
+        for (const name of ['aparte-branch-navigate', 'aparte-path-changed', 'aparte-reset-done']) {
+            window.addEventListener(name, () => line(name), true);
+        }
+        const button = document.querySelector('.aparte-scroll-btn');
+        if (button) {
+            new MutationObserver(() => line(`button class="${button.className}"`))
+                .observe(button, { attributes: true, attributeFilter: ['class'] });
+        }
+        if (surface) new ResizeObserver(() => line('resize')).observe(surface);
+        line('armed');
+    });
+}
+
+async function attachScrollLog(page: Page): Promise<void> {
+    const log = await page.evaluate(() => {
+        const w = window as unknown as { __aparteScrollLog?: string[] };
+        const surface = document.querySelector('.aparte-viewport-container') ?? document.querySelector('aparte-chat-viewport');
+        const geometry = surface ? `top=${surface.scrollTop} height=${surface.scrollHeight} client=${surface.clientHeight}` : 'no surface';
+        return [...(w.__aparteScrollLog ?? []), `at failure: ${geometry}`].join('\n');
+    });
+    await test.info().attach('scroll-log', { body: log, contentType: 'text/plain' });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -206,6 +252,7 @@ test('swapping a branch at the bottom of a scrollable transcript leaves no scrol
     await chat.action(chat.lastReply, 'retry').click();
     const picker = chat.branchPicker(chat.lastReply);
     await expect(picker).toBeVisible({ timeout: 20_000 });
+    await armScrollLog(page);
 
     // The swap: press until the label moves. This test's subject is the BUTTON, so
     // it asserts only that a swap happened — which version is on screen belongs to
@@ -213,9 +260,15 @@ test('swapping a branch at the bottom of a scrollable transcript leaves no scrol
     await pressUntilSwapped(picker, AT_SECOND);
 
     // Still at the bottom → still nothing to offer. (The class is re-derived a
-    // couple of frames after the swap, hence the retrying assertion.)
-    await expect(scrollBtn, 'a branch swap must not invent a scroll-to-bottom button')
-        .toHaveClass(/aparte-scroll-btn--hidden/);
+    // couple of frames after the swap, hence the retrying assertion.) On failure the
+    // scroll log is attached: see `armScrollLog` for what it is looking for.
+    try {
+        await expect(scrollBtn, 'a branch swap must not invent a scroll-to-bottom button')
+            .toHaveClass(/aparte-scroll-btn--hidden/);
+    } catch (error) {
+        await attachScrollLog(page);
+        throw error;
+    }
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
