@@ -32,13 +32,13 @@ class StubWorker {
 function stubOrigins(): void {
     vi.stubGlobal('Worker', StubWorker);
     vi.stubGlobal('URL', class extends URL {
-        static createObjectURL(blob: Blob): string {
+        static override createObjectURL(blob: Blob): string {
             const url = `blob:http://page.example/${created.length}`;
             created.push(url);
             void blob;
             return url;
         }
-        static revokeObjectURL(url: string): void { revoked.push(url); }
+        static override revokeObjectURL(url: string): void { revoked.push(url); }
     });
 }
 
