@@ -56,10 +56,12 @@ export interface CompactionConfig {
     ragHistRatio: number;
     /** Hard cap for ragHist tokens. */
     ragHistMaxTokens: number;
-    /** Trigger summarization once history usage reaches this % of the budget. */
-    triggerSummaryThresholdPct: number;
-    /** Re-run summarization every N user turns. */
-    summarizeEveryNTurns: number;
+    /*
+     * `triggerSummaryThresholdPct` and `summarizeEveryNTurns` lived here until
+     * 2026-08-29: a policy for WHEN to re-summarise that nothing read — the gauge
+     * (`<aparte-context>`) decides that with its own `danger` threshold. A documented
+     * field no code honours is a promise, so they are gone rather than deprecated.
+     */
     /** Header prepended to the summary block injected into the model context. English
      *  by default — override to localise (the compactor ships no locale system). */
     summaryLabel: string;
@@ -146,9 +148,6 @@ export const DEFAULT_COMPACTION_CONFIG: CompactionConfig = {
     summaryMaxTokens: 400,
     ragHistRatio: 0.25,
     ragHistMaxTokens: 1000,
-
-    triggerSummaryThresholdPct: 0.75,
-    summarizeEveryNTurns: 5,
 
     summaryLabel: 'Conversation summary:',
     ragIntroLabel: 'Relevant excerpts from earlier in the conversation:',
