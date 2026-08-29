@@ -162,18 +162,18 @@ describe('a live locale switch reaches a mounted composer', () => {
 });
 
 describe('a live locale switch reaches a mounted conversation list', () => {
-    /** The delete button's accessible name comes straight from the locale. */
-    const deleteLabelOf = (el: HTMLElement): string | null | undefined =>
-        el.querySelector('.aparte-conv-item__delete')?.getAttribute('aria-label');
+    /** The ⋯ button's accessible name comes straight from the locale. */
+    const actionsLabelOf = (el: HTMLElement): string | null | undefined =>
+        el.querySelector('.aparte-conv-item__more')?.getAttribute('aria-label');
 
     it('re-labels its rows', () => {
         const list = mount<HTMLElement & { conversations: unknown[] }>('aparte-conversation-list');
         list.conversations = [{ id: 'c1', title: 'Une conversation', updatedAt: 1 }];
-        expect(deleteLabelOf(list)).toBe(APARTE_DEFAULT_LOCALE.deleteConversation);
+        expect(actionsLabelOf(list)).toBe(APARTE_DEFAULT_LOCALE.conversationActions);
 
-        aparteGlobalConfig.setLocale({ ...FR, deleteConversation: 'Supprimer la conversation' });
+        aparteGlobalConfig.setLocale({ ...FR, conversationActions: 'Actions de la conversation' });
 
-        expect(deleteLabelOf(list)).toBe('Supprimer la conversation');
+        expect(actionsLabelOf(list)).toBe('Actions de la conversation');
     });
 
     it('re-labels an untitled row, whose title IS a locale string', () => {

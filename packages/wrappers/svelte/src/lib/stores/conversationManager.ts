@@ -72,5 +72,8 @@ export function createConversationManager() {
         delete: (id: string) => assert().delete(id),
         archive: (id: string) => assert().archive(id),
         unarchive: (id: string) => assert().unarchive(id),
+        pin: (id: string) => assert().pin(id),
+        unpin: (id: string) => assert().unpin(id),
+        updateTitle: (id: string, title: string) => assert().updateTitle(id, title),
     };
 }

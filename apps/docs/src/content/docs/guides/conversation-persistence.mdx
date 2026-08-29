@@ -200,9 +200,10 @@ void controller.setConversationId('abc-123'); // or null to deselect
 ## 4. Render a sidebar
 
 `<aparte-conversation-list>` is a display primitive: set its `conversations` property and
-`active-id` attribute, and handle the four events it emits (all bubble, `detail: { id }`):
-`aparte-select-conversation`, `aparte-delete-conversation`, `aparte-archive-conversation`,
-`aparte-unarchive-conversation`.
+`active-id` attribute, and handle the events it emits (all bubble, `detail: { id }` —
+rename adds `title`). Each row is its title plus a `⋯` menu: rename, pin/unpin,
+archive/unarchive, delete (which asks first). The rows are grouped by date as soon as any
+item carries `updatedAt`; set `no-groups` to render them flat.
 
 ```ts
 const list = document.querySelector('aparte-conversation-list')!;
@@ -214,9 +215,12 @@ function render() {
 manager.subscribe(render);
 render();
 
-list.addEventListener('aparte-delete-conversation', (e) => manager.delete((e as CustomEvent).detail.id));
-list.addEventListener('aparte-archive-conversation', (e) => manager.archive((e as CustomEvent).detail.id));
-list.addEventListener('aparte-unarchive-conversation', (e) => manager.unarchive((e as CustomEvent).detail.id));
+list.addEventListener('aparte-rename-conversation', (e) => manager.updateTitle(e.detail.id, e.detail.title));
+list.addEventListener('aparte-pin-conversation', (e) => manager.pin(e.detail.id));
+list.addEventListener('aparte-unpin-conversation', (e) => manager.unpin(e.detail.id));
+list.addEventListener('aparte-archive-conversation', (e) => manager.archive(e.detail.id));
+list.addEventListener('aparte-unarchive-conversation', (e) => manager.unarchive(e.detail.id));
+list.addEventListener('aparte-delete-conversation', (e) => manager.delete(e.detail.id));
 // Selecting a conversation is owned by the `conversationId` binding (or a window-level
 // `aparte-select-conversation` event that every bound controller listens for), not the list.
 ```
@@ -224,8 +228,8 @@ list.addEventListener('aparte-unarchive-conversation', (e) => manager.unarchive(
 Each wrapper ships a reactive helper around the same manager — call its `init(adapter)`
 once instead of constructing `AparteConversationManager` by hand (step 2 is done for you), then
 bind `conversations` / `activeConversations` / `archivedConversations` to the list and
-`createNew` / `addMessage` / `updateMessages` / `delete` / `archive` / `unarchive` to
-actions:
+`createNew` / `addMessage` / `updateMessages` / `updateTitle` / `pin` / `unpin` / `delete` /
+`archive` / `unarchive` to actions:
 
 | Wrapper | Helper |
 |---|---|

@@ -59,12 +59,44 @@ export interface AparteLocale {
     // --- Conversation list ---
     /** Default title for a new conversation (default: "New Chat") */
     newChat: string;
-    /** Aria-label for the delete conversation button (default: "Delete conversation") */
+    /**
+     * The "Delete" item of a row's menu (default: "Delete"). Used to be the aria-label
+     * of a permanent ✕ on every row ("Delete conversation"); the menu is named after
+     * the row, so the item carries only the verb.
+     */
     deleteConversation: string;
-    /** Aria-label for the archive conversation button (default: "Archive conversation") */
+    /** The "Archive" item of a row's menu (default: "Archive") */
     archiveConversation?: string;
-    /** Aria-label for the unarchive conversation button (default: "Unarchive conversation") */
+    /** The same item on an archived row (default: "Unarchive") */
     unarchiveConversation?: string;
+    /** Accessible name of the ⋯ button that opens a row's menu (default: "Conversation actions") */
+    conversationActions?: string;
+    /** The "Rename" item of a row's menu (default: "Rename") */
+    renameConversation?: string;
+    /** Accessible name of the inline input a rename opens (default: "Conversation title") */
+    conversationTitle?: string;
+    /** The "Pin" item of a row's menu (default: "Pin") */
+    pinConversation?: string;
+    /** The same item on a pinned row (default: "Unpin") */
+    unpinConversation?: string;
+    /**
+     * The question asked before a delete (default: "Delete “{title}”?"). `{title}` is
+     * replaced with the row's title; a delete is the one action of the menu that asks
+     * first, because it is the one that cannot be undone.
+     */
+    deleteConversationConfirm?: string;
+    /** The button that declines that question (default: "Cancel") */
+    cancel?: string;
+    /** Heading of the pinned rows, which come first (default: "Pinned") */
+    conversationGroupPinned?: string;
+    /** Heading of the rows updated today (default: "Today") */
+    conversationGroupToday?: string;
+    /** … yesterday (default: "Yesterday") */
+    conversationGroupYesterday?: string;
+    /** … in the seven days before that (default: "Previous 7 days") */
+    conversationGroupWeek?: string;
+    /** … in the thirty days before that (default: "Previous 30 days"). Older rows are headed by their month, formatted with `tag`. */
+    conversationGroupMonth?: string;
 
     // --- Elicitation (the panel a tool's question is asked in) ---
     /** The free-text fallback option in a choice (default: "Other…") */
@@ -383,8 +415,20 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     tokensPerSecondLabel: "tok/s",
     messageInfo: "Details",
     newChat: "New Chat",
-    deleteConversation: "Delete conversation",
-    archiveConversation: "Archive conversation",
-    unarchiveConversation: "Unarchive conversation",
+    deleteConversation: "Delete",
+    archiveConversation: "Archive",
+    unarchiveConversation: "Unarchive",
+    conversationActions: "Conversation actions",
+    renameConversation: "Rename",
+    conversationTitle: "Conversation title",
+    pinConversation: "Pin",
+    unpinConversation: "Unpin",
+    deleteConversationConfirm: "Delete “{title}”?",
+    cancel: "Cancel",
+    conversationGroupPinned: "Pinned",
+    conversationGroupToday: "Today",
+    conversationGroupYesterday: "Yesterday",
+    conversationGroupWeek: "Previous 7 days",
+    conversationGroupMonth: "Previous 30 days",
     direction: 'ltr'
 };

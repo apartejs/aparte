@@ -28,6 +28,9 @@ export interface UseConversationManager {
     delete: (id: string) => Promise<void>;
     archive: (id: string) => Promise<void>;
     unarchive: (id: string) => Promise<void>;
+    pin: (id: string) => Promise<void>;
+    unpin: (id: string) => Promise<void>;
+    updateTitle: (id: string, title: string) => Promise<void>;
 }
 
 /**
@@ -98,5 +101,8 @@ export function useConversationManager(): UseConversationManager {
         delete: (id) => assert().delete(id),
         archive: (id) => assert().archive(id),
         unarchive: (id) => assert().unarchive(id),
+        pin: (id) => assert().pin(id),
+        unpin: (id) => assert().unpin(id),
+        updateTitle: (id, title) => assert().updateTitle(id, title),
     };
 }

@@ -848,9 +848,5 @@ aparte-chat {
   --aparte-conv-item-bg-hover: var(--aparte-surface-3);
   --aparte-conv-item-bg-active: var(--aparte-surface-3);
   --aparte-conv-item-font-weight-active: var(--aparte-font-weight-medium);
-  --aparte-conv-delete-color: var(--aparte-text-muted);
-  --aparte-conv-delete-bg-hover: var(--aparte-error);
-  --aparte-conv-delete-color-hover: var(--aparte-text-inverse);
-  --aparte-conv-delete-radius: var(--aparte-radius-sm);
 }
 

@@ -63,6 +63,8 @@ import type {
     AparteConversationSelectDetail,
     AparteConversationDeleteDetail,
     AparteConversationArchiveDetail,
+    AparteConversationPinDetail,
+    AparteConversationRenameDetail,
 } from '../components/conversation-list/aparte-conversation-list.js';
 // event-map is a top-level aggregator (imported by the barrel, never by a
 // component), so importing this component-coupled detail type is cycle-free.
@@ -115,6 +117,9 @@ interface AparteEventMap {
     'aparte-delete-conversation': CustomEvent<AparteConversationDeleteDetail>;
     'aparte-archive-conversation': CustomEvent<AparteConversationArchiveDetail>;
     'aparte-unarchive-conversation': CustomEvent<AparteConversationArchiveDetail>;
+    'aparte-rename-conversation': CustomEvent<AparteConversationRenameDetail>;
+    'aparte-pin-conversation': CustomEvent<AparteConversationPinDetail>;
+    'aparte-unpin-conversation': CustomEvent<AparteConversationPinDetail>;
 
     // ── The turn lifecycle, minus the one entry it used to have ────────────────
     // `aparte-message-done` was in the map alone. Its siblings — start, error,

@@ -119,9 +119,8 @@
     opacity: 1;
   }
 
-  /* Hover cannot reveal these on touch — keep them visible and tappable. */
-  .aparte-conv-item__delete,
-  .aparte-conv-item__archive {
+  /* Hover cannot reveal the row's ⋯ on touch — keep it visible and tappable. */
+  .aparte-conv-item__more {
     opacity: 1;
     --aparte-conv-action-btn-size: 28px;
   }

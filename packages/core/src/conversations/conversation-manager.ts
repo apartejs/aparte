@@ -264,6 +264,39 @@ export class AparteConversationManager {
         this._notify();
     }
 
+    /**
+     * Pin a conversation, which the list shows in its "Pinned" group first. Metadata
+     * only, like archive: `updatedAt` keeps the conversation's real chronological slot
+     * for the day it is unpinned. An adapter that has `pin()` gets the call; one that
+     * does not gets the whole record through `save()`.
+     */
+    async pin(id: string): Promise<void> {
+        const conv = this._find(id);
+        if (!conv) return;
+        const updated: AparteConversation = { ...conv, pinnedAt: Date.now() };
+        this._replace(updated);
+        if (this._adapter.pin) {
+            await this._adapter.pin(id);
+        } else {
+            await this._adapter.save(updated);
+        }
+        this._notify();
+    }
+
+    /** Unpin a conversation. Metadata only — see `pin()`. */
+    async unpin(id: string): Promise<void> {
+        const conv = this._find(id);
+        if (!conv) return;
+        const updated: AparteConversation = { ...conv, pinnedAt: undefined };
+        this._replace(updated);
+        if (this._adapter.unpin) {
+            await this._adapter.unpin(id);
+        } else {
+            await this._adapter.save(updated);
+        }
+        this._notify();
+    }
+
     /** Update the title manually. The full input is preserved — UI surfaces
      *  (sidebar list, topbar) are responsible for visual truncation via CSS
      *  (`min-w-0` + `truncate`). Auto-titles produced internally by

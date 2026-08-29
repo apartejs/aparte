@@ -25,7 +25,7 @@
  *     aparteGlobalConfig.setIconProvider({ retry: () => historyIcon });
  */
 
-import { prevBranchIcon, nextBranchIcon } from './glyphs.js';
+import { prevBranchIcon, nextBranchIcon, moreIcon, trashIcon } from './glyphs.js';
 
 /** Add */
 export const plusIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5v15M4.5 12h15"/></svg>`;
@@ -42,8 +42,9 @@ export const filterIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="no
 /** Open a navigation drawer */
 export const menuIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></svg>`;
 
-/** Overflow menu, in a row */
-export const moreHorizontalIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.1"/><circle cx="12" cy="12" r="1.1"/><circle cx="18.5" cy="12" r="1.1"/></svg>`;
+/** Overflow menu, in a row. The conversation list draws it, so the path lives in
+ *  `glyphs.ts` as `more` — this is the alias under its shape name, like the chevrons. */
+export const moreHorizontalIcon = moreIcon;
 
 /** Overflow menu, in a column */
 export const moreVerticalIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.5" r="1.1"/><circle cx="12" cy="12" r="1.1"/><circle cx="12" cy="18.5" r="1.1"/></svg>`;
@@ -77,7 +78,9 @@ export const codeIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none
 export const clipboardIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4.5" width="14" height="16" rx="2.5"/><path d="M9 4.5V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4v.5M9 11h6M9 15h4"/></svg>`;
 
 /** Delete for good */
-export const trashIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M8 7V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v2"/><path d="m6.5 7 .8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/><path d="M10 11v5.5M14 11v5.5"/></svg>`;
+/* `trashIcon` moved to `glyphs.ts` when the conversation list's menu started drawing
+   it; it is re-exported below so `import { trashIcon } from '@aparte/core/icons'` holds. */
+export { trashIcon };
 
 /** Save to disk */
 export const saveIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h11l3.5 3.5v11a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 5 4.5Z"/><path d="M8 20.5v-6h8v6M8 4.5v4h5"/></svg>`;

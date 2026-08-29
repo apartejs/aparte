@@ -54,6 +54,9 @@ export const APARTE_DEFAULT_UI_EVENTS = [
     'aparte-delete-conversation',
     'aparte-archive-conversation',
     'aparte-unarchive-conversation',
+    'aparte-rename-conversation',
+    'aparte-pin-conversation',
+    'aparte-unpin-conversation',
     // the select primitives
     'aparte-select-change',
     'aparte-select-open',

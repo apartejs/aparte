@@ -97,6 +97,15 @@ export const unarchiveIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill=
 /** Download / save to disk */
 export const downloadIcon = `<svg class="aparte-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 13h12"/></svg>`;
 
+/** Overflow menu of a row (⋯) — the conversation list's actions button. */
+export const moreIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.1"/><circle cx="12" cy="12" r="1.1"/><circle cx="18.5" cy="12" r="1.1"/></svg>`;
+
+/** Pin a conversation to the top of the list — a pushpin: head, body, needle. */
+export const pinIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 3.5h7"/><path d="M10 3.5v5l-3 3.5V14h10v-2l-3-3.5v-5"/><path d="M12 14v6.5"/></svg>`;
+
+/** Delete — a bin with its lid and two slats. */
+export const trashIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M8 7V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v2"/><path d="m6.5 7 .8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/><path d="M10 11v5.5M14 11v5.5"/></svg>`;
+
 /** Every glyph, by name — the map `APARTE_DEFAULT_ICON_FALLBACKS` is built from. */
 export const APARTE_ICON_GLYPHS = {
     copy: copyIcon,
@@ -124,4 +133,7 @@ export const APARTE_ICON_GLYPHS = {
     archive: archiveIcon,
     unarchive: unarchiveIcon,
     download: downloadIcon,
+    more: moreIcon,
+    pin: pinIcon,
+    trash: trashIcon,
 } as const;

@@ -40,14 +40,22 @@ describe('setIconProvider reaches every glyph core draws', () => {
         expect(el.querySelector('.aparte-select-chevron')?.innerHTML).toContain('data-mine');
     });
 
-    it('the conversation row archive and delete actions', () => {
-        aparteGlobalConfig.setIconProvider({ archive: () => MINE, close: () => MINE });
+    it('the conversation row\'s ⋯ button and the four glyphs of its menu', () => {
+        const mine = (name: string) => () => `<svg data-mine="${name}"></svg>`;
+        aparteGlobalConfig.setIconProvider({
+            more: mine('more'), edit: mine('edit'), pin: mine('pin'), archive: mine('archive'), trash: mine('trash'),
+        });
         const el = document.createElement('aparte-conversation-list') as HTMLElement & { conversations: unknown[] };
         document.body.appendChild(el);
         el.conversations = [{ id: 'c1', title: 'Hello' }];
 
-        expect(el.querySelector('.aparte-conv-item__archive')?.innerHTML).toContain('data-mine');
-        expect(el.querySelector('.aparte-conv-item__delete')?.innerHTML).toContain('data-mine');
+        const more = el.querySelector<HTMLElement>('.aparte-conv-item__more')!;
+        expect(more.innerHTML).toContain('data-mine="more"');
+        more.click();
+        const menu = el.querySelector('[role="menu"]')!;
+        for (const name of ['edit', 'pin', 'archive', 'trash']) {
+            expect(menu.innerHTML, name).toContain(`data-mine="${name}"`);
+        }
     });
 
     it('the archived row asks for the OTHER tray', () => {
@@ -56,6 +64,7 @@ describe('setIconProvider reaches every glyph core draws', () => {
         document.body.appendChild(el);
         el.conversations = [{ id: 'c1', title: 'Hello', archivedAt: Date.now() }];
 
-        expect(el.querySelector('.aparte-conv-item__archive')?.innerHTML).toContain('data-up');
+        el.querySelector<HTMLElement>('.aparte-conv-item__more')!.click();
+        expect(el.querySelector('[data-menu-action="archive"]')?.innerHTML).toContain('data-up');
     });
 });

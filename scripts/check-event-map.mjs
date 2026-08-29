@@ -47,7 +47,9 @@ const PKG_ROOTS = ['packages'];
 // 45 → 39 when the artifact left core (D7): `aparte-artifact-start/-delta/-ready/
 // -redownload` and `aparte-file-gen-ready/-error` went with it, so the floor moves
 // down by exactly those six — a measured count, not a loosened one.
-const SEEN_FLOOR = 39;
+// 39 → 42 when the conversation row grew its menu: `aparte-rename-conversation`,
+// `aparte-pin-conversation`, `aparte-unpin-conversation`.
+const SEEN_FLOOR = 42;
 
 function* walk(dir) {
     for (const name of readdirSync(dir)) {

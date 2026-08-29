@@ -5,16 +5,37 @@
  * them in the order listed there, and check:derived-vars reads them concatenated in
  * that same order, the way a browser does.
  */
+
+/* A date group: its heading wears the menu's label recipe (`.aparte-menu__label`),
+   because that is what a heading over a list of rows is. Only the rhythm is its own. */
+.aparte-conv-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-conv-list-gap);
+}
+
+.aparte-conv-group + .aparte-conv-group {
+  margin-block-start: var(--aparte-space-3);
+}
+
 /* A row in a list, which is what `.aparte-menu__item` is. What stays is what belongs
    to a CONVERSATION row: it truncates, so it needs `min-width: 0`; and its own
-   measurements, because a sidebar row is tighter than a dropdown row. */
+   measurements, because a sidebar row is tighter than a dropdown row.
+
+   The row is a flex box around two real buttons — the title, which selects, and the
+   `⋯`. The padding sits on the title button, not the row, so that the button's focus
+   ring is the row's shape and a click on the row's inner margin lands on the button
+   rather than on nothing. */
 .aparte-conv-item {
+  position: relative;
   min-width: 0;
   gap: var(--aparte-conv-item-gap);
-  padding: var(--aparte-conv-item-padding);
+  padding: 0;
+  padding-inline-end: var(--aparte-space-2);
   border-radius: var(--aparte-conv-item-radius);
   color: var(--aparte-conv-item-color);
   font-size: var(--aparte-conv-item-font-size);
+  cursor: default;
 }
 
 /* Hover moves the ground UP, so the label has to move with it.
@@ -29,31 +50,36 @@
   color: var(--aparte-conv-item-color-active);
 }
 
-.aparte-conv-item:focus-visible {
+.aparte-conv-item__select {
+  appearance: none;
+  -webkit-appearance: none;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  padding: var(--aparte-conv-item-padding);
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Inside the edge: the list clips horizontally (`overflow-x: hidden` in base.css), and
+   a ring drawn outside the row was cut on both sides. */
+.aparte-conv-item__select:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
-  outline-offset: var(--aparte-focus-outline-offset);
+  outline-offset: calc(-1 * var(--aparte-focus-outline-width));
 }
 
-.aparte-conv-item:hover .aparte-conv-item__delete {
-  opacity: 1;
-}
-
-.aparte-conv-item:hover .aparte-conv-item__archive {
-  opacity: 1;
-}
-
-/* Keyboard access (WCAG 2.1.1): the archive/delete actions are opacity:0 until
-   hover, which would hide keyboard focus. Reveal + ring them on focus. */
-.aparte-conv-item:focus-within .aparte-conv-item__archive,
-.aparte-conv-item:focus-within .aparte-conv-item__delete {
-  opacity: 1;
-}
-
-.aparte-conv-item__archive:focus-visible,
-.aparte-conv-item__delete:focus-visible {
-  opacity: 1;
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
-  outline-offset: var(--aparte-focus-outline-offset);
+.aparte-conv-item__title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* The conversation you are in wears the mark's bar (display/mark.css) on its start
@@ -61,7 +87,6 @@
    a checked field choice carry. Its ground keeps the list's own tokens: a navigation
    list is read for a long time, and the mark's tint on every visit was too loud. */
 .aparte-conv-item--active {
-  position: relative;
   background: var(--aparte-conv-item-bg-active);
   color: var(--aparte-conv-item-color-active);
   font-weight: var(--aparte-conv-item-font-weight-active);
@@ -77,59 +102,71 @@
   pointer-events: none;
 }
 
-.aparte-conv-item--active .aparte-conv-item__delete {
-  opacity: 0;
-}
-
-.aparte-conv-item--active .aparte-conv-item__archive {
-  opacity: 0;
-}
-
-.aparte-conv-item__title {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.aparte-conv-item__delete {
-  --aparte-btn-radius: var(--aparte-conv-delete-radius);
-  opacity: 0;
-  width: var(--aparte-conv-action-btn-size);
-  height: var(--aparte-conv-action-btn-size);
-  color: var(--aparte-conv-delete-color);
-  /* DECLARED, not out-specified. `.aparte-btn:hover:not(:disabled)` weighs 0,3,0 and
-     `.aparte-conv-item__delete:hover` only 0,2,0, so the recipe won the background and
-     this button's red never applied — while the `color` below DID, because the recipe's
-     hover rule sets no colour. The result was the ink for a solid red fill painted on a
-     neutral surface: 1.17:1 in the light theme, 1.20 in the dark, measured in a browser.
-     The cross was invisible in both. Feeding the recipe its own token is the rule this
-     file's neighbours already follow, and it makes the pair agree again — 3.70 and 4.84,
-     both clear of the 3:1 a graphical object needs. */
-  --aparte-btn-bg-hover: var(--aparte-conv-delete-bg-hover);
-}
-
-.aparte-conv-item__delete:hover {
-  color: var(--aparte-conv-delete-color-hover);
-}
-
-.aparte-conv-item__archive {
-  --aparte-btn-radius: var(--aparte-conv-archive-radius);
-  opacity: 0;
-  width: var(--aparte-conv-action-btn-size);
-  height: var(--aparte-conv-action-btn-size);
-  color: var(--aparte-conv-archive-color, var(--aparte-text-muted));
-  /* Same reason as the delete button above: the recipe out-weighs a plain `:hover` here,
-     so this surface has to be declared as its token or it never applies. */
-  --aparte-btn-bg-hover: var(--aparte-conv-archive-bg-hover, var(--aparte-surface-4, var(--aparte-surface-3)));
-}
-
-.aparte-conv-item__archive:hover {
-  color: var(--aparte-conv-archive-color-hover, var(--aparte-text));
-}
-
 .aparte-conv-item--archived .aparte-conv-item__title {
   font-style: italic;
   opacity: 0.85;
+}
+
+/* The `⋯`: one quiet button per row, shown by hover, by focus, on the active row and
+   while its menu is open — never a permanent control, and never a red one. What the
+   recipe gives (shape, states, focus ring) it keeps; only the size and the resting
+   colour are the row's. */
+.aparte-conv-item__more {
+  flex-shrink: 0;
+  opacity: 0;
+  width: var(--aparte-conv-action-btn-size);
+  height: var(--aparte-conv-action-btn-size);
+  color: var(--aparte-text-muted);
+}
+
+.aparte-conv-item:hover .aparte-conv-item__more,
+.aparte-conv-item:focus-within .aparte-conv-item__more,
+.aparte-conv-item--active .aparte-conv-item__more,
+.aparte-conv-item__more[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.aparte-conv-item__more:hover {
+  color: var(--aparte-text);
+}
+
+/* The rename input takes the title button's place, so it inherits the row's slot and
+   only needs the field recipe plus a little air. */
+.aparte-conv-item__input {
+  flex: 1;
+  min-width: 0;
+  margin: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-1);
+}
+
+/* The row's menu: the menu recipe draws it, the element places it (`position: fixed`,
+   `top`/`left` computed at open time, closed on any scroll). Fixed rather than
+   absolute because the list scrolls, and an absolute menu on the last rows was clipped
+   by that overflow. */
+.aparte-conv-menu {
+  position: fixed;
+  --aparte-icon-size: var(--aparte-icon-size-sm);
+}
+
+.aparte-conv-menu__item--danger {
+  color: var(--aparte-error);
+}
+
+/* The one question the menu asks. */
+.aparte-conv-menu__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-3);
+  padding: var(--aparte-space-2) var(--aparte-space-3);
+}
+
+.aparte-conv-menu__question {
+  margin: 0;
+  font-size: var(--aparte-font-size-sm);
+  line-height: var(--aparte-line-height-snug);
+}
+
+.aparte-conv-menu__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--aparte-space-2);
 }
