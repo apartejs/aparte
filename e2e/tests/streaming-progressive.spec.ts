@@ -45,6 +45,59 @@ async function geometry(chat: ChatPage) {
 }
 
 /**
+ * Record what moves the transcript, so a CI failure names its own cause.
+ *
+ * This spec has failed on `react-webkit` in CI and never locally (2026-08-23: 32 local
+ * runs green; 2026-08-30: 6 more, and a CI run that failed twice in a row). Both times
+ * the message was "the scroll-up gesture did not take", which says a position and not a
+ * reason: it cannot tell a wheel that never reached the scroller from one that landed
+ * and was pulled back. Every write to `scrollTop` carries a stack here, so the next red
+ * says which — the same probe that settled the branch-swap failure, where the answer
+ * turned out to be the driver's own pre-click scroll.
+ */
+async function armScrollLog(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const w = window as unknown as { __aparteScrollLog?: string[] };
+        const log: string[] = (w.__aparteScrollLog = []);
+        const t0 = performance.now();
+        const surface = document.querySelector('.aparte-viewport-container')
+            ?? document.querySelector('aparte-chat-viewport');
+        if (!surface) { log.push('no surface'); return; }
+        const at = (): string =>
+            `top=${Math.round(surface.scrollTop)} max=${Math.round(surface.scrollHeight - surface.clientHeight)}`;
+        const line = (what: string): void => { log.push(`${(performance.now() - t0).toFixed(1)}ms ${what} ${at()}`); };
+        surface.addEventListener('scroll', () => line('scroll'), { passive: true });
+        surface.addEventListener('wheel', () => line('wheel'), { passive: true });
+        // Who writes the position. An assignment from the page carries a stack; one from
+        // the automation driver's isolated world carries none, and that absence is the
+        // signature that told the branch-swap investigation the harness was the mover.
+        const proto = Object.getPrototypeOf(surface) as object;
+        const desc = Object.getOwnPropertyDescriptor(proto, 'scrollTop')
+            ?? Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop');
+        if (desc?.set && desc.get) {
+            Object.defineProperty(surface, 'scrollTop', {
+                configurable: true,
+                get() { return desc.get!.call(this); },
+                set(v: number) {
+                    const who = (new Error().stack ?? '').split('\n').slice(1, 3).join(' <- ').replace(/\s+/g, ' ').slice(0, 160);
+                    line(`SET scrollTop=${Math.round(v)} :: ${who || '(no stack — not this world)'}`);
+                    desc.set!.call(this, v);
+                },
+            });
+        }
+        line('armed');
+    });
+}
+
+async function attachScrollLog(page: Page): Promise<void> {
+    const log = await page.evaluate(() => {
+        const w = window as unknown as { __aparteScrollLog?: string[] };
+        return (w.__aparteScrollLog ?? ['(never armed)']).join('\n');
+    });
+    await test.info().attach('scroll-log', { body: log, contentType: 'text/plain' });
+}
+
+/**
  * Scroll up the way a person does — with the wheel, over the transcript.
  *
  * The first version assigned `scroller.scrollTop = 0` directly. That is not the
@@ -199,44 +252,50 @@ test('scrolling up mid-stream is not overridden by the arriving reply', async ({
     await chat.send('one more, and I will scroll away');
     await expect(chat.sendButton).toHaveClass(/aparte-is-streaming/, { timeout: 10_000 });
 
+    await armScrollLog(page);
     await scrollUp(page, chat);
 
-    // PRECONDITION: the gesture actually moved the scroller.
-    //
-    // Without this the test lies when it fails. The scroller is picked by
-    // a heuristic (first candidate that overflows); if it ever picks one that is
-    // not the real scroller, the position never changes and the later assertion
-    // reports "the arriving reply stole the scroll back" — blaming the product for
-    // a gesture that never happened. That is what the first WebKit failure looked
-    // like, and it cost real time to rule out.
-    const afterScroll = await geometry(chat);
-    expect(
-        afterScroll.top,
-        `the scroll-up gesture did not take: top is still ${afterScroll.top}px`
-        + ` (measured ${afterScroll.which}) — the test cannot say anything about`
-        + ' auto-scroll until the user has actually scrolled away',
-    ).toBeLessThan(Math.max(60, afterScroll.client / 2));
-
-    // Now prove frames KEPT ARRIVING while the user stayed put, and check the
-    // position on every poll instead of once after a fixed 500ms. Under load the
-    // old wait could expire before another frame landed, which made the assertion
-    // weaker exactly when the machine was busiest.
-    const lengthNow = () => chat.viewport.evaluate(vp => (vp.textContent ?? '').length);
-    const before = await lengthNow();
-    let grew = false;
-    for (let i = 0; i < 20 && !grew; i++) {
-        await page.waitForTimeout(100);
-        const g = await geometry(chat);
+    try {
+        // PRECONDITION: the gesture actually moved the scroller.
+        //
+        // Without this the test lies when it fails. The scroller is picked by
+        // a heuristic (first candidate that overflows); if it ever picks one that is
+        // not the real scroller, the position never changes and the later assertion
+        // reports "the arriving reply stole the scroll back" — blaming the product for
+        // a gesture that never happened. That is what the first WebKit failure looked
+        // like, and it cost real time to rule out.
+        const afterScroll = await geometry(chat);
         expect(
-            g.top,
-            `the arriving reply stole the scroll back: top is ${g.top}px, expected to stay near 0`
-            + ` (measured ${g.which} — scrollHeight ${g.height}, clientHeight ${g.client})`,
-        ).toBeLessThan(Math.max(60, g.client / 2));
-        grew = (await lengthNow()) > before;
-    }
-    expect(grew, 'no further frames arrived, so nothing could have stolen the scroll').toBe(true);
+            afterScroll.top,
+            `the scroll-up gesture did not take: top is still ${afterScroll.top}px`
+            + ` (measured ${afterScroll.which}) — the test cannot say anything about`
+            + ' auto-scroll until the user has actually scrolled away',
+        ).toBeLessThan(Math.max(60, afterScroll.client / 2));
 
-    expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+        // Now prove frames KEPT ARRIVING while the user stayed put, and check the
+        // position on every poll instead of once after a fixed 500ms. Under load the
+        // old wait could expire before another frame landed, which made the assertion
+        // weaker exactly when the machine was busiest.
+        const lengthNow = () => chat.viewport.evaluate(vp => (vp.textContent ?? '').length);
+        const before = await lengthNow();
+        let grew = false;
+        for (let i = 0; i < 20 && !grew; i++) {
+            await page.waitForTimeout(100);
+            const g = await geometry(chat);
+            expect(
+                g.top,
+                `the arriving reply stole the scroll back: top is ${g.top}px, expected to stay near 0`
+                + ` (measured ${g.which} — scrollHeight ${g.height}, clientHeight ${g.client})`,
+            ).toBeLessThan(Math.max(60, g.client / 2));
+            grew = (await lengthNow()) > before;
+        }
+        expect(grew, 'no further frames arrived, so nothing could have stolen the scroll').toBe(true);
+
+        expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
+    } catch (error) {
+        await attachScrollLog(page);
+        throw error;
+    }
 });
 
 test('Stop keeps the text that had already arrived', async ({ page }) => {

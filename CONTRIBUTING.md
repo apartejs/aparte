@@ -177,7 +177,7 @@ makes the work good is what makes it hard to scan, and only the ORDER fixes that
 Every `@aparte/*` package moves **together, at one version** (`fixed` in
 `.changeset/config.json`). Two consequences worth knowing before you write a changeset: the
 bump type is the **highest** one in the whole group — a single `minor` anywhere makes all
-fifteen minor — and packages with no change of their own are still republished.
+twenty minor — and packages with no change of their own are still republished.
 
 That lockstep is why there are two levels of changelog. Each package keeps its own (npm reads
 it), and the root **`CHANGELOG.md`** is the human aggregate: one section per version, grouped
@@ -242,7 +242,7 @@ The flow:
    **one** GitHub Release for that version, with the matching root-changelog section as its
    body.
    > ⚠️ Not `git push --tags`. GitHub drops the tag-push event past **three tags in a single
-   > push**, and `changeset publish` has just created fifteen — so `--tags` publishes them all
+   > push**, and `changeset publish` has just created twenty — so `--tags` publishes them all
    > and triggers nothing, with no error anywhere. Push the umbrella tag on its own; the
    > per-package tags can follow in a second push.
 5. Verify the dist-tags: `npm view @aparte/core dist-tags`. **Both** must be the version you
@@ -250,7 +250,7 @@ The flow:
    > The tags drifted on three releases in a row (0.3.0, 0.4.0, 0.5.0): `changeset publish`
    > moved `latest` and left `alpha` behind, so `npm i @aparte/core@alpha` served the version
    > before. `pnpm release` now passes `--tag alpha` **and** runs
-   > `scripts/align-dist-tags.mjs`, which checks both tags on all fifteen packages, prints
+   > `scripts/align-dist-tags.mjs`, which checks both tags on every published package, prints
    > what it moves, and exits non-zero on any failure — its first version silently reported
    > "15 already correct" while doing nothing, because Node cannot spawn `npm.cmd` without a
    > shell.

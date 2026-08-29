@@ -12,7 +12,7 @@ above it is a bug you can report. The **tested** version is what CI runs on ever
 and is therefore the only one we have *seen* work. Nothing in between is run: the floor is
 a promise read off the feature list, not off a browser farm.
 
-Measured on 0.15.1, August 2026. Before 1.0 a floor can move in a minor; the changelog
+Measured on the release this page ships with. Before 1.0 a floor can move in a minor; the changelog
 says so when one does.
 
 ## Browsers
@@ -94,7 +94,7 @@ element upgrades under jsdom — point it at
 | [`@aparte/angular`](/frameworks/angular/) | Angular 19.2+ | 19.2 |
 
 Each wrapper declares `@aparte/core` as a peer at the release it shipped with
-(`>=0.15.1 <1.0.0` today): install both from the same release.
+(the range is written into every wrapper's `peerDependencies` at release time): install both from the same release.
 [`@aparte/plugin-model-selector`](/plugins/model-selector/) carries the same four peers,
 all optional.
 
