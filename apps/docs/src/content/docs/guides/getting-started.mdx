@@ -52,7 +52,9 @@ and every symbol is `any`.
 
 For a single `index.html` with no build at all — no npm either — load the packages from a
 CDN. jsDelivr serves every `@aparte/*` package as one ESM file (`/+esm`), with
-`@aparte/engine` bundled into core's:
+`@aparte/engine` bundled into core's. One exception, and it is the only one:
+[`@aparte/provider-transformers`](/providers/ai/transformers/) needs a bundler — its
+worker cannot be built this way yet, and its page says why.
 
 {/* The version in these URLs is read from core's package.json at build time (see
     src/data/core-version.ts), so the page follows every release on its own. */}
