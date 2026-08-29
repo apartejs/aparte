@@ -43,6 +43,7 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * @element aparte-sidebar
  *
  * @attr {boolean} collapsed - Hidden (in the flow) or closed (as a drawer). Reflected; set it to start closed.
+ * @attr {string} breakpoint - The window width under which the sidebar becomes a drawer: a length (default `48rem`), or `none` for a column that never does.
  * @attr {boolean} data-drawer - Reflected BY the element while the window is under 48rem. Read-only.
  *
  * @fires {CustomEvent<AparteSidebarToggleDetail>} aparte-sidebar-toggle - The sidebar opened or closed, by a toggle, by Escape, by a click on the scrim or by `collapsed` being set. Bubbles.
@@ -51,8 +52,10 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * @cssprop [--aparte-sidebar-bg=var(--aparte-surface-2)] - Its ground.
  *
  * @example
+ * <!-- breakpoint="none" only because this frame is narrower than 48rem: drop it and
+ *      the column becomes a drawer on a phone, behind the header's toggle. -->
  * <div class="aparte-app-shell" style="height: 22rem">
- *   <aparte-sidebar>
+ *   <aparte-sidebar breakpoint="none">
  *     <div class="aparte-sidebar__header">
  *       <span class="aparte-sidebar__brand">aparté</span>
  *       <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
@@ -95,7 +98,7 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  */
 export class AparteSidebar extends HTMLElement {
     static get observedAttributes(): string[] {
-        return ['collapsed'];
+        return ['collapsed', 'breakpoint'];
     }
 
     private _media: MediaQueryList | null = null;
@@ -127,11 +130,27 @@ export class AparteSidebar extends HTMLElement {
         this.addEventListener('keydown', this._onKeydown);
         document.addEventListener('click', this._onDocumentClick);
         window.addEventListener('aparte-config-change', this._onConfigChange);
-        if (typeof matchMedia === 'function') {
-            this._media = matchMedia(DRAWER_QUERY);
-            this._media.addEventListener('change', this._onMediaChange);
-            this._applyDrawer(this._media.matches);
+        this._watchBreakpoint();
+    }
+
+    /**
+     * The drawer's media query, from the `breakpoint` attribute: a length (`48rem`, the
+     * default, or `640px`), or `none` for a column that never becomes a drawer — which
+     * a narrow host that has room for it wants, and a documentation frame needs.
+     */
+    private _watchBreakpoint(): void {
+        this._media?.removeEventListener('change', this._onMediaChange);
+        this._media = null;
+        const attr = (this.getAttribute('breakpoint') ?? '').trim();
+        if (attr === 'none') {
+            this._applyDrawer(false);
+            return;
         }
+        if (typeof matchMedia !== 'function') return;
+        const query = attr ? `(max-width: ${attr})` : DRAWER_QUERY;
+        this._media = matchMedia(query);
+        this._media.addEventListener('change', this._onMediaChange);
+        this._applyDrawer(this._media.matches);
     }
 
     disconnectedCallback(): void {
@@ -144,7 +163,12 @@ export class AparteSidebar extends HTMLElement {
     }
 
     attributeChangedCallback(name: string): void {
-        if (name !== 'collapsed' || !this.isConnected) return;
+        if (!this.isConnected) return;
+        if (name === 'breakpoint') {
+            this._watchBreakpoint();
+            return;
+        }
+        if (name !== 'collapsed') return;
         const collapsed = this.collapsed;
         if (collapsed === this._lastCollapsed) return;
         this._lastCollapsed = collapsed;

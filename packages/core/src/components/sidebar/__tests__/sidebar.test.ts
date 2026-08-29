@@ -122,6 +122,17 @@ describe('aparte-sidebar', () => {
             expect(document.activeElement).toBe(opener);
         });
 
+        it('breakpoint="none" keeps the column in the flow whatever the window; a length sets the query', () => {
+            const el = mount();
+            el.setAttribute('breakpoint', 'none');
+            narrow(true);
+            expect(el.drawer).toBe(false);
+            expect(el.collapsed).toBe(false);
+
+            el.setAttribute('breakpoint', '40rem');
+            expect(el.drawer, 'the stub says the query matches').toBe(true);
+        });
+
         it('Escape does nothing in the flow — the column is not an overlay', () => {
             const el = mount();
             const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
