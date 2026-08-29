@@ -82,7 +82,14 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
   border-radius: 50%;
   opacity: 0;
 }
-.aparte-thumb:hover .aparte-thumb__remove {
+/* Hover is not the only way in. The ✕ is the ONLY way to drop a pending attachment,
+   and at `opacity: 0` it was invisible to a keyboard user standing on it — a focus
+   ring drawn around nothing. `:focus-within` on the tile is the same pair the message
+   action bar (bubble.css) and the conversation row (conversation.css) already use;
+   this one had been written with the hover half alone. The touch half is in
+   responsive.css, beside the row's ⋯, for the same reason: a finger cannot hover. */
+.aparte-thumb:hover .aparte-thumb__remove,
+.aparte-thumb:focus-within .aparte-thumb__remove {
   opacity: 1;
 }
 .aparte-thumb__remove:hover {

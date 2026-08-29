@@ -122,6 +122,11 @@
     opacity: 1;
   }
 
+  /* Nor the ✕ on a pending attachment, which is the only way to remove one. */
+  .aparte-thumb__remove {
+    opacity: 1;
+  }
+
   /* Hover cannot reveal the row's ⋯ on touch — keep it visible and tappable. */
   .aparte-conv-item__more {
     opacity: 1;

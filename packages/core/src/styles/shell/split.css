@@ -100,8 +100,23 @@ aparte-split > [data-aparte-chat],
   background: var(--aparte-primary);
 }
 
+/* A real outline, and the ring kept as decoration.
+
+   The seam's whole keyboard story is arrowing it, and its only focus indicator was
+   `--aparte-focus-ring` — a soft wash that measures 1.39:1 against the page in the
+   light palette and 1.83:1 in the dark one, where WCAG asks 3:1 of a focus indicator.
+   `outline: none` with nothing in its place is the shape of that failure: the
+   indicator was not weak, it was absent, on a 4px band with `border: 0` that a
+   keyboard user has no other way to find.
+
+   The outline is what carries the contrast (3.54:1 light, 7.36:1 dark, measured); the
+   shadow stays because it reads as a glow AROUND the seam and the two do not fight.
+   The forced-colors entry in responsive.css keeps overriding the colour only — it is
+   now overriding an outline that exists rather than substituting for one that does
+   not. */
 .aparte-split__handle:focus-visible {
-  outline: none;
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: 0;
   box-shadow: var(--aparte-focus-ring);
 }
 

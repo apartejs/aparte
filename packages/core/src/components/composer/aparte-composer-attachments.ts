@@ -107,11 +107,20 @@ export class AparteComposerAttachments extends HTMLElement {
         // Free the previous render's preview URLs before minting new ones.
         this._revokeUrls();
 
+        const cfg = resolveConfig(this);
+        // "Remove {name}", from the locale. It was the literal `Remove ${name}` — an
+        // icon-only button, so this string is the whole of what a screen-reader user
+        // hears, and it stayed English in every language the library shipped.
+        // Interpolated from the RAW file name and escaped once, at the end: reusing the
+        // already-escaped `name` would escape a `&` twice and read "rapport &amp; co".
+        const removeLabel = (file: File): string =>
+            (cfg.t('removeAttachment') || 'Remove {name}').replace('{name}', file.name);
+
         this.innerHTML = files.map((file) => {
             const name = escapeHtml(file.name);
             const remove =
                 `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-thumb__remove" type="button" ` +
-                `aria-label="Remove ${name}">${resolveConfig(this).getIcon('close')}</button>`;
+                `aria-label="${escapeAttr(removeLabel(file))}">${cfg.getIcon('close')}</button>`;
 
             if (file.type.startsWith('image/')) {
                 const url = URL.createObjectURL(file);
