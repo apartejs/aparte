@@ -32,6 +32,12 @@ const pages = Object.fromEntries([
     // corner already carries the name, so spending 62px of type on it again left
     // the card's largest slot saying nothing.
     ['index', { title: LANDING_CARD_TITLE, description: LANDING_CARD_BODY }],
+    // Same reason as the line above, for the same class of page: /roadmap/ is an Astro
+    // page on the shared frame, not a docs entry, so the collection below cannot see it.
+    // Its og:image:alt (ROADMAP_IMAGE_ALT, in roadmap.astro) is written FROM this entry,
+    // because astro-og-canvas bakes these two strings into the PNG as pixels — change
+    // one and change the other.
+    ['roadmap', { title: 'One road, no dates', description: 'What npm serves, where the current branch stands, and the conditions the beta and 1.0 each have to meet.' }],
     ...docs.map(({ id, data }) => [ogSlug(id), { title: data.title, description: data.description }]),
 ]);
 
