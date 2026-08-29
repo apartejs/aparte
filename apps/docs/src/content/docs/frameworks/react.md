@@ -145,3 +145,11 @@ not need for aparté's own — those are typed above.
 
 - `useConversationManager` — React-state view over the core `AparteConversationManager` (list / create /
   archive), for a multi-conversation sidebar.
+
+## Testing it
+
+Vitest, Jest — every runner — executes on Node, so `@aparte/core` resolves to its DOM-free
+entry and no `<aparte-*>` element upgrades under jsdom: the tag stays a plain
+`HTMLElement` and every assertion about it fails for a reason nothing explains. Alias the
+specifier to [`@aparte/core/browser`](/frameworks/elements/#testing-your-components), the
+entry with the elements in it.

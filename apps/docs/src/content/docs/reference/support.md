@@ -80,6 +80,10 @@ that Node entry (`check:node-import`); on 24 it runs the full gate. `Request`,
 `ReadableStream` and `structuredClone` are not the same surface on the two, which is why
 both run rather than one.
 
+A test runner is Node too, so it takes that same `node` condition and no `<aparte-*>`
+element upgrades under jsdom — point it at
+[`@aparte/core/browser`](/frameworks/elements/#testing-your-components) instead.
+
 ## Frameworks
 
 | Wrapper | Peer range | Tested with |

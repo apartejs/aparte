@@ -263,7 +263,7 @@ export type { AparteConfigChangeEventDetail } from './config/index.js';
 export { resolveConfig, attachConfig, detachConfig, runWithConfig, contextConfig, APARTE_HOST_ATTR } from './config/index.js';
 export { subscribeConfigChange, APARTE_CONFIG_CHANGE } from './config/index.js';
 export type { AparteConfigAware } from './config/index.js';
-export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
+export type { AparteMarkdownProvider, AparteStreamingMarkdownProvider, AparteStreamingMarkdownRenderer, AparteHighlightProvider, AparteSystemPromptVarsProvider, AparteLocale, AparteLocaleExtensions, AparteAction, AparteActionZone, AparteIconProvider, AparteIconName, AparteAvatarProvider, AparteStatusRenderer, AparteErrorRenderer, AparteAttachmentRenderer, AparteElicitationFieldRenderer, AparteElicitationFieldContext, AparteElicitationFieldControl, AparteSiblingNavRenderer, AparteBubbleShellRenderer, AparteModelPreference, AparteModelPreferenceProvider, AparteSanitizer } from './config/index.js';
 export { APARTE_DEFAULT_ICON_FALLBACKS, APARTE_DEFAULT_LOCALE, defaultSanitizer, isSafeUrl } from './config/index.js';
 
 // Export Client
@@ -350,31 +350,115 @@ export type {
 // Export the default elicitation presenter Web Component
 export { AparteElicitation } from './components/elicitation/aparte-elicitation.js';
 
-// Auto-register components when module is imported
-// Components register themselves in their files
-import './components/chat/aparte-chat.js';
-import './components/bubble/aparte-chat-bubble.js';
-import './components/status/aparte-chat-status.js';
-import './components/viewport/aparte-chat-viewport.js';
-import './components/elicitation/aparte-elicitation.js';
-// Import primitives to auto-register
-import './primitives/select/aparte-select.js';
-import './primitives/select/aparte-option.js';
-import './primitives/select/aparte-optgroup.js';
+// Every element class, imported by VALUE. This is what replaced the eight
+// side-effect imports that used to sit here ("components register themselves in their
+// files"): a side-effect import keeps a module, but it names nothing a reader can check,
+// and the list had fallen eight modules behind the twenty-four elements core defines.
+// Naming the classes makes the anchor and the registry the same list — see
+// `APARTE_ELEMENTS` below.
+import {
+    AparteChat,
+    AparteChatBubble,
+    AparteChatStatus,
+    AparteChatViewport,
+    AparteComposer,
+    AparteComposerInput,
+    AparteComposerSend,
+    AparteComposerCancel,
+    AparteComposerAttachments,
+    AparteComposerAddAttachment,
+    AparteComposerAction,
+    AparteComposerToolbar,
+    AparteConversationList,
+    AparteScrollRail,
+    AparteSidebar,
+    AparteSplit,
+    AparteSuggestions,
+    AparteContext,
+} from './components/index.js';
+import { AparteElicitation as AparteElicitationElement } from './components/elicitation/aparte-elicitation.js';
+import {
+    AparteSelect,
+    AparteOption,
+    AparteOptgroup,
+    AparteProgressSpinner,
+    AparteIcon,
+} from './primitives/index.js';
 
 /**
- * Utility to ensure all components are registered
- * Call this if using dynamic imports
+ * Every tag core defines, beside the class that defines it.
+ *
+ * Two jobs, and they are the same list on purpose. It is what the warning below reads,
+ * so the function can NAME the tags that are missing instead of saying "some
+ * components"; and it is the single list `src/__tests__/register-all-components.test.ts`
+ * holds against every `customElements.define` literal in the source.
+ *
+ * What it is NOT is what keeps those 24 `define` calls alive, and the difference is
+ * worth stating because the opposite is easy to assume. The browser build is ONE
+ * module — `dist/index.js` — and `package.json`'s `sideEffects` names it, so no
+ * bundler drops it; all 24 calls sit in it as top-level statements whatever this array
+ * references. Naming the classes buys the warning, not the registrations.
+ *
+ * It used to check four tags out of twenty-four and log "Some components may not be
+ * registered", which is the two failures a guide cannot survive: a consumer whose
+ * bundler dropped `<aparte-split>` got a silent green, and a consumer who got the
+ * warning had no idea which element to import.
+ *
+ * `src/types/__tests__/element-map.test.ts` reads the same
+ * `customElements.define` literals out of the source, so this list cannot fall behind
+ * them again without a red test.
+ */
+const APARTE_ELEMENTS: ReadonlyArray<readonly [string, CustomElementConstructor]> = [
+    // Chat shell + transcript
+    ['aparte-chat', AparteChat],
+    ['aparte-chat-viewport', AparteChatViewport],
+    ['aparte-chat-bubble', AparteChatBubble],
+    ['aparte-chat-status', AparteChatStatus],
+
+    // Composer and its primitives
+    ['aparte-composer', AparteComposer],
+    ['aparte-composer-input', AparteComposerInput],
+    ['aparte-composer-send', AparteComposerSend],
+    ['aparte-composer-cancel', AparteComposerCancel],
+    ['aparte-composer-attachments', AparteComposerAttachments],
+    ['aparte-composer-add-attachment', AparteComposerAddAttachment],
+    ['aparte-composer-action', AparteComposerAction],
+    ['aparte-composer-toolbar', AparteComposerToolbar],
+
+    // Standalone components
+    ['aparte-conversation-list', AparteConversationList],
+    ['aparte-elicitation', AparteElicitationElement],
+    ['aparte-scroll-rail', AparteScrollRail],
+    ['aparte-sidebar', AparteSidebar],
+    ['aparte-split', AparteSplit],
+    ['aparte-suggestions', AparteSuggestions],
+    ['aparte-context', AparteContext],
+
+    // Primitives
+    ['aparte-select', AparteSelect],
+    ['aparte-option', AparteOption],
+    ['aparte-optgroup', AparteOptgroup],
+    ['aparte-progress-spinner', AparteProgressSpinner],
+    ['aparte-icon', AparteIcon],
+];
+
+/**
+ * Make sure every element core defines is in the registry, and say which are not.
+ *
+ * Importing `@aparte/core` already registers all of them. Call this when a bundler with
+ * aggressive side-effect elimination, or a dynamic `import()`, might have dropped the
+ * modules — the call itself is what keeps them, because it reaches `APARTE_ELEMENTS`.
+ *
+ * Idempotent, and safe to call more than once: it defines nothing, it reports.
  */
 export function registerAllComponents(): void {
-    // Components self-register, but this ensures imports are not tree-shaken
-    const _chat = customElements.get('aparte-chat');
-    const _viewport = customElements.get('aparte-chat-viewport');
-    const _bubble = customElements.get('aparte-chat-bubble');
-    const _status = customElements.get('aparte-chat-status');
-
-    if (!_chat || !_viewport || !_bubble || !_status) {
-        console.warn('[Aparte] Some components may not be registered. Ensure all component files are imported.');
+    const missing = APARTE_ELEMENTS.filter(([tag]) => !customElements.get(tag)).map(([tag]) => tag);
+    if (missing.length > 0) {
+        console.warn(
+            `[aparte] ${missing.length} of ${APARTE_ELEMENTS.length} elements are not registered: `
+                + `${missing.join(', ')}. Import '@aparte/core' at module scope (not behind a lazy `
+                + `import()), and check that your bundler is honouring the package's sideEffects field.`,
+        );
     }
 }
 

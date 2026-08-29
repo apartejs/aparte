@@ -219,6 +219,7 @@ export type {
     AparteHighlightProvider,
     AparteSystemPromptVarsProvider,
     AparteLocale,
+    AparteLocaleExtensions,
     AparteAction,
     AparteActionZone,
     AparteIconProvider,
@@ -314,9 +315,25 @@ export type {
  * No-op on the server: custom elements only exist in the browser, where the
  * real `index.ts` registers them at import time. Wrappers can call this
  * unconditionally without a `typeof window` guard.
+ *
+ * With ONE thing to say. A `customElements` here means a DOM is present and this
+ * DOM-free entry was still the one that resolved — which is a test runner: vitest,
+ * jest and friends run on Node, so they take the `node` export condition, and jsdom
+ * then supplies the registry. Nothing upgrades, `<aparte-chat>` stays an
+ * `HTMLElement`, and every assertion about an element's own properties fails for a
+ * reason nothing on the page explains. The escape is `@aparte/core/browser`, which is
+ * why that entry exists; before it, the only way out was to reach into this package's
+ * `src/`. One warning, not a throw: the environment is legal, only surprising.
  */
 export function registerAllComponents(): void {
-    /* browser-only — nothing to register without a DOM */
+    if (typeof customElements !== 'undefined') {
+        console.warn(
+            "[aparte] A DOM is present but '@aparte/core' resolved to its DOM-free Node entry, "
+                + 'so no <aparte-*> element will upgrade. Test runners hit this: they run on Node, '
+                + "so they take the 'node' export condition. Point your runner at '@aparte/core/browser' "
+                + "(vitest: test.alias { '@aparte/core': '@aparte/core/browser' }).",
+        );
+    }
 }
 // Pure until called; the browser entry calls it at import.
 export { installDialogTriggersOnce } from './interop/dialog-triggers.js';

@@ -9,6 +9,7 @@
  */
 import { aparteGlobalConfig, type AparteConfig } from '@aparte/core';
 import type { ArtifactSegment } from './segment.js';
+import type { ArtifactToolOptions } from './tool.js';
 
 /** Builds the `srcdoc` of the sandboxed preview frame for a previewable kind. */
 export type ArtifactPreviewBuilder = (kind: string, body: string, title: string) => string;
@@ -61,4 +62,26 @@ export function renderOptions(config: AparteConfig): ArtifactRenderOptions {
 /** For tests and a teardown: forget what a config was told. */
 export function clearRenderOptions(config: AparteConfig): void {
     settings.delete(config);
+}
+
+/**
+ * Everything `setupArtifacts()` accepts — the tool's options, the card's, and the tag.
+ *
+ * ONE declaration, here, because there are two `setupArtifacts()`: the browser barrel's
+ * and the node one. Each used to declare its own `ArtifactsSetupOptions`, and they were
+ * not the same shape — the node copy omitted `ArtifactRenderOptions`, so `preview` and
+ * `onBinary` were type errors against the SSR entry while being valid against the
+ * browser one. A consumer typing a shared setup object got a different contract
+ * depending on which condition resolved, from a name that reads as one thing.
+ *
+ * The server ignores `preview` and `onBinary` (it registers no renderer), and that is
+ * correct: the same options object is meant to be written once and passed on both
+ * sides. An option nobody reads there is inert, whereas a type error there is a wall.
+ */
+export interface ArtifactsSetupOptions extends ArtifactToolOptions, ArtifactRenderOptions {
+    /**
+     * The tag recognised in the prose — `<artifact …>…</artifact>` by default. `false`
+     * registers no grammar: only the tool produces artifacts then.
+     */
+    tag?: string | false;
 }

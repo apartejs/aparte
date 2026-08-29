@@ -13,7 +13,7 @@
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "customElements": "dist/custom-elements.json",
-    "//exports": "READ THE ORDER: `@aparte-workspace/source` comes FIRST, but it only resolves for tooling configured with that custom condition (this repo's docs dev server + tsconfig.base). It is NOT what a consumer gets. Node resolves the `node` condition -> `dist/index.node.js`, the DOM-free entry; a bundler/browser gets `dist/index.js`. Reading `src/index.ts` because it sits at the top of this map means reading the BROWSER entry and concluding, wrongly, that the package needs a DOM in Node.",
+    "//exports": "READ THE ORDER: `@aparte-workspace/source` comes FIRST, but it only resolves for tooling configured with that custom condition (this repo's docs dev server + tsconfig.base). It is NOT what a consumer gets. Node resolves the `node` condition -> `dist/index.node.js`, the DOM-free entry; a bundler/browser gets `dist/index.js`. Reading `src/index.ts` because it sits at the top of this map means reading the BROWSER entry and concluding, wrongly, that the package needs a DOM in Node. `./browser` is the browser entry BY NAME, and the `.` map must keep resolving `node` first -- that is what makes `import @aparte/core` safe in Next.js, Nuxt, SvelteKit and Angular Universal. A test runner, though, is Node WITH a DOM (vitest + jsdom resolves the `node` condition), so it got the DOM-free entry, no <aparte-*> element upgraded, and there was no supported specifier to escape to: every wrapper in this repo had to alias @aparte/core at ../../core/src/index.ts, reaching into another package source. `./browser` is that specifier; do NOT reorder `.` instead. `./package.json` is exported because require.resolve(@aparte/core/package.json) throws without it, which is how a test config computes the path of a package it wants to alias.",
     "exports": {
         ".": {
             "@aparte-workspace/source": "./src/index.ts",
@@ -25,6 +25,13 @@
             "import": "./dist/index.js",
             "default": "./dist/index.js"
         },
+        "./browser": {
+            "@aparte-workspace/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json",
         "./icons": {
             "@aparte-workspace/source": "./src/icons.ts",
             "types": "./dist/icons.d.ts",

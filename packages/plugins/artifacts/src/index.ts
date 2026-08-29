@@ -19,18 +19,10 @@
  *   setupArtifacts();
  */
 import { aparteGlobalConfig, registerSegmentRenderer, unregisterSegmentRenderer, type AparteConfig, type AparteToolRenderer } from '@aparte/core';
-import { createArtifactTool, artifactHandler, type ArtifactToolOptions } from './tool.js';
+import { createArtifactTool, artifactHandler } from './tool.js';
 import { artifactRenderer } from './card.js';
 import { artifactBlock, artifactFromToolCall, ARTIFACT_TAG, ARTIFACT_SEGMENT_TYPE } from './segment.js';
-import { setRenderOptions, clearRenderOptions, type ArtifactRenderOptions } from './options.js';
-
-export interface ArtifactsSetupOptions extends ArtifactToolOptions, ArtifactRenderOptions {
-    /**
-     * The tag recognised in the prose — `<artifact …>…</artifact>` by default. `false`
-     * registers no grammar: only the tool produces artifacts then.
-     */
-    tag?: string | false;
-}
+import { setRenderOptions, clearRenderOptions, type ArtifactsSetupOptions } from './options.js';
 
 /**
  * Register the tool, its renderer, the block grammar and the segment renderer on
@@ -75,5 +67,5 @@ export { artifactBlock, artifactSegment, artifactFromToolCall, ARTIFACT_TAG, ART
 export type { ArtifactSegment, ArtifactInput } from './segment.js';
 export { deriveArtifactKind } from './kinds.js';
 export { buildSafePreviewDocument, PREVIEW_CSP } from './preview-document.js';
-export type { ArtifactRenderOptions, ArtifactPreviewBuilder, ArtifactBinary, ArtifactBinaryResolver } from './options.js';
+export type { ArtifactRenderOptions, ArtifactPreviewBuilder, ArtifactBinary, ArtifactBinaryResolver, ArtifactsSetupOptions } from './options.js';
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';

@@ -15,8 +15,15 @@
 import type { AparteToolCall } from '@aparte/core';
 import { ASK_USER_DECLINED } from './ask-user.js';
 
-/** One line of the record. */
-interface ReceiptRow {
+/**
+ * One line of the record.
+ *
+ * Exported because `receiptRows()` returns them and a consumer writing their own
+ * renderer has to name the type. It was package-private, so the declaration emit put an
+ * un-exported `interface ReceiptRow` in the `.d.ts` — reachable by inference, nameable
+ * by nobody.
+ */
+export interface ReceiptRow {
     question: string;
     answer: string;
     /**

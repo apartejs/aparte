@@ -18,10 +18,15 @@
  * guard; they are inside it now.
  *
  * What is here: everything a server can legitimately use — the tool definition,
- * its handler, the setup call, and the types. What is NOT here: the custom
- * element and the segment renderer, both of which need a DOM. Calling
- * `setupAskUser()` on the server registers the tool without a presenter,
- * which is the correct outcome: nothing is being rendered there.
+ * its handler, the setup call, the decline sentence, `receiptRows` and the types.
+ * What is NOT here: the custom element, the segment renderer and `buildReceipt`,
+ * all three of which need a DOM. Calling `setupAskUser()` on the server registers
+ * the tool without a presenter, which is the correct outcome: nothing is being
+ * rendered there.
+ *
+ * `ASK_USER_DECLINED` and `receiptRows` were missing for no reason but the omission —
+ * both are pure — and the consequence was the same hard `SyntaxError: does not provide
+ * an export named …` this file was written to end.
  */
 
 import { aparteGlobalConfig, type AparteConfig } from '@aparte/core';
@@ -39,7 +44,12 @@ export function setupAskUser(options: AskUserSetupOptions = {}, config: AparteCo
     config.registerToolRenderer(tool.name, { render: () => '' });
 }
 
-export { createAskUserTool, askUserHandler } from './ask-user.js';
+export { createAskUserTool, askUserHandler, ASK_USER_DECLINED } from './ask-user.js';
+// Pure string work over the tool's input and result — no DOM anywhere in its path — so
+// a server rendering a transcript to HTML, or a log, can read the rows. `buildReceipt`
+// stays browser-only: it is the same data as an HTMLElement.
+export { receiptRows } from './receipt.js';
+export type { ReceiptRow, ReceiptSource } from './receipt.js';
 export type { AskUserToolOptions, AskUserSetupOptions, AskUserAnswer, AskUserStructuredResult } from './ask-user.js';
 export type { AskUserOption, AskUserItem, AskUserDetail } from './ask-user.js';
 export type { QuestionReceiptSegment } from './question-receipt.renderer.js';

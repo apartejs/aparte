@@ -80,6 +80,13 @@ default renderer shows nothing until it settles — the live UI is the panel, an
 places to read the same open question is one too many. `buildReceipt` is the default
 card if you want it verbatim.
 
+Both types are exported: `ReceiptSource` is the argument (`{ input, result?,
+structuredResult? }`, the three fields a tool-call segment carries) and `ReceiptRow` is
+one line — `{ question, answer, declined? }`. `receiptRows` and `ASK_USER_DECLINED` are
+on the server entry too, so a backend that renders a transcript to HTML or writes it to
+a log reads the same rows the card does; `buildReceipt` is browser-only, since it
+returns an element.
+
 A declined question ends the call with one fixed sentence as the tool result, exported as
 `ASK_USER_DECLINED` (`'The user declined to answer.'`). `receiptRows` recognises it and
 marks the row `declined`; a host that turns tool results into prose, or looks for a

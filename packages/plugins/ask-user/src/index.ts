@@ -75,6 +75,7 @@ export { AparteAskUser } from './aparte-ask-user.js';
 
 export { questionReceiptRenderer } from './question-receipt.renderer.js';
 export { buildReceipt, receiptRows } from './receipt.js';
+export type { ReceiptRow, ReceiptSource } from './receipt.js';
 export type { QuestionReceiptSegment } from './question-receipt.renderer.js';
 
 export type { AparteTool, AparteToolHandler, AparteToolCall, AparteToolResult } from '@aparte/core';
