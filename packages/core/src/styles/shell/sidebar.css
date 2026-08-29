@@ -47,7 +47,7 @@ aparte-sidebar,
   background: var(--aparte-sidebar-bg);
   border-inline-end: var(--aparte-border-width) solid var(--aparte-border);
   color: var(--aparte-text);
-  transition: width var(--aparte-duration-normal) var(--aparte-ease);
+  transition: width var(--aparte-duration-slow) var(--aparte-ease);
 }
 
 /* In the flow, collapsed means gone: the column folds to nothing and the chat takes
@@ -119,7 +119,7 @@ aparte-sidebar,
   z-index: var(--aparte-z-dropdown);
   width: var(--aparte-sidebar-width);
   box-shadow: var(--aparte-menu-shadow);
-  transition: inset-inline-start var(--aparte-duration-normal) var(--aparte-ease);
+  transition: inset-inline-start var(--aparte-duration-slower) var(--aparte-ease);
 }
 
 .aparte-sidebar[data-drawer][collapsed] {
@@ -132,11 +132,4 @@ aparte-sidebar,
   inset: 0;
   z-index: -1;
   background: var(--aparte-scrim);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .aparte-sidebar,
-  .aparte-sidebar[data-drawer] {
-    transition: none;
-  }
 }
