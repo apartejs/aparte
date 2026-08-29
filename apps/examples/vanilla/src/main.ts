@@ -26,7 +26,8 @@ import { setupMarkedProvider } from '@aparte/plugin-marked';
 // local model to "use the question tool" got a truthful "I have no such tool".
 import { setupAskUser } from '@aparte/plugin-ask-user';
 import { setupArtifacts } from '@aparte/plugin-artifacts';
-import { runStreamAgent, createCompactionSelector } from '@aparte/engine';
+import { runStreamAgent } from '@aparte/engine';
+import { setupCompaction } from '@aparte/plugin-compaction';
 import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
 import {
     DEFAULT_SETTINGS,
@@ -165,13 +166,6 @@ aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
 //    runs. That equivalence is what the engine parity suite asserts.
 const client = new AparteClient({
     streamRunner: runStreamAgent,
-    // What `compact()` summarises — asked for by the gauge's `auto-compact`, or by
-    // dispatching `aparte-compact`. Without this the whole history is summarised;
-    // with it, the newest turns that still fit the model's window stay verbatim.
-    compactionSelector: createCompactionSelector({
-        contextWindow: () => aparteGlobalConfig.getCurrentModel()?.contextWindow,
-        systemPrompt: () => aparteGlobalConfig.resolveSystemPrompt(),
-    }),
     // The endpoint + token the settings view holds, for ANY provider. The record
     // form (`{ apiKey, endpoint }`) is the only runtime channel for an endpoint,
     // and it is honoured on both the chat and the /models path.
@@ -181,6 +175,11 @@ const client = new AparteClient({
 // The stored system prompt has to be on the config before the first turn.
 applySystemPrompt(aparteGlobalConfig, loadSettings());
 client.start(); // listens for aparte-send/retry/edit and streams replies into the chat
+
+// Compaction: the gauge's `auto-compact` (index.html) asks on reaching 90 %, and this
+// answers — the newest turns that still fit the model's window stay verbatim, the rest
+// is summarised through the same provider, key and endpoint the chat uses.
+setupCompaction({ keyResolver: settingsKeyResolver(loadSettings) });
 
 // Register <aparte-model-selector> AFTER providers are registered, so its async
 // connectedCallback loads the model list with the providers already present

@@ -15,6 +15,7 @@
         "@aparte/engine": "workspace:*",
         "@aparte/plugin-artifacts": "workspace:*",
         "@aparte/plugin-ask-user": "workspace:*",
+        "@aparte/plugin-compaction": "workspace:*",
         "@aparte/plugin-marked": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/provider-openai-compat": "workspace:*",
