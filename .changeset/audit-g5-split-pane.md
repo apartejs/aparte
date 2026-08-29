@@ -2,7 +2,7 @@
 "@aparte/core": patch
 ---
 
-`<aparte-split pane="end">` now keeps that pane when it loads on a narrow screen, and a later `showPane` always announces.
+`<aparte-split pane="end">` keeps that pane when it loads stacked on a narrow screen, and every `showPane()` that changes the pane commits it and fires `aparte-split-resize`.
 
 Entering the stacked state showed the start pane unconditionally, deleting the choice the markup had already made. And because that write happens during the mount, where the attribute callback is suppressed, the element never recorded it: a later `showPane('end')` looked like no change and committed nothing, so the host heard no `aparte-split-resize` and its two-button toggle went dead once.
 

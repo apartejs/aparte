@@ -2,7 +2,7 @@
 "@aparte/plugin-compaction": patch
 ---
 
-A compaction that finishes after the conversation was switched is now refused instead of writing the old summary over the new transcript.
+A compaction whose summary arrives after the conversation was switched is refused: the summary never lands on the transcript the user moved to.
 
 A summarisation is a model call, so seconds pass between reading the transcript and replacing it. If the user switched conversation in that window, the plugin emptied whatever was on screen and appended the summary of the conversation they had left, plus the turns it had selected there — over conversation B, reported as `ok: true`, and persisted with B by whatever storage the host had wired. A user-pressed abort was the only thing that stopped it.
 

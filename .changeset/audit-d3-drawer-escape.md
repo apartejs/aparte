@@ -2,7 +2,7 @@
 "@aparte/core": minor
 ---
 
-Escape now closes the drawer from anywhere on the page, opening it moves focus into it, and a closed sidebar leaves the tab order.
+Escape closes the sidebar drawer from anywhere on the page, opening the drawer moves focus into it, and a collapsed sidebar carries `inert` + `aria-hidden="true"` so it holds no tab stop.
 
 Three halves of one gap. The keydown listener was on the element, so Escape worked only once the focus was already inside the drawer — and nothing put it there, so in the documented shell it did nothing at all. It listens on the document now; the `drawer && !collapsed` guard was always the whole filter.
 
