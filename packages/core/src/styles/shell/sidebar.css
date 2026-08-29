@@ -57,7 +57,13 @@ aparte-sidebar,
   border-inline-end-width: 0;
 }
 
+/* The children keep the column's width while it collapses, so nothing reflows during
+   the transition. BORDER-box, or a padded child is the column plus its padding: the
+   header's button sat flush against the edge and the search field ran off it, clipped
+   — measured at 292px in a 260px column. The search field carries margins as well,
+   which border-box does not cover; its own rule subtracts them. */
 .aparte-sidebar > * {
+  box-sizing: border-box;
   flex-shrink: 0;
   min-width: var(--aparte-sidebar-width);
 }
@@ -80,6 +86,7 @@ aparte-sidebar,
 
 .aparte-sidebar__search {
   margin: var(--aparte-space-2) var(--aparte-space-3);
+  min-width: calc(var(--aparte-sidebar-width) - 2 * var(--aparte-space-3));
 }
 
 /* The body is the one region that scrolls; the list inside keeps its own gap. */

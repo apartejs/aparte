@@ -52,47 +52,34 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * @cssprop [--aparte-sidebar-bg=var(--aparte-surface-2)] - Its ground.
  *
  * @example
- * <!-- breakpoint="none" only because this frame is narrower than 48rem: drop it and
- *      the column becomes a drawer on a phone, behind the header's toggle. -->
- * <div class="aparte-app-shell" style="height: 22rem">
- *   <aparte-sidebar breakpoint="none">
- *     <div class="aparte-sidebar__header">
- *       <span class="aparte-sidebar__brand">aparté</span>
- *       <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
- *         <aparte-icon name="edit"></aparte-icon>
- *       </button>
- *     </div>
- *     <div class="aparte-sidebar__search aparte-field-group">
- *       <input class="aparte-field aparte-field--sm" type="search" placeholder="Search conversations" data-aparte-sidebar-search>
- *     </div>
- *     <div class="aparte-sidebar__body">
- *       <aparte-conversation-list active-id="c1"></aparte-conversation-list>
- *     </div>
- *     <div class="aparte-sidebar__footer">
- *       <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
- *     </div>
- *   </aparte-sidebar>
- *   <header class="aparte-app-header">
- *     <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
- *     <span class="aparte-app-header__title">Deploy checklist</span>
- *     <div class="aparte-app-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
- *   </header>
- *   <main class="aparte-app-shell__main">
- *     <aparte-chat>
- *       <aparte-chat-viewport>
- *         <aparte-chat-bubble message-id="u1" data-role="user" content="Where does the sidebar's state live?"></aparte-chat-bubble>
- *         <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="On the element: `collapsed` is an attribute you can set, read and persist."></aparte-chat-bubble>
- *       </aparte-chat-viewport>
- *       <aparte-composer></aparte-composer>
- *     </aparte-chat>
- *   </main>
- * </div>
+ * <!-- The sidebar alone, as a column: its header, a search field that filters the list,
+ *      the list, a footer. The shell it sits in — header, chat — is the app-shell guide's.
+ *      breakpoint="none" keeps it a column at any width; without it, under 48rem of
+ *      window it becomes a drawer behind a [data-aparte-sidebar-toggle] control. -->
+ * <aparte-sidebar breakpoint="none" style="height: 22rem">
+ *   <div class="aparte-sidebar__header">
+ *     <span class="aparte-sidebar__brand">aparté</span>
+ *     <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New chat">
+ *       <aparte-icon name="edit"></aparte-icon>
+ *     </button>
+ *   </div>
+ *   <div class="aparte-sidebar__search aparte-field-group">
+ *     <input class="aparte-field aparte-field--sm" type="search" placeholder="Search conversations" data-aparte-sidebar-search>
+ *   </div>
+ *   <div class="aparte-sidebar__body">
+ *     <aparte-conversation-list active-id="c1"></aparte-conversation-list>
+ *   </div>
+ *   <div class="aparte-sidebar__footer">
+ *     <span class="aparte-avatar aparte-avatar--sm">P</span> Paul
+ *   </div>
+ * </aparte-sidebar>
  * <script>
  *   const day = 864e5;
  *   document.querySelector('aparte-conversation-list').conversations = [
  *     { id: 'c1', title: 'Deploy checklist', updatedAt: Date.now() },
  *     { id: 'c2', title: 'Rename the segment types', updatedAt: Date.now() - day },
  *     { id: 'c3', title: 'Tokens, not selectors', updatedAt: Date.now() - 4 * day },
+ *     { id: 'c4', title: 'The first release', updatedAt: Date.now() - 60 * day },
  *   ];
  * </script>
  */
