@@ -1,6 +1,7 @@
 {
   "name": "@aparte/plugin-model-selector",
   "version": "0.16.6",
+  "homepage": "https://apartejs.dev/plugins/model-selector/",
   "description": "Provider + model selector web component (<aparte-model-selector>) for aparté — grouped dropdown, BYOK.",
   "type": "module",
   "sideEffects": true,

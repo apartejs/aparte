@@ -1,6 +1,7 @@
 {
     "name": "@aparte/provider-scenario",
     "version": "0.16.6",
+    "homepage": "https://apartejs.dev/providers/ai/scenario/",
     "description": "A scripted model for aparté — replays turns you wrote (text at a typing pace, thinking, tool calls, errors) so demos, docs and your own tests stream real-looking conversations with no key and no network.",
     "type": "module",
     "sideEffects": false,

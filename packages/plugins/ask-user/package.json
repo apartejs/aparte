@@ -1,6 +1,7 @@
 {
     "name": "@aparte/plugin-ask-user",
     "version": "0.16.6",
+    "homepage": "https://apartejs.dev/plugins/ask-user/",
     "publishConfig": {
         "access": "public"
     },

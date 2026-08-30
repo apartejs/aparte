@@ -1,6 +1,7 @@
 {
     "name": "@aparte/plugin-compaction",
     "version": "0.16.6",
+    "homepage": "https://apartejs.dev/plugins/compaction/",
     "publishConfig": {
         "access": "public"
     },
