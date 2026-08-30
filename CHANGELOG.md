@@ -4,6 +4,78 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.16.1
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [4040ba9](https://github.com/apartejs/aparte/commit/4040ba9): The composer examples no longer put `style="flex: 1"` on `<aparte-composer-input>` — the stylesheet already gives it `flex: 1 1 auto`, and the inline value changed the basis to `0%`.
+
+  Nineteen examples carried it, across the element docblocks the reference pages are generated from, the guides and the demos. It worked everywhere it was written, which is what made it worth removing: copied into a row where the input's content should decide its width, `flex: 1 1 0%` collapses it instead. Reported by a consumer reading the getting-started guide.
+  <sub>`@aparte/core`</sub>
+
+- [6a786c3](https://github.com/apartejs/aparte/commit/6a786c3): A fenced code block written by the model now wraps instead of being silently cut off. Nothing to change on your side.
+
+  `@aparte/plugin-marked` renders ``` as a bare `<pre><code>`, and the stylesheet's only `pre` rule was scoped to `.aparte-code-content-wrapper` — a class only the `code` **segment** renderer emits, which marked cannot produce. So a markdown block matched no rule and kept the browser's `white-space: pre`: it never wrapped, laid itself out at its own intrinsic width, and the bubble's `overflow: hidden` amputated the tail. No scrollbar, no ellipsis — the code past the edge was simply gone.
+
+  Measured on one block: `scrollWidth` was a constant 963px at chat widths 1500, 800, 600, 512 and 380, against client widths of 776 / 724 / 524 / 460 / 328. It overflowed even at 1500. The same two declarations the code card already carries — `white-space: pre-wrap` and `overflow-wrap: anywhere` — now apply to prose as well, and the block ends on the column at every width.
+
+  Only the wrapping is shared, not the surface: the card's padding and background belong to the `code` segment, and giving a markdown block one is a look decision rather than this fix.
+  <sub>`@aparte/core`</sub>
+
+- [3b5ab3e](https://github.com/apartejs/aparte/commit/3b5ab3e): The composer no longer goes flush to the chat's edges on a container narrower than 800px — it takes the same left/right gutter as the transcript. Nothing to change on your side.
+
+  `.aparte-composer-shell` and `.aparte-message` both cap at `--aparte-message-max-width` (800px) and centre with `margin: 0 auto`, so on a wide container they lined up by construction. Below 800px the cap stops applying and each fills its own parent — and `<aparte-composer>` had no padding at all, so the composer went edge to edge while the messages kept their inset. Measured at a 512px chat: message column 26/26, composer 0/0. Every chat narrower than 800px was hit: phones, embedded widgets, either pane of `<aparte-split>`, and an app shell whose docked sidebar leaves the chat narrow on a wide window. `<aparte-composer>` now reads the transcript's own `--aparte-viewport-padding` on its inline axis.
+
+  Framework-managed viewports (React, Vue, Svelte, Angular) also stop overflowing their own chat. `<aparte-chat-viewport>` is `width: 100%`, the framework path adds padding to it, and core ships no global border-box reset — so the host was 32px wider than the chat and the chat clipped it, leaving the transcript about 16px toward the end edge. Measured on a 1500px chat: the host was 1532 wide. If your app has a global `* { box-sizing: border-box }` you never saw this; if it does not, your transcript moves back to centre.
+
+  Two things to know. Content you put directly inside `<aparte-composer>` without the `.aparte-composer-shell` wrapper now picks up the same 16px inset, the way the transcript's wrapper has always inset the messages. And the transcript reserves a scrollbar gutter that the composer cannot: on a platform with classic scrollbars the two columns still differ by that gutter (about 10px per side in Chromium) below 800px, where on a platform with overlay scrollbars — every phone — they now match exactly.
+  <sub>`@aparte/core`</sub>
+
+- [9f9f13d](https://github.com/apartejs/aparte/commit/9f9f13d): A tool call's state ("Done", "Running") now ends on the same edge as the reply text. It stopped `--aparte-space-3` short of it — six pixels, on the one line of a turn whose whole job is to read as a quiet aside beside the prose. Nothing to change on your side.
+
+  The row's horizontal padding is its hover surface, not its column, so a negative margin gives it back and puts the row's content on the message column. That margin was `margin-inline-start` alone: the chevron, the icon and the name landed on the column, the trailing state did not, and the hover surface bled to the left only. `margin-inline` gives both sides back.
+
+  Measured at a 512px chat: the text spans L26/R26 and the state's right edge sat at R32; it is at R26 now, at every width. Reported by a consumer looking at a bubble that mixed a tool call and a text segment in a narrow pane — the case where the two segments sit one above the other and the eye reads the column as crooked.
+  <sub>`@aparte/core`</sub>
+
+- [6484a3c](https://github.com/apartejs/aparte/commit/6484a3c): Scrolling up during a streaming reply now works on WebKit. A wheel notch moves Safari about 33px at a time, and the viewport's bottom threshold is 50px — so each notch read as "still at the bottom", the follow stayed armed, and the settle chain put the reader back one millisecond later. Twelve notches, same position. Nothing to change on your side.
+
+  The threshold's generosity is right and stays: a few pixels of layout drift must not read as "the reader walked away". What was missing is that it outranked the reader. `_readerInputAt` — the wheel, touchmove, a navigation key, a press in the scrollbar gutter — already tells a gesture from drift, and the settle logic already trusted it; the arming side did not consult it. It does now, so a decrease with a hand on it disarms whatever its size, while the same 33px with no gesture behind it is still drift and still keeps the follow.
+
+  Measured from CI's own timestamped scroll log: wheel at 135ms, the reader at 565, `scrollTop = 598` written back at 155ms, repeat.
+  <sub>`@aparte/core`</sub>
+
+- [1ed1d25](https://github.com/apartejs/aparte/commit/1ed1d25): `@aparte/provider-transformers` runs when it is served from another origin than the page — a CDN, or any deploy whose assets have their own host.
+
+  Two walls stood between this provider and such a page, and each one hid the next.
+
+  **The worker could not be constructed.** `new Worker()` refuses a cross-origin script outright, so the provider threw `SecurityError: Script at '…/assets/worker-*.js' cannot be accessed from origin '…'` at the first `prepareModel()`. It is not a CDN-only case: any app whose JavaScript is served from an asset host hits it, bundler or not. The worker is now started through a same-origin `blob:` whose whole body is one absolute import of the real file — a blob inherits the origin of the document that mints it, which is what makes it legal, and it is the same shim ffmpeg.wasm and tesseract.js use. Same-origin keeps the direct construction: no blob, nothing to revoke, and a stack trace that names the real file. The blob is released when the worker is terminated.
+
+  **The worker could not resolve Transformers.js.** Its first line imported `@huggingface/transformers` by bare specifier, and an import map is the _document's_: by spec it does not reach a worker, so a page could map the specifier for itself and the worker still could not use it. The worker now resolves the module when it first needs it — `import('@huggingface/transformers')` first, which is statically visible so a bundler resolves and bundles the peer exactly as before, and failing that the absolute URL the main thread read out of the page's own import map (through `import.meta.resolve`, falling back to reading the map) and sent in the worker's first message.
+
+  Nothing new is exported, and nothing changes for an app with a bundler. For a page without one, the import map it already needs to import `@aparte/core` by name is now also what tells the worker where Transformers.js lives — the version pin stays with you, which is what the peer dependency was for.
+
+  One case remains impossible: a page whose Content-Security-Policy forbids `blob:` in `worker-src`/`script-src` cannot start a cross-origin worker at all, and the provider now says so by name instead of letting the browser's own message stand. Serve the package from your own origin there.
+  <sub>`@aparte/provider-transformers`</sub>
+
+- [2763490](https://github.com/apartejs/aparte/commit/2763490): The summarisation instruction now travels in the ask itself instead of a `system` message, so a provider that imposes its own system prompt can no longer drop it.
+
+  A provider serving a local model under a fixed training contract replaces the request's `system` message with its own — legitimately. When it did, the instruction never reached the model, nothing errored, and the model answered a bare "Please summarize this conversation." after somebody else's persona. Measured by a consumer on three transcripts: one reply refused for want of internet access, one said "noted, I'll do it", and one invented figures for a client that appears nowhere in the transcript — which the plugin then wrote back as the summary notice, making the invention the premise of every turn that followed.
+
+  The instruction is not a persona: it is the task of that one request, and it now sits where every provider must look. Nothing changes for a provider that honoured the system message, `prompt` and `DEFAULT_COMPACTION_PROMPT` are unchanged, and `summarize` still bypasses the transport entirely.
+  <sub>`@aparte/plugin-compaction`</sub>
+
+- [77fd6fa](https://github.com/apartejs/aparte/commit/77fd6fa): The default summarisation prompt now forbids continuing the conversation. `DEFAULT_COMPACTION_PROMPT` gains one sentence — _"Do not continue the conversation, do not answer a question it contains and do not call a tool: reply with the summary and nothing else."_ Nothing to change unless you pass a `prompt` of your own, in which case add a clause like it.
+
+  Why it matters now: the instruction rides the final `user` turn, which is also where a reply to the conversation would go. A model handed a transcript that ends in a question has two plausible things to do — summarise it, or answer it — and the answer is what gets written back as the summary notice, becoming the premise of every following turn.
+
+  The clause is not invented here. Of sixteen implementations surveyed, every one that puts its instruction in the user turn carries such a clause, and one inserts a fake assistant turn on top of it. Ours ended at "No preamble."
+  <sub>`@aparte/plugin-compaction`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.16.0
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

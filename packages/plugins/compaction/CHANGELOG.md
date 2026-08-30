@@ -1,5 +1,21 @@
 # @aparte/plugin-compaction
 
+## 0.16.1
+
+### Patch Changes
+
+- 2763490: The summarisation instruction now travels in the ask itself instead of a `system` message, so a provider that imposes its own system prompt can no longer drop it.
+
+  A provider serving a local model under a fixed training contract replaces the request's `system` message with its own — legitimately. When it did, the instruction never reached the model, nothing errored, and the model answered a bare "Please summarize this conversation." after somebody else's persona. Measured by a consumer on three transcripts: one reply refused for want of internet access, one said "noted, I'll do it", and one invented figures for a client that appears nowhere in the transcript — which the plugin then wrote back as the summary notice, making the invention the premise of every turn that followed.
+
+  The instruction is not a persona: it is the task of that one request, and it now sits where every provider must look. Nothing changes for a provider that honoured the system message, `prompt` and `DEFAULT_COMPACTION_PROMPT` are unchanged, and `summarize` still bypasses the transport entirely.
+
+- 77fd6fa: The default summarisation prompt now forbids continuing the conversation. `DEFAULT_COMPACTION_PROMPT` gains one sentence — _"Do not continue the conversation, do not answer a question it contains and do not call a tool: reply with the summary and nothing else."_ Nothing to change unless you pass a `prompt` of your own, in which case add a clause like it.
+
+  Why it matters now: the instruction rides the final `user` turn, which is also where a reply to the conversation would go. A model handed a transcript that ends in a question has two plausible things to do — summarise it, or answer it — and the answer is what gets written back as the summary notice, becoming the premise of every following turn.
+
+  The clause is not invented here. Of sixteen implementations surveyed, every one that puts its instruction in the user turn carries such a clause, and one inserts a fake assistant turn on top of it. Ours ended at "No preamble."
+
 ## 0.16.0
 
 ### Minor Changes
