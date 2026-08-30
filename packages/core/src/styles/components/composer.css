@@ -386,11 +386,18 @@ aparte-composer-input .aparte-ci-editor {
   caret-color: var(--aparte-text);
 }
 
-/* Placeholder via CSS */
+/* Placeholder via CSS. It never wraps: a `::before` counts in `scrollHeight`, and the
+   auto-grow measured it once in a box that had no width yet — "Type a message…" folded
+   over a dozen lines and the editor came up ~300 px tall while empty (#55). A
+   placeholder longer than the box is clipped, which is what every native input does. */
 aparte-composer-input .aparte-ci-editor:empty::before {
   content: attr(data-placeholder);
   color: var(--aparte-input-placeholder);
   pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 aparte-composer-input .aparte-ci-editor[aria-disabled="true"] {

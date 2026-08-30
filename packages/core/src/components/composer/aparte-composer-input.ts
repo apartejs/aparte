@@ -79,6 +79,14 @@ export class AparteComposerInput extends HTMLElement {
     private _editor: HTMLDivElement | null = null;
     private _maxHeight = 200;
     private _minHeight = 44;
+    /**
+     * Re-measures the editor when its WIDTH changes (#55). The three fixed instants
+     * (connect, next frame, fonts.ready) all miss the same case: a box not yet laid
+     * out — the placeholder wraps in a 0 px column, `scrollHeight` reads ~300 px, and
+     * that became the inline height until the first keystroke. Width is the variable
+     * none of them watched.
+     */
+    private _resizeObserver: ResizeObserver | null = null;
     private _unsubscribes: (() => void)[] = [];
 
     // Bound handlers
@@ -108,6 +116,10 @@ export class AparteComposerInput extends HTMLElement {
         this._editor?.addEventListener('paste', this._onPaste);
         this._connectToRoot();
         this._scheduleInitialReflow();
+        if (this._editor && typeof ResizeObserver === "function") {
+            this._resizeObserver = new ResizeObserver(() => this._adjustHeight());
+            this._resizeObserver.observe(this._editor);
+        }
         // The placeholder is the one string in this composer a sighted user can
         // actually read, and it was frozen at the language of the first render.
         // `_updatePlaceholder` already exists for the attribute path — a locale
@@ -121,6 +133,8 @@ export class AparteComposerInput extends HTMLElement {
         this._editor?.removeEventListener('focus', this._onFocus);
         this._editor?.removeEventListener('blur', this._onBlur);
         this._editor?.removeEventListener('paste', this._onPaste);
+        this._resizeObserver?.disconnect();
+        this._resizeObserver = null;
         this._unsubscribes.forEach(fn => fn());
         this._unsubscribes = [];
     }
