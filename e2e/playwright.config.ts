@@ -142,6 +142,9 @@ const TOOLBAR = /composer-toolbar\.spec\.ts/;
 // modes matter: vanilla is core mode (absolute button), react is framework-managed
 // (sticky inside the scrolling host) - where it floated `padding + spacer` too high.
 const SCROLL_BTN = /scroll-button\.spec\.ts/;
+// overlay-composer geometry: the full-column scroll surface, the floating stack's
+// clearance, and the pinned reader surviving a composer that grows.
+const OVERLAY = /overlay\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
 // The waiting-state contract (was `fixme` until the built-in indicator landed).
 const PENDING = /pending-state\.spec\.ts/;
@@ -209,7 +212,7 @@ const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :

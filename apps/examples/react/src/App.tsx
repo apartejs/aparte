@@ -9,6 +9,9 @@ const CHIPS = [
 
 export default function App() {
     const chat = useAparteChat();
+    // `?view=overlay` — the overlay-composer anatomy, driven through the wrapper
+    // prop. Read once: the mode is wired when the viewport mounts.
+    const overlay = new URLSearchParams(window.location.search).get('view') === 'overlay';
 
     return (
         <div className="app">
@@ -23,7 +26,8 @@ export default function App() {
                 ref={chat.ref}
                 messages={chat.messages}
                 onMessagesChange={chat.setMessages}
-                centerWhenEmpty
+                centerWhenEmpty={!overlay}
+                overlayComposer={overlay}
                 attachments
                 placeholder="Ask anything…"
                 emptyState={

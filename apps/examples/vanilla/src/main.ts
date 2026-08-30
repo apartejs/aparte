@@ -291,6 +291,23 @@ function buildShell(app: HTMLElement, split: HTMLElement): void {
 }
 
 const layoutParam = new URLSearchParams(location.search).get('layout');
+//   ?layout=page — the overlay-composer anatomy: the transcript's scroll surface
+//                  spans the whole column and the composer floats over it, so the
+//                  scrollbar runs edge to edge. One attribute is the whole variant —
+//                  which is the point. The element is moved in place because core is
+//                  imported statically above: the viewport wired its observers when
+//                  the parser upgraded it, BEFORE this block ran, and the mode is
+//                  read at that moment — a disconnect/reconnect re-runs the wiring.
+if (layoutParam === 'page') {
+    const chatEl = document.querySelector<HTMLElement>('aparte-chat');
+    if (chatEl) {
+        chatEl.setAttribute('overlay-composer', '');
+        const parent = chatEl.parentElement;
+        const anchor = chatEl.nextSibling;
+        chatEl.remove();
+        parent?.insertBefore(chatEl, anchor);
+    }
+}
 if (layoutParam === 'split' || layoutParam === 'shell') {
     const app = document.querySelector<HTMLElement>('.app:not(.settings)');
     const chatEl = document.querySelector<HTMLElement>('aparte-chat');
