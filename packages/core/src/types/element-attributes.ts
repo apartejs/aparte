@@ -16,11 +16,17 @@ export type * from '../generated/element-attributes.js';
  * One attribute as a TEMPLATE must write it.
  *
  * A presence attribute becomes `'' | undefined`, never `boolean`, and that is not
- * pedantry — it is the same trap in all three template languages. React, Vue and Svelte
- * all stringify what they set on a custom element, so `disabled={false}` renders
+ * pedantry — it is the same trap in all three template languages. React and Vue
+ * stringify what they set on a custom element, so `disabled={false}` renders
  * `disabled="false"`, and an element that tests `hasAttribute` reads that as ON. The
  * wrapper's own bubble rendering already used the right spelling
  * (`streaming={… ? '' : undefined}`); this makes it the only one that type-checks.
+ *
+ * Svelte 5 is the caveat that shaped the SETTERS (#62): it assigns the PROPERTY
+ * whenever the element has a setter for it (`set_custom_element_data` checks
+ * `get_setters(node)`), so an accessor-backed presence attribute receives the `''`
+ * this union promises as a property value. Every presence setter therefore treats
+ * `''` as ON (`presenceOn` in utils/presence.ts) — one spelling, both paths.
  *
  * `null` is in the union alongside `undefined` because all three treat it as REMOVE,
  * and Vue's own wrapper template writes exactly that (`:streaming="… ? '' : null"`).

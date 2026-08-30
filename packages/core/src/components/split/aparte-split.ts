@@ -1,5 +1,6 @@
 import { resolveConfig } from '../../config/index.js';
 import { nextPosition, keyDelta } from './geometry.js';
+import { presenceOn } from '../../utils/presence.js';
 
 /** Detail of `aparte-split-resize`: the position that settled, and what settled it. */
 export interface AparteSplitResizeDetail {
@@ -216,7 +217,7 @@ export class AparteSplit extends HTMLElement {
     }
 
     set collapsed(value: boolean) {
-        this.toggleAttribute('collapsed', value);
+        this.toggleAttribute('collapsed', presenceOn(value));
     }
 
     /** Which pane is shown while the split is stacked. */
@@ -234,7 +235,7 @@ export class AparteSplit extends HTMLElement {
     }
 
     set disabled(value: boolean) {
-        this.toggleAttribute('disabled', value);
+        this.toggleAttribute('disabled', presenceOn(value));
     }
 
     /**
@@ -262,7 +263,7 @@ export class AparteSplit extends HTMLElement {
     }
 
     set single(value: boolean) {
-        this.toggleAttribute('single', value);
+        this.toggleAttribute('single', presenceOn(value));
     }
 
     // ─── Public API ───────────────────────────────────────────────────────

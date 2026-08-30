@@ -1,4 +1,5 @@
 import { resolveConfig } from '../../config/index.js';
+import { presenceOn } from '../../utils/presence.js';
 
 /** Detail of `aparte-sidebar-toggle`: the state just entered. */
 export interface AparteSidebarToggleDetail {
@@ -141,7 +142,7 @@ export class AparteSidebar extends HTMLElement {
     }
 
     set collapsed(value: boolean) {
-        this.toggleAttribute('collapsed', value);
+        this.toggleAttribute('collapsed', presenceOn(value));
     }
 
     /** True while the window is under the breakpoint and the sidebar is a drawer. */
