@@ -1,5 +1,42 @@
 # @aparte/core
 
+## 0.16.1
+
+### Patch Changes
+
+- 4040ba9: The composer examples no longer put `style="flex: 1"` on `<aparte-composer-input>` — the stylesheet already gives it `flex: 1 1 auto`, and the inline value changed the basis to `0%`.
+
+  Nineteen examples carried it, across the element docblocks the reference pages are generated from, the guides and the demos. It worked everywhere it was written, which is what made it worth removing: copied into a row where the input's content should decide its width, `flex: 1 1 0%` collapses it instead. Reported by a consumer reading the getting-started guide.
+
+- 6a786c3: A fenced code block written by the model now wraps instead of being silently cut off. Nothing to change on your side.
+
+  `@aparte/plugin-marked` renders ``` as a bare `<pre><code>`, and the stylesheet's only `pre` rule was scoped to `.aparte-code-content-wrapper` — a class only the `code` **segment** renderer emits, which marked cannot produce. So a markdown block matched no rule and kept the browser's `white-space: pre`: it never wrapped, laid itself out at its own intrinsic width, and the bubble's `overflow: hidden` amputated the tail. No scrollbar, no ellipsis — the code past the edge was simply gone.
+
+  Measured on one block: `scrollWidth` was a constant 963px at chat widths 1500, 800, 600, 512 and 380, against client widths of 776 / 724 / 524 / 460 / 328. It overflowed even at 1500. The same two declarations the code card already carries — `white-space: pre-wrap` and `overflow-wrap: anywhere` — now apply to prose as well, and the block ends on the column at every width.
+
+  Only the wrapping is shared, not the surface: the card's padding and background belong to the `code` segment, and giving a markdown block one is a look decision rather than this fix.
+
+- 3b5ab3e: The composer no longer goes flush to the chat's edges on a container narrower than 800px — it takes the same left/right gutter as the transcript. Nothing to change on your side.
+
+  `.aparte-composer-shell` and `.aparte-message` both cap at `--aparte-message-max-width` (800px) and centre with `margin: 0 auto`, so on a wide container they lined up by construction. Below 800px the cap stops applying and each fills its own parent — and `<aparte-composer>` had no padding at all, so the composer went edge to edge while the messages kept their inset. Measured at a 512px chat: message column 26/26, composer 0/0. Every chat narrower than 800px was hit: phones, embedded widgets, either pane of `<aparte-split>`, and an app shell whose docked sidebar leaves the chat narrow on a wide window. `<aparte-composer>` now reads the transcript's own `--aparte-viewport-padding` on its inline axis.
+
+  Framework-managed viewports (React, Vue, Svelte, Angular) also stop overflowing their own chat. `<aparte-chat-viewport>` is `width: 100%`, the framework path adds padding to it, and core ships no global border-box reset — so the host was 32px wider than the chat and the chat clipped it, leaving the transcript about 16px toward the end edge. Measured on a 1500px chat: the host was 1532 wide. If your app has a global `* { box-sizing: border-box }` you never saw this; if it does not, your transcript moves back to centre.
+
+  Two things to know. Content you put directly inside `<aparte-composer>` without the `.aparte-composer-shell` wrapper now picks up the same 16px inset, the way the transcript's wrapper has always inset the messages. And the transcript reserves a scrollbar gutter that the composer cannot: on a platform with classic scrollbars the two columns still differ by that gutter (about 10px per side in Chromium) below 800px, where on a platform with overlay scrollbars — every phone — they now match exactly.
+
+- 9f9f13d: A tool call's state ("Done", "Running") now ends on the same edge as the reply text. It stopped `--aparte-space-3` short of it — six pixels, on the one line of a turn whose whole job is to read as a quiet aside beside the prose. Nothing to change on your side.
+
+  The row's horizontal padding is its hover surface, not its column, so a negative margin gives it back and puts the row's content on the message column. That margin was `margin-inline-start` alone: the chevron, the icon and the name landed on the column, the trailing state did not, and the hover surface bled to the left only. `margin-inline` gives both sides back.
+
+  Measured at a 512px chat: the text spans L26/R26 and the state's right edge sat at R32; it is at R26 now, at every width. Reported by a consumer looking at a bubble that mixed a tool call and a text segment in a narrow pane — the case where the two segments sit one above the other and the eye reads the column as crooked.
+
+- 6484a3c: Scrolling up during a streaming reply now works on WebKit. A wheel notch moves Safari about 33px at a time, and the viewport's bottom threshold is 50px — so each notch read as "still at the bottom", the follow stayed armed, and the settle chain put the reader back one millisecond later. Twelve notches, same position. Nothing to change on your side.
+
+  The threshold's generosity is right and stays: a few pixels of layout drift must not read as "the reader walked away". What was missing is that it outranked the reader. `_readerInputAt` — the wheel, touchmove, a navigation key, a press in the scrollbar gutter — already tells a gesture from drift, and the settle logic already trusted it; the arming side did not consult it. It does now, so a decrease with a hand on it disarms whatever its size, while the same 33px with no gesture behind it is still drift and still keeps the follow.
+
+  Measured from CI's own timestamped scroll log: wheel at 135ms, the reader at 565, `scrollTop = 598` written back at 155ms, repeat.
+  - @aparte/engine@0.16.1
+
 ## 0.16.0
 
 ### Minor Changes
