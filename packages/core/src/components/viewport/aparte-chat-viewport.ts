@@ -160,6 +160,22 @@ export class AparteChatViewport extends HTMLElement {
     /** How long after a scroll of ours we keep re-anchoring while the layout churns.
      *  Not `readonly`: a test shortens it to run past the window's end in a few frames. */
     private _settleWindowMs = 400;
+    /**
+     * Until when a smooth scroll of ours is in flight (#57). A user send glides to the
+     * bottom with `scrollTo({ behavior: 'smooth' })`; the assistant placeholder and the
+     * first tokens used to land INSIDE that glide through the streaming path — an instant
+     * `scrollTop = scrollHeight` plus the settle chain — and an instant write cancels a
+     * running smooth scroll in every engine. Measured before the fix: five instant writes
+     * in the send's own frame (the spacer recalculation scrolls synchronously, the
+     * mutation observer queues another), so there never was a glide to cut — the view
+     * teleported. While this deadline is ahead, every bottom-pin RE-TARGETS the glide
+     * (a second smooth `scrollTo` is continuous) instead of writing `scrollTop`; the
+     * browser's `scrollend` closes it early where supported. Streaming is instant again
+     * after that, as it must be to keep up with token bursts.
+     */
+    private _glideUntil = 0;
+    /** The glide's budget when `scrollend` is not there to close it: Chromium's smooth scroll over a viewport takes ~300–500 ms. */
+    private _glideWindowMs = 450;
     /** Deadline of the settle in flight (0 = none). Pushed forward, never stacked. */
     private _settleUntil = 0;
     private _settleRafId: number | null = null;
@@ -198,6 +214,7 @@ export class AparteChatViewport extends HTMLElement {
     constructor() {
         super();
         this._handleScroll = this._handleScroll.bind(this);
+        this._handleScrollEnd = this._handleScrollEnd.bind(this);
     }
 
     connectedCallback(): void {
@@ -771,12 +788,18 @@ export class AparteChatViewport extends HTMLElement {
         }
         this._pruneRenderedBubbles();
         this._syncBusy();
-        this._recalculateSpacer();
-        // User sending always anchors to bottom regardless of scroll position.
+        // User sending always anchors to bottom regardless of scroll position — and it
+        // GLIDES there. The glide begins before the spacer recalculation below, because
+        // that recalculation pins the bottom synchronously: started after it, the smooth
+        // scroll found the view already teleported (#57). Streaming auto-scroll stays
+        // instant (via _autoScroll) so it can keep up with rapid token bursts — once the
+        // glide has ended; inside it, every pin re-targets the glide.
         if (message.role === 'user') {
             this._isAutoScrollEnabled = true;
-            // Smooth scroll for user-initiated sends. Streaming auto-scroll stays
-            // instant (via _autoScroll) so it can keep up with rapid token bursts.
+            this._smoothScrollToBottom();
+        }
+        this._recalculateSpacer();
+        if (message.role === 'user') {
             requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._smoothScrollToBottom(); });
         } else {
             this._autoScroll();
@@ -1451,6 +1474,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _setupEventListeners(): void {
         this._container?.addEventListener('scroll', this._handleScroll, { passive: true });
+        this._container?.addEventListener('scrollend', this._handleScrollEnd, { passive: true });
         // The reader's hand on the transcript, so `_handleScroll` can tell their scroll
         // from one the browser made while settling ours.
         // `touchmove`, not `touchstart`: a tap on a control fires touchstart too, and
@@ -1728,9 +1752,26 @@ export class AparteChatViewport extends HTMLElement {
 
     private _scrollToBottom(): void {
         if (!this._container) return;
+        if (this._gliding()) { this._retargetGlide(); return; }
         this._ownScrollAt = performance.now();
         this._container.scrollTop = this._container.scrollHeight;
         this._settleAtBottom();
+    }
+
+    private _gliding(): boolean {
+        return performance.now() < this._glideUntil;
+    }
+
+    /** A second smooth `scrollTo` is continuous where an instant write is a cut. */
+    private _retargetGlide(): void {
+        if (!this._container) return;
+        this._ownScrollAt = performance.now();
+        this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
+    }
+
+    /** The browser says the scroll came to rest: the glide, if any, is over. */
+    private _handleScrollEnd(): void {
+        this._glideUntil = 0;
     }
 
     /**
@@ -1781,7 +1822,8 @@ export class AparteChatViewport extends HTMLElement {
             if (!this.isConnected || !this._container || !this._isAutoScrollEnabled) { this._settleUntil = 0; return; }
             const max = this._container.scrollHeight - this._container.clientHeight;
             // A closed gap is NOT the end: the churn re-opens it (891 -> 1091 -> 891).
-            if (max - this._container.scrollTop > 1) {
+            // And an open gap during a glide is the glide itself, not a shortfall.
+            if (max - this._container.scrollTop > 1 && !this._gliding()) {
                 this._ownScrollAt = performance.now();
                 this._container.scrollTop = max;
             }
@@ -1799,6 +1841,7 @@ export class AparteChatViewport extends HTMLElement {
         // prefers-reduced-motion block cannot reach a JS-driven smooth scroll.
         this._ownScrollAt = performance.now();
         if (typeof this._container.scrollTo === 'function' && !this._prefersReducedMotion()) {
+            this._glideUntil = performance.now() + this._glideWindowMs;
             this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
         } else {
             this._container.scrollTop = this._container.scrollHeight;
@@ -1976,6 +2019,7 @@ export class AparteChatViewport extends HTMLElement {
 
     private _cleanup(): void {
         this._container?.removeEventListener('scroll', this._handleScroll);
+        this._container?.removeEventListener('scrollend', this._handleScrollEnd);
         for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
             this._container?.removeEventListener(type, this._noteReaderInput);
         }
