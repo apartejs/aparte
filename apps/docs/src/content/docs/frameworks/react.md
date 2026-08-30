@@ -1,5 +1,5 @@
 ---
-title: React AI chat component
+title: 'React AI chat component, with hooks — @aparte/react'
 description: The @aparte/react wrapper — an ergonomic <AparteChat> component plus hooks over the aparté web components.
 sidebar:
   order: 2

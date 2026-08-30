@@ -443,7 +443,7 @@ for (const { file, page } of kitPages) if (writeIfChanged(file, page)) kitWrote 
  */
 {
     let md = `---
-title: 'UI Kit for an AI Chat App'
+title: ${yaml(`UI Kit for an AI Chat App — plain CSS classes, ${kitPages.length} families`)}
 description: ${yaml(`${kitPages.length} families of plain CSS classes for the chrome around a chat — buttons, fields, tabs, dialogs, avatars, the sidebar — themed by the same variables as the chat itself.`)}
 sidebar:
   order: 0
