@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-compaction",
-    "version": "0.16.1",
+    "version": "0.16.2",
     "publishConfig": {
         "access": "public"
     },
@@ -35,7 +35,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.16.1 <1.0.0"
+        "@aparte/core": ">=0.16.2 <1.0.0"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",
