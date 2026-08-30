@@ -248,7 +248,10 @@ aparte-chat-viewport[framework-managed] {
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: var(--aparte-message-gap);
+  /* No flex gap — each bubble carries the distance to the next as its own padding,
+     inside its contained box, where an older message's action bar floats (#56;
+     the rationale is on `.aparte-messages-wrapper` in bubble.css). */
+  gap: 0;
   padding: var(--aparte-viewport-padding);
   /* No bottom padding: a sticky child is clamped to its parent's CONTENT box, so
      clearance carried as padding held the scroll button `padding + spacer` above
@@ -282,11 +285,10 @@ aparte-chat-viewport.aparte-viewport--framework::after,
 aparte-chat-viewport[framework-managed]::after {
   content: '';
   flex: 0 0 calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px) + var(--aparte-bottom-inset, 0px));
-  /* A flex item pays the column's `gap`; the padding this replaced did not. Without
-     the cancel, an EMPTY transcript was 8px taller than its box and grew a scrollbar
-     beside the welcome state — with children the spacer recalc absorbed it, which is
-     why the geometry specs stayed green while the smoke case regressed. */
-  margin-block-start: calc(var(--aparte-message-gap) * -1);
+  /* The column has no `gap` any more (each bubble carries its own), so this item pays
+     none — the negative margin that used to cancel it would now eat the last bubble's
+     padding. (History: with a gap, an EMPTY transcript was 8px taller than its box and
+     grew a scrollbar beside the welcome state.) */
 }
 
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {

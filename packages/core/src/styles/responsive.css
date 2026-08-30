@@ -77,7 +77,8 @@
    without container-query support keep the wide defaults. */
 @container (max-width: 520px) {
   .aparte-message {
-    --aparte-message-padding: var(--aparte-space-6) var(--aparte-space-4);
+    --aparte-message-padding-block: var(--aparte-space-6);
+    --aparte-message-padding-inline: var(--aparte-space-4);
     --aparte-message-gap: var(--aparte-space-4);
   }
 
