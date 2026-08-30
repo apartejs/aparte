@@ -1,5 +1,5 @@
 ---
-title: Angular AI chat component
+title: 'Angular AI chat component, standalone — @aparte/angular'
 description: The @aparte/angular wrapper — an ergonomic <aparte-chat> standalone component plus services over the aparté web components.
 sidebar:
   order: 5
