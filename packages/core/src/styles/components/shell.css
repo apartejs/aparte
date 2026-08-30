@@ -138,6 +138,12 @@ aparte-chat-viewport {
 }
 
 .aparte-viewport-container {
+  /* Core ships no global border-box reset, so this box says it itself: the overlay
+     clearance below is padding, and without this the padding was ADDED to the 100%
+     height - the surface overran its host by the whole inset, clipped, with that much
+     scrollbar and content cut off. Every example app carries a `* { box-sizing }` reset,
+     which is exactly why it survived there and showed on the docs' bare frame. */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   height: 100%;
