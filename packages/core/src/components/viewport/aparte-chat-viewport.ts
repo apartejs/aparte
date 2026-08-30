@@ -1460,6 +1460,18 @@ export class AparteChatViewport extends HTMLElement {
             if (!inGutter) return;
         }
         this._readerInputAt = performance.now();
+        // The reader's hand ends a glide. A physical wheel cancels a programmatic smooth
+        // scroll on its own; a synthetic one (CI's `page.mouse.wheel`, some assistive
+        // input) does not, and the animation ran on to the bottom over the gesture —
+        // `streaming-progressive` on CI: "the scroll-up gesture did not take, top is
+        // still 477px". Writing the CURRENT position is how a running smooth scroll is
+        // stopped where it is, in every engine; the reader's own scroll then lands on it.
+        if (this._gliding() && this._container) {
+            this._glideUntil = 0;
+            this._ownScrollAt = performance.now();
+            const here = this._container.scrollTop;
+            this._container.scrollTop = here;
+        }
     };
 
     private readonly _onBranchNavigate = (e: Event): void => {

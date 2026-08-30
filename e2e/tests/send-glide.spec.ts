@@ -114,17 +114,19 @@ test('the send glides: no instant write cuts it, and the ascent is spread over f
     expect(cut, `instant writes inside the glide (glide at ${Math.round(glideStart)}ms, arrived at ${Math.round(arrivedAt)}ms, target ${target}): ${JSON.stringify(cut)}`)
         .toEqual([]);
 
-    // ── 2. The curve, where the engine animates ───────────────────────────
+    // ── 2. The curve — recorded, not judged ───────────────────────────────
+    // It was an assertion ("the biggest step under 60 % of the ascent") and CI refuted it
+    // with the fix in place: on a 2-vCPU runner the smooth scroll drops frames, and one
+    // step carried 65–87 % of the ascent on WebKit and React while every write was smooth.
+    // The writes are the engine- and machine-independent proof; the curve is context for
+    // a failure message.
     const during = curve.filter((p) => p.t >= glideStart - 20);
     const steps = during.slice(1).map((p, i) => p.top - during[i]!.top).filter((d) => d > 0);
     const ascent = steps.reduce((a, b) => a + b, 0);
-    if (steps.length >= 3) {
-        const biggest = Math.max(...steps);
-        expect(biggest / ascent, `the biggest single-frame step is ${Math.round(biggest)}px of a ${Math.round(ascent)}px ascent — a teleport, not a glide`)
-            .toBeLessThan(0.6);
-    } else {
-        test.info().annotations.push({ type: 'note', description: `engine landed the glide in ${steps.length} step(s) — the curve cannot judge here; the writes did` });
-    }
+    test.info().annotations.push({
+        type: 'curve',
+        description: `${steps.length} ascending frame(s), ${Math.round(ascent)}px ascent, biggest step ${Math.round(Math.max(0, ...steps))}px`,
+    });
 
     // And it arrives.
     const last = curve.at(-1)!;

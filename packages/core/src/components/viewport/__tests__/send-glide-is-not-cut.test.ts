@@ -128,6 +128,21 @@ describe('#57 — one owner of the scroll during the send glide', () => {
         expect(vp._glideUntil, 'arrived: scrollend closes the window').toBe(0);
     });
 
+    it('the reader\'s hand ends the glide: a wheel mid-glide closes the window and stops the animation where it is', async () => {
+        // CI (vanilla-chromium): `streaming-progressive` wheeled up during the glide and the
+        // browser's smooth animation ran on to the bottom over the gesture — "top is still
+        // 477px". A synthetic wheel does not cancel a programmatic smooth scroll the way a
+        // physical one does, so the component cancels it: a write of the current position
+        // stops the animation, and the window closes.
+        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
+        await frame();
+        expect(vp._glideUntil).toBeGreaterThan(0);
+        recording = false; box.scrollTop = 1000; recording = true;   // mid-animation
+        box.dispatchEvent(new WheelEvent('wheel', { deltaY: -120, bubbles: true }));
+        expect(vp._glideUntil, 'the window closes on reader input').toBe(0);
+        expect(instantWrites, 'the animation is stopped where it is — a write of the current position').toEqual([1000]);
+    });
+
     it('once the glide has ended, streaming is instant again', async () => {
         vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
         await frame();
