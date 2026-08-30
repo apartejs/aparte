@@ -280,8 +280,10 @@ const FAMILIES = [
       <section class="hero">
        <div class="hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">AI chat in Web Components &mdash; <b>with the agent loop inside</b></p>
-          <h1 class="thesis serif">Chat, spoken <em>aside.</em></h1>
+          <!-- The H1 carries the category words a search weighs; the signature line
+               keeps the display type. The TAGS swapped, the visual roles did not. -->
+          <h1 class="eyebrow">AI chat Web Components, framework-agnostic &mdash; <b>with the agent loop inside</b></h1>
+          <p class="thesis serif">Chat, spoken <em>aside.</em></p>
           <p class="lede">
             Not a bubble kit. One element gives you the whole turn: <b>{SEGMENT_KINDS.length} kinds of content</b>,
             <b>human-in-the-loop tools</b>, branch-and-retry on any
@@ -320,10 +322,10 @@ message.segments = [
        </div>
 
         <div class="facts">
-          <span><span class="k">i.</span><b>Zero</b> runtime dependencies</span>
+          <span><span class="k">i.</span><b>Zero</b> third-party dependencies</span>
           <span><span class="k">ii.</span><b>{SEGMENT_KINDS.length}</b> kinds of content in one turn</span>
           <span><span class="k">iii.</span><b>{CSS_VARS}</b> CSS variables, no shadow DOM</span>
-          <span><span class="k">iv.</span>Your key, your server &#8212; <b>or no server at all</b></span>
+          <span><span class="k">iv.</span>Your key (BYOK), your server &#8212; <b>or no server at all</b></span>
         </div>
       </section>
 

@@ -17,12 +17,13 @@ import { SEGMENT_KINDS } from './segment-kinds';
 /** Derived, never typed out: the hero said "ten" over a list of eight. */
 const KIND_COUNT = SEGMENT_KINDS.length;
 
-export const LANDING_TITLE = 'aparté — AI chat in Web Components, with the agent loop inside';
+export const LANDING_TITLE = 'aparté — AI Chat Web Components, Framework-Agnostic';
 
 export const LANDING_DESCRIPTION =
-    'AI chat in Web Components with the agent loop inside: human-in-the-loop tools, '
-    + `branch-and-retry, ${KIND_COUNT} kinds of content in one turn. `
-    + 'Zero third-party dependencies.';
+    'Open-source, framework-agnostic AI chat Web Components for React, Vue, Svelte and '
+    + 'Angular — a chat UI library with the agent loop built in: human-in-the-loop tool '
+    + `approval, edit-and-branch replies, ${KIND_COUNT} kinds of content in one turn. `
+    + 'Zero third-party dependencies. How it compares: apartejs.dev/compare.';
 
 /**
  * What the social card's 1200x630 image actually shows, for `og:image:alt`.
@@ -34,9 +35,10 @@ export const LANDING_DESCRIPTION =
  * beside the strings it describes.
  */
 export const LANDING_IMAGE_ALT =
-    'A dark card with a brass edge and the aparté mascot, headed “AI chat in Web '
-    + 'Components”, over the line “With the agent loop inside: human-in-the-loop tools, '
-    + `branch-and-retry, ${KIND_COUNT} kinds of content in one turn.”`;
+    'A dark card with a brass edge and the aparté mascot, headed “AI chat Web '
+    + 'Components”, over the line “Framework-agnostic, with the agent loop built in: '
+    + 'human-in-the-loop tool approval, edit-and-branch replies, '
+    + `${KIND_COUNT} kinds of content in one turn.”`;
 
 /*
  * The social card is not the same shape as a meta tag: astro-og-canvas renders its
@@ -49,8 +51,9 @@ export const LANDING_IMAGE_ALT =
  * together and cannot drift apart in separate files, which is exactly what happened
  * before this module existed.
  */
-export const LANDING_CARD_TITLE = 'AI chat in Web Components';
+export const LANDING_CARD_TITLE = 'AI chat Web Components';
 
 export const LANDING_CARD_BODY =
-    'With the agent loop inside: human-in-the-loop tools, branch-and-retry, '
-    + `${KIND_COUNT} kinds of content in one turn. Zero third-party dependencies.`;
+    'Framework-agnostic, with the agent loop built in: human-in-the-loop tool approval, '
+    + `edit-and-branch replies, ${KIND_COUNT} kinds of content in one turn. `
+    + 'Zero third-party dependencies.';

@@ -125,10 +125,10 @@ a.brand:hover .paren { color: var(--accent); }
 .hero-aside { min-width: 0; }
 .hero-aside .code { border-radius: 14px; }
 .hero-aside .code pre { padding: 20px 22px; font-size: 13.5px; line-height: 1.75; }
-.eyebrow { font-size: 12.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); margin: 0 0 22px; }
+.eyebrow { font-size: 12.5px; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); margin: 0 0 22px; }
 .eyebrow b { color: var(--accent-text); font-weight: inherit; }
-h1.thesis { font-size: clamp(42px, 6.4vw, 76px); line-height: 1.02; margin: 0; font-weight: 400; letter-spacing: -.02em; text-wrap: balance; }
-h1.thesis em { font-style: italic; color: var(--accent); }
+.thesis { font-size: clamp(42px, 6.4vw, 76px); line-height: 1.02; margin: 0; font-weight: 400; letter-spacing: -.02em; text-wrap: balance; }
+.thesis em { font-style: italic; color: var(--accent); }
 .lede { color: var(--dim); font-size: clamp(17px, 1.4vw, 19px); max-width: 58ch; margin: 26px 0 34px; line-height: 1.62; }
 .lede b { color: var(--text); font-weight: 600; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
