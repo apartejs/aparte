@@ -168,6 +168,14 @@ export interface AparteComposerChangeEventDetail {
  *   composer keeps the transcript's column. Set on THIS element it moves the shell only:
  *   custom properties inherit downward and the transcript is a sibling subtree, so set
  *   it on a shared ancestor (the chat host, `:root`) to move both.
+ * @cssprop [--aparte-viewport-padding=16px] - Inline gutter between this element and the
+ *   chat's edge — the same token the transcript reads, so the shell keeps
+ *   `.aparte-message`'s column BELOW the max-width above as well as above it, where the
+ *   two would otherwise diverge by the transcript's whole inset. Only the inline halves
+ *   are read here: the block axis is spaced by the viewport above and
+ *   `--aparte-chat-bottom-gap` below. A container narrower than 520px tightens the
+ *   transcript's copy of this token but not the composer's — a container query cannot
+ *   reach this element, which is its own container root.
  *
  * @example
  * <!-- It renders nothing of its own — no shadow root, no default children — so this

@@ -48,9 +48,10 @@ it hides and shows, so the composer stays on screen.
 ChatGPT and Claude look like the *page* scrolls: the scrollbar runs down the window's
 right edge and the messages sit in a centred column. They are not scrolling the page —
 their transcript is a full-width element, and the column is a `max-width` on the content
-inside it. aparté already does the second half: bubbles and the composer centre themselves
-at `--aparte-message-max-width` (800px). So the recipe is only the first half — **do not
-box the chat**:
+inside it. aparté already does the second half: bubbles and the composer share one column —
+centred at `--aparte-message-max-width` (800px) on a container wider than that, and inset by
+the same `--aparte-viewport-padding` gutter on one narrower. So the recipe is only the first
+half — **do not box the chat**:
 
 ```css
 /* Not this — the chat is a 820px box, so its scrollbar sits 200px in from the edge
