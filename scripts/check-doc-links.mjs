@@ -146,6 +146,45 @@ if (orphans.length) {
     process.exit(1);
 }
 
+/*
+ * ── What the site's own CONFIG cites must exist among the built pages (#63) ──
+ *
+ * The llms.txt preamble and the sidebar name routes in `astro.config.mjs` without
+ * rendering an <a> for the link walk above to see: the preamble cited a route among
+ * its documentation sets while nothing built its index page, and no check could
+ * notice. Collected here: every quoted absolute route ('/why/'), every route cited
+ * inside prose strings (', /compare/.'), and every `paths: […]` entry of the llms
+ * customSets (plain entries as routes, `dir/**` globs as prefixes that must match at
+ * least one built page).
+ */
+const configSrc = readFileSync('apps/docs/astro.config.mjs', 'utf8');
+const citedRoutes = new Set();
+const citedPrefixes = new Set();
+for (const m of configSrc.matchAll(/'(\/[a-z0-9-]+(?:\/[a-z0-9-]+)*\/)'/g)) citedRoutes.add(m[1]);
+for (const m of configSrc.matchAll(/[\s(](\/[a-z0-9-]+\/)[.,\s)]/g)) citedRoutes.add(m[1]);
+const pathArrays = [...configSrc.matchAll(/paths:\s*\[([^\]]*)\]/g)];
+for (const [, body] of pathArrays) {
+    for (const m of body.matchAll(/'([a-z0-9-]+(?:\/[a-z0-9-]+)*?)(\/\*\*)?'/g)) {
+        if (m[2]) citedPrefixes.add(`/${m[1]}/`);
+        else citedRoutes.add(`/${m[1]}/`);
+    }
+}
+if (pathArrays.length === 0) {
+    // A corpus that silently shrinks is the failure worth catching: the llms
+    // customSets moved or changed shape, and this pass would be reading nothing.
+    console.error('\n[doc-links] FAIL: no `paths: […]` arrays found in astro.config.mjs — the llms customSets moved; update this check rather than letting it go blind.\n');
+    process.exit(1);
+}
+const missingCited = [...citedRoutes].filter((r) => !idsByRoute.has(r) && !redirects.has(r)).sort();
+const emptyPrefixes = [...citedPrefixes].filter((p) => ![...idsByRoute.keys()].some((r) => r.startsWith(p))).sort();
+if (missingCited.length || emptyPrefixes.length) {
+    console.error('\n[doc-links] the site\'s own config cites what the build does not contain:\n');
+    for (const r of missingCited) console.error(`  ${r} — cited in astro.config.mjs, no built page`);
+    for (const p of emptyPrefixes) console.error(`  ${p}** — a customSets glob that matches nothing`);
+    console.error('\nA route named in the llms preamble or the sidebar is a promise to a reader\nthe link walk cannot see. Build the page, or stop citing it.\n');
+    process.exit(1);
+}
+
 /**
  * A floor on what was actually inspected.
  *

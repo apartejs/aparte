@@ -155,6 +155,28 @@ if (CSS_VARS < 250) {
 }
 
 /**
+ * The facts row's dependency claim, asserted like every other measured fact (#63).
+ *
+ * It used to be the ONE fact on this page left as prose, and it is the one that went
+ * false: D1 gave core a first-party dependency (@aparte/engine) and the row said
+ * "Zero runtime dependencies" for two days. The claim that is true — and stays
+ * assertable — is "zero THIRD-PARTY dependencies": every entry in core's
+ * `dependencies` is an @aparte/* package. If that ever stops holding, the build
+ * fails here with the claim in hand, instead of publishing it.
+ */
+const CORE_DEPS = Object.keys(
+    (JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')) as { dependencies?: Record<string, string> })
+        .dependencies ?? {},
+);
+const THIRD_PARTY = CORE_DEPS.filter((d) => !d.startsWith('@aparte/'));
+if (THIRD_PARTY.length > 0) {
+    throw new Error(
+        `The landing claims "Zero third-party dependencies", but @aparte/core now depends on: `
+        + `${THIRD_PARTY.join(', ')}. Change the claim or the dependency — this page does not ship the lie.`,
+    );
+}
+
+/**
  * How far `--aparte-primary` actually reaches, across EVERY sheet rather than one.
  *
  * This bullet used to say "ninety-five of them derive from it" — the one hand-written
