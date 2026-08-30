@@ -159,8 +159,8 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    the viewport does NOT relocate them into an internal wrapper (that would break
    the framework's DOM reconciliation). Instead the HOST itself is the scroll
    surface — these rules mirror .aparte-viewport-container + .aparte-messages-wrapper
-   onto the host, and the bottom spacer becomes an additive padding (no element,
-   so it can't collide with the framework's children). */
+   onto the host, and the bottom spacer becomes an `::after` flex item — still
+   nothing in the DOM, so it can't collide with the framework's children. */
 aparte-chat-viewport.aparte-viewport--framework,
 aparte-chat-viewport[framework-managed] {
   /* The base rule gives this element `width: 100%`, and core ships no global
@@ -179,7 +179,10 @@ aparte-chat-viewport[framework-managed] {
   flex-direction: column;
   gap: var(--aparte-message-gap);
   padding: var(--aparte-viewport-padding);
-  padding-bottom: calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px));
+  /* No bottom padding: a sticky child is clamped to its parent's CONTENT box, so
+     clearance carried as padding held the scroll button `padding + spacer` above
+     the bottom edge — the whole clearance lives in the `::after` below instead. */
+  padding-bottom: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
   /* Same gutter rule as `.aparte-viewport-container` above: the host is the scroll
@@ -197,6 +200,19 @@ aparte-chat-viewport[framework-managed] > * {
   flex-shrink: 0;
 }
 
+/* The bottom spacer: the base padding plus whatever `_setSpacerHeight` writes to
+   `--aparte-fw-spacer`. A flex item rather than host padding because the scroll
+   button's `position: sticky` is clamped to the CONTENT box — clearance carried as
+   padding is territory the button can never enter, and it floated the full
+   `padding + spacer` above the bottom edge (measured: 48-278px for 32 asked).
+   `flex: 0 0` spells out `flex-shrink: 0`: the `> *` pin above matches elements
+   only, never a pseudo. */
+aparte-chat-viewport.aparte-viewport--framework::after,
+aparte-chat-viewport[framework-managed]::after {
+  content: '';
+  flex: 0 0 calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px));
+}
+
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
   width: var(--aparte-scrollbar-width);
 }
@@ -207,7 +223,12 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-track {
 
 /* The scroll button lives INSIDE the scrolling host here (last child), so it
    floats with `position: sticky` instead of the `absolute` used in core mode
-   (where it sits outside the scroll container). */
+   (where it sits outside the scroll container). `order: 1` puts its FLOW position
+   after the `::after` spacer (source order cannot — a pseudo always renders last):
+   a bottom-sticky element sits at its flow position whenever that is above the
+   sticky line, so a button flowing before a 230px spacer drifted up to 262px from
+   the edge as the reader neared the bottom. Flowing last, its flow position is the
+   very end and the sticky line always wins. */
 aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
   position: sticky;
   bottom: var(--aparte-space-8);
@@ -215,6 +236,7 @@ aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
   align-self: center;
   transform: none;
   flex-shrink: 0;
+  order: 1;
 }
 
 aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn.aparte-scroll-btn--hidden {
