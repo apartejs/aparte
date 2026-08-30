@@ -238,7 +238,7 @@
   class:aparte-chat-container--auto-center={centerWhenEmpty}
   {style}
   data-aparte-chat
-  overlay-composer={overlayComposer ? '' : undefined}
+  {...(overlayComposer ? { 'overlay-composer': '' } : {})}
   data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 ? '' : null}
   id={hostId}
   bind:this={rootRef}

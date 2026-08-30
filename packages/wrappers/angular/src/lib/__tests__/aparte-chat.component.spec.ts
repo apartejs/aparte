@@ -92,6 +92,20 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         expect(bubbles[1].getAttribute('message-id')).toBe('2');
     });
 
+    it('overlayComposer puts overlay-composer on the inner shell; off by default', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('messages', []);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const box = fixture.nativeElement.querySelector('.aparte-chat-container') as HTMLElement;
+        expect(box.hasAttribute('overlay-composer')).toBe(false);
+
+        (fixture.componentRef as any).setInput('overlayComposer', true);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(box.getAttribute('overlay-composer')).toBe('');
+    });
+
     it('adds --auto-center + data-aparte-empty only while centerWhenEmpty and empty', async () => {
         const fixture = TestBed.createComponent(AparteChatComponent);
         (fixture.componentRef as any).setInput('centerWhenEmpty', true);
