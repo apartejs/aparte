@@ -1790,9 +1790,18 @@ export class AparteChatViewport extends HTMLElement {
         this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
     }
 
-    /** The browser says the scroll came to rest: the glide, if any, is over. */
+    /**
+     * The browser says a scroll came to rest — the glide is over ONLY if it rested at the
+     * bottom. WebKit fires `scrollend` when a smooth scroll is REPLACED by another (our own
+     * re-target), 45–60 ms into the glide and hundreds of pixels short; taken at its word,
+     * that closed the window and the next pin was the cut this guard exists to prevent
+     * (react-webkit and vanilla-webkit, 2 of 2). Short of the bottom, the budget keeps
+     * bounding the window.
+     */
     private _handleScrollEnd(): void {
-        this._glideUntil = 0;
+        if (!this._container) return;
+        const max = this._container.scrollHeight - this._container.clientHeight;
+        if (max - this._container.scrollTop <= 1) this._glideUntil = 0;
     }
 
     /**

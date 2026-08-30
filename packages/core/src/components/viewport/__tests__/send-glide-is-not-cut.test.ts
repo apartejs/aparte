@@ -108,6 +108,26 @@ describe('#57 — one owner of the scroll during the send glide', () => {
         expect(smoothCalls()).toBeGreaterThan(afterPlaceholder);
     });
 
+    it('a scrollend that arrives before the bottom does not close the glide — WebKit fires one when a smooth scroll is replaced', async () => {
+        // Measured on react-webkit and vanilla-webkit: instant writes 45–60 ms into the
+        // glide, before the curve had arrived. Re-targeting the smooth scroll ended the
+        // previous one, WebKit said `scrollend`, the window closed, the next pin was a cut.
+        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
+        await frame();
+        const open = vp._glideUntil;
+        expect(open).toBeGreaterThan(0);
+        // Mid-glide: 500 px short of the bottom (max = 1611 - 720 = 891 is where we started; the
+        // spacer grew the height, so the target is further down).
+        Object.defineProperty(box, 'scrollHeight', { value: 2000, configurable: true });
+        recording = false; box.scrollTop = 900; recording = true;
+        box.dispatchEvent(new Event('scrollend'));
+        expect(vp._glideUntil, 'not at the bottom: the glide is still in flight').toBe(open);
+        // At the bottom: the glide is over.
+        recording = false; box.scrollTop = 2000 - CLIENT; recording = true;
+        box.dispatchEvent(new Event('scrollend'));
+        expect(vp._glideUntil, 'arrived: scrollend closes the window').toBe(0);
+    });
+
     it('once the glide has ended, streaming is instant again', async () => {
         vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
         await frame();
