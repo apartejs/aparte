@@ -28,6 +28,7 @@ below.
 | Persistence | [A storage interface you implement](/guides/conversation-persistence/) | A hosted cloud service (paid) | Your own | — | — | — |
 | Theming | [CSS variables, light DOM](/guides/theming/), no fork | Tailwind / shadcn — fork the markup | shadcn — the code lives in your app | Config object | CSS variables | CSS variables + online editor |
 | Run a model in the browser | Yes — the [transformers provider](/providers/ai/transformers/) | — | — | Yes (Web LLM) | — | — |
+| Scripted demo/test provider | **Yes — [the scenario provider](/providers/ai/scenario/)** (deterministic turns: thinking, tools, artifacts) | — | — | Demo mode (canned) | — | — |
 | Markdown, code, reasoning | Yes ([opt-in plugins](/plugins/)) | Yes | Yes | Yes | Yes | Yes |
 | Mermaid, KaTeX | — | Yes | Yes | — | — | — |
 | Voice | — | Yes (realtime) | Yes | Yes | — | — |

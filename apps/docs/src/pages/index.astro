@@ -258,10 +258,11 @@ const FAMILIES = [
     ],
   },
   {
-    name: 'Providers', count: 'three', items: [
+    name: 'Providers', count: 'four', items: [
       { pkg: '@aparte/provider-openai-compat', line: 'One zero-dependency adapter for the whole OpenAI-compatible family, with presets for OpenAI, Mistral, Z.AI, OpenRouter, LM Studio and Ollama.' },
       { pkg: '@aparte/provider-ai-sdk', line: 'A bridge to any Vercel AI SDK model — install that vendor’s own adapter and it runs under aparté’s loop.' },
       { pkg: '@aparte/provider-transformers', line: 'The model runs in the browser. WebGPU with a WASM fallback, in a worker, weights cached and evicted through the Cache API. No server, no key.' },
+      { pkg: '@aparte/provider-scenario', line: 'Scripted turns played as a real stream — thinking, tool calls, artifacts, paced. Every demo on this page runs on it; your demos and e2e can too.' },
     ],
   },
   {
@@ -531,6 +532,15 @@ document.<span class="fn">addEventListener</span>(<span class="st">'aparte-retry
             </aparte-select>
           </span>
         </div>
+
+        <!-- The stage tells you what plays it: the strongest trust line this page
+             has is that the demo above is the real component on a published,
+             deterministic provider — not a video. -->
+        <p class="demo-credit">
+          Everything above runs on <a href="/providers/ai/scenario/"><code>@aparte/provider-scenario</code></a>
+          &#8212; scripted turns played as a real stream, no key, no network, deterministic.
+          Ship your own demos and e2e on it.
+        </p>
       </section>
 
       <section class="band" id="turn">
