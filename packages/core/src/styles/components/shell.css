@@ -271,6 +271,11 @@ aparte-chat-viewport.aparte-viewport--framework::after,
 aparte-chat-viewport[framework-managed]::after {
   content: '';
   flex: 0 0 calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px) + var(--aparte-bottom-inset, 0px));
+  /* A flex item pays the column's `gap`; the padding this replaced did not. Without
+     the cancel, an EMPTY transcript was 8px taller than its box and grew a scrollbar
+     beside the welcome state — with children the spacer recalc absorbed it, which is
+     why the geometry specs stayed green while the smoke case regressed. */
+  margin-block-start: calc(var(--aparte-message-gap) * -1);
 }
 
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
@@ -299,8 +304,13 @@ aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
   order: 1;
 }
 
+/* Fade only, no slide: since `order: 1` the button is the LAST flow content, so a
+   hidden-state translate overhangs the content end by its full distance — 8px of
+   scrollable overflow, which on an EMPTY transcript is the whole scrollbar (the old
+   padding used to absorb the overhang; the ::after spacer flows BEFORE the button
+   and cannot). Core mode keeps the slide: its button is absolute, out of flow. */
 aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn.aparte-scroll-btn--hidden {
-  transform: translateY(var(--aparte-slide-distance));
+  transform: none;
 }
 
 /* =========================================
@@ -385,4 +395,16 @@ aparte-chat-status:not([visible]) {
 .aparte-chat-container--auto-center[data-aparte-empty]
   aparte-chat-viewport.aparte-viewport--framework {
   flex-grow: 0;
+}
+
+/* overlay-composer × center-empty: while the welcome state centres the composer,
+   the overlay stands down — an empty transcript has nothing to scroll, so the
+   surface has nothing to span, and an absolute viewport would pin the welcome to
+   the top of the page while the composer floated alone at the bottom. One
+   property: back in the flow, the centring rules above govern the rest. The first
+   message drops the empty flag and the overlay takes over. */
+aparte-chat[overlay-composer][center-empty][data-empty] > aparte-chat-viewport,
+[data-aparte-chat][overlay-composer][data-aparte-empty] > aparte-chat-viewport,
+.aparte-chat-container[overlay-composer][data-aparte-empty] > aparte-chat-viewport {
+  position: static;
 }

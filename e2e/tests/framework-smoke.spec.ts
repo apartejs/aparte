@@ -38,6 +38,20 @@ test('mounts without runtime errors, and the idle status reserves no height', as
         expect(height, 'idle aparte-chat-status must not reserve height').toBe(0);
     }
 
+    // An EMPTY transcript must not scroll. The bottom spacer moved from host
+    // padding into an ::after flex item (the sticky scroll button cannot enter
+    // padding), and the pseudo paid the column's `gap` the padding never did:
+    // 8px of overflow, a scrollbar beside the welcome state, and every geometry
+    // spec green — they all measure with messages in, where the spacer recalc
+    // absorbs the difference. Only the empty case shows it, so the empty case
+    // is asserted.
+    const emptyOverflow = await page.evaluate(() => {
+        const host = document.querySelector('aparte-chat-viewport') as HTMLElement;
+        const surface = (document.querySelector('.aparte-viewport-container') ?? host) as HTMLElement;
+        return surface.scrollHeight - surface.clientHeight;
+    });
+    expect(emptyOverflow, 'an empty transcript must not overflow its box').toBeLessThanOrEqual(1);
+
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
 
