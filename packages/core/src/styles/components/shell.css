@@ -159,6 +159,11 @@ aparte-chat-viewport {
   scrollbar-gutter: stable both-edges;
 }
 
+/* NOT dead code: on modern Chromium/WebKit these ::-webkit-scrollbar-* blocks are
+   ignored the moment `scrollbar-width`/`scrollbar-color` above are non-initial
+   (CSSWG resolution, Chrome 121+). They exist for Safari BEFORE 18.2, which has no
+   `scrollbar-width` at all - remove them and old Safari falls back to the fat
+   native bar. Re-measured 2026-08-30 against MDN before a cleanup deletes them. */
 .aparte-viewport-container::-webkit-scrollbar {
   width: var(--aparte-scrollbar-width);
 }
