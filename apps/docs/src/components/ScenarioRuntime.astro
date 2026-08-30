@@ -18,7 +18,7 @@
 ---
 
 <script>
-    import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+    import { aparteGlobalConfig, AparteClient, AparteDirectTransport, filesToAttachments } from '@aparte/core';
     import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
 
     const scripted = createScenarioProvider({
@@ -37,4 +37,21 @@
     );
     aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
     new AparteClient().start();
+
+    // The USER bubble is the host's to append - the client appends and streams the
+    // assistant's reply only (in an app, a wrapper's conversation controller does this;
+    // the vanilla example does it by hand, and so does this frame). Without it the
+    // question vanished and only the answer appeared - the first thing Paul typed.
+    for (const chat of document.querySelectorAll<HTMLElement & { viewport?: { appendMessage(m: Record<string, unknown>): void } | null }>('aparte-chat')) {
+        chat.addEventListener('aparte-send', (e) => {
+            const detail = (e as CustomEvent<{ content: string; files?: File[] }>).detail;
+            chat.viewport?.appendMessage({
+                id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                role: 'user',
+                content: detail.content,
+                timestamp: Date.now(),
+                ...(detail.files?.length ? { attachments: filesToAttachments(detail.files) } : {}),
+            });
+        });
+    }
 </script>
