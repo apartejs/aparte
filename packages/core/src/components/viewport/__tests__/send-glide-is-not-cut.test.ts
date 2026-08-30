@@ -120,6 +120,49 @@ describe('#57 — one owner of the scroll during the send glide', () => {
         expect(instantWrites.length, 'a token after the glide pins instantly').toBeGreaterThan(0);
     });
 
+    it('framework-managed: a user bubble the observer sees arrive glides too, with no request from the wrapper', async () => {
+        // Measured on React before the fix: 630 px in one frame. The wrapper's
+        // requestSmoothScroll() set a flag only _autoScroll read; the observer's own pin ran
+        // first, instant. Here no wrapper asks anything: a host that renders bubbles itself
+        // must get the glide from the viewport alone.
+        document.body.innerHTML = '';
+        const fw = document.createElement('aparte-chat-viewport') as unknown as Vp;
+        fw.setAttribute('framework-managed', '');
+        document.body.appendChild(fw);
+        const host = fw as unknown as HTMLElement;   // the host is the scroll surface here
+        const fwScrollTo = vi.fn();
+        (host as unknown as { scrollTo: unknown }).scrollTo = fwScrollTo;
+        let top = 891;
+        const fwWrites: number[] = [];
+        Object.defineProperty(host, 'scrollHeight', { value: 1611, configurable: true });
+        Object.defineProperty(host, 'clientHeight', { value: CLIENT, configurable: true });
+        Object.defineProperty(host, 'scrollTop', {
+            configurable: true,
+            get: () => top,
+            set: (v: number) => { top = v; fwWrites.push(v); },
+        });
+        host.dispatchEvent(new Event('scroll'));
+        expect(fw._isAutoScrollEnabled).toBe(true);
+
+        const user = document.createElement('aparte-chat-bubble');
+        user.setAttribute('message-id', 'u1');
+        user.setAttribute('data-role', 'user');
+        host.appendChild(user);                     // React/Vue/Svelte/Angular commit
+        await frame();
+        await frame();
+        expect(fwWrites, 'no instant write on a framework-rendered send').toEqual([]);
+        expect(fwScrollTo.mock.calls.filter((c) => (c[0] as { behavior?: string })?.behavior === 'smooth').length).toBeGreaterThanOrEqual(1);
+
+        const assistant = document.createElement('aparte-chat-bubble');
+        assistant.setAttribute('message-id', 'a1');
+        assistant.setAttribute('data-role', 'assistant');
+        assistant.setAttribute('streaming', '');
+        host.appendChild(assistant);
+        await frame();
+        await frame();
+        expect(fwWrites, 'nor on the placeholder inside the glide').toEqual([]);
+    });
+
     it('reduced motion keeps the instant path — there is no glide to protect', async () => {
         vi.stubGlobal('matchMedia', () => ({ matches: true }));
         vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'done' });

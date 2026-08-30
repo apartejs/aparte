@@ -1288,12 +1288,8 @@ export class AparteChatViewport extends HTMLElement {
 
     private _autoScroll(): void {
         if (this._isAutoScrollEnabled) {
-            if (this._smoothScrollOnce) {
-                this._smoothScrollOnce = false;
-                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._smoothScrollToBottom(); });
-            } else {
-                requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._scrollToBottom(); });
-            }
+            // `_scrollToBottom` turns a pending smooth request into the glide itself.
+            requestAnimationFrame(() => { if (this._isAutoScrollEnabled) this._scrollToBottom(); });
         }
         this._pruneRenderedBubbles();
     }
@@ -1567,9 +1563,23 @@ export class AparteChatViewport extends HTMLElement {
             this._updateOverlayInset();
         }
 
-        this._mutationObserver = new MutationObserver(() => {
+        this._mutationObserver = new MutationObserver((mutations) => {
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
+            // A user bubble arriving is a send, whichever framework rendered it: the pin
+            // this observer queues below must glide, not jump (#57). The four wrappers ask
+            // the same thing one event earlier through requestSmoothScroll(); a host that
+            // renders bubbles itself and never heard of that call gets the glide all the
+            // same. The viewport owns it.
+            if (this._isAutoScrollEnabled && !this._gliding()) {
+                for (const m of mutations) {
+                    for (const node of m.addedNodes) {
+                        if (node instanceof Element && node.tagName === 'APARTE-CHAT-BUBBLE' && node.getAttribute('data-role') === 'user') {
+                            this._smoothScrollOnce = true;
+                        }
+                    }
+                }
+            }
             // The gate is tested TWICE: when the frame is queued, and again when it
             // runs. The second test is what lets a reader leave.
             //
@@ -1752,6 +1762,17 @@ export class AparteChatViewport extends HTMLElement {
 
     private _scrollToBottom(): void {
         if (!this._container) return;
+        // A smooth scroll was asked for (a user send, by whichever path — appendMessage,
+        // a wrapper's requestSmoothScroll(), or a user bubble the mutation observer saw
+        // arrive): the FIRST pin after it is the glide, not a jump. In framework-managed
+        // mode the observer's own pin used to run first and instant — 630 px in one frame
+        // measured on React — and the smooth request was only honoured later, by
+        // _autoScroll, on a view that had already teleported.
+        if (this._smoothScrollOnce) {
+            this._smoothScrollOnce = false;
+            this._smoothScrollToBottom();
+            return;
+        }
         if (this._gliding()) { this._retargetGlide(); return; }
         this._ownScrollAt = performance.now();
         this._container.scrollTop = this._container.scrollHeight;
