@@ -72,7 +72,7 @@ beforeEach(async () => {
         set: (v: number) => { top = v; if (recording) instantWrites.push(v); },
     });
 
-    vp.appendMessage({ id: 'a0', role: 'assistant', content: 'earlier reply', timestamp: 1, status: 'done' });
+    vp.appendMessage({ id: 'a0', role: 'assistant', content: 'earlier reply', timestamp: 1, status: 'completed' });
     geometry(891, 1611);   // a long transcript, pinned at the bottom
     expect(vp._isAutoScrollEnabled).toBe(true);
 });
@@ -81,7 +81,7 @@ afterEach(() => { document.body.innerHTML = ''; vi.unstubAllGlobals(); });
 
 describe('#57 — one owner of the scroll during the send glide', () => {
     it('the placeholder and the first token re-target the glide instead of cutting it', async () => {
-        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'done' });
+        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
         await frame();
         await frame();
         // Measured before the fix: FIVE instant writes in the send's own frame — the spacer
@@ -109,7 +109,7 @@ describe('#57 — one owner of the scroll during the send glide', () => {
     });
 
     it('once the glide has ended, streaming is instant again', async () => {
-        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'done' });
+        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
         await frame();
         vp.appendMessage({ id: 'a1', role: 'assistant', content: '', timestamp: 3, status: 'streaming' });
         await frame();
@@ -165,7 +165,7 @@ describe('#57 — one owner of the scroll during the send glide', () => {
 
     it('reduced motion keeps the instant path — there is no glide to protect', async () => {
         vi.stubGlobal('matchMedia', () => ({ matches: true }));
-        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'done' });
+        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
         await frame();
         expect(smoothCalls()).toBe(0);
         expect(instantWrites.length).toBeGreaterThan(0);
