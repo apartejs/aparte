@@ -1,0 +1,23 @@
+{
+  "name": "@aparte-workspace/docs",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "targets": {
+    "gen": {
+      "outputs": [
+        "{projectRoot}/src/content/docs/reference",
+        "{projectRoot}/src/content/docs/components",
+        "{projectRoot}/src/content/docs/kit",
+        "{projectRoot}/src/content/docs/segments"
+      ]
+    },
+    "build": {
+      "outputs": [
+        "{projectRoot}/dist",
+        "{projectRoot}/src/content/docs/reference",
+        "{projectRoot}/src/content/docs/components",
+        "{projectRoot}/src/content/docs/kit",
+        "{projectRoot}/src/content/docs/segments"
+      ]
+    }
+  }
+}
