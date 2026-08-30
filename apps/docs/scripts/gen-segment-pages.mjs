@@ -330,7 +330,7 @@ for (const s of segments) {
  */
 {
   let md = `---
-title: 'Message Content Types (Segments)'
+title: 'Message Content Types (Segments) — and how to add your own'
 description: ${yaml(`An assistant turn is a list of typed segments — text, thinking, code, a tool call, an error, or a type you register yourself (generative UI) — each drawn by its own renderer.`)}
 sidebar:
   order: 0
