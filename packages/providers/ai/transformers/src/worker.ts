@@ -54,17 +54,16 @@ function loadTransformers(moduleUrl?: string): Promise<TransformersModule> {
  * follow the worker wherever it is served from — the same origin, a CDN, or through the
  * blob shim `_spawnWorker` builds for a cross-origin copy.
  */
-const BUILT_IN: Partial<Record<BuiltInRunner, () => Promise<RunnerModule>>> = {
+const BUILT_IN: Record<BuiltInRunner, () => Promise<RunnerModule>> = {
     'text-generation': () => import('./runners/text-generation.js'),
+    'image-text-to-text': () => import('./runners/image-text-to-text.js'),
 };
 
 function importRunner({ task, runner }: { task: BuiltInRunner; runner?: string }): Promise<RunnerModule> {
     // A custom runner is an absolute URL by the time it gets here (the main thread
     // resolved it against the page), and it wins over `task`.
     if (runner) return import(/* @vite-ignore */ runner) as Promise<RunnerModule>;
-    const load = BUILT_IN[task];
-    if (!load) throw new Error(`@aparte/provider-transformers ships no "${task}" runner`);
-    return load();
+    return BUILT_IN[task]();
 }
 
 // DOM's `Worker` interface types `postMessage` + typed `addEventListener('message')`,

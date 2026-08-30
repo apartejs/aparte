@@ -15,8 +15,14 @@
 // `contentToText` shipped all of core, components included, in a 426 kB runner chunk.
 import type { AparteChatMessage, AparteContentPart } from '@aparte/core';
 import type { CreateRunner, RunnerContext, RunnerGenerateInput } from './types.js';
+import { TOOL_TURNS_DROPPED, generationOptions, interruptOn, loadOptions, textStreamer } from './shared.js';
 
 type SimpleMessage = { role: 'user' | 'assistant' | 'system'; content: string };
+
+export const IMAGES_DROPPED =
+    'This model has no vision runner: image parts were dropped from the prompt, so the model '
+    + 'answers as if there were none. Register the model with task: "image-text-to-text", or '
+    + 'point `runner` at a module of your own.';
 
 /** The text parts of a message, joined — what a text-only chat template can take. */
 function textOf(content: string | AparteContentPart[]): string {
@@ -26,16 +32,6 @@ function textOf(content: string | AparteContentPart[]): string {
         .map((p) => p.text)
         .join('');
 }
-
-export const IMAGES_DROPPED =
-    'This model has no vision runner: image parts were dropped from the prompt, so the model '
-    + 'answers as if there were none. Register the model with task: "image-text-to-text", or '
-    + 'point `runner` at a module of your own.';
-
-export const TOOL_TURNS_DROPPED =
-    'Dropped tool turn(s) from the prompt: this runner does not support tool calling, so the '
-    + 'model will not see the call or its result. Use an OpenAI-compatible endpoint for tools, '
-    + 'or a runner that renders them.';
 
 /** Flatten to what the chat template takes; say what was left out. */
 export function flattenForChatTemplate(messages: AparteChatMessage[], warn: RunnerContext['warn']): SimpleMessage[] {
@@ -56,48 +52,28 @@ export function flattenForChatTemplate(messages: AparteChatMessage[], warn: Runn
     return result;
 }
 
+/** The pipeline, as this runner calls it. Transformers.js types it per task; this is the one task. */
+interface TextPipeline {
+    (messages: SimpleMessage[], options: Record<string, unknown>): Promise<unknown>;
+    tokenizer: unknown;
+    dispose?: () => Promise<void>;
+}
+
 export const createRunner: CreateRunner = async (ctx) => {
-    const { pipeline, TextStreamer, InterruptableStoppingCriteria } = ctx.transformers;
-
-    const opts: Record<string, unknown> = {
-        progress_callback: (p: { status?: string; file?: string; progress?: number }) => {
-            if (p.status === 'progress') ctx.progress({ status: 'downloading', file: p.file, progress: Math.round(p.progress ?? 0) });
-            else if (p.status === 'done') ctx.progress({ status: 'loading', file: p.file });
-        },
-    };
-    if (ctx.dtype) opts['dtype'] = ctx.dtype;
-    if (ctx.device && ctx.device !== 'auto') opts['device'] = ctx.device;
-
-    // The pipeline's own overloads are per-task literals; the cast keeps this call on the
-    // one task this runner exists for.
-    const pipe = await (pipeline as (task: string, model: string, options: unknown) => Promise<unknown>)('text-generation', ctx.modelId, opts) as {
-        (messages: SimpleMessage[], options: Record<string, unknown>): Promise<unknown>;
-        tokenizer: unknown;
-        dispose?: () => Promise<void>;
-    };
+    const pipeline = ctx.transformers.pipeline as unknown as (task: string, model: string, options: unknown) => Promise<TextPipeline>;
+    const pipe = await pipeline('text-generation', ctx.modelId, loadOptions(ctx));
 
     return {
         async generate({ messages, options, emit, signal }: RunnerGenerateInput): Promise<void> {
-            const stopping = new InterruptableStoppingCriteria();
-            const onAbort = (): void => { stopping.interrupt(); };
-            if (signal.aborted) onAbort();
-            else signal.addEventListener('abort', onAbort, { once: true });
+            const { stopping, release } = interruptOn(signal, ctx.transformers);
             try {
-                const streamer = new (TextStreamer as unknown as new (tokenizer: unknown, options: Record<string, unknown>) => unknown)(pipe.tokenizer, {
-                    skip_prompt: true,
-                    skip_special_tokens: true,
-                    callback_function: (text: string) => { if (text) emit({ type: 'text', delta: text }); },
-                });
-                const temperature = options.temperature ?? 0;
                 await pipe(flattenForChatTemplate(messages, ctx.warn), {
-                    max_new_tokens: options.maxTokens ?? 512,
-                    do_sample: temperature > 0,
-                    temperature: temperature > 0 ? temperature : undefined,
-                    streamer,
+                    ...generationOptions(options),
+                    streamer: textStreamer(ctx.transformers, pipe.tokenizer, emit),
                     stopping_criteria: stopping,
                 });
             } finally {
-                signal.removeEventListener('abort', onAbort);
+                release();
             }
         },
         dispose() {
