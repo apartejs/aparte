@@ -596,7 +596,11 @@ aparte-chat {
      The eight text sizes were px and are rem now, like the rest of the typography:
      identical at a 16px root, and following the reader's setting elsewhere. */
   --aparte-message-gap: var(--aparte-space-6);
-  --aparte-message-padding: var(--aparte-space-8) var(--aparte-space-6);
+  /* Split, because the action bar's offset below a message is computed from the
+     vertical half (#56) — a shorthand cannot be read by parts. */
+  --aparte-message-padding-block: var(--aparte-space-8);
+  --aparte-message-padding-inline: var(--aparte-space-6);
+  --aparte-message-padding: var(--aparte-message-padding-block) var(--aparte-message-padding-inline);
   --aparte-message-content-padding: var(--aparte-space-5) var(--aparte-space-7);
   --aparte-action-bar-gap: var(--aparte-space-2);
   --aparte-branch-picker-gap: var(--aparte-space-2);

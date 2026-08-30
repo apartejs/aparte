@@ -8,7 +8,11 @@
 .aparte-messages-wrapper {
   display: flex;
   flex-direction: column;
-  gap: var(--aparte-message-gap);
+  /* No flex gap: the space between two turns is each bubble's own padding-block-end
+     (below), so that it lies INSIDE the bubble's contained box — where the action
+     bar of an older message floats (#56). A flex gap is outside every box, and the
+     bubble's paint containment clipped anything placed there. */
+  gap: 0;
   padding: var(--aparte-viewport-padding);
 }
 
@@ -31,6 +35,10 @@ aparte-chat-bubble {
   contain: layout style paint;
   content-visibility: auto;
   contain-intrinsic-size: auto 320px;
+  /* The distance to the next turn, carried by the bubble rather than by the list's
+     `gap`, so it is part of this box: an older message's action bar floats over it
+     (#56). Same token, same distance — nothing moved. */
+  padding-block-end: var(--aparte-message-gap);
 }
 
 .aparte-message {
@@ -77,6 +85,9 @@ aparte-chat-bubble {
 .aparte-body {
   flex: 1;
   min-width: 0;
+  /* The containing block of a floating footer: the bar starts where the text starts
+     and sits under it, whichever way the avatar column is laid out. */
+  position: relative;
 }
 
 /* The message bubble — the surface fills ONLY the content (segments + text).
@@ -144,11 +155,22 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
  * Measured (UI audit 2026-08-28, §8.3 #7): 103px between the text of one turn and the
  * text of the next, and 34 of them were this footer — 28px of buttons nobody could
  * see plus its margin, under EVERY message, so that the bar could appear on hover
- * without moving anything. The market floats it instead. It cannot float below the
- * message here: the bubble is a paint-containment boundary (`content-visibility`),
- * so anything outside its box is clipped. It floats INSIDE the box, over the header
- * row's empty end — the one place it overlaps no text — as the small bordered
- * toolbar a Slack message shows on hover.
+ * without moving anything. The market floats it instead, BELOW the message, in the
+ * space that already separates two turns: that is where ChatGPT and Claude put it,
+ * and it takes no height because the space is already there.
+ *
+ * It floated top-right first (#56), over the header row's empty end, for one reason:
+ * the bubble is a paint-containment boundary (`content-visibility`), and the space
+ * between two bubbles was the list's flex `gap` — outside every box — so a bar
+ * placed under the text was clipped. The gap is the bubble's own padding-block-end
+ * now (see `aparte-chat-bubble` above), inside its box. The bar hangs from the
+ * content column's bottom edge by `message padding-block + gap`: 16 + 12 = 28px at
+ * the default density, 24 + 18 = 42px at the comfortable one, and the bar is 24px on
+ * these messages — it overlaps padding, never text. The distance between turns is
+ * what it was. A narrow container (responsive.css) shrinks the padding to 12 + 8 = 20:
+ * 4px of the bar reach the last line's leading, under glyphs that do not descend that
+ * far; and a narrow container is mostly a coarse pointer, where this block does not
+ * apply.
  *
  * Three footers stay in the flow. The last assistant message: its bar is always on
  * show, under the reply, where every chat puts it. A message whose branch picker is
@@ -156,38 +178,27 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
  * picker must stay in view. And every message under a pointer that cannot hover, or
  * that is coarse — `(hover: hover) and (pointer: fine)`, because the two features are
  * independent and a TV remote reports both hover and coarse; responsive.css gives a
- * coarse pointer a 44px bar in the flow, and floated over the header row a 44px bar
- * would sit on the first line of the reply.
- *
- * The bar's place depends on the header row: 8px from the top, it fills the empty end
- * of the "Assistant · 12:34" line and clears the text by the header's height. A host
- * that hides `.aparte-header` moves that line away and should move the bar too
- * (`.aparte-footer { top: … }`), or keep it in the flow.
+ * coarse pointer a 44px bar in the flow, and floated under the text a 44px bar would
+ * cover the next turn.
  *
  * Invisible but NOT inert, on purpose. `opacity: 0` keeps the bar hit-testable, so a
- * drag-select started on the empty end of the header row begins on a button nobody
- * sees — a review flagged it, and `pointer-events: none` until `:hover` was tried. It
- * made the bar unreachable to anything that clicks without hovering first: Playwright
- * (which hit-tests the point before it moves the mouse — the header "intercepted" the
- * edit button on four projects), and with it voice control and switch access, which
+ * drag-select started under a message begins on a button nobody sees — a review
+ * flagged it, and `pointer-events: none` until `:hover` was tried. It made the bar
+ * unreachable to anything that clicks without hovering first: Playwright (which
+ * hit-tests the point before it moves the mouse — the header "intercepted" the edit
+ * button on four projects), and with it voice control and switch access, which
  * synthesise a click the same way. A control only a hover can enable is a control
- * some users cannot reach; a phantom button on an empty header end is not. */
+ * some users cannot reach; a phantom button in the space between two turns is not. */
 @media (hover: hover) and (pointer: fine) {
   aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-footer,
   aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-footer {
     position: absolute;
-    top: var(--aparte-space-4);
-    inset-inline-end: var(--aparte-space-6);
+    inset-inline-start: 0;
+    inset-block-end: calc(-1 * (var(--aparte-message-padding-block) + var(--aparte-message-gap)));
     margin: 0;
     z-index: 1;
-  }
-
-  aparte-chat-bubble:not(:last-of-type) .aparte-message:not([data-branches]) .aparte-action-bar,
-  aparte-chat-bubble:last-of-type .aparte-message[data-role="user"]:not([data-branches]) .aparte-action-bar {
-    background: var(--aparte-surface-1);
-    border: var(--aparte-border-width) solid var(--aparte-border);
-    border-radius: var(--aparte-radius-md);
-    box-shadow: var(--aparte-popover-shadow);
+    /* Smaller than the last reply's 28px: this one lives in the padding. */
+    --aparte-action-bar-btn-size: 24px;
   }
 }
 

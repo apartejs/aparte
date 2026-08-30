@@ -16,6 +16,10 @@
  *       <button class="aparte-btn aparte-btn--surface">1 / 2</button>
  *       <button class="aparte-btn aparte-btn--surface">›</button>
  *     </div>
+ *     <div class="aparte-btn-group" role="group" aria-label="View">
+ *       <button class="aparte-btn aparte-btn--primary aparte-btn--outline" aria-pressed="true">Chat</button>
+ *       <button class="aparte-btn aparte-btn--primary aparte-btn--outline" aria-pressed="false">Preview</button>
+ *     </div>
  *
  * An intent on its own is a ghost — the quietest form, and the one a chat uses most.
  * Add a fill when the button has to carry more weight.
@@ -23,7 +27,9 @@
  * `.aparte-btn-group` fuses adjacent buttons into ONE control: the inner corners
  * drop, the shared borders overlap, and only the group's ends keep the radius. Give
  * the wrapper `role="group"` and a name — visually one control, it should read as
- * one too.
+ * one too. A SEGMENTED control is the same group with one segment selected: mark it
+ * `aria-pressed="true"` (or `aria-selected="true"` under `role="tablist"`) and it is
+ * painted solid in the group's intent, at rest — not only under the pointer.
  *
  * This layer is NEUTRAL: it is what a UI library offers, not a summary of what this
  * repo happens to use. A variant nothing wears still ships, because the plugin that
@@ -228,11 +234,22 @@
   outline-offset: var(--aparte-btn-focus-offset);
 }
 
-/* Toggled — a disclosure that is open, a toggle that is on. */
+/* Toggled — a disclosure that is open, a toggle that is on, a tab that is current. */
 .aparte-btn[aria-expanded='true'],
-.aparte-btn[aria-pressed='true'] {
+.aparte-btn[aria-pressed='true'],
+.aparte-btn[aria-selected='true'] {
   background: var(--aparte-btn-bg-toggled);
   color: var(--aparte-btn-color-toggled);
+}
+/* On a coloured fill the toggled wash must be DEEPER than the hover wash (22 %), or the
+   pointer reads as the state and the state reads as nothing — measured on a dark
+   `Chat | Preview` group, where `--aparte-btn-bg-toggled` (surface-2) sits a hair from
+   surface-1 and the selected segment showed as an empty outline until hovered (#53). */
+.aparte-btn--outline[aria-pressed='true'],
+.aparte-btn--soft[aria-pressed='true'],
+.aparte-btn--outline[aria-selected='true'],
+.aparte-btn--soft[aria-selected='true'] {
+  background: color-mix(in srgb, var(--aparte-btn-intent) 30%, transparent);
 }
 
 /* Busy is NOT disabled: it stays focusable, and the app is what swaps the icon for a
@@ -280,6 +297,24 @@
 .aparte-btn-group > .aparte-btn:not(:first-child) { margin-inline-start: calc(var(--aparte-border-width) * -1); }
 .aparte-btn-group > .aparte-btn:hover,
 .aparte-btn-group > .aparte-btn:focus-visible { z-index: var(--aparte-z-raised); }
+/* The selected segment. Solid in the group's intent, whatever fill the segments wear:
+   a segmented control has exactly one thing to say at rest, and a wash could not say
+   it on dark (#53). `--surface` ignores the intent, so its groups select in neutral.
+   Hover leaves it alone — the pointer must never be what makes selection legible. */
+.aparte-btn-group > .aparte-btn[aria-pressed='true'],
+.aparte-btn-group > .aparte-btn[aria-selected='true'],
+.aparte-btn-group > .aparte-btn[aria-current] {
+  background: var(--aparte-btn-intent);
+  border-color: var(--aparte-btn-intent);
+  color: var(--aparte-btn-on-intent);
+  z-index: var(--aparte-z-raised);
+}
+.aparte-btn-group > .aparte-btn[aria-pressed='true']:hover:not(:disabled),
+.aparte-btn-group > .aparte-btn[aria-selected='true']:hover:not(:disabled),
+.aparte-btn-group > .aparte-btn[aria-current]:hover:not(:disabled) {
+  background: var(--aparte-btn-intent);
+  filter: none;
+}
 
 /* In forced-colors the UA repaints everything and drops backgrounds, so a solid button
    loses the only thing marking it as the primary action. A border survives. */

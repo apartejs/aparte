@@ -229,6 +229,7 @@ aparte-split[orientation='vertical'] .aparte-split__scrim,
    Not "position: 100% and a zero-size handle": that leaves a focusable separator of
    no width sitting in the tab order. */
 aparte-split[data-stacked],
+aparte-split[single],
 .aparte-split--only-start,
 .aparte-split--only-end {
   grid-template-columns: minmax(0, 1fr);
@@ -236,17 +237,23 @@ aparte-split[data-stacked],
 }
 
 aparte-split[data-stacked] > .aparte-split__handle,
+aparte-split[single] > .aparte-split__handle,
 .aparte-split--only-start > .aparte-split__handle,
 .aparte-split--only-end > .aparte-split__handle {
   display: none;
 }
 
+/* `single` is the host's word for the same state (#54): one pane, whatever the width,
+   the one `pane` names. Same rules as the breakpoint's, so the element reads both the
+   same way. */
 aparte-split[data-stacked]:not([pane='end']) > :nth-child(3),
+aparte-split[single]:not([pane='end']) > :nth-child(3),
 .aparte-split--only-start > :nth-child(3) {
   display: none;
 }
 
 aparte-split[data-stacked][pane='end'] > :nth-child(1),
+aparte-split[single][pane='end'] > :nth-child(1),
 .aparte-split--only-end > :nth-child(1) {
   display: none;
 }

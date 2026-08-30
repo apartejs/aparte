@@ -234,7 +234,10 @@ hide them with the same media query rather than leaving two controls that look d
 ```
 
 If your host already owns its breakpoints, set `breakpoint="none"` and put the state on the
-element yourself: `.aparte-split--only-start` and `.aparte-split--only-end` carry rules
+element yourself — or set `single` (with `pane="start"` or `pane="end"`) when the element
+should show one pane whatever the width, a preview with nothing to preview yet, say:
+`<aparte-split single pane="start">`. The CSS route is the same state for a host that owns
+its breakpoints: `.aparte-split--only-start` and `.aparte-split--only-end` carry rules
 byte-identical to the ones `data-stacked` selects, and the element reads them the same way —
 the seam loses its tab stop, and nothing measures the single track it is now showing. The
 same two classes are what stack a split that has no element at all:
