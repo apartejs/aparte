@@ -79,12 +79,45 @@ test('the transcript is reachable by Tab and scrolls from the keyboard', async (
     // window), and under CI load a single PageUp landing inside that window is put
     // back — measured as one flaky run on vanilla-webkit. A reader presses again;
     // so does the test.
-    await expect
-        .poll(async () => {
-            await page.keyboard.press('PageUp');
-            return (await metrics(page)).scrollTop;
-        }, { message: 'PageUp on the focused transcript did not scroll it — the WebKit defect' })
-        .toBeLessThan(bottom.scrollTop);
+    //
+    // And the run carries its own journal. Main's CI froze at exactly the bottom for
+    // twenty seconds of one-per-second presses (vanilla-webkit, twice), while 80 local
+    // runs — 50 of them under an 8-process CPU burn — never showed it, and a walk of
+    // the component found no code path that writes during this test. Three suspects
+    // only the failing machine can separate: the keydown never reaching the surface
+    // (focus elsewhere), the engine's animated key scroll never getting a first frame,
+    // or a write nobody predicted. The journal records all three, and is printed by
+    // the failure it explains.
+    await page.evaluate((sel) => {
+        const el = document.querySelector(sel) as HTMLElement;
+        const log: string[] = [];
+        const t0 = performance.now();
+        const at = () => Math.round(performance.now() - t0);
+        (window as unknown as { __kbd: string[] }).__kbd = log;
+        el.addEventListener('keydown', (e) => log.push(`${at()} keydown ${(e as KeyboardEvent).key} focus=${document.activeElement === el}`), { passive: true });
+        el.addEventListener('scroll', () => log.push(`${at()} scroll top=${Math.round(el.scrollTop)}`), { passive: true });
+        el.addEventListener('scrollend', () => log.push(`${at()} scrollend top=${Math.round(el.scrollTop)}`), { passive: true });
+        document.addEventListener('focusin', () => log.push(`${at()} focusin ${(document.activeElement as HTMLElement | null)?.className ?? document.activeElement?.tagName ?? 'null'}`));
+        const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!;
+        Object.defineProperty(el, 'scrollTop', {
+            configurable: true,
+            get() { return (desc.get as () => number).call(this); },
+            set(v: number) { log.push(`${at()} WRITE scrollTop=${Math.round(v)}`); (desc.set as (v: number) => void).call(this, v); },
+        });
+    }, SURFACE);
+
+    try {
+        await expect
+            .poll(async () => {
+                await page.keyboard.press('PageUp');
+                return (await metrics(page)).scrollTop;
+            }, { message: 'PageUp on the focused transcript did not scroll it — the WebKit defect' })
+            .toBeLessThan(bottom.scrollTop);
+    } catch (err) {
+        const journal = await page.evaluate(() => (window as unknown as { __kbd?: string[] }).__kbd?.join('\n') ?? '(no journal)');
+        await test.info().attach('keyboard-journal', { body: journal, contentType: 'text/plain' });
+        throw new Error(`${(err as Error).message}\n\n── the journal of the twenty seconds ──\n${journal}`);
+    }
 
     expect(errors, `uncaught page errors:\n${errors.join('\n')}`).toEqual([]);
 });
