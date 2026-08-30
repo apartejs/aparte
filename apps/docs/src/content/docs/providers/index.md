@@ -1,5 +1,5 @@
 ---
-title: Providers
+title: 'Providers — OpenAI-Compatible, Vercel AI SDK, In-Browser'
 description: Connect aparté to a real model — OpenAI-compatible endpoints, the Vercel AI SDK bridge, or a model running 100% in the browser.
 sidebar:
   order: 1

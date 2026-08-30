@@ -1,6 +1,6 @@
 {
     "name": "@aparte/core",
-    "version": "0.16.5",
+    "version": "0.16.6",
     "description": "AI chat in Web Components, with the agent loop inside — zero third-party dependencies",
     "type": "module",
     "//sideEffects": "The BROWSER entry defines the custom elements and imports CSS at module scope, so it must never be tree-shaken; the Node entry (`index.node`) and every other module are pure. Listing them explicitly is what lets a bundler drop the rest — the whole package was implicitly side-effectful before, the only one of the 14 without this field.",
@@ -76,7 +76,21 @@
         "chat",
         "ai",
         "streaming",
-        "llm"
+        "llm",
+        "chat-ui",
+        "ai-chat",
+        "chatbot",
+        "chat-component",
+        "custom-elements",
+        "framework-agnostic",
+        "react",
+        "vue",
+        "svelte",
+        "angular",
+        "agent",
+        "tool-calling",
+        "human-in-the-loop",
+        "openai"
     ],
     "license": "MIT",
     "repository": {

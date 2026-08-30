@@ -159,6 +159,19 @@ function fieldNotes(fields) {
   return md;
 }
 
+// The page <title> is what a search result shows, and the bare tag ('custom',
+// 'tool_call') carries none of the words anyone types. These titles put the
+// category phrase on the one URL that matches it; the sidebar keeps the bare
+// tag via an explicit label, so the nav stays a list of types.
+const SEO_TITLES = {
+  text: 'The text segment — streamed message text',
+  thinking: 'The thinking segment — a collapsible AI reasoning block',
+  code: 'The code segment — code blocks in an AI chat, highlighted',
+  error: 'The error segment — a failure, rendered in the conversation',
+  tool_call: 'The tool_call segment — a human-in-the-loop tool call UI',
+  custom: 'The custom segment — your own message content (generative UI)',
+};
+
 function page({ name, kind, decl }) {
   const doc = docOf(decl);
   const own = fieldsOf(decl).filter((f) => f.name !== 'type');
@@ -166,7 +179,9 @@ function page({ name, kind, decl }) {
   const example = exampleOf(decl);
 
   let md = `---
-title: ${yaml(kind)}
+title: ${yaml(SEO_TITLES[kind] || `The ${kind} segment`)}
+sidebar:
+  label: ${yaml(kind)}
 description: ${yaml(firstSentence(doc) || `The \`${kind}\` segment: ${name}.`)}
 ---
 
@@ -305,6 +320,41 @@ for (const s of segments) {
   const file = `${s.kind.replace(/_/g, '-')}.mdx`;
   keep.add(file);
   writeIfChanged(join(OUT, file), page(s));
+}
+
+/*
+ * The section's front door (#63: the llms preamble cited /segments/ and the route
+ * 404'd — the sidebar autogenerates the group without an index). One line per type,
+ * and the sentence the section exists to say: a message is not a string, and a type
+ * of your own is one registration away.
+ */
+{
+  let md = `---
+title: 'Message Content Types (Segments)'
+description: ${yaml(`An assistant turn is a list of typed segments — text, thinking, code, a tool call, an error, or a type you register yourself (generative UI) — each drawn by its own renderer.`)}
+sidebar:
+  order: 0
+  label: Overview
+---
+
+A **segment** is data, not an element: the typed pieces an assistant message is made
+of, each drawn by its own renderer. One turn can carry several — reasoning, then a
+tool call awaiting approval, then code, then prose.
+
+`;
+  for (const s of segments) {
+    md += `- **[${s.kind}](/segments/${s.kind.replace(/_/g, '-')}/)** — ${mdxSafe(firstSentence(docOf(s.decl)) || s.name)}\n`;
+  }
+  md += `
+Two seams make the list yours: [\`registerSegmentRenderer\`](/guides/customization/#custom-segment-types)
+draws a type of your own (a weather card, a domain widget — generative UI), and
+[\`registerStreamBlock\`](/guides/customization/#teach-the-parser-a-block) teaches the
+streaming parser a tag grammar that produces it.
+
+{/* Generated from packages/core/src/types/segments.ts by apps/docs/scripts/gen-segment-pages.mjs — edit the JSDoc, not this file. */}
+`;
+  keep.add('index.mdx');
+  writeIfChanged(join(OUT, 'index.mdx'), md);
 }
 
 // A removed union member must take its page with it — the union shrank from 14 to 8 across two

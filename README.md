@@ -1,9 +1,10 @@
 # aparté
 
-**Framework-agnostic AI chat, as composable Web Components.** Drop an
+**Framework-agnostic AI Chat Web Components.** Drop an
 `<aparte-chat>` onto any page — React, Vue, Svelte, Angular, or none at all —
 wire it to any LLM through a pluggable transport, and restyle everything with CSS
 variables. **Zero third-party dependencies** at the core.
+See [how it compares](https://apartejs.dev/compare/) with assistant-ui, Deep Chat and Loquix.
 
 [![CI](https://github.com/apartejs/aparte/actions/workflows/ci.yml/badge.svg)](https://github.com/apartejs/aparte/actions/workflows/ci.yml)
 [![npm (alpha)](https://img.shields.io/npm/v/@aparte/core/alpha?label=npm%20alpha&color=d9a24b)](https://www.npmjs.com/package/@aparte/core/v/alpha)

@@ -155,6 +155,28 @@ if (CSS_VARS < 250) {
 }
 
 /**
+ * The facts row's dependency claim, asserted like every other measured fact (#63).
+ *
+ * It used to be the ONE fact on this page left as prose, and it is the one that went
+ * false: D1 gave core a first-party dependency (@aparte/engine) and the row said
+ * "Zero runtime dependencies" for two days. The claim that is true — and stays
+ * assertable — is "zero THIRD-PARTY dependencies": every entry in core's
+ * `dependencies` is an @aparte/* package. If that ever stops holding, the build
+ * fails here with the claim in hand, instead of publishing it.
+ */
+const CORE_DEPS = Object.keys(
+    (JSON.parse(readFileSync(at('packages/core/package.json'), 'utf8')) as { dependencies?: Record<string, string> })
+        .dependencies ?? {},
+);
+const THIRD_PARTY = CORE_DEPS.filter((d) => !d.startsWith('@aparte/'));
+if (THIRD_PARTY.length > 0) {
+    throw new Error(
+        `The landing claims "Zero third-party dependencies", but @aparte/core now depends on: `
+        + `${THIRD_PARTY.join(', ')}. Change the claim or the dependency — this page does not ship the lie.`,
+    );
+}
+
+/**
  * How far `--aparte-primary` actually reaches, across EVERY sheet rather than one.
  *
  * This bullet used to say "ninety-five of them derive from it" — the one hand-written
@@ -280,8 +302,10 @@ const FAMILIES = [
       <section class="hero">
        <div class="hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">AI chat in Web Components &mdash; <b>with the agent loop inside</b></p>
-          <h1 class="thesis serif">Chat, spoken <em>aside.</em></h1>
+          <!-- The H1 carries the category words a search weighs; the signature line
+               keeps the display type. The TAGS swapped, the visual roles did not. -->
+          <h1 class="eyebrow">AI chat Web Components, framework-agnostic &mdash; <b>with the agent loop inside</b></h1>
+          <p class="thesis serif">Chat, spoken <em>aside.</em></p>
           <p class="lede">
             Not a bubble kit. One element gives you the whole turn: <b>{SEGMENT_KINDS.length} kinds of content</b>,
             <b>human-in-the-loop tools</b>, branch-and-retry on any
@@ -320,10 +344,10 @@ message.segments = [
        </div>
 
         <div class="facts">
-          <span><span class="k">i.</span><b>Zero</b> runtime dependencies</span>
+          <span><span class="k">i.</span><b>Zero</b> third-party dependencies</span>
           <span><span class="k">ii.</span><b>{SEGMENT_KINDS.length}</b> kinds of content in one turn</span>
           <span><span class="k">iii.</span><b>{CSS_VARS}</b> CSS variables, no shadow DOM</span>
-          <span><span class="k">iv.</span>Your key, your server &#8212; <b>or no server at all</b></span>
+          <span><span class="k">iv.</span>Your key (BYOK), your server &#8212; <b>or no server at all</b></span>
         </div>
       </section>
 

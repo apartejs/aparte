@@ -1,11 +1,11 @@
 ---
-title: Compare aparté with assistant-ui, AI Elements, deep-chat
-description: A fair comparison of AI chat UI libraries — assistant-ui, Vercel AI Elements, deep-chat, Loquix, kitn, OpenAI ChatKit — on framework lock-in, runtime, dependencies, human-in-the-loop and theming.
+title: 'Compare aparté with Loquix, assistant-ui, AI Elements & more (2026)'
+description: A fair, dated comparison of AI chat UI libraries — Loquix, assistant-ui, Vercel AI Elements, deep-chat, kitn, OpenAI ChatKit — on framework lock-in, runtime, local/in-browser models, human-in-the-loop and theming.
 sidebar:
   label: Compare
 ---
 
-If you are choosing a chat UI for an LLM product, the libraries below are the ones you
+If you are choosing a chat UI library for an LLM product, the libraries below are the ones you
 will shortlist. This page says what each is good at and where aparté differs — including
 the cases where you should pick the other one. Claims about other projects were checked
 against their public docs in **August 2026**; they move fast, so verify before deciding.
@@ -27,12 +27,13 @@ below.
 | Edit / retry / branch a conversation | **[Yes, with a version picker](/guides/conversations-branching/)** | Yes | Partial | — | Partial | — |
 | Persistence | [A storage interface you implement](/guides/conversation-persistence/) | A hosted cloud service (paid) | Your own | — | — | — |
 | Theming | [CSS variables, light DOM](/guides/theming/), no fork | Tailwind / shadcn — fork the markup | shadcn — the code lives in your app | Config object | CSS variables | CSS variables + online editor |
-| Run a model in the browser | Yes — the [transformers provider](/providers/) | — | — | Yes (Web LLM) | — | — |
+| Run a model in the browser | Yes — the [transformers provider](/providers/ai/transformers/) | — | — | Yes (Web LLM) | — | — |
 | Markdown, code, reasoning | Yes ([opt-in plugins](/plugins/)) | Yes | Yes | Yes | Yes | Yes |
 | Mermaid, KaTeX | — | Yes | Yes | — | — | — |
 | Voice | — | Yes (realtime) | Yes | Yes | — | — |
 | Citations / sources | — | Partial | Yes | — | Yes | — |
 | Floating / modal chat | — | Yes | — | Yes (embed) | Partial | — |
+| Best fit for | Multi-framework teams that want the runtime included | React teams, all-in on React | Apps already on the Vercel AI SDK | A config-driven embed, fast | A polished presentational kit (Lit) | A minimal presentational kit |
 | Licence | MIT | MIT | Apache-2.0 | MIT | MIT | MIT |
 
 The rows read left to right as *what aparté is for*: the top half is the runtime, the
@@ -68,8 +69,8 @@ every screen an agent product has. Nobody else has that breadth.
 **Pick aparté when** you are not on React, or when you want the parts to update as a
 dependency rather than as copied source. One thing to know: AI Elements' file tree,
 terminal and test results are **app-fed views**, not message types — the same conclusion
-aparté reached when it removed those segment kinds. A tool result rendered richly is the
-seam both libraries converge on.
+aparté reached when it removed those segment kinds. A tool result rendered richly —
+generative UI, in the term the field settled on — is the seam both libraries converge on.
 
 ## deep-chat
 

@@ -1,5 +1,5 @@
 ---
-title: Transformers.js (local)
+title: 'Run an LLM 100% in the Browser (Transformers.js)'
 description: Run LLMs 100% in the browser via Transformers.js (WebGPU/WASM) — no API, no key, no server. Streams off the main thread in a Web Worker.
 sidebar:
   order: 4

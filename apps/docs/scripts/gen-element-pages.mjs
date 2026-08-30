@@ -417,10 +417,11 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
 
 function indexPage(pagesByGroup) {
   let md = `---
-title: 'Components'
+title: 'Chatbot UI Components'
 description: 'Every element aparté ships — what each one is for, in one line.'
 sidebar:
   order: 0
+  label: Overview
 ---
 
 Every element is a plain custom element: no framework, no runtime dependency, and the same

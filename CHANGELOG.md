@@ -4,6 +4,44 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.16.6
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [cc303dc](https://github.com/apartejs/aparte/commit/cc303dc): An elicitation's question no longer runs under the corner "Skip" button (#50).
+
+  The button is absolutely positioned, so nothing in the flow reserved its width: any
+  message long enough to reach the panel's edge printed its first line underneath it —
+  measured at 43px of text under "Skip" in a 460px panel. `.aparte-elic-message` now
+  keeps the same room the tab rail already reserves, from the same token
+  (`--aparte-elic-dismiss-room`), so the two can never disagree — and a locale whose
+  word is wider than "Skip" bumps one value instead of patching two rules.
+  <sub>`@aparte/core`</sub>
+
+- [e8043ba](https://github.com/apartejs/aparte/commit/e8043ba): npm keywords carry the words people actually type — nothing in the code changes.
+
+  Core goes from 5 keywords to 19 (chat-ui, ai-chat, chatbot, chat-component,
+  custom-elements, framework-agnostic, the four framework names, agent, tool-calling,
+  human-in-the-loop, openai); each wrapper gains chat-ui and ai-chat. Measured against
+  the category's incumbents: none of ours were the terms a search starts from.
+  <sub>`@aparte/core`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`</sub>
+
+- [1f7365f](https://github.com/apartejs/aparte/commit/1f7365f): Presence setters treat `''` as ON, so Svelte templates actually set the attribute (#62).
+
+  The attribute types document `''` as the spelling for a presence attribute, because
+  React and Vue stringify what they set on a custom element. Svelte 5 takes the property
+  path instead whenever the element has an accessor — and `single={''}` on
+  `<aparte-split>` (likewise `collapsed`, `disabled`, and the sidebar's `collapsed`)
+  handed the setter an empty string that `toggleAttribute` read as falsy: the attribute
+  was removed, the opposite of what the template asked for, silently. On a presence
+  property an empty string now means ON, exactly as an empty attribute does; `false`,
+  `null` and `undefined` still mean OFF.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.16.5
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

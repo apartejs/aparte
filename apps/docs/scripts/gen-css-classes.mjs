@@ -382,6 +382,8 @@ const firstSentence = (text) => {
     return (cut ? cut[1] : flat.slice(0, 160)).trim();
 };
 const kitPages = [];
+/** What the index lists: one line per family, grouped as the sidebar groups them. */
+const kitIndex = [];
 let kitOrder = 0;
 // No gallery page — one page per family IS the section. A gallery of every preview on
 // one page was built and rejected by the maintainer ("galerie, c'est pas ça").
@@ -414,6 +416,12 @@ import ClassPreview from '../../../components/ClassPreview.astro';
         page += `\nThe tokens these read are on the [CSS variables](/reference/css-variables/) reference; every class of the kit, on one page, is the [classes reference](/reference/classes/).\n`;
         page += `\n{/* Generated from packages/core/src/styles/${family.rel} by apps/docs/scripts/gen-css-classes.mjs — edit the stylesheet's header comment, not this file. */}\n`;
         kitPages.push({ file: join(KIT_DIR, `${family.id}.mdx`), page });
+        kitIndex.push({
+            group: group.title,
+            id: family.id,
+            name,
+            desc: firstSentence(prose) || `The ${name} classes, with their markup.`,
+        });
     }
 }
 
@@ -426,6 +434,39 @@ if (kitPages.length < KIT_FLOOR) {
 mkdirSync(KIT_DIR, { recursive: true });
 let kitWrote = 0;
 for (const { file, page } of kitPages) if (writeIfChanged(file, page)) kitWrote += 1;
+
+/*
+ * The section's front door (#63 caught it missing: the llms preamble cited /kit/ and
+ * the route 404'd — no page, because the sidebar autogenerates the GROUP without an
+ * index). A table of contents, one line per family — deliberately NOT a gallery of
+ * every preview on one page, which was built once and rejected by the maintainer.
+ */
+{
+    let md = `---
+title: 'UI Kit for an AI Chat App'
+description: ${yaml(`${kitPages.length} families of plain CSS classes for the chrome around a chat — buttons, fields, tabs, dialogs, avatars, the sidebar — themed by the same variables as the chat itself.`)}
+sidebar:
+  order: 0
+  label: Overview
+---
+
+Every recipe here is **plain classes on plain elements**: no component to import, no
+framework, no shadow DOM — copy the markup, restyle it with the same
+[CSS variables](/reference/css-variables/) the chat reads. Each family has one page,
+its live preview first; every class of the kit on one page is the
+[classes reference](/reference/classes/).
+`;
+    let lastGroup = '';
+    for (const f of kitIndex) {
+        if (f.group !== lastGroup) {
+            md += `\n## ${f.group}\n\n`;
+            lastGroup = f.group;
+        }
+        md += `- **[${f.name}](/kit/${f.id}/)** — ${mdxSafe(f.desc)}\n`;
+    }
+    md += `\n{/* Generated from packages/core/src/styles/ by apps/docs/scripts/gen-css-classes.mjs — edit the stylesheets' header comments, not this file. */}\n`;
+    if (writeIfChanged(join(KIT_DIR, 'index.mdx'), md)) kitWrote += 1;
+}
 
 mkdirSync(dirname(OUT), { recursive: true });
 mkdirSync(GENERATED, { recursive: true });
