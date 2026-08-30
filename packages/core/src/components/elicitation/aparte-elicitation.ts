@@ -108,7 +108,7 @@ interface Pending {
  * @cssprop [--aparte-elic-step-padding=4px 2px] - Padding of a step tab.
  * @cssprop [--aparte-elic-step-gap=14px] - Gap between step tabs.
  * @cssprop [--aparte-elic-step-underline=2px] - Thickness of the current step's underline (a tab, not a pill).
- * @cssprop [--aparte-elic-dismiss-room=72px] - Space kept clear at the end of the tab rail for the corner escape.
+ * @cssprop [--aparte-elic-dismiss-room=72px] - Space the tab rail and the question message keep clear for the corner escape. Widen it for a locale whose "Skip" word is wider.
  * @cssprop [--aparte-approval-gap=4px] - Gap between the stacked options of an approval request.
  * @cssprop [--aparte-approval-option-size=0.85rem] - Font size of an approval option button.
  * @cssprop [--aparte-approval-option-padding=8px 10px] - Padding of an approval option button.
