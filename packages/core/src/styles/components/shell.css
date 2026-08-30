@@ -46,6 +46,59 @@ aparte-chat > aparte-chat-viewport,
   min-height: 0;
 }
 
+/* ─── Overlay composer (`overlay-composer`) ───────────────────────────────────
+   The ChatGPT anatomy, opt-in: the transcript's scroll surface spans the WHOLE
+   column and the composer floats over it, so the scrollbar runs edge to edge
+   instead of stopping at the composer's top. Opt-in, never the default — a chat
+   embedded in a small box should not have its composer eating the transcript.
+
+   The viewport leaves the flow (absolute over the shell) and everything else —
+   elicitation, an above-composer row, the composer — keeps flowing, pushed to the
+   bottom and painted over it. The transcript clears that stack through
+   `--aparte-bottom-inset`, which the viewport measures from the stack's top edge
+   (see `_updateOverlayInset`): the `::after` spacer grows by it in
+   framework-managed mode, the container's own padding in core mode, and the
+   scroll button's `bottom` rides it in both. The inset var and its readers are
+   unconditional (0px when unset), so a host that overlays a composer of its own
+   can write the variable itself without this attribute.
+
+   Three shell shapes, because the wrappers differ: the vanilla <aparte-chat>
+   element, the [data-aparte-chat] div React/Vue/Svelte render, and Angular's
+   inner .aparte-chat-container (its host IS aparte-chat, but the viewport is a
+   child of the inner div, so that div is the shell the recipe lays out — the
+   Angular wrapper binds the attribute there). The inner-div shape declares its
+   own flex column: unlike the other two it inherits none. */
+aparte-chat[overlay-composer],
+[data-aparte-chat][overlay-composer],
+.aparte-chat-container[overlay-composer] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+aparte-chat[overlay-composer] > aparte-chat-viewport,
+[data-aparte-chat][overlay-composer] > aparte-chat-viewport,
+.aparte-chat-container[overlay-composer] > aparte-chat-viewport {
+  position: absolute;
+  /* The padding box, so the scroll surface reaches the shell's true bottom edge —
+     the `--aparte-chat-bottom-gap` padding stays under the floating stack and the
+     measured inset covers it. */
+  inset: 0;
+  height: auto;
+  z-index: 0;
+}
+
+/* The bottom stack paints over the absolutely positioned viewport. `:not()` is
+   exact here: the only child that is not the viewport IS the stack (the scroll
+   button lives inside the viewport). */
+aparte-chat[overlay-composer] > :not(aparte-chat-viewport),
+[data-aparte-chat][overlay-composer] > :not(aparte-chat-viewport),
+.aparte-chat-container[overlay-composer] > :not(aparte-chat-viewport) {
+  position: relative;
+  z-index: var(--aparte-z-raised);
+}
+
 /* center-empty: the shell centers the composer as a welcome state until the first
    message, then slides to the normal layout. The component toggles [data-empty]
    on itself by watching its viewport — only `flex-grow` animates, so the composer
@@ -91,6 +144,11 @@ aparte-chat-viewport {
   width: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  /* The overlay clearance (0 outside overlay mode). Padding is SAFE on this box —
+     the scroll button is absolute on the host, which does not scroll — where the
+     framework-managed host must carry the same clearance in its ::after instead,
+     because there the button is a sticky CHILD and padding would clamp it. */
+  padding-bottom: var(--aparte-bottom-inset, 0px);
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
@@ -133,7 +191,9 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 .aparte-scroll-btn {
   --aparte-btn-size: var(--aparte-scroll-btn-size);
   position: absolute;
-  bottom: var(--aparte-space-8);
+  /* Rides the overlay clearance (0 outside overlay mode), so it floats above a
+     composer laid over the transcript rather than behind it. */
+  bottom: calc(var(--aparte-space-8) + var(--aparte-bottom-inset, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--aparte-z-floating);
@@ -210,7 +270,7 @@ aparte-chat-viewport[framework-managed] > * {
 aparte-chat-viewport.aparte-viewport--framework::after,
 aparte-chat-viewport[framework-managed]::after {
   content: '';
-  flex: 0 0 calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px));
+  flex: 0 0 calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px) + var(--aparte-bottom-inset, 0px));
 }
 
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
@@ -231,7 +291,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-track {
    very end and the sticky line always wins. */
 aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
   position: sticky;
-  bottom: var(--aparte-space-8);
+  bottom: calc(var(--aparte-space-8) + var(--aparte-bottom-inset, 0px));
   left: auto;
   align-self: center;
   transform: none;
