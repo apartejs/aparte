@@ -198,6 +198,56 @@ describe('#57 — one owner of the scroll during the send glide', () => {
         expect(fwWrites, 'nor on the placeholder inside the glide').toEqual([]);
     });
 
+    it('a rebuild that re-adds several bubbles is not a send: it pins instantly, and the settle runs', async () => {
+        // CI (vanilla): a branch swap at the bottom re-adds the transcript's bubbles, user
+        // ones included, with auto-follow re-armed; taken for a send, the swap glided
+        // instead of pinning, the settle chain held its hand for the glide, the swap's
+        // height churn left the view short — and a scroll-to-bottom button appeared over a
+        // reader who never left (`bubble-actions.spec.ts:370`, flaky, CI fails on flaky).
+        document.body.innerHTML = '';
+        const fw = document.createElement('aparte-chat-viewport') as unknown as Vp;
+        fw.setAttribute('framework-managed', '');
+        document.body.appendChild(fw);
+        const host = fw as unknown as HTMLElement;
+        const fwScrollTo = vi.fn();
+        (host as unknown as { scrollTo: unknown }).scrollTo = fwScrollTo;
+        let top = 891;
+        const fwWrites: number[] = [];
+        Object.defineProperty(host, 'scrollHeight', { value: 1611, configurable: true });
+        Object.defineProperty(host, 'clientHeight', { value: CLIENT, configurable: true });
+        Object.defineProperty(host, 'scrollTop', { configurable: true, get: () => top, set: (v: number) => { top = v; fwWrites.push(v); } });
+        host.dispatchEvent(new Event('scroll'));
+
+        // One batch, two bubbles — the shape of a rebuild, not of a send.
+        const u = document.createElement('aparte-chat-bubble'); u.setAttribute('message-id', 'u1'); u.setAttribute('data-role', 'user');
+        const a = document.createElement('aparte-chat-bubble'); a.setAttribute('message-id', 'a1'); a.setAttribute('data-role', 'assistant');
+        host.append(u, a);
+        await frame();
+        await frame();
+        expect(fwScrollTo.mock.calls.filter((c) => (c[0] as { behavior?: string })?.behavior === 'smooth').length, 'no glide for a rebuild').toBe(0);
+        expect(fwWrites.length, 'the rebuild pins instantly').toBeGreaterThan(0);
+    });
+
+    it('a glide whose window closes with the view still short is settled — the pin is not lost', async () => {
+        // `performance` too: the window is a `performance.now()` deadline, and a timer
+        // that fires while the clock stands still would find the glide still in flight.
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+        try {
+            vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
+            await frame();
+            expect(instantWrites).toEqual([]);
+            // The engine never arrived (a stale target, a churn): the view sits 191 px short of
+            // the max (1611 − 720 = 891) when the window's budget runs out.
+            recording = false; box.scrollTop = 700; recording = true;
+            vi.advanceTimersByTime(600);
+            await frame();
+            await frame();
+            expect(instantWrites.length, 'the view is pinned once the glide is over').toBeGreaterThan(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('reduced motion keeps the instant path — there is no glide to protect', async () => {
         vi.stubGlobal('matchMedia', () => ({ matches: true }));
         vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });

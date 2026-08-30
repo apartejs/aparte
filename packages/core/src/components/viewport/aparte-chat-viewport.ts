@@ -176,6 +176,8 @@ export class AparteChatViewport extends HTMLElement {
     private _glideUntil = 0;
     /** The glide's budget when `scrollend` is not there to close it: Chromium's smooth scroll over a viewport takes ~300–500 ms. */
     private _glideWindowMs = 450;
+    /** Armed with each glide: when the window closes, a view still short of the bottom is pinned. */
+    private _glideSettleTimer: ReturnType<typeof setTimeout> | null = null;
     /** Deadline of the settle in flight (0 = none). Pushed forward, never stacked. */
     private _settleUntil = 0;
     private _settleRafId: number | null = null;
@@ -1583,13 +1585,19 @@ export class AparteChatViewport extends HTMLElement {
             // the same thing one event earlier through requestSmoothScroll(); a host that
             // renders bubbles itself and never heard of that call gets the glide all the
             // same. The viewport owns it.
+            // A send is ONE user bubble, appended last. A branch swap or a transcript rebuild
+            // re-adds many bubbles in one batch, user ones included, with auto-follow armed
+            // again — taken for a send, the swap glided instead of pinning, the settle held
+            // its hand for the glide, and the swap's height churn left the view short with a
+            // scroll-to-bottom button over a reader who never left (CI, bubble-actions:370).
             if (this._isAutoScrollEnabled && !this._gliding()) {
-                for (const m of mutations) {
-                    for (const node of m.addedNodes) {
-                        if (node instanceof Element && node.tagName === 'APARTE-CHAT-BUBBLE' && node.getAttribute('data-role') === 'user') {
-                            this._smoothScrollOnce = true;
-                        }
-                    }
+                const added = mutations
+                    .flatMap((m) => Array.from(m.addedNodes))
+                    .filter((n): n is Element => n instanceof Element && n.tagName === 'APARTE-CHAT-BUBBLE');
+                const only = added.length === 1 ? added[0] : undefined;
+                if (only && only.getAttribute('data-role') === 'user' && only.parentElement) {
+                    const bubbles = only.parentElement.querySelectorAll('aparte-chat-bubble');
+                    if (bubbles[bubbles.length - 1] === only) this._smoothScrollOnce = true;
                 }
             }
             // The gate is tested TWICE: when the frame is queued, and again when it
@@ -1885,6 +1893,17 @@ export class AparteChatViewport extends HTMLElement {
         if (typeof this._container.scrollTo === 'function' && !this._prefersReducedMotion()) {
             this._glideUntil = performance.now() + this._glideWindowMs;
             this._container.scrollTo({ top: this._container.scrollHeight, behavior: 'smooth' });
+            // A glide can miss: its target was read before a height churn, or the engine
+            // dropped it. Nothing re-pins once the mutations are over, so the glide arms
+            // the pin itself — an instant one, with the settle chain, once the window is
+            // closed and only if the view is still short and the reader still followed.
+            if (this._glideSettleTimer !== null) clearTimeout(this._glideSettleTimer);
+            this._glideSettleTimer = setTimeout(() => {
+                this._glideSettleTimer = null;
+                if (!this._container || !this._isAutoScrollEnabled || this._gliding()) return;
+                const max = this._container.scrollHeight - this._container.clientHeight;
+                if (max - this._container.scrollTop > 1) this._scrollToBottom();
+            }, this._glideWindowMs + 16);
         } else {
             this._container.scrollTop = this._container.scrollHeight;
         }
@@ -2062,6 +2081,7 @@ export class AparteChatViewport extends HTMLElement {
     private _cleanup(): void {
         this._container?.removeEventListener('scroll', this._handleScroll);
         this._container?.removeEventListener('scrollend', this._handleScrollEnd);
+        if (this._glideSettleTimer !== null) { clearTimeout(this._glideSettleTimer); this._glideSettleTimer = null; }
         for (const type of ['wheel', 'touchmove', 'pointerdown', 'keydown'] as const) {
             this._container?.removeEventListener(type, this._noteReaderInput);
         }
