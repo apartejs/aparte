@@ -501,3 +501,43 @@ describe('cache eviction on pipeline-ready', () => {
         expect(deleteMock).not.toHaveBeenCalled();
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ctx.signal — the transport's stop, which the contract says a bridge MUST honour
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('stop honours ctx.signal', () => {
+    const request = { modelId: 'Test/Text', messages: [{ role: 'user', content: 'hi' }] } as never;
+    const ctx = (signal: AbortSignal) => ({ providerId: 'transformers', signal });
+    const posted = (type: string) => workerPostMessage.mock.calls.map((c) => c[0]).filter((m) => m.type === type);
+
+    beforeEach(() => { vi.stubGlobal('crypto', { randomUUID: () => 'req-1' }); });
+
+    it('aborting the signal posts ONE cancel for the generate in flight', async () => {
+        const ac = new AbortController();
+        void TransformersProvider.chat(request, undefined, ctx(ac.signal));
+        await flush();
+        expect(posted('generate')).toHaveLength(1);
+        ac.abort();
+        ac.abort();
+        expect(posted('cancel')).toEqual([{ type: 'cancel', id: 'req-1' }]);
+    });
+
+    it('a signal already aborted never posts the generate, and the stream ends in an error', async () => {
+        const ac = new AbortController();
+        ac.abort();
+        const stream = await TransformersProvider.chat(request, undefined, ctx(ac.signal)) as ReadableStream<unknown>;
+        const events = await readAll(stream);
+        expect(posted('generate')).toHaveLength(0);
+        expect(events).toEqual([{ type: 'error', message: expect.stringMatching(/abort|cancel/i) }]);
+    });
+
+    it('cancelling the stream after the signal fired does not post a second cancel', async () => {
+        const ac = new AbortController();
+        const stream = await TransformersProvider.chat(request, undefined, ctx(ac.signal)) as ReadableStream<unknown>;
+        await flush();
+        ac.abort();
+        await stream.cancel();
+        expect(posted('cancel')).toHaveLength(1);
+    });
+});

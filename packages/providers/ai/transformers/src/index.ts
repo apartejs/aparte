@@ -575,13 +575,18 @@ export const TransformersProvider: AparteAIProvider
         return _knownModels;
     },
 
-    async chat(request: AparteChatRequest): Promise<AparteChatResponse> {
+    async chat(
+        request: AparteChatRequest,
+        _config?: string | Record<string, string>,
+        ctx?: { providerId: string; signal?: AbortSignal },
+    ): Promise<AparteChatResponse> {
         const requestId = uuid();
         const options = {
             maxTokens: request.maxTokens,
             temperature: request.temperature,
             seed: request.seed,
         };
+        const signal = ctx?.signal;
 
         // ── Reserve a serialization slot ─────────────────────────────────────
         // Chain this generate behind the previous one; the worker has a single
@@ -592,7 +597,32 @@ export const TransformersProvider: AparteAIProvider
         _generateChain = new Promise<void>((resolveSlot) => {
             _generateDoneResolvers.set(requestId, resolveSlot);
         });
+        // ── Stop, from either side ───────────────────────────────────────────
+        // The transport's `ctx.signal` (the user's Stop, which the provider contract
+        // says a bridge MUST honour — this one read it nowhere) and the stream's own
+        // `cancel()` say the same thing, and the worker hears it once. Before the
+        // generate has been posted there is nothing to interrupt: the stream is
+        // settled here, and the slot is released when its turn in the chain comes —
+        // not earlier, or the next generate would start over the one still running.
+        let posted = false;
+        let stopped = false;
+        const stop = (): void => {
+            if (stopped) return;
+            stopped = true;
+            signal?.removeEventListener('abort', stop);
+            if (posted) {
+                _getWorker().postMessage({ type: 'cancel', id: requestId });
+                return;
+            }
+            const ctrl = _pendingGenerates.get(requestId);
+            _pendingGenerates.delete(requestId);
+            if (!ctrl) return;
+            try { ctrl.enqueue({ type: 'error' as const, message: 'Generation cancelled before it started' }); ctrl.close(); }
+            catch { /* already closed */ }
+        };
         const postGenerate = (): void => {
+            if (stopped) { _releaseGenerateSlot(requestId); return; }
+            posted = true;
             _getWorker().postMessage({
                 type: 'generate',
                 id: requestId,
@@ -605,8 +635,9 @@ export const TransformersProvider: AparteAIProvider
             });
         };
 
+        let response: AparteChatResponse | Promise<string>;
         if (request.stream === false) {
-            return new Promise<string>((resolve, reject) => {
+            response = new Promise<string>((resolve, reject) => {
                 let result = '';
                 const fakeCtrl = {
                     enqueue: (chunk: { type: string; delta?: string; message?: string }) => {
@@ -619,23 +650,28 @@ export const TransformersProvider: AparteAIProvider
                 _pendingGenerates.set(requestId, fakeCtrl);
                 void prevGenerate.then(postGenerate);
             });
+        } else {
+            response = new ReadableStream({
+                async start(controller) {
+                    _pendingGenerates.set(requestId, controller);
+                    await prevGenerate;
+                    postGenerate();
+                },
+                cancel() {
+                    // The reader is gone, so nothing may be enqueued for it again — and the
+                    // model actually STOPS (not just the read): the worker interrupts this
+                    // generate, and the slot is still released by the resulting
+                    // gen-done/gen-error, so a queued generate cannot start before that.
+                    _pendingGenerates.delete(requestId);
+                    stop();
+                },
+            });
         }
 
-        return new ReadableStream({
-            async start(controller) {
-                _pendingGenerates.set(requestId, controller);
-                await prevGenerate;
-                postGenerate();
-            },
-            cancel() {
-                _pendingGenerates.delete(requestId);
-                // Actually STOP the model (not just detach the reader): tell the worker
-                // to interrupt this generate. The serialization slot is still released
-                // by the resulting gen-done/gen-error, so a queued generate can't start
-                // before the worker has stopped this one.
-                _getWorker().postMessage({ type: 'cancel', id: requestId });
-            },
-        });
+        // `start` has run by now, so the controller is registered and a stop settles it.
+        if (signal?.aborted) stop();
+        else signal?.addEventListener('abort', stop, { once: true });
+        return response;
     },
 
     async getModelStatus(modelId: string): Promise<ModelStatus> {
