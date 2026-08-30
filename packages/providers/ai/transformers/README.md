@@ -101,8 +101,10 @@ export async function createRunner(ctx) {
 ```
 
 `emit` speaks aparté's stream vocabulary (`text`, `thinking`, `tool_use`, `done`, `error`),
-`signal` fires on Stop, `ctx.progress` / `ctx.warn` reach the page. The contract is exported:
-`TransformersRunner`, `RunnerContext`, `RunnerGenerateInput`, `CreateRunner`.
+`signal` fires on Stop, `ctx.progress` (a `RunnerProgress`) / `ctx.warn` reach the page. The contract is
+exported: `TransformersRunner`, `RunnerContext`, `RunnerGenerateInput`, `CreateRunner`, `RunnerModule` (what
+the module exports), `BuiltInRunner` (the two `task` names) and `TransformersModule` (the type of
+`ctx.transformers`).
 `runnerCommand(modelId, name, payload)` reaches a runner's `command()` from the page, queued
 behind the generates in flight.
 
