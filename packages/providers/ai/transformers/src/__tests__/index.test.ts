@@ -8,6 +8,7 @@ import {
     getMaxCachedModels,
     registerModel,
     TransformersProvider,
+    runnerCommand,
     type CachedModelEntry,
 } from '../index';
 
@@ -71,36 +72,123 @@ afterEach(() => {
 // getLoadedModelId
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('tool turns are dropped LOUDLY', () => {
-    // This provider doesn't support tools (v1) and silently filtered tool_call /
-    // tool_result turns out of the prompt: an app that registered tools got a model
-    // that never saw the call or its result, with nothing to explain why. Same class
-    // as the getModels() Promise trap — warn instead of swallowing.
-    it('warns once when a tool turn is filtered out of the prompt', async () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// The runner protocol, main-thread side
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The `message` handler `_getWorker()` registered on the stub — the worker's voice. */
+function workerHandler(): (e: { data: unknown }) => void {
+    const call = workerAddEventListener.mock.calls.find((args) => args[0] === 'message');
+    if (!call) throw new Error('the worker has not been spawned yet');
+    return call[1] as (e: { data: unknown }) => void;
+}
+
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
+/** Read the stream a `chat()` returned to the end. */
+async function readAll(stream: ReadableStream<unknown>): Promise<unknown[]> {
+    const out: unknown[] = [];
+    const reader = stream.getReader();
+    for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return out;
+        out.push(value);
+    }
+}
+
+describe('chat() hands the worker the conversation, not a flattening of it', () => {
+    beforeEach(() => { vi.stubGlobal('crypto', { randomUUID: () => 'req-1' }); });
+
+    it('posts the messages with their content parts, and the task the model was registered with', async () => {
+        registerModel({ id: 'Test/VLM', name: 'VLM', capabilities: ['streaming', 'vision'], task: 'image-text-to-text' });
+        const messages = [{ role: 'user', content: [{ type: 'text', text: 'what is this?' }, { type: 'image', image: 'data:image/png;base64,AAAA' }] }];
+        void TransformersProvider.chat({ modelId: 'Test/VLM', messages } as never);
+        await flush();
+        const generate = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(generate).toMatchObject({ modelId: 'Test/VLM', task: 'image-text-to-text', messages });
+        expect(generate.runner).toBeUndefined();
+    });
+
+    it('defaults the task to text-generation for a model registered without one', async () => {
+        registerModel({ id: 'Test/Text', name: 'Text', capabilities: ['streaming'] });
+        void TransformersProvider.chat({ modelId: 'Test/Text', messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        const generate = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(generate.task).toBe('text-generation');
+    });
+
+    it('posts a custom runner as an ABSOLUTE url — the worker does not share the page\'s base', async () => {
+        registerModel({ id: 'Test/Custom', name: 'Custom', capabilities: ['streaming'], runner: './runners/mine.js' });
+        void TransformersProvider.chat({ modelId: 'Test/Custom', messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        const generate = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'generate');
+        expect(generate.runner).toBe(new URL('./runners/mine.js', location.href).href);
+        expect(generate.runner).toMatch(/^https?:\/\//);
+    });
+});
+
+describe('what comes back from the worker', () => {
+    beforeEach(() => { vi.stubGlobal('crypto', { randomUUID: () => 'req-1' }); });
+
+    it('forwards a gen-event verbatim — a thinking event reaches the stream as itself', async () => {
+        const stream = await TransformersProvider.chat({ modelId: 'Test/Text', messages: [{ role: 'user', content: 'hi' }] } as never) as ReadableStream<unknown>;
+        const reading = readAll(stream);
+        await flush();
+        const worker = workerHandler();
+        worker({ data: { type: 'gen-event', id: 'req-1', event: { type: 'thinking', delta: 'hm' } } });
+        worker({ data: { type: 'gen-event', id: 'req-1', event: { type: 'text', delta: 'Hello' } } });
+        worker({ data: { type: 'gen-done', id: 'req-1', usage: { inputTokens: 3, outputTokens: 1 } } });
+        expect(await reading).toEqual([
+            { type: 'thinking', delta: 'hm' },
+            { type: 'text', delta: 'Hello' },
+            { type: 'done', usage: { inputTokens: 3, outputTokens: 1 } },
+        ]);
+    });
+
+    it('a warning from the worker reaches the console, prefixed (the worker itself says each once)', async () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-        vi.stubGlobal('crypto', { randomUUID: () => 'req-1' });
-
-        const request = {
-            modelId: 'm',
-            messages: [
-                { role: 'user', content: 'call the tool' },
-                { role: 'tool_call', content: '', toolCalls: [{ id: 'c1', name: 'search', input: {} }] },
-                { role: 'tool_result', content: 'result text', toolCallId: 'c1' },
-            ],
-        } as never;
-
-        // chat() converts the prompt first; the worker never has to answer for the
-        // conversion to have happened.
-        void TransformersProvider.chat?.(request);
-
-        expect(warn).toHaveBeenCalledTimes(1);
-        expect(warn.mock.calls[0]?.join(' ')).toMatch(/tool/i);
-
-        // A second conversion must stay quiet — one warning per session, not per turn.
-        void TransformersProvider.chat?.(request);
-        expect(warn).toHaveBeenCalledTimes(1);
-
+        void TransformersProvider.prepareModel('Test/Text', vi.fn()).catch(() => {});
+        const worker = workerHandler();
+        worker({ data: { type: 'warning', message: 'image parts were dropped' } });
+        worker({ data: { type: 'warning', message: 'tool turns were dropped' } });
+        expect(warn).toHaveBeenCalledTimes(2);
+        expect(warn.mock.calls[0]?.[0]).toBe('[transformers] image parts were dropped');
+        expect(warn.mock.calls[1]?.[0]).toBe('[transformers] tool turns were dropped');
         warn.mockRestore();
+    });
+});
+
+describe('runnerCommand', () => {
+    beforeEach(() => { vi.stubGlobal('crypto', { randomUUID: () => 'cmd-1' }); });
+
+    it('posts a command carrying the model\'s selection and resolves with the runner\'s result', async () => {
+        registerModel({ id: 'Test/Custom', name: 'Custom', capabilities: ['streaming'], runner: 'https://app.example/runner.js', dtype: 'q4' });
+        const pending = runnerCommand('Test/Custom', 'adapter', { name: 'poet' });
+        await flush();
+        const command = workerPostMessage.mock.calls.map((c) => c[0]).find((m) => m.type === 'command');
+        expect(command).toMatchObject({ id: 'cmd-1', modelId: 'Test/Custom', name: 'adapter', payload: { name: 'poet' }, runner: 'https://app.example/runner.js', dtype: 'q4' });
+        workerHandler()({ data: { type: 'command-result', id: 'cmd-1', result: { swapped: true } } });
+        await expect(pending).resolves.toEqual({ swapped: true });
+    });
+
+    it('rejects with the error the worker reports', async () => {
+        const pending = runnerCommand('Test/Text', 'x', null);
+        await flush();
+        workerHandler()({ data: { type: 'command-result', id: 'cmd-1', error: 'This runner has no command handler' } });
+        await expect(pending).rejects.toThrow(/command handler/);
+    });
+
+    it('waits its turn behind a generate in flight — the worker holds one runner', async () => {
+        vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValueOnce('gen-1').mockReturnValueOnce('cmd-1') });
+        void TransformersProvider.chat({ modelId: 'Test/Text', messages: [{ role: 'user', content: 'hi' }] } as never);
+        await flush();
+        void runnerCommand('Test/Text', 'x', null);
+        await flush();
+        const types = () => workerPostMessage.mock.calls.map((c) => c[0].type).filter((t) => t !== 'init');
+        expect(types()).toEqual(['generate']);
+        workerHandler()({ data: { type: 'gen-done', id: 'gen-1' } });
+        await flush();
+        expect(types()).toEqual(['generate', 'command']);
     });
 });
 
