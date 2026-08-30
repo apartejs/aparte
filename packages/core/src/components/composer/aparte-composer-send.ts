@@ -84,6 +84,10 @@ export class AparteComposerSend extends HTMLElement {
 
     connectedCallback(): void {
         this._render();
+        // Bound here, never in _render — disconnect removes it and a reconnect's
+        // _render keeps the existing DOM (see aparte-composer-input for the full rule).
+        this._button = this.querySelector('.aparte-cs-button');
+        this._button?.addEventListener('click', this._onClick);
         this._connectToRoot();
     }
 
@@ -114,8 +118,6 @@ export class AparteComposerSend extends HTMLElement {
             ${disabled ? 'disabled' : ''}
         >${icon}</button>`;  // safe-text: _getSendIcon() returns the provider's SVG markup — escaping it would print the source
 
-        this._button = this.querySelector('.aparte-cs-button');
-        this._button?.addEventListener('click', this._onClick);
     }
 
     private _connectToRoot(): void {

@@ -94,6 +94,18 @@ export class AparteComposerInput extends HTMLElement {
 
     connectedCallback(): void {
         this._render();
+        // Bound HERE, never in _render: disconnectedCallback removes these, and on a
+        // RECONNECT (a chat moved into a split, a shell, any reparenting) _render
+        // finds its DOM already there and returns before the old binding block —
+        // which left the editor deaf: the draft landed in the DOM and `root.value`
+        // never heard of it, so the send button stayed disabled with text visibly
+        // in the box. Wiring is the connect's job; _render only builds.
+        this._editor = this.querySelector('.aparte-ci-editor');
+        this._editor?.addEventListener('input', this._onInput);
+        this._editor?.addEventListener('keydown', this._onKeydown);
+        this._editor?.addEventListener('focus', this._onFocus);
+        this._editor?.addEventListener('blur', this._onBlur);
+        this._editor?.addEventListener('paste', this._onPaste);
         this._connectToRoot();
         this._scheduleInitialReflow();
         // The placeholder is the one string in this composer a sighted user can
@@ -223,11 +235,6 @@ export class AparteComposerInput extends HTMLElement {
         ></div>`;
 
         this._editor = this.querySelector('.aparte-ci-editor');
-        this._editor?.addEventListener('input', this._onInput);
-        this._editor?.addEventListener('keydown', this._onKeydown);
-        this._editor?.addEventListener('focus', this._onFocus);
-        this._editor?.addEventListener('blur', this._onBlur);
-        this._editor?.addEventListener('paste', this._onPaste);
 
         this._adjustHeight();
     }
