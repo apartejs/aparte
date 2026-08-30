@@ -186,7 +186,8 @@ export default defineConfig({
             + 'agent loop), plus thin React, Vue, Svelte and Angular '
             + 'wrappers. It is backend-agnostic — a transport sends requests either browser-direct '
             + '(bring your own key, or a local model) or to your own endpoint, where the key stays '
-            + 'server-side. Providers and plugins are opt-in packages.',
+            + 'server-side. Providers and plugins are opt-in packages. How it compares to '
+            + + 'assistant-ui, AI Elements, deep-chat and Loquix: /compare/.',
           details: [
             'Three families, three places. **Components** are custom elements (`<aparte-chat>`, '
             + '`<aparte-composer>`, `<aparte-select>`…) under /components/. **Segments** are the '

@@ -159,6 +159,19 @@ function fieldNotes(fields) {
   return md;
 }
 
+// The page <title> is what a search result shows, and the bare tag ('custom',
+// 'tool_call') carries none of the words anyone types. These titles put the
+// category phrase on the one URL that matches it; the sidebar keeps the bare
+// tag via an explicit label, so the nav stays a list of types.
+const SEO_TITLES = {
+  text: 'The text segment — streamed message text',
+  thinking: 'The thinking segment — a collapsible AI reasoning block',
+  code: 'The code segment — code blocks in an AI chat, highlighted',
+  error: 'The error segment — a failure, rendered in the conversation',
+  tool_call: 'The tool_call segment — a human-in-the-loop tool call UI',
+  custom: 'The custom segment — your own message content (generative UI)',
+};
+
 function page({ name, kind, decl }) {
   const doc = docOf(decl);
   const own = fieldsOf(decl).filter((f) => f.name !== 'type');
@@ -166,7 +179,9 @@ function page({ name, kind, decl }) {
   const example = exampleOf(decl);
 
   let md = `---
-title: ${yaml(kind)}
+title: ${yaml(SEO_TITLES[kind] || `The ${kind} segment`)}
+sidebar:
+  label: ${yaml(kind)}
 description: ${yaml(firstSentence(doc) || `The \`${kind}\` segment: ${name}.`)}
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: Frameworks
+title: 'AI Chat Components for React, Vue, Svelte & Angular'
 description: Use aparté from React, Vue, Svelte or Angular — thin wrappers over the framework-agnostic web components, with ergonomic components plus a generic escape hatch.
 sidebar:
   order: 1
@@ -28,12 +28,12 @@ The wrappers depend **only** on `@aparte/core` — never on a specific provider.
 provider (or none) in the [config](/providers/); the wrapper streams whatever's configured. See
 [Providers](/providers/) for the model side.
 
-## Available
+## React, Vue, Svelte and Angular chat components
 
-- **[React](/frameworks/react/)** — `@aparte/react` (React 18/19).
-- **[Vue](/frameworks/vue/)** — `@aparte/vue` (Vue 3.5+).
-- **[Svelte](/frameworks/svelte/)** — `@aparte/svelte` (Svelte 4 and 5).
-- **[Angular](/frameworks/angular/)** — `@aparte/angular` (Angular 19, standalone).
+- **[React chat component](/frameworks/react/)** — `@aparte/react` (React 18/19).
+- **[Vue chat component](/frameworks/vue/)** — `@aparte/vue` (Vue 3.5+).
+- **[Svelte chat component](/frameworks/svelte/)** — `@aparte/svelte` (Svelte 4 and 5).
+- **[Angular chat component](/frameworks/angular/)** — `@aparte/angular` (Angular 19, standalone).
 
 All four expose the **same slots and the same six callbacks** — `messageSent`, `action`,
 `messagesChange`, `messageAppended`, `typingChange`, `conversationCreated` — each in its own
