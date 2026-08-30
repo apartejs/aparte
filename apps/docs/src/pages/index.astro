@@ -177,6 +177,25 @@ if (THIRD_PARTY.length > 0) {
 }
 
 /**
+ * What ships, counted from what ships: the elements from core's custom-elements
+ * manifest (the docs build depends on core's build, so dist is always fresh here),
+ * the kit families from the pages their generator wrote just before this build.
+ * Floors, like CSS_VARS above: a count that silently collapses must fail the build,
+ * not publish a small number.
+ */
+const ELEMENTS = (JSON.parse(readFileSync(at('packages/core/dist/custom-elements.json'), 'utf8')) as {
+    modules: { declarations?: { customElement?: boolean }[] }[];
+}).modules.flatMap((m) => m.declarations ?? []).filter((d) => d.customElement).length;
+if (ELEMENTS < 20) {
+    throw new Error(`The landing counted only ${ELEMENTS} custom elements in core's manifest — the manifest moved or shrank; fix that rather than publishing a small count.`);
+}
+const KIT_FAMILIES = readdirSync(at('apps/docs/src/content/docs/kit/'))
+    .filter((f) => f.endsWith('.mdx') && f !== 'index.mdx').length;
+if (KIT_FAMILIES < 15) {
+    throw new Error(`The landing counted only ${KIT_FAMILIES} kit family pages — the generator moved or failed; fix that rather than publishing a small count.`);
+}
+
+/**
  * How far `--aparte-primary` actually reaches, across EVERY sheet rather than one.
  *
  * This bullet used to say "ninety-five of them derive from it" — the one hand-written
@@ -348,6 +367,7 @@ message.segments = [
           <span><span class="k">ii.</span><b>{SEGMENT_KINDS.length}</b> kinds of content in one turn</span>
           <span><span class="k">iii.</span><b>{CSS_VARS}</b> CSS variables, no shadow DOM</span>
           <span><span class="k">iv.</span>Your key (BYOK), your server &#8212; <b>or no server at all</b></span>
+          <span><span class="k">v.</span><b>{ELEMENTS}</b> chat components, <b>{KIT_FAMILIES}</b> UI-kit families</span>
         </div>
       </section>
 
