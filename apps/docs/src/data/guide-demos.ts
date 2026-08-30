@@ -219,9 +219,12 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      are recipes, the sidebar and the conversation list are elements, the chat is the
      chat. This frame talks to a SCRIPTED model (no key, no network) - type "haiku",
      "table", "code" or "weather" and watch the loop, the transcript and the tool call
-     run for real. Everything but the model is what your users would get. -->
+     run for real. Everything but the model is what your users would get.
+     The sidebar keeps the shell's own 48rem breakpoint: below 768px it is a drawer
+     behind the toggle - the frame is a window of its own, so narrow the page (or press
+     375) and watch it fold, exactly as it would on a phone. -->
 <div class="aparte-app-shell" style="height: 42rem">
-  <aparte-sidebar breakpoint="30rem">
+  <aparte-sidebar>
     <div class="aparte-sidebar__header">
       <span class="aparte-sidebar__brand">(aparté)</span>
       <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="New conversation">
@@ -246,7 +249,10 @@ export const GUIDE_DEMOS: GuideDemo[] = [
     <div class="aparte-app-header__actions"><span class="aparte-tag">scripted model</span></div>
   </header>
   <main class="aparte-app-shell__main">
-    <aparte-chat attachments>
+    <!-- overlay-composer: the transcript's scroll surface spans the whole column and the
+         composer floats over it, so the scrollbar runs to the bottom edge - the anatomy
+         ChatGPT has, one attribute here. -->
+    <aparte-chat attachments overlay-composer>
       <aparte-chat-viewport>
         <aparte-chat-bubble message-id="u1" data-role="user" content="What is aparté, in one sentence?"></aparte-chat-bubble>
         <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="A chat UI in Web Components with the agent loop inside - streaming markdown, tool calls a person approves, typed questions and branching, with zero dependencies. This whole screen is it: ask me for a haiku, a table, some code, or the weather."></aparte-chat-bubble>
