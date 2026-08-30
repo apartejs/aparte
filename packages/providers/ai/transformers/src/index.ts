@@ -5,9 +5,11 @@
  * thread in a Web Worker) so `AparteDirectTransport` delegates to its `chat()`. Model
  * weights download once and persist in the Cache API.
  *
- * Scope (v1): generic **text-generation** streaming. Tool-calling for local models is
- * model-specific (every family has its own wire format) and is out of scope here — the
- * app registers models and streams plain replies. Vision / embeddings can follow on demand.
+ * Scope: the worker runs a **runner** — the built-in `text-generation` (any chat model
+ * behind Transformers.js' `pipeline()`), or a module of the app's own named by
+ * `TransformersModelConfig.runner` (see `runners/types.ts` for the contract). Tool-calling
+ * for local models is model-specific (every family has its own wire format), so the
+ * built-in drops tool turns and says so; a custom runner may render them.
  *
  * ## This provider's state is TAB-scoped, on purpose
  *
@@ -35,11 +37,11 @@ import type {
     AparteAIModel,
     AparteChatRequest,
     AparteChatResponse,
-    AparteChatMessage,
     ModelStatus,
     ModelLoadProgress,
 } from '@aparte/core';
-import { contentToText, uuid } from '@aparte/core';
+import { uuid } from '@aparte/core';
+import type { BuiltInRunner, Device, Dtype } from './runners/types.js';
 
 // The worker's URL, not the worker itself: this package constructs it by hand because a
 // cross-origin copy has to go through a blob (see `_spawnWorker`). `?worker&url` is what
@@ -48,9 +50,6 @@ import { contentToText, uuid } from '@aparte/core';
 // the build inline the worker's raw TypeScript as a data: URL instead. Caught by a
 // two-origin browser probe, not by any test.
 import workerUrl from './worker.ts?worker&url';
-
-/** The minimal chat shape passed to the worker (the tokenizer applies the chat template). */
-type SimpleMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardware detection
@@ -116,12 +115,21 @@ export interface TransformersModelConfig {
     name: string;
     description?: string;
     capabilities: AparteAIModel['capabilities'];
-    /** Transformers.js pipeline task — determines the model architecture / load path. */
-    task: 'text-generation';
+    /**
+     * Which built-in runner loads and drives the model. `'text-generation'` (the default)
+     * is any chat model behind Transformers.js' `pipeline()`. Ignored when `runner` is set.
+     */
+    task?: BuiltInRunner;
+    /**
+     * A runner of your own: the URL of an ES module exporting `createRunner` (see
+     * `TransformersRunner`). Resolved against the page, imported by the worker, and handed
+     * the same Transformers.js instance the built-ins use. Wins over `task`.
+     */
+    runner?: string;
     /** ONNX dtype or per-part dtype map (e.g. `'q4'` or `{ decoder_model_merged: 'q4' }`). */
-    dtype?: string | Record<string, string>;
+    dtype?: Dtype;
     /** Preferred device. Defaults to WebGPU when available, else WASM. */
-    device?: 'webgpu' | 'wasm' | 'auto';
+    device?: Device;
     metadata?: Record<string, unknown>;
 }
 
@@ -214,34 +222,23 @@ async function _refreshKnownModels(): Promise<void> {
     } catch { /* cache unavailable */ }
 }
 
-/** Warn at most once per session that tool turns were left out of the prompt. */
-let _warnedToolTurnsDropped = false;
-
-/** AparteChatMessage[] → plain chat turns (the tokenizer's chat template does the rest). */
-function toMessages(messages: AparteChatMessage[]): SimpleMessage[] {
-    const result: SimpleMessage[] = [];
-    let droppedToolTurns = 0;
-    for (const m of messages) {
-        if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') {
-            const text = contentToText(m.content);
-            if (text) result.push({ role: m.role, content: text });
-        } else {
-            // tool_call / tool_result are not supported by this generic provider (v1):
-            // rendering them needs a model-specific tool syntax. Dropping them
-            // silently meant an app with registered tools got a model that never saw
-            // the call or its result, with nothing to explain the behaviour.
-            droppedToolTurns++;
-        }
-    }
-    if (droppedToolTurns > 0 && !_warnedToolTurnsDropped) {
-        _warnedToolTurnsDropped = true;
-        console.warn(
-            `[transformers] Dropped ${droppedToolTurns} tool turn(s) from the prompt: this provider ` +
-            'does not support tool calling (v1), so the model will not see the call or its result. ' +
-            'Use an OpenAI-compatible endpoint for tools, or render the turns yourself before sending.',
-        );
-    }
-    return result;
+/**
+ * How the worker should load `modelId`: which runner, which weights, which device.
+ *
+ * A custom `runner` is made absolute HERE, not in the worker: a worker's base URL is its
+ * own script's, not the page's, and the blob shim `_spawnWorker` may build has no
+ * meaningful base at all — so a relative path would resolve against the wrong place or
+ * fail outright. The page is the one place that knows what the app meant.
+ */
+function _selection(modelId: string): { task: BuiltInRunner; runner?: string; dtype?: Dtype; device: ComputeDevice } {
+    const config = _registeredModels.get(modelId);
+    const runner = config?.runner;
+    return {
+        task: config?.task ?? 'text-generation',
+        ...(runner ? { runner: typeof location === 'undefined' ? runner : new URL(runner, location.href).href } : {}),
+        dtype: config?.dtype,
+        device: _computeDevice,
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,6 +255,7 @@ interface PendingPrepare {
 }
 const _pendingPrepares = new Map<string, PendingPrepare>();
 const _pendingGenerates = new Map<string, ReadableStreamDefaultController>();
+const _pendingCommands = new Map<string, { resolve: (value: unknown) => void; reject: (err: Error) => void }>();
 
 // ── Generate serialization ──────────────────────────────────────────────────
 // The worker holds ONE pipeline: two concurrent generates would corrupt each
@@ -442,6 +440,8 @@ function _handleWorkerError(e: Event): void {
         catch { /* ignore */ }
     }
     _pendingGenerates.clear();
+    for (const c of _pendingCommands.values()) c.reject(new Error(message));
+    _pendingCommands.clear();
 
     // Release every serialization slot so the generate chain doesn't deadlock.
     for (const resolve of _generateDoneResolvers.values()) {
@@ -493,10 +493,25 @@ function _handleWorkerMessage(event: MessageEvent): void {
             void _enforceMaxCachedModels(msg.modelId).then(() => _refreshKnownModels());
             break;
         }
-        case 'gen-chunk': {
+        case 'gen-event': {
+            // The runner speaks the stream vocabulary itself; nothing to translate.
             const ctrl = _pendingGenerates.get(msg.id);
             if (!ctrl) break;
-            ctrl.enqueue({ type: msg.chunkType as 'text' | 'thinking', delta: msg.delta });
+            ctrl.enqueue(msg.event);
+            break;
+        }
+        case 'warning': {
+            // Already said once per text by the worker; the page just carries the voice.
+            console.warn(`[transformers] ${msg.message}`);
+            break;
+        }
+        case 'command-result': {
+            _releaseGenerateSlot(msg.id);
+            const pending = _pendingCommands.get(msg.id);
+            if (!pending) break;
+            _pendingCommands.delete(msg.id);
+            if (msg.error !== undefined) pending.reject(new Error(msg.error));
+            else pending.resolve(msg.result);
             break;
         }
         case 'gen-done': {
@@ -560,15 +575,18 @@ export const TransformersProvider: AparteAIProvider
         return _knownModels;
     },
 
-    async chat(request: AparteChatRequest): Promise<AparteChatResponse> {
-        const messages = toMessages(request.messages);
+    async chat(
+        request: AparteChatRequest,
+        _config?: string | Record<string, string>,
+        ctx?: { providerId: string; signal?: AbortSignal },
+    ): Promise<AparteChatResponse> {
         const requestId = uuid();
         const options = {
             maxTokens: request.maxTokens,
             temperature: request.temperature,
             seed: request.seed,
         };
-        const task = _registeredModels.get(request.modelId)?.task ?? 'text-generation';
+        const signal = ctx?.signal;
 
         // ── Reserve a serialization slot ─────────────────────────────────────
         // Chain this generate behind the previous one; the worker has a single
@@ -579,21 +597,47 @@ export const TransformersProvider: AparteAIProvider
         _generateChain = new Promise<void>((resolveSlot) => {
             _generateDoneResolvers.set(requestId, resolveSlot);
         });
+        // ── Stop, from either side ───────────────────────────────────────────
+        // The transport's `ctx.signal` (the user's Stop, which the provider contract
+        // says a bridge MUST honour — this one read it nowhere) and the stream's own
+        // `cancel()` say the same thing, and the worker hears it once. Before the
+        // generate has been posted there is nothing to interrupt: the stream is
+        // settled here, and the slot is released when its turn in the chain comes —
+        // not earlier, or the next generate would start over the one still running.
+        let posted = false;
+        let stopped = false;
+        const stop = (): void => {
+            if (stopped) return;
+            stopped = true;
+            signal?.removeEventListener('abort', stop);
+            if (posted) {
+                _getWorker().postMessage({ type: 'cancel', id: requestId });
+                return;
+            }
+            const ctrl = _pendingGenerates.get(requestId);
+            _pendingGenerates.delete(requestId);
+            if (!ctrl) return;
+            try { ctrl.enqueue({ type: 'error' as const, message: 'Generation cancelled before it started' }); ctrl.close(); }
+            catch { /* already closed */ }
+        };
         const postGenerate = (): void => {
+            if (stopped) { _releaseGenerateSlot(requestId); return; }
+            posted = true;
             _getWorker().postMessage({
                 type: 'generate',
                 id: requestId,
                 modelId: request.modelId,
-                messages,
+                // The conversation as it is, parts included: which parts a model can take
+                // is the runner's knowledge, not this thread's.
+                messages: request.messages,
                 options,
-                task,
-                dtype: _registeredModels.get(request.modelId)?.dtype,
-                device: _computeDevice,
+                ..._selection(request.modelId),
             });
         };
 
+        let response: AparteChatResponse | Promise<string>;
         if (request.stream === false) {
-            return new Promise<string>((resolve, reject) => {
+            response = new Promise<string>((resolve, reject) => {
                 let result = '';
                 const fakeCtrl = {
                     enqueue: (chunk: { type: string; delta?: string; message?: string }) => {
@@ -606,23 +650,28 @@ export const TransformersProvider: AparteAIProvider
                 _pendingGenerates.set(requestId, fakeCtrl);
                 void prevGenerate.then(postGenerate);
             });
+        } else {
+            response = new ReadableStream({
+                async start(controller) {
+                    _pendingGenerates.set(requestId, controller);
+                    await prevGenerate;
+                    postGenerate();
+                },
+                cancel() {
+                    // The reader is gone, so nothing may be enqueued for it again — and the
+                    // model actually STOPS (not just the read): the worker interrupts this
+                    // generate, and the slot is still released by the resulting
+                    // gen-done/gen-error, so a queued generate cannot start before that.
+                    _pendingGenerates.delete(requestId);
+                    stop();
+                },
+            });
         }
 
-        return new ReadableStream({
-            async start(controller) {
-                _pendingGenerates.set(requestId, controller);
-                await prevGenerate;
-                postGenerate();
-            },
-            cancel() {
-                _pendingGenerates.delete(requestId);
-                // Actually STOP the model (not just detach the reader): tell the worker
-                // to interrupt this generate. The serialization slot is still released
-                // by the resulting gen-done/gen-error, so a queued generate can't start
-                // before the worker has stopped this one.
-                _getWorker().postMessage({ type: 'cancel', id: requestId });
-            },
-        });
+        // `start` has run by now, so the controller is registered and a stop settles it.
+        if (signal?.aborted) stop();
+        else signal?.addEventListener('abort', stop, { once: true });
+        return response;
     },
 
     async getModelStatus(modelId: string): Promise<ModelStatus> {
@@ -655,11 +704,9 @@ export const TransformersProvider: AparteAIProvider
         const requestId = uuid();
         _preparingModelId = modelId;
 
-        const task = _registeredModels.get(modelId)?.task ?? 'text-generation';
-        const dtype = _registeredModels.get(modelId)?.dtype;
         return new Promise<void>((resolve, reject) => {
             _pendingPrepares.set(requestId, { modelId, onProgress, resolve, reject });
-            _getWorker().postMessage({ type: 'prepare', id: requestId, modelId, task, dtype, device: _computeDevice });
+            _getWorker().postMessage({ type: 'prepare', id: requestId, modelId, ..._selection(modelId) });
         });
     },
 
@@ -670,6 +717,16 @@ export const TransformersProvider: AparteAIProvider
 
 export default TransformersProvider;
 export type { AparteAIProvider, AparteAIModel, ModelStatus, ModelLoadProgress } from '@aparte/core';
+export type {
+    TransformersRunner,
+    RunnerContext,
+    RunnerGenerateInput,
+    RunnerProgress,
+    RunnerModule,
+    CreateRunner,
+    BuiltInRunner,
+    TransformersModule,
+} from './runners/types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cache utilities (settings panels, etc.)
@@ -678,6 +735,27 @@ export type { AparteAIProvider, AparteAIModel, ModelStatus, ModelLoadProgress } 
 /** Returns the modelId currently loaded in the worker's pipeline, or null. */
 export function getLoadedModelId(): string | null {
     return _loadedModelId;
+}
+
+/**
+ * Send a runner something that is not a generation — swap an adapter, warm a cache, ask
+ * a capability — and get its answer. The name and payload are the runner's vocabulary
+ * (the built-in runners answer none). Queued behind the generates in flight: the worker
+ * holds one runner, and a command on it mid-stream would race the stream.
+ */
+export function runnerCommand(modelId: string, name: string, payload: unknown): Promise<unknown> {
+    const requestId = uuid();
+    _queuedModelIds.set(requestId, modelId);
+    const previous = _generateChain;
+    _generateChain = new Promise<void>((resolveSlot) => {
+        _generateDoneResolvers.set(requestId, resolveSlot);
+    });
+    return new Promise<unknown>((resolve, reject) => {
+        _pendingCommands.set(requestId, { resolve, reject });
+        void previous.then(() => {
+            _getWorker().postMessage({ type: 'command', id: requestId, modelId, name, payload, ..._selection(modelId) });
+        });
+    });
 }
 
 /** Terminate the shared worker and reset in-memory state. Safe to call any time. */
@@ -695,6 +773,8 @@ export function terminateWorker(): void {
         try { ctrl.enqueue({ type: 'error' as const, message: 'Worker terminated' }); ctrl.close(); } catch { /* already closed */ }
     }
     _pendingGenerates.clear();
+    for (const c of _pendingCommands.values()) c.reject(new Error('Worker terminated'));
+    _pendingCommands.clear();
 
     // Release every serialization slot and reset the chain — the same three lines
     // the worker-error handler above already carried, with the same reason. Without

@@ -1,6 +1,6 @@
 {
   "name": "@aparte/react",
-  "version": "0.16.3",
+  "version": "0.16.4",
   "description": "React 18+ wrapper for aparté — an ergonomic <AparteChat> component plus hooks over the framework-agnostic web components.",
   "type": "module",
   "sideEffects": false,
@@ -33,7 +33,7 @@
     "typecheck:react18": "tsc -p tsconfig.react18.json --noEmit"
   },
   "peerDependencies": {
-    "@aparte/core": ">=0.16.3 <1.0.0",
+    "@aparte/core": ">=0.16.4 <1.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
   },
