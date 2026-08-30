@@ -182,13 +182,16 @@ describe('runnerCommand', () => {
         vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValueOnce('gen-1').mockReturnValueOnce('cmd-1') });
         void TransformersProvider.chat({ modelId: 'Test/Text', messages: [{ role: 'user', content: 'hi' }] } as never);
         await flush();
-        void runnerCommand('Test/Text', 'x', null);
+        const pending = runnerCommand('Test/Text', 'x', null);
         await flush();
         const types = () => workerPostMessage.mock.calls.map((c) => c[0].type).filter((t) => t !== 'init');
         expect(types()).toEqual(['generate']);
         workerHandler()({ data: { type: 'gen-done', id: 'gen-1' } });
         await flush();
         expect(types()).toEqual(['generate', 'command']);
+        // Still unanswered when the worker goes: the caller hears it, not the console.
+        terminateWorker();
+        await expect(pending).rejects.toThrow(/terminated/i);
     });
 });
 
