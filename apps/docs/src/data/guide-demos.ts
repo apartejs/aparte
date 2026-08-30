@@ -251,6 +251,33 @@ export const GUIDE_DEMOS: GuideDemo[] = [
 </script>`,
     },
     {
+        id: 'layout-overlay',
+        title: 'overlay-composer: the scroll surface spans the column, the composer floats over it',
+        html: `<!-- One attribute. The transcript's scroll surface takes the WHOLE column - watch the
+     scrollbar run past the composer to the bottom edge - and the composer floats over
+     it. The viewport measures the floating stack and publishes \`--aparte-bottom-inset\`,
+     so the last message, the spacer and the scroll button all clear it, and a composer
+     that grows re-anchors a reader pinned at the bottom in the same pass. -->
+<aparte-chat overlay-composer style="height: 20rem">
+  <aparte-chat-viewport>
+    <aparte-chat-bubble message-id="u1" data-role="user" content="Where does the scrollbar end now?"></aparte-chat-bubble>
+    <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="At the very bottom of the chat - it runs behind the composer, because the scroll surface owns the whole column and the composer floats over it."></aparte-chat-bubble>
+    <aparte-chat-bubble message-id="u2" data-role="user" content="And nothing hides under the composer?"></aparte-chat-bubble>
+    <aparte-chat-bubble message-id="a2" data-role="assistant" name="Assistant" content="The viewport measures the floating stack and pads the transcript by exactly that much - grow the draft a few lines and watch this bubble stay clear of it."></aparte-chat-bubble>
+    <aparte-chat-bubble message-id="u3" data-role="user" content="Scroll up a little, too."></aparte-chat-bubble>
+    <aparte-chat-bubble message-id="a3" data-role="assistant" name="Assistant" content="The scroll-to-bottom button floats just above the composer instead of behind it - its offset rides the same measured inset."></aparte-chat-bubble>
+  </aparte-chat-viewport>
+  <aparte-composer>
+    <div class="aparte-composer-shell">
+      <div class="aparte-composer-row">
+        <aparte-composer-input></aparte-composer-input>
+        <aparte-composer-send></aparte-composer-send>
+      </div>
+    </div>
+  </aparte-composer>
+</aparte-chat>`,
+    },
+    {
         id: 'layout-feed',
         title: 'The full-width feed: no reading column',
         html: `<!-- \`--aparte-message-max-width: none\` lifts the centred column: bubbles and the
