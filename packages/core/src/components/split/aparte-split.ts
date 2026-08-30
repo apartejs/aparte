@@ -7,7 +7,7 @@ export interface AparteSplitResizeDetail {
     position: number;
     /** The primary pane is folded to its minimum. */
     collapsed: boolean;
-    /** The split is under its breakpoint and showing one pane. */
+    /** The split is showing one pane — under its breakpoint, or told to by `single`. */
     stacked: boolean;
     /** Which pane is shown while stacked. */
     pane: 'start' | 'end';
@@ -70,6 +70,7 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  * @attr {boolean} collapsed - The primary pane folded to its minimum. Enter on the seam toggles it; a second Enter restores the size it had.
  * @attr {string} breakpoint - Below this width the split shows one pane at a time. A length (default `48rem`), or `none` to never stack.
  * @attr {string} pane - `start` (default) or `end`: which pane is shown while stacked.
+ * @attr {boolean} single - Show one pane — the one `pane` names — whatever the width: the seam and the other pane are gone, as under the breakpoint. For a host that decides itself when a second pane exists (a preview with nothing to preview yet). `collapsed` is not this: it folds the primary pane to `--aparte-split-min` and keeps the seam. The CSS route, `.aparte-split--only-start` / `--only-end`, is the same state for a host that owns its breakpoints.
  * @attr {boolean} disabled - No drag, no keys, no tab stop; the seam stays drawn.
  * @attr {string} label - The seam's accessible name. Defaults to the locale's `splitHandleLabel`.
  * @attr {boolean} data-stacked - Written BY the element while one pane is shown. Read-only; style against it.
@@ -115,7 +116,7 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  */
 export class AparteSplit extends HTMLElement {
     static get observedAttributes(): string[] {
-        return ['position', 'orientation', 'primary', 'collapsed', 'breakpoint', 'pane', 'disabled', 'label'];
+        return ['position', 'orientation', 'primary', 'collapsed', 'breakpoint', 'pane', 'disabled', 'label', 'single'];
     }
 
     private _handle: HTMLElement | null = null;
@@ -249,9 +250,19 @@ export class AparteSplit extends HTMLElement {
     get stacked(): boolean {
         return (
             this.hasAttribute('data-stacked')
+            || this.hasAttribute('single')
             || this.classList.contains('aparte-split--only-start')
             || this.classList.contains('aparte-split--only-end')
         );
+    }
+
+    /** One pane on demand, whatever the width (#54). Reflected. */
+    get single(): boolean {
+        return this.hasAttribute('single');
+    }
+
+    set single(value: boolean) {
+        this.toggleAttribute('single', value);
     }
 
     // ─── Public API ───────────────────────────────────────────────────────
@@ -412,6 +423,12 @@ export class AparteSplit extends HTMLElement {
                 // the pointer and commit on release. Cancel it, restoring the value the
                 // press started from: the gesture did not finish, so it did not decide.
                 if (this.disabled && this._dragging) this._endDrag('pointer', this._dragStartPercent);
+                this._stampHandle();
+                return;
+            case 'single':
+                // Same as a breakpoint crossing for the seam: a drag on a split that just
+                // went to one pane has nothing left to size.
+                if (this.single && this._dragging) this._endDrag('pointer', this._dragStartPercent);
                 this._stampHandle();
                 return;
             case 'breakpoint':
