@@ -145,6 +145,9 @@ const SCROLL_BTN = /scroll-button\.spec\.ts/;
 // overlay-composer geometry: the full-column scroll surface, the floating stack's
 // clearance, and the pinned reader surviving a composer that grows.
 const OVERLAY = /overlay\.spec\.ts/;
+// #57 — the send glides to the top of the view and nothing cuts it: the writes and the
+// per-frame curve, against a real layout.
+const SEND_GLIDE = /send-glide\.spec\.ts/;
 const RESPONSIVE = /responsive\.spec\.ts/;
 // The waiting-state contract (was `fixme` until the built-in indicator landed).
 const PENDING = /pending-state\.spec\.ts/;
@@ -212,7 +215,7 @@ const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 //   viewport to assert core's CSS geometry, and in framework-managed mode the
 //   framework owns the DOM, so such an injection renders no bubble by design.
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
-const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY];
+const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :
