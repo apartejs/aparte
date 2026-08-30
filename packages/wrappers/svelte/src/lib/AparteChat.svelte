@@ -26,6 +26,8 @@
    * default — additive.
    */
   export let centerWhenEmpty = false;
+  /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
+  export let overlayComposer = false;
   /**
    * Add the file picker + chips strip to the default composer shell. **Off by
    * default**, because the capability needs a host that consumes the files: an
@@ -236,6 +238,7 @@
   class:aparte-chat-container--auto-center={centerWhenEmpty}
   {style}
   data-aparte-chat
+  overlay-composer={overlayComposer ? '' : undefined}
   data-aparte-empty={centerWhenEmpty && internalMessages.length === 0 ? '' : null}
   id={hostId}
   bind:this={rootRef}

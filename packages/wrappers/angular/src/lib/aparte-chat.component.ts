@@ -57,6 +57,7 @@ import { AparteChatHost, isAwaitingReply, uuid } from '@aparte/core';
     <div
       class="aparte-chat-container"
       [class.aparte-chat-container--auto-center]="centerWhenEmpty()"
+      [attr.overlay-composer]="overlayComposer() ? '' : null"
       [attr.data-aparte-empty]="centerWhenEmpty() && messages().length === 0 ? '' : null"
     >
       <aparte-chat-viewport #viewport framework-managed="">
@@ -222,6 +223,17 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
      */
     @Input({ alias: 'centerWhenEmpty', transform: booleanAttribute }) set centerWhenEmptyInput(val: boolean) { this.centerWhenEmpty.set(val); }
     readonly centerWhenEmpty = signal<boolean>(false);
+
+    /**
+     * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
+     * surface spans the whole column, the scrollbar runs edge to edge, and the
+     * composer floats over it. Bound on the INNER `.aparte-chat-container` — that
+     * div is this wrapper's shell (the viewport is its child, not the host's), and
+     * core's recipe and the viewport's measurement both key on the attribute
+     * there. Read when the viewport mounts.
+     */
+    @Input({ alias: 'overlayComposer', transform: booleanAttribute }) set overlayComposerInput(val: boolean) { this.overlayComposer.set(val); }
+    readonly overlayComposer = signal<boolean>(false);
 
     /**
      * Add the file picker + chips strip to the default composer shell. **Off by
