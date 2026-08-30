@@ -1,6 +1,6 @@
 ---
-title: 'Providers — OpenAI-Compatible, Vercel AI SDK, In-Browser'
-description: Connect aparté to a real model — OpenAI-compatible endpoints, the Vercel AI SDK bridge, or a model running 100% in the browser.
+title: 'Providers — OpenAI-Compatible, Vercel AI SDK, In-Browser, Scripted Demo'
+description: Connect aparté to a real model — OpenAI-compatible endpoints, the Vercel AI SDK bridge, or a model running 100% in the browser — plus a scripted scenario provider for demos and deterministic e2e.
 sidebar:
   order: 1
   label: Overview
