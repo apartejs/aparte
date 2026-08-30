@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-streaming-markdown",
-    "version": "0.16.4",
+    "version": "0.16.5",
     "description": "Incremental (token-by-token) Markdown rendering for aparté via streaming-markdown, with a live URL-scheme guard.",
     "type": "module",
     "sideEffects": false,
@@ -32,7 +32,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.16.4 <1.0.0",
+        "@aparte/core": ">=0.16.5 <1.0.0",
         "streaming-markdown": "^0.2.15"
     },
     "devDependencies": {
