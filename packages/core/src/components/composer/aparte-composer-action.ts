@@ -86,6 +86,10 @@ export class AparteComposerAction extends HTMLElement {
 
     connectedCallback(): void {
         this._render();
+        // Bound here, never in _render — disconnect removes it and a reconnect's
+        // _render keeps the existing DOM (see aparte-composer-input for the full rule).
+        this._button = this.querySelector('.aparte-cact-button');
+        this._button?.addEventListener('click', this._onClick);
         this._connectToRoot();
         // Icon only, and no locale: this element's label is the consumer's `label`
         // ATTRIBUTE, so the app owns that string and a locale change is correctly a
@@ -141,8 +145,6 @@ export class AparteComposerAction extends HTMLElement {
             ${disabled ? 'disabled' : ''}
         >${icon}</button>`;
 
-        this._button = this.querySelector('.aparte-cact-button');
-        this._button?.addEventListener('click', this._onClick);
     }
 
     private _connectToRoot(): void {

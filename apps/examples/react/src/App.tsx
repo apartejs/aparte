@@ -9,6 +9,13 @@ const CHIPS = [
 
 export default function App() {
     const chat = useAparteChat();
+    // `?view=overlay` — the overlay-composer anatomy, driven through the wrapper
+    // prop. Read once: the mode is wired when the viewport mounts.
+    // `?view=overlay` (the react example's own convention) or `?layout=page` (the
+    // vanilla example's name for the same variant) - the first person to try it
+    // typed the vanilla form here, and nothing said why the page ignored it.
+    const params = new URLSearchParams(window.location.search);
+    const overlay = params.get('view') === 'overlay' || params.get('layout') === 'page';
 
     return (
         <div className="app">
@@ -24,6 +31,7 @@ export default function App() {
                 messages={chat.messages}
                 onMessagesChange={chat.setMessages}
                 centerWhenEmpty
+                overlayComposer={overlay}
                 attachments
                 placeholder="Ask anything…"
                 emptyState={

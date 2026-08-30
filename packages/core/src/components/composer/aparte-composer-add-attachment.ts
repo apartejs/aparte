@@ -74,6 +74,11 @@ export class AparteComposerAddAttachment extends HTMLElement {
 
     connectedCallback(): void {
         this._render();
+        // Bound here, never in _render — disconnect removes it and a reconnect's
+        // _render keeps the existing DOM (see aparte-composer-input for the full
+        // rule). The drag/drop pair below already lives on the right side.
+        this._button = this.querySelector('.aparte-caa-button');
+        this._button?.addEventListener('click', this._onClick);
         this._connectToRoot();
         this._setupDragDrop();
         this._unsubscribes.push(subscribeConfigChange(this, () => this._refreshChrome()));
@@ -131,8 +136,6 @@ export class AparteComposerAddAttachment extends HTMLElement {
             ${disabled ? 'disabled' : ''}
         >${icon}</button>`;
 
-        this._button = this.querySelector('.aparte-caa-button');
-        this._button?.addEventListener('click', this._onClick);
     }
 
     private _connectToRoot(): void {

@@ -66,6 +66,13 @@ describe('AparteChat.vue', () => {
         expect(box.getAttribute('data-aparte-empty')).toBeNull();
     });
 
+    it('overlayComposer puts overlay-composer on the shell; off by default', () => {
+        const on = mount(AparteChat, { props: { messages: [], overlayComposer: true } });
+        expect((on.element as HTMLElement).hasAttribute('overlay-composer')).toBe(true);
+        const off = mount(AparteChat, { props: { messages: [] } });
+        expect((off.element as HTMLElement).hasAttribute('overlay-composer')).toBe(false);
+    });
+
     it('never opts in when centerWhenEmpty is off (default)', () => {
         const wrapper = mount(AparteChat, { props: { messages: [] } });
         const box = wrapper.element as HTMLElement;

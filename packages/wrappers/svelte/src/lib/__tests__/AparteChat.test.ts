@@ -70,6 +70,13 @@ describe('AparteChat.svelte', () => {
         expect(box.getAttribute('data-aparte-empty')).toBeNull();
     });
 
+    it('overlayComposer puts overlay-composer on the shell; off by default', () => {
+        const on = render(AparteChat, { messages: [], overlayComposer: true });
+        expect((on.container.querySelector('.aparte-chat-container') as HTMLElement).hasAttribute('overlay-composer')).toBe(true);
+        const off = render(AparteChat, { messages: [] });
+        expect((off.container.querySelector('.aparte-chat-container') as HTMLElement).hasAttribute('overlay-composer')).toBe(false);
+    });
+
     it('never opts in when centerWhenEmpty is off (default)', () => {
         const { container } = render(AparteChat, { messages: [] });
         const box = container.querySelector('.aparte-chat-container') as HTMLElement;

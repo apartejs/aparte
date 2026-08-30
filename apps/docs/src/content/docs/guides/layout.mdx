@@ -75,6 +75,52 @@ first reply overflows.
 
 <Demo id="layout-reading-column" caption="The column is a token on the content, not a box around the chat — so the transcript still spans the frame and the scrollbar stays on its edge." />
 
+## The composer over the transcript — the scrollbar runs the full height
+
+The recipe above puts the scrollbar on the window's edge; its **height** still stops at
+the composer's top, because the composer is a row below the transcript. ChatGPT and
+Claude do the other half too: their scroll surface owns the whole column and the
+composer **floats over it**, so the bar runs edge to edge vertically. That half is one
+attribute:
+
+```html
+<aparte-chat overlay-composer></aparte-chat>
+```
+
+```jsx
+// React — the same switch on every wrapper (Vue, Svelte, Angular alike).
+<AparteChat overlayComposer />
+```
+
+The viewport leaves the flow and spans the shell; the composer — and whatever else
+shares the bottom, an elicitation panel, an `above-composer` row — keeps flowing,
+bottom-anchored, painted over it. The viewport measures that stack and publishes
+`--aparte-bottom-inset`, and three readers keep everything clear of it: the
+transcript's own bottom clearance, the spacer that tops your last message, and the
+scroll-to-bottom button, which floats just above the composer instead of behind it.
+When the draft grows a few lines under a reader pinned at the bottom, the inset is
+re-measured and the reader re-anchored in the same pass — the view never jumps.
+
+<Demo id="layout-overlay" caption="One attribute: the scrollbar runs past the composer to the chat's bottom edge, and the content clears the floating stack." />
+
+Deliberately **opt-in, never the default**: in an embedded 320px box a composer laid
+over the transcript eats reading space; overlay earns its keep on a chat that owns
+its column. Set it in the initial markup — it is read when the viewport mounts.
+
+Two edges of the same recipe, for hosts that go further. A header laid over the top
+works with one rule of your own, since nothing scrolls under a `padding-top`:
+
+```css
+[overlay-composer] .aparte-viewport-container { padding-top: 3.5rem; }
+```
+
+And a composer of your **own**, floated without the attribute, can write the variable
+by hand — the readers are unconditional (`0px` unset):
+
+```css
+aparte-chat-viewport { --aparte-bottom-inset: 96px; }
+```
+
 :::note[Why the page does not own the scroll]
 It is tempting to make the transcript `overflow: visible` and let the document scroll.
 It breaks silently: an element that does not scroll reports `scrollHeight ===

@@ -56,6 +56,13 @@ import { escapeAttr } from '../../utils/escape.js';
  * @attr {string} placeholder - Placeholder for the composer input (default composition)
  * @attr {boolean} disabled - Disables the composer
  * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
+ * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
+ *   surface spans the whole column and the composer (with the rest of the bottom stack)
+ *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
+ *   composer's top. The viewport measures the stack and publishes
+ *   `--aparte-bottom-inset`; content, spacer and the scroll button clear it. Read when
+ *   the viewport wires its observers — set it in the initial markup. Also honoured on a
+ *   wrapper's `[data-aparte-chat]` root.
  * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
  *   element composes none of its own children, because the framework owns them. Read once at
  *   connect (it is not observed), so it has to be in the initial markup. Angular's wrapper sets

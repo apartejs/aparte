@@ -49,6 +49,13 @@ export interface AparteChatProps {
      */
     centerWhenEmpty?: boolean;
     /**
+     * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
+     * surface spans the whole column, the scrollbar runs edge to edge, and the
+     * composer floats over it. Core measures the floating stack and keeps content,
+     * spacer and the scroll button clear of it. Read when the viewport mounts.
+     */
+    overlayComposer?: boolean;
+    /**
      * Add the file picker + chips strip to the default composer shell. **Off by
      * default**, because the capability needs a host that consumes the files: an
      * `AparteClient` inlines them per its `rawFileInject` option, but if you drive
@@ -188,6 +195,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         submitOnEnter = true,
         layoutTransitionMs = 0,
         centerWhenEmpty = false,
+        overlayComposer = false,
         attachments = false,
         elicitation = true,
         className,
@@ -354,6 +362,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
             className={`aparte-chat-container${centerWhenEmpty ? ' aparte-chat-container--auto-center' : ''}${className ? ` ${className}` : ''}`}
             style={style}
             data-aparte-chat=""
+            {...(overlayComposer ? { 'overlay-composer': '' } : {})}
             data-aparte-empty={centerWhenEmpty && renderMessages.length === 0 ? '' : undefined}
             id={hostId}
             ref={hostElRef}

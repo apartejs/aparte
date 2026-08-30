@@ -41,6 +41,13 @@ describe('AparteChat React Wrapper', () => {
         vi.clearAllMocks();
     });
 
+    it('overlayComposer puts overlay-composer on the shell; off by default', () => {
+        const on = render(<AparteChat messages={[]} overlayComposer />);
+        expect(on.container.querySelector('[data-aparte-chat]')!.hasAttribute('overlay-composer')).toBe(true);
+        const off = render(<AparteChat messages={[]} />);
+        expect(off.container.querySelector('[data-aparte-chat]')!.hasAttribute('overlay-composer')).toBe(false);
+    });
+
     it('renders correct number of messages', () => {
         const { container } = render(
             <AparteChat messages={mockMessages} onMessageSent={mockOnMessageSent} />,

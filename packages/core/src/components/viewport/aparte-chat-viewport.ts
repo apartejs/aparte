@@ -93,6 +93,11 @@ import {
  * @cssprop [--aparte-scrollbar-track=transparent] - Colour of the transcript's scrollbar track.
  * @cssprop [--aparte-scrollbar-width=6px] - Width of the WebKit scrollbar on the scroll
  *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
+ * @cssprop [--aparte-bottom-inset=0px] - How much of the transcript's bottom is covered
+ *   by content floating over it. Written by the viewport itself under
+ *   `[overlay-composer]` (never set it there — it would be overwritten); a host that
+ *   overlays a composer of its own, without the attribute, sets it by hand and the
+ *   spacer, the container padding and the scroll button all clear it.
  * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A
  *   coarse pointer raises it to `--aparte-touch-target-size`.
  * @cssprop [--aparte-scroll-btn-shadow=0 2px 8px rgba(0, 0, 0, 0.12)] - Its shadow; the dark
@@ -172,6 +177,12 @@ export class AparteChatViewport extends HTMLElement {
     private _maxRenderedBubbles: number = 1000;
     private _resizeObserver: ResizeObserver | null = null;
     private _mutationObserver: MutationObserver | null = null;
+    /** The `[overlay-composer]` shell this viewport floats in, if any. Read at observer setup, like `framework-managed`. */
+    private _overlayRoot: HTMLElement | null = null;
+    /** Watches the overlay shell's childList, so a stack child that mounts later (elicitation) gets observed too. */
+    private _overlayObserver: MutationObserver | null = null;
+    /** Last `--aparte-bottom-inset` written, in px — style writes only when it changes. */
+    private _overlayInset = -1;
     private _boundResetHandler: (() => void) | null = null;
     /**
      * When true, _reRenderActivePath() only dispatches aparte-path-changed without
@@ -1453,6 +1464,10 @@ export class AparteChatViewport extends HTMLElement {
 
     private _setupObservers(): void {
         this._resizeObserver = new ResizeObserver(() => {
+            // First, because everything below reads the geometry it changes: in
+            // overlay mode a composer that grew is THE resize being reported, and
+            // re-anchoring against the stale inset would land the reader short.
+            this._updateOverlayInset();
             if (this._isAutoScrollEnabled) {
                 this._scrollToBottom();
             }
@@ -1500,6 +1515,34 @@ export class AparteChatViewport extends HTMLElement {
             }
         }
 
+        // Overlay mode: the shell's bottom stack (elicitation, an above-composer
+        // row, the composer) floats OVER this scroll surface, so its height is part
+        // of the geometry this observer exists to watch — and the container alone
+        // no longer says it: with the viewport absolute over the shell, a composer
+        // that grows resizes NOTHING this observer was looking at. Observe every
+        // stack child with the SAME observer; the callback already does everything
+        // an inset change needs (write the var, re-anchor a pinned reader, spacer,
+        // button).
+        // Bare attribute selector on purpose: the shell is <aparte-chat> in vanilla,
+        // a [data-aparte-chat] div in React/Vue/Svelte, Angular's inner
+        // .aparte-chat-container - and a hand-rolled host that sets the attribute on
+        // its own shell gets the measurement for free (the CSS readers are
+        // unconditional; only the recipe rules are qualified).
+        this._overlayRoot = this.closest('[overlay-composer]');
+        if (this._overlayRoot && this._resizeObserver) {
+            for (const child of this._overlayStack()) this._resizeObserver.observe(child);
+            // A stack child can mount later (elicitation appears on request):
+            // observe it from that moment. childList only, never subtree — what is
+            // inside those children is the host's business, and their size changes
+            // already reach the ResizeObserver.
+            this._overlayObserver = new MutationObserver(() => {
+                for (const child of this._overlayStack()) this._resizeObserver?.observe(child);
+                this._updateOverlayInset();
+            });
+            this._overlayObserver.observe(this._overlayRoot, { childList: true });
+            this._updateOverlayInset();
+        }
+
         this._mutationObserver = new MutationObserver(() => {
             // Keep the sticky scroll button trailing after framework appends.
             if (this._frameworkManagedDOM) this._keepScrollButtonLast();
@@ -1534,6 +1577,39 @@ export class AparteChatViewport extends HTMLElement {
                 subtree: true
             });
         }
+    }
+
+    /** The overlay shell's element children that are not this viewport — the floating bottom stack. */
+    private _overlayStack(): HTMLElement[] {
+        if (!this._overlayRoot) return [];
+        return Array.from(this._overlayRoot.children).filter(
+            (el): el is HTMLElement => el instanceof HTMLElement && el !== (this as HTMLElement),
+        );
+    }
+
+    /**
+     * Measure how much of this viewport the overlay stack covers, and publish it as
+     * `--aparte-bottom-inset` — the `::after` spacer (framework mode), the
+     * container's own padding (core mode) and the scroll button's `bottom` all read
+     * it (shell.css). Measured from the stack's highest visible top edge rather
+     * than by summing heights, so margins and anything the host renders between
+     * the rows count themselves. No-op outside overlay mode, and when the value
+     * has not changed — a var write invalidates layout, and this runs from the
+     * ResizeObserver its own write can re-trigger (core mode observes the
+     * container's content box, which the padding is part of).
+     */
+    private _updateOverlayInset(): void {
+        if (!this._overlayRoot) return;
+        const bottom = this.getBoundingClientRect().bottom;
+        let top = Infinity;
+        for (const el of this._overlayStack()) {
+            const rect = el.getBoundingClientRect();
+            if (rect.height > 0) top = Math.min(top, rect.top);
+        }
+        const inset = top === Infinity ? 0 : Math.max(0, Math.round(bottom - top));
+        if (inset === this._overlayInset) return;
+        this._overlayInset = inset;
+        this.style.setProperty('--aparte-bottom-inset', `${inset}px`);
     }
 
     /** Is the scroll surface within `_scrollThreshold` of its bottom, right now? */
@@ -1907,6 +1983,10 @@ export class AparteChatViewport extends HTMLElement {
         this.removeEventListener('aparte-branch-navigate', this._onBranchNavigate);
         this._resizeObserver?.disconnect();
         this._mutationObserver?.disconnect();
+        this._overlayObserver?.disconnect();
+        this._overlayObserver = null;
+        this._overlayRoot = null;
+        this._overlayInset = -1;
         this._resizeObserver = null;
         this._mutationObserver = null;
         if (this._spacerRafId !== null) {

@@ -11,9 +11,19 @@
  *     <button class="aparte-btn aparte-btn--icon" aria-label="Copy">
  *       <aparte-icon name="copy"></aparte-icon>
  *     </button>
+ *     <div class="aparte-btn-group" role="group" aria-label="Versions">
+ *       <button class="aparte-btn aparte-btn--surface">‹</button>
+ *       <button class="aparte-btn aparte-btn--surface">1 / 2</button>
+ *       <button class="aparte-btn aparte-btn--surface">›</button>
+ *     </div>
  *
  * An intent on its own is a ghost — the quietest form, and the one a chat uses most.
  * Add a fill when the button has to carry more weight.
+ *
+ * `.aparte-btn-group` fuses adjacent buttons into ONE control: the inner corners
+ * drop, the shared borders overlap, and only the group's ends keep the radius. Give
+ * the wrapper `role="group"` and a name — visually one control, it should read as
+ * one too.
  *
  * This layer is NEUTRAL: it is what a UI library offers, not a summary of what this
  * repo happens to use. A variant nothing wears still ships, because the plugin that

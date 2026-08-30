@@ -1,5 +1,30 @@
 # @aparte/core
 
+## 0.16.2
+
+### Patch Changes
+
+- 705224b: Moving a chat in the DOM (into an `<aparte-split>` pane, an app shell, any reparenting) no longer disconnects the composer's wiring: the editor kept the draft in the DOM but `value` never heard of it, the send button stayed disabled with text visibly in the box, and every composer button had lost its click.
+
+  Every composer child bound its listeners inside `_render()`, behind the "DOM already there" early return, while `disconnectedCallback` removed them — so the first reconnect left them deaf. Binding is the connect's job now, in all five (`input`, `send`, `cancel`, `action`, `add-attachment`); `_render` only builds. The vanilla example's `?layout=split` and `?layout=shell` variants moved the chat exactly this way, so the bug was live on both — nothing sent a message there, which is why nothing saw it.
+
+- 9df343c: `overlay-composer` on `<aparte-chat>` (and `overlayComposer` on all four wrappers): the transcript's scroll surface spans the whole column and the composer floats over it, so the scrollbar runs edge to edge instead of stopping at the composer's top — the full-page anatomy the Layout guide sold without this half. Opt-in, never the default: a chat embedded in a small box should not have its composer eating the transcript.
+
+  The viewport leaves the flow (absolute over the shell); elicitation, an above-composer row and the composer keep flowing, bottom-anchored, painted over it. The viewport measures that stack and publishes `--aparte-bottom-inset`; content, the spacer and the scroll button clear it — and its readers are unconditional (0px unset), so a host that overlays a composer of its own can write the variable by hand without the attribute. When the composer grows under a reader pinned at the bottom, the inset is re-measured and the reader re-anchored in the same observer pass — the view-jump every hand-rolled overlay hits.
+
+  The attribute is read when the viewport wires its observers: set it in the initial markup. Angular binds it on its inner `.aparte-chat-container` (there the host is the `aparte-chat` element and the viewport is the inner div's child) — use the `overlayComposer` input.
+
+- 39b777f: The scroll-to-bottom button floats 16px above the transcript's bottom edge in framework-managed mode (React, Vue, Svelte, Angular wrappers), at every scroll position. It used to sit the whole `padding + spacer` higher — up to a few hundred pixels into the messages.
+
+  Two causes, one per symptom. A `position: sticky` child is clamped to its parent's _content_ box, and the bottom spacer was carried as `padding-bottom` on the scrolling host — territory the button could never enter — so it hung `padding + spacer` above the edge wherever the reader was. The clearance now lives in an `::after` flex item instead: still nothing in the DOM, so the framework's reconciliation sees exactly what it saw before. And a bottom-sticky element sits at its _flow_ position whenever that is above the sticky line, so a button flowing before a 230px spacer drifted upward as the reader neared the bottom — `order: 1` puts its flow position after the spacer, and the sticky line always wins.
+
+  If you worked around this with your own `padding-bottom: 0` + `::after` override on the viewport, you can remove it — it is now a no-op with the same values.
+
+  Two side effects of the rework, caught on screen and now asserted in the smoke suite: an empty transcript no longer grows a scrollbar (the `::after` paid the column's gap the padding never did, and the hidden button's slide overhung the content end), and the hidden button now **fades instead of sliding** in framework-managed mode — its flow position is the very end of the content, so the 8px slide was pure scrollable overflow. Core mode keeps the slide.
+
+  Measured in the browser (spacer 0/60/130/230px): the button holds 16px at every distance from the bottom; before, it floated 48/108/178/278px. A new e2e spec (`scroll-button.spec.ts`) asserts the rendered geometry in both transcript modes on Chromium and WebKit — the first assertion in the repo that _locates_ this button rather than driving it.
+  - @aparte/engine@0.16.2
+
 ## 0.16.1
 
 ### Patch Changes

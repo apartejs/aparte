@@ -54,6 +54,10 @@ export class AparteComposerCancel extends HTMLElement {
 
     connectedCallback(): void {
         this._render();
+        // Bound here, never in _render — disconnect removes it and a reconnect's
+        // _render keeps the existing DOM (see aparte-composer-input for the full rule).
+        this._button = this.querySelector('.aparte-cc-button');
+        this._button?.addEventListener('click', this._onClick);
         this._connectToRoot();
         this._unsubscribes.push(subscribeConfigChange(this, () => this._refreshChrome()));
     }
@@ -83,8 +87,6 @@ export class AparteComposerCancel extends HTMLElement {
             hidden
         >${icon}</button>`;  // safe-text: _getStopIcon() returns the provider's SVG markup — escaping it would print the source
 
-        this._button = this.querySelector('.aparte-cc-button');
-        this._button?.addEventListener('click', this._onClick);
     }
 
     private _connectToRoot(): void {

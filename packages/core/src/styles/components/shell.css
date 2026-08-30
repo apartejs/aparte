@@ -46,6 +46,59 @@ aparte-chat > aparte-chat-viewport,
   min-height: 0;
 }
 
+/* ─── Overlay composer (`overlay-composer`) ───────────────────────────────────
+   The ChatGPT anatomy, opt-in: the transcript's scroll surface spans the WHOLE
+   column and the composer floats over it, so the scrollbar runs edge to edge
+   instead of stopping at the composer's top. Opt-in, never the default — a chat
+   embedded in a small box should not have its composer eating the transcript.
+
+   The viewport leaves the flow (absolute over the shell) and everything else —
+   elicitation, an above-composer row, the composer — keeps flowing, pushed to the
+   bottom and painted over it. The transcript clears that stack through
+   `--aparte-bottom-inset`, which the viewport measures from the stack's top edge
+   (see `_updateOverlayInset`): the `::after` spacer grows by it in
+   framework-managed mode, the container's own padding in core mode, and the
+   scroll button's `bottom` rides it in both. The inset var and its readers are
+   unconditional (0px when unset), so a host that overlays a composer of its own
+   can write the variable itself without this attribute.
+
+   Three shell shapes, because the wrappers differ: the vanilla <aparte-chat>
+   element, the [data-aparte-chat] div React/Vue/Svelte render, and Angular's
+   inner .aparte-chat-container (its host IS aparte-chat, but the viewport is a
+   child of the inner div, so that div is the shell the recipe lays out — the
+   Angular wrapper binds the attribute there). The inner-div shape declares its
+   own flex column: unlike the other two it inherits none. */
+aparte-chat[overlay-composer],
+[data-aparte-chat][overlay-composer],
+.aparte-chat-container[overlay-composer] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+aparte-chat[overlay-composer] > aparte-chat-viewport,
+[data-aparte-chat][overlay-composer] > aparte-chat-viewport,
+.aparte-chat-container[overlay-composer] > aparte-chat-viewport {
+  position: absolute;
+  /* The padding box, so the scroll surface reaches the shell's true bottom edge —
+     the `--aparte-chat-bottom-gap` padding stays under the floating stack and the
+     measured inset covers it. */
+  inset: 0;
+  height: auto;
+  z-index: 0;
+}
+
+/* The bottom stack paints over the absolutely positioned viewport. `:not()` is
+   exact here: the only child that is not the viewport IS the stack (the scroll
+   button lives inside the viewport). */
+aparte-chat[overlay-composer] > :not(aparte-chat-viewport),
+[data-aparte-chat][overlay-composer] > :not(aparte-chat-viewport),
+.aparte-chat-container[overlay-composer] > :not(aparte-chat-viewport) {
+  position: relative;
+  z-index: var(--aparte-z-raised);
+}
+
 /* center-empty: the shell centers the composer as a welcome state until the first
    message, then slides to the normal layout. The component toggles [data-empty]
    on itself by watching its viewport — only `flex-grow` animates, so the composer
@@ -91,6 +144,11 @@ aparte-chat-viewport {
   width: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  /* The overlay clearance (0 outside overlay mode). Padding is SAFE on this box —
+     the scroll button is absolute on the host, which does not scroll — where the
+     framework-managed host must carry the same clearance in its ::after instead,
+     because there the button is a sticky CHILD and padding would clamp it. */
+  padding-bottom: var(--aparte-bottom-inset, 0px);
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
@@ -101,6 +159,11 @@ aparte-chat-viewport {
   scrollbar-gutter: stable both-edges;
 }
 
+/* NOT dead code: on modern Chromium/WebKit these ::-webkit-scrollbar-* blocks are
+   ignored the moment `scrollbar-width`/`scrollbar-color` above are non-initial
+   (CSSWG resolution, Chrome 121+). They exist for Safari BEFORE 18.2, which has no
+   `scrollbar-width` at all - remove them and old Safari falls back to the fat
+   native bar. Re-measured 2026-08-30 against MDN before a cleanup deletes them. */
 .aparte-viewport-container::-webkit-scrollbar {
   width: var(--aparte-scrollbar-width);
 }
@@ -133,7 +196,9 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 .aparte-scroll-btn {
   --aparte-btn-size: var(--aparte-scroll-btn-size);
   position: absolute;
-  bottom: var(--aparte-space-8);
+  /* Rides the overlay clearance (0 outside overlay mode), so it floats above a
+     composer laid over the transcript rather than behind it. */
+  bottom: calc(var(--aparte-space-8) + var(--aparte-bottom-inset, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--aparte-z-floating);
@@ -159,8 +224,8 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    the viewport does NOT relocate them into an internal wrapper (that would break
    the framework's DOM reconciliation). Instead the HOST itself is the scroll
    surface — these rules mirror .aparte-viewport-container + .aparte-messages-wrapper
-   onto the host, and the bottom spacer becomes an additive padding (no element,
-   so it can't collide with the framework's children). */
+   onto the host, and the bottom spacer becomes an `::after` flex item — still
+   nothing in the DOM, so it can't collide with the framework's children. */
 aparte-chat-viewport.aparte-viewport--framework,
 aparte-chat-viewport[framework-managed] {
   /* The base rule gives this element `width: 100%`, and core ships no global
@@ -179,7 +244,10 @@ aparte-chat-viewport[framework-managed] {
   flex-direction: column;
   gap: var(--aparte-message-gap);
   padding: var(--aparte-viewport-padding);
-  padding-bottom: calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px));
+  /* No bottom padding: a sticky child is clamped to its parent's CONTENT box, so
+     clearance carried as padding held the scroll button `padding + spacer` above
+     the bottom edge — the whole clearance lives in the `::after` below instead. */
+  padding-bottom: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
   /* Same gutter rule as `.aparte-viewport-container` above: the host is the scroll
@@ -197,6 +265,24 @@ aparte-chat-viewport[framework-managed] > * {
   flex-shrink: 0;
 }
 
+/* The bottom spacer: the base padding plus whatever `_setSpacerHeight` writes to
+   `--aparte-fw-spacer`. A flex item rather than host padding because the scroll
+   button's `position: sticky` is clamped to the CONTENT box — clearance carried as
+   padding is territory the button can never enter, and it floated the full
+   `padding + spacer` above the bottom edge (measured: 48-278px for 32 asked).
+   `flex: 0 0` spells out `flex-shrink: 0`: the `> *` pin above matches elements
+   only, never a pseudo. */
+aparte-chat-viewport.aparte-viewport--framework::after,
+aparte-chat-viewport[framework-managed]::after {
+  content: '';
+  flex: 0 0 calc(var(--aparte-viewport-padding) + var(--aparte-fw-spacer, 0px) + var(--aparte-bottom-inset, 0px));
+  /* A flex item pays the column's `gap`; the padding this replaced did not. Without
+     the cancel, an EMPTY transcript was 8px taller than its box and grew a scrollbar
+     beside the welcome state — with children the spacer recalc absorbed it, which is
+     why the geometry specs stayed green while the smoke case regressed. */
+  margin-block-start: calc(var(--aparte-message-gap) * -1);
+}
+
 aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar {
   width: var(--aparte-scrollbar-width);
 }
@@ -207,18 +293,29 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-track {
 
 /* The scroll button lives INSIDE the scrolling host here (last child), so it
    floats with `position: sticky` instead of the `absolute` used in core mode
-   (where it sits outside the scroll container). */
+   (where it sits outside the scroll container). `order: 1` puts its FLOW position
+   after the `::after` spacer (source order cannot — a pseudo always renders last):
+   a bottom-sticky element sits at its flow position whenever that is above the
+   sticky line, so a button flowing before a 230px spacer drifted up to 262px from
+   the edge as the reader neared the bottom. Flowing last, its flow position is the
+   very end and the sticky line always wins. */
 aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn {
   position: sticky;
-  bottom: var(--aparte-space-8);
+  bottom: calc(var(--aparte-space-8) + var(--aparte-bottom-inset, 0px));
   left: auto;
   align-self: center;
   transform: none;
   flex-shrink: 0;
+  order: 1;
 }
 
+/* Fade only, no slide: since `order: 1` the button is the LAST flow content, so a
+   hidden-state translate overhangs the content end by its full distance — 8px of
+   scrollable overflow, which on an EMPTY transcript is the whole scrollbar (the old
+   padding used to absorb the overhang; the ::after spacer flows BEFORE the button
+   and cannot). Core mode keeps the slide: its button is absolute, out of flow. */
 aparte-chat-viewport.aparte-viewport--framework > .aparte-scroll-btn.aparte-scroll-btn--hidden {
-  transform: translateY(var(--aparte-slide-distance));
+  transform: none;
 }
 
 /* =========================================
@@ -303,4 +400,16 @@ aparte-chat-status:not([visible]) {
 .aparte-chat-container--auto-center[data-aparte-empty]
   aparte-chat-viewport.aparte-viewport--framework {
   flex-grow: 0;
+}
+
+/* overlay-composer × center-empty: while the welcome state centres the composer,
+   the overlay stands down — an empty transcript has nothing to scroll, so the
+   surface has nothing to span, and an absolute viewport would pin the welcome to
+   the top of the page while the composer floated alone at the bottom. One
+   property: back in the flow, the centring rules above govern the rest. The first
+   message drops the empty flag and the overlay takes over. */
+aparte-chat[overlay-composer][center-empty][data-empty] > aparte-chat-viewport,
+[data-aparte-chat][overlay-composer][data-aparte-empty] > aparte-chat-viewport,
+.aparte-chat-container[overlay-composer][data-aparte-empty] > aparte-chat-viewport {
+  position: static;
 }

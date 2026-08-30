@@ -29,6 +29,8 @@ interface Props {
    * attribute the shipped `aparte.css` recipe keys off).
    */
   centerWhenEmpty?: boolean;
+  /** Overlay the composer on the transcript: full-column scroll surface, edge-to-edge scrollbar, floating composer. Read when the viewport mounts. */
+  overlayComposer?: boolean;
   /**
    * Add the file picker + chips strip to the default composer shell. **Off by
    * default**, because the capability needs a host that consumes the files: an
@@ -67,6 +69,7 @@ const props = withDefaults(defineProps<Props>(), {
   submitOnEnter: true,
   layoutTransitionMs: 0,
   centerWhenEmpty: false,
+  overlayComposer: false,
   attachments: false,
   elicitation: true,
   conversationId: null,
@@ -205,6 +208,7 @@ defineExpose({
   <div
     :class="['aparte-chat-container', { 'aparte-chat-container--auto-center': centerWhenEmpty }]"
     data-aparte-chat
+    :overlay-composer="overlayComposer ? '' : null"
     :data-aparte-empty="centerWhenEmpty && internalMessages.length === 0 ? '' : null"
     :id="hostId"
     ref="rootRef"
