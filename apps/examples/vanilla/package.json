@@ -1,6 +1,6 @@
 {
     "name": "@aparte-workspace/example-vanilla",
-    "version": "0.0.18",
+    "version": "0.0.19",
     "private": true,
     "type": "module",
     "description": "Minimal vanilla example — @aparte/core web components + a real (BYOK / local) model.",

@@ -4,6 +4,17 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.16.3
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [9406f16](https://github.com/apartejs/aparte/commit/9406f16): In core mode with `overlay-composer`, the transcript's scroll surface no longer overruns its host by the composer inset. `.aparte-viewport-container` is `height: 100%` and carries the overlay clearance as `padding-bottom`; without `box-sizing: border-box` the padding was added to the height, so the surface stood the whole inset taller than the viewport, clipped — that much scrollbar and content cut off at the bottom. Hosts with a global `* { box-sizing: border-box }` reset (every example app in this repo) never saw it; a page without one did. The box declares its own sizing now.
+  <sub>`@aparte/core`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.16.2
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
