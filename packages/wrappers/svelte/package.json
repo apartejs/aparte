@@ -67,7 +67,9 @@
         "aparte",
         "chat",
         "ai",
-        "web-components"
+        "web-components",
+        "chat-ui",
+        "ai-chat"
     ],
     "license": "MIT",
     "repository": {

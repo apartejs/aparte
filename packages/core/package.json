@@ -76,7 +76,21 @@
         "chat",
         "ai",
         "streaming",
-        "llm"
+        "llm",
+        "chat-ui",
+        "ai-chat",
+        "chatbot",
+        "chat-component",
+        "custom-elements",
+        "framework-agnostic",
+        "react",
+        "vue",
+        "svelte",
+        "angular",
+        "agent",
+        "tool-calling",
+        "human-in-the-loop",
+        "openai"
     ],
     "license": "MIT",
     "repository": {
