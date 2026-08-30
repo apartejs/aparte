@@ -59,7 +59,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * <aparte-composer>
  *   <div class="aparte-composer-shell">
  *     <div class="aparte-composer-row">
- *       <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *       <aparte-composer-input></aparte-composer-input>
  *       <aparte-composer-action icon="star" label="Favourite" action-id="favourite"></aparte-composer-action>
  *       <aparte-composer-send></aparte-composer-send>
  *     </div>

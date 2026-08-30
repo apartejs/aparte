@@ -330,6 +330,34 @@ aparte-composer {
   display: block;
   /* Container-query root — see aparte-chat-viewport. */
   container-type: inline-size;
+  /* The transcript's own inline gutter, read from the token that produces it.
+     `.aparte-composer-shell` and `.aparte-message` both cap at
+     `--aparte-message-max-width` and centre with `margin: 0 auto`, so on a container
+     WIDER than the cap they lined up by construction. Below it the cap stops applying,
+     each becomes 100% of its own parent — and this element had no padding, so the
+     composer went flush to the chat's edges while the transcript kept its inset.
+     Measured at a 512px chat: message column 26/26, composer 0/0. Every chat narrower
+     than 800px was hit — a phone, an embedded widget, either pane of `<aparte-split>`,
+     an app shell whose docked sidebar leaves the chat narrow on a wide window.
+
+     INLINE ONLY, and that is not shorthand-avoidance: the block axis is already spaced
+     deliberately, 16px above from the viewport and 16px below from
+     `--aparte-chat-bottom-gap` (shell.css), which were tuned to match. The `padding`
+     shorthand would add a second 16px to each.
+
+     No 520px step to follow the transcript's, and it is not an oversight: a container
+     query cannot match its own container, and this element IS one (the line above).
+     Nothing above it is a container either, and `aparte-chat` may never become one —
+     it would then be the containing block of the `position: fixed` select dropdown
+     that exists to escape `overflow: hidden` (select.css, and the same warning in
+     split.css). So below 520px the transcript tightens to 8px and this stays at 16.
+     A flat 16 was measured against a step: the step wins for vanilla at phone width
+     and LOSES for framework-managed, which is the majority path, because the
+     transcript's own step targets a class framework mode never builds. Flat is a
+     uniform 10px worst case in both modes — which is the scrollbar gutter the
+     transcript reserves and the composer cannot, and which is 0 on the overlay
+     scrollbars every phone has. */
+  padding-inline: var(--aparte-viewport-padding);
 }
 
 aparte-composer-input {

@@ -163,6 +163,15 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
    so it can't collide with the framework's children). */
 aparte-chat-viewport.aparte-viewport--framework,
 aparte-chat-viewport[framework-managed] {
+  /* The base rule gives this element `width: 100%`, and core ships no global
+     border-box reset — every `box-sizing` in these sheets is per-element, on purpose.
+     So the padding below was ADDED to 100% and the host overflowed its own chat by
+     32px, which `aparte-chat`'s `overflow: hidden` then clipped: measured on a 1500px
+     chat, the host was 1532 wide and hung 32px past the end edge. An app with its own
+     `* { box-sizing: border-box }` never saw it, which is exactly why it survived —
+     every example in this repo has one. The composer cannot share a column with a
+     transcript that is off-centre, so it is fixed here rather than compensated there. */
+  box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;

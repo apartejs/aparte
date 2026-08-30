@@ -165,6 +165,26 @@
   overflow-y: auto;
 }
 
+/* A fenced block that came through MARKDOWN, not through the `code` segment.
+   `@aparte/plugin-marked` renders ``` as a bare <pre><code>, and the recipe below is
+   scoped to `.aparte-code-content-wrapper` — a class only the code SEGMENT renderer
+   emits, which marked cannot produce. So a markdown block matched no `pre` rule at all
+   and kept the UA's `white-space: pre`: it never wrapped, laid out at its own intrinsic
+   width, and `aparte-chat-bubble`'s `overflow: hidden` amputated the tail. No scrollbar,
+   no ellipsis — the code was simply gone. Measured on the vanilla example: one block's
+   `scrollWidth` was a CONSTANT 963px at chat widths 1500, 800, 600, 512 and 380, against
+   client widths 776 / 724 / 524 / 460 / 328. It overflowed even at 1500.
+
+   Only the two wrapping declarations are shared, not the surface: the padding and the
+   background below are the code CARD's, and a markdown block has no card. Giving it one
+   is a look decision, not this fix. */
+.aparte-content pre,
+.aparte-segment-content pre,
+.aparte-thinking-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .aparte-code-content-wrapper pre {
   margin: 0;
   padding: var(--aparte-space-6);

@@ -188,9 +188,13 @@ describe('setupCompaction — the request', () => {
         expect(request._meta).toEqual({ compaction: true });
         expect(request.stream).toBe(false);
         expect(request.modelId).toBe('m');
-        expect(request.messages[0]!.role).toBe('system');
-        expect(request.messages[0]!.content).toContain('[tool …]');
-        expect(request.messages.at(-1)).toEqual({ role: 'user', content: 'Please summarize this conversation.' });
+        // The instruction rides the ask, in the user turn, where no provider can drop it:
+        // one that imposes its own system prompt used to swallow it without a word (#45).
+        const ask = request.messages.at(-1)!;
+        expect(ask.role).toBe('user');
+        expect(ask.content).toContain('[tool …]');
+        expect(ask.content).toContain('Please summarize the conversation above.');
+        expect(request.messages.some((m) => m.role === 'system'), 'no system message to lose').toBe(false);
     });
 
     it('carries a reply that ended in an error, and leaves out a turn with nothing to say', async () => {
@@ -206,7 +210,7 @@ describe('setupCompaction — the request', () => {
         const target = makeTarget(messages);
         const { cfg, last } = makeConfig();
         await setup({ selector: (m) => ({ keep: [], drop: m }), resolveTarget: () => target, listen: false }, cfg).compact();
-        const history = last().request.messages.slice(1, -1);
+        const history = last().request.messages.slice(0, -1);
         expect(history).toEqual([
             { role: 'user', content: 'q' },
             { role: 'assistant', content: 'half' },
@@ -222,7 +226,7 @@ describe('setupCompaction — the request', () => {
 
         const outcome = await setup({ selector: (m) => ({ keep: m.slice(2), drop: m.slice(0, 2) }), resolveTarget: () => target, listen: false }, cfg).compact();
 
-        expect(last().request.messages.slice(1, -1)).toEqual([
+        expect(last().request.messages.slice(0, -1)).toEqual([
             { role: 'user', content: 'old question 1' },
             { role: 'assistant', content: 'old answer 1' },
         ]);
@@ -233,7 +237,9 @@ describe('setupCompaction — the request', () => {
         const target = makeTarget(exchange(1, 'x'));
         const { cfg, last } = makeConfig();
         await setup({ selector: (m) => ({ keep: [], drop: m }), prompt: 'Résume en français.', resolveTarget: () => target, listen: false }, cfg).compact();
-        expect(last().request.messages[0]).toEqual({ role: 'system', content: 'Résume en français.' });
+        const ask = last().request.messages.at(-1)!;
+        expect(ask.role).toBe('user');
+        expect(ask.content).toContain('Résume en français.');
     });
 
     it('resolves the key through keyResolver first, then the config', async () => {

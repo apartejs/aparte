@@ -17,17 +17,18 @@ npm install @aparte/provider-transformers @aparte/core @huggingface/transformers
 `@huggingface/transformers` is a **peer dependency** — it's heavy and ships its own onnxruntime, so
 you bring the version you want.
 
-:::caution[This provider needs a bundler]
-It is the one `@aparte/*` package the [CDN path](/guides/getting-started/#install)
-cannot serve, for two reasons that stack. The provider spawns its worker from a URL relative
-to its own module, which from a CDN is cross-origin — and `new Worker()` refuses a
-cross-origin script. Even served from your own origin, the worker imports
-`@huggingface/transformers` by bare specifier, and **an import map in the document does not
-apply to a worker**, so there is nothing to resolve it with.
+:::note[From a CDN, the import map is what tells the worker where to look]
+Inference runs in a worker, and a worker is where the no-build path gets interesting. Two
+rules of the platform decide it: `new Worker()` refuses a cross-origin script, and an
+import map belongs to the *document* — it does not reach a worker. So from a CDN the
+provider starts its worker through a same-origin `blob:` that imports the real file by
+absolute URL, and the worker asks the main thread where Transformers.js lives; the answer
+comes from your page's own import map, which you already write to import `@aparte/core`
+by name. Nothing to configure: map `@huggingface/transformers` and it works.
 
-Every other provider works with no build at all. This one is being fixed
-([#41](https://github.com/apartejs/aparte/issues/41)); until then, use Vite, webpack,
-Parcel or any bundler that processes `new Worker(new URL(…))`.
+The one page this cannot serve is one whose Content-Security-Policy forbids `blob:` in
+`worker-src` (or `script-src`) — a cross-origin worker has no other way in. Serve the
+package from your own origin there, and the provider constructs the worker directly.
 :::
 
 ```ts
@@ -52,6 +53,23 @@ The provider owns its I/O (it runs inference locally), so `AparteDirectTransport
 Downloading and status are **methods on the provider** you registered:
 
 - `TransformersProvider.prepareModel(modelId, onProgress)` — download + load a model, reporting progress.
+
+  A first load is tens or hundreds of megabytes, so `onProgress` is the whole point of
+  calling it. It receives a `ModelLoadProgress` (exported by `@aparte/core`):
+
+  ```ts
+  onProgress({
+    status: 'downloading',        // 'downloading' | 'loading' | 'cached' | 'ready' | 'error'
+    file: 'model_q4.onnx',        // optional — absent between files, and on 'ready'
+    progress: 42,                 // optional, and it is a PERCENTAGE: 0–100, not 0–1
+    message: undefined,           // optional, human-readable
+  });
+  ```
+
+  `downloading` arrives many times per file, `loading` once the bytes are in and the
+  runtime is building the pipeline, `ready` last. `cached` means there was nothing to
+  fetch. Drive a bar off `progress` and a caption off `file`.
+
 - `TransformersProvider.getModelStatus(modelId)` — `'ready'` \| `'cached'` \| `'not-downloaded'`.
 
 Cache and hardware are **standalone helpers** — import them from `@aparte/provider-transformers`:

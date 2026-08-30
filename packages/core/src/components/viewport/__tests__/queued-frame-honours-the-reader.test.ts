@@ -264,3 +264,36 @@ describe('churn is bounded by the height it moved', () => {
         expect(vp._isAutoScrollEnabled, 'a touch that scrolls').toBe(false);
     });
 });
+
+/**
+ * The bottom threshold is generous on purpose (50px, so layout drift does not read as
+ * "the reader walked away") — and that generosity used to outrank the reader. A wheel
+ * notch moves WebKit about 33px at a time, which is inside the threshold, so the follow
+ * stayed armed and the settle chain undid the notch a millisecond later; twelve notches
+ * later the reader was still at the bottom. Measured in CI on react-webkit.
+ */
+describe('a wheel notch smaller than the bottom threshold', () => {
+    it('disarms the follow — the reader\'s hand outranks the generosity', async () => {
+        geometry(1000, 1500);                       // at the bottom, following
+        expect(vp._isAutoScrollEnabled).toBe(true);
+
+        wheelUp(967, 1500);                         // one notch: 33px, well inside the 50px threshold
+        expect(vp._isAutoScrollEnabled, 'a notch the reader turned is not drift').toBe(false);
+    });
+
+    it('but the same 33px with no hand on it is still drift, and stays armed', async () => {
+        geometry(1000, 1500);
+        geometry(967, 1500);                        // no wheel, no touch, no key
+        expect(vp._isAutoScrollEnabled).toBe(true);
+    });
+
+    it('and a notch DOWNWARD re-arms at the bottom', async () => {
+        geometry(1000, 1500);
+        wheelUp(967, 1500);
+        expect(vp._isAutoScrollEnabled).toBe(false);
+
+        box.dispatchEvent(new WheelEvent('wheel', { deltaY: 120 }));
+        geometry(1000, 1500);                       // back down: an increase, not a decrease
+        expect(vp._isAutoScrollEnabled, 'the reader came back').toBe(true);
+    });
+});

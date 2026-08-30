@@ -41,6 +41,14 @@ import type {
 } from '@aparte/core';
 import { contentToText, uuid } from '@aparte/core';
 
+// The worker's URL, not the worker itself: this package constructs it by hand because a
+// cross-origin copy has to go through a blob (see `_spawnWorker`). `?worker&url` is what
+// keeps Vite emitting the worker as its own chunk — the `new Worker(new URL(...))` form
+// it detects by pattern was the only other way, and moving the URL out of that call made
+// the build inline the worker's raw TypeScript as a data: URL instead. Caught by a
+// two-origin browser probe, not by any test.
+import workerUrl from './worker.ts?worker&url';
+
 /** The minimal chat shape passed to the worker (the tokenizer applies the chat template). */
 type SimpleMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 
@@ -306,12 +314,112 @@ let _loadedModelId: string | null = null;
 /** Model currently being prepared (for the getModelStatus 'cached' path). */
 let _preparingModelId: string | null = null;
 
+/** The blob URL the worker was built from, if it needed one. Revoked with the worker. */
+let _workerBlobUrl: string | null = null;
+
+/**
+ * Build the worker — including when this package is served from another origin.
+ *
+ * `new Worker()` refuses a cross-origin script outright, and that is not an exotic
+ * case: it is every deploy whose JavaScript lives on a CDN or an asset host while the
+ * page lives somewhere else, with or without a bundler. Reproduced with the package on
+ * one port and the page on another: `SecurityError: Script at '…/assets/worker-*.js'
+ * cannot be accessed from origin '…'`.
+ *
+ * A blob inherits the ORIGIN OF THE DOCUMENT THAT CREATES IT, so a one-line blob whose
+ * body imports the real worker by absolute URL is same-origin by construction, and the
+ * import inside it is a normal cross-origin module fetch, which is allowed. It is the
+ * shim ffmpeg.wasm and tesseract.js use for the same reason.
+ *
+ * Same-origin keeps the direct path: no blob, nothing to revoke, and a stack trace that
+ * names the real file.
+ */
+function _spawnWorker(): Worker {
+    const url = new URL(workerUrl, import.meta.url);
+    const sameOrigin = typeof location === 'undefined' || url.origin === location.origin;
+    // A blob is the only way across an origin, so an environment that cannot mint one has
+    // nothing to gain from trying: construct directly and let the platform say what it
+    // thinks. jsdom is that environment — it has `Blob` and no `URL.createObjectURL` — and
+    // every test in this package went through the blob path and threw before this line
+    // existed.
+    const canMintBlob = typeof Blob === 'function' && typeof URL.createObjectURL === 'function';
+    // The literal below is not style. `new Worker(new URL('./worker.ts', import.meta.url))`
+    // is the exact shape Vite's worker detection and webpack's WorkerPlugin match on, and
+    // matching it is what makes a CONSUMER's bundler process the worker as a module — which
+    // is how `@huggingface/transformers` gets resolved inside it today. Behind a variable
+    // the chunk is copied as an opaque asset and its imports are never touched, so hoisting
+    // this line to reuse it for the blob would fix a CDN page by breaking every bundled app.
+    if (sameOrigin || !canMintBlob) return new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+
+    _workerBlobUrl = URL.createObjectURL(
+        new Blob([`import ${JSON.stringify(url.href)};`], { type: 'text/javascript' }),
+    );
+    try {
+        return new Worker(_workerBlobUrl, { type: 'module' });
+    } catch (error) {
+        // A page with `worker-src 'self'` (or `script-src` without `blob:`) blocks the
+        // shim, and the direct URL was already refused for its origin — so there is
+        // nothing left to try. Say which of the two walls was hit, because the browser's
+        // own message does not distinguish them.
+        URL.revokeObjectURL(_workerBlobUrl);
+        _workerBlobUrl = null;
+        throw new Error(
+            `@aparte/provider-transformers is served from ${url.origin}, which is not this page's origin, `
+            + 'so its worker has to be started through a blob: URL — and this page\'s Content-Security-Policy '
+            + 'refuses that. Allow `blob:` in `worker-src` (or `script-src`), or serve the package from your '
+            + `own origin. Original error: ${String(error)}`,
+        );
+    }
+}
+
+function _releaseWorkerBlob(): void {
+    if (_workerBlobUrl) {
+        URL.revokeObjectURL(_workerBlobUrl);
+        _workerBlobUrl = null;
+    }
+}
+
+/**
+ * Where the page says Transformers.js lives, if it says so at all.
+ *
+ * The worker cannot ask: an import map is the DOCUMENT's, and by spec it does not reach
+ * a worker. The main thread can, and does it the platform's way — `import.meta.resolve`
+ * consults that same map — so a page that already maps `@huggingface/transformers` (it
+ * has to, to import this package by name at all) is telling us where its copy is. That
+ * map is the CDN consumer's manifest: the version pin stays with the consumer, which is
+ * the whole point of a peer dependency, and this package invents no second place to say
+ * it.
+ *
+ * `undefined` under a bundler, where the specifier is resolved at build time and the
+ * worker's own `import('@huggingface/transformers')` is the path that runs.
+ */
+function _peerModuleUrl(): string | undefined {
+    const resolve = (import.meta as unknown as { resolve?: (specifier: string) => string }).resolve;
+    if (typeof resolve === 'function') {
+        try {
+            const href = resolve('@huggingface/transformers');
+            if (href && /^https?:/i.test(href)) return href;
+        } catch { /* not in the map — fall through */ }
+    }
+    // Older engines have no `import.meta.resolve`; read the map they do have.
+    try {
+        const el = document.querySelector('script[type="importmap"]');
+        const map = el?.textContent ? JSON.parse(el.textContent) as { imports?: Record<string, string> } : null;
+        const href = map?.imports?.['@huggingface/transformers'];
+        if (href) return new URL(href, location.href).href;
+    } catch { /* no document, or a map that is not JSON */ }
+    return undefined;
+}
+
 function _getWorker(): Worker {
     if (!_worker) {
-        _worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+        _worker = _spawnWorker();
         _worker.addEventListener('message', _handleWorkerMessage);
         _worker.addEventListener('error', _handleWorkerError);
         _worker.addEventListener('messageerror', _handleWorkerError);
+        // First message, before any work: postMessage keeps order, so the worker has it
+        // by the time a prepare or a generate needs the module.
+        _worker.postMessage({ type: 'init', transformersUrl: _peerModuleUrl() });
     }
     return _worker;
 }
@@ -347,6 +455,7 @@ function _handleWorkerError(e: Event): void {
     _preparingModelId = null;
     try { _worker?.terminate(); } catch { /* ignore */ }
     _worker = null;
+    _releaseWorkerBlob();
 }
 
 function _handleWorkerMessage(event: MessageEvent): void {
@@ -575,6 +684,7 @@ export function getLoadedModelId(): string | null {
 export function terminateWorker(): void {
     _worker?.terminate();
     _worker = null;
+    _releaseWorkerBlob();
     _loadedModelId = null;
     _preparingModelId = null;
     for (const [, p] of _pendingPrepares) {

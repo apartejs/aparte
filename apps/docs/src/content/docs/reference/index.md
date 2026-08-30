@@ -20,6 +20,26 @@ answers one question:
 | [Icons](/reference/icons/) | *Which glyphs exist, and how do I swap them?* The built-in set and the extended set behind `@aparte/core/icons`. |
 | [Support matrix](/reference/support/) | *Does it run where my users are?* The browser, Node, framework, bundler and TypeScript floors — each derived from what the code uses — beside the versions CI runs. |
 
+:::note[Reading the repository instead of this site?]
+Seven of the eight pages above do not exist as files in the repository: they are written
+at build time from the source, which is what makes them impossible to leave stale. If you
+are working from a checkout — offline, a vendored copy, an agent with a clone — the source
+each one is generated FROM is the thing to read:
+
+| Page | Where it is generated from |
+| --- | --- |
+| CSS variables | the `--aparte-*` declarations in `packages/core/src/styles/` (`theme.css` holds the tokens) |
+| Classes / UI kit | the class names and banner comments in the same sheets |
+| Events | `packages/core/src/types/event-map.ts` and the `@fires` tags on each element |
+| Config | `packages/core/src/config/` |
+| Engine | `packages/engine/src/` |
+| Wrappers | the four `packages/wrappers/*/src/` |
+| Icons | `packages/core/src/icons/` |
+
+`llms.txt` and `llms-full.txt` at the site root carry the built pages in one file, if what
+you want is the rendered text rather than the source.
+:::
+
 :::tip[Looking for the components themselves?]
 The custom elements — `<aparte-chat>`, `<aparte-composer>`, `<aparte-select>`… — are under
 [Components](/components/); the data a bubble renders is under [Segments](/segments/text/).

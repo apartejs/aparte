@@ -60,7 +60,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *      becomes the stop button. -->
  * <aparte-composer>
  *   <div class="aparte-composer-row">
- *     <aparte-composer-input style="flex: 1"></aparte-composer-input>
+ *     <aparte-composer-input></aparte-composer-input>
  *     <aparte-composer-send></aparte-composer-send>
  *   </div>
  * </aparte-composer>
