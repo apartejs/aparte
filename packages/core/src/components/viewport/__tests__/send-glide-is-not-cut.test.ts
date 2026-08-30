@@ -203,7 +203,8 @@ describe('#57 — one owner of the scroll during the send glide', () => {
         // ones included, with auto-follow re-armed; taken for a send, the swap glided
         // instead of pinning, the settle chain held its hand for the glide, the swap's
         // height churn left the view short — and a scroll-to-bottom button appeared over a
-        // reader who never left (`bubble-actions.spec.ts:370`, flaky, CI fails on flaky).
+        // reader who never left ("swapping a branch at the bottom … leaves no scroll
+        // button" in bubble-actions.spec.ts — flaky on CI, and CI fails on flaky).
         document.body.innerHTML = '';
         const fw = document.createElement('aparte-chat-viewport') as unknown as Vp;
         fw.setAttribute('framework-managed', '');
