@@ -100,6 +100,9 @@ export default defineConfig({
         // fair, and the one place the runtime/catalogue split is said in full.
         { label: 'Compare', link: '/compare/' },
         { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
+        // Assembled, copy-me applications - the section the audit found missing: every
+        // component was documented and nothing showed them put together.
+        { label: 'Examples', items: [{ autogenerate: { directory: 'examples' } }] },
         // The catalogue. One autogenerate over `components/`, whose subdirectories ARE
         // the groups — conversation, input, utility. Every page here is GENERATED from
         // the manifest, so shipping an element ships its page.

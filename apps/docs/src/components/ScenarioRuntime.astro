@@ -1,0 +1,57 @@
+---
+/**
+ * A scripted model behind a preview frame, for the demos that should ANSWER.
+ *
+ * Same shape and same reason as `ArtifactsRuntime`: a component of its own so the
+ * provider's chunk rides only with the frames that declare `plugins: ['scenario']`,
+ * never with the hundreds of element, class and segment previews that show a state and
+ * need no model. Rendered BEFORE `PreviewDocument`'s module script — module scripts run
+ * in document order — so the client is started on the very config the frame's elements
+ * read before any deferred demo script revives.
+ *
+ * What it wires is what the vanilla example's `?scenario` mode wires: the showcase
+ * scenarios, a model that declares a context window (so a gauge has something to measure),
+ * the `get_weather` tool the weather turn calls, the browser-direct transport, and one
+ * client. No key, no network, the same replies every time — the model is the only thing
+ * that is not real; the loop, the transcript and every renderer run as they do in an app.
+ */
+---
+
+<script>
+    import { aparteGlobalConfig, AparteClient, AparteDirectTransport, filesToAttachments } from '@aparte/core';
+    import { createScenarioProvider, showcase } from '@aparte/provider-scenario';
+
+    const scripted = createScenarioProvider({
+        scenarios: showcase,
+        models: [{ id: 'scripted', name: 'Scripted model', contextWindow: 8000, capabilities: ['streaming', 'function_calling'] }],
+    });
+    aparteGlobalConfig.registerAIProvider(scripted);
+    aparteGlobalConfig.setModelConfig({ defaultProvider: scripted.id, defaultModel: 'scripted' });
+    aparteGlobalConfig.registerTool(
+        {
+            name: 'get_weather',
+            description: 'Current weather for a city.',
+            inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+        },
+        async (call) => ({ toolCallId: call.id, content: `Cloudy, 14 °C in ${String(call.input['city'] ?? 'Lille')}.` }),
+    );
+    aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
+    new AparteClient().start();
+
+    // The USER bubble is the host's to append - the client appends and streams the
+    // assistant's reply only (in an app, a wrapper's conversation controller does this;
+    // the vanilla example does it by hand, and so does this frame). Without it the
+    // question vanished and only the answer appeared - the first thing Paul typed.
+    for (const chat of document.querySelectorAll<HTMLElement & { viewport?: { appendMessage(m: Record<string, unknown>): void } | null }>('aparte-chat')) {
+        chat.addEventListener('aparte-send', (e) => {
+            const detail = (e as CustomEvent<{ content: string; files?: File[] }>).detail;
+            chat.viewport?.appendMessage({
+                id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                role: 'user',
+                content: detail.content,
+                timestamp: Date.now(),
+                ...(detail.files?.length ? { attachments: filesToAttachments(detail.files) } : {}),
+            });
+        });
+    }
+</script>

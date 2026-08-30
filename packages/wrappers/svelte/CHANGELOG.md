@@ -1,5 +1,7 @@
 # @aparte/svelte
 
+## 0.16.3
+
 ## 0.16.2
 
 ### Patch Changes
