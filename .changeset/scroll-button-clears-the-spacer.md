@@ -8,4 +8,6 @@ Two causes, one per symptom. A `position: sticky` child is clamped to its parent
 
 If you worked around this with your own `padding-bottom: 0` + `::after` override on the viewport, you can remove it — it is now a no-op with the same values.
 
+Two side effects of the rework, caught on screen and now asserted in the smoke suite: an empty transcript no longer grows a scrollbar (the `::after` paid the column's gap the padding never did, and the hidden button's slide overhung the content end), and the hidden button now **fades instead of sliding** in framework-managed mode — its flow position is the very end of the content, so the 8px slide was pure scrollable overflow. Core mode keeps the slide.
+
 Measured in the browser (spacer 0/60/130/230px): the button holds 16px at every distance from the bottom; before, it floated 48/108/178/278px. A new e2e spec (`scroll-button.spec.ts`) asserts the rendered geometry in both transcript modes on Chromium and WebKit — the first assertion in the repo that *locates* this button rather than driving it.
