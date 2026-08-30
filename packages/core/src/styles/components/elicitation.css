@@ -52,7 +52,11 @@
 }
 
 .aparte-elic-message {
-  margin: 0 var(--aparte-space-3) var(--aparte-space-3);
+  /* The end margin is the room the corner "Skip" needs, from the same token the tab
+     rail reserves — the button is absolutely positioned, so nothing in the flow knows
+     it is there, and a long question printed its first line underneath it (#50). One
+     token, because the button holds a word and the word changes width per locale. */
+  margin: 0 var(--aparte-elic-dismiss-room) var(--aparte-space-3) var(--aparte-space-3);
   font-size: var(--aparte-elic-message-size);
   font-weight: var(--aparte-font-weight-semibold);
   color: var(--aparte-text);
