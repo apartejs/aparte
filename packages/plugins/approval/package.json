@@ -1,6 +1,7 @@
 {
     "name": "@aparte/plugin-approval",
     "version": "0.16.6",
+    "homepage": "https://apartejs.dev/plugins/approval/",
     "publishConfig": {
         "access": "public"
     },

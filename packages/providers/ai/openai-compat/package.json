@@ -1,6 +1,7 @@
 {
     "name": "@aparte/provider-openai-compat",
     "version": "0.16.6",
+    "homepage": "https://apartejs.dev/providers/ai/openai-compat/",
     "description": "One OpenAI-compatible chat-completions adapter for any /v1 endpoint — OpenAI, Mistral, OpenRouter, Z.ai, Groq, LM Studio, Ollama and friends, via presets or plain config.",
     "type": "module",
     "sideEffects": false,
