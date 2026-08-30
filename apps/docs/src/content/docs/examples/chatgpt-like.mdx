@@ -1,0 +1,45 @@
+---
+title: "A ChatGPT-like assistant, assembled"
+description: "A complete chat application in Web Components — sidebar with conversation list and search, header, chat with attachments — talking to a scripted model. Copy it, point it at your model."
+sidebar:
+  order: 1
+  label: ChatGPT-like assistant
+---
+
+import Demo from '../../../components/Demo.astro';
+
+The whole application, assembled from what ships: the shell grid and the header are
+**recipes** (classes), the sidebar and the conversation list are **elements** (they have
+behaviour — the drawer, the search, the selection), and the chat is `<aparte-chat>`. It
+talks to a **scripted model** here — no key, no network — so everything you see run is
+real except the model: the loop, the transcript, the tool call, the attachments.
+
+<Demo id="example-chatgpt-like" caption="Type haiku, table, code or weather. Narrow the frame and the sidebar becomes a drawer behind the toggle. Open it in a tab for the full screen." />
+
+## What you are looking at
+
+- **`.aparte-app-shell`** — a two-column grid: the sidebar spans both rows, the header and
+  the main area take the second column. Give it a height and it fills it.
+- **`<aparte-sidebar>`** — collapsible, a drawer under its `breakpoint`, and it listens for
+  `data-aparte-sidebar-toggle` and `data-aparte-sidebar-search` on its own, so the header's
+  button and the search field need no script.
+- **`<aparte-conversation-list>`** — takes a `conversations` array, marks `active-id`, and
+  dispatches `aparte-conversation-select`. The header title above follows it in one listener.
+- **`<aparte-chat attachments>`** — the chat with the file picker; the host consumes the
+  files (an `AparteClient` does).
+
+## Make it yours
+
+Three moves turn this into your application:
+
+1. **The model.** Replace the scripted provider with yours — an OpenAI-compatible endpoint
+   (`@aparte/provider-openai-compat`, presets for OpenAI, Mistral, OpenRouter, Ollama, LM
+   Studio), the Vercel AI SDK, or a model in the browser (`@aparte/provider-transformers`) —
+   or keep the key on your server with the [backend transport](/guides/backend-transport/).
+2. **The conversations.** Feed `conversations` from your store and persist with the
+   [conversation manager](/guides/conversation-persistence/).
+3. **The look.** It is all CSS variables and light DOM — see [theming](/guides/theming/).
+
+The recipe behind the shell, and its mobile behaviour, are on the
+[app shell guide](/guides/app-shell/); the layouts a chat can take — split, feed, side
+panel — on the [layout guide](/guides/layout/).

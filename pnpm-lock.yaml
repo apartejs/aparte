@@ -141,6 +141,9 @@ importers:
       '@aparte/plugin-model-selector':
         specifier: workspace:*
         version: link:../../packages/plugins/model-selector
+      '@aparte/provider-scenario':
+        specifier: workspace:*
+        version: link:../../packages/providers/ai/scenario
       '@astrojs/check':
         specifier: ^0.9.10
         version: 0.9.10(prettier@3.9.6)(typescript@5.9.3)

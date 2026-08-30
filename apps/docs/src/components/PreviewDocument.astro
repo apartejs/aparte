@@ -17,6 +17,7 @@
  *   point at.
  */
 import ArtifactsRuntime from './ArtifactsRuntime.astro';
+import ScenarioRuntime from './ScenarioRuntime.astro';
 
 interface Props {
     /** The document title, which is also what the frame is announced as. */
@@ -150,6 +151,7 @@ const { title, markup, scripts, plugins = [] } = Astro.props;
             precedent for a preview route knowing that one entry needs more than the others is
             the dialog special case in `preview/class/[slug].astro`. */}
         {plugins.includes('artifacts') && <ArtifactsRuntime />}
+        {plugins.includes('scenario') && <ScenarioRuntime />}
         <script>
             // The real package, resolved exactly as a consumer's bundler resolves it: source in
             // `pnpm run docs`, the published `dist` in a build.

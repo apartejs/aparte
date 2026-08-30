@@ -40,6 +40,7 @@
         "@aparte/plugin-ask-user": "workspace:*",
         "@aparte/plugin-compaction": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
+        "@aparte/provider-scenario": "workspace:*",
         "@astrojs/check": "^0.9.10",
         "astro-og-canvas": "^0.13.0",
         "canvaskit-wasm": "^0.42.0",
