@@ -198,6 +198,21 @@ describe('#57 — one owner of the scroll during the send glide', () => {
         expect(fwWrites, 'nor on the placeholder inside the glide').toEqual([]);
     });
 
+    it('a scroll key ends the glide WITHOUT writing scrollTop — the engine animates key scrolls itself', async () => {
+        // main CI (vanilla-webkit, flaky): the keyboard-scroll spec pressed a key while a
+        // seed send's glide window was still open; the stop-the-animation write landed on
+        // the very scroll the key had just started — WebKit animates keyboard scrolling —
+        // and the transcript "did not scroll from the keyboard". The write exists for the
+        // synthetic wheel, which cancels nothing on its own; a key scroll is the engine's
+        // own animation and must not be touched. Closing the window is enough.
+        vp.appendMessage({ id: 'u1', role: 'user', content: 'a question', timestamp: 2, status: 'completed' });
+        await frame();
+        expect(vp._glideUntil).toBeGreaterThan(0);
+        box.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+        expect(vp._glideUntil, 'the window closes on a scroll key').toBe(0);
+        expect(instantWrites, 'and nothing is written over the key\'s own scroll').toEqual([]);
+    });
+
     it('a rebuild that re-adds several bubbles is not a send: it pins instantly, and the settle runs', async () => {
         // CI (vanilla): a branch swap at the bottom re-adds the transcript's bubbles, user
         // ones included, with auto-follow re-armed; taken for a send, the swap glided

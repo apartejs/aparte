@@ -1468,11 +1468,19 @@ export class AparteChatViewport extends HTMLElement {
         // `streaming-progressive` on CI: "the scroll-up gesture did not take, top is
         // still 477px". Writing the CURRENT position is how a running smooth scroll is
         // stopped where it is, in every engine; the reader's own scroll then lands on it.
+        //
+        // For the WHEEL and a TOUCH only. A scroll key starts the ENGINE'S own smooth
+        // animation, and this write landed on it and killed it — the keyboard-scroll
+        // spec on vanilla-webkit pressed a key inside a seed send's glide window and the
+        // transcript did not move (main CI, flaky). A key closes the window like any
+        // reader input; the key's scroll needs no help from us.
         if (this._gliding() && this._container) {
             this._glideUntil = 0;
-            this._ownScrollAt = performance.now();
-            const here = this._container.scrollTop;
-            this._container.scrollTop = here;
+            if (e.type === 'wheel' || e.type === 'touchmove') {
+                this._ownScrollAt = performance.now();
+                const here = this._container.scrollTop;
+                this._container.scrollTop = here;
+            }
         }
     };
 
