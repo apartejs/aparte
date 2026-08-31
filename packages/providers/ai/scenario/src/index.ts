@@ -37,7 +37,7 @@ import type {
 
 /** One thing the scripted model does, in order. */
 export type ScenarioStep =
-    /** Stream this text, chunk by chunk at the configured pace. Markdown is parsed by core; a tagged block (`<artifact>`…) is too, once a grammar for it is registered (`@aparte/plugin-artifacts` does). */
+    /** Stream this text, chunk by chunk at the configured pace. Rendered as markdown once a markdown plugin is installed (plain text otherwise — core ships no markdown renderer); a tagged block (`<artifact>`…) becomes its segment once a grammar for it is registered (`@aparte/plugin-artifacts` does). */
     | { text: string }
     /** Stream this as reasoning (the thinking block). */
     | { thinking: string }
