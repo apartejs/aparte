@@ -1,7 +1,7 @@
 # @aparte/core
 
-Framework-agnostic AI-chat UI as **vanilla Web Components** — zero third-party dependencies,
-ESM-only, usable in any framework or none.
+Framework-agnostic AI chat UI as **vanilla Web Components, with the agent loop inside** —
+zero third-party dependencies, ESM-only, usable in any framework or none.
 
 > **Alpha.** On npm, released in lockstep with every other `@aparte/*` package — the
 > version number is a plain `0.x` and the API can still change before the first stable
@@ -24,8 +24,9 @@ import { aparteGlobalConfig, AparteClient } from '@aparte/core';
 // Drop the shell in your HTML:  <aparte-chat placeholder="Ask anything…"></aparte-chat>
 
 // Give it a provider + transport (see the docs), then construct the client and call
-// .start() — it listens for the composer's events and streams the reply into the
-// conversation. (Without .start(), no listeners are attached and nothing streams.)
+// .start() — it echoes your user message, streams the reply into the conversation,
+// and listens for retry/edit. (Without .start(), nothing listens and nothing streams;
+// a host that appends its own user bubble passes `echoUserMessage: false`.)
 new AparteClient().start();
 
 // The retry / edit buttons only do something with a host like the client above, so

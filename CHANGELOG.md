@@ -8,6 +8,8 @@ by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
 
+Every published README opens on its category line, and core's quickstart says what the client now does on its own (echo included).
+
 ### Patch Changes
 
 - [42a9d09](https://github.com/apartejs/aparte/commit/42a9d09): `AparteClient` echoes the user's message by default — and echo ownership is a handshake, so nothing doubles.
