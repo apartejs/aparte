@@ -1,5 +1,45 @@
 # @aparte/core
 
+## 0.16.7
+
+### Patch Changes
+
+- 42a9d09: `AparteClient` echoes the user's message by default — and echo ownership is a handshake, so nothing doubles.
+
+  The optimistic user bubble used to be every raw-core host's job: everyone wrote the
+  same `aparte-send` handler, and whoever forgot shipped a chat where the person cannot
+  see what they typed — it compiles, it streams, and nothing errors. Three consumers hit
+  exactly that.
+
+  Whoever appends the user message marks the event (`detail.echoed`), and whoever sees
+  the mark yields: the `ConversationController` (capture phase, so always first) marks
+  for the wrappers' pairing with a raw client, and the client marks after its own echo,
+  so even two clients on one page render the message once. Attached files ride the
+  echoed bubble as attachments; the wire cannot double — the history builder already
+  excludes trailing unanswered user messages. A raw-core host that still appends its own
+  bubble should drop that handler, or pass `echoUserMessage: false` to keep ownership.
+
+- 9df0877: Every package names its documentation page (`homepage`) — nothing in the code changes.
+
+  npm shows the link first on each package page; none of the twenty had one. Each now
+  points at its own docs page, verified live before it was written.
+
+- b5891b9: The chat follows the system color scheme by default; `data-aparte-theme` now forces either way — `"light"` is new.
+
+  Dark existed only behind `data-aparte-theme="dark"`: on a dark OS, an un-attributed
+  chat rendered light on the host's dark page — unreadable, with no error. Measured by
+  a consumer building from the docs alone. With no attribute, `prefers-color-scheme`
+  now decides; `"dark"` still forces dark; `"light"` (new) forces light, which is the
+  veto a light-always page needs and the escape a themed island inside an opposite
+  page uses. If your app already flips the attribute from its own toggle, nothing
+  changes — the attribute beats the OS in both directions. The dark palette exists
+  twice in the sheet (a media query and an attribute selector cannot share a block);
+  `check:derived-vars` now holds the copies byte-identical, and holds the light veto to
+  the `:root` literals, so the duplicates cannot drift.
+
+- Updated dependencies [9df0877]
+  - @aparte/engine@0.16.7
+
 ## 0.16.6
 
 ### Patch Changes

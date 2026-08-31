@@ -1,5 +1,14 @@
 # @aparte/plugin-artifacts
 
+## 0.16.7
+
+### Patch Changes
+
+- 9df0877: Every package names its documentation page (`homepage`) — nothing in the code changes.
+
+  npm shows the link first on each package page; none of the twenty had one. Each now
+  points at its own docs page, verified live before it was written.
+
 ## 0.16.6
 
 ## 0.16.5
