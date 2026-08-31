@@ -18,7 +18,10 @@ export const APARTE_CLIENT_OPTIONS = new InjectionToken<AparteClientOptions>('AP
 })
 export class AparteAiService implements OnDestroy {
     private readonly _clientOptions = inject(APARTE_CLIENT_OPTIONS, { optional: true });
-    private _client: AparteClient = new AparteClient(this._clientOptions ?? {});
+    // `echoUserMessage: false`: the wrapper's ConversationController owns the
+    // transcript and appends the user message itself — the client's default echo
+    // would double it. Overridable, like any option.
+    private _client: AparteClient = new AparteClient({ echoUserMessage: false, ...(this._clientOptions ?? {}) });
 
     /**
      * Start listening to `aparte-send` events globally.

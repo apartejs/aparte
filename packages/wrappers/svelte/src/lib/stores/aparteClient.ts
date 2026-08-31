@@ -7,7 +7,10 @@ import { AparteClient, type AparteClientOptions } from '@aparte/core';
  * Svelte equivalent of Angular's `AparteAiService`.
  */
 export function createAparteClient(options?: AparteClientOptions) {
-    const client = new AparteClient(options ?? {});
+    // `echoUserMessage: false`: the wrapper's ConversationController owns the
+    // transcript and appends the user message itself — the client's default echo
+    // would double it. Overridable, like any option.
+    const client = new AparteClient({ echoUserMessage: false, ...(options ?? {}) });
     onMount(() => { client.start(); });
     onDestroy(() => client.stop());
     return { client, abort: () => client.abort() };
