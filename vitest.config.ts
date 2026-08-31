@@ -103,7 +103,10 @@ export default defineConfig({
         // Functions 81 -> 83 with D7 (2026-08-29): the artifact code that left core was
         // its least-covered; measured 84.09% after. The ratchet asked for it.
         functions: 83,
-        branches: 85,
+        // Branches 85 -> 87 with the echo lot (2026-08-31): the client-echo suite
+        // (both echo modes, the unreadable-file failure path) and the scenario
+        // orphan-tool warning moved the global to 88.05%; the ratchet asked.
+        branches: 87,
         // Set from the MEASURED aggregate minus a point, not from a round number.
         // A follow-up audit proved the previous 70/70/70/65 decorative: it deleted
         // all four client suites this remediation added — 462 lines, 14 tests — and
@@ -125,7 +128,10 @@ export default defineConfig({
         // gate fixture moved the measurement to 91.56%; the two-sided ratchet asked.
         // Lines/statements 85 -> 87 with D7 (2026-08-29): the artifact-hint promotion and
         // the artifact lifecycle dispatcher left the client; measured 88.03% after.
-        'packages/core/src/client/**': { lines: 87, statements: 87, functions: 97, branches: 90 },
+        // Lines/statements 87 -> 90 and branches 90 -> 93 with the echo lot
+        // (2026-08-31): the echo suite covers both modes, the attachment ride and
+        // the FileReader failure path — measured 91.71 / 94.05; the ratchet asked.
+        'packages/core/src/client/**': { lines: 90, statements: 90, functions: 97, branches: 93 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value

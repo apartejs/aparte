@@ -116,6 +116,39 @@ describe('the client echoes the user message', () => {
         client.stop();
     });
 
+    it('an unreadable file fails the send into the error path — echoed, not silent', async () => {
+        // Covers the FileReader onerror callbacks (image and text branches): the
+        // person's bubble stays (they DID send), and the failure is a lifecycle
+        // error on the assistant message, not a silent drop.
+        const { cfg, el, appended } = harness();
+        const failures: unknown[] = [];
+        Object.assign(el as unknown as Record<string, unknown>, {
+            updateMessage: (_id: string, patch: { status?: string }) => { if (patch.status === 'error') failures.push(patch); },
+        });
+        const RealReader = globalThis.FileReader;
+        class FailingReader {
+            onload: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            result: string | null = null;
+            readAsDataURL(): void { queueMicrotask(() => this.onerror?.()); }
+            readAsText(): void { queueMicrotask(() => this.onerror?.()); }
+        }
+        (globalThis as unknown as { FileReader: unknown }).FileReader = FailingReader;
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        client.start();
+        try {
+            send(el, 'two doomed files', [
+                new File(['x'], 'pic.png', { type: 'image/png' }),
+                new File(['y'], 'note.txt', { type: 'text/plain' }),
+            ]);
+            await vi.waitFor(() => expect(failures.length).toBeGreaterThan(0));
+            expect(appended().some((m) => m.role === 'user')).toBe(true);
+        } finally {
+            (globalThis as unknown as { FileReader: unknown }).FileReader = RealReader;
+            client.stop();
+        }
+    });
+
     it('attached files ride the echoed bubble as attachments', async () => {
         const { cfg, el, appended } = harness();
         const client = new AparteClient({ config: cfg, autoRegister: false });
