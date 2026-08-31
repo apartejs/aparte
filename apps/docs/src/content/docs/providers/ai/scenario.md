@@ -1,6 +1,6 @@
 ---
 title: Scenario provider — a scripted model for demos and tests
-description: Replay scripted turns — markdown at a typing pace, thinking, tool calls, errors — with no key and no network. A deterministic model for a demo page, the docs, and your own tests.
+description: Replay scripted turns — text at a typing pace, thinking, tool calls, errors — with no key and no network. A deterministic model for a demo page, the docs, and your own tests.
 sidebar:
   label: Scenario (scripted)
 ---
@@ -45,7 +45,7 @@ A turn is a string (one text step) or a list of steps:
 
 | Step | What it does |
 |---|---|
-| `{ text }` | Streams the text, chunk by chunk. Markdown is parsed by core as usual; an `<artifact>` tag becomes a card once [`@aparte/plugin-artifacts`](/plugins/artifacts/) is set up (it is prose otherwise). |
+| `{ text }` | Streams the text, chunk by chunk. Rendered as markdown once a markdown plugin is installed ([`@aparte/plugin-marked`](/plugins/marked/) or [`streaming-markdown`](/plugins/streaming-markdown/)) — plain text otherwise, `**stars**` included. An `<artifact>` tag becomes a card once [`@aparte/plugin-artifacts`](/plugins/artifacts/) is set up (it is prose otherwise). |
 | `{ thinking }` | Streams reasoning — the thinking block. |
 | `{ tool, input?, id? }` | Calls the tool of that name. The loop runs the handler you registered and calls the provider again with the result. |
 | `{ error }` | Fails the turn with that message — what a provider error looks like to the UI. |
