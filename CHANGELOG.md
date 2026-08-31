@@ -4,6 +4,64 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.16.7
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [42a9d09](https://github.com/apartejs/aparte/commit/42a9d09): `AparteClient` echoes the user's message by default — and echo ownership is a handshake, so nothing doubles.
+
+  The optimistic user bubble used to be every raw-core host's job: everyone wrote the
+  same `aparte-send` handler, and whoever forgot shipped a chat where the person cannot
+  see what they typed — it compiles, it streams, and nothing errors. Three consumers hit
+  exactly that.
+
+  Whoever appends the user message marks the event (`detail.echoed`), and whoever sees
+  the mark yields: the `ConversationController` (capture phase, so always first) marks
+  for the wrappers' pairing with a raw client, and the client marks after its own echo,
+  so even two clients on one page render the message once. Attached files ride the
+  echoed bubble as attachments; the wire cannot double — the history builder already
+  excludes trailing unanswered user messages. A raw-core host that still appends its own
+  bubble should drop that handler, or pass `echoUserMessage: false` to keep ownership.
+  <sub>`@aparte/core`</sub>
+
+- [9df0877](https://github.com/apartejs/aparte/commit/9df0877): Every package names its documentation page (`homepage`) — nothing in the code changes.
+
+  npm shows the link first on each package page; none of the twenty had one. Each now
+  points at its own docs page, verified live before it was written.
+  <sub>every package</sub>
+
+- [b5891b9](https://github.com/apartejs/aparte/commit/b5891b9): The chat follows the system color scheme by default; `data-aparte-theme` now forces either way — `"light"` is new.
+
+  Dark existed only behind `data-aparte-theme="dark"`: on a dark OS, an un-attributed
+  chat rendered light on the host's dark page — unreadable, with no error. Measured by
+  a consumer building from the docs alone. With no attribute, `prefers-color-scheme`
+  now decides; `"dark"` still forces dark; `"light"` (new) forces light, which is the
+  veto a light-always page needs and the escape a themed island inside an opposite
+  page uses. If your app already flips the attribute from its own toggle, nothing
+  changes — the attribute beats the OS in both directions. The dark palette exists
+  twice in the sheet (a media query and an attribute selector cannot share a block);
+  `check:derived-vars` now holds the copies byte-identical, and holds the light veto to
+  the `:root` literals, so the duplicates cannot drift.
+  <sub>`@aparte/core`</sub>
+
+- [44a3611](https://github.com/apartejs/aparte/commit/44a3611): The `{ text }` docs no longer say core parses markdown — a markdown plugin renders it.
+
+  Without `@aparte/plugin-marked` or `@aparte/plugin-streaming-markdown`, scripted text
+  streams as plain text, `**stars**` included. The docs said "parsed by core", which is
+  not what ships: core deliberately has no markdown renderer. Wording only.
+  <sub>`@aparte/provider-scenario`</sub>
+
+- [8f9d56f](https://github.com/apartejs/aparte/commit/8f9d56f): A `scenarios`-mode tool call without its `after` route warns at creation.
+
+  `when` plus a turn containing a tool is perfectly plausible to write — and the default
+  match then routes the tool result back through the same `when`: identical rounds until
+  the client's `maxTurns` error. The hole is visible at creation, so it is said at
+  creation, naming each unrouted tool. Ordered `turns` mode and a custom `match` are
+  exempt.
+  <sub>`@aparte/provider-scenario`</sub>
+
 ## 0.16.6
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).

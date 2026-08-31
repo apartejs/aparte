@@ -15,7 +15,6 @@ import {
     aparteGlobalConfig,
     AparteClient,
     AparteDirectTransport,
-    filesToAttachments,
 } from '@aparte/core';
 import type { AparteThinkingSegment } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
@@ -319,34 +318,13 @@ if (layoutParam === 'split' || layoutParam === 'shell') {
 }
 
 // ── Chat wiring ──────────────────────────────────────────────────────────────
-// The bare <aparte-chat> shell doesn't own a ConversationController (that's the
-// framework wrappers' job), so we add the optimistic USER bubble ourselves; the
-// AparteClient appends and streams the ASSISTANT reply.
-type ChatViewport = { appendMessage(m: Record<string, unknown>): void };
-const chat = document.querySelector('aparte-chat') as (HTMLElement & { viewport?: ChatViewport | null }) | null;
-
-/**
- * Append the optimistic USER bubble for one chat element. Attached files ride on
- * the event as raw `File`s; `filesToAttachments` turns them into what a bubble
- * renders (this is the conversion the framework wrappers' ConversationController
- * does for you).
- */
-function wireOptimisticUserBubble(el: HTMLElement & { viewport?: ChatViewport | null }): void {
-    el.addEventListener('aparte-send', (e) => {
-        const detail = (e as CustomEvent<{ content: string; files?: File[] }>).detail;
-        el.viewport?.appendMessage({
-            id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            role: 'user',
-            content: detail.content,
-            timestamp: Date.now(),
-            ...(detail.files?.length ? { attachments: filesToAttachments(detail.files) } : {}),
-        });
-    });
-}
+// No user-bubble handler: AparteClient echoes the user's message itself (its
+// default) and streams the assistant reply. This file used to carry the handler
+// every raw-core host wrote — and whoever forgot shipped a chat where the person
+// cannot see what they typed, which is exactly why the client took the job.
+const chat = document.querySelector('aparte-chat');
 
 if (chat) {
-    wireOptimisticUserBubble(chat);
-
     // The welcome heading goes once the conversation starts. The starters under it
     // are an <aparte-suggestions empty-only> and hide themselves; they used to be four
     // hand-wired chips here, which is what the element replaced.
@@ -364,7 +342,7 @@ if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
     chat.id = 'chat-a';
     chat.querySelector('aparte-composer')?.setAttribute('target', 'chat-a');
 
-    const second = document.createElement('aparte-chat') as HTMLElement & { viewport?: ChatViewport | null };
+    const second = document.createElement('aparte-chat');
     second.id = 'chat-b';
     second.setAttribute('center-empty', '');
     second.innerHTML = `
@@ -378,7 +356,8 @@ if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
         </div>
       </aparte-composer>`;
     chat.parentElement?.appendChild(second);
-    wireOptimisticUserBubble(second);
+    // No per-chat user-bubble wiring: the one AparteClient echoes into whichever
+    // chat the send targeted, exactly as it streams the reply there.
 }
 
 /**

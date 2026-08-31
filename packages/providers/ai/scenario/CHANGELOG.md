@@ -1,5 +1,28 @@
 # @aparte/provider-scenario
 
+## 0.16.7
+
+### Patch Changes
+
+- 9df0877: Every package names its documentation page (`homepage`) — nothing in the code changes.
+
+  npm shows the link first on each package page; none of the twenty had one. Each now
+  points at its own docs page, verified live before it was written.
+
+- 44a3611: The `{ text }` docs no longer say core parses markdown — a markdown plugin renders it.
+
+  Without `@aparte/plugin-marked` or `@aparte/plugin-streaming-markdown`, scripted text
+  streams as plain text, `**stars**` included. The docs said "parsed by core", which is
+  not what ships: core deliberately has no markdown renderer. Wording only.
+
+- 8f9d56f: A `scenarios`-mode tool call without its `after` route warns at creation.
+
+  `when` plus a turn containing a tool is perfectly plausible to write — and the default
+  match then routes the tool result back through the same `when`: identical rounds until
+  the client's `maxTurns` error. The hole is visible at creation, so it is said at
+  creation, naming each unrouted tool. Ordered `turns` mode and a custom `match` are
+  exempt.
+
 ## 0.16.6
 
 ## 0.16.5

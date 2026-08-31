@@ -204,6 +204,21 @@ describe('AparteConversationController', () => {
     // ─── Send → lazy create + persist ─────────────────────────────────────
 
     describe('aparte-send capture', () => {
+        it('marks the event echoed once it appends — the handshake AparteClient yields to', () => {
+            // The controller captures first (by design); without the mark, a raw
+            // AparteClient beside it — the documented pairing — echoes a second
+            // user bubble on every send.
+            const binding = makeBinding(host);
+            const ctrl = new AparteConversationController(binding, { manager });
+            ctrl.bind();
+            const detail: { content: string; targetId: string; echoed?: boolean } =
+                { content: 'mark me', targetId: binding.hostId };
+            host.dispatchEvent(new CustomEvent('aparte-send', { detail }));
+            expect(binding.messages.some((m) => m.role === 'user')).toBe(true);
+            expect(detail.echoed).toBe(true);
+            ctrl.unbind?.();
+        });
+
         it('creates a conversation on first send and persists the user message', async () => {
             const created = vi.fn();
             const binding = makeBinding(host);

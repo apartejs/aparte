@@ -246,6 +246,39 @@ export function playTurn(
  * ```
  */
 export function createScenarioProvider(options: ScenarioProviderOptions = {}): AparteAIProvider {
+    // A `when` scenario that calls a tool needs its `after` counterpart, or the
+    // default match routes the tool RESULT back through the same `when` and the
+    // conversation eats its own tail — identical rounds until the client's
+    // maxTurns error. Plausible to write, silent to read; the hole is visible at
+    // creation, so it is said at creation. Ordered `turns` advance on their own,
+    // and a custom `match` replaces the default rule — both exempt.
+    if (options.scenarios && !options.match) {
+        // A record value is a Scenario OR a bare turn (string / steps) — a tool in a
+        // BARE turn loops the same way, through the default/first-entry fallback.
+        const values = Object.values(options.scenarios);
+        const asScenario = (v: Scenario | ScenarioTurn): Scenario | null =>
+            typeof v === 'object' && !Array.isArray(v) ? v : null;
+        const routed = new Set(values.map((v) => asScenario(v)?.after).filter(Boolean));
+        const orphans = new Set<string>();
+        for (const v of values) {
+            const turn = asScenario(v)?.turn ?? (v as ScenarioTurn);
+            const steps = Array.isArray(turn) ? turn : [];
+            for (const step of steps) {
+                if (typeof step === 'object' && step !== null && 'tool' in step
+                    && typeof step.tool === 'string' && !routed.has(step.tool)) {
+                    orphans.add(step.tool);
+                }
+            }
+        }
+        if (orphans.size > 0) {
+            console.warn(
+                `[scenario] No \`after\` route for: ${[...orphans].map((t) => `\`${t}\``).join(', ')}. `
+                + 'A scenario calls the tool, but nothing answers its result — the default match '
+                + 'sends it back through the same `when`, and the conversation loops until the '
+                + "client's maxTurns stops it. Declare a scenario with `after: '<tool>'` for each.",
+            );
+        }
+    }
     const id = options.id ?? 'scenario';
     const name = options.name ?? 'Scripted model';
     const models: AparteAIModel[] = options.models ?? [{

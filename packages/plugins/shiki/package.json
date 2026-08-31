@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-shiki",
-    "version": "0.16.6",
+    "version": "0.16.7",
     "homepage": "https://apartejs.dev/plugins/shiki/",
     "description": "Syntax highlighting for aparté via shiki — register it as the highlight provider (single lazily-created highlighter).",
     "type": "module",
@@ -39,7 +39,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.16.6 <1.0.0",
+        "@aparte/core": ">=0.16.7 <1.0.0",
         "shiki": "^4.0.0"
     },
     "devDependencies": {

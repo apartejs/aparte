@@ -11,6 +11,7 @@ import type { AparteAIProvider } from '../types/model-provider.js';
 import type { AparteToolCall, AparteTool } from '../types/tools.js';
 import { AparteChatRequest, AparteChatMessage, AparteContentPart, AparteUsage } from '../types/chat.js';
 import { AparteError, AparteErrorCode } from '../types/errors.js';
+import { filesToAttachments } from '../utils/files-to-attachments.js';
 import { uuid } from '../utils/uuid.js';
 import { describeToolInput } from '../utils/tool-input.js';
 import { requestUserInput } from '../elicitation/index.js';
@@ -181,6 +182,21 @@ export interface AparteClientOptions {
      * as `runStreamAgent`, so the value means one thing whichever loop runs.
      */
     toolTimeoutMs?: number;
+
+    /**
+     * Whether a send appends the optimistic USER bubble before the reply streams.
+     *
+     * Default `true` — and opt-OUT on purpose: the bubble used to be the host's job
+     * on every path, everyone wrote the same `aparte-send` handler, and whoever
+     * forgot shipped a chat where the person cannot see what they typed. It
+     * compiles, it streams, and nothing errors.
+     *
+     * Pass `false` when the host owns its transcript and appends the user message
+     * itself — the four framework wrappers do (their ConversationController is
+     * that owner) and pass it. The wire cannot double either way: the history
+     * builder already excludes trailing unanswered user messages.
+     */
+    echoUserMessage?: boolean;
 
     /**
      * Controls which files attached by the user are injected as raw content
@@ -977,6 +993,29 @@ export class AparteClient {
         if (!targetElement) {
             console.warn('[AparteClient] ⚠️ No target element found with appendMessage support. Provide a targetResolver in AparteClientOptions or ensure the composer has a `target` attribute.');
             return;
+        }
+
+        // The optimistic USER bubble, before anything below can fail — a send the
+        // person cannot see is a broken chat even when the failure card explains
+        // the rest. Opt-out via `echoUserMessage: false` (see the option's JSDoc).
+        //
+        // Ownership is a HANDSHAKE on the event, not a guess: whoever appends the
+        // user message marks `detail.echoed`, and whoever sees the mark yields.
+        // The ConversationController appends in the CAPTURE phase — by design it
+        // always precedes this window-bubble listener — so a controller-driven
+        // chat beside a raw client echoes exactly once, whichever wrapper or none
+        // built either of them. The client marks too: a second client resolving
+        // the same target cannot double.
+        if (this.options.echoUserMessage !== false && event.detail?.echoed !== true) {
+            const echoFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
+            targetElement.appendMessage?.({
+                id: uuid(),
+                role: 'user',
+                content,
+                timestamp: Date.now(),
+                ...(echoFiles.length > 0 ? { attachments: filesToAttachments(echoFiles) } : {}),
+            });
+            if (event.detail && typeof event.detail === 'object') event.detail.echoed = true;
         }
 
         const messageId = uuid();

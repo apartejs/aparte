@@ -215,8 +215,11 @@ export class AparteConversationController {
             };
 
             // 1. Optimistic UI: append the user message immediately so it
-            //    appears before any AI streaming begins.
+            //    appears before any AI streaming begins — and say so on the event:
+            //    `echoed` is the handshake AparteClient (whose own echo defaults ON)
+            //    reads before echoing, so this pairing renders the message ONCE.
             this._binding.appendMessage(userMsg);
+            (evt.detail as { echoed?: boolean }).echoed = true;
 
             // 2. Ensure a conversation exists (lazy create on first send) and
             //    persist the user message. Done async; AparteClient continues.

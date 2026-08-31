@@ -25,7 +25,11 @@ npm install @aparte/provider-scenario @aparte/core
 
 ```ts
 import { aparteGlobalConfig, AparteClient, AparteDirectTransport } from '@aparte/core';
+import '@aparte/core/styles.css';
 import { createScenarioProvider } from '@aparte/provider-scenario';
+import { setupMarkedProvider } from '@aparte/plugin-marked';
+
+setupMarkedProvider(); // what renders the **markdown** below — without it, text streams plain
 
 aparteGlobalConfig.registerAIProvider(createScenarioProvider({
   turns: [
@@ -34,8 +38,14 @@ aparteGlobalConfig.registerAIProvider(createScenarioProvider({
   ],
 }));
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
-new AparteClient().start();
+new AparteClient().start(); // streams the reply AND echoes the user's message
 ```
+
+That is the whole file, next to an `<aparte-chat>` on the page. Two things it does NOT
+need: an `aparte-send` handler — the client echoes the user's message itself
+(`echoUserMessage: false` if your host owns its transcript) — and any markdown wiring
+beyond the one setup call above ([`streaming-markdown`](/plugins/streaming-markdown/)
+is the mid-stream alternative).
 
 `turns` answers the model's calls in order and repeats the last one. Every call
 advances — a retry, and the second half of a tool round-trip, included. It is the form
@@ -47,7 +57,7 @@ A turn is a string (one text step) or a list of steps:
 |---|---|
 | `{ text }` | Streams the text, chunk by chunk. Rendered as markdown once a markdown plugin is installed ([`@aparte/plugin-marked`](/plugins/marked/) or [`streaming-markdown`](/plugins/streaming-markdown/)) — plain text otherwise, `**stars**` included. An `<artifact>` tag becomes a card once [`@aparte/plugin-artifacts`](/plugins/artifacts/) is set up (it is prose otherwise). |
 | `{ thinking }` | Streams reasoning — the thinking block. |
-| `{ tool, input?, id? }` | Calls the tool of that name. The loop runs the handler you registered and calls the provider again with the result. |
+| `{ tool, input?, id? }` | Calls the tool of that name. The loop runs the handler you registered and calls the provider again with the result. In `scenarios` mode, pair it with a scenario declaring `after: '<tool>'` — without one, the result re-matches the same `when` and the conversation loops until the client's `maxTurns` stops it (the provider warns at creation). |
 | `{ error }` | Fails the turn with that message — what a provider error looks like to the UI. |
 | `{ wait }` | Pauses for that many milliseconds — a slow model, a long tool. |
 | `{ usage }` | Overrides the usage reported at the end (merged over the estimate). |
