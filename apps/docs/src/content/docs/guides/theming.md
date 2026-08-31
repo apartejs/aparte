@@ -42,26 +42,30 @@ the variable on any ancestor, or on the chat element itself.
 
 ## Light and dark
 
-Light is the default. Dark mode is opt-in: set `data-aparte-theme="dark"` on the chat
-itself — or on any ancestor (`<body>`, `<html>`) — and the components read it.
+The chat follows the system: with no attribute, `prefers-color-scheme` decides, so a
+dark OS gets a dark chat with nothing to write. `data-aparte-theme` is the override,
+in **both** directions — on the chat itself or on any ancestor (`<body>`, `<html>`):
 
 ```html
-<!-- on the element itself… -->
+<!-- follow the OS — the default, nothing to write -->
+<aparte-chat></aparte-chat>
+
+<!-- force dark, whatever the OS -->
 <aparte-chat data-aparte-theme="dark"></aparte-chat>
 
-<!-- …or on any ancestor, to theme everything inside -->
-<body data-aparte-theme="dark">…</body>
+<!-- force light — the veto a light-always page needs on a dark OS -->
+<body data-aparte-theme="light">…</body>
 ```
+
+A themed island is the same gesture one level down: a `data-aparte-theme="light"`
+subtree inside a dark page stays light, and vice versa.
 
 :::note
-Core does **not** auto-detect the OS preference — that's a product decision, so your app
-owns it. Flip the attribute yourself, e.g. from a `prefers-color-scheme` media query or a
-theme toggle:
-
-```js
-const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-document.documentElement.setAttribute('data-aparte-theme', dark ? 'dark' : 'light');
-```
+It used not to be this way: dark existed only behind the attribute, so a chat dropped
+into a dark page rendered **light — unreadable, with no error** — unless the host knew
+to flip the attribute itself. The first consumer to build from these docs alone shipped
+exactly that. Your app still owns the decision: the attribute beats the OS in both
+directions; the default just stopped lying to dark-mode users.
 :::
 
 ## Rebrand in a handful of variables

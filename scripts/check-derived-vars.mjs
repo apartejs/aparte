@@ -681,6 +681,46 @@ if (existsSync(THEMING_GUIDE)) {
     }
 }
 
+/* ── The system-theme duplicates cannot drift ─────────────────────────────────
+   theme.css carries the dark palette twice — the attribute block and its
+   prefers-color-scheme copy (CSS cannot share one block between a media query
+   and an attribute selector) — plus a light veto that re-declares, at their
+   light literal values, exactly the properties dark overrides. Both pairings
+   are held here: edited apart, the theme forks with no visual error on the
+   editor's own OS. Same family as the bundle.css import parity above. */
+{
+    const themeCss = readFileSync('packages/core/src/styles/theme.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+    const decls = (block) => new Map([...(block ?? '').matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+    const darkAttr = themeCss.match(/\[data-aparte-theme="dark"\]\s*\{([^}]*)\}/)?.[1];
+    const darkMedia = themeCss.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root:not\(\[data-aparte-theme="light"\]\)\s*\{([^}]*)\}/)?.[1];
+    const lightVeto = themeCss.match(/\[data-aparte-theme="light"\]\s*\{([^}]*)\}/)?.[1];
+    if (!darkAttr || !darkMedia || !lightVeto) {
+        problems.push('theme.css: the dark attribute block, its prefers-color-scheme copy or the light veto is missing — the system-default theme lost a leg.');
+    } else {
+        const a = decls(darkAttr);
+        const m = decls(darkMedia);
+        const l = decls(lightVeto);
+        for (const [prop, value] of a) {
+            if (m.get(prop) !== value) problems.push(`theme.css: \`${prop}\` differs between [data-aparte-theme="dark"] (\`${value}\`) and its prefers-color-scheme copy (\`${m.get(prop) ?? 'MISSING'}\`) — the two blocks are one theme; edit both.`);
+        }
+        for (const prop of m.keys()) {
+            if (!a.has(prop)) problems.push(`theme.css: \`${prop}\` is in the prefers-color-scheme copy but not in the attribute block — the two blocks are one theme; edit both.`);
+        }
+        const beforeDark = themeCss.slice(0, themeCss.indexOf('[data-aparte-theme="dark"]'));
+        const lightLiterals = new Map();
+        for (const mm of beforeDark.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+            if (!lightLiterals.has(mm[1])) lightLiterals.set(mm[1], mm[2].trim());
+        }
+        for (const prop of a.keys()) {
+            if (!l.has(prop)) problems.push(`theme.css: \`${prop}\` is dark-overridden but the [data-aparte-theme="light"] veto does not reset it — forced light would keep a dark value under a dark OS.`);
+            else if (l.get(prop) !== lightLiterals.get(prop)) problems.push(`theme.css: \`${prop}\` in the light veto (\`${l.get(prop)}\`) drifted from its light literal (\`${lightLiterals.get(prop) ?? 'MISSING'}\`) — the veto restates the \`:root\` value, never its own.`);
+        }
+        for (const prop of l.keys()) {
+            if (!a.has(prop)) problems.push(`theme.css: \`${prop}\` is in the light veto but dark never overrides it — a dead reset; remove it or override it in dark.`);
+        }
+    }
+}
+
 if (problems.length) {
     console.error(`\n[derived-vars] ${problems.length} problem(s):\n`);
     for (const p of problems) console.error(`  ${p}\n`);
