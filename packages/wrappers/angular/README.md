@@ -1,7 +1,7 @@
 # @aparte/angular
 
-Angular 19 wrapper for [aparté](https://github.com/apartejs/aparte) — an ergonomic `<aparte-chat>`
-standalone component plus services (`AparteAiService`, `ConversationManagerService`) over the
+The **Angular AI chat component** of [aparté](https://github.com/apartejs/aparte) — an ergonomic
+`<aparte-chat>` standalone component (Angular 19) plus services (`AparteAiService`, `ConversationManagerService`) over the
 framework-agnostic web components in `@aparte/core`.
 
 ```bash

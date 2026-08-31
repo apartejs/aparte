@@ -1,7 +1,7 @@
 # @aparte/react
 
-React 18/19 wrapper for [aparté](https://github.com/apartejs/aparte) — an ergonomic `<AparteChat>`
-component plus hooks (`useAparteChat`, `useAparteClient`, `useConversationManager`) over the
+The **React AI chat component** of [aparté](https://github.com/apartejs/aparte) — an ergonomic
+`<AparteChat>` (React 18/19) plus hooks (`useAparteChat`, `useAparteClient`, `useConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 
 ```bash

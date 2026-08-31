@@ -1,7 +1,7 @@
 # @aparte/svelte
 
-Svelte wrapper for [aparté](https://github.com/apartejs/aparte) — an ergonomic `<AparteChat>`
-component plus stores (`createAparteChat`, `createAparteClient`, `createConversationManager`) over the
+The **Svelte AI chat component** of [aparté](https://github.com/apartejs/aparte) — an ergonomic
+`<AparteChat>` (Svelte 4 and 5) plus stores (`createAparteChat`, `createAparteClient`, `createConversationManager`) over the
 framework-agnostic web components in `@aparte/core`.
 
 **Svelte 4 and Svelte 5**, from the same source. The package ships its `.svelte` files
