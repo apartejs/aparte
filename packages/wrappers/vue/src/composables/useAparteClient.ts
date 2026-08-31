@@ -7,10 +7,7 @@ import { AparteClient, type AparteClientOptions } from '@aparte/core';
  * `AparteAiService`.
  */
 export function useAparteClient(options?: AparteClientOptions) {
-    // `echoUserMessage: false`: the wrapper's ConversationController owns the
-    // transcript and appends the user message itself — the client's default echo
-    // would double it. Overridable, like any option.
-    const client = new AparteClient({ echoUserMessage: false, ...(options ?? {}) });
+    const client = new AparteClient(options ?? {});
     onMounted(() => client.start());
     onBeforeUnmount(() => client.stop());
     return { client, abort: () => client.abort() };

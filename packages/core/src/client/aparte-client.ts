@@ -997,10 +997,16 @@ export class AparteClient {
 
         // The optimistic USER bubble, before anything below can fail — a send the
         // person cannot see is a broken chat even when the failure card explains
-        // the rest. Opt-out via `echoUserMessage: false` (see the option's JSDoc);
-        // attached files ride the bubble the same way the wrappers' controller
-        // renders them.
-        if (this.options.echoUserMessage !== false) {
+        // the rest. Opt-out via `echoUserMessage: false` (see the option's JSDoc).
+        //
+        // Ownership is a HANDSHAKE on the event, not a guess: whoever appends the
+        // user message marks `detail.echoed`, and whoever sees the mark yields.
+        // The ConversationController appends in the CAPTURE phase — by design it
+        // always precedes this window-bubble listener — so a controller-driven
+        // chat beside a raw client echoes exactly once, whichever wrapper or none
+        // built either of them. The client marks too: a second client resolving
+        // the same target cannot double.
+        if (this.options.echoUserMessage !== false && event.detail?.echoed !== true) {
             const echoFiles: File[] = Array.isArray(event.detail?.files) ? event.detail.files : [];
             targetElement.appendMessage?.({
                 id: uuid(),
@@ -1009,6 +1015,7 @@ export class AparteClient {
                 timestamp: Date.now(),
                 ...(echoFiles.length > 0 ? { attachments: filesToAttachments(echoFiles) } : {}),
             });
+            if (event.detail && typeof event.detail === 'object') event.detail.echoed = true;
         }
 
         const messageId = uuid();

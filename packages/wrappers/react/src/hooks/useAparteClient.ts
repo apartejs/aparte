@@ -24,10 +24,7 @@ export interface UseAparteClient {
  */
 export function useAparteClient(options?: AparteClientOptions): UseAparteClient {
     const ref = useRef<AparteClient | null>(null);
-    // `echoUserMessage: false`: the wrapper's ConversationController owns the
-    // transcript and appends the user message itself — the client's default echo
-    // would double it. Overridable, like any option.
-    if (!ref.current) ref.current = new AparteClient({ echoUserMessage: false, ...(options ?? {}) });
+    if (!ref.current) ref.current = new AparteClient(options ?? {});
     useEffect(() => {
         const c = ref.current as AparteClient;
         c.start();

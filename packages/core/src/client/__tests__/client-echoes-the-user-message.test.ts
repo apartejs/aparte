@@ -116,6 +116,34 @@ describe('the client echoes the user message', () => {
         client.stop();
     });
 
+    it('a detail already marked echoed is not echoed again — the controller handshake', async () => {
+        // The ConversationController (capture phase, so always first) appends the
+        // user message and marks the event; the client must yield to the mark, or
+        // every controller-plus-raw-client pairing doubles — 111 e2e reds' worth.
+        const { cfg, el, appended } = harness();
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        client.start();
+        el.dispatchEvent(new CustomEvent('aparte-send', {
+            detail: { content: 'controller owns me', timestamp: 1, targetId: el.id, echoed: true },
+            bubbles: true,
+            composed: true,
+        }));
+        await vi.waitFor(() => expect(appended().length).toBeGreaterThanOrEqual(1));
+        expect(appended().every((m) => m.role !== 'user')).toBe(true);
+        client.stop();
+    });
+
+    it('the client marks the detail after echoing — a second client cannot double', async () => {
+        const { cfg, el, appended } = harness();
+        const detail = { content: 'once, whoever listens', timestamp: 1, targetId: el.id } as { echoed?: boolean };
+        const client = new AparteClient({ config: cfg, autoRegister: false });
+        client.start();
+        el.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
+        await vi.waitFor(() => expect(appended().some((m) => m.role === 'user')).toBe(true));
+        expect(detail.echoed).toBe(true);
+        client.stop();
+    });
+
     it('an unreadable file fails the send into the error path — echoed, not silent', async () => {
         // Covers the FileReader onerror callbacks (image and text branches): the
         // person's bubble stays (they DID send), and the failure is a lifecycle
