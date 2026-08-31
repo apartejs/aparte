@@ -257,7 +257,10 @@ a.brand:hover .paren { color: var(--accent); }
 
 /* Closes the hero rather than trailing after the demo: these four lines are the
    claim, and a claim belongs beside the headline that makes it. */
-.facts { display: flex; flex-wrap: wrap; gap: 10px 40px; align-items: baseline; margin-top: clamp(34px, 5vw, 54px); padding: 26px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--dim); font-size: 14.5px; }
+/* Justified between its two hairlines: five facts wrap to two lines on most
+   screens, and a ragged second line read as an accident — spread, each line
+   takes the measure and the band reads as set on purpose. */
+.facts { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 40px; align-items: baseline; margin-top: clamp(34px, 5vw, 54px); padding: 26px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--dim); font-size: 14.5px; }
 .facts b { color: var(--text); font-weight: 600; }
 .facts .k { color: var(--accent-text); font-family: Georgia, serif; font-style: italic; margin-right: 8px; }
 
