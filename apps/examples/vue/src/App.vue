@@ -29,7 +29,7 @@ const chips = [
                 <div class="welcome">
                     <h2>Start a conversation</h2>
                     <div class="suggestions">
-                        <button v-for="c in chips" :key="c.label" class="chip" @click="sendPrompt(c.prompt)">
+                        <button v-for="c in chips" :key="c.label" type="button" class="chip" @click="sendPrompt(c.prompt)">
                             {{ c.label }}
                         </button>
                     </div>
