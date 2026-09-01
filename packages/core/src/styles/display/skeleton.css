@@ -33,6 +33,19 @@
   animation: aparte-skeleton-shimmer var(--aparte-duration-pulse) linear infinite;
 }
 
+/* Under reduced motion the loop stops outright. The duration tokens are reset to
+   0.01ms in responsive.css, but that leaves `infinite` in place: a 0.01ms cycle
+   is not stillness, it is a flicker. The descendant sweep there does not reach a
+   recipe used outside aparté's own elements, so each looping recipe stops itself,
+   the way display/icon.css already does.
+   The shine goes with the shimmer: a stopped gradient would sit as a pale band. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-skeleton {
+    animation: none;
+    background-image: none;
+  }
+}
+
 .aparte-skeleton--text {
   width: 100%;
   height: var(--aparte-skeleton-text-height);

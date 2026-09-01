@@ -40,6 +40,21 @@
   animation: aparte-progress-slide var(--aparte-duration-pulse) var(--aparte-ease) infinite;
 }
 
+/* Under reduced motion the loop stops outright. The duration tokens are reset to
+   0.01ms in responsive.css, but that leaves `infinite` in place: a 0.01ms cycle
+   is not stillness, it is a flicker. The descendant sweep there does not reach a
+   recipe used outside aparté's own elements, so each looping recipe stops itself,
+   the way display/icon.css already does.
+   Stopped, the sliding segment would sit at one spot and read as a value; the whole
+   track filled says "busy" without naming an amount. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-progress--indeterminate .aparte-progress__bar {
+    animation: none;
+    width: 100%;
+    inset-inline-start: 0;
+  }
+}
+
 /* inset-inline-start, not transform: translateX — a transform has no logical
    axis, so an RTL page would slide the indeterminate segment backwards. Animating
    a logical inset instead makes the sweep follow reading direction automatically. */

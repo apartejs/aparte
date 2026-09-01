@@ -67,6 +67,15 @@
   animation: aparte-pulse var(--aparte-duration-pulse) infinite ease-in-out;
 }
 
+/* Under reduced motion the loop stops outright. The duration tokens are reset to
+   0.01ms in responsive.css, but that leaves `infinite` in place: a 0.01ms cycle
+   is not stillness, it is a flicker. The descendant sweep there does not reach a
+   recipe used outside aparté's own elements, so each looping recipe stops itself,
+   the way display/icon.css already does. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-dot { animation: none; }
+}
+
 /* =========================================
    aparte-conversation-list
    ========================================= */

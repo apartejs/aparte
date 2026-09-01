@@ -267,3 +267,9 @@ aparte-optgroup[collapsed] .aparte-optgroup-chevron {
     /* `aparte-spin` is declared once, in base.css — see the shared-motion block there. */
     animation: aparte-spin var(--aparte-duration-spin) linear infinite;
 }
+
+/* The element's own sweep in responsive.css already stops this one; the rule is here
+   so the recipe stops on its own terms too, like every other looping recipe. */
+@media (prefers-reduced-motion: reduce) {
+    .aparte-spinner-small { animation: none; }
+}
