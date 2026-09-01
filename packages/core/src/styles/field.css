@@ -59,7 +59,7 @@
   line-height: var(--aparte-line-height-normal);
   color: var(--aparte-text);
   background: var(--aparte-surface-1);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-field-radius);
   padding: var(--aparte-field-padding);
   transition:
@@ -94,10 +94,13 @@
   border-color: var(--aparte-border-focus);
 }
 
+/* Drawn, not faded: the muted ink on the quieter ground, and the edge back to the region
+   colour. Opacity faded the text with its box and read under 3:1. */
 .aparte-field:disabled {
   cursor: not-allowed;
-  opacity: var(--aparte-disabled-opacity);
   background: var(--aparte-surface-2);
+  color: var(--aparte-text-muted);
+  border-color: var(--aparte-border);
 }
 
 .aparte-field[readonly] {
@@ -153,7 +156,7 @@
   display: flex;
   align-items: stretch;
   background: var(--aparte-surface-1);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-field-radius);
   /* The addons' ground follows the group's corners; the focus ring is a shadow on the
      group itself, outside this box, so it is not clipped. */
@@ -255,7 +258,7 @@
   place-content: center;
   width: var(--aparte-checkbox-size);
   height: var(--aparte-checkbox-size);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-radius-sm);
   background: var(--aparte-surface-1);
   cursor: pointer;
@@ -380,7 +383,7 @@
   place-content: center;
   width: var(--aparte-radio-size);
   height: var(--aparte-radio-size);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-radius-full);
   background: var(--aparte-surface-1);
   cursor: pointer;
@@ -471,7 +474,7 @@
   flex-shrink: 0;
   inline-size: var(--aparte-switch-width);
   block-size: var(--aparte-switch-height);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-radius-full);
   background: var(--aparte-switch-track);
   cursor: pointer;
@@ -724,7 +727,7 @@
   inline-size: var(--aparte-color-size);
   block-size: var(--aparte-color-size);
   padding: 0;
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-field-radius);
   background: none;
   cursor: pointer;

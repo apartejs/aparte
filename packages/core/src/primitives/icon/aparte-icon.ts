@@ -33,7 +33,7 @@ import type { AparteIconName } from '../../config/icon-provider.js';
  * @attr {string} name - Which glyph to draw. One of the names `setIconProvider` accepts;
  *   an unknown name draws nothing rather than a broken-image box.
  *
- * @cssprop [--aparte-icon-size=14px] - Width and height. `--sm`/`--lg`/`--xl` set it.
+ * @cssprop [--aparte-icon-size=calc(1rem * var(--aparte-font-scale))] - Width and height. `--sm`/`--lg`/`--xl` set it.
  *
  * @example
  * <aparte-icon name="copy"></aparte-icon>

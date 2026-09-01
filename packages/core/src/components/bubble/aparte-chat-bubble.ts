@@ -175,7 +175,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop [--aparte-message-padding-inline=var(--aparte-space-6)] - Horizontal padding of one message row.
  * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
  *
- * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
+ * @cssprop [--aparte-message-content-radius=var(--aparte-radius-bubble)] - Radius of the painted content box.
  * @cssprop [--aparte-message-content-padding=var(--aparte-space-5) var(--aparte-space-7)] - Padding of the USER box only; the assistant's content is plain full-width prose.
  * @cssprop --aparte-message-content-bg-user - Background of the user box: a wash of `--aparte-primary` over `--aparte-surface-1`, derived in `theme.css` so a rebrand moves it (declare it to override).
  * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).

@@ -183,7 +183,6 @@
      below (it was a frozen plum hex that outlived every rebrand); the assistant is
      plain prose (AI-chat convention) — flip it to get a two-bubble chat-app look. */
   --aparte-message-content-bg-assistant: transparent;
-  --aparte-message-content-radius: 14px;
 
   /* Aliases used by some segment renderers (artifact card, tool pill).
      Mapped to existing tokens so consumers that override --aparte-surface-1/2
@@ -226,11 +225,8 @@
   /* Input */
   --aparte-input-editor-max-height: 200px;
 
-  /* Icons — one knob, inherited: a container declares it, every glyph below follows. */
-  --aparte-icon-size: 14px;
-  --aparte-icon-size-sm: 12px;
-  --aparte-icon-size-lg: 16px;
-  --aparte-icon-size-xl: 20px;
+  /* Icons: one knob, inherited — a container declares `--aparte-icon-size` and every
+     glyph below follows. The steps are on the type scale, in the derived layer. */
 
   /* Send button + inline action buttons (their size is the lg step, in the derived layer) */
   --aparte-input-action-btn-icon-size: 20px;
@@ -707,7 +703,7 @@ aparte-chat {
   --aparte-input-padding-y: var(--aparte-space-5);
   --aparte-conv-list-gap: var(--aparte-space-1);
   --aparte-conv-item-gap: var(--aparte-space-3);
-  --aparte-elic-option-radius: var(--aparte-radius-lg);
+  --aparte-elic-option-radius: var(--aparte-radius-md);
   --aparte-elic-input-radius: var(--aparte-radius-md);
   --aparte-tool-row-radius: var(--aparte-radius-md);
   --aparte-avatar-font-size: var(--aparte-font-size-lg);
@@ -765,6 +761,14 @@ aparte-chat {
   --aparte-alert-padding: var(--aparte-space-4) var(--aparte-space-5);
   --aparte-alert-radius: var(--aparte-radius-md);
   --aparte-alert-rail-width: var(--aparte-space-1);
+  /* The icon scale, in rem times the type factor — the one scale in the theme that
+     was pinned in px while every type size followed `--aparte-font-scale`, so a glyph
+     beside text shrank optically the moment a reader enlarged the text. The loose
+     default is 16 (it was 14, and its documentation already said 16). */
+  --aparte-icon-size: calc(1rem * var(--aparte-font-scale));
+  --aparte-icon-size-sm: calc(0.75rem * var(--aparte-font-scale));
+  --aparte-icon-size-lg: calc(1.125rem * var(--aparte-font-scale));
+  --aparte-icon-size-xl: calc(1.25rem * var(--aparte-font-scale));
   --aparte-alert-icon-size: var(--aparte-space-8);
   --aparte-alert-dismiss-size: var(--aparte-btn-size-sm);
   --aparte-alert-title-font-size: var(--aparte-font-size-md);
@@ -881,6 +885,11 @@ aparte-chat {
 
   /* Borders */
   --aparte-border-focus: var(--aparte-primary);
+  /* The edge of a CONTROL — a field, a choice box, the select's trigger. `--aparte-border`
+     separates two regions and is right to be faint; a thing someone can touch has to be
+     seen, and six previews showed a control with no visible edge. Derived from the ink
+     and the ground so both schemes follow; the mix is a first setting. */
+  --aparte-border-control: color-mix(in srgb, var(--aparte-text) 30%, var(--aparte-surface-1));
 
   /* Component-specific radius (overridable per app) */
   --aparte-radius-input: var(--aparte-radius-lg);
@@ -890,6 +899,9 @@ aparte-chat {
   --aparte-radius-select: var(--aparte-radius-md);
   --aparte-radius-avatar: var(--aparte-radius-md);
   --aparte-radius-bubble: var(--aparte-radius-lg);
+  /* The bubble's corner IS the bubble radius above: it was a 14px literal off the scale,
+     the most visible corner of the transcript, and the knob named for it drove nothing. */
+  --aparte-message-content-radius: var(--aparte-radius-bubble);
   --aparte-radius-code: var(--aparte-radius-lg);
   --aparte-radius-thinking: var(--aparte-radius-lg);
   --aparte-radius-error: var(--aparte-radius-md);

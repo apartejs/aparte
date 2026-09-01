@@ -231,10 +231,16 @@
 .aparte-btn--soft:active:not(:disabled) { background: color-mix(in srgb, var(--aparte-btn-intent) 30%, transparent); }
 .aparte-btn--solid:active:not(:disabled) { background: var(--aparte-btn-intent); filter: brightness(0.93); }
 
+/* Drawn, not faded. Opacity on the whole button faded the glyph with its ground and
+   read at 2:1 on the send button; "inactive" and "disappearing" are not the same
+   message. A neutral ground, the muted ink, no intent — whatever the fill was. */
 .aparte-btn:disabled,
 .aparte-btn[aria-disabled='true'] {
   cursor: not-allowed;
-  opacity: var(--aparte-disabled-opacity);
+  background: var(--aparte-surface-2);
+  color: var(--aparte-text-muted);
+  border-color: transparent;
+  filter: none;
 }
 
 .aparte-btn:focus-visible {

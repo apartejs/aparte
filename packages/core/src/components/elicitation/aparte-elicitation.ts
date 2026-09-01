@@ -96,7 +96,7 @@ interface Pending {
  * @cssprop [--aparte-elic-title-size=var(--aparte-font-size-md)] - Font size of a field's title.
  * @cssprop [--aparte-elic-desc-size=var(--aparte-font-size-sm)] - Font size of a field's description.
  * @cssprop [--aparte-elic-option-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of one enum/boolean option row.
- * @cssprop [--aparte-elic-option-radius=var(--aparte-radius-lg)] - Corner radius of an option row.
+ * @cssprop [--aparte-elic-option-radius=var(--aparte-radius-md)] - Corner radius of an option row.
  * @cssprop [--aparte-elic-option-title-size=var(--aparte-font-size-lg)] - Font size of an option's label, and of the text inputs.
  * @cssprop [--aparte-elic-option-desc-size=var(--aparte-font-size-sm)] - Font size of an option's secondary line.
  * @cssprop [--aparte-elic-control-size=15px] - Size of the radio/checkbox control in an option row.

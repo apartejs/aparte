@@ -24,7 +24,7 @@ aparte-select {
        button. */
     font-size: var(--aparte-font-size-md);
     background: var(--aparte-select-bg, var(--aparte-surface-1));
-    border: var(--aparte-border-width) solid var(--aparte-select-border, var(--aparte-border));
+    border: var(--aparte-border-width) solid var(--aparte-select-border, var(--aparte-border-control));
     border-radius: var(--aparte-radius-select);
     cursor: pointer;
     transition: border-color var(--aparte-duration-base), box-shadow var(--aparte-duration-base);
@@ -41,8 +41,10 @@ aparte-select {
 }
 
 aparte-select[disabled] .aparte-select-trigger {
-    opacity: var(--aparte-disabled-opacity);
     cursor: not-allowed;
+    background: var(--aparte-surface-2);
+    color: var(--aparte-text-muted);
+    border-color: var(--aparte-border);
 }
 
 /* The label is a grid with ONE cell: the visible text and, under it, a hidden stack of
@@ -102,7 +104,9 @@ aparte-select[open] .aparte-select-chevron {
     position: fixed;
     /* top / left / width are set dynamically by _updatePosition() */
     background: var(--aparte-select-dropdown-bg, var(--aparte-surface-1));
-    border: var(--aparte-border-width) solid var(--aparte-select-border, var(--aparte-border));
+    /* The panel is a region, so its edge is the region border; `--aparte-select-border`
+       is the TRIGGER's edge, a control's, and defaults to the control border. */
+    border: var(--aparte-border-width) solid var(--aparte-border);
     border-radius: var(--aparte-radius-select);
     box-shadow: var(--aparte-select-shadow);
     z-index: var(--aparte-select-z, var(--aparte-z-dropdown));

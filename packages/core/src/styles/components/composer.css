@@ -11,7 +11,9 @@
    Unscoped so it greys the composer in EVERY host (vanilla shell + all wrappers),
    not only a `[data-aparte-chat]` direct child. */
 aparte-composer[data-model-gated] {
-  opacity: var(--aparte-disabled-opacity);
+  /* No group fade: each control draws its own disabled state (the editor's muted ink,
+     the send button's neutral ground), so the text stays legible while it waits. */
+  cursor: not-allowed;
 }
 aparte-composer[data-model-gated] aparte-composer-send {
   pointer-events: none;
@@ -167,7 +169,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 
 /* Disabled state */
 .aparte-editor[contenteditable="false"] {
-  opacity: var(--aparte-disabled-opacity);
+  color: var(--aparte-text-muted);
   cursor: not-allowed;
 }
 
@@ -208,9 +210,9 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 }
 
 .aparte-send-button:disabled {
-  opacity: var(--aparte-disabled-opacity);
   cursor: not-allowed;
-  background: var(--aparte-send-disabled-bg, var(--aparte-primary));
+  background: var(--aparte-send-disabled-bg, var(--aparte-surface-2));
+  color: var(--aparte-text-muted);
 }
 
 /* =========================================
@@ -401,7 +403,7 @@ aparte-composer-input .aparte-ci-editor:empty::before {
 }
 
 aparte-composer-input .aparte-ci-editor[aria-disabled="true"] {
-  opacity: var(--aparte-disabled-opacity);
+  color: var(--aparte-text-muted);
   cursor: not-allowed;
 }
 
