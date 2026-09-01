@@ -312,6 +312,91 @@ for (const sheet of SHEETS) {
         );
     }
 }
+/*
+ * ── A token without a root declaration is read only under its declarer ──────────
+ *
+ * The one construction bug the UI audit found, and this guard had let through:
+ * `--aparte-field-radius` was declared on `.aparte-field` and read by
+ * `.aparte-field-group` — the field's PARENT in the markup — and by `.aparte-color`, a
+ * sibling recipe. A custom property is substituted where it is declared and only
+ * inherits downwards, so both readers computed `border-radius: 0` and every field
+ * group in the library rendered square. Rule 6 above only asked "is it declared
+ * somewhere"; this one asks WHERE.
+ *
+ * A token declared on a root-rooted block is reachable from everywhere (skipped). A
+ * token declared only on element selectors may be read by a rule whose selector puts
+ * the reader ON that element or UNDER it — measured on class tokens, never on the
+ * string (`.aparte-field-group` contains the characters of `.aparte-field` and is
+ * neither). BEM implies the base: `.x--mod` is the same element as `.x`, `.x__part` is
+ * inside it, so both may read what `.x` declares.
+ */
+{
+    const classesOf = (selector) => {
+        const set = new Set();
+        for (const m of selector.matchAll(/\.([a-z0-9_-]+)/gi)) {
+            const cls = m[1];
+            set.add(cls);
+            const mod = cls.indexOf('--');
+            if (mod > 0) set.add(cls.slice(0, mod));
+            const part = cls.indexOf('__');
+            if (part > 0) set.add(cls.slice(0, part));
+        }
+        return set;
+    };
+    /** name -> the class sets of the selectors that declare it (local declarations only). */
+    const localDeclarers = new Map();
+    const frames = [];
+    const nearestRule = () => [...frames].reverse().find((f) => !f.at) ?? null;
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        const line = raw.replace(/\/\*.*?\*\//g, '').trim();
+        if (line.endsWith('{')) {
+            const sel = selectorAt(i);
+            frames.push({ at: line.startsWith('@'), selectors: sel, sets: sel.map(classesOf), where: at(i) });
+            continue;
+        }
+        if (line.startsWith('}')) { frames.pop(); continue; }
+        const rule = nearestRule();
+        if (!rule) continue;
+        const decl = raw.match(DECL);
+        if (decl && !globallyDeclared.has(decl[1]) && !rule.selectors.some((s) => /^\s*(:root|:host)\b/.test(s))) {
+            if (!localDeclarers.has(decl[1])) localDeclarers.set(decl[1], []);
+            localDeclarers.get(decl[1]).push({ sets: rule.sets, where: at(i), selectors: rule.selectors });
+        }
+    }
+    // Second walk: every read of a local-only token, checked against its declarers.
+    frames.length = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+        const line = raw.replace(/\/\*.*?\*\//g, '').trim();
+        if (line.endsWith('{')) { const sel = selectorAt(i); frames.push({ at: line.startsWith('@'), selectors: sel, sets: sel.map(classesOf) }); continue; }
+        if (line.startsWith('}')) { frames.pop(); continue; }
+        const rule = nearestRule();
+        if (!rule) continue;
+        for (const m of line.matchAll(/var\((--aparte-[a-z0-9-]+)([^)]*)\)/g)) {
+            const name = m[1];
+            // A read WITH a fallback is the "ancestor sets it, the fallback is the default
+            // elsewhere" pattern (`--aparte-composer-row-control-size` on the composer's
+            // buttons) — good CSS, and rule 6 already owns the fallback's discipline.
+            // Only a BARE read of a local-only token can get `initial`.
+            if (m[2].includes(',')) continue;
+            const declarers = localDeclarers.get(name);
+            if (!declarers || globallyDeclared.has(name)) continue;
+            const readerClasses = new Set(rule.sets.flatMap((s) => [...s]));
+            const underADeclarer = declarers.some((d) => d.sets.some((set) => [...set].every((c) => readerClasses.has(c))));
+            if (underADeclarer) continue;
+            problems.push(
+                `${at(i)}  ${name} is read on \`${rule.selectors.join(', ')}\` but declared only on `
+                + `\`${[...new Set(declarers.flatMap((d) => d.selectors))].join(', ')}\` (${[...new Set(declarers.map((d) => d.where))].join(', ')}).\n`
+                + '      A custom property is substituted where it is declared and only inherits DOWNWARDS:\n'
+                + '      a reader that is neither that element nor inside it gets `initial` — the square\n'
+                + '      field group was exactly this. Declare the token on `:root` (theme.css), or read it\n'
+                + '      under its declarer.',
+            );
+        }
+    }
+}
+
 /**
  * One owner, third shape. A token this sheet never declares is owned by its fallback
  * — so every reference has to state the SAME one. Two different fallbacks means two
