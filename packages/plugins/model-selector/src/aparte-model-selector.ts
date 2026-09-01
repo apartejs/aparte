@@ -396,9 +396,6 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             if (wasOpen) this._aparteSelect.setAttribute('open', '');
             else this._aparteSelect.removeAttribute('open');
 
-            if (!singleProvider) this._aparteSelect.setAttribute('grouped', '');
-            else this._aparteSelect.removeAttribute('grouped');
-
             // Update children cleanly: prefer direct container update if available
             const optionsContainer = this._aparteSelect.querySelector('.aparte-select-options');
             if (optionsContainer) {
@@ -448,7 +445,6 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                     ${currentValue ? `value="${esc(currentValue)}"` : ''}
                     ${searchable ? 'searchable' : ''}
                     ${wasOpen ? 'open' : ''}
-                    ${!singleProvider ? 'grouped' : ''}
                 >
                     ${optionsHtml}
                 </aparte-select>

@@ -44,6 +44,7 @@ export const fr: AparteLocale = {
     removeAttachment: "Retirer {name}",
     selectSearchPlaceholder: "Rechercher…",
     selectSearchLabel: "Rechercher parmi les options",
+    loading: "Chargement…",
     download: "Télécharger",
     previewPending: "Appuyez sur Aperçu pour exécuter cet artefact.",
     sandboxError: "Le bac à sable a échoué pendant la génération.",

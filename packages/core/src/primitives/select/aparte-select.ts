@@ -1,4 +1,5 @@
 import './aparte-option.js';
+import { presenceOn } from '../../utils/presence.js';
 import './aparte-optgroup.js';
 import { resolveConfig } from '../../config/config-context.js';
 
@@ -37,7 +38,6 @@ export interface AparteSelectChangeDetail {
  * @attr {string} value - The selected option's value.
  * @attr {string} placeholder - Shown while nothing is selected.
  * @attr {boolean} disabled - Blocks opening the dropdown.
- * @attr {boolean} grouped - Observed, never read: `<aparte-optgroup>` children render as groups without it.
  * @attr {boolean} searchable - Adds a filter field above the options. Read on the first render only.
  * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
  *
@@ -102,13 +102,14 @@ export class AparteSelect extends HTMLElement {
     private _boundHandleKeydown = this._handleKeydown.bind(this);
 
     static get observedAttributes(): string[] {
-        return ['value', 'placeholder', 'disabled', 'grouped', 'searchable', 'open'];
+        return ['value', 'placeholder', 'disabled', 'searchable', 'open'];
     }
 
     connectedCallback(): void {
         this._value = this.getAttribute('value') || '';
         this._isOpen = this.hasAttribute('open');
         this._render();
+        this._applyDisabled();
         this._setupEventListeners();
         this._setupMutationObserver();
     }
@@ -136,6 +137,17 @@ export class AparteSelect extends HTMLElement {
                 this._dropdown?.setAttribute('hidden', '');
             }
         }
+        // Both were observed and neither had a branch here, so the callback fired and
+        // did nothing: a placeholder rewritten by a locale switch left the visible
+        // label and the combobox's name in the old language, and a select disabled
+        // after mount kept a focusable trigger announced as operable.
+        if (name === 'placeholder') {
+            this._updateTriggerLabel();
+            this._updateNames();
+        }
+        if (name === 'disabled') {
+            this._applyDisabled();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -160,11 +172,7 @@ export class AparteSelect extends HTMLElement {
     }
 
     set open(val: boolean) {
-        if (val) {
-            this.setAttribute('open', '');
-        } else {
-            this.removeAttribute('open');
-        }
+        this.toggleAttribute('open', presenceOn(val));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -594,6 +602,36 @@ export class AparteSelect extends HTMLElement {
         this._closeDropdown();
         this._emitChange(previousValue);
         this._trigger?.focus();
+    }
+
+    /**
+     * The combobox and its listbox are named by the host's `aria-label`, else by the
+     * placeholder — the same rule the first render applies, re-applied when the
+     * placeholder changes. Written only when different: the mutation observer watches
+     * this subtree.
+     */
+    private _updateNames(): void {
+        const name = this.getAttribute('aria-label') || this.getAttribute('placeholder') || 'Select...';
+        for (const el of [this._trigger, this.querySelector('.aparte-select-options')]) {
+            if (el && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
+        }
+    }
+
+    /**
+     * `disabled` takes the trigger out of the tab order and says so — opacity alone
+     * left it focusable and announced as operable. An open dropdown closes.
+     */
+    private _applyDisabled(): void {
+        const trigger = this._trigger;
+        if (!trigger) return;
+        const disabled = this.hasAttribute('disabled');
+        trigger.setAttribute('tabindex', disabled ? '-1' : '0');
+        if (disabled) {
+            trigger.setAttribute('aria-disabled', 'true');
+            if (this._isOpen) this._closeDropdown();
+        } else {
+            trigger.removeAttribute('aria-disabled');
+        }
     }
 
     private _updateTriggerLabel(): void {

@@ -42,6 +42,8 @@
  * </aparte-select>
  */
 
+import { presenceOn } from '../../utils/presence.js';
+
 export class AparteOption extends HTMLElement {
     static get observedAttributes(): string[] {
         return ['value', 'disabled', 'selected', 'data-status'];
@@ -84,11 +86,7 @@ export class AparteOption extends HTMLElement {
     }
 
     set disabled(val: boolean) {
-        if (val) {
-            this.setAttribute('disabled', '');
-        } else {
-            this.removeAttribute('disabled');
-        }
+        this.toggleAttribute('disabled', presenceOn(val));
     }
 
     get selected(): boolean {
@@ -96,11 +94,7 @@ export class AparteOption extends HTMLElement {
     }
 
     set selected(val: boolean) {
-        if (val) {
-            this.setAttribute('selected', '');
-        } else {
-            this.removeAttribute('selected');
-        }
+        this.toggleAttribute('selected', presenceOn(val));
     }
 
     private _updateAriaSelected(): void {

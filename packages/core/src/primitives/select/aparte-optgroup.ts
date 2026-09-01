@@ -1,4 +1,5 @@
 import { resolveConfig } from '../../config/config-context.js';
+import { presenceOn } from '../../utils/presence.js';
 
 /**
  * AparteOptgroup
@@ -38,7 +39,7 @@ import { resolveConfig } from '../../config/config-context.js';
  *
  * @example
  * <!-- Collapsed groups keep a long list readable; the label is the group's header. -->
- * <aparte-select grouped placeholder="Pick a model">
+ * <aparte-select placeholder="Pick a model">
  *   <aparte-optgroup label="Ollama" collapsible collapsed>
  *     <aparte-option value="ollama::llama3">Llama 3</aparte-option>
  *   </aparte-optgroup>
@@ -90,11 +91,7 @@ export class AparteOptgroup extends HTMLElement {
     }
 
     set collapsed(val: boolean) {
-        if (val) {
-            this.setAttribute('collapsed', '');
-        } else {
-            this.removeAttribute('collapsed');
-        }
+        this.toggleAttribute('collapsed', presenceOn(val));
     }
 
     get loading(): boolean {
@@ -102,8 +99,7 @@ export class AparteOptgroup extends HTMLElement {
     }
 
     set loading(val: boolean) {
-        if (val) this.setAttribute('loading', '');
-        else this.removeAttribute('loading');
+        this.toggleAttribute('loading', presenceOn(val));
     }
 
     private _render(): void {
@@ -162,7 +158,11 @@ export class AparteOptgroup extends HTMLElement {
             if (!loader) {
                 loader = document.createElement('div');
                 loader.className = 'aparte-optgroup-loader';
-                loader.innerHTML = '<span class="aparte-spinner-small"></span> Fetching models...';
+                // From the locale: this said "Fetching models..." — English whatever the
+                // page's language, and the product's word for what a generic group holds.
+                const spinner = document.createElement('span');
+                spinner.className = 'aparte-spinner-small';
+                loader.replaceChildren(spinner, ` ${resolveConfig(this).t('loading') || 'Loading…'}`);
                 this.appendChild(loader);
             }
         } else if (loader) {

@@ -262,7 +262,7 @@ describe('the element directives', () => {
         <aparte-composer-toolbar></aparte-composer-toolbar>
         <aparte-elicitation></aparte-elicitation>
 
-        <aparte-select value="v" placeholder="p" [disabled]="true" [grouped]="true"
+        <aparte-select value="v" placeholder="p" [disabled]="true"
             [searchable]="true" [open]="true"
             (selectChange)="seen['selectChange'] = true" (selectOpen)="seen['selectOpen'] = true"
             (selectClose)="seen['selectClose'] = true"></aparte-select>
@@ -328,7 +328,6 @@ describe('the element directives, across the whole surface', () => {
         ['aparte-composer-add-attachment', 'multiple', ''],
         ['aparte-select', 'value', 'v'],
         ['aparte-select', 'placeholder', 'p'],
-        ['aparte-select', 'grouped', ''],
         ['aparte-select', 'searchable', ''],
         ['aparte-select', 'open', ''],
         ['aparte-option', 'value', 'o'],

@@ -63,15 +63,25 @@ describe('aparte-model-selector', () => {
         expect(select.getAttribute('placeholder')).toBe('Select a model...');
 
         // Count what the switch touches, rather than asserting node identity: the
-        // claim is "one attribute, nothing rebuilt", and a mutation record is the only
-        // thing that can say so. Measured with the fix removed, this list is EMPTY —
-        // the placeholder simply stayed English.
+        // claim is "one attribute, no option rebuilt", and a mutation record is the
+        // only thing that can say so. Measured with the fix removed, this list is
+        // EMPTY — the placeholder simply stayed English. What follows the attribute
+        // is the select's OWN re-labelling (its trigger name, its width sizer), which
+        // this test used to forbid — and by forbidding it, it certified an attribute
+        // the select never read: the visible label and the combobox's name stayed
+        // English while the attribute said French.
         const touched: string[] = [];
+        const rebuilt: Node[] = [];
         const obs = new MutationObserver((records) => {
             for (const r of records) {
                 touched.push(r.type === 'attributes'
                     ? `attr:${r.attributeName}`
                     : `child:+${r.addedNodes.length}/-${r.removedNodes.length}`);
+                if (r.type === 'childList') {
+                    for (const n of [...r.addedNodes, ...r.removedNodes]) {
+                        if (n instanceof Element && /^APARTE-OPT/.test(n.tagName)) rebuilt.push(n);
+                    }
+                }
             }
         });
         obs.observe(sel, { childList: true, subtree: true, attributes: true });
@@ -84,7 +94,10 @@ describe('aparte-model-selector', () => {
         obs.disconnect();
 
         expect(select.getAttribute('placeholder')).toBe('Choisir un modèle…');
-        expect(touched).toEqual(['attr:placeholder']);
+        expect(touched[0]).toBe('attr:placeholder');
+        expect(rebuilt, 'no option or group is rebuilt by a language switch').toEqual([]);
+        // The half the attribute alone could not prove: the select re-reads it.
+        expect(select.querySelector('.aparte-select-trigger')?.getAttribute('aria-label')).toBe('Choisir un modèle…');
     });
 
     it('but an explicit placeholder attribute still wins over the locale', async () => {

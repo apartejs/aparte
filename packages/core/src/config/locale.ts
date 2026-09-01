@@ -300,6 +300,8 @@ export type AparteLocale = {
     selectSearchPlaceholder?: string;
     /** Accessible name of that filter field, which has no visible label (default: "Search options") */
     selectSearchLabel?: string;
+    /** What an option group shows while its options are being fetched (default: "Loading…") */
+    loading?: string;
 
     // --- Plugin chrome — read by `@aparte/plugin-model-selector` and
     // `@aparte/plugin-approval`, declared here for the same reason as the Artifacts
@@ -457,6 +459,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     removeAttachment: "Remove {name}",
     selectSearchPlaceholder: "Search…",
     selectSearchLabel: "Search options",
+    loading: "Loading…",
     download: "Download",
     previewPending: "Press Preview to run this artifact.",
     sandboxError: "The sandbox failed during generation.",
