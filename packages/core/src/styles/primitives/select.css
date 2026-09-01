@@ -17,9 +17,13 @@ aparte-select {
     justify-content: space-between;
     gap: var(--aparte-space-4);
     padding: var(--aparte-space-4) var(--aparte-space-6);
+    /* Its own size: the trigger declared none and took the host page's, so every
+       integrator saw a different select. The control step, like the field and the
+       button. */
+    font-size: var(--aparte-font-size-md);
     background: var(--aparte-select-bg, var(--aparte-surface-1));
     border: var(--aparte-border-width) solid var(--aparte-select-border, var(--aparte-border));
-    border-radius: var(--aparte-select-radius, var(--aparte-radius-lg));
+    border-radius: var(--aparte-radius-select);
     cursor: pointer;
     transition: border-color var(--aparte-duration-base), box-shadow var(--aparte-duration-base);
 }
@@ -97,7 +101,7 @@ aparte-select[open] .aparte-select-chevron {
     /* top / left / width are set dynamically by _updatePosition() */
     background: var(--aparte-select-dropdown-bg, var(--aparte-surface-1));
     border: var(--aparte-border-width) solid var(--aparte-select-border, var(--aparte-border));
-    border-radius: var(--aparte-select-radius, var(--aparte-radius-lg));
+    border-radius: var(--aparte-radius-select);
     box-shadow: var(--aparte-select-shadow);
     z-index: var(--aparte-select-z, var(--aparte-z-dropdown));
     max-height: var(--aparte-select-dropdown-max-height);

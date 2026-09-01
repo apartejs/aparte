@@ -7,23 +7,22 @@
    and skips the dark-theme override block for that reason; the artifact "paper" tokens
    are the same decision made for the same reason.
 
-       <span style="position: relative; display: inline-block; margin-block-start: 2.5rem">
-         <div class="aparte-tooltip" role="tooltip"
-              style="position: absolute; bottom: calc(100% + 8px); left: 50%; translate: -50% 0">
+       <span class="aparte-tooltip-anchor" style="margin-block-start: 2.5rem; margin-inline-start: 5rem">
+         <div class="aparte-tooltip" data-side="top" role="tooltip">
            Copy to clipboard
            <span class="aparte-tooltip__arrow"></span>
          </div>
          <button class="aparte-btn aparte-btn--icon" aria-label="Copy"><aparte-icon name="copy"></aparte-icon></button>
        </span>
 
-   The two inline styles are the caller's half, shown rather than described: this file
-   draws the box and the arrow, and NOTHING here positions either. An example that
-   omitted them rendered as a black label with an arrow pointing at empty space, which
-   is what the preview frame beside it showed.
-
-   The arrow points DOWN by default — the common case, a tooltip above the thing it
-   labels — and `data-side="bottom"` flips it. Placing the box is yours, as with the
-   popover; only the arrow's two positions are here.
+   `data-side` places it — `top`, `bottom`, `start` or `end` — against the
+   `.aparte-tooltip-anchor` that wraps the trigger, `--aparte-tooltip-gap` away, and turns
+   the arrow to match. The two inline styles that used to do this in the example were a
+   knob missing, not a division of labour: a demo that needs inline styles to work is a
+   recipe with a parameter it forgot. What stays yours is the viewport: nothing here flips
+   a tooltip that would leave the screen — that needs script, a positioning library's job.
+   Without `data-side` the box is not positioned at all, as before, and its placement is
+   yours (the one inline style left in the example is the demo's own margin).
 
    `pointer-events: none` is not a detail: a tooltip describes what the pointer is over,
    so it must never itself become that thing, or hovering it re-triggers the hover that
@@ -61,12 +60,48 @@
   pointer-events: none;
 }
 
-/* Points down by default — the common case of a tooltip sitting above the thing
-   it labels. `[data-side="bottom"]` flips it for a tooltip placed below instead.
-   Horizontal centring uses inline-start + a negative inline-start margin rather
-   than a transform, so it re-centres correctly under `direction: rtl` without a
-   second rule. Placement to either side is the caller's own transform math, the
-   same "position is the caller's job" split as the popover above. */
+/* Where the box goes: the anchor is the trigger's wrapper and the tooltip is placed
+   against it. `translate` centres the box on the axis across the side: with a logical
+   inset of 50% the box's start edge sits at the anchor's middle, and moving it back by
+   half its own size centres it — in both writing directions, because the inset flips
+   with the direction and the translate is half the box either way. */
+.aparte-tooltip-anchor {
+  position: relative;
+  display: inline-block;
+}
+
+.aparte-tooltip[data-side] {
+  position: absolute;
+}
+
+.aparte-tooltip[data-side='top'] {
+  inset-block-end: calc(100% + var(--aparte-tooltip-gap));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+}
+
+.aparte-tooltip[data-side='bottom'] {
+  inset-block-start: calc(100% + var(--aparte-tooltip-gap));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+}
+
+.aparte-tooltip[data-side='start'] {
+  inset-inline-end: calc(100% + var(--aparte-tooltip-gap));
+  inset-block-start: 50%;
+  translate: 0 -50%;
+}
+
+.aparte-tooltip[data-side='end'] {
+  inset-inline-start: calc(100% + var(--aparte-tooltip-gap));
+  inset-block-start: 50%;
+  translate: 0 -50%;
+}
+
+/* The arrow points DOWN by default — the common case, a tooltip above the thing it
+   labels — and each `data-side` turns it toward the anchor. Centring on the box's edge
+   uses a logical inset plus a negative margin rather than a transform, so it re-centres
+   under `direction: rtl` without a second rule. */
 .aparte-tooltip__arrow {
   position: absolute;
   inset-inline-start: 50%;
@@ -83,6 +118,26 @@
 .aparte-tooltip[data-side='bottom'] .aparte-tooltip__arrow {
   inset-block-end: auto;
   inset-block-start: calc(var(--aparte-space-4) * -0.5);
+}
+
+/* On the two inline sides the arrow sits on the edge that faces the anchor, centred
+   vertically: the box is to the START of the trigger, so its arrow is on its END edge,
+   and the reverse. */
+.aparte-tooltip[data-side='start'] .aparte-tooltip__arrow {
+  inset-block-end: auto;
+  inset-block-start: 50%;
+  inset-inline-start: auto;
+  inset-inline-end: calc(var(--aparte-space-4) * -0.5);
+  margin-inline-start: 0;
+  margin-block-start: calc(var(--aparte-space-4) * -0.5);
+}
+
+.aparte-tooltip[data-side='end'] .aparte-tooltip__arrow {
+  inset-block-end: auto;
+  inset-block-start: 50%;
+  inset-inline-start: calc(var(--aparte-space-4) * -0.5);
+  margin-inline-start: 0;
+  margin-block-start: calc(var(--aparte-space-4) * -0.5);
 }
 
 /* ── Forced colors ───────────────────────────────────────────────────────────────

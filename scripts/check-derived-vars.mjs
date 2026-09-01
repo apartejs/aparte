@@ -88,7 +88,7 @@ const LITERAL_SELECTORS = [':root', ':host'];
  * (`--aparte-split-hit-area`, a size read from `--aparte-touch-target-size`) — a
  * responsive SIZE, which is the case this exemption exists for.
  */
-const AT_RULE_CEILING = 9; // #56 split --aparte-message-padding into -block/-inline: one responsive size became two
+const AT_RULE_CEILING = 10; // #56 split --aparte-message-padding into -block/-inline (one responsive size became two); the conversation row's ⋯ then joined the four buttons that take the touch-target size under (pointer: coarse).
 /**
  * If the anchored count collapses, the matcher stopped matching — that is not a clean
  * file. Same reasoning as check-attr-escaping's SEEN_FLOOR.

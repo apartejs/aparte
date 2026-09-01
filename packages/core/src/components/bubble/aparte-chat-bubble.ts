@@ -209,14 +209,12 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of the filename overlay.
  *
  * @cssprop [--aparte-action-bar-gap=var(--aparte-space-2)] - Gap between action buttons (and between the footer's two regions).
- * @cssprop [--aparte-action-bar-btn-size=28px] - Square size of an action button; also the footer's reserved height.
+ * @cssprop [--aparte-action-bar-btn-size=var(--aparte-btn-size-sm)] - Square size of an action button (the recipe's small step); also the footer's reserved height.
  * @cssprop [--aparte-action-bar-btn-color=var(--aparte-text-muted)] - Action icon colour at rest.
  * @cssprop [--aparte-action-bar-btn-hover-bg=var(--aparte-surface-2)] - Action button hover background (the branch arrows reuse it).
  * @cssprop [--aparte-action-bar-btn-hover-color=var(--aparte-text)] - Action icon colour on hover.
  *
  * @cssprop [--aparte-branch-picker-gap=var(--aparte-space-2)] - Gap between the arrows and the position label.
- * @cssprop [--aparte-branch-picker-btn-size=20px] - Square size of each arrow.
- * @cssprop [--aparte-branch-picker-btn-icon-size=16px] - Glyph size inside an arrow.
  * @cssprop [--aparte-branch-picker-btn-color=var(--aparte-text-muted)] - Arrow colour at rest.
  * @cssprop [--aparte-branch-picker-btn-hover-color=var(--aparte-text)] - Arrow colour on hover (a disabled arrow is dimmed instead).
  * @cssprop [--aparte-branch-picker-label-size=var(--aparte-font-size-sm)] - Type size of the position label.
@@ -1441,7 +1439,7 @@ export class AparteChatBubble extends HTMLElement {
       if (!roles.includes(this._role)) continue;
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'aparte-btn aparte-btn--icon aparte-action-btn aparte-action-custom';
+      btn.className = 'aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-custom';
       btn.dataset['action'] = `custom:${a.id}`;
       // aria-label/title via setAttribute — safe for consumer-provided strings.
       btn.setAttribute('aria-label', a.label);
@@ -1464,30 +1462,30 @@ export class AparteChatBubble extends HTMLElement {
     switch (action) {
       case 'copy': {
         const l = locale.copy ?? 'Copy';
-        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
       }
       case 'edit': {
         const l = locale.edit ?? 'Edit message';
-        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
       }
       case 'retry': {
         const l = locale.retry ?? 'Retry';
-        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
       }
       case 'thumbUp': {
         const l = locale.feedbackPositive ?? 'Good response';
-        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
       }
       case 'thumbDown': {
         const l = locale.feedbackNegative ?? 'Bad response';
-        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
       }
       case 'info': {
         // Only when there are numbers to show: a details button over nothing is a
         // dead button. The popover itself is the app's (see `aparte-message-info`).
         if (!this._usage) return '';
         const l = locale.messageInfo ?? 'Details';
-        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${this._cfg.getIcon('info')}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${this._cfg.getIcon('info')}</button>`;
       }
       default:
         return '';

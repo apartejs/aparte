@@ -131,7 +131,7 @@
   /* Hover cannot reveal the row's ⋯ on touch — keep it visible and tappable. */
   .aparte-conv-item__more {
     opacity: 1;
-    --aparte-conv-action-btn-size: 28px;
+    --aparte-conv-action-btn-size: var(--aparte-touch-target-size);
   }
 
   /* A 4px seam is no target for a finger — the same modality rule the buttons above

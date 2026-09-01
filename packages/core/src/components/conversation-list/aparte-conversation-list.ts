@@ -117,7 +117,7 @@ const VIEWPORT_MARGIN = 8;
  * @cssprop [--aparte-conv-item-bg-active=var(--aparte-surface-3)] - Background of the row matching `active-id`.
  * @cssprop [--aparte-conv-item-color-active=var(--aparte-text)] - Title colour of the active row.
  * @cssprop [--aparte-conv-item-font-weight-active=var(--aparte-font-weight-medium)] - Title weight of the active row.
- * @cssprop [--aparte-conv-action-btn-size=20px] - Square size of the `⋯` button. Under `(pointer: coarse)` the stylesheet redeclares it as 28px on the button itself, so a value set on the element does not reach it there; the button also stays visible instead of appearing on hover.
+ * @cssprop [--aparte-conv-action-btn-size=var(--aparte-btn-size-sm)] - Square size of the `⋯` button (the recipe's small step). Under `(pointer: coarse)` the stylesheet redeclares it as the touch target size on the button itself, so a value set on the element does not reach it there; the button also stays visible instead of appearing on hover.
  *
  * @example
  * <!-- It stores nothing and fetches nothing: an empty tag renders the empty state, and

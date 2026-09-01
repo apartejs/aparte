@@ -114,8 +114,8 @@
 .aparte-conv-item__more {
   flex-shrink: 0;
   opacity: 0;
-  width: var(--aparte-conv-action-btn-size);
-  height: var(--aparte-conv-action-btn-size);
+  /* Fed to the recipe, not drawn here: the token names the size, the button draws it. */
+  --aparte-btn-size: var(--aparte-conv-action-btn-size);
   color: var(--aparte-text-muted);
 }
 

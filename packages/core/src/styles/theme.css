@@ -206,8 +206,6 @@
   --aparte-thumb-remove-bg-hover: rgba(0, 0, 0, 0.85);
   --aparte-thumb-remove-color: #ffffff;
 
-  /* Action Bar */
-  --aparte-action-bar-btn-size: 28px;
   /* The mark (display/mark.css): how much of its intent a marked row's ground takes,
      and how wide the bar on its start edge is. One pair for the select's chosen option,
      the checked field choice, the active conversation and an answered question. */
@@ -215,8 +213,6 @@
   --aparte-mark-bar: 2px;
 
   /* Branch Picker */
-  --aparte-branch-picker-btn-size: 20px;
-  --aparte-branch-picker-btn-icon-size: 16px;
   --aparte-branch-picker-label-min-width: 32px;
 
   /* Avatars */
@@ -324,8 +320,6 @@
 
   /* Input (composer) */
 
-  /* Conversation List */
-  --aparte-conv-action-btn-size: 20px;
 
   /* Scroll rail — the ticks beside the transcript. Off-scale on purpose: a 2px line
      and a 14px mark are a minimap's measures, not spacing steps. */
@@ -729,6 +723,9 @@ aparte-chat {
      moves --aparte-space-unit or --aparte-font-scale carries them along. */
   /* A tooltip is an INVERTED surface: dark on a light theme, light on a dark one.
      Reading the text pair gives exactly that, and for free — no third palette. */
+  /* The distance between a placed tooltip (`data-side`) and its anchor: the arrow's
+     half-diagonal, so the tip lands on the trigger rather than 2px short of it. */
+  --aparte-tooltip-gap: var(--aparte-space-3);
   --aparte-tooltip-bg: var(--aparte-text);
   --aparte-tooltip-color: var(--aparte-text-inverse);
 
@@ -925,6 +922,12 @@ aparte-chat {
   --aparte-thumb-radius: var(--aparte-radius-lg);
 
   /* Action Bar */
+  /* The small controls of a turn and of a conversation row are the recipe's small step
+     (24px, the WCAG 2.5.8 floor). The action bar used to feed 28 with a 24 exception for
+     the last user turn, the branch arrows redrew 20 over their own `--sm`, the row's
+     `⋯` redrew 20: three control heights in one 14px row. */
+  --aparte-action-bar-btn-size: var(--aparte-btn-size-sm);
+  --aparte-conv-action-btn-size: var(--aparte-btn-size-sm);
   --aparte-action-bar-btn-color: var(--aparte-text-muted);
   --aparte-action-bar-btn-hover-bg: var(--aparte-surface-2);
   --aparte-action-bar-btn-hover-color: var(--aparte-text);

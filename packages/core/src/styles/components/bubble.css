@@ -201,8 +201,6 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
     inset-block-end: calc(-1 * (var(--aparte-message-padding-block) + var(--aparte-message-gap)));
     margin: 0;
     z-index: 1;
-    /* Smaller than the last reply's 28px: this one lives in the padding. */
-    --aparte-action-bar-btn-size: 24px;
   }
 }
 
@@ -251,12 +249,11 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   display: none;
 }
 
+/* The arrows wear `--sm` and the recipe draws the box: this rule used to redraw
+   width/height to a 20px token over it — two sources for one measure. */
 .aparte-branch-prev,
 .aparte-branch-next {
   color: var(--aparte-branch-picker-btn-color);
-  width: var(--aparte-branch-picker-btn-size);
-  height: var(--aparte-branch-picker-btn-size);
-  font-size: var(--aparte-branch-picker-btn-icon-size);
 }
 
 .aparte-branch-prev:hover:not(:disabled),
