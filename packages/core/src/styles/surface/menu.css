@@ -64,7 +64,7 @@
   padding: var(--aparte-space-2);
   background: var(--aparte-surface-1);
   border: var(--aparte-border-width) solid var(--aparte-border);
-  border-radius: var(--aparte-radius-lg);
+  border-radius: var(--aparte-radius-menu);
   box-shadow: var(--aparte-menu-shadow);
   color: var(--aparte-text);
   z-index: var(--aparte-z-dropdown);

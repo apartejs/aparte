@@ -28,7 +28,7 @@
   padding: var(--aparte-space-5);
   background: var(--aparte-surface-1);
   border: var(--aparte-border-width) solid var(--aparte-border);
-  border-radius: var(--aparte-radius-lg);
+  border-radius: var(--aparte-radius-popover);
   box-shadow: var(--aparte-popover-shadow);
   color: var(--aparte-text);
   font-size: var(--aparte-font-size-md);

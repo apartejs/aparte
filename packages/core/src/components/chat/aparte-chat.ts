@@ -55,6 +55,9 @@ import { escapeAttr } from '../../utils/escape.js';
  * @element aparte-chat
  * @attr {string} placeholder - Placeholder for the composer input (default composition)
  * @attr {boolean} disabled - Disables the composer
+ * @attr {boolean} submit-on-enter - Forwarded to the composer by value: `submit-on-enter="false"`
+ *   makes Enter break the line and Shift+Enter send (the bare attribute, or none, keeps the
+ *   default — Enter sends). The four wrappers expose the same switch as `submitOnEnter`.
  * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
  * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
  *   surface spans the whole column and the composer (with the rest of the bottom stack)
@@ -114,7 +117,7 @@ import { escapeAttr } from '../../utils/escape.js';
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ['placeholder', 'disabled', 'center-empty', 'attachments'];
+    return ['placeholder', 'disabled', 'submit-on-enter', 'center-empty', 'attachments'];
   }
 
   private _observer: MutationObserver | null = null;
@@ -130,6 +133,7 @@ export class AparteChat extends HTMLElement {
     this._render();
     this._forwardAttr('placeholder');
     this._forwardAttr('disabled');
+    this._forwardAttr('submit-on-enter');
     this._syncEmptyWatch();
   }
 

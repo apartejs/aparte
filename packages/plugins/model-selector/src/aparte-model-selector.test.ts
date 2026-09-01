@@ -100,6 +100,56 @@ describe('aparte-model-selector', () => {
         expect(select.querySelector('.aparte-select-trigger')?.getAttribute('aria-label')).toBe('Choisir un modèle…');
     });
 
+    // `disabled` (UI audit LOT 9). The element had no such attribute, so inside a
+    // disabled composer — the send button greyed, the field inert — the model picker
+    // stayed fully operable: a control the user could work while everything around it
+    // said "not now".
+    it('disabled on the element reaches the select, both ways', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('zeta', 'Zeta One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'zeta', defaultModel: 'zeta-model' });
+        const sel = await mountSelector(document.createElement('div'));
+        const select = sel.querySelector('aparte-select')!;
+
+        sel.setAttribute('disabled', '');
+        expect(select.hasAttribute('disabled')).toBe(true);
+        sel.removeAttribute('disabled');
+        expect(select.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('disabled survives the in-place re-render another attribute triggers', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('eta', 'Eta One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'eta', defaultModel: 'eta-model' });
+        const sel = await mountSelector(document.createElement('div'));
+        const select = sel.querySelector('aparte-select')!;
+        sel.setAttribute('disabled', '');
+        expect(select.hasAttribute('disabled')).toBe(true);
+
+        // Any observed attribute re-renders; with a select already mounted that is the
+        // non-destructive branch, which rewrites the select's attributes one by one.
+        sel.setAttribute('searchable', '');
+
+        expect(sel.querySelector('aparte-select')).toBe(select);
+        expect(select.hasAttribute('searchable')).toBe(true);
+        expect(select.hasAttribute('disabled')).toBe(true);
+    });
+
+    it("inside a composer, follows the composer's own disabled state", async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('iota', 'Iota One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'iota', defaultModel: 'iota-model' });
+        const composer = document.createElement('aparte-composer');
+        const sel = await mountSelector(composer);
+        const select = sel.querySelector('aparte-select')!;
+        expect(select.hasAttribute('disabled')).toBe(false);
+
+        composer.setAttribute('disabled', '');
+        await new Promise((r) => setTimeout(r, 0));
+        expect(select.hasAttribute('disabled')).toBe(true);
+
+        composer.removeAttribute('disabled');
+        await new Promise((r) => setTimeout(r, 0));
+        expect(select.hasAttribute('disabled')).toBe(false);
+    });
+
     it('but an explicit placeholder attribute still wins over the locale', async () => {
         aparteGlobalConfig.registerAIProvider(fakeProvider('epsilon', 'Epsilon One'));
         aparteGlobalConfig.setModelConfig({ defaultProvider: 'epsilon', defaultModel: 'epsilon-model' });

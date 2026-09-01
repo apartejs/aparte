@@ -872,6 +872,13 @@ aparte-chat {
   --aparte-radius-code: var(--aparte-radius-lg);
   --aparte-radius-thinking: var(--aparte-radius-lg);
   --aparte-radius-error: var(--aparte-radius-md);
+  /* The floating surfaces. They read a step of the scale directly, so a theme that
+     wanted square menus and round bubbles had to move the step — and every other
+     reader of it. */
+  --aparte-radius-menu: var(--aparte-radius-lg);
+  --aparte-radius-popover: var(--aparte-radius-lg);
+  --aparte-radius-dialog: var(--aparte-radius-xl);
+  --aparte-radius-tooltip: var(--aparte-radius-sm);
 
   /* The error ring on an avatar. A full shadow value, like
      --aparte-scroll-btn-shadow: the whole ring is the knob, not its width. */

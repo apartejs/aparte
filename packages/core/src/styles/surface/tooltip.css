@@ -44,7 +44,7 @@
   padding: var(--aparte-space-2) var(--aparte-space-4);
   background: var(--aparte-tooltip-bg);
   color: var(--aparte-tooltip-color);
-  border-radius: var(--aparte-radius-sm);
+  border-radius: var(--aparte-radius-tooltip);
   box-shadow: var(--aparte-tooltip-shadow);
   font-size: var(--aparte-font-size-sm);
   line-height: var(--aparte-line-height-snug);
