@@ -26,7 +26,9 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * **Collapse.** `collapsed` is an attribute, reflected, so the host can set it, read
  * it and persist it. Any element carrying `data-aparte-sidebar-toggle` anywhere on
  * the page toggles the nearest sidebar (or the one whose id the attribute names), so
- * a hamburger in the header needs no script. `aparte-sidebar-toggle` fires on every
+ * a hamburger in the header needs no script — and the sidebar keeps `aria-expanded`
+ * and `aria-controls` on that control in step, whoever changed the state (it gives
+ * itself an id when the host wrote none). `aparte-sidebar-toggle` fires on every
  * change, whoever caused it.
  *
  * **Drawer.** Under 48rem of window the sidebar leaves the flow and slides over the
@@ -172,6 +174,8 @@ export class AparteSidebar extends HTMLElement {
         // Last: `_watchBreakpoint` may have closed the sidebar on its way in, and that
         // close is the drawer entering, not a change to announce.
         this._lastCollapsed = this.collapsed;
+        if (!this.id) this.id = `aparte-sidebar-${++sidebarIdSeq}`;
+        this._syncToggles();
         this._ready = true;
     }
 
@@ -220,6 +224,7 @@ export class AparteSidebar extends HTMLElement {
         if (!this._auto && !this.drawer) this._closedByHost = collapsed;
         this._syncScrim();
         this._syncHidden();
+        this._syncToggles();
         if (collapsed && this.drawer && this._opener?.isConnected) {
             this._opener.focus();
             this._opener = null;
@@ -271,6 +276,28 @@ export class AparteSidebar extends HTMLElement {
         }
         this._syncScrim();
         this._syncHidden();
+        this._syncToggles();
+    }
+
+    /**
+     * Every `[data-aparte-sidebar-toggle]` that drives THIS sidebar says what it does:
+     * `aria-expanded` follows the state, `aria-controls` names the element. Synced from
+     * the three places the state settles (connect, the attribute, the breakpoint), never
+     * from `open()` alone — a close on Escape would otherwise leave an "expanded" that
+     * lies. The row's own `⋯` button already did this; the sidebar's toggle did not.
+     */
+    private _syncToggles(): void {
+        for (const control of document.querySelectorAll<HTMLElement>('[data-aparte-sidebar-toggle]')) {
+            if (!this._drives(control)) continue;
+            control.setAttribute('aria-expanded', String(!this.collapsed));
+            control.setAttribute('aria-controls', this.id);
+        }
+    }
+
+    /** Whether a toggle control targets this sidebar: named by id, else the nearest one. */
+    private _drives(control: HTMLElement): boolean {
+        const named = control.getAttribute('data-aparte-sidebar-toggle');
+        return named ? named === this.id : nearestSidebar(control) === this;
     }
 
     /**
@@ -327,9 +354,34 @@ export class AparteSidebar extends HTMLElement {
     }
 
     private _onKeydown = (e: KeyboardEvent): void => {
-        if (e.key === 'Escape' && this.drawer && !this.collapsed) {
+        if (!this.drawer || this.collapsed) return;
+        if (e.key === 'Escape') {
             e.preventDefault();
             this.close();
+            return;
+        }
+        // The open drawer covers the page, so Tab stays inside it: from the last control
+        // back to the first, and Shift+Tab the other way. It used to walk out under the
+        // scrim onto the transcript the drawer was covering. Tab is the only path that
+        // needs closing — the scrim already takes the pointer — and a `focusin` guard
+        // was deliberately NOT added: it would steal the focus back from a dialog the
+        // drawer's own content opens onto `<body>`.
+        if (e.key === 'Tab') {
+            const focusable = Array.from(this.querySelectorAll<HTMLElement>(FOCUSABLE));
+            if (focusable.length === 0) return;
+            const first = focusable[0]!;
+            const last = focusable[focusable.length - 1]!;
+            const active = document.activeElement;
+            if (!this.contains(active)) {
+                e.preventDefault();
+                first.focus();
+            } else if (e.shiftKey && active === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && active === last) {
+                e.preventDefault();
+                first.focus();
+            }
         }
     };
 
@@ -337,12 +389,7 @@ export class AparteSidebar extends HTMLElement {
     private _onDocumentClick = (e: Event): void => {
         const control = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-aparte-sidebar-toggle]');
         if (!control) return;
-        const named = control.getAttribute('data-aparte-sidebar-toggle');
-        if (named) {
-            if (named !== this.id) return;
-        } else if (nearestSidebar(control) !== this) {
-            return;
-        }
+        if (!this._drives(control)) return;
         this.toggle(control);
     };
 
@@ -382,6 +429,9 @@ export class AparteSidebar extends HTMLElement {
         this.dataset['ownLabel'] = 'locale';
     }
 }
+
+/** For the id a sidebar gives itself when the host wrote none, so a toggle can name it. */
+let sidebarIdSeq = 0;
 
 /** What the drawer hands the focus to when it opens. The host owns the children. */
 const FOCUSABLE = [

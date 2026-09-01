@@ -32,7 +32,7 @@ there is something to do. The [UI kit](/kit/button/) has every recipe with its m
 
 **Collapse.** `collapsed` is an attribute — set it, read it, persist it. Any element
 carrying `data-aparte-sidebar-toggle` toggles the nearest sidebar (or the one whose id the
-attribute names), so the header's hamburger needs no script. `aparte-sidebar-toggle` fires
+attribute names), so the header's hamburger needs no script, and the sidebar keeps `aria-expanded` and `aria-controls` on it in step. `aparte-sidebar-toggle` fires
 on every change, whoever caused it (`AparteSidebarToggleDetail`: `{ collapsed, drawer }`);
 the `AparteSidebar` class exposes `open()`, `close()`, `toggle()` and `filter(query)`.
 
