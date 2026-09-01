@@ -91,7 +91,15 @@
   opacity: var(--aparte-disabled-opacity);
 }
 
-.aparte-accordion__icon {
+/* Two spellings for the chevron, because the header's documented markup is a bare
+   `<aparte-icon>` and a renderer that wraps a raw glyph needs a class to hang it on:
+   the wrapper `.aparte-accordion__icon` (the thinking block), or an `<aparte-icon>` /
+   `svg.aparte-icon` sitting directly in the header. Both are sized and both turn — the
+   documented form used to match neither rule, so the kit's own example showed an open
+   panel under a chevron still pointing down. */
+.aparte-accordion__icon,
+.aparte-accordion__header > aparte-icon,
+.aparte-accordion__header > .aparte-icon {
   display: inline-flex;
   flex-shrink: 0;
   /* Fed to the glyph through its own knob, not drawn as a width/height: the icon
@@ -107,7 +115,11 @@
    puts aria-expanded on the header itself; native <details> puts `open` on the
    ancestor and gives the browser no attribute to select on at all. */
 .aparte-accordion__header[aria-expanded='true'] .aparte-accordion__icon,
-details[open] > .aparte-accordion__header .aparte-accordion__icon {
+.aparte-accordion__header[aria-expanded='true'] > aparte-icon,
+.aparte-accordion__header[aria-expanded='true'] > .aparte-icon,
+details[open] > .aparte-accordion__header .aparte-accordion__icon,
+details[open] > .aparte-accordion__header > aparte-icon,
+details[open] > .aparte-accordion__header > .aparte-icon {
   transform: rotate(180deg);
 }
 

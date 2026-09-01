@@ -45,7 +45,8 @@ describe('the reasoning block', () => {
 });
 
 describe('the accordion icon recipe', () => {
-    const block = accordion.match(/\.aparte-accordion__icon\s*\{([^}]*)\}/)?.[1] ?? '';
+    // The rule's selector list opens with the wrapper class and adds the documented bare forms.
+    const block = accordion.match(/\.aparte-accordion__icon\s*,[^{]*\{([^}]*)\}/)?.[1] ?? '';
 
     it('feeds the icon its size through --aparte-icon-size, not width/height', () => {
         expect(block).toMatch(/--aparte-icon-size\s*:/);
@@ -56,6 +57,16 @@ describe('the accordion icon recipe', () => {
     it('still turns the icon for both ways of being open', () => {
         expect(accordion).toMatch(/details\[open\]\s*>\s*\.aparte-accordion__header\s+\.aparte-accordion__icon/);
         expect(accordion).toMatch(/\.aparte-accordion__header\[aria-expanded='true'\]\s+\.aparte-accordion__icon/);
+    });
+
+    it('turns the DOCUMENTED form too — a bare <aparte-icon> in the header, with no class', () => {
+        // Seen on the kit's own accordion preview after the wrapper fix: the example markup
+        // is `<summary class="aparte-accordion__header">Shipping <aparte-icon name="expand">`,
+        // and an open panel still sat under a chevron pointing down.
+        expect(accordion).toMatch(/details\[open\]\s*>\s*\.aparte-accordion__header\s*>\s*aparte-icon/);
+        expect(accordion).toMatch(/\.aparte-accordion__header\[aria-expanded='true'\]\s*>\s*aparte-icon/);
+        const sized = accordion.match(/\.aparte-accordion__icon\s*,\s*\.aparte-accordion__header\s*>\s*aparte-icon[^{]*\{([^}]*)\}/)?.[1] ?? '';
+        expect(sized).toMatch(/--aparte-icon-size\s*:/);
     });
 
     it('the dead knob of the old hand-drawn chevron is gone', () => {
