@@ -103,6 +103,14 @@ aparte-chat[overlay-composer] > :not(aparte-chat-viewport),
   z-index: var(--aparte-z-raised);
 }
 
+/* A thing that floats has to be seen floating. The overlaid composer's shell shares the
+   transcript's ground, so a z-index alone left it flat on the words it covers. */
+aparte-chat[overlay-composer] .aparte-composer-shell,
+[data-aparte-chat][overlay-composer] .aparte-composer-shell,
+.aparte-chat-container[overlay-composer] .aparte-composer-shell {
+  box-shadow: var(--aparte-composer-overlay-shadow);
+}
+
 /* center-empty: the shell centers the composer as a welcome state until the first
    message, then slides to the normal layout. The component toggles [data-empty]
    on itself by watching its viewport — only `flex-grow` animates, so the composer

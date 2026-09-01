@@ -76,6 +76,19 @@
   .aparte-dot { animation: none; }
 }
 
+/* `hidden` means hidden. 71 recipes in these sheets set `display` on their base class,
+   and an author declaration beats the browser's own `[hidden] { display: none }` — so a
+   hidden `.aparte-btn` was out of the accessibility tree and still painted: the copy
+   button of a tool-only turn stood there with `hidden` on it. Scoped to our own classes
+   (a prefix match, not a bare `[hidden]`, so a host's markup is not touched), and
+   `!important` because the whole point is to outrank the recipe's `display`. The
+   handful of per-element `[hidden]` rules that predate this stay; they are now
+   redundant, not wrong. */
+[class^="aparte-"][hidden],
+[class*=" aparte-"][hidden] {
+  display: none !important;
+}
+
 /* =========================================
    aparte-conversation-list
    ========================================= */

@@ -142,16 +142,16 @@ describe('relabel reaches a rendered segment', () => {
         aparteGlobalConfig.setIconProvider({ error: () => '<svg data-mine="1"></svg>' });
         aparteGlobalConfig.setLocale(FR());
 
-        expect(el.querySelector('.aparte-error-icon-wrapper')!.innerHTML).toContain('data-mine');
+        expect(el.querySelector('.aparte-alert__icon')!.innerHTML).toContain('data-mine');
         // `locale.error` is a REQUIRED key, documented, and already translated — and
         // was read by nothing at all while this heading hardcoded "Error". A
         // translated string with no consumer and a literal with no translation, in
         // the same card. "Erreur" is what `@aparte/locale-fr` ships for this key —
         // `packages/locales/fr` has carried it since it existed.
-        expect(el.querySelector('.aparte-error-title')!.textContent).toBe('Erreur');
+        expect(el.querySelector('.aparte-alert__title')!.textContent).toBe('Erreur');
         // Not the message: that is the model's or the transport's text, in whatever
         // language it arrived in. Relabelling it would be inventing content.
-        expect(el.querySelector('.aparte-error-message')!.textContent).toBe('boom');
+        expect(el.querySelector('.aparte-alert__message')!.textContent).toBe('boom');
     });
 });
 
