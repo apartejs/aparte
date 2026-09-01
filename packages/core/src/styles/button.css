@@ -66,6 +66,8 @@
   --aparte-btn-intent-ink: var(--aparte-btn-intent);
 
   display: inline-flex;
+
+  vertical-align: middle;
   align-items: center;
   justify-content: center;
   gap: var(--aparte-btn-gap);
@@ -309,7 +311,8 @@
 }
 
 /* ── Group — buttons that read as one control. ───────────────────────────────── */
-.aparte-btn-group { display: inline-flex; }
+.aparte-btn-group { display: inline-flex;
+ vertical-align: middle; }
 .aparte-btn-group > .aparte-btn { border-radius: 0; }
 /* Logical properties, so the joined edge follows the writing direction instead of
    assuming left-to-right. */

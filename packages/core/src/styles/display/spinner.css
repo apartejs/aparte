@@ -9,6 +9,7 @@
 
 .aparte-spinner {
   display: inline-block;
+  vertical-align: middle;
   flex-shrink: 0;
   /* The token is the ring's outer size, border included: without this the ring painted
      16/20/28 for tokens of 12/16/24 (the 2px stroke added on each side), and painted

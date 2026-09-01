@@ -137,6 +137,11 @@ aparte-chat-bubble {
   opacity: 0;
   transition: opacity var(--aparte-duration-base) var(--aparte-ease);
   height: var(--aparte-action-bar-btn-size);
+  /* The INK meets the column, not the box: a glyph is centred in its 24px button, so
+     its ink began half the slack — (24 − 12) / 2 — to the right of the paragraph above.
+     Measured at +5 to +8px in 14 previews. The bar takes that slack back and the box
+     overhangs into the message padding, where nothing else lives. */
+  margin-inline-start: calc((var(--aparte-icon-size-sm) - var(--aparte-btn-size-sm)) / 2);
 }
 
 .aparte-message:hover .aparte-action-bar,

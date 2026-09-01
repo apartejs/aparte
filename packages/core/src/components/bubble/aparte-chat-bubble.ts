@@ -183,12 +183,12 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
  *
  * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
- * @cssprop [--aparte-avatar-radius=var(--aparte-radius-avatar)] - Avatar corner radius.
- * @cssprop [--aparte-avatar-font-size=var(--aparte-font-size-lg)] - Size of the initial, for a shell that renders one (the default shell leaves the slot empty, and `.aparte-avatar:empty` hides it).
+ * @cssprop [--aparte-avatar-radius-ratio=0.28] - Avatar corner radius, as a fraction of its size (the corner follows the ramp; 0.28 × 32px is the 9px it used to be).
+ * @cssprop [--aparte-avatar-initials-ratio=0.34] - Size of the initial, as a fraction of the avatar's size.
  * @cssprop [--aparte-avatar-bg-user=var(--aparte-primary)] - Avatar background, user role.
  * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
  * @cssprop [--aparte-avatar-bg-assistant=var(--aparte-surface-3)] - Avatar background, assistant role.
- * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text-inverse)] - Avatar text colour, assistant role.
+ * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text)] - Avatar text colour, assistant role.
  * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider and no JS.
  * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
  * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.

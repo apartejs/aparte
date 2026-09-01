@@ -39,6 +39,7 @@
 
   position: relative;
   display: inline-block;
+  vertical-align: middle;
   /* As wide as its label, up to the cap. With a `max-width` and no intrinsic width an
      absolutely-positioned chip shrinks to `min-content`: "Copy to clipboard" broke into
      two lines at every width, 71px wide — the widest word plus padding. */
@@ -68,6 +69,7 @@
 .aparte-tooltip-anchor {
   position: relative;
   display: inline-block;
+  vertical-align: middle;
 }
 
 .aparte-tooltip[data-side] {

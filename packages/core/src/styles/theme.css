@@ -216,6 +216,12 @@
 
   /* Avatars */
   --aparte-avatar-size: 32px;
+  /* Fractions of the size, computed on the element (display/avatar.css): the initials'
+     type, the corner and the group's overlap follow the ramp instead of sitting at one
+     absolute value for 20px and 56px alike. */
+  --aparte-avatar-initials-ratio: 0.34;
+  --aparte-avatar-radius-ratio: 0.28;
+  --aparte-avatar-overlap-ratio: 0.28;
   --aparte-avatar-image-user: none;
   --aparte-avatar-image-assistant: none;
   --aparte-avatar-image-size: 90%;
@@ -706,7 +712,6 @@ aparte-chat {
   --aparte-elic-option-radius: var(--aparte-radius-md);
   --aparte-elic-input-radius: var(--aparte-radius-md);
   --aparte-tool-row-radius: var(--aparte-radius-md);
-  --aparte-avatar-font-size: var(--aparte-font-size-lg);
   --aparte-name-font-size: var(--aparte-font-size-lg);
   --aparte-timestamp-font-size: var(--aparte-font-size-sm);
   --aparte-branch-picker-label-size: var(--aparte-font-size-sm);
@@ -776,8 +781,7 @@ aparte-chat {
 
   --aparte-avatar-fallback-bg: var(--aparte-surface-3);
   --aparte-avatar-fallback-color: var(--aparte-text);
-  --aparte-avatar-group-overlap: var(--aparte-space-3);
-  --aparte-avatar-group-ring-width: var(--aparte-border-width);
+  --aparte-avatar-group-ring-width: calc(var(--aparte-border-width) * 2);
   --aparte-avatar-group-ring-color: var(--aparte-surface-1);
 
   --aparte-badge-font-size: var(--aparte-font-size-2xs);
@@ -897,7 +901,6 @@ aparte-chat {
   --aparte-radius-send-btn: var(--aparte-radius-md);
   --aparte-radius-action-btn: var(--aparte-radius-sm);
   --aparte-radius-select: var(--aparte-radius-md);
-  --aparte-radius-avatar: var(--aparte-radius-md);
   --aparte-radius-bubble: var(--aparte-radius-lg);
   /* The bubble's corner IS the bubble radius above: it was a 14px literal off the scale,
      the most visible corner of the transcript, and the knob named for it drove nothing. */
@@ -973,11 +976,10 @@ aparte-chat {
   --aparte-branch-picker-label-color: var(--aparte-text-muted);
 
   /* Avatars */
-  --aparte-avatar-radius: var(--aparte-radius-avatar);
   --aparte-avatar-bg-user: var(--aparte-primary);
   --aparte-avatar-text-user: var(--aparte-text-inverse);
   --aparte-avatar-bg-assistant: var(--aparte-surface-3);
-  --aparte-avatar-text-assistant: var(--aparte-text-inverse);
+  --aparte-avatar-text-assistant: var(--aparte-text);
 
   /* Text Sizes */
   --aparte-name-color: var(--aparte-text);

@@ -640,6 +640,7 @@
 
 .aparte-field-label {
   display: inline-block;
+  vertical-align: middle;
   margin-block-end: var(--aparte-space-1);
   font-size: var(--aparte-font-size-sm);
   font-weight: var(--aparte-font-weight-medium);
@@ -793,6 +794,7 @@
    would invite a click. */
 .aparte-output {
   display: inline-block;
+  vertical-align: middle;
   padding: var(--aparte-output-padding);
   border-radius: var(--aparte-radius-sm);
   background: var(--aparte-output-bg);

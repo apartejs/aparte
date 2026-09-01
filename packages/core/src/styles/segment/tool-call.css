@@ -84,6 +84,7 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    green, which made a finished step shout louder than the reply it belongs to. */
 .aparte-tool-label {
     display: inline-flex;
+    vertical-align: middle;
     align-items: center;
     gap: var(--aparte-space-3);
     min-width: 0;
@@ -109,7 +110,8 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    the placement rule this repo already settled on: no left/right in a name, so
    a right-to-left locale mirrors it for free. */
 .aparte-tool-state {
-    display: inline-flex; align-items: center; gap: var(--aparte-space-2);
+    display: inline-flex;
+    vertical-align: middle; align-items: center; gap: var(--aparte-space-2);
     margin-inline-start: auto;
     font-size: var(--aparte-font-size-sm); font-weight: var(--aparte-font-weight-medium);
     color: var(--aparte-text-muted);
