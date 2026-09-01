@@ -447,6 +447,17 @@
   --aparte-btn-size-sm: 24px;
   --aparte-btn-size-md: 32px;
   --aparte-btn-size-lg: 40px;
+  /* The field family's literal sizes, beside the button's: the derived knobs
+     (paddings, radius) sit in the anchored layer below, like the button's own. */
+  --aparte-field-textarea-min-height: 80px;
+  --aparte-checkbox-size: 18px;
+  --aparte-radio-size: 18px;
+  --aparte-radio-dot-size: 8px;
+  --aparte-switch-width: 40px;
+  --aparte-switch-height: 22px;
+  --aparte-switch-thumb-inset: 2px;
+  --aparte-range-thumb-size: 16px;
+  --aparte-range-track-height: 4px;
 
   --aparte-focus-outline-offset: -2px;
   --aparte-tool-spinner-size: 10px;
@@ -806,6 +817,19 @@ aparte-chat {
   --aparte-spinner-thickness: var(--aparte-space-1);
 
   --aparte-field-error-ring: 0 0 0 var(--aparte-focus-outline-width) var(--aparte-error-solid);
+
+  /* The field family's knobs, beside the button's — they used to be declared on
+     `.aparte-field` itself, which is why `.aparte-field-group` (their PARENT) and
+     `.aparte-color` (a sibling recipe) read a property that did not exist there and
+     rendered SQUARE: a custom property is substituted where it is declared and only
+     inherits downwards. Same reason they belong here rather than there: the theming
+     guide sends a consumer to `:root`, and every other family's knobs are here.
+     The *channels* stay local on purpose (`--aparte-checkbox-intent` and friends are
+     filled by a modifier, not set by a theme). */
+  --aparte-field-padding: var(--aparte-space-2) var(--aparte-space-3);
+  --aparte-field-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
+  --aparte-field-padding-lg: var(--aparte-space-3) var(--aparte-space-4);
+  --aparte-field-radius: var(--aparte-radius-md);
 
   --aparte-btn-gap: var(--aparte-space-2);
   --aparte-btn-padding: var(--aparte-space-2) var(--aparte-space-3);

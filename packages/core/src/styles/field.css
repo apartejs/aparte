@@ -42,15 +42,12 @@
 /* ── The shared text-entry recipe ────────────────────────────────────────────── */
 
 .aparte-field {
-  /* Padding recipe, declared here: nothing in the shared token file defines a field
-     padding yet, so this file owns its own default and size variants. */
-  --aparte-field-padding: var(--aparte-space-2) var(--aparte-space-3);
-  /* Same reason, and a gap the recipe had: every other recipe names its own radius
-     (`--aparte-btn-radius`, `--aparte-tag-radius`, `--aparte-field-choice-radius`) and
-     this one hardcoded the scale step, so a field could not be re-cornered from its
-     own element the way every sibling can. */
-  --aparte-field-radius: var(--aparte-radius-md);
-
+  /* Every knob this family reads lives in `theme.css` on `:root` — including the
+     radius and the paddings, which used to be declared right here. That was the one
+     construction bug of the kit: `.aparte-field-group` is this element's PARENT and
+     `.aparte-color` a sibling recipe, both read `--aparte-field-radius`, and a custom
+     property declared here is invisible to both, so they computed `border-radius: 0`
+     and every field group in the library rendered square. */
   box-sizing: border-box;
   display: block;
   width: 100%;
@@ -125,14 +122,12 @@
 /* ── Sizes ───────────────────────────────────────────────────────────────────── */
 
 .aparte-field--sm {
-  --aparte-field-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
 
   padding: var(--aparte-field-padding-sm);
   font-size: var(--aparte-font-size-xs);
 }
 
 .aparte-field--lg {
-  --aparte-field-padding-lg: var(--aparte-space-3) var(--aparte-space-4);
 
   padding: var(--aparte-field-padding-lg);
   font-size: var(--aparte-font-size-md);
@@ -141,7 +136,6 @@
 /* ── Textarea ────────────────────────────────────────────────────────────────── */
 
 .aparte-field--textarea {
-  --aparte-field-textarea-min-height: 80px;
 
   display: block;
   min-block-size: var(--aparte-field-textarea-min-height);
@@ -242,7 +236,6 @@
   --aparte-derived-ink: var(--aparte-on-intent);
   /* No shared control-size token covers a checkbox yet (the button's own sizes are
      button-specific), so its box is declared here. */
-  --aparte-checkbox-size: 18px;
 
   box-sizing: border-box;
   appearance: none;
@@ -368,8 +361,6 @@
      used. `middle` and not `text-bottom`: the label may wrap. */
   vertical-align: middle;
   --aparte-radio-intent: var(--aparte-primary);
-  --aparte-radio-size: 18px;
-  --aparte-radio-dot-size: 8px;
 
   box-sizing: border-box;
   appearance: none;
@@ -453,9 +444,6 @@
      has to live here where `:checked` can override it — a central default could never
      react to the class + state combo. */
   --aparte-switch-track: var(--aparte-surface-3);
-  --aparte-switch-width: 40px;
-  --aparte-switch-height: 22px;
-  --aparte-switch-thumb-inset: 2px;
   /* DERIVED from the track, not a fourth literal to keep in step with the other three:
      the thumb used to be 16px in a 20px track with a 1px border and a 2px top inset —
      2px of air above it and none below, visibly low ("le cercle pas centré"). The
@@ -546,8 +534,6 @@
 
 .aparte-range {
   --aparte-range-intent: var(--aparte-primary);
-  --aparte-range-thumb-size: 16px;
-  --aparte-range-track-height: 4px;
 
   appearance: none;
   -webkit-appearance: none;
