@@ -165,6 +165,9 @@
 
 .aparte-tabs__panel {
   padding-block: var(--aparte-space-6);
+  /* The tab's own inline inset, so the panel's text starts under the label of the tab
+     that opened it rather than 11px to its left. */
+  padding-inline: var(--aparte-space-5);
 }
 
 .aparte-tabs__panel:focus-visible {
@@ -192,6 +195,9 @@
    its own raised chip, rather than an underline beneath a plain row. Same markup,
    same states; only the container and the active tab's fill change. */
 .aparte-tabs--segmented {
+  /* A control, not a bar: the track hugs its segments. As a block-level flex row it
+     inherited its container's width — 1207px of track for 160px of chips at 1280. */
+  display: inline-flex;
   gap: 0;
   padding: var(--aparte-space-1);
   background: var(--aparte-surface-2);
@@ -211,4 +217,9 @@
 .aparte-tabs--segmented .aparte-tabs__tab[aria-selected='true'] {
   background: var(--aparte-surface-1);
   color: var(--aparte-text);
+  /* Raised RELATIVE to the track, not an absolute surface level: surface-1 over
+     surface-2 read as raised in light and as sunken in dark, the same rule inverting
+     its elevation with the theme. A 1px ring in the border colour says "on top" on
+     either ground. */
+  box-shadow: 0 0 0 var(--aparte-border-width) var(--aparte-border);
 }

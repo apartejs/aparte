@@ -86,7 +86,10 @@
 .aparte-elic-options {
   display: flex;
   flex-direction: column;
-  gap: var(--aparte-space-1);
+  /* At least the focus ring's outset: at 2px the next row painted over the bottom of
+     the focused row's ring and ~8px of it survived. Any list of options that wears an
+     outset ring needs a gap at least as wide as the offset. */
+  gap: var(--aparte-space-3);
 }
 
 /* The row is `.aparte-field-choice`; the panel only tightens its padding, because a
@@ -171,11 +174,13 @@ textarea.aparte-elic-text {
 }
 /* One ring at a time. The recommended option is the first to receive focus, and its
    tinted border under the recipe's focus ring read as a double outline (UI audit
-   2026-08-28, §8.3 #9). While it holds focus the ring is the indicator; the tint
-   comes back when focus leaves. */
+   2026-08-28, §8.3 #9). While it holds focus the ring is the one edge, so the border
+   steps aside — and ONLY the border. This rule used to clear the background too, which
+   made the recommended row the only one in the list with no ground at all: sampled on
+   the preview it rendered the page byte for byte while its sisters did not. The
+   recommended state draws in addition to the resting state, never instead of it. */
 .aparte-elic-option--recommended:focus-within {
-  background: transparent;
-  border-color: var(--aparte-border-focus);
+  border-color: transparent;
 }
 
 /* The whole-request escape, in the corner and out of the way of anything that
