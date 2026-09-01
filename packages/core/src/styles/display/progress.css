@@ -22,7 +22,9 @@
   width: 100%;
   height: var(--aparte-progress-height);
   border-radius: var(--aparte-radius-full);
-  background: var(--aparte-surface-3);
+  /* The track: a reference the value is read against, so it has to be seen. A surface
+     level put it at 1.06:1 in light and 1.20:1 in dark — one token, two distances. */
+  background: var(--aparte-track);
 }
 
 .aparte-progress__bar {

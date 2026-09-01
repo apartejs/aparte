@@ -53,7 +53,7 @@
 }
 .aparte-skeleton--text + .aparte-skeleton--text { margin-block-start: var(--aparte-skeleton-text-gap); }
 /* The ragged last line reads as "text", where a full-width block reads as a bar. */
-.aparte-skeleton--text:last-child { width: var(--aparte-skeleton-text-last-width); }
+.aparte-skeleton--text:last-child:not(:first-child) { width: var(--aparte-skeleton-text-last-width); }
 
 .aparte-skeleton--circle {
   width: var(--aparte-skeleton-circle-size);

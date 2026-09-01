@@ -143,8 +143,11 @@ aparte-conversation-list {
    same thing at slightly different rhythms; a travelling wave, where a row wants one,
    comes from an animation-delay on its later dots, not from a skewed curve. */
 @keyframes aparte-pulse {
-  0%, 100% { opacity: 0.3; transform: scale(0.85); }
-  50%      { opacity: 1;   transform: scale(1.1);  }
+  /* Opacity alone: the scale that used to ride along made a row of waiting dots change
+     width in a loop. And a floor above the perception threshold — at 0.3 the status
+     dot spent half of every cycle at 1.55:1, and a capture froze it there. */
+  0%, 100% { opacity: var(--aparte-pulse-floor); }
+  50%      { opacity: 1; }
 }
 
 /* One rotation, for every spinner and every spinning glyph. */

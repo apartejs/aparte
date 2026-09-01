@@ -59,10 +59,13 @@ aparte-context[data-level="danger"] .aparte-progress__bar {
   transform: rotate(-90deg);
 }
 
+/* As heavy as the bar variant, in screen pixels: the same gauge was drawn at two
+   weights — a 4px bar and a 2.44px antialiased ring. */
 .aparte-context__track,
 .aparte-context__value {
   fill: none;
-  stroke-width: var(--aparte-context-ring-stroke);
+  stroke-width: var(--aparte-progress-height);
+  vector-effect: non-scaling-stroke;
 }
 
 .aparte-context__track {

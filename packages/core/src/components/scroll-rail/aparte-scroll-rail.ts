@@ -43,7 +43,7 @@ const EXCERPT_LENGTH = 60;
  *
  * @fires {CustomEvent<AparteScrollRailJumpDetail>} aparte-scroll-rail-jump - A tick was activated. Bubbles, cancelable: `preventDefault()` leaves the transcript where it is.
  *
- * @cssprop [--aparte-scroll-rail-width=20px] - The rail's column, the ticks right-aligned in it.
+ * @cssprop [--aparte-scroll-rail-width=calc(var(--aparte-scroll-rail-tick-size) * 1.6)] - The rail's column, the ticks right-aligned in it.
  * @cssprop [--aparte-scroll-rail-tick-size=14px] - Length of a tick; the current one is 1.6× that.
  * @cssprop [--aparte-scroll-rail-tick-thickness=2px] - Thickness of a tick.
  * @cssprop [--aparte-scroll-rail-gap=8px] - Space between ticks.
