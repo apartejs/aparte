@@ -170,12 +170,12 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
  * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
- * @cssprop [--aparte-message-gap=12px] - Gap between the avatar column and the body (the viewport reuses it between messages).
- * @cssprop [--aparte-message-padding=16px 12px] - Padding around one message row.
+ * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between the avatar column and the body (the viewport reuses it between messages).
+ * @cssprop [--aparte-message-padding=var(--aparte-message-padding-block) var(--aparte-message-padding-inline)] - Padding around one message row.
  * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
  *
  * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
- * @cssprop [--aparte-message-content-padding=10px 14px] - Padding of the USER box only; the assistant's content is plain full-width prose.
+ * @cssprop [--aparte-message-content-padding=var(--aparte-space-5) var(--aparte-space-7)] - Padding of the USER box only; the assistant's content is plain full-width prose.
  * @cssprop --aparte-message-content-bg-user - Background of the user box: a wash of `--aparte-primary` over `--aparte-surface-1`, derived in `theme.css` so a rebrand moves it (declare it to override).
  * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
  * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
@@ -183,7 +183,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  *
  * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
  * @cssprop [--aparte-avatar-radius=var(--aparte-radius-avatar)] - Avatar corner radius.
- * @cssprop [--aparte-avatar-font-size=14px] - Size of the initial, for a shell that renders one (the default shell leaves the slot empty, and `.aparte-avatar:empty` hides it).
+ * @cssprop [--aparte-avatar-font-size=var(--aparte-font-size-lg)] - Size of the initial, for a shell that renders one (the default shell leaves the slot empty, and `.aparte-avatar:empty` hides it).
  * @cssprop [--aparte-avatar-bg-user=var(--aparte-primary)] - Avatar background, user role.
  * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
  * @cssprop [--aparte-avatar-bg-assistant=var(--aparte-surface-3)] - Avatar background, assistant role.
@@ -192,38 +192,38 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
  * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.
  *
- * @cssprop [--aparte-name-font-size=14px] - Sender name in the header.
+ * @cssprop [--aparte-name-font-size=var(--aparte-font-size-lg)] - Sender name in the header.
  * @cssprop [--aparte-name-color=var(--aparte-text)] - Sender name colour.
- * @cssprop [--aparte-timestamp-font-size=12px] - Timestamp in the header.
+ * @cssprop [--aparte-timestamp-font-size=var(--aparte-font-size-sm)] - Timestamp in the header.
  * @cssprop [--aparte-timestamp-color=var(--aparte-text-muted)] - Timestamp colour.
- * @cssprop [--aparte-content-font-size=15px] - Body type size, applied to both the plain-content and the segments container.
+ * @cssprop [--aparte-content-font-size=var(--aparte-font-size-base)] - Body type size, applied to both the plain-content and the segments container.
  * @cssprop [--aparte-content-color=var(--aparte-text)] - Body text colour.
  * @cssprop [--aparte-content-line-height=var(--aparte-line-height-loose)] - Body line height.
  *
  * @cssprop [--aparte-attachments-max-height=140px] - Cap on the sent-attachment strip; past it the strip scrolls instead of growing.
- * @cssprop [--aparte-attachment-image-size=40px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation.
+ * @cssprop [--aparte-attachment-image-size=72px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation.
  * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Attachment tile radius (shared with the composer's preview tiles).
  * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename overlaid on a tile.
  * @cssprop --aparte-thumb-name-scrim - Gradient behind that filename, so it stays legible over any image.
  * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of the filename overlay.
  *
- * @cssprop [--aparte-action-bar-gap=4px] - Gap between action buttons (and between the footer's two regions).
+ * @cssprop [--aparte-action-bar-gap=var(--aparte-space-2)] - Gap between action buttons (and between the footer's two regions).
  * @cssprop [--aparte-action-bar-btn-size=28px] - Square size of an action button; also the footer's reserved height.
  * @cssprop [--aparte-action-bar-btn-color=var(--aparte-text-muted)] - Action icon colour at rest.
  * @cssprop [--aparte-action-bar-btn-hover-bg=var(--aparte-surface-2)] - Action button hover background (the branch arrows reuse it).
  * @cssprop [--aparte-action-bar-btn-hover-color=var(--aparte-text)] - Action icon colour on hover.
  *
- * @cssprop [--aparte-branch-picker-gap=4px] - Gap between the arrows and the position label.
+ * @cssprop [--aparte-branch-picker-gap=var(--aparte-space-2)] - Gap between the arrows and the position label.
  * @cssprop [--aparte-branch-picker-btn-size=20px] - Square size of each arrow.
  * @cssprop [--aparte-branch-picker-btn-icon-size=16px] - Glyph size inside an arrow.
  * @cssprop [--aparte-branch-picker-btn-color=var(--aparte-text-muted)] - Arrow colour at rest.
  * @cssprop [--aparte-branch-picker-btn-hover-color=var(--aparte-text)] - Arrow colour on hover (a disabled arrow is dimmed instead).
- * @cssprop [--aparte-branch-picker-label-size=12px] - Type size of the position label.
+ * @cssprop [--aparte-branch-picker-label-size=var(--aparte-font-size-sm)] - Type size of the position label.
  * @cssprop [--aparte-branch-picker-label-color=var(--aparte-text-muted)] - Colour of the position label.
  * @cssprop [--aparte-branch-picker-label-min-width=32px] - Reserved label width, so `9 / 9` growing to `10 / 12` does not shift the arrows.
  *
  * @cssprop [--aparte-waiting-height=1.5em] - Min height of the waiting region, so the first token does not jump the layout.
- * @cssprop [--aparte-waiting-dot-gap=4px] - Gap between the three waiting dots.
+ * @cssprop [--aparte-waiting-dot-gap=var(--aparte-space-2)] - Gap between the three waiting dots.
  * @cssprop [--aparte-status-dot-size=6px] - Diameter of a waiting dot (shared with the status indicator).
  * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the waiting dots (shared with the status indicator).
  *

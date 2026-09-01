@@ -31,9 +31,8 @@ import { escapeAttr } from '../../utils/escape.js';
  * Being a component (not a bare `<div>`), it also owns behaviour a wrapper div
  * can't: with `center-empty`, it watches its own viewport and keeps the composer
  * centered as a welcome state until the first `<aparte-chat-bubble>` lands, then
- * slides to the normal layout — no external JavaScript. While centered it carries
- * `data-empty` on itself (set and cleared by that same watcher), which is the hook to
- * style the welcome state from an app's own CSS. The watcher needs a viewport somewhere
+ * slides to the normal layout — no external JavaScript (`data-empty`, in the attribute
+ * list below, is that watcher's output). The watcher needs a viewport somewhere
  * inside, and hand-written markup always has one because composing the default injects
  * it — so the only path where no watcher starts and `data-empty` is never set is
  * `framework-managed`, where the framework owns the subtree anyway. The stylesheet
@@ -51,33 +50,6 @@ import { escapeAttr } from '../../utils/escape.js';
  * Presentational only: it does NOT wire a transport/client. Attach an
  * `AparteClient`, or handle `aparte-send` yourself, as with the primitives.
  * Size the element via CSS (a height, or let it fill a sized parent).
- *
- * @element aparte-chat
- * @attr {string} placeholder - Placeholder for the composer input (default composition)
- * @attr {boolean} disabled - Disables the composer
- * @attr {boolean} submit-on-enter - Forwarded to the composer by value: `submit-on-enter="false"`
- *   makes Enter break the line and Shift+Enter send (the bare attribute, or none, keeps the
- *   default — Enter sends). The four wrappers expose the same switch as `submitOnEnter`.
- * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
- * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
- *   surface spans the whole column and the composer (with the rest of the bottom stack)
- *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
- *   composer's top. The viewport measures the stack and publishes
- *   `--aparte-bottom-inset`; content, spacer and the scroll button clear it. Read when
- *   the viewport wires its observers — set it in the initial markup. Also honoured on a
- *   wrapper's `[data-aparte-chat]` root.
- * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
- *   element composes none of its own children, because the framework owns them. Read once at
- *   connect (it is not observed), so it has to be in the initial markup. Angular's wrapper sets
- *   it on this element — its component selector IS `aparte-chat`; React/Vue/Svelte render a
- *   `[data-aparte-chat]` div and never create this element at all.
- * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
- *
- * @cssprop [--aparte-chat-bottom-gap=var(--aparte-space-8, 16px)] - Space below the
- *   composer, as `padding-block-end` on the shell (the same rule covers a wrapper's
- *   `[data-aparte-chat]` root). The gap belongs to this element because padding applied
- *   from outside would also shrink the scroll area, stopping the transcript short of the
- *   edge instead of scrolling to it.
  *
  * Composing it yourself is the other form, and the container still lays it out and still
  * runs `center-empty`. It is written out here rather than as a second `@example` for a
@@ -98,6 +70,38 @@ import { escapeAttr } from '../../utils/escape.js';
  *   </aparte-composer>
  * </aparte-chat>
  * ```
+ *
+ * @element aparte-chat
+ * @attr {string} placeholder - Placeholder for the composer input (default composition)
+ * @attr {boolean} disabled - Disables the composer
+ * @attr {boolean} submit-on-enter - Forwarded to the composer by value: `submit-on-enter="false"`
+ *   makes Enter break the line and Shift+Enter send (the bare attribute, or none, keeps the
+ *   default — Enter sends). The four wrappers expose the same switch as `submitOnEnter`.
+ * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
+ * @attr {boolean} data-empty - Reflected BY the element while `center-empty` is set and no
+ *   `<aparte-chat-bubble>` has landed in its viewport; the stylesheet centers the composer through
+ *   `aparte-chat[center-empty][data-empty]`, and an app styles its welcome state against it. Never
+ *   set without `center-empty`, and never under `framework-managed` (no viewport child to watch).
+ *   Read-only.
+ * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
+ *   surface spans the whole column and the composer (with the rest of the bottom stack)
+ *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
+ *   composer's top. The viewport measures the stack and publishes
+ *   `--aparte-bottom-inset`; content, spacer and the scroll button clear it. Read when
+ *   the viewport wires its observers — set it in the initial markup. Also honoured on a
+ *   wrapper's `[data-aparte-chat]` root.
+ * @attr {boolean} framework-managed - The wrapper's explicit hands-off signal: set it and this
+ *   element composes none of its own children, because the framework owns them. Read once at
+ *   connect (it is not observed), so it has to be in the initial markup. Angular's wrapper sets
+ *   it on this element — its component selector IS `aparte-chat`; React/Vue/Svelte render a
+ *   `[data-aparte-chat]` div and never create this element at all.
+ * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
+ *
+ * @cssprop [--aparte-chat-bottom-gap=var(--aparte-space-8)] - Space below the
+ *   composer, as `padding-block-end` on the shell (the same rule covers a wrapper's
+ *   `[data-aparte-chat]` root). The gap belongs to this element because padding applied
+ *   from outside would also shrink the scroll area, stopping the transcript short of the
+ *   edge instead of scrolling to it.
  *
  * @example
  * <!-- Left empty it fills in a viewport, an input and a send button. -->

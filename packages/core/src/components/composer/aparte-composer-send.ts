@@ -41,7 +41,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *          helper. On coarse pointers it is raised to `--aparte-touch-target-size`.
  * @cssprop [--aparte-touch-target-size=44px] - Hit-area floor applied to the button
  *          under `@media (pointer: coarse)`.
- * @cssprop [--aparte-radius-send-btn=6px] - Corner radius of the button.
+ * @cssprop [--aparte-radius-send-btn=var(--aparte-radius-md)] - Corner radius of the button.
  * @cssprop --aparte-primary - Button background.
  * @cssprop --aparte-primary-hover - Button background on hover, while enabled.
  * @cssprop --aparte-on-primary - The glyph's colour. Undeclared by default, which means

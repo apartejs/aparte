@@ -28,7 +28,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  * @cssprop [--aparte-composer-control-size=44px] - Width/height of the button inside the
  *          `.aparte-composer-row` layout helper, shared with the composer's other
  *          controls so the row stays aligned.
- * @cssprop [--aparte-radius-action-btn=4px] - Corner radius of the button.
+ * @cssprop [--aparte-radius-action-btn=var(--aparte-radius-sm)] - Corner radius of the button.
  * @cssprop --aparte-neutral - Icon colour at rest (the button's background is
  *          transparent).
  * @cssprop --aparte-text - Icon colour on hover.

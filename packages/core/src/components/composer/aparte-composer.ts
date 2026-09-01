@@ -142,6 +142,13 @@ export interface AparteComposerChangeEventDetail {
  *   default); set it to the string `"false"` to swap them. Read lazily by the
  *   `submitOnEnter` getter rather than observed, which is why it was missing from the
  *   manifest — and so from every typed surface — while all four wrappers wrote it.
+ * @attr {boolean} data-panel-active - Reflected BY the element while a panel (an elicitation, an
+ *   approval) is mounted inside it; the shipped stylesheet keys off it. Read-only.
+ * @attr {string} data-panel-mode - Reflected BY the element while a panel is active: what the send
+ *   button does meanwhile (`'none'` removes it — through this attribute, not by reaching into the
+ *   button). Read-only.
+ * @attr {boolean} data-model-gated - Reflected BY the element when `requireModelSelection` is on and
+ *   no model is selected: sending is blocked and the shipped stylesheet greys the composer. Read-only.
  *
  * @fires {CustomEvent<AparteSendEventDetail>} aparte-send - A message was submitted: the text, its attachments and the target.
  * @fires aparte-cancel - The stop button was pressed. No detail; the two window events below carry the target.
@@ -168,7 +175,7 @@ export interface AparteComposerChangeEventDetail {
  *   composer keeps the transcript's column. Set on THIS element it moves the shell only:
  *   custom properties inherit downward and the transcript is a sibling subtree, so set
  *   it on a shared ancestor (the chat host, `:root`) to move both.
- * @cssprop [--aparte-viewport-padding=16px] - Inline gutter between this element and the
+ * @cssprop [--aparte-viewport-padding=var(--aparte-space-8)] - Inline gutter between this element and the
  *   chat's edge — the same token the transcript reads, so the shell keeps
  *   `.aparte-message`'s column BELOW the max-width above as well as above it, where the
  *   two would otherwise diverge by the transcript's whole inset. Only the inline halves

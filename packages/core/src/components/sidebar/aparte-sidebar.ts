@@ -47,7 +47,7 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  *
  * @attr {boolean} collapsed - Hidden (in the flow) or closed (as a drawer). Reflected; set it to start closed.
  * @attr {string} breakpoint - The window width under which the sidebar becomes a drawer: a length (default `48rem`), or `none` for a column that never does.
- * @attr {boolean} data-drawer - Reflected BY the element while the window is under 48rem. Read-only.
+ * @attr {boolean} data-drawer - Reflected BY the element while the window is narrower than `breakpoint` (48rem unless you set it). Read-only.
  *
  * @fires {CustomEvent<AparteSidebarToggleDetail>} aparte-sidebar-toggle - The sidebar opened or closed, by a toggle, by Escape, by a click on the scrim or by `collapsed` being set. Bubbles.
  *

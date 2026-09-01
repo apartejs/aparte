@@ -30,10 +30,10 @@
  * @attr {boolean} selected - Selected state
  * @attr {string} data-status - Free-form status the host sets; styled, never read by core.
  *
- * @cssprop [--aparte-select-text=var(--aparte-text, #1e293b)] - Option text colour.
- * @cssprop [--aparte-select-option-hover=var(--aparte-surface-2, #f1f5f9)] - Background on hover, and for the keyboard-active row (`[data-active]`), which adds an inset `--aparte-primary` ring on top so the two are distinguishable.
- * @cssprop [--aparte-select-option-selected=color-mix(in srgb, var(--aparte-primary, #3b82f6) 18%, transparent)] - Background of the selected row. A tint by default: a solid accent fill with white text failed WCAG AA in both themes.
- * @cssprop [--aparte-select-option-selected-text=var(--aparte-select-text, var(--aparte-text, #1e293b))] - Text colour of the selected row. Set both this and the background to go back to a solid fill.
+ * @cssprop [--aparte-select-text=var(--aparte-text)] - Option text colour.
+ * @cssprop [--aparte-select-option-hover=var(--aparte-surface-2)] - Background on hover, and for the keyboard-active row (`[data-active]`), which adds an inset `--aparte-primary` ring on top so the two are distinguishable.
+ * @cssprop [--aparte-select-option-selected=color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent)] - Background of the selected row. A tint by default: a solid accent fill with white text failed WCAG AA in both themes.
+ * @cssprop [--aparte-select-option-selected-text=var(--aparte-select-text, var(--aparte-text))] - Text colour of the selected row. Set both this and the background to go back to a solid fill.
  *
  * @example
  * <aparte-select placeholder="Pick a model" value="gpt-4o-mini">

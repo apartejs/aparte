@@ -77,17 +77,21 @@ import {
  *   this mode only. All four wrappers set it.
  * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
  * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
+ * @attr {boolean} data-busy - Reflected BY the element while a turn streams: the transcript is
+ *   read-only meanwhile, and every bubble inside reads it (at connect, and when it changes). The
+ *   vanilla path derives it from the repository; a framework host sets it through
+ *   `setTranscriptBusy()`. Read-only from the outside.
  *
  * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment grew or settled during a stream.
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
  * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch path changed, after a retry fork or a navigation.
  *
- * @cssprop [--aparte-viewport-padding=16px] - Padding around the transcript — on
+ * @cssprop [--aparte-viewport-padding=var(--aparte-space-8)] - Padding around the transcript — on
  *   `.aparte-messages-wrapper`, or on the host itself in framework-managed mode, where the
  *   auto-scroll spacer is added on top of it. A container narrower than 520px tightens it in
  *   the default mode only: that rule reassigns the variable on `.aparte-messages-wrapper`,
  *   which framework-managed mode never builds.
- * @cssprop [--aparte-message-gap=12px] - Gap between consecutive bubbles in the transcript
+ * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between consecutive bubbles in the transcript
  *   column (both DOM modes). Shared: it is also the avatar-to-content gap inside a bubble.
  * @cssprop [--aparte-scrollbar-thumb=var(--aparte-neutral)] - Colour of the transcript's scrollbar thumb. A host page with a scrollbar of its own sets this and the track so the chat's does not read as a second, foreign scrollbar.
  * @cssprop [--aparte-scrollbar-track=transparent] - Colour of the transcript's scrollbar track.

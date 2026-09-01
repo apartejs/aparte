@@ -107,16 +107,16 @@ const VIEWPORT_MARGIN = 8;
  * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-unarchive-conversation - The same item on an already-archived one; same detail shape, opposite intent.
  * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation - The delete was confirmed. Nothing is removed here.
  *
- * @cssprop [--aparte-conv-list-gap=2px] - Vertical gap between rows, and between a group's heading and its rows.
- * @cssprop [--aparte-conv-item-padding=7px 10px] - Padding of a row's title button.
- * @cssprop [--aparte-conv-item-gap=6px] - Gap between a row's title and its `⋯` button.
+ * @cssprop [--aparte-conv-list-gap=var(--aparte-space-1)] - Vertical gap between rows, and between a group's heading and its rows.
+ * @cssprop [--aparte-conv-item-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of a row's title button.
+ * @cssprop [--aparte-conv-item-gap=var(--aparte-space-3)] - Gap between a row's title and its `⋯` button.
  * @cssprop [--aparte-conv-item-radius=var(--aparte-radius-md)] - Corner radius of a row.
- * @cssprop [--aparte-conv-item-font-size=0.8125rem] - Font size of a row's title.
+ * @cssprop [--aparte-conv-item-font-size=var(--aparte-font-size-md)] - Font size of a row's title.
  * @cssprop [--aparte-conv-item-color=var(--aparte-text-muted)] - Title colour of an inactive row.
  * @cssprop [--aparte-conv-item-bg-hover=var(--aparte-surface-3)] - Row background on hover.
  * @cssprop [--aparte-conv-item-bg-active=var(--aparte-surface-3)] - Background of the row matching `active-id`.
  * @cssprop [--aparte-conv-item-color-active=var(--aparte-text)] - Title colour of the active row.
- * @cssprop [--aparte-conv-item-font-weight-active=var(--aparte-font-weight-medium, 500)] - Title weight of the active row.
+ * @cssprop [--aparte-conv-item-font-weight-active=var(--aparte-font-weight-medium)] - Title weight of the active row.
  * @cssprop [--aparte-conv-action-btn-size=20px] - Square size of the `⋯` button. Under `(pointer: coarse)` the stylesheet redeclares it as 28px on the button itself, so a value set on the element does not reach it there; the button also stays visible instead of appearing on hover.
  *
  * @example

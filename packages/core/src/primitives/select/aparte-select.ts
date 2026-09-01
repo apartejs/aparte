@@ -45,17 +45,17 @@ export interface AparteSelectChangeDetail {
  * @fires aparte-select-open - The dropdown opened. No detail.
  * @fires aparte-select-close - The dropdown closed. No detail.
  *
- * @cssprop [--aparte-select-bg=var(--aparte-surface-1, #fff)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
- * @cssprop [--aparte-select-border=var(--aparte-border, #e2e8f0)] - Border of the trigger and of the dropdown.
- * @cssprop [--aparte-select-border-hover=var(--aparte-primary, #3b82f6)] - Trigger border on hover.
- * @cssprop [--aparte-select-border-focus=var(--aparte-primary, #3b82f6)] - Trigger border while focused.
- * @cssprop [--aparte-select-ring=rgba(59, 130, 246, 0.2)] - Colour of the 2px focus ring around the trigger.
- * @cssprop [--aparte-select-radius=0.5rem] - Corner radius of the trigger and the dropdown.
- * @cssprop [--aparte-select-text=var(--aparte-text, #1e293b)] - Colour of the trigger label (and of the options).
- * @cssprop [--aparte-select-chevron=var(--aparte-text-muted, #94a3b8)] - Colour of the chevron, which rotates 180° while open.
- * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1, #fff)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware). It used to be read in the light theme only, the dark rule taking the TRIGGER's background instead — so a transparent trigger made the panel see-through in the dark.
- * @cssprop [--aparte-select-shadow=0 4px 12px rgba(0, 0, 0, 0.1)] - Dropdown panel shadow.
- * @cssprop [--aparte-select-z=1000] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
+ * @cssprop [--aparte-select-bg=var(--aparte-surface-1)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
+ * @cssprop [--aparte-select-border=var(--aparte-border)] - Border of the trigger and of the dropdown.
+ * @cssprop [--aparte-select-border-hover=var(--aparte-primary)] - Trigger border on hover.
+ * @cssprop [--aparte-select-border-focus=var(--aparte-primary)] - Trigger border while focused.
+ * @cssprop [--aparte-select-ring=var(--aparte-focus-ring)] - Colour of the 2px focus ring around the trigger.
+ * @cssprop [--aparte-select-radius=var(--aparte-radius-lg)] - Corner radius of the trigger and the dropdown.
+ * @cssprop [--aparte-select-text=var(--aparte-text)] - Colour of the trigger label (and of the options).
+ * @cssprop [--aparte-select-chevron=var(--aparte-text-muted)] - Colour of the chevron, which rotates 180° while open.
+ * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware). It used to be read in the light theme only, the dark rule taking the TRIGGER's background instead — so a transparent trigger made the panel see-through in the dark.
+ * @cssprop [--aparte-select-shadow=0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16)] - Dropdown panel shadow.
+ * @cssprop [--aparte-select-z=var(--aparte-z-dropdown)] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
  *
  * @example
  * <aparte-select placeholder="Pick a model" searchable value="gpt-4o-mini">

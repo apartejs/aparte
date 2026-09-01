@@ -88,25 +88,25 @@ interface Pending {
  *
  * @element aparte-elicitation
  *
- * @cssprop [--aparte-elic-gap=6px] - Vertical gap between the panel's rows (message, body, tabs).
- * @cssprop [--aparte-elic-padding=6px 4px] - Padding inside the panel.
+ * @cssprop [--aparte-elic-gap=var(--aparte-space-3)] - Vertical gap between the panel's rows (message, body, tabs).
+ * @cssprop [--aparte-elic-padding=var(--aparte-space-3) var(--aparte-space-2)] - Padding inside the panel.
  * @cssprop [--aparte-elic-max-height=50vh] - Cap on the panel's height; its body scrolls, the panel does not.
- * @cssprop [--aparte-elic-field-gap=8px] - Space and separator padding between two fields of an object schema.
- * @cssprop [--aparte-elic-message-size=0.82rem] - Font size of the question text at the top of the panel.
- * @cssprop [--aparte-elic-title-size=0.8rem] - Font size of a field's title.
- * @cssprop [--aparte-elic-desc-size=0.76rem] - Font size of a field's description.
- * @cssprop [--aparte-elic-option-padding=7px 10px] - Padding of one enum/boolean option row.
- * @cssprop [--aparte-elic-option-radius=8px] - Corner radius of an option row.
- * @cssprop [--aparte-elic-option-title-size=0.875rem] - Font size of an option's label, and of the text inputs.
- * @cssprop [--aparte-elic-option-desc-size=0.78rem] - Font size of an option's secondary line.
+ * @cssprop [--aparte-elic-field-gap=var(--aparte-space-4)] - Space and separator padding between two fields of an object schema.
+ * @cssprop [--aparte-elic-message-size=var(--aparte-font-size-md)] - Font size of the question text at the top of the panel.
+ * @cssprop [--aparte-elic-title-size=var(--aparte-font-size-md)] - Font size of a field's title.
+ * @cssprop [--aparte-elic-desc-size=var(--aparte-font-size-sm)] - Font size of a field's description.
+ * @cssprop [--aparte-elic-option-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of one enum/boolean option row.
+ * @cssprop [--aparte-elic-option-radius=var(--aparte-radius-lg)] - Corner radius of an option row.
+ * @cssprop [--aparte-elic-option-title-size=var(--aparte-font-size-lg)] - Font size of an option's label, and of the text inputs.
+ * @cssprop [--aparte-elic-option-desc-size=var(--aparte-font-size-sm)] - Font size of an option's secondary line.
  * @cssprop [--aparte-elic-control-size=15px] - Size of the radio/checkbox control in an option row.
- * @cssprop [--aparte-elic-input-radius=6px] - Corner radius of the text inputs and of the Skip button.
+ * @cssprop [--aparte-elic-input-radius=var(--aparte-radius-md)] - Corner radius of the text inputs and of the Skip button.
  * @cssprop [--aparte-elic-textarea-min-height=64px] - Minimum height of a multi-line string field.
  * @cssprop [--aparte-elic-input-size=0.85rem] - Font size of the approval panel's instruction field (the free-text note the user writes).
- * @cssprop [--aparte-elic-skip-size=0.8rem] - Font size of the corner "Skip" affordance (the decline).
- * @cssprop [--aparte-elic-step-size=0.78rem] - Font size of a step tab, when the schema is asked one field at a time.
- * @cssprop [--aparte-elic-step-padding=4px 2px] - Padding of a step tab.
- * @cssprop [--aparte-elic-step-gap=14px] - Gap between step tabs.
+ * @cssprop [--aparte-elic-skip-size=var(--aparte-font-size-md)] - Font size of the corner "Skip" affordance (the decline).
+ * @cssprop [--aparte-elic-step-size=var(--aparte-font-size-sm)] - Font size of a step tab, when the schema is asked one field at a time.
+ * @cssprop [--aparte-elic-step-padding=var(--aparte-space-2) var(--aparte-space-1)] - Padding of a step tab.
+ * @cssprop [--aparte-elic-step-gap=var(--aparte-space-7)] - Gap between step tabs.
  * @cssprop [--aparte-elic-step-underline=2px] - Thickness of the current step's underline (a tab, not a pill).
  * @cssprop [--aparte-elic-dismiss-room=72px] - Space the tab rail and the question message keep clear for the corner escape. Widen it for a locale whose "Skip" word is wider.
  * @cssprop [--aparte-approval-gap=4px] - Gap between the stacked options of an approval request.

@@ -29,7 +29,7 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
  *
  * @cssprop [--aparte-attachments-max-height=140px] - Height cap on the strip; past it the
  *   tiles scroll instead of pushing the composer up.
- * @cssprop [--aparte-attachment-image-size=56px] - Tile edge. The stylesheet sets 56px on
+ * @cssprop [--aparte-attachment-image-size=72px] - Tile edge. The stylesheet sets 56px on
  *   this element (the `:root` default is 72px, and the sent-message strip re-sets 40px on
  *   itself), so a theme-level value reaches neither strip — target
  *   `aparte-composer-attachments` to resize these tiles.
