@@ -28,6 +28,10 @@ aparte-chat,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* The height an author sets IS the box: with the bottom gap below outside it,
+     `style="height: 320px"` rendered 336px, and a split's seam hung 16px under both
+     panels. */
+  box-sizing: border-box;
   /* The composer used to touch the bottom edge as soon as a conversation started: the
      viewport gives 16px above the composer and there was nothing below it. An app
      cannot fix this from outside without padding the container, which also shrinks the

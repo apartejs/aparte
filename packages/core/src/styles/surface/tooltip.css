@@ -40,6 +40,11 @@
 
   position: relative;
   display: inline-block;
+  /* As wide as its label, up to the cap. With a `max-width` and no intrinsic width an
+     absolutely-positioned chip shrinks to `min-content`: "Copy to clipboard" broke into
+     two lines at every width, 71px wide — the widest word plus padding. */
+  width: max-content;
+  box-sizing: border-box;
   max-width: var(--aparte-tooltip-max-width);
   padding: var(--aparte-space-2) var(--aparte-space-4);
   background: var(--aparte-tooltip-bg);

@@ -179,7 +179,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
     </div>
   </aparte-sidebar>
   <header class="aparte-app-header">
-    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle><aparte-icon name="menu"></aparte-icon></button>
     <span class="aparte-app-header__title">Deploy checklist</span>
     <div class="aparte-app-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
   </header>
@@ -242,9 +242,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
     </div>
   </aparte-sidebar>
   <header class="aparte-app-header">
-    <!-- ☰ as text: \`menu\` is not a built-in glyph (it lives in the extended set behind
-         \`@aparte/core/icons\`), and an icon that is not registered renders nothing. -->
-    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle><aparte-icon name="menu"></aparte-icon></button>
     <span class="aparte-app-header__title">What is aparté?</span>
     <div class="aparte-app-header__actions"><span class="aparte-tag">scripted model</span></div>
   </header>

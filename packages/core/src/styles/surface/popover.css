@@ -24,6 +24,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--aparte-space-3);
+  /* The cap is the box's outer width: it measured 342px for a documented 320 (padding
+     and border outside the cap) until the recipe said so itself. */
+  box-sizing: border-box;
   max-width: var(--aparte-popover-max-width);
   padding: var(--aparte-space-5);
   background: var(--aparte-surface-1);

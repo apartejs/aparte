@@ -76,6 +76,10 @@ export interface AparteIconProvider {
     pin?: () => string;
     /** Delete (a bin) */
     trash?: () => string;
+    /** Open a navigation drawer (☰) — the app header's toggle */
+    menu?: () => string;
+    /** A warning triangle — the alert recipe's icon */
+    alertTriangle?: () => string;
 }
 
 /** Icon names available in the provider */

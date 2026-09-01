@@ -12,9 +12,9 @@
  *       <aparte-icon name="copy"></aparte-icon>
  *     </button>
  *     <div class="aparte-btn-group" role="group" aria-label="Versions">
- *       <button class="aparte-btn aparte-btn--surface">‹</button>
+ *       <button class="aparte-btn aparte-btn--surface" aria-label="Previous"><aparte-icon name="prevBranch"></aparte-icon></button>
  *       <button class="aparte-btn aparte-btn--surface">1 / 2</button>
- *       <button class="aparte-btn aparte-btn--surface">›</button>
+ *       <button class="aparte-btn aparte-btn--surface" aria-label="Next"><aparte-icon name="nextBranch"></aparte-icon></button>
  *     </div>
  *     <div class="aparte-btn-group" role="group" aria-label="View">
  *       <button class="aparte-btn aparte-btn--primary aparte-btn--outline" aria-pressed="true">Chat</button>

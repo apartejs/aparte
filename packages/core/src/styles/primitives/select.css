@@ -259,6 +259,7 @@ aparte-optgroup[collapsed] .aparte-optgroup-chevron {
 }
 
 .aparte-spinner-small {
+    box-sizing: border-box;
     width: var(--aparte-select-spinner-size);
     height: var(--aparte-select-spinner-size);
     border: 2px solid currentColor;
