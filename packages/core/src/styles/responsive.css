@@ -134,6 +134,12 @@
     --aparte-conv-action-btn-size: var(--aparte-touch-target-size);
   }
 
+  /* The composer's own controls: 36 at rest, the touch target here — the send button, the
+     input's action button and the editor's single-line height move together. */
+  .aparte-composer-row {
+    --aparte-composer-control-size: var(--aparte-touch-target-size);
+  }
+
   /* A 4px seam is no target for a finger — the same modality rule the buttons above
      follow. The seam keeps its width; only the invisible grab zone grows. */
   .aparte-split__handle {

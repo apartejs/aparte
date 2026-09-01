@@ -1,0 +1,7 @@
+---
+"@aparte/core": minor
+---
+
+Every control has a height from one scale — sm 24 · md 32 · lg 36 · xl 40 — and control text is the 14px step: a text button is as tall as an icon button (`min-block-size`), the field rests at 36 (`--aparte-field-size`; `--sm`/`--lg` one step either side), a button inside a field group takes the field's height, the select trigger is a field, and the composer's controls are 36 at rest and the touch target under a coarse pointer (`--aparte-composer-control-size`, now a declared knob).
+
+Measured across the previews, 18 of 59 showed two controls side by side at different heights, and the number that kept coming back was 23px: the text button, which had no height at all, beside 24, 29, 32, 36 and 44px neighbours. The scale had three steps that only `--icon` and `--circle` read, and a 36px family (send, the input's action button, the scroll button) that lived off it as literals — it is the named lg step now, and the old 40px step is `xl` (`.aparte-btn--xl`; `.aparte-btn--lg` is 36px, which is what the scroll button already measured). Control text moves from 13px to 14px on the button and the field; `--sm` and `--lg` become three distinct steps again. The desktop composer was a 62px bar around 15px of text because its control size defaulted to the touch target everywhere; it is 36 at rest and 44 under `(pointer: coarse)`, which is what that block was for.

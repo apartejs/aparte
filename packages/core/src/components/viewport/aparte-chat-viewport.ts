@@ -102,7 +102,7 @@ import {
  *   `[overlay-composer]` (never set it there — it would be overwritten); a host that
  *   overlays a composer of its own, without the attribute, sets it by hand and the
  *   spacer, the container padding and the scroll button all clear it.
- * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A
+ * @cssprop [--aparte-scroll-btn-size=var(--aparte-btn-size-lg)] - Diameter of the scroll-to-bottom button. A
  *   coarse pointer raises it to `--aparte-touch-target-size`.
  * @cssprop [--aparte-scroll-btn-shadow=0 2px 8px rgba(0, 0, 0, 0.12)] - Its shadow; the dark
  *   theme sets a heavier one.

@@ -44,7 +44,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *                      resize the editor in pure CSS without being fought by
  *                      an inline height.
  *
- * @cssprop [--aparte-composer-control-size=44px] - Single-line min-height of the editor.
+ * @cssprop [--aparte-composer-control-size=var(--aparte-btn-size-lg)] - Single-line min-height of the editor.
  *          Inside the `.aparte-composer-row` layout helper the composer's buttons read
  *          the same token, so one value resizes that whole control set and the row stays
  *          aligned.

@@ -44,6 +44,10 @@
   /* The glyph reads this: an `<aparte-icon>` (or a raw `svg.aparte-icon`) inside a button
      takes the button's icon size, per size modifier. */
   --aparte-icon-size: var(--aparte-btn-icon-size);
+  /* The box, for EVERY button: `--icon` and `--circle` used to be the only readers of
+     the size, so a text button was padding plus line-height — 23px beside a 32px icon
+     button in the same row. The size is declared here and read below as a minimum. */
+  --aparte-btn-size: var(--aparte-btn-size-md);
   /* The intent, as a value. Every fill below reads THIS and nothing else, which is
      what keeps the two axes independent. */
   --aparte-btn-intent: var(--aparte-neutral);
@@ -72,6 +76,7 @@
      be set by the composer's own row rule, which is exactly the kind of thing a recipe
      should not need a caller for. */
   box-sizing: border-box;
+  min-block-size: var(--aparte-btn-size);
   padding: var(--aparte-btn-padding);
   border: var(--aparte-border-width) solid transparent;
   border-radius: var(--aparte-btn-radius);
@@ -268,10 +273,13 @@
 
 .aparte-btn--sm { --aparte-btn-size: var(--aparte-btn-size-sm); --aparte-btn-icon-size: var(--aparte-icon-size-sm); font-size: var(--aparte-font-size-sm); padding: var(--aparte-btn-padding-sm); }
 .aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); --aparte-btn-icon-size: var(--aparte-icon-size-xl); font-size: var(--aparte-font-size-lg); padding: var(--aparte-btn-padding-lg); }
+.aparte-btn--xl { --aparte-btn-size: var(--aparte-btn-size-xl); --aparte-btn-icon-size: var(--aparte-icon-size-xl); font-size: var(--aparte-font-size-lg); padding: var(--aparte-btn-padding-lg); }
 .aparte-btn--sm.aparte-btn--icon,
 .aparte-btn--sm.aparte-btn--circle,
 .aparte-btn--lg.aparte-btn--icon,
-.aparte-btn--lg.aparte-btn--circle { padding: 0; }
+.aparte-btn--lg.aparte-btn--circle,
+.aparte-btn--xl.aparte-btn--icon,
+.aparte-btn--xl.aparte-btn--circle { padding: 0; }
 
 /* An icon inside a button never takes the pointer: the click belongs to the button,
    and an SVG target makes `event.target` lie to a delegated listener. */

@@ -156,7 +156,7 @@ export interface AparteComposerChangeEventDetail {
  * @fires {CustomEvent<AparteMessageAbortedEventDetail>} aparte-message-aborted - The run for this target ended early — the user pressed Stop, or `abort()` was called. This element dispatches it on `window`; `AparteClient` also dispatches it on the chat host, so it is listenable on either.
  * @fires {CustomEvent<AparteComposerChangeEventDetail>} aparte-composer-change - Any of value / streaming / disabled / attachments / panel changed, folded into one event.
  *
- * @cssprop [--aparte-composer-control-size=44px] - Width and height of the composer's
+ * @cssprop [--aparte-composer-control-size=var(--aparte-btn-size-lg)] - Width and height of the composer's
  *   own control buttons (each is an `.aparte-btn--icon`, so it needs the opt-in
  *   `.aparte-composer-row` wrapper, which is what carries the size down) and the
  *   minimum height of the input's editor, which needs no wrapper. One knob for the

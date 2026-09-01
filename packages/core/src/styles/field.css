@@ -51,8 +51,11 @@
   box-sizing: border-box;
   display: block;
   width: 100%;
+  /* A resting height from the control scale, so a field and the button beside it stop
+     disagreeing by 6px; the size modifiers move it a step either way. */
+  min-block-size: var(--aparte-field-size);
   font: inherit;
-  font-size: var(--aparte-font-size-sm);
+  font-size: var(--aparte-font-size-md);
   line-height: var(--aparte-line-height-normal);
   color: var(--aparte-text);
   background: var(--aparte-surface-1);
@@ -122,15 +125,15 @@
 /* ── Sizes ───────────────────────────────────────────────────────────────────── */
 
 .aparte-field--sm {
-
+  --aparte-field-size: var(--aparte-field-size-sm);
   padding: var(--aparte-field-padding-sm);
-  font-size: var(--aparte-font-size-xs);
+  font-size: var(--aparte-font-size-sm);
 }
 
 .aparte-field--lg {
-
+  --aparte-field-size: var(--aparte-field-size-lg);
   padding: var(--aparte-field-padding-lg);
-  font-size: var(--aparte-font-size-md);
+  font-size: var(--aparte-font-size-lg);
 }
 
 /* ── Textarea ────────────────────────────────────────────────────────────────── */
@@ -174,6 +177,12 @@
 
 .aparte-field-group > .aparte-field:focus-visible {
   box-shadow: none;
+}
+
+/* A button in the group is as tall as the field it sits beside — the one row where the
+   two recipes meet, and the one where a 4px difference shows. */
+.aparte-field-group > .aparte-btn {
+  --aparte-btn-size: var(--aparte-field-size);
 }
 
 /* An addon has a ground of its own and a rule against the field: on the field's own

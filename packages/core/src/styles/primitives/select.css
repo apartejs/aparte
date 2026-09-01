@@ -16,6 +16,8 @@ aparte-select {
     align-items: center;
     justify-content: space-between;
     gap: var(--aparte-space-4);
+    box-sizing: border-box;
+    min-block-size: var(--aparte-field-size);
     padding: var(--aparte-space-4) var(--aparte-space-6);
     /* Its own size: the trigger declared none and took the host page's, so every
        integrator saw a different select. The control step, like the field and the

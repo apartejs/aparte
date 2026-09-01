@@ -370,7 +370,7 @@ aparte-composer-input {
 aparte-composer-input .aparte-ci-editor {
   display: block;
   width: 100%;
-  min-height: var(--aparte-composer-control-size, 44px);
+  min-height: var(--aparte-composer-control-size);
   padding: var(--aparte-input-padding-y) var(--aparte-input-padding-x);
   font-size: var(--aparte-input-font-size);
   line-height: var(--aparte-input-line-height);
@@ -493,7 +493,7 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
 
 /* Inner row — flex container for input + buttons */
 /* Action buttons sized to the input's single-line height — they derive from
-   --aparte-composer-control-size (default 44px), so a theme resizes the whole
+   --aparte-composer-control-size (default: the lg step, 36px; the touch target under a coarse pointer), so a theme resizes the whole
    composer control set with ONE variable and alignment holds. Combined with
    the row's `align-items: flex-end` this makes the buttons read as vertically
    centered against a single line of text, and keeps them anchored to the
@@ -525,7 +525,11 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
   align-items: flex-end;
   gap: var(--aparte-space-4);
   padding: var(--aparte-space-4) var(--aparte-space-6);
-  --aparte-composer-row-control-size: var(--aparte-composer-control-size, 44px);
+  /* The lg step at rest — 36px, what `--aparte-send-btn-size` says — and the touch
+     target under a coarse pointer (responsive.css). It was 44 everywhere, which made
+     the send button the one control the coarse-pointer block could not enlarge because
+     it already was, and a 62px bar around 15px of text on a desktop. */
+  --aparte-composer-row-control-size: var(--aparte-composer-control-size);
   --aparte-btn-size: var(--aparte-composer-row-control-size);
 }
 

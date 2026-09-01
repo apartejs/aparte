@@ -199,11 +199,11 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 
 /* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
 
-/* The button wears `aparte-btn--lg aparte-btn--circle`: `--lg` gives it the 20px glyph,
-   `--circle` the round corner, and the box is `--aparte-scroll-btn-size` (36px — a size
-   of its own, between `--md` and the 40px of `--aparte-btn-size-lg`), fed to the recipe
-   below. What stays here is only what is genuinely this button's — where it floats, and
-   its own surface.
+/* The button wears `aparte-btn--lg aparte-btn--circle`: `--lg` gives it the 20px glyph
+   and the lg step of the scale (36px), `--circle` the round corner, and
+   `--aparte-scroll-btn-size` (the same step, named for this button so a theme can move
+   it alone) is fed to the recipe below. What stays here is only what is genuinely this
+   button's — where it floats, and its own surface.
 
    It used to redraw all three: its own width/height, its own `border-radius: 50%`, and
    an icon-size override that existed only because the box was declared OUTSIDE the size

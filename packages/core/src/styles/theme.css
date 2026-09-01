@@ -232,9 +232,7 @@
   --aparte-icon-size-lg: 16px;
   --aparte-icon-size-xl: 20px;
 
-  /* Send button + inline action buttons */
-  --aparte-send-btn-size: 36px;
-  --aparte-input-action-btn-size: 36px;
+  /* Send button + inline action buttons (their size is the lg step, in the derived layer) */
   --aparte-input-action-btn-icon-size: 20px;
   --aparte-model-select-min-width: 120px;
 
@@ -277,8 +275,7 @@
   --aparte-code-copy-icon-size: 14px;
   --aparte-code-inline-font-size: 0.875em;
 
-  /* Scroll-to-bottom button */
-  --aparte-scroll-btn-size: 36px;
+  /* Scroll-to-bottom button (its size is the lg step, in the derived layer) */
   --aparte-scroll-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 
   /* Error segment */
@@ -438,9 +435,16 @@
   --aparte-skeleton-text-last-width: 60%;
   --aparte-progress-indeterminate-width: 40%;
 
+  /* The control height scale — four steps, and EVERY control reads one: a text
+     button used to have no height (23px of padding and line-height) beside 24, 29, 32,
+     36 and 44px neighbours, and the 36px family (send, the input's action button, the
+     scroll button) lived off the scale as literals. sm is the small control (action bar,
+     branch arrows, a row's ⋯), md the default button, lg the field and the composer's
+     controls at rest, xl the large button. */
   --aparte-btn-size-sm: 24px;
   --aparte-btn-size-md: 32px;
-  --aparte-btn-size-lg: 40px;
+  --aparte-btn-size-lg: 36px;
+  --aparte-btn-size-xl: 40px;
   /* The field family's literal sizes, beside the button's: the derived knobs
      (paddings, radius) sit in the anchored layer below, like the button's own. */
   --aparte-field-textarea-min-height: 80px;
@@ -828,11 +832,24 @@ aparte-chat {
   --aparte-field-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
   --aparte-field-padding-lg: var(--aparte-space-3) var(--aparte-space-4);
   --aparte-field-radius: var(--aparte-radius-md);
+  /* The field's resting height is the lg step of the control scale, one step above the
+     default button and level with the composer's controls; `--sm` and `--lg` sit one
+     step either side. It used to be padding plus line-height, ~29px, the second
+     tallest thing in a row of five different heights. */
+  --aparte-field-size: var(--aparte-btn-size-lg);
+  --aparte-field-size-sm: var(--aparte-btn-size-md);
+  --aparte-field-size-lg: var(--aparte-btn-size-xl);
+  /* The 36px family, on the scale: named, not literal. */
+  --aparte-send-btn-size: var(--aparte-btn-size-lg);
+  --aparte-input-action-btn-size: var(--aparte-btn-size-lg);
+  --aparte-scroll-btn-size: var(--aparte-btn-size-lg);
 
   --aparte-btn-gap: var(--aparte-space-2);
   --aparte-btn-padding: var(--aparte-space-2) var(--aparte-space-3);
   --aparte-btn-radius: var(--aparte-radius-md);
-  --aparte-btn-font-size: var(--aparte-font-size-sm);
+  /* Control text is the md step (14px). One step lower was the origin of the "poor"
+     look: 13px labels in 32px boxes, beside 15px prose. */
+  --aparte-btn-font-size: var(--aparte-font-size-md);
   --aparte-btn-bg-hover: var(--aparte-surface-2);
   --aparte-btn-focus-offset: var(--aparte-space-1);
   --aparte-btn-bg-active: var(--aparte-surface-3);
@@ -844,6 +861,12 @@ aparte-chat {
   --aparte-btn-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
   --aparte-btn-padding-lg: var(--aparte-space-3) var(--aparte-space-5);
 
+  /* One knob for the composer's control set — the send button, the input's action
+     buttons, the editor's single-line height: the lg step at rest, the touch target
+     under a coarse pointer (responsive.css). It used to be undeclared, with `44px`
+     written as a fallback at every reader, so a desktop composer was a 62px bar around
+     15px of text and the coarse-pointer block had nothing left to enlarge. */
+  --aparte-composer-control-size: var(--aparte-btn-size-lg);
   --aparte-input-container-min-height: var(--aparte-touch-target-size);
   --aparte-elic-message-size: var(--aparte-font-size-md);
   --aparte-elic-title-size: var(--aparte-font-size-md);

@@ -46,7 +46,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *   could not tell which one fired.
  *                            detail: { actionId: string, composer: AparteComposer | null }
  *
- * @cssprop [--aparte-input-action-btn-size=36px] - Square size of the button. On a coarse
+ * @cssprop [--aparte-input-action-btn-size=var(--aparte-btn-size-lg)] - Square size of the button. On a coarse
  *   pointer the stylesheet re-sets it to `--aparte-touch-target-size` (44px) on
  *   `.aparte-action-button` itself, which wins over a value inherited from your theme.
  * @cssprop [--aparte-input-action-btn-icon-size=20px] - Size of the `<svg>` inside it.
