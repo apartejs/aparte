@@ -45,7 +45,11 @@ aparte-chat-bubble {
   box-sizing: border-box;
   display: flex;
   gap: var(--aparte-message-gap);
-  padding: var(--aparte-message-padding);
+  /* The two parts, not the composite `--aparte-message-padding` that used to join them
+     on `:root`: a custom property is substituted where it is declared, so the composite
+     froze both parts at the root and the narrow-container override of them in
+     responsive.css never reached this row. */
+  padding: var(--aparte-message-padding-block) var(--aparte-message-padding-inline);
   width: 100%;
   max-width: var(--aparte-message-max-width);
   margin: 0 auto;

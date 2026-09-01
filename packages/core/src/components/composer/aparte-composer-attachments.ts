@@ -126,11 +126,11 @@ export class AparteComposerAttachments extends HTMLElement {
                 const url = URL.createObjectURL(file);
                 this._objectUrls.push(url);
                 return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">` +
-                    `<img class="aparte-thumb__img" src="${escapeAttr(url)}" alt="${name}" />` +
+                    `<img class="aparte-thumbnail__image" src="${escapeAttr(url)}" alt="${name}" />` +
                     `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
             }
             return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">` +
-                `<span class="aparte-thumb__ext">${escapeHtml(this._ext(file.name))}</span>` +
+                `<span class="aparte-thumbnail__label">${escapeHtml(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');
 
@@ -151,7 +151,7 @@ export class AparteComposerAttachments extends HTMLElement {
             tile.setAttribute('role', 'button');
             tile.setAttribute('tabindex', '0');
             const open = (): void => {
-                const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
+                const img = tile.querySelector('.aparte-thumbnail__image') as HTMLImageElement | null;
                 if (!img) return;
                 this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
                     bubbles: true,

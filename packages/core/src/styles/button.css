@@ -41,6 +41,9 @@
  */
 
 .aparte-btn {
+  /* The glyph reads this: an `<aparte-icon>` (or a raw `svg.aparte-icon`) inside a button
+     takes the button's icon size, per size modifier. */
+  --aparte-icon-size: var(--aparte-btn-icon-size);
   /* The intent, as a value. Every fill below reads THIS and nothing else, which is
      what keeps the two axes independent. */
   --aparte-btn-intent: var(--aparte-neutral);
@@ -271,12 +274,22 @@
 .aparte-btn--lg.aparte-btn--circle { padding: 0; }
 
 /* An icon inside a button never takes the pointer: the click belongs to the button,
-   and an SVG target makes `event.target` lie to a delegated listener. It is sized with
-   the button so the two axes stay in step. */
+   and an SVG target makes `event.target` lie to a delegated listener. */
 .aparte-btn > svg,
+.aparte-btn > aparte-icon,
 .aparte-btn > .aparte-btn__icon {
   pointer-events: none;
   flex-shrink: 0;
+}
+
+/* A raw SVG or a consumer's own icon box is sized with the button so the two axes stay
+   in step. An `<aparte-icon>` is NOT sized here: it renders its `<svg>` inside itself, a
+   grandchild this child combinator never reached, so the documented markup kept the
+   glyph at its loose 14px default in a button that asked for 16. The recipe feeds the
+   icon's own knob instead — `--aparte-icon-size`, declared on `.aparte-btn` above — and
+   `display/icon.css` draws it, at `--sm`'s 12 and `--lg`'s 20 like everything else. */
+.aparte-btn > svg:not(.aparte-icon),
+.aparte-btn > .aparte-btn__icon {
   width: var(--aparte-btn-icon-size);
   height: var(--aparte-btn-icon-size);
 }

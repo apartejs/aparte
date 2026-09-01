@@ -171,7 +171,8 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
  * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between the avatar column and the body (the viewport reuses it between messages).
- * @cssprop [--aparte-message-padding=var(--aparte-message-padding-block) var(--aparte-message-padding-inline)] - Padding around one message row.
+ * @cssprop [--aparte-message-padding-block=var(--aparte-space-8)] - Vertical padding of one message row. (The composite `--aparte-message-padding` is gone: joined on `:root`, it froze both parts, and the narrow-container override of them never reached the row.)
+ * @cssprop [--aparte-message-padding-inline=var(--aparte-space-6)] - Horizontal padding of one message row.
  * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
  *
  * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
@@ -440,6 +441,7 @@ export class AparteChatBubble extends HTMLElement {
   appendToken(chunk: string): void {
     this._content += chunk;
     this._updateContent();
+    this._syncCopyAction();
   }
 
   /** Set content directly */
@@ -451,6 +453,7 @@ export class AparteChatBubble extends HTMLElement {
     // slice of the wrong string. A retry does exactly this — clear, then re-stream.
     this._resetMarkdownStream();
     this._updateContent();
+    this._syncCopyAction();
   }
 
   /**
@@ -515,6 +518,7 @@ export class AparteChatBubble extends HTMLElement {
       const updated = mergeSegmentUpdate(this._segments[index]!, updates);
       this._segments[index] = updated;
       this._applySegmentUpdate(segmentId, updated, updates);
+      this._syncCopyAction();
     }
   }
 
@@ -524,6 +528,7 @@ export class AparteChatBubble extends HTMLElement {
     if (segment && 'content' in segment) {
       (segment as { content: string }).content += content;
       this._applySegmentUpdate(segmentId, segment, { content: (segment as AparteSegment & { content: string }).content });
+      this._syncCopyAction();
     }
   }
 
@@ -555,6 +560,7 @@ export class AparteChatBubble extends HTMLElement {
     const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
     this._updateWaiting();
+    this._syncCopyAction();
   }
 
   /** Set attachments (chips shown above message content, user role only) */
@@ -1010,6 +1016,7 @@ export class AparteChatBubble extends HTMLElement {
       this._contentEl.style.display = this._segments.length > 0 ? 'none' : '';
     }
     this._reflectError();
+    this._syncCopyAction();
   }
 
   /**
@@ -1088,11 +1095,11 @@ export class AparteChatBubble extends HTMLElement {
         // only maps the strip's measurements onto it. The bubble emitted the mapping
         // without the recipe, so its tiles had no box — a bare "PDF" beside a bare image.
         return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">`
-          + `<img class="aparte-thumb__img" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
+          + `<img class="aparte-thumbnail__image" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
           + `<span class="aparte-thumb__name">${name}</span></div>`;
       }
       return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">`
-        + `<span class="aparte-thumb__ext">${escapeHtml(this._fileExt(a.name))}</span>`
+        + `<span class="aparte-thumbnail__label">${escapeHtml(this._fileExt(a.name))}</span>`
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');
 
@@ -1105,7 +1112,7 @@ export class AparteChatBubble extends HTMLElement {
       tile.setAttribute('role', 'button');
       tile.setAttribute('tabindex', '0');
       const open = (): void => {
-        const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
+        const img = tile.querySelector('.aparte-thumbnail__image') as HTMLImageElement | null;
         if (!img) return;
         this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
           bubbles: true, composed: true,
@@ -1256,6 +1263,32 @@ export class AparteChatBubble extends HTMLElement {
   // Action Bar
   // ─────────────────────────────────────────────────────────────────────────
 
+  /**
+   * What the copy action copies: the reply, not the reasoning. A `thinking` segment is
+   * the model's scratchpad, and the client already keeps it out of the history it sends
+   * back (`_segmentsToText`) for the same reason — copying it along with the answer
+   * pasted a paragraph of deliberation above every reply, which no assistant on the
+   * market does. Segments with no `content` (a tool call) contribute nothing, so a
+   * turn made only of those copies as `''` — and the action bar reads this to decide
+   * whether to offer the button at all.
+   */
+  private _copyableText(): string {
+    return (this._content || this._segments
+      .filter(s => s.type !== 'thinking')
+      .map(s => (s as { content?: string }).content ?? '')
+      .join('\n')).trim();
+  }
+
+  /**
+   * The copy button is for text. `hidden` rather than removed: the bar is rebuilt
+   * rarely and the text changes on every streamed token, so the button is toggled in
+   * place from each path that changes what a copy would paste.
+   */
+  private _syncCopyAction(): void {
+    const btn = this._actionBarEl?.querySelector<HTMLElement>('.aparte-action-copy');
+    if (btn) btn.hidden = this._copyableText() === '';
+  }
+
   private _updateActionBar(): void {
     if (!this._actionBarEl) return;
     // While the inline editor is open the bar shows save (✓) / cancel (✗).
@@ -1284,7 +1317,9 @@ export class AparteChatBubble extends HTMLElement {
         for (const a of config.assistant) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
         // Flag-driven set. Only `copy` is on by default — retry, feedback and
-        // info all need a host or a listener to mean anything.
+        // info all need a host or a listener to mean anything. (Copy is rendered here
+        // and HIDDEN by `_syncCopyAction` while there is no text to copy — a tool-only
+        // turn used to offer a button that copied the empty string and said "Copied".)
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.retry) buttons.push(this._actionButtonHtml('retry', icons, locale));
         if (config.feedback) {
@@ -1296,6 +1331,7 @@ export class AparteChatBubble extends HTMLElement {
     }
 
     this._actionBarEl.innerHTML = buttons.join('');
+    this._syncCopyAction();
 
     // Custom actions registered via aparteGlobalConfig.registerAction — appended
     // after the built-ins, built as DOM (label goes to attributes, never
@@ -1502,15 +1538,7 @@ export class AparteChatBubble extends HTMLElement {
 
     switch (action) {
       case 'copy': {
-        // The reply, not the reasoning: a `thinking` segment is the model's scratchpad,
-        // and the client already keeps it out of the history it sends back
-        // (`_segmentsToText`) for the same reason. Copying it along with the answer
-        // pasted a paragraph of deliberation above every reply — no assistant on the
-        // market does that.
-        const text = this._content || this._segments
-          .filter(s => s.type !== 'thinking')
-          .map(s => (s as { content?: string }).content ?? '')
-          .join('\n');
+        const text = this._copyableText();
         const icons = this._cfg.getIconProvider();
         const locale = this._cfg.getLocale();
         copyText(text).then(() => {

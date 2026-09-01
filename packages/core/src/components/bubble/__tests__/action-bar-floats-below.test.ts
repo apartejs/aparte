@@ -49,6 +49,9 @@ describe('#56 — the action bar floats below the message', () => {
 
     it('the message padding is split so the offset can be computed from tokens', () => {
         expect(css).toMatch(/--aparte-message-padding-block:\s*var\(--aparte-space-8\)/);
-        expect(css).toMatch(/--aparte-message-padding:\s*var\(--aparte-message-padding-block\) var\(--aparte-message-padding-inline\)/);
+        // The composite that used to join the two parts on `:root` is gone: substituted
+        // there, it froze them, and the narrow-container override never reached the row.
+        expect(css).not.toMatch(/--aparte-message-padding:\s/);
+        expect(css).toMatch(/padding:\s*var\(--aparte-message-padding-block\)\s+var\(--aparte-message-padding-inline\)/);
     });
 });

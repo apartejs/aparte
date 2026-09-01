@@ -92,12 +92,13 @@
 }
 
 .aparte-accordion__icon {
+  display: inline-flex;
   flex-shrink: 0;
-  /* Sized off the same step the button recipe already uses for an icon glyph
-     (`--aparte-btn-icon-size: var(--aparte-space-8)`), so a disclosure chevron
-     reads as the same weight of icon as everywhere else in the library. */
-  width: var(--aparte-space-8);
-  height: var(--aparte-space-8);
+  /* Fed to the glyph through its own knob, not drawn as a width/height: the icon
+     recipe reads `--aparte-icon-size`, and a box declared here around it would leave
+     the glyph at its loose default. The step is the one the button recipe uses for an
+     icon glyph, so a disclosure chevron reads as the same weight of icon everywhere. */
+  --aparte-icon-size: var(--aparte-space-8);
   color: var(--aparte-text-muted);
   transition: transform var(--aparte-duration-slow) var(--aparte-ease);
 }

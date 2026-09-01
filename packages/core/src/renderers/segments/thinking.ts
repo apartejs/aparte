@@ -58,7 +58,7 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * only part that is genuinely about reasoning rather than about disclosure.
      * `.aparte-thinking-label` stays too: `relabel` below queries it.
      */
-    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span>${contextConfig().getIcon('expand')}</summary><div class="aparte-accordion__panel aparte-thinking-content" role="region" tabindex="0" aria-label="${escapeAttr(segment.label || contextConfig().t('thinking'))}">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="aparte-accordion__icon">${contextConfig().getIcon('expand')}</span></summary><div class="aparte-accordion__panel aparte-thinking-content" role="region" tabindex="0" aria-label="${escapeAttr(segment.label || contextConfig().t('thinking'))}">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
     /**
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.

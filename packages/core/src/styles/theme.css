@@ -252,7 +252,6 @@
   /* Thinking Segment */
   --aparte-thinking-content-max-height: 300px;
   --aparte-thinking-content-line-height: 1.55;
-  --aparte-thinking-toggle-size: 9px;
   --aparte-thinking-rail-width: 2px;
 
   /* Elicitation — the panel a tool's question is asked in.
@@ -691,7 +690,6 @@ aparte-chat {
      vertical half (#56) — a shorthand cannot be read by parts. */
   --aparte-message-padding-block: var(--aparte-space-8);
   --aparte-message-padding-inline: var(--aparte-space-6);
-  --aparte-message-padding: var(--aparte-message-padding-block) var(--aparte-message-padding-inline);
   --aparte-message-content-padding: var(--aparte-space-5) var(--aparte-space-7);
   --aparte-action-bar-gap: var(--aparte-space-2);
   --aparte-branch-picker-gap: var(--aparte-space-2);
@@ -967,6 +965,10 @@ aparte-chat {
   --aparte-code-header-bg: var(--aparte-surface-2);
   --aparte-code-border: var(--aparte-border);
   --aparte-code-header-text: var(--aparte-text-muted);
+  /* The block's own type. It used to inherit the prose's size and leading (16px on 1.7)
+     under the browser's generic monospace — the largest, airiest text in the message. */
+  --aparte-code-block-font-size: var(--aparte-font-size-md);
+  --aparte-code-block-line-height: var(--aparte-line-height-normal);
 
   /* Scroll-to-bottom button */
 

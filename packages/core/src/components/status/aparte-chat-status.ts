@@ -49,7 +49,8 @@ import { resolveConfig, runWithConfig } from '../../config/config-context.js';
  * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the label text and of the pulsing dot in the default line.
  * @cssprop [--aparte-status-font-size=var(--aparte-font-size-md)] - Size of the visible label (italic by default) in the default line.
  * @cssprop [--aparte-status-dot-size=6px] - Diameter of the single pulsing dot in the default line.
- * @cssprop [--aparte-message-padding=var(--aparte-message-padding-block) var(--aparte-message-padding-inline)] - Padding of the row, read because the container also carries `.aparte-message` — the status line borrows a bubble's row metrics so it lines up with the transcript.
+ * @cssprop [--aparte-message-padding-block=var(--aparte-space-8)] - Vertical padding of the row, read because the container also carries `.aparte-message` — the status line borrows a bubble's row metrics so it lines up with the transcript.
+ * @cssprop [--aparte-message-padding-inline=var(--aparte-space-6)] - Horizontal padding of the row, same reason.
  * @cssprop [--aparte-message-max-width=800px] - Width cap of that same row.
  *
  * @example

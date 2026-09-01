@@ -188,6 +188,13 @@
 .aparte-code-content-wrapper pre {
   margin: 0;
   padding: var(--aparte-space-6);
+  /* The code typeface, at a code size. This rule declared neither and the block fell
+     into the UA's generic `monospace` (Courier New on Windows) at the PROSE's size and
+     leading; only inline code read the family. On the wrapper's `pre`, whatever class
+     the highlighter puts on its replacement. */
+  font-family: var(--aparte-code-font-family);
+  font-size: var(--aparte-code-block-font-size);
+  line-height: var(--aparte-code-block-line-height);
   /* Wrap long lines instead of a horizontal scrollbar. `pre-wrap` honours
      newlines + indentation but soft-wraps overflowing lines; `overflow-wrap:
      anywhere` breaks unbreakable tokens (long URLs, hashes). Applies to both
