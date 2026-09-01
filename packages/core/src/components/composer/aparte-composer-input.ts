@@ -50,7 +50,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *          aligned.
  * @cssprop [--aparte-input-padding-y=var(--aparte-space-5)] - Vertical padding inside the editor.
  * @cssprop [--aparte-input-padding-x=var(--aparte-space-6)] - Horizontal padding inside the editor.
- * @cssprop [--aparte-input-font-size=var(--aparte-font-size-lg)] - Editor font size.
+ * @cssprop [--aparte-input-font-size=var(--aparte-font-size-base)] - Editor font size.
  * @cssprop [--aparte-input-line-height=var(--aparte-line-height-normal)] - Editor line height — also what the
  *          auto-expand measures, so changing it changes the height the editor settles at
  *          (until `max-height` clamps it).

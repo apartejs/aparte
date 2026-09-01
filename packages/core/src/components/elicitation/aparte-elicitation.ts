@@ -92,12 +92,12 @@ interface Pending {
  * @cssprop [--aparte-elic-padding=var(--aparte-space-3) var(--aparte-space-2)] - Padding inside the panel.
  * @cssprop [--aparte-elic-max-height=50vh] - Cap on the panel's height; its body scrolls, the panel does not.
  * @cssprop [--aparte-elic-field-gap=var(--aparte-space-4)] - Space and separator padding between two fields of an object schema.
- * @cssprop [--aparte-elic-message-size=var(--aparte-font-size-md)] - Font size of the question text at the top of the panel.
- * @cssprop [--aparte-elic-title-size=var(--aparte-font-size-md)] - Font size of a field's title.
+ * @cssprop [--aparte-elic-message-size=var(--aparte-font-size-base)] - Font size of the question text at the top of the panel.
+ * @cssprop [--aparte-elic-title-size=var(--aparte-font-size-base)] - Font size of a field's title.
  * @cssprop [--aparte-elic-desc-size=var(--aparte-font-size-sm)] - Font size of a field's description.
  * @cssprop [--aparte-elic-option-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of one enum/boolean option row.
  * @cssprop [--aparte-elic-option-radius=var(--aparte-radius-md)] - Corner radius of an option row.
- * @cssprop [--aparte-elic-option-title-size=var(--aparte-font-size-lg)] - Font size of an option's label, and of the text inputs.
+ * @cssprop [--aparte-elic-option-title-size=var(--aparte-font-size-md)] - Font size of an option's label, and of the text inputs.
  * @cssprop [--aparte-elic-option-desc-size=var(--aparte-font-size-sm)] - Font size of an option's secondary line.
  * @cssprop [--aparte-elic-control-size=15px] - Size of the radio/checkbox control in an option row.
  * @cssprop [--aparte-elic-input-radius=var(--aparte-radius-md)] - Corner radius of the text inputs and of the Skip button.

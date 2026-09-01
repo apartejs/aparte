@@ -136,7 +136,7 @@
 .aparte-field--lg {
   --aparte-field-size: var(--aparte-field-size-lg);
   padding: var(--aparte-field-padding-lg);
-  font-size: var(--aparte-font-size-lg);
+  font-size: var(--aparte-font-size-base);
 }
 
 /* ── Textarea ────────────────────────────────────────────────────────────────── */

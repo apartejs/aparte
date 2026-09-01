@@ -666,8 +666,14 @@ aparte-chat {
   --aparte-font-size-xs: calc(0.6875rem * var(--aparte-font-scale));
   --aparte-font-size-sm: calc(0.75rem * var(--aparte-font-scale));
   --aparte-font-size-md: calc(0.8125rem * var(--aparte-font-scale));
-  --aparte-font-size-lg: calc(0.875rem * var(--aparte-font-scale));
   --aparte-font-size-base: calc(0.9375rem * var(--aparte-font-scale));
+  /* Above the body, in the order the names say. `lg` used to be 0.875rem — SMALLER than
+     `base` — with nothing above it, so a title and a placeholder shared a size and a
+     card's title was smaller than its body. A scale whose name lies is worse than a
+     short one. */
+  --aparte-font-size-lg: calc(1.0625rem * var(--aparte-font-scale));
+  --aparte-font-size-xl: calc(1.25rem * var(--aparte-font-scale));
+  --aparte-font-size-2xl: calc(1.5rem * var(--aparte-font-scale));
 
   /* Elicitation and the conversation item, on the scale.
      They were literals off every step — 0.76 / 0.78 / 0.8 / 0.82rem and a `7px 10px`
@@ -712,10 +718,10 @@ aparte-chat {
   --aparte-elic-option-radius: var(--aparte-radius-md);
   --aparte-elic-input-radius: var(--aparte-radius-md);
   --aparte-tool-row-radius: var(--aparte-radius-md);
-  --aparte-name-font-size: var(--aparte-font-size-lg);
+  --aparte-name-font-size: var(--aparte-font-size-md);
   --aparte-timestamp-font-size: var(--aparte-font-size-sm);
   --aparte-branch-picker-label-size: var(--aparte-font-size-sm);
-  --aparte-input-font-size: var(--aparte-font-size-lg);
+  --aparte-input-font-size: var(--aparte-font-size-base);
   --aparte-content-font-size: var(--aparte-font-size-base);
   --aparte-input-editor-font-size: var(--aparte-font-size-base);
   --aparte-status-font-size: var(--aparte-font-size-md);
@@ -802,7 +808,7 @@ aparte-chat {
   --aparte-card-header-padding: var(--aparte-space-4) var(--aparte-space-5);
   --aparte-card-body-padding: var(--aparte-space-5);
   --aparte-card-footer-padding: var(--aparte-space-4) var(--aparte-space-5);
-  --aparte-card-header-font-size: var(--aparte-font-size-lg);
+  --aparte-card-header-font-size: var(--aparte-font-size-base);
 
   --aparte-divider-margin: var(--aparte-space-5);
   --aparte-divider-label-gap: var(--aparte-space-4);
@@ -876,10 +882,10 @@ aparte-chat {
      15px of text and the coarse-pointer block had nothing left to enlarge. */
   --aparte-composer-control-size: var(--aparte-btn-size-lg);
   --aparte-input-container-min-height: var(--aparte-touch-target-size);
-  --aparte-elic-message-size: var(--aparte-font-size-md);
-  --aparte-elic-title-size: var(--aparte-font-size-md);
+  --aparte-elic-message-size: var(--aparte-font-size-base);
+  --aparte-elic-title-size: var(--aparte-font-size-base);
   --aparte-elic-desc-size: var(--aparte-font-size-sm);
-  --aparte-elic-option-title-size: var(--aparte-font-size-lg);
+  --aparte-elic-option-title-size: var(--aparte-font-size-md);
   --aparte-elic-option-desc-size: var(--aparte-font-size-sm);
   --aparte-elic-skip-size: var(--aparte-font-size-md);
   --aparte-elic-step-size: var(--aparte-font-size-sm);

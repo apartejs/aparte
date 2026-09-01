@@ -193,7 +193,7 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
  * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.
  *
- * @cssprop [--aparte-name-font-size=var(--aparte-font-size-lg)] - Sender name in the header.
+ * @cssprop [--aparte-name-font-size=var(--aparte-font-size-md)] - Sender name in the header.
  * @cssprop [--aparte-name-color=var(--aparte-text)] - Sender name colour.
  * @cssprop [--aparte-timestamp-font-size=var(--aparte-font-size-sm)] - Timestamp in the header.
  * @cssprop [--aparte-timestamp-color=var(--aparte-text-muted)] - Timestamp colour.
