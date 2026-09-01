@@ -21,6 +21,11 @@ aparte-suggestions[data-empty] {
   flex-wrap: wrap;
   gap: var(--aparte-space-2);
   padding-block: var(--aparte-space-2);
+  /* The composer's column: past its 800px cap the chips no longer followed the composer,
+     188px of offset on a wide host. Same measure, same centring. */
+  box-sizing: border-box;
+  max-inline-size: var(--aparte-message-max-width);
+  margin-inline: auto;
 }
 
 /* A starter's label is a short phrase; it must not become a two-line chip. */

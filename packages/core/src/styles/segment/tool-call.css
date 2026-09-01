@@ -109,10 +109,12 @@ details[open] > .aparte-tool-summary .aparte-tool-toggle { transform: rotate(180
    Pushed to the far end by DOM order plus an auto inline-start margin, which is
    the placement rule this repo already settled on: no left/right in a name, so
    a right-to-left locale mirrors it for free. */
+/* Beside the tool's name, not at the row's far end: with `margin-inline-start: auto` the
+   state word drifted 63px from the name at 375 and 596px at 1280. The state belongs to
+   the label (T18). */
 .aparte-tool-state {
     display: inline-flex;
     vertical-align: middle; align-items: center; gap: var(--aparte-space-2);
-    margin-inline-start: auto;
     font-size: var(--aparte-font-size-sm); font-weight: var(--aparte-font-weight-medium);
     color: var(--aparte-text-muted);
     user-select: none;

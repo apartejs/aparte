@@ -62,6 +62,10 @@
    `.aparte-accordion__header` / `__item` / `__panel` and adds these two lines: a
    quieter face than a real accordion header, and the padding the left rail needs. */
 .aparte-thinking-header {
+  /* The chevron sits beside the label: the accordion recipe puts it at the row's far
+     end, which is what an accordion is, but this is a one-line disclosure, and "Reasoning"
+     and its chevron were 692px apart at 1280 (T18). */
+  justify-content: flex-start;
   padding: var(--aparte-space-1) 0 var(--aparte-space-1) var(--aparte-space-5);
   font-size: var(--aparte-font-size-sm);
   color: var(--aparte-thinking-text);

@@ -27,6 +27,9 @@ aparte-context[data-empty] {
 .aparte-context .aparte-progress {
   flex: 1;
   min-width: 4rem;
+  /* A gauge has a measure: unbounded, the bar stretched to 1046×4px across a toolbar,
+     88 % of its width for a line that says one number. */
+  max-inline-size: 16rem;
 }
 
 .aparte-context__text {
