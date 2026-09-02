@@ -1,5 +1,7 @@
 # @aparte/locale-fr
 
+## 0.16.9
+
 ## 0.16.8
 
 ### Patch Changes
