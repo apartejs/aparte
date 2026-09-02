@@ -523,6 +523,21 @@ export class AparteComposer extends HTMLElement {
     }
 
     private _teardownPanel(): void {
+        /*
+         * Read BEFORE the panel is removed. Removing the focused element drops the
+         * focus to `<body>`, after which "was the reader in here?" has no answer —
+         * the same reasoning `aparte-elicitation`'s `close()` already records for its
+         * own restoration.
+         *
+         * And it has to be asked at all: the teardown ended on an unconditional
+         * `this.focus()`, so every close pulled the caret into the composer's editor.
+         * A turn ending closes any open panel, and a turn ends because the model
+         * finished, not because the reader did anything — so a reader who had moved to
+         * another chat's field, a search box or a link was yanked back mid-keystroke.
+         * The panel may hand back the focus it took; it may not take focus it never had.
+         */
+        const active = document.activeElement;
+        const hadFocus = active instanceof Node && this.contains(active);
         const existing = this.querySelector('[data-aparte-panel]') as HTMLElement | null;
         if (existing) existing.remove();
         this.removeAttribute('data-panel-active');
@@ -534,7 +549,7 @@ export class AparteComposer extends HTMLElement {
         this._panelOnEvict = null;
         this._panelToken = null;
         this._emit('panel-change', { active: false, submitEnabled: false, mode: 'submit' });
-        this.focus();
+        if (hadFocus) this.focus();
     }
 
     /**
@@ -606,7 +621,14 @@ export class AparteComposer extends HTMLElement {
         const detail: AparteSendEventDetail = {
             content: value,
             timestamp: Date.now(),
-            targetId: this.targetId ?? undefined,
+            /*
+             * `_ownTargetId()`, not the bare attribute — the same resolution `cancel()`
+             * uses, and for the same reason. The wrappers all set `target`, so this is
+             * byte-identical there; in RAW core nothing writes it, so every send carried
+             * `targetId: undefined` and a page with two hand-written chats delivered the
+             * reply to whichever one the host resolved first.
+             */
+            targetId: this._ownTargetId(),
             files: this._attachments.length > 0 ? [...this._attachments] : undefined,
         };
 
