@@ -132,8 +132,13 @@ body:has(.aparte-dialog[open]) {
     max-width: 100%;
     /* As tall as its content, capped at the screen, sitting on the bottom edge: a sheet
        stretched to 100dvh held a label, a field and two buttons over 586px of nothing.
-       And the safe areas: the ✕ used to sit 6px from the physical top. */
-    height: auto;
+       `fit-content`, not `auto` — on a positioned box with both block insets set, an
+       auto height FILLS them (CSS 2 §10.6.4: the auto margins go to 0 and the height
+       is solved for), so `auto` measured the same 720 the explicit 100dvh had. What
+       the UA gives a dialog is `fit-content`, and it is what lets the auto top margin
+       push the sheet onto the bottom edge. And the safe areas: the ✕ used to sit 6px
+       from the physical top. */
+    height: fit-content;
     max-height: 100dvh;
     margin: auto 0 0;
     padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);

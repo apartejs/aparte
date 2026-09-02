@@ -42,7 +42,13 @@ describe('the modal dialog on a phone', () => {
     const phone = dialog.match(/@media \(max-width: 30rem\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
 
     it('is as tall as its content, capped at the viewport', () => {
-        expect(phone).not.toMatch(/(?:^|[^-])height:\s*100dvh/);
+        expect(phone).not.toMatch(/(?:^|[^-])height:\s*(?:100dvh|auto)/);
+        // `height: auto` is not "as tall as its content" here: a positioned box with both
+        // block insets set and an auto height FILLS them (CSS 2 §10.6.4, the auto margins
+        // go to 0) — the sheet measured 720 tall with a label, a field and two buttons in
+        // it. `fit-content` is what the UA gives a dialog, and what keeps the sheet its own
+        // size while `margin-block-start: auto` pushes it onto the bottom edge.
+        expect(phone).toMatch(/(?:^|[^-])height:\s*fit-content/);
         expect(phone).toMatch(/max-height:\s*100dvh/);
     });
 
