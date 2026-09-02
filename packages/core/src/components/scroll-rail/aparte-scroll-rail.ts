@@ -59,7 +59,14 @@ const EXCERPT_LENGTH = 60;
  *     <aparte-chat-bubble message-id="a3" data-role="assistant" name="Assistant" content="Light DOM, like everything else here. Its ticks are plain buttons in a list; scroll the transcript and watch the current one move."></aparte-chat-bubble>
  *   </aparte-chat-viewport>
  *   <aparte-scroll-rail></aparte-scroll-rail>
- *   <aparte-composer></aparte-composer>
+ *   <aparte-composer>
+ *     <div class="aparte-composer-shell">
+ *       <div class="aparte-composer-row">
+ *         <aparte-composer-input></aparte-composer-input>
+ *         <aparte-composer-send></aparte-composer-send>
+ *       </div>
+ *     </div>
+ *   </aparte-composer>
  * </aparte-chat>
  */
 export class AparteScrollRail extends HTMLElement {

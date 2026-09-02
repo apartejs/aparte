@@ -95,7 +95,10 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  * </div>
  * <aparte-split position="38" style="height: 22rem; --aparte-split-min: 16rem">
  *   <aparte-chat>
- *     <aparte-chat-viewport></aparte-chat-viewport>
+ *     <aparte-chat-viewport>
+ *       <aparte-chat-bubble message-id="u1" data-role="user" content="Show me the preview beside the chat."></aparte-chat-bubble>
+ *       <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="It is the pane on the right. Drag the seam to give it more room, or double-click the seam to reset."></aparte-chat-bubble>
+ *     </aparte-chat-viewport>
  *     <aparte-composer>
  *       <div class="aparte-composer-shell">
  *         <div class="aparte-composer-row">
@@ -106,7 +109,9 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  *     </aparte-composer>
  *   </aparte-chat>
  *   <section class="aparte-split__pane">
- *     <iframe title="Preview" style="inline-size: 100%; block-size: 100%; border: 0" srcdoc="<h1>Your pane</h1>"></iframe>
+ *     <!-- Your document, not ours: it brings its own colour scheme and typeface. -->
+ *     <iframe title="Preview" style="inline-size: 100%; block-size: 100%; border: 0"
+ *       srcdoc="<!doctype html><style>:root { color-scheme: light dark; font: 15px/1.5 system-ui, sans-serif; padding: 1rem 1.5rem } h1 { font-size: 1.25rem }</style><h1>Your pane</h1><p>A preview, a document, a map — anything that lives beside the conversation.</p>"></iframe>
  *   </section>
  * </aparte-split>
  * <script>

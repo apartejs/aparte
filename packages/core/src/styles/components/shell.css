@@ -29,7 +29,7 @@ aparte-chat,
   width: 100%;
   overflow: hidden;
   /* The height an author sets IS the box: with the bottom gap below outside it,
-     `style="height: 320px"` rendered 336px, and a split's seam hung 16px under both
+     `style="height: 24rem"` rendered 336px, and a split's seam hung 16px under both
      panels. */
   box-sizing: border-box;
   /* The composer used to touch the bottom edge as soon as a conversation started: the

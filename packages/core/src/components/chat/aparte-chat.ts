@@ -58,7 +58,7 @@ import { escapeAttr } from '../../utils/escape.js';
  * chat — two empty composers with 600px of nothing between them.
  *
  * ```html
- * <aparte-chat center-empty attachments style="height: 320px">
+ * <aparte-chat center-empty attachments style="height: 24rem">
  *   <aparte-chat-viewport></aparte-chat-viewport>
  *   <aparte-composer>
  *     <div class="aparte-composer-shell">
@@ -105,7 +105,7 @@ import { escapeAttr } from '../../utils/escape.js';
  *
  * @example
  * <!-- Left empty it fills in a viewport, an input and a send button. -->
- * <aparte-chat center-empty placeholder="Say something…" style="height: 320px"></aparte-chat>
+ * <aparte-chat center-empty placeholder="Say something…" style="height: 24rem"></aparte-chat>
  *
  * <script>
  *   // Seeded so the frame shows a real exchange rather than an empty box: this

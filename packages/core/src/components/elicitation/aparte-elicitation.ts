@@ -123,9 +123,11 @@ interface Pending {
  *   <aparte-chat-viewport></aparte-chat-viewport>
  *   <aparte-elicitation></aparte-elicitation>
  *   <aparte-composer>
- *     <div class="aparte-composer-row">
- *       <aparte-composer-input></aparte-composer-input>
- *       <aparte-composer-send></aparte-composer-send>
+ *     <div class="aparte-composer-shell">
+ *       <div class="aparte-composer-row">
+ *         <aparte-composer-input></aparte-composer-input>
+ *         <aparte-composer-send></aparte-composer-send>
+ *       </div>
  *     </div>
  *   </aparte-composer>
  * </aparte-chat>

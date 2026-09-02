@@ -13,7 +13,21 @@
              Shipping
              <aparte-icon name="expand"></aparte-icon>
            </summary>
-           <div class="aparte-accordion__panel">Free above 50 €.</div>
+           <div class="aparte-accordion__panel">Free above 50 €, otherwise 4,90 €. Two to four working days.</div>
+         </details>
+         <details class="aparte-accordion__item">
+           <summary class="aparte-accordion__header">
+             Returns
+             <aparte-icon name="expand"></aparte-icon>
+           </summary>
+           <div class="aparte-accordion__panel">Thirty days, in the original packaging.</div>
+         </details>
+         <details class="aparte-accordion__item">
+           <summary class="aparte-accordion__header">
+             Payment
+             <aparte-icon name="expand"></aparte-icon>
+           </summary>
+           <div class="aparte-accordion__panel">Card, PayPal, or an invoice for a company account.</div>
          </details>
        </div>
 

@@ -115,7 +115,7 @@ import {
  * <!-- On its own, outside `<aparte-chat>`. Give it a height: it fills what it is given
  *      and owns the scrolling inside that box, so a viewport in an auto-height parent
  *      grows forever instead of scrolling. Messages are pushed in — it fetches nothing. -->
- * <aparte-chat-viewport style="height: 320px"></aparte-chat-viewport>
+ * <aparte-chat-viewport style="height: 24rem"></aparte-chat-viewport>
  *
  * <script>
  *   const viewport = document.querySelector('aparte-chat-viewport');

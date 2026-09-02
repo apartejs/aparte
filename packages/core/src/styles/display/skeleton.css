@@ -13,10 +13,15 @@
          <div>
            <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
            <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
-           <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
+           <span class="aparte-skeleton aparte-skeleton--text" style="max-inline-size: 60%" aria-hidden="true"></span>
          </div>
-         <span class="aparte-skeleton aparte-skeleton--rect" style="grid-column: 1 / -1; block-size: 64px" aria-hidden="true"></span>
+         <span class="aparte-skeleton aparte-skeleton--rect" style="grid-column: 2" aria-hidden="true"></span>
        </div>
+
+   The last line is shorter because the last line of a paragraph is, and the block sits
+   in the text column, under the lines it stands for — not across the avatar's. The
+   rect's height is the family's token (`--aparte-skeleton-rect-height`), not an inline
+   value that contradicts it.
    */
 
 .aparte-skeleton {

@@ -97,7 +97,7 @@ describe('relabel reaches a rendered segment', () => {
         } as AparteToolCallSegment]);
         expect(el.querySelector('.tool-approve-btn'), 'no decision control in the transcript').toBeNull();
         const waiting = el.querySelector('.aparte-tool-state')!;
-        expect(waiting.textContent).toBe('waiting for you');
+        expect(waiting.textContent).toBe('Waiting');
 
         aparteGlobalConfig.setLocale(FR());
 
