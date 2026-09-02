@@ -132,3 +132,65 @@ describe('the open drawer keeps the keyboard', () => {
         expect(key(last, 'Tab')).toBe(true);
     });
 });
+
+/**
+ * The drawer's own search filter hides rows (`hidden`), and a hidden row's buttons hold
+ * no tab stop. A trap that compared DOM-last rather than REACHABLE-last therefore never
+ * fired at the real end of the drawer, and Tab walked out under the scrim — the exact
+ * failure the trap exists to prevent, reachable by typing in the field the drawer ships.
+ */
+function mountFilterablePage(): { toggle: HTMLButtonElement; sidebar: AparteSidebar } {
+    document.body.innerHTML = `
+        <button type="button" data-aparte-sidebar-toggle>☰</button>
+        <aparte-sidebar>
+            <button type="button" id="first">New chat</button>
+            <input id="search" data-aparte-sidebar-search />
+            <aparte-conversation-list>
+                <div class="aparte-conv-group">
+                    <div data-conv-id="a">
+                        <span class="aparte-conv-item__title">alpha</span>
+                        <button type="button" id="menu-a">⋯</button>
+                    </div>
+                    <div data-conv-id="b">
+                        <span class="aparte-conv-item__title">beta</span>
+                        <button type="button" id="menu-b">⋯</button>
+                    </div>
+                </div>
+            </aparte-conversation-list>
+        </aparte-sidebar>
+        <button type="button" id="outside">Send</button>`;
+    return {
+        toggle: document.querySelector('[data-aparte-sidebar-toggle]') as HTMLButtonElement,
+        sidebar: document.querySelector('aparte-sidebar') as AparteSidebar,
+    };
+}
+
+describe('a filtered-out row keeps no tab stop', () => {
+    it('Tab wraps from the last VISIBLE control, not from a hidden row buried below it', () => {
+        const { toggle, sidebar } = mountFilterablePage();
+        narrow(true);
+        toggle.click();
+        expect(sidebar.collapsed).toBe(false);
+
+        const search = sidebar.querySelector<HTMLInputElement>('#search')!;
+        search.value = 'alpha';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(sidebar.querySelector<HTMLElement>('[data-conv-id="b"]')!.hidden).toBe(true);
+
+        const first = sidebar.querySelector<HTMLElement>('#first')!;
+        const lastVisible = sidebar.querySelector<HTMLElement>('#menu-a')!;
+        lastVisible.focus();
+        const notPrevented = key(lastVisible, 'Tab');
+        expect(notPrevented, 'Tab at the last reachable control must be handled').toBe(false);
+        expect(document.activeElement).toBe(first);
+    });
+
+    it('opening focuses the first control a reader can reach, not an invisible one', () => {
+        const { toggle, sidebar } = mountFilterablePage();
+        sidebar.querySelector<HTMLElement>('#first')!.hidden = true;
+        narrow(true);
+        toggle.click();
+
+        expect(document.activeElement).toBe(sidebar.querySelector('#search'));
+    });
+});

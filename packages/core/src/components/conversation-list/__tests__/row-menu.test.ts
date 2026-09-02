@@ -232,6 +232,54 @@ describe('aparte-conversation-list — the row menu', () => {
             key(input, 'Enter');
             expect(selected).toEqual([]);
         });
+
+        // The rename ends by re-rendering the list, so the field the reader was in stops
+        // existing. Enter and Escape put the row back under the keyboard; the third exit
+        // — Tab, or a click somewhere else — dropped it on `<body>`, and the next Tab
+        // restarted at the top of the page.
+        const startRename = (el: ListEl, id: string): HTMLInputElement => {
+            openMenu(el, id);
+            choose(el, 'rename');
+            return el.querySelector<HTMLInputElement>('input')!;
+        };
+        const blurTo = (input: HTMLInputElement, relatedTarget: Element | null): void => {
+            input.dispatchEvent(new FocusEvent('blur', { relatedTarget, bubbles: false }));
+        };
+
+        it('leaving the field for somewhere in the list puts the row back under the keyboard', () => {
+            const el = mount([{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }]);
+            const input = startRename(el, 'c1');
+            input.value = 'Renamed';
+            blurTo(input, rowOf(el, 'c2'));
+
+            expect(document.activeElement).toBe(rowOf(el, 'c1').querySelector('.aparte-conv-item__select'));
+        });
+
+        it('keeps the row focused when the host re-assigns conversations on the rename event', () => {
+            const el = mount([{ id: 'c1', title: 'One' }]);
+            el.addEventListener('aparte-rename-conversation', (e) => {
+                const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
+                el.conversations = [{ id, title }];
+            });
+            const input = startRename(el, 'c1');
+            input.value = 'Two';
+            key(input, 'Enter');
+
+            expect(rowOf(el, 'c1').textContent).toContain('Two');
+            expect(document.activeElement).toBe(rowOf(el, 'c1').querySelector('.aparte-conv-item__select'));
+        });
+
+        it('does not pull the focus back when it went to a live control outside the list', () => {
+            const outside = document.createElement('button');
+            document.body.appendChild(outside);
+            const el = mount([{ id: 'c1', title: 'One' }]);
+            const input = startRename(el, 'c1');
+            input.value = 'Two';
+            outside.focus();
+            blurTo(input, outside);
+
+            expect(document.activeElement).toBe(outside);
+        });
     });
 
     it('the ⋯ button is named by the locale and its glyph comes from the icon provider', () => {

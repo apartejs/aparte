@@ -74,10 +74,51 @@ describe('the scrim', () => {
 });
 
 describe('the scroll rail', () => {
-    it('is as wide as its widest tick', () => {
-        expect(theme).toMatch(/--aparte-scroll-rail-width:\s*calc\(var\(--aparte-scroll-rail-tick-size\)\s*\*\s*1\.6\)/);
+    // …and never under one tick's pressable zone, which the rail would otherwise clip
+    // (see rail-ticks-are-targets).
+    it('is as wide as its widest tick, and never under the target floor', () => {
+        expect(theme).toMatch(
+            /--aparte-scroll-rail-width:\s*max\(var\(--aparte-scroll-rail-hit-size\),\s*calc\(var\(--aparte-scroll-rail-tick-size\)\s*\*\s*1\.6\)\)/,
+        );
     });
     it('rests its ticks in the control-edge colour', () => {
         expect(rule(read('components/scroll-rail.css'), '.aparte-scroll-rail__tick')).toMatch(/background:\s*var\(--aparte-border-control\)/);
+    });
+
+    /*
+     * The rail is `position: absolute`, so it lands wherever the nearest positioned
+     * ancestor is. The recipe hands the host that containing block through `:has()`,
+     * and it listed only two of the THREE shells the same package already recognises:
+     * the Angular wrapper's host IS `<aparte-chat>` but its shell is the inner
+     * `.aparte-chat-container`, which is the element the rail is a child of. Missing
+     * from the list, the rail escaped to whatever ancestor happened to be positioned —
+     * the page, in the ordinary case.
+     */
+    it('gets a containing block from every chat shell shape', () => {
+        const css = read('components/scroll-rail.css');
+        const block = css.match(/([^{}]+)\{[^{}]*position:\s*relative[^{}]*\}/)?.[1] ?? '';
+        const selectors = block.split(',').map((s) => s.trim());
+        expect(selectors).toContain('aparte-chat:has(> aparte-scroll-rail)');
+        expect(selectors).toContain('[data-aparte-chat]:has(> aparte-scroll-rail)');
+        expect(selectors).toContain('.aparte-chat-container:has(> aparte-scroll-rail)');
+    });
+
+    /*
+     * …and in overlay mode the bottom stack rule took it back: `> :not(aparte-chat-viewport)`
+     * matches the rail too, and `position: relative` out-specifies the recipe's
+     * `absolute`, so the floating rail dropped into the flow under the composer.
+     */
+    it('is not pulled back into the flow by the overlay bottom stack', () => {
+        const shell = read('components/shell.css');
+        const stack = [...shell.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((m) =>
+            m[1].includes(':not(aparte-chat-viewport') && /z-index:\s*var\(--aparte-z-raised\)/.test(m[2]),
+        );
+        expect(stack, 'the overlay bottom-stack rule').toBeTruthy();
+        // Split on the commas BETWEEN selectors, not the one inside `:not(…)`.
+        const selectors = stack![1].split(/,(?![^(]*\))/).map((s) => s.trim()).filter(Boolean);
+        expect(selectors).toHaveLength(3);
+        for (const selector of selectors) {
+            expect(selector).toContain(':not(aparte-chat-viewport, aparte-scroll-rail)');
+        }
     });
 });

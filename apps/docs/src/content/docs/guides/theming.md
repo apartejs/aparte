@@ -86,7 +86,7 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **245 of core’s variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **246 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
 `--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
 places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
@@ -207,13 +207,14 @@ Variables are grouped by region. The most-reached-for ones:
 `--aparte-border`, and the status colours `--aparte-info` / `-success` / `-warning` /
 `-error`.
 
-**Message** — `--aparte-message-gap`, `--aparte-message-padding`,
-`--aparte-message-max-width`, and the message surface:
+**Message** — `--aparte-message-gap`, `--aparte-message-padding-block` /
+`-inline`, `--aparte-message-max-width`, and the message surface:
 `--aparte-message-content-bg-user` / `-assistant`,
 `--aparte-message-content-text-user` / `-assistant`,
 `--aparte-message-content-padding`, `--aparte-message-content-radius`.
 
-**Avatar** — `--aparte-avatar-size`, `--aparte-avatar-radius`,
+**Avatar** — `--aparte-avatar-size`, `--aparte-avatar-radius-ratio` (a *fraction* of
+`--aparte-avatar-size`, not a length: `0.28` is the default, `0.5` is a circle),
 `--aparte-avatar-bg-user` / `-assistant`, `--aparte-avatar-image-user` / `-assistant`.
 
 **Action bar** — `--aparte-action-bar-btn-size`, `--aparte-action-bar-btn-color`,
@@ -291,6 +292,7 @@ for a glyph, and a stopped one a stop square.
 
 ### Check that every token you read exists
 
+<!-- undeclared-on-purpose: the sentence below is ABOUT a name core does not declare. -->
 A `var(--aparte-text-primary)` that names a token this library does not declare fails in
 **silence**: the declaration is invalid at computed-value time, the property is inherited,
 and the page looks almost right. A consumer read one such token in ten places for months,

@@ -364,12 +364,29 @@ function buildEnumField(
 
     const controls = () => Array.from(list.querySelectorAll<HTMLInputElement>('.aparte-elic-control'));
     const other = () => list.querySelector<HTMLInputElement>('input[value="__other__"]');
+    /*
+     * Arrow keys SELECT as they move inside a radiogroup, so a `change` from one is
+     * not consent: focusing the free-text field on it carries a keyboard reader out
+     * of the group with no activation — WCAG SC 3.2.2 and its F36 failure, the very
+     * thing this file refuses a hundred lines above when it makes one choice one
+     * button. The field still opens; only the focus waits for a real activation.
+     *
+     * A keydown flag rather than a `click` listener, because the source is the only
+     * truthful discriminator: Firefox has dispatched `click` on arrow-key radio
+     * selection. A click clears the flag before its own `change` (activation fires
+     * `change` after the click event), so an arrow pressed earlier cannot disarm a
+     * later click.
+     */
+    let arrowed = false;
+    list.addEventListener('keydown', (e) => { arrowed = (e as KeyboardEvent).key.startsWith('Arrow'); });
+    list.addEventListener('click', () => { arrowed = false; });
     list.addEventListener('change', () => {
         const o = other();
         if (o && otherText) {
             otherText.style.display = o.checked ? '' : 'none';
-            if (o.checked) otherText.focus();
+            if (o.checked && !arrowed) otherText.focus();
         }
+        arrowed = false;
         onChange();
     });
     otherText?.addEventListener('input', onChange);

@@ -29,7 +29,16 @@ import { resolveConfig, runWithConfig } from '../../config/config-context.js';
  *
  * A `text` attribute renders the visible label and feeds the accessible name; with no
  * `text` the line is dots-only and the name falls back to the literal `Typing` — this
- * element does not read the locale. Hiding happens twice over: the host element is
+ * element does not read the locale. The container is a polite live region, and a live
+ * region announces its CONTENT, not its `aria-label`: so the word also goes INTO the
+ * region, in the visible span when `text` is set and in a screen-reader-only span when
+ * it is not. Exactly one of the two is ever populated — both would be read twice. That
+ * fallback word is driven by `visible`, not written once at render: a live region is
+ * announced when its content CHANGES while it is exposed, and every wrapper mounts this
+ * element hidden and flips the attribute — so a word written at render time is a word
+ * the region already held when it appeared, the reveal-from-`display: none` path, which
+ * is the one screen readers are documented not to announce reliably.
+ * Hiding happens twice over: the host element is
  * `display: none` without `[visible]`, and `data-visible` drives the fade/translate on
  * the container.
  *
@@ -38,8 +47,9 @@ import { resolveConfig, runWithConfig } from '../../config/config-context.js';
  * re-renders on `aparte-config-change`, filtered to its own config.
  *
  * The two borrowed row variables below have one scope caveat: inside a viewport
- * narrower than 520px core REASSIGNS `--aparte-message-padding` on `.aparte-message`
- * itself, so a declaration on this host element loses to it there.
+ * narrower than 520px core REASSIGNS `--aparte-message-padding-block` and
+ * `--aparte-message-padding-inline` on `.aparte-message` itself, so a declaration on
+ * this host element loses to them there.
  *
  * @element aparte-chat-status
  * @attr {boolean} visible - Shows or hides the indicator.
@@ -186,6 +196,7 @@ export class AparteChatStatus extends HTMLElement {
               <span class="aparte-dot"></span>
             </div>
             <span class="aparte-status-text"></span>
+            <span class="aparte-sr-only aparte-status-sr"></span>
           </div>
         </div>
       </div>
@@ -194,12 +205,50 @@ export class AparteChatStatus extends HTMLElement {
     // rather than interpolating it into the innerHTML template — a `"` in the
     // attribute would otherwise break out and inject arbitrary attributes.
     this.querySelector('.aparte-status-container')?.setAttribute('aria-label', text);
-    // Visible text only when explicitly requested — the default stays dots-only
-    // (the aria-label above always carries the accessible name).
-    if (this.hasAttribute('text')) {
-      const textEl = this.querySelector('.aparte-status-text');
-      if (textEl) textEl.textContent = text;
-    }
+    this._writeText(this.getAttribute('text'));
+  }
+
+  /**
+   * The one writer for both text nodes, so exactly ONE of them is ever populated.
+   *
+   * The container is a polite live region, and a live region announces its CONTENT.
+   * The dots-only default had none — an `aria-hidden` dot and an empty span — so the
+   * whole state rode on `aria-label`, which names the region rather than reporting it,
+   * and nothing was announced. The screen-reader span carries the fallback word in that
+   * case; when `text` is set the visible span already carries the same string, and
+   * populating both would have the region read it twice.
+   */
+  private _writeText(text: string | null): void {
+    // `text=""` is the dots-only default too — and it is the reading the post-mount
+    // path already took, where mounting with an empty attribute used to print the
+    // literal `Typing` on screen. One writer, one answer.
+    const line = text || null;
+    const textEl = this.querySelector('.aparte-status-text');
+    if (textEl) textEl.textContent = line ?? '';
+    this._syncLiveWord();
+  }
+
+  /**
+   * The fallback word enters and leaves the live region WITH the element's visibility.
+   *
+   * Writing it at render time put it in the region while the host was still
+   * `display: none` — every wrapper mounts `<aparte-chat-status>` once and flips
+   * `visible` — so by the time the region was exposed its content had not changed, and
+   * on the second and third turn there was not even a reveal to notice: the text was
+   * byte-identical to what was already sitting there. Revealing a region that already
+   * holds its text is the path assistive tech is documented not to announce reliably;
+   * mutating one that is already exposed is the path that works. So the word is written
+   * when `visible` arrives and cleared when it leaves, which makes every turn a real
+   * change.
+   *
+   * With `text` set the visible span is the region's content and the screen-reader span
+   * stays empty — one copy, read once.
+   */
+  private _syncLiveWord(): void {
+    const srEl = this.querySelector('.aparte-status-sr');
+    if (!srEl) return;
+    const dotsOnly = !this.getAttribute('text');
+    srEl.textContent = dotsOnly && this.hasAttribute('visible') ? 'Typing' : '';
   }
 
   private _updateVisibility(visible: boolean): void {
@@ -207,15 +256,16 @@ export class AparteChatStatus extends HTMLElement {
     if (container) {
       container.setAttribute('data-visible', String(visible));
     }
+    // The word is the news, and news is only heard while the region is on screen.
+    this._syncLiveWord();
   }
 
   private _updateText(text: string | null): void {
-    const textEl = this.querySelector('.aparte-status-text');
     const container = this.querySelector('.aparte-status-container');
     if (!container) return; // not rendered yet — _render() reads the attribute
-    // Removing the attribute restores the dots-only default (empty visible
-    // text); the aria-label always keeps an accessible name.
-    if (textEl) textEl.textContent = text ?? '';
+    // Removing the attribute restores the dots-only default (no visible text, the
+    // fallback word in the live region); the aria-label always keeps an accessible name.
+    this._writeText(text);
     container.setAttribute('aria-label', text || 'Typing');
   }
 }

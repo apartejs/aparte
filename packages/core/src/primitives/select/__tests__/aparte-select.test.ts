@@ -421,3 +421,110 @@ describe('AparteSelect — the width stack follows the options', () => {
         expect(Array.from(el.querySelectorAll('.aparte-select-label-sizer > span'))).toEqual(spans);
     });
 });
+
+// ─── a searchable select: the combobox is the element that has focus ─────────
+//
+// `searchable` moves DOM focus into the filter field the moment the dropdown
+// opens, but the combobox role, `aria-controls` and the roving
+// `aria-activedescendant` all stayed on the trigger — an unfocused element. A
+// screen reader follows the focused node, so the arrow-key highlight was
+// announced to nobody, and the page carried two comboboxes for one control.
+describe('AparteSelect — a searchable select puts the combobox on the focused field', () => {
+    function mountSearchableWith(values: string[]): AparteSelect {
+        const el = document.createElement('aparte-select') as AparteSelect;
+        el.setAttribute('placeholder', 'Pick');
+        el.setAttribute('searchable', '');
+        for (const v of values) {
+            const opt = document.createElement('aparte-option');
+            opt.setAttribute('value', v);
+            opt.textContent = v;
+            el.appendChild(opt);
+        }
+        document.body.appendChild(el);
+        mounted.push(el);
+        return el;
+    }
+
+    it('declares exactly one combobox, and it is the filter field', () => {
+        const el = mountSearchableWith(['one', 'two']);
+        const search = el.querySelector<HTMLInputElement>('.aparte-select-search')!;
+        const list = el.querySelector('.aparte-select-options')!;
+
+        expect(el.querySelectorAll('[role="combobox"]')).toHaveLength(1);
+        expect(search.getAttribute('role')).toBe('combobox');
+        expect(search.getAttribute('aria-controls')).toBe(list.id);
+        expect(search.getAttribute('aria-haspopup')).toBe('listbox');
+        expect(search.getAttribute('aria-autocomplete')).toBe('list');
+        expect(search.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('announces the arrow-key highlight on the field that holds focus', () => {
+        const el = mountSearchableWith(['one', 'two', 'three']);
+        openViaTrigger(el);
+        const search = el.querySelector<HTMLInputElement>('.aparte-select-search')!;
+        expect(document.activeElement, 'opening focuses the filter field').toBe(search);
+        expect(search.getAttribute('aria-expanded')).toBe('true');
+
+        key('ArrowDown');
+
+        const active = el.querySelector('aparte-option[data-active]')!;
+        expect(active.getAttribute('value')).toBe('two');
+        expect(search.getAttribute('aria-activedescendant')).toBe(active.id);
+        expect(
+            el.querySelector('.aparte-select-trigger')!.hasAttribute('aria-activedescendant'),
+            'the unfocused trigger must not carry the highlight',
+        ).toBe(false);
+    });
+
+    it('clears the announcement on close', () => {
+        const el = mountSearchableWith(['one', 'two']);
+        openViaTrigger(el);
+        key('ArrowDown');
+        key('Escape');
+        const search = el.querySelector<HTMLInputElement>('.aparte-select-search')!;
+        expect(search.hasAttribute('aria-activedescendant')).toBe(false);
+        expect(search.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    /**
+     * A `combobox` is named by `aria-label` and VALUED by its visible label span, so a
+     * reader heard "Pick, combobox, two". A `button` is named by its CONTENT — and an
+     * author `aria-label` overrides that content, so the same attribute on the
+     * searchable trigger announced "Pick, button" and never said which option was
+     * selected. Every example in this repo mounts the model selector with `searchable`,
+     * so that is the shipped shape.
+     */
+    it('announces the selected option, not only what the control is', () => {
+        const el = mountSearchableWith(['one', 'two']);
+        const trig = el.querySelector('.aparte-select-trigger')!;
+        expect(trig.getAttribute('aria-label'), 'nothing selected: the control alone').toBe('Pick');
+
+        el.value = 'two';
+
+        expect(trig.getAttribute('aria-label')).toBe('Pick: two');
+        expect(
+            el.querySelector('.aparte-select-options')!.getAttribute('aria-label'),
+            'the listbox is named by the control, and holds no value',
+        ).toBe('Pick');
+    });
+
+    it('follows a selection made by clicking an option', () => {
+        const el = mountSearchableWith(['one', 'two']);
+        openViaTrigger(el);
+        el.querySelectorAll('aparte-option')[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(el.querySelector('.aparte-select-trigger')!.getAttribute('aria-label')).toBe('Pick: two');
+    });
+
+    it('keeps the host aria-label as the control half of the name', () => {
+        const el = mountSearchableWith(['one', 'two']);
+        el.setAttribute('aria-label', 'Model');
+        el.value = 'one';
+        expect(el.querySelector('.aparte-select-trigger')!.getAttribute('aria-label')).toBe('Model: one');
+    });
+
+    it('leaves the combobox on the trigger when there is no filter field', () => {
+        const el = mountSelect([{ value: 'one' }]);
+        expect(el.querySelector('.aparte-select-trigger')!.getAttribute('role')).toBe('combobox');
+        expect(el.querySelectorAll('[role="combobox"]')).toHaveLength(1);
+    });
+});

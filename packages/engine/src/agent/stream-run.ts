@@ -581,6 +581,23 @@ async function invokeToolHandler(
     signal.addEventListener('abort', onParentAbort, { once: true });
 
     /*
+     * The parent abort is RACED for the same reason the timeout is.
+     *
+     * `onParentAbort` above only forwards the Stop to the child controller, and a
+     * deaf handler ignores that exactly as it ignores the timeout's. So a Stop
+     * pressed during a tool call unwound nothing: the loop stayed parked on the
+     * handler until `toolTimeoutMs` expired — five minutes by default — with the
+     * typing indicator still up and the stop button already pressed. The signal is
+     * still fired first, so a handler that honours it gets to reject on its own
+     * terms; this racer is what makes the Stop true when it does not.
+     */
+    let onParentAbortRace: (() => void) | undefined;
+    const parentAborted = new Promise<{ status: 'aborted' }>((resolve) => {
+        onParentAbortRace = () => resolve({ status: 'aborted' });
+        signal.addEventListener('abort', onParentAbortRace, { once: true });
+    });
+
+    /*
      * RACED, not just signalled.
      *
      * Aborting the controller is a request the handler is free to ignore, and the
@@ -605,6 +622,7 @@ async function invokeToolHandler(
         const result = await Promise.race([
             handler(call, controller.signal).then((r) => ({ status: 'resolved' as const, content: r.content, structuredContent: r.structuredContent })),
             timedOut,
+            parentAborted,
         ]);
         return result;
     } catch (err: unknown) {
@@ -617,6 +635,7 @@ async function invokeToolHandler(
     } finally {
         clearTimeout(timeout);
         signal.removeEventListener('abort', onParentAbort);
+        if (onParentAbortRace) signal.removeEventListener('abort', onParentAbortRace);
     }
 }
 

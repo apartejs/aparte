@@ -76,6 +76,18 @@ const CONTRACTS = [
         allowed: ['@aparte/core', 'shiki', './core.js'],
         why: 'the batteries-included entry: pulling shiki is the point',
     },
+    {
+        file: 'packages/providers/ai/transformers/dist/worker.js',
+        bareOnly: true,
+        allowed: ['@huggingface/transformers'],
+        why: 'the worker is COPIED, not imported: a consumer\'s bundler processes it as a module '
+            + 'reached from `new Worker(new URL(\'./worker.js\', import.meta.url))`, and whatever it cannot '
+            + 'resolve inside there fails at model-load time in the browser, not at build time. It used '
+            + 'to be emitted by Vite\'s worker plugin as a hashed chunk beside two more hashed runner '
+            + 'chunks, so this contract could not even name the file. `@huggingface/transformers` is the '
+            + 'one bare specifier allowed, because it is the peer the consumer installed; the runners are '
+            + 'relative on purpose, so they follow the worker to whatever origin serves it',
+    },
 ];
 
 /** Bare + relative specifiers a built ESM file imports or re-exports. */

@@ -4,6 +4,26 @@ import { render, cleanup, act } from '@testing-library/react';
 import { AparteChat } from '../components/AparteChat';
 import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
+import { AparteConversationManager } from '@aparte/core';
+import type { AparteConversation, AparteStorageAdapter } from '@aparte/core';
+
+/**
+ * The smallest thing the conversation lifecycle needs: somewhere to put a
+ * conversation. Without a manager on the resolved config the controller runs in
+ * degraded mode — the optimistic user bubble still appears and NOTHING is created —
+ * so `onConversationCreated` can only be asserted with one registered.
+ */
+async function memoryManager(): Promise<AparteConversationManager> {
+    const store = new Map<string, AparteConversation>();
+    const adapter: AparteStorageAdapter = {
+        async loadAll() { return [...store.values()]; },
+        async save(c) { store.set(c.id, c); },
+        async delete(id) { store.delete(id); },
+    };
+    const manager = new AparteConversationManager(adapter);
+    await manager.init();
+    return manager;
+}
 
 // Ensure components are registered
 registerAllComponents();
@@ -409,5 +429,73 @@ describe('AparteChat React Wrapper', () => {
         expect(host).not.toBeNull();
         // Regression guard: crypto.randomUUID() at render caused hydration mismatch.
         expect(host!.id).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    });
+
+    // ── The three callbacks nothing asserted ─────────────────────────────
+    //
+    // `messageAppended` and `conversationCreated` were asserted by no test on any of
+    // the four wrappers, and `messagesChange` only inside one Angular streaming
+    // scenario. The parity guard proves each is declared and dispatched; only a test
+    // proves the payload that arrives is the one the JSDoc promises.
+
+    it('calls onMessageAppended with the appended message, and not onMessagesChange', async () => {
+        const onMessagesChange = vi.fn();
+        const onMessageAppended = vi.fn();
+        const ref = React.createRef<AparteChatImperativeApi>();
+        render(
+            <AparteChat
+                ref={ref}
+                onMessagesChange={onMessagesChange}
+                onMessageAppended={onMessageAppended}
+            />,
+        );
+
+        await act(async () => {
+            ref.current?.appendMessage({ id: 'u1', role: 'user', content: 'hello', timestamp: 1 });
+        });
+
+        expect(onMessageAppended).toHaveBeenCalledTimes(1);
+        expect(onMessageAppended.mock.calls[0][0]).toMatchObject({ id: 'u1', content: 'hello' });
+        // The silence is the contract, not an oversight: echoing the local list back
+        // on an append would overwrite a controlled parent's authoritative one and
+        // drop the message it pushed in the same tick. `onMessageAppended` is the
+        // append-specific signal instead.
+        expect(onMessagesChange).not.toHaveBeenCalled();
+    });
+
+    it('calls onMessagesChange with the whole path when a message is updated', async () => {
+        const onMessagesChange = vi.fn();
+        const ref = React.createRef<AparteChatImperativeApi>();
+        render(<AparteChat ref={ref} onMessagesChange={onMessagesChange} />);
+
+        await act(async () => {
+            ref.current?.appendMessage({ id: 'u1', role: 'user', content: 'draft', timestamp: 1 });
+            ref.current?.updateMessage('u1', { content: 'edited' });
+        });
+
+        expect(onMessagesChange).toHaveBeenCalledTimes(1);
+        const last = onMessagesChange.mock.calls.at(-1)![0] as AparteMessage[];
+        expect(last.map((m) => m.id)).toEqual(['u1']);
+        expect(last[0]!.content).toBe('edited');
+    });
+
+    it('calls onConversationCreated on the first send once a manager is registered', async () => {
+        const cfg = new AparteConfig();
+        cfg.setConversationManager(await memoryManager());
+        const onConversationCreated = vi.fn();
+        const { container } = render(
+            <AparteChat messages={[]} config={cfg} onConversationCreated={onConversationCreated} />,
+        );
+
+        container.querySelector('aparte-composer')!.dispatchEvent(
+            new CustomEvent('aparte-send', {
+                detail: { content: 'first message' },
+                bubbles: true, composed: true,
+            }),
+        );
+
+        // Creation is async (the adapter is): wait for the callback, not for a delay.
+        await vi.waitFor(() => expect(onConversationCreated).toHaveBeenCalledTimes(1));
+        expect(typeof onConversationCreated.mock.calls[0][0]).toBe('string');
     });
 });

@@ -25,6 +25,11 @@ export interface AparteUiProps {
      * interactive aparté surface (`APARTE_DEFAULT_UI_EVENTS` from `@aparte/core`).
      */
     events?: string[];
+    /**
+     * Called with the element's own CustomEvent for every forwarded event, alongside
+     * the `elementEvent` component event — the callback-prop route Svelte 5 recommends.
+     */
+    onelementEvent?: (event: CustomEvent) => void;
 }
 
 /**

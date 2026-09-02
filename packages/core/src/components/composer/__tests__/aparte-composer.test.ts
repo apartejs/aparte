@@ -244,6 +244,32 @@ describe('aparte-composer — a composer with no target attribute finds its chat
         expect(a.streaming).toBe(true);
     });
 
+    /*
+     * The SEND side, which lagged the receive side.
+     *
+     * `submit()` stamped the bare `target` attribute, and raw core never writes one —
+     * so on a page with two hand-written chats every `aparte-send` carried
+     * `targetId: undefined` and the answer landed in whichever chat the host resolved
+     * first. `cancel()` already resolves through `_ownTargetId()`; both outbound paths
+     * must agree, which is the invariant `cancel()`'s own docblock states.
+     */
+    it('stamps the id of the chat it sits in on the send it dispatches', () => {
+        chatWith('chat-a');
+        const b = chatWith('chat-b');
+
+        const seen: (string | undefined)[] = [];
+        const listener = (e: Event): void => { seen.push((e as CustomEvent).detail.targetId); };
+        document.addEventListener('aparte-send', listener);
+        try {
+            b.setValue('hi');
+            b.submit();
+        } finally {
+            document.removeEventListener('aparte-send', listener);
+        }
+
+        expect(seen, 'the reply has to know which chat asked').toEqual(['chat-b']);
+    });
+
     it('a composer outside any chat host stays a broadcast listener', () => {
         // Nothing identifies it, so it must keep accepting everything rather than
         // going deaf — the single-chat page that never sets a target id at all.

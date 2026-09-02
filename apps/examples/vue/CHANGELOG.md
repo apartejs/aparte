@@ -1,5 +1,41 @@
 # @aparte-workspace/playground-vue
 
+## 0.0.25
+
+### Patch Changes
+
+- Updated dependencies [2b1d809]
+- Updated dependencies [df0d60e]
+- Updated dependencies [60e33eb]
+- Updated dependencies [7fbd763]
+- Updated dependencies [79a55a3]
+- Updated dependencies [204343f]
+- Updated dependencies [4cfda77]
+- Updated dependencies [8a77487]
+- Updated dependencies [7fbd763]
+- Updated dependencies [204343f]
+- Updated dependencies [191aa24]
+- Updated dependencies [2b1d809]
+- Updated dependencies [04b9dd0]
+- Updated dependencies [04b9dd0]
+- Updated dependencies [04b9dd0]
+- Updated dependencies [ce72d8e]
+- Updated dependencies [204343f]
+- Updated dependencies [ce72d8e]
+- Updated dependencies [ce72d8e]
+- Updated dependencies [ce72d8e]
+- Updated dependencies [ce72d8e]
+- Updated dependencies [c9d863d]
+- Updated dependencies [6e7386b]
+- Updated dependencies [6e7386b]
+- Updated dependencies [52a9a00]
+- Updated dependencies [97eb642]
+  - @aparte/core@0.16.9
+  - @aparte/plugin-marked@0.16.9
+  - @aparte/plugin-model-selector@0.16.9
+  - @aparte/provider-openai-compat@0.16.9
+  - @aparte/vue@0.16.9
+
 ## 0.0.24
 
 ### Patch Changes

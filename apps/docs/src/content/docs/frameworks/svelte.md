@@ -41,15 +41,20 @@ bind the store and connect the component with `bind:this`:
   bind:this={comp}
   messages={$messages}
   centerWhenEmpty
-  on:messagesChange={(e) => chat.onMessagesChange(e.detail)}
+  onmessagesChange={(m) => chat.onMessagesChange(m)}
 >
   <p slot="empty-state">Ask me anything…</p>
 </AparteChat>
 ```
 
 The user's message is appended to the thread **automatically** on send — don't add it yourself.
-`on:messageSent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
+`onmessageSent` is optional and fires *after* that append, for side-effects only (scroll, analytics,
 a backend call).
+
+Every callback also exists as a component event — `on:messagesChange={(e) => chat.onMessagesChange(e.detail)}`
+— which is the Svelte 4 spelling and still works on Svelte 5. Svelte 5 documents `createEventDispatcher`
+as deprecated and recommends callback props, so the callbacks are the path written here; both fire for
+the same occurrence, the callback with the payload itself, the event with it under `event.detail`.
 
 Slots are named slots: `empty-state`, `composer`, `above-composer`,
 `toolbar` (the composer's bottom row — mode picker, model selector: see
@@ -59,7 +64,7 @@ the `bubble` slot (`<div slot="bubble" let:message>`) for a fully custom bubble.
 method (streaming, branch/edit, `scrollToBottom`) is mirrored on the `chat` store and reachable via
 `bind:this`.
 
-The other five are `on:action`, `on:messagesChange`, `on:messageAppended`, `on:typingChange` and `on:conversationCreated`. Svelte re-wraps every payload in a `CustomEvent`, so read it from `event.detail` — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
+The other five are `onaction`, `onmessagesChange`, `onmessageAppended`, `ontypingChange` and `onconversationCreated` (as events: `on:action`, `on:messagesChange`, … with the payload under `event.detail`) — the table with all four frameworks side by side is generated from the wrapper source: [Wrapper surface](/reference/wrappers/#callbacks).
 
 ## Wiring a real model
 
@@ -83,7 +88,7 @@ sends to the model:
   $: chat.connect(comp);
 </script>
 
-<AparteChat bind:this={comp} messages={$messages} on:messagesChange={(e) => chat.onMessagesChange(e.detail)} />
+<AparteChat bind:this={comp} messages={$messages} onmessagesChange={(m) => chat.onMessagesChange(m)} />
 ```
 
 Pass a per-instance `config` prop to scope providers/transport to a single `<AparteChat>` instead of
@@ -120,6 +125,10 @@ attributes and their `on:` handlers — no `AparteUi` needed:
 </aparte-select>
 ```
 
+On Svelte 5 in runes mode, `on:` on an element is the one form the compiler flags as deprecated
+(`event_directive_deprecated`); write the event attribute instead — `onaparte-select-change={(e) => …}` —
+which `svelte-check` types the same way.
+
 Presence attributes take `''` to set and `null` to remove, never `false` — Svelte stringifies what it
 sets on a custom element, so `searchable={false}` would render `searchable="false"` and an element
 testing `hasAttribute` reads that as on. The rules and the full set are on
@@ -148,9 +157,12 @@ For an element aparté does not define — one of yours, or a third party's:
 <AparteUi
   name="my-token-counter"
   props={{ 'data-budget': '8000' }}
-  on:elementEvent={(e) => console.log(e.detail.type, e.detail.detail)}
+  onelementEvent={(e) => console.log(e.type, e.detail)}
 />
 ```
+
+`onelementEvent` receives the element's own `CustomEvent`. The component event `on:elementEvent`
+still fires too, with that event under `e.detail` — the Svelte 4 spelling.
 
 It mounts any tag name, which is what a foreign element needs and what aparté's own no longer do.
 
