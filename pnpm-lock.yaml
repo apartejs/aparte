@@ -147,6 +147,15 @@ importers:
       '@aparte/provider-scenario':
         specifier: workspace:*
         version: link:../../packages/providers/ai/scenario
+      '@aparte/titler-efigsp':
+        specifier: ^1.0.0
+        version: 1.0.1
+      '@aparte/titler-latin':
+        specifier: ^1.0.0
+        version: 1.0.1
+      '@aparte/titler-latin-mini':
+        specifier: ^1.0.0
+        version: 1.0.1
       '@astrojs/check':
         specifier: ^0.9.10
         version: 0.9.10(prettier@3.9.6)(typescript@5.9.3)
@@ -1113,6 +1122,22 @@ packages:
     peerDependenciesMeta:
       '@angular/animations':
         optional: true
+
+  '@aparte/titler-efigsp@1.0.1':
+    resolution: {integrity: sha512-tAvQePo8Gx+Z+tQ5vX1RtpCNHepEY6RceVlx2A9Jl//4nEDMZ/QAl0wLfQjZLE/DRnrAZR5yyY1vV6EEW+fDbg==}
+    engines: {node: '>=18'}
+
+  '@aparte/titler-latin-mini@1.0.1':
+    resolution: {integrity: sha512-pGU56qo4uujIyJ6mAJPChXQfGXBwIdxkAd8UPe9wR3AHnCPy5fB2PfiAeqQF5qbWt8JS1WGMTsJNBJA9+ktofQ==}
+    engines: {node: '>=18'}
+
+  '@aparte/titler-latin@1.0.1':
+    resolution: {integrity: sha512-U5p4IUOMBuVOGNYL6R2LTncRsLLXzaqZrUz5Wh6R0OSwKo/003G9mQrLjPXah6tMzeYogz0rhB1uk6/cO5ee0Q==}
+    engines: {node: '>=18'}
+
+  '@aparte/titler@1.0.1':
+    resolution: {integrity: sha512-15qhtQT8lYdrFab/SE5aa1JEdVcxK2i6FwESvu1PU8M6yygQwNLwt7U5hafQ0dw1G6O2TOpOvHYyuNfG64mUkQ==}
+    engines: {node: '>=18'}
 
   '@arethetypeswrong/cli@0.18.5':
     resolution: {integrity: sha512-gM+8vRsQOD/Uc7EnBedUhkG5OCsDWE4uoak5QvomGpMpaky0Eh41p04nIMgrWb8EOmqZUJGc6zz9hsP6E56R7g==}
@@ -11189,6 +11214,20 @@ snapshots:
       '@angular/common': 19.2.25(@angular/core@19.2.25(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2)
       '@angular/core': 19.2.25(rxjs@7.8.2)(zone.js@0.15.1)
       tslib: 2.8.1
+
+  '@aparte/titler-efigsp@1.0.1':
+    dependencies:
+      '@aparte/titler': 1.0.1
+
+  '@aparte/titler-latin-mini@1.0.1':
+    dependencies:
+      '@aparte/titler': 1.0.1
+
+  '@aparte/titler-latin@1.0.1':
+    dependencies:
+      '@aparte/titler': 1.0.1
+
+  '@aparte/titler@1.0.1': {}
 
   '@arethetypeswrong/cli@0.18.5':
     dependencies:
