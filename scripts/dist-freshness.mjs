@@ -28,15 +28,35 @@ import { createHash } from 'node:crypto';
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', '.svelte-kit']);
 const IS_INPUT = (name) => /\.(ts|tsx|css|svelte|vue|json)$/.test(name) && !/\.test\.ts$/.test(name);
+/**
+ * What a build EMITS and a consumer executes — and the reason there are two
+ * predicates instead of one.
+ *
+ * The dist side used to be filtered with `IS_INPUT`, the source filter, and in a
+ * `dist` the only thing that matches it is a declaration: `.d.ts` ends in `.ts`. So
+ * the guard written because `packages/core/dist/index.js` was nine minutes stale
+ * never looked at a single `.js` file. It read the `.d.ts` beside it and reported
+ * the freshness of that.
+ *
+ * The two halves come from different emitters (`vite build` and `tsc`), which is
+ * exactly why they go out of step: a `typecheck` writing into `dist` while the
+ * bundle stays nx-cached leaves fresh declarations over stale JavaScript, and that
+ * is the shape this guard exists to catch. Declarations are therefore NOT in this
+ * set — including them would restore the hole, since the comparison takes the
+ * newest match. `.mjs` is here because the Angular wrapper ships nothing else
+ * executable; `.map` and `.css` are not, because neither is what a consumer's
+ * `import` resolves to.
+ */
+const IS_EMIT = (name) => /\.(js|mjs|cjs)$/.test(name);
 const STAMP_DIR = '.dist-freshness';
 
-function newestMtime(dir, newest = 0) {
+function newestMtime(dir, pick, newest = 0) {
     for (const name of readdirSync(dir)) {
         if (SKIP_DIRS.has(name)) continue;
         const path = join(dir, name);
         const st = statSync(path);
-        if (st.isDirectory()) newest = newestMtime(path, newest);
-        else if (IS_INPUT(name)) newest = Math.max(newest, st.mtimeMs);
+        if (st.isDirectory()) newest = newestMtime(path, pick, newest);
+        else if (pick(name)) newest = Math.max(newest, st.mtimeMs);
     }
     return newest;
 }
@@ -93,10 +113,20 @@ export function distFreshness({ dirs, record = false } = {}) {
         const dist = join(dir, 'dist');
         if (!existsSync(dist)) continue;   // never built here; the build step covers that
         checked++;
-        const srcNewest = newestMtime(join(dir, 'src'));
-        const distNewest = newestMtime(dist) || statSync(dist).mtimeMs;
+        const srcNewest = newestMtime(join(dir, 'src'), IS_INPUT);
+        const distNewest = newestMtime(dist, IS_EMIT);
         const rel = relative(process.cwd(), dir).split(sep).join('/');
         const stamp = join(STAMP_DIR, rel.replace(/[^a-zA-Z0-9]/g, '_'));
+
+        // A dist with no executable emit at all is stale by definition, whatever its
+        // mtimes say: every guard that reads built output finds nothing to read, and
+        // an example importing the package resolves a file that is not there. There
+        // is no content hash to appeal to either — the src did not fail to change,
+        // the build failed to run — so this exits before the mtime/hash dance.
+        if (distNewest === 0) {
+            stale.push(`${rel}  dist carries no built JavaScript (declarations only)`);
+            continue;
+        }
         const hash = srcHash(join(dir, 'src'));
 
         if (srcNewest > distNewest) {
