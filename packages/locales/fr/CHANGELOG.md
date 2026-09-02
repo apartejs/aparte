@@ -1,5 +1,12 @@
 # @aparte/locale-fr
 
+## 0.16.8
+
+### Patch Changes
+
+- 2e8f3ed: `approvalWaiting` reads « En attente » (was « en attente de vous »): one capitalised word, the shape every other tool state uses in the row.
+- d78b150: Adds `loading` ("Chargement…"), the text an option group shows while its options are fetched.
+
 ## 0.16.7
 
 ### Patch Changes

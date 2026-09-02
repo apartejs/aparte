@@ -1,6 +1,6 @@
 {
     "name": "@aparte/locale-fr",
-    "version": "0.16.7",
+    "version": "0.16.8",
     "homepage": "https://apartejs.dev/guides/localization/",
     "description": "French locale for aparté — pass to aparteGlobalConfig.setLocale() (core ships English by default).",
     "type": "module",
@@ -33,7 +33,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.16.7 <1.0.0"
+        "@aparte/core": ">=0.16.8 <1.0.0"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",

@@ -1,5 +1,12 @@
 # @aparte/plugin-model-selector
 
+## 0.16.8
+
+### Patch Changes
+
+- 7e5910a: `<aparte-model-selector disabled>` disables the picker, and inside an `<aparte-composer>` the picker follows the composer's own `disabled` — it used to stay fully operable while the field and the send button around it were inert.
+- d78b150: Stops writing the `grouped` attribute on its `<aparte-select>`: the select never read it, groups render from the `<aparte-optgroup>` children alone.
+
 ## 0.16.7
 
 ### Patch Changes
