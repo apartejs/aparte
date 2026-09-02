@@ -281,6 +281,12 @@ export class AparteChatBubble extends HTMLElement {
   private _editing = false;
   /** The live inline editor (the composer's contenteditable primitive), present only while `_editing`. */
   private _editInput: AparteComposerInput | null = null;
+  /**
+   * The `data-action` of the button the editor was opened from, so leaving it can hand
+   * the keyboard back. The STRING, not the node: entering and leaving edit mode rewrite
+   * the action bar's `innerHTML`, so the opener's identity is destroyed twice.
+   */
+  private _editReturnAction: string | null = null;
 
   static get observedAttributes(): string[] {
     // `data-role` is the ONE channel for the message role. `role` is ARIA's
@@ -1618,6 +1624,14 @@ export class AparteChatBubble extends HTMLElement {
    */
   private _enterEditMode(): void {
     if (this._editing || !this._contentEl) return;
+    // Read the opener BEFORE the action bar is rebuilt — after it, the button is gone.
+    // Nothing is remembered when the focus is outside this bubble: pulling it back from
+    // wherever the reader actually is would be theft, not a restore.
+    const opener = document.activeElement;
+    this._editReturnAction =
+      opener instanceof HTMLElement && this.contains(opener)
+        ? (opener.getAttribute('data-action') ?? 'edit')
+        : null;
     this._editing = true;
     this.querySelector('.aparte-message')?.setAttribute('data-editing', '');
 
@@ -1662,6 +1676,33 @@ export class AparteChatBubble extends HTMLElement {
     this.querySelector('.aparte-message')?.removeAttribute('data-editing');
     this._editing = false;
     this._updateActionBar();
+
+    // Both exits destroy the focused element — the editor is removed and the bar is
+    // rebuilt — so without this the keyboard lands on `<body>` and the next Tab
+    // restarts at the top of the page. Matched by attribute rather than by selector:
+    // a custom action's id (`custom:…`) is a consumer string.
+    const returnTo = this._editReturnAction;
+    this._editReturnAction = null;
+    if (returnTo && this._actionBarEl) {
+      const back = Array.from(this._actionBarEl.querySelectorAll<HTMLButtonElement>('[data-action]'))
+        .find((btn) => btn.getAttribute('data-action') === returnTo);
+      // The remembered action can come back DISABLED (the reader sent from the composer
+      // mid-edit, so the transcript is busy) or gone (it was turned off while editing).
+      // `focus()` on a disabled button is a no-op, which drops the reader on `<body>` —
+      // the very bug this restore exists for, silently. So fall back to the bar's first
+      // enabled button.
+      const target = back && !back.disabled
+        ? back
+        : this._actionBarEl.querySelector<HTMLButtonElement>('button:not([disabled])');
+      // The bar is one tab stop that the arrows move (`_onActionBarKeydown`), and
+      // `_updateActionBar` just parked it on the first button. Focusing without moving
+      // the stop leaves the reader on a `tabindex="-1"` member of a `role="toolbar"`:
+      // Shift+Tab out and Tab back returns them to copy, not to where they were.
+      if (target) {
+        for (const button of this._rovingButtons()) button.tabIndex = button === target ? 0 : -1;
+        target.focus();
+      }
+    }
 
     if (save && newContent && newContent !== original) {
       const messageId = this.getAttribute('message-id');
