@@ -78,3 +78,25 @@
   min-height: 0;
   height: auto;
 }
+
+/* A phone folds the shell to one column. The sidebar ELEMENT already leaves the grid
+   under 48rem — it becomes a fixed drawer behind the header's toggle — but the grid
+   kept its first column for it, and a class-only sidebar had no story at all: at 375px
+   the shell gave 259 of its 303px to the sidebar and left the chat a 43px band with a
+   send button cut in half. Same query as the element's own, so the recipe teaches the
+   screen the element renders. */
+@media (max-width: 48rem) {
+  .aparte-app-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aparte-app-shell > .aparte-app-header,
+  .aparte-app-shell__main {
+    grid-column: 1;
+  }
+  /* A sidebar that is not (yet) a drawer — the class recipe alone, or the element
+     before it upgrades — folds out of the flow rather than eating the column. */
+  .aparte-app-shell > .aparte-sidebar:not([data-drawer]),
+  .aparte-app-shell > aparte-sidebar:not([data-drawer]) {
+    display: none;
+  }
+}

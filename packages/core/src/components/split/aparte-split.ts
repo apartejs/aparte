@@ -79,7 +79,7 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  * @fires {CustomEvent<AparteSplitResizeDetail>} aparte-split-resize - The position settled: after a drag, a key, a double-click or a property set. Never during a drag — persist from here.
  *
  * @cssprop [--aparte-split-position=38%] - The primary pane's size.
- * @cssprop [--aparte-split-min=20rem] - Floor of the primary pane. Any length or percentage.
+ * @cssprop [--aparte-split-min=min(20rem, 100%)] - Floor of the primary pane. Any length or percentage.
  * @cssprop [--aparte-split-max=60%] - Ceiling of the primary pane.
  * @cssprop [--aparte-split-handle-size=12px] - The seam's track: the grab zone, and what the grid reserves between the panes. The painted line inside it is `--aparte-split-seam-width`.
  * @cssprop [--aparte-split-hit-area=12px] - The invisible grab zone around it. Grows to the touch target on a coarse pointer.

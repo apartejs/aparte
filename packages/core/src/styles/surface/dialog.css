@@ -130,11 +130,15 @@ body:has(.aparte-dialog[open]) {
   .aparte-dialog:modal {
     width: 100%;
     max-width: 100%;
-    height: 100dvh;
+    /* As tall as its content, capped at the screen, sitting on the bottom edge: a sheet
+       stretched to 100dvh held a label, a field and two buttons over 586px of nothing.
+       And the safe areas: the ✕ used to sit 6px from the physical top. */
+    height: auto;
     max-height: 100dvh;
-    margin: 0;
+    margin: auto 0 0;
+    padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
     border: 0;
-    border-radius: 0;
+    border-radius: var(--aparte-radius-dialog) var(--aparte-radius-dialog) 0 0;
   }
 }
 

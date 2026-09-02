@@ -129,7 +129,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
   <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="end">Preview</button>
 </div>
 
-<aparte-split position="38" breakpoint="30rem" style="height: 22rem; --aparte-split-min: 16rem; --aparte-split-max: 65%">
+<aparte-split position="38" breakpoint="48rem" style="height: 22rem; --aparte-split-min: 16rem; --aparte-split-max: 65%">
   <aparte-chat>
     <aparte-chat-viewport>
       <aparte-chat-bubble message-id="u1" data-role="user" content="Make the hero headline bigger and pin the header."></aparte-chat-bubble>
@@ -472,7 +472,7 @@ function toLine(item) {
      In your app the first line is \`import { setupArtifacts } from '@aparte/plugin-artifacts'\`.
      This frame reads it off \`window.aparteArtifacts\` only because a classic script
      cannot import. -->
-<aparte-split position="55" breakpoint="30rem" style="height: 30rem; --aparte-split-min: 18rem; --aparte-split-max: 75%">
+<aparte-split position="55" breakpoint="48rem" style="height: 30rem; --aparte-split-min: 18rem; --aparte-split-max: 75%">
   <aparte-chat style="--aparte-artifact-body-max: 11rem">
     <aparte-chat-viewport></aparte-chat-viewport>
     <aparte-composer>
