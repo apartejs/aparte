@@ -19,6 +19,8 @@ import { resolve } from 'node:path';
 import { coreRoot } from '../../__tests__/read-stylesheet.js';
 
 const read = (rel: string) => readFileSync(resolve(coreRoot(), rel), 'utf8');
+/** Code only: a comment may name the old spelling to explain the rename; an alias could not hide in one. */
+const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, '');
 const VERBS = ['select', 'delete', 'archive', 'unarchive', 'rename', 'pin', 'unpin'];
 const OLD = VERBS.map((v) => `aparte-${v}-conversation`);
 const NEW = VERBS.map((v) => `aparte-conversation-${v}`);
@@ -39,7 +41,7 @@ describe('the conversation list’s events', () => {
     });
 
     it('carry no alias for the old verb-first names anywhere in core', () => {
-        for (const source of [eventMap, element, props, controller]) {
+        for (const source of [eventMap, element, props, controller].map(code)) {
             for (const name of OLD) expect(source, `old name ${name} still present`).not.toContain(name);
         }
     });
