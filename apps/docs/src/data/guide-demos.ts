@@ -71,6 +71,9 @@ export const GUIDE_DEMOS: GuideDemo[] = [
       toolCall: { id: 't1', name: 'delete_file', input: { path: 'src/legacy/old-client.ts' } },
     },
   ]);
+  // Open the row the way a reader deciding would: the argument the decision is about
+  // (which file) is what the demo is here to show.
+  document.querySelector('details')?.setAttribute('open', '');
 </script>`,
     },
     {
@@ -81,7 +84,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      themselves inside the full-width transcript, so the scrollbar lands on the outer
      edge while the text stays readable. Boxing the chat instead moves the scrollbar in
      with it. -->
-<aparte-chat style="height: 20rem; --aparte-message-max-width: 32rem">
+<aparte-chat style="height: 26rem; --aparte-message-max-width: 32rem">
   <aparte-chat-viewport>
     <aparte-chat-bubble message-id="u1" data-role="user" content="My chat runs the full width of the page. How do I get the centred column?"></aparte-chat-bubble>
     <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="You already have it: the column is a max-width on the content, not on the chat. Set --aparte-message-max-width and the bubbles centre themselves inside the full-width transcript."></aparte-chat-bubble>
@@ -358,7 +361,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      composer run edge to edge with the transcript's own padding, the way a team-chat
      feed does. The same token, set on the chat rather than on :root, keeps it to this
      one instance. -->
-<aparte-chat style="height: 18rem; --aparte-message-max-width: none">
+<aparte-chat style="height: 22rem; --aparte-message-max-width: none">
   <aparte-chat-viewport>
     <aparte-chat-bubble message-id="u1" data-role="user" content="Is this the whole width?"></aparte-chat-bubble>
     <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Yes — no column here, just the transcript's padding on each side."></aparte-chat-bubble>
@@ -429,14 +432,18 @@ function toLine(item) {
      of yours, no second component, and nothing to undo when the conversation is cleared
      again. -->
 <style>
-  .welcome { display: none; text-align: center; padding-block-end: var(--aparte-space-4) }
-  .welcome strong { font-size: var(--aparte-font-size-lg) }
+  .welcome { display: none; text-align: center; padding-block-end: var(--aparte-space-4); color: var(--aparte-text-muted) }
+  .welcome strong { display: block; font-size: var(--aparte-font-size-xl); color: var(--aparte-text); margin-block-end: var(--aparte-space-1) }
   aparte-chat[data-empty] .welcome { display: block }
 </style>
-<aparte-chat center-empty style="height: 20rem">
+<aparte-chat center-empty style="height: 24rem">
   <aparte-chat-viewport></aparte-chat-viewport>
-  <p class="welcome"><strong>What are we building today?</strong></p>
+  <p class="welcome"><strong>What are we building today?</strong>Ask anything, or start from one of these.</p>
   <aparte-composer>
+    <!-- Starters: shown while the transcript is empty, gone with the first message. -->
+    <aparte-suggestions empty-only
+      suggestions='["Explain what a transport is", {"label": "Draft a changeset", "prompt": "Draft a changeset for a patch that renames an attribute."}, "Compare the four wrappers"]'>
+    </aparte-suggestions>
     <div class="aparte-composer-shell">
       <div class="aparte-composer-row">
         <aparte-composer-input></aparte-composer-input>
