@@ -1,6 +1,11 @@
+// Imports stay ABOVE the docblock: one between the comment and the class detaches the
+// comment — TypeScript stops associating it, the manifest loses the `@example`, and
+// `check:examples` refuses the build. It happened here.
+import { presenceOn } from '../../utils/presence.js';
+
 /**
  * AparteOption
- * 
+ *
  * Option element for aparte-select dropdown.
  *
  * One selectable row. Only meaningful inside `<aparte-select>` (directly, or nested in an
@@ -41,9 +46,6 @@
  *   <aparte-option value="o3" disabled>o3 (no access)</aparte-option>
  * </aparte-select>
  */
-
-import { presenceOn } from '../../utils/presence.js';
-
 export class AparteOption extends HTMLElement {
     static get observedAttributes(): string[] {
         return ['value', 'disabled', 'selected', 'data-status'];
