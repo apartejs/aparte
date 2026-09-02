@@ -129,7 +129,7 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
 :root:not([data-theme='light']) ::-webkit-scrollbar-thumb:hover { background: #463a54; }
 
 /* A reference table is DATA, not prose. Starlight lets it shrink to the column, which on
-   a phone crushed `aparte-archive-conversation` onto three lines AND still clipped the
+   a phone crushed `aparte-conversation-archive` onto three lines AND still clipped the
    second column — the type name simply could not be read, and nothing scrolled. Below the
    content breakpoint the table becomes its own scroll container and its cells claim a
    floor, so the columns keep their shape and the reader drags to the rest. Desktop is

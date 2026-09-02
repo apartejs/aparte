@@ -280,7 +280,7 @@ export class AparteConversationController {
             void this.setConversationId(evt.detail?.id ?? null);
         };
         if (typeof window !== 'undefined') {
-            window.addEventListener('aparte-select-conversation', this._onSelectConversation);
+            window.addEventListener('aparte-conversation-select', this._onSelectConversation);
         }
 
         // The manager subscription is installed by `_manager()` — the single lazy
@@ -340,7 +340,7 @@ export class AparteConversationController {
             this._onMessageAborted = null;
         }
         if (this._onSelectConversation && typeof window !== 'undefined') {
-            window.removeEventListener('aparte-select-conversation', this._onSelectConversation);
+            window.removeEventListener('aparte-conversation-select', this._onSelectConversation);
             this._onSelectConversation = null;
         }
         if (this._unsubscribeManager) {
@@ -457,7 +457,7 @@ export class AparteConversationController {
 
         this._activeId = id;
         // The controller is the sole writer of `manager._activeId`. Other
-        // components must dispatch `aparte-select-conversation` rather than
+        // components must dispatch `aparte-conversation-select` rather than
         // calling `manager.select()` directly.
         manager.select(id);
         // setMessages always runs first: it handles cleanup (stop streaming,

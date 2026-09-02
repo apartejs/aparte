@@ -48,7 +48,7 @@
   on:aparte-branch-navigate={(e) => note(String(e.detail.direction))}
 />
 
-<aparte-conversation-list on:aparte-select-conversation={(e) => note(e.detail.id)} />
+<aparte-conversation-list on:aparte-conversation-select={(e) => note(e.detail.id)} />
 
 <aparte-optgroup label="g" on:aparte-optgroup-toggle={(e) => note(String(e.detail.collapsed))} />
 

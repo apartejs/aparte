@@ -75,7 +75,7 @@ const VIEWPORT_MARGIN = 8;
  * input: Enter or leaving the field commits, Escape cancels, and an unchanged or
  * emptied title fires nothing. The rows are grouped by date — Pinned, Today,
  * Yesterday, Previous 7 days, Previous 30 days, then one heading per month — as soon
- * as any item carries `updatedAt`; set `no-groups` to render them flat.
+ * as any item carries `updatedAt`; set `flat` to render them flat.
  *
  * Children are not a composition point: `_render()` assigns `innerHTML` from the
  * `conversations` array, so any light-DOM child a host writes inside the element is
@@ -97,15 +97,15 @@ const VIEWPORT_MARGIN = 8;
  *
  * @element aparte-conversation-list
  * @attr {string} active-id - The id of the conversation to render as selected.
- * @attr {boolean} no-groups - Render the rows flat, in host order, with no date headings.
+ * @attr {boolean} flat - Render the rows flat, in host order, with no date headings.
  *
- * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-select-conversation - A row's title was activated; the host loads that conversation.
- * @fires {CustomEvent<AparteConversationRenameDetail>} aparte-rename-conversation - A rename was committed with a new, non-empty title. Nothing is renamed here.
- * @fires {CustomEvent<AparteConversationPinDetail>} aparte-pin-conversation - The pin item was chosen on an unpinned row.
- * @fires {CustomEvent<AparteConversationPinDetail>} aparte-unpin-conversation - The same item on a pinned row; same detail shape, opposite intent.
- * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-archive-conversation - The archive item was chosen on a live conversation.
- * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-unarchive-conversation - The same item on an already-archived one; same detail shape, opposite intent.
- * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-delete-conversation - The delete was confirmed. Nothing is removed here.
+ * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-conversation-select - A row's title was activated; the host loads that conversation.
+ * @fires {CustomEvent<AparteConversationRenameDetail>} aparte-conversation-rename - A rename was committed with a new, non-empty title. Nothing is renamed here.
+ * @fires {CustomEvent<AparteConversationPinDetail>} aparte-conversation-pin - The pin item was chosen on an unpinned row.
+ * @fires {CustomEvent<AparteConversationPinDetail>} aparte-conversation-unpin - The same item on a pinned row; same detail shape, opposite intent.
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-archive - The archive item was chosen on a live conversation.
+ * @fires {CustomEvent<AparteConversationArchiveDetail>} aparte-conversation-unarchive - The same item on an already-archived one; same detail shape, opposite intent.
+ * @fires {CustomEvent<AparteConversationDeleteDetail>} aparte-conversation-delete - The delete was confirmed. Nothing is removed here.
  *
  * @cssprop [--aparte-conv-list-gap=var(--aparte-space-1)] - Vertical gap between rows, and between a group's heading and its rows.
  * @cssprop [--aparte-conv-item-padding=var(--aparte-space-4) var(--aparte-space-5)] - Padding of a row's title button.
@@ -143,10 +143,10 @@ const VIEWPORT_MARGIN = 8;
  * ];
  * list.setAttribute('active-id', 'c1');
  *
- * list.addEventListener('aparte-select-conversation', (e) => load(e.detail.id));
- * list.addEventListener('aparte-rename-conversation', (e) => manager.updateTitle(e.detail.id, e.detail.title));
- * list.addEventListener('aparte-pin-conversation', (e) => manager.pin(e.detail.id));
- * list.addEventListener('aparte-delete-conversation', (e) => manager.delete(e.detail.id));
+ * list.addEventListener('aparte-conversation-select', (e) => load(e.detail.id));
+ * list.addEventListener('aparte-conversation-rename', (e) => manager.updateTitle(e.detail.id, e.detail.title));
+ * list.addEventListener('aparte-conversation-pin', (e) => manager.pin(e.detail.id));
+ * list.addEventListener('aparte-conversation-delete', (e) => manager.delete(e.detail.id));
  */
 export class AparteConversationList extends HTMLElement {
     private _conversations: AparteConversationListItem[] = [];
@@ -155,7 +155,7 @@ export class AparteConversationList extends HTMLElement {
     private _renaming: { id: string; input: HTMLInputElement; done: boolean } | null = null;
 
     static get observedAttributes(): string[] {
-        return ['active-id', 'no-groups'];
+        return ['active-id', 'flat'];
     }
 
     // ─── Lifecycle ────────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ export class AparteConversationList extends HTMLElement {
         if (name === 'active-id') {
             this._activeId = newValue;
             this._updateActiveState();
-        } else if (name === 'no-groups' && this.isConnected) {
+        } else if (name === 'flat' && this.isConnected) {
             this._render();
         }
     }
@@ -233,12 +233,12 @@ export class AparteConversationList extends HTMLElement {
     /**
      * Pinned first, then the calendar buckets every chat product uses, then a heading
      * per month (newest first), then whatever carries no date. Flat when nothing is
-     * dated or the host asked for `no-groups`: a heading over the only group would say
+     * dated or the host asked for `flat`: a heading over the only group would say
      * nothing.
      */
     private _groups(): ConversationGroup[] {
         const items = this._conversations;
-        if (this.hasAttribute('no-groups') || !items.some(c => typeof c.updatedAt === 'number')) {
+        if (this.hasAttribute('flat') || !items.some(c => typeof c.updatedAt === 'number')) {
             return [{ key: 'all', label: null, items }];
         }
         const now = new Date();
@@ -457,12 +457,12 @@ export class AparteConversationList extends HTMLElement {
                 this._closeMenu(true);
                 if (conv.pinnedAt) {
                     this.dispatchEvent(new CustomEvent<AparteConversationPinDetail>(
-                        'aparte-unpin-conversation',
+                        'aparte-conversation-unpin',
                         { detail: { id }, bubbles: true, composed: true }
                     ));
                 } else {
                     this.dispatchEvent(new CustomEvent<AparteConversationPinDetail>(
-                        'aparte-pin-conversation',
+                        'aparte-conversation-pin',
                         { detail: { id }, bubbles: true, composed: true }
                     ));
                 }
@@ -471,12 +471,12 @@ export class AparteConversationList extends HTMLElement {
                 this._closeMenu(true);
                 if (conv.archivedAt) {
                     this.dispatchEvent(new CustomEvent<AparteConversationArchiveDetail>(
-                        'aparte-unarchive-conversation',
+                        'aparte-conversation-unarchive',
                         { detail: { id }, bubbles: true, composed: true }
                     ));
                 } else {
                     this.dispatchEvent(new CustomEvent<AparteConversationArchiveDetail>(
-                        'aparte-archive-conversation',
+                        'aparte-conversation-archive',
                         { detail: { id }, bubbles: true, composed: true }
                     ));
                 }
@@ -493,7 +493,7 @@ export class AparteConversationList extends HTMLElement {
             case 'confirm-delete':
                 this._closeMenu(true);
                 this.dispatchEvent(new CustomEvent<AparteConversationDeleteDetail>(
-                    'aparte-delete-conversation',
+                    'aparte-conversation-delete',
                     { detail: { id }, bubbles: true, composed: true }
                 ));
                 return;
@@ -567,7 +567,7 @@ export class AparteConversationList extends HTMLElement {
         }
         if (commit && conv && title && title !== conv.title) {
             this.dispatchEvent(new CustomEvent<AparteConversationRenameDetail>(
-                'aparte-rename-conversation',
+                'aparte-conversation-rename',
                 { detail: { id: conv.id, title }, bubbles: true, composed: true }
             ));
         }
@@ -598,7 +598,7 @@ export class AparteConversationList extends HTMLElement {
         if (select) {
             this._closeMenu();
             this.dispatchEvent(new CustomEvent<AparteConversationSelectDetail>(
-                'aparte-select-conversation',
+                'aparte-conversation-select',
                 { detail: { id: select.dataset['selectId']! }, bubbles: true, composed: true }
             ));
         }

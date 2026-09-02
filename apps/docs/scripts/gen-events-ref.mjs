@@ -171,7 +171,7 @@ const primary = (name) => PRECEDENCE.find((t) => where.get(name)?.has(t));
 const targetsOf = (name) => {
     /*
      * The manifest settles what the scan cannot see: `<aparte-conversation-list>` picks
-     * `aparte-archive-conversation` or `-unarchive-` with a ternary, so the literal never
+     * `aparte-conversation-archive` or `-unarchive-` with a ternary, so the literal never
      * sits next to `dispatchEvent`, and `aparte-model-change` comes from a plugin package
      * this scan does not read. Both are declared `@fires` on an element, which is the
      * authority — without this they were labelled "you", the one thing they are not.

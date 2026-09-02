@@ -42,7 +42,7 @@ describe('aparte-conversation-list — keyboard reachability (WCAG 2.1.1)', () =
     it('the title button selects; the ⋯ button never does', () => {
         const el = mount([{ id: 'c1', title: 'Hello' }]);
         const selected: string[] = [];
-        el.addEventListener('aparte-select-conversation', (e) => selected.push((e as CustomEvent).detail.id));
+        el.addEventListener('aparte-conversation-select', (e) => selected.push((e as CustomEvent).detail.id));
 
         el.querySelector<HTMLElement>('.aparte-conv-item__more')!.click();
         expect(selected, 'opening the menu is not a selection').toEqual([]);

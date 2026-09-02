@@ -75,15 +75,15 @@ describe('aparte-conversation-list — date groups', () => {
         expect(headings(mixed)).toEqual(['Today']);
     });
 
-    it('no-groups renders flat in host order, and toggling it re-renders', () => {
+    it('flat renders flat in host order, and toggling it re-renders', () => {
         const el = mount([
             { id: 'old', title: 'o', updatedAt: noon - 40 * DAY },
             { id: 'today', title: 't', updatedAt: noon },
-        ], { 'no-groups': '' });
+        ], { 'flat': '' });
         expect(headings(el)).toEqual([]);
         expect(Array.from(el.querySelectorAll<HTMLElement>('[data-conv-id]')).map((r) => r.dataset['convId'])).toEqual(['old', 'today']);
 
-        el.removeAttribute('no-groups');
+        el.removeAttribute('flat');
         expect(headings(el).length).toBeGreaterThan(0);
     });
 

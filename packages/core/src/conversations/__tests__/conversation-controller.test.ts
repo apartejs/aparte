@@ -333,9 +333,9 @@ describe('AparteConversationController', () => {
         });
     });
 
-    // ─── Global aparte-select-conversation listener ─────────────────────────
+    // ─── Global aparte-conversation-select listener ─────────────────────────
 
-    describe('aparte-select-conversation window event', () => {
+    describe('aparte-conversation-select window event', () => {
         it('switches active conversation on event', async () => {
             const a = await manager.createNew('A');
             const b = await manager.createNew('B');
@@ -346,7 +346,7 @@ describe('AparteConversationController', () => {
             ctrl.bind();
             await ctrl.setConversationId(a.id);
 
-            window.dispatchEvent(new CustomEvent('aparte-select-conversation', { detail: { id: b.id } }));
+            window.dispatchEvent(new CustomEvent('aparte-conversation-select', { detail: { id: b.id } }));
             await flush();
 
             expect(ctrl.activeId).toBe(b.id);
@@ -359,7 +359,7 @@ describe('AparteConversationController', () => {
             const ctrl = new AparteConversationController(binding, { manager });
             ctrl.bind();
 
-            window.dispatchEvent(new CustomEvent('aparte-select-conversation', {
+            window.dispatchEvent(new CustomEvent('aparte-conversation-select', {
                 detail: { id: a.id, targetId: 'someone-else' },
             }));
             await flush();
@@ -540,7 +540,7 @@ describe('AparteConversationController', () => {
             expect(manager.conversations[0].messages.length).toBe(before);
 
             // window event must also be ignored.
-            window.dispatchEvent(new CustomEvent('aparte-select-conversation', { detail: { id: null } }));
+            window.dispatchEvent(new CustomEvent('aparte-conversation-select', { detail: { id: null } }));
             await flush();
             expect(ctrl.activeId).toBe(conv.id);
         });

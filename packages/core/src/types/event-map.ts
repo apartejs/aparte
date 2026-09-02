@@ -112,20 +112,22 @@ interface AparteEventMap {
     // because the map is what carries the type to `addEventListener`.
     'aparte-select-change': CustomEvent<AparteSelectChangeDetail>;
     'aparte-segment-update': CustomEvent<AparteSegmentUpdateEventDetail>;
-    // The conversation list's four intents. `conversation-persistence.md` documents
-    // them as one family ("handle the four events it emits, all bubble") and the
+    // The conversation list's seven intents, subject-first like every other event here
+    // (`aparte-conversation-select`, not `aparte-select-conversation`: the detail types
+    // were already subject-first, and one addEventListener line read both orders).
+    // `conversation-persistence.md` documents them as one family (all bubble) and the
     // generated API reference's own example reads `e.detail.id` uncast — which did
     // not compile. Archive and unarchive share one detail interface because the
     // dispatcher picks the event name from a variable and types both branches with
     // it; the separate `AparteConversationUnarchiveDetail` was referenced by nothing
     // and is gone.
-    'aparte-select-conversation': CustomEvent<AparteConversationSelectDetail>;
-    'aparte-delete-conversation': CustomEvent<AparteConversationDeleteDetail>;
-    'aparte-archive-conversation': CustomEvent<AparteConversationArchiveDetail>;
-    'aparte-unarchive-conversation': CustomEvent<AparteConversationArchiveDetail>;
-    'aparte-rename-conversation': CustomEvent<AparteConversationRenameDetail>;
-    'aparte-pin-conversation': CustomEvent<AparteConversationPinDetail>;
-    'aparte-unpin-conversation': CustomEvent<AparteConversationPinDetail>;
+    'aparte-conversation-select': CustomEvent<AparteConversationSelectDetail>;
+    'aparte-conversation-delete': CustomEvent<AparteConversationDeleteDetail>;
+    'aparte-conversation-archive': CustomEvent<AparteConversationArchiveDetail>;
+    'aparte-conversation-unarchive': CustomEvent<AparteConversationArchiveDetail>;
+    'aparte-conversation-rename': CustomEvent<AparteConversationRenameDetail>;
+    'aparte-conversation-pin': CustomEvent<AparteConversationPinDetail>;
+    'aparte-conversation-unpin': CustomEvent<AparteConversationPinDetail>;
 
     // ── The turn lifecycle, minus the one entry it used to have ────────────────
     // `aparte-message-done` was in the map alone. Its siblings — start, error,
