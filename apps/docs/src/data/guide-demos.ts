@@ -410,6 +410,7 @@ function toLine(item) {
       <aparte-chat-bubble message-id="u1" data-role="user" content="Why is total a float here?"></aparte-chat-bubble>
       <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Because price is. Money in a float rounds badly at the third order — keep amounts in minor units and divide only when you print."></aparte-chat-bubble>
       <aparte-chat-bubble message-id="u2" data-role="user" content="Fix toLine then."></aparte-chat-bubble>
+      <aparte-chat-bubble message-id="a2" data-role="assistant" name="Assistant" content="Done: amount is now Math.round(item.qty * item.priceCents), and total sums integers."></aparte-chat-bubble>
     </aparte-chat-viewport>
     <aparte-composer>
       <div class="aparte-composer-shell">
