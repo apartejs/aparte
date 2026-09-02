@@ -78,7 +78,11 @@ const IMAGE_ALT =
       .md-head { padding: clamp(52px, 8vw, 96px) 0 clamp(26px, 4vw, 40px); max-width: 68ch; }
       .md-head .lede { margin-bottom: 0; }
 
-      .models { list-style: none; margin: clamp(26px, 4vw, 40px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+      /* `auto-fit`, not `auto-fill`: with one model the list has one card, and auto-fill
+         kept two empty tracks beside it — a third of the page used, the rest blank. auto-fit
+         collapses the empty tracks, so one card fills the row, two share it, three make
+         thirds; the page grows with the list without being retouched. */
+      .models { list-style: none; margin: clamp(26px, 4vw, 40px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
       .model-link {
         display: block; position: relative; overflow: hidden; text-decoration: none; color: inherit;
         background: var(--surface); border: 1px solid var(--line); border-radius: 15px; padding: 24px 26px 26px;
