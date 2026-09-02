@@ -137,7 +137,15 @@ export function applyElementProps(
             if (value === null || value === undefined) el.style.removeProperty(key);
             else if (typeof value === 'object' || typeof value === 'function') el.style.removeProperty(key);
             else el.style.setProperty(key, String(value));
-        } else if (key.startsWith('on')) {
+        } else if (key.toLowerCase().startsWith('on')) {
+            // `toLowerCase()` and not `startsWith('on')`, because an attribute NAME is
+            // case-insensitive: `setAttribute('ONCLICK', …)` writes the same `onclick`
+            // this branch refuses, so the lowercase-only guard was no guard at all
+            // against a key spelled `ONCLICK` or `Onmouseover`. Same idiom as
+            // `config/sanitize.ts`. Scoped to this branch on purpose — the `--` branch
+            // above must keep the original key, since a CSS custom property IS
+            // case-sensitive and `--aparteFoo` is not `--apartefoo`.
+            //
             // Event handlers belong on the wrapper's event forwarding, not here —
             // and this drops them WHATEVER their type.
             //
