@@ -11,6 +11,7 @@
          <button class="aparte-alert__dismiss" aria-label="Dismiss"><aparte-icon name="close"></aparte-icon></button>
        </div>
        <div class="aparte-alert aparte-alert--danger" role="alert">
+         <span class="aparte-alert__icon"><aparte-icon name="alertTriangle"></aparte-icon></span>
          <div class="aparte-alert__body">
            <p class="aparte-alert__message">The request was refused: no API key is set.</p>
          </div>
@@ -101,7 +102,7 @@
 }
 .aparte-alert__dismiss:active:not(:disabled) { filter: brightness(0.93); }
 .aparte-alert__dismiss:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-alert-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 .aparte-alert__dismiss:disabled { opacity: var(--aparte-disabled-opacity); cursor: not-allowed; pointer-events: none; }

@@ -170,60 +170,59 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * @fires {CustomEvent<AparteAttachmentPreviewEventDetail>} aparte-attachment-preview - An attached image was clicked, asking the app to open it full-size.
  * @fires {CustomEvent<AparteLinkClickEventDetail>} aparte-link-click - A link in the message body is about to be followed. Cancelable: `preventDefault()` keeps the browser from navigating, so a host can route the link itself.
  *
- * @cssprop [--aparte-message-gap=12px] - Gap between the avatar column and the body (the viewport reuses it between messages).
- * @cssprop [--aparte-message-padding=16px 12px] - Padding around one message row.
+ * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between the avatar column and the body (the viewport reuses it between messages).
+ * @cssprop [--aparte-message-padding-block=var(--aparte-space-8)] - Vertical padding of one message row. (The composite `--aparte-message-padding` is gone: joined on `:root`, it froze both parts, and the narrow-container override of them never reached the row.)
+ * @cssprop [--aparte-message-padding-inline=var(--aparte-space-6)] - Horizontal padding of one message row.
  * @cssprop [--aparte-message-max-width=800px] - Width of the centred message row.
  *
- * @cssprop [--aparte-message-content-radius=14px] - Radius of the painted content box.
- * @cssprop [--aparte-message-content-padding=10px 14px] - Padding of the USER box only; the assistant's content is plain full-width prose.
+ * @cssprop [--aparte-message-content-radius=var(--aparte-radius-bubble)] - Radius of the painted content box.
+ * @cssprop [--aparte-message-content-padding=var(--aparte-space-5) var(--aparte-space-7)] - Padding of the USER box only; the assistant's content is plain full-width prose.
  * @cssprop --aparte-message-content-bg-user - Background of the user box: a wash of `--aparte-primary` over `--aparte-surface-1`, derived in `theme.css` so a rebrand moves it (declare it to override).
  * @cssprop [--aparte-message-content-bg-assistant=transparent] - Background of the assistant box — transparent on purpose (AI-chat convention, not messaging).
  * @cssprop [--aparte-message-content-text-user=var(--aparte-text)] - Text colour inside the user box.
  * @cssprop [--aparte-message-content-text-assistant=var(--aparte-text)] - Text colour inside the assistant box.
  *
  * @cssprop [--aparte-avatar-size=32px] - Square size of the avatar slot.
- * @cssprop [--aparte-avatar-radius=var(--aparte-radius-avatar)] - Avatar corner radius.
- * @cssprop [--aparte-avatar-font-size=14px] - Size of the initial, for a shell that renders one (the default shell leaves the slot empty, and `.aparte-avatar:empty` hides it).
+ * @cssprop [--aparte-avatar-radius-ratio=0.28] - Avatar corner radius, as a fraction of its size (the corner follows the ramp; 0.28 × 32px is the 9px it used to be).
+ * @cssprop [--aparte-avatar-initials-ratio=0.34] - Size of the initial, as a fraction of the avatar's size.
  * @cssprop [--aparte-avatar-bg-user=var(--aparte-primary)] - Avatar background, user role.
  * @cssprop [--aparte-avatar-text-user=var(--aparte-text-inverse)] - Avatar text colour, user role.
  * @cssprop [--aparte-avatar-bg-assistant=var(--aparte-surface-3)] - Avatar background, assistant role.
- * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text-inverse)] - Avatar text colour, assistant role.
+ * @cssprop [--aparte-avatar-text-assistant=var(--aparte-text)] - Avatar text colour, assistant role.
  * @cssprop [--aparte-avatar-image-user=none] - `background-image` for the user avatar — a logo with no AvatarProvider and no JS.
  * @cssprop [--aparte-avatar-image-assistant=none] - `background-image` for the assistant avatar.
  * @cssprop [--aparte-avatar-image-size=90%] - `background-size` for both avatar images.
  *
- * @cssprop [--aparte-name-font-size=14px] - Sender name in the header.
+ * @cssprop [--aparte-name-font-size=var(--aparte-font-size-md)] - Sender name in the header.
  * @cssprop [--aparte-name-color=var(--aparte-text)] - Sender name colour.
- * @cssprop [--aparte-timestamp-font-size=12px] - Timestamp in the header.
+ * @cssprop [--aparte-timestamp-font-size=var(--aparte-font-size-sm)] - Timestamp in the header.
  * @cssprop [--aparte-timestamp-color=var(--aparte-text-muted)] - Timestamp colour.
- * @cssprop [--aparte-content-font-size=15px] - Body type size, applied to both the plain-content and the segments container.
+ * @cssprop [--aparte-content-font-size=var(--aparte-font-size-base)] - Body type size, applied to both the plain-content and the segments container.
  * @cssprop [--aparte-content-color=var(--aparte-text)] - Body text colour.
  * @cssprop [--aparte-content-line-height=var(--aparte-line-height-loose)] - Body line height.
  *
  * @cssprop [--aparte-attachments-max-height=140px] - Cap on the sent-attachment strip; past it the strip scrolls instead of growing.
- * @cssprop [--aparte-attachment-image-size=40px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation.
+ * @cssprop [--aparte-attachment-image-size=72px] - Tile size in the strip. The strip re-declares the global 72px down to 40px, since these are thumbnails inside a conversation.
  * @cssprop [--aparte-thumb-radius=var(--aparte-radius-lg)] - Attachment tile radius (shared with the composer's preview tiles).
  * @cssprop [--aparte-thumb-name-color=#ffffff] - Filename overlaid on a tile.
  * @cssprop --aparte-thumb-name-scrim - Gradient behind that filename, so it stays legible over any image.
  * @cssprop [--aparte-thumb-name-padding=14px 5px 4px] - Padding of the filename overlay.
  *
- * @cssprop [--aparte-action-bar-gap=4px] - Gap between action buttons (and between the footer's two regions).
- * @cssprop [--aparte-action-bar-btn-size=28px] - Square size of an action button; also the footer's reserved height.
+ * @cssprop [--aparte-action-bar-gap=var(--aparte-space-2)] - Gap between action buttons (and between the footer's two regions).
+ * @cssprop [--aparte-action-bar-btn-size=var(--aparte-btn-size-sm)] - Square size of an action button (the recipe's small step); also the footer's reserved height.
  * @cssprop [--aparte-action-bar-btn-color=var(--aparte-text-muted)] - Action icon colour at rest.
  * @cssprop [--aparte-action-bar-btn-hover-bg=var(--aparte-surface-2)] - Action button hover background (the branch arrows reuse it).
  * @cssprop [--aparte-action-bar-btn-hover-color=var(--aparte-text)] - Action icon colour on hover.
  *
- * @cssprop [--aparte-branch-picker-gap=4px] - Gap between the arrows and the position label.
- * @cssprop [--aparte-branch-picker-btn-size=20px] - Square size of each arrow.
- * @cssprop [--aparte-branch-picker-btn-icon-size=16px] - Glyph size inside an arrow.
+ * @cssprop [--aparte-branch-picker-gap=var(--aparte-space-2)] - Gap between the arrows and the position label.
  * @cssprop [--aparte-branch-picker-btn-color=var(--aparte-text-muted)] - Arrow colour at rest.
  * @cssprop [--aparte-branch-picker-btn-hover-color=var(--aparte-text)] - Arrow colour on hover (a disabled arrow is dimmed instead).
- * @cssprop [--aparte-branch-picker-label-size=12px] - Type size of the position label.
+ * @cssprop [--aparte-branch-picker-label-size=var(--aparte-font-size-sm)] - Type size of the position label.
  * @cssprop [--aparte-branch-picker-label-color=var(--aparte-text-muted)] - Colour of the position label.
  * @cssprop [--aparte-branch-picker-label-min-width=32px] - Reserved label width, so `9 / 9` growing to `10 / 12` does not shift the arrows.
  *
  * @cssprop [--aparte-waiting-height=1.5em] - Min height of the waiting region, so the first token does not jump the layout.
- * @cssprop [--aparte-waiting-dot-gap=4px] - Gap between the three waiting dots.
+ * @cssprop [--aparte-waiting-dot-gap=var(--aparte-space-2)] - Gap between the three waiting dots.
  * @cssprop [--aparte-status-dot-size=6px] - Diameter of a waiting dot (shared with the status indicator).
  * @cssprop [--aparte-status-color=var(--aparte-text-muted)] - Colour of the waiting dots (shared with the status indicator).
  *
@@ -440,6 +439,7 @@ export class AparteChatBubble extends HTMLElement {
   appendToken(chunk: string): void {
     this._content += chunk;
     this._updateContent();
+    this._syncCopyAction();
   }
 
   /** Set content directly */
@@ -451,6 +451,7 @@ export class AparteChatBubble extends HTMLElement {
     // slice of the wrong string. A retry does exactly this — clear, then re-stream.
     this._resetMarkdownStream();
     this._updateContent();
+    this._syncCopyAction();
   }
 
   /**
@@ -515,6 +516,7 @@ export class AparteChatBubble extends HTMLElement {
       const updated = mergeSegmentUpdate(this._segments[index]!, updates);
       this._segments[index] = updated;
       this._applySegmentUpdate(segmentId, updated, updates);
+      this._syncCopyAction();
     }
   }
 
@@ -524,6 +526,7 @@ export class AparteChatBubble extends HTMLElement {
     if (segment && 'content' in segment) {
       (segment as { content: string }).content += content;
       this._applySegmentUpdate(segmentId, segment, { content: (segment as AparteSegment & { content: string }).content });
+      this._syncCopyAction();
     }
   }
 
@@ -555,6 +558,7 @@ export class AparteChatBubble extends HTMLElement {
     const el = this._segmentsEl?.querySelector(`:scope > [data-segment-id="${cssEscape(segmentId)}"]`);
     el?.remove();
     this._updateWaiting();
+    this._syncCopyAction();
   }
 
   /** Set attachments (chips shown above message content, user role only) */
@@ -744,7 +748,7 @@ export class AparteChatBubble extends HTMLElement {
           </div>
           <div class="aparte-footer">
             <div class="aparte-branch-picker" hidden>
-              <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">&#8249;</button>
+              <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-prev" aria-label="${escapeAttr(this._cfg.getLocale().previousResponse ?? 'Previous response')}">${this._cfg.getIcon('prevBranch')}</button>
               <span class="aparte-branch-label">1 / 1</span>
               <!-- The move has to be ANNOUNCED. Pressing the arrows deliberately does not
                    take focus, so without a live region a screen-reader user gets the new
@@ -753,7 +757,7 @@ export class AparteChatBubble extends HTMLElement {
                    dots, which reads as nothing. No new locale key — the position is
                    digits, and the buttons beside it already carry translated labels. -->
               <span class="aparte-sr-only aparte-branch-status" aria-live="polite"></span>
-              <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">&#8250;</button>
+              <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-branch-next" aria-label="${escapeAttr(this._cfg.getLocale().nextResponse ?? 'Next response')}">${this._cfg.getIcon('nextBranch')}</button>
             </div>
             <div class="aparte-action-bar" role="toolbar" aria-label="${escapeAttr(this._cfg.getLocale().messageActions ?? 'Message actions')}"></div>
           </div>
@@ -1010,6 +1014,7 @@ export class AparteChatBubble extends HTMLElement {
       this._contentEl.style.display = this._segments.length > 0 ? 'none' : '';
     }
     this._reflectError();
+    this._syncCopyAction();
   }
 
   /**
@@ -1088,11 +1093,11 @@ export class AparteChatBubble extends HTMLElement {
         // only maps the strip's measurements onto it. The bubble emitted the mapping
         // without the recipe, so its tiles had no box — a bare "PDF" beside a bare image.
         return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">`
-          + `<img class="aparte-thumb__img" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
+          + `<img class="aparte-thumbnail__image" src="${escapeHtml(a.url)}" alt="${name}" loading="lazy" />`
           + `<span class="aparte-thumb__name">${name}</span></div>`;
       }
       return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">`
-        + `<span class="aparte-thumb__ext">${escapeHtml(this._fileExt(a.name))}</span>`
+        + `<span class="aparte-thumbnail__label">${escapeHtml(this._fileExt(a.name))}</span>`
         + `<span class="aparte-thumb__name">${name}</span></div>`;
     }).join('');
 
@@ -1105,7 +1110,7 @@ export class AparteChatBubble extends HTMLElement {
       tile.setAttribute('role', 'button');
       tile.setAttribute('tabindex', '0');
       const open = (): void => {
-        const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
+        const img = tile.querySelector('.aparte-thumbnail__image') as HTMLImageElement | null;
         if (!img) return;
         this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
           bubbles: true, composed: true,
@@ -1256,6 +1261,32 @@ export class AparteChatBubble extends HTMLElement {
   // Action Bar
   // ─────────────────────────────────────────────────────────────────────────
 
+  /**
+   * What the copy action copies: the reply, not the reasoning. A `thinking` segment is
+   * the model's scratchpad, and the client already keeps it out of the history it sends
+   * back (`_segmentsToText`) for the same reason — copying it along with the answer
+   * pasted a paragraph of deliberation above every reply, which no assistant on the
+   * market does. Segments with no `content` (a tool call) contribute nothing, so a
+   * turn made only of those copies as `''` — and the action bar reads this to decide
+   * whether to offer the button at all.
+   */
+  private _copyableText(): string {
+    return (this._content || this._segments
+      .filter(s => s.type !== 'thinking')
+      .map(s => (s as { content?: string }).content ?? '')
+      .join('\n')).trim();
+  }
+
+  /**
+   * The copy button is for text. `hidden` rather than removed: the bar is rebuilt
+   * rarely and the text changes on every streamed token, so the button is toggled in
+   * place from each path that changes what a copy would paste.
+   */
+  private _syncCopyAction(): void {
+    const btn = this._actionBarEl?.querySelector<HTMLElement>('.aparte-action-copy');
+    if (btn) btn.hidden = this._copyableText() === '';
+  }
+
   private _updateActionBar(): void {
     if (!this._actionBarEl) return;
     // While the inline editor is open the bar shows save (✓) / cancel (✗).
@@ -1284,7 +1315,9 @@ export class AparteChatBubble extends HTMLElement {
         for (const a of config.assistant) buttons.push(this._actionButtonHtml(a, icons, locale));
       } else {
         // Flag-driven set. Only `copy` is on by default — retry, feedback and
-        // info all need a host or a listener to mean anything.
+        // info all need a host or a listener to mean anything. (Copy is rendered here
+        // and HIDDEN by `_syncCopyAction` while there is no text to copy — a tool-only
+        // turn used to offer a button that copied the empty string and said "Copied".)
         if (config.copy) buttons.push(this._actionButtonHtml('copy', icons, locale));
         if (config.retry) buttons.push(this._actionButtonHtml('retry', icons, locale));
         if (config.feedback) {
@@ -1296,6 +1329,7 @@ export class AparteChatBubble extends HTMLElement {
     }
 
     this._actionBarEl.innerHTML = buttons.join('');
+    this._syncCopyAction();
 
     // Custom actions registered via aparteGlobalConfig.registerAction — appended
     // after the built-ins, built as DOM (label goes to attributes, never
@@ -1404,7 +1438,8 @@ export class AparteChatBubble extends HTMLElement {
       const roles = a.bubble?.roles ?? ['user', 'assistant'];
       if (!roles.includes(this._role)) continue;
       const btn = document.createElement('button');
-      btn.className = 'aparte-btn aparte-btn--icon aparte-action-btn aparte-action-custom';
+      btn.type = 'button';
+      btn.className = 'aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-custom';
       btn.dataset['action'] = `custom:${a.id}`;
       // aria-label/title via setAttribute — safe for consumer-provided strings.
       btn.setAttribute('aria-label', a.label);
@@ -1427,30 +1462,30 @@ export class AparteChatBubble extends HTMLElement {
     switch (action) {
       case 'copy': {
         const l = locale.copy ?? 'Copy';
-        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-copy" data-action="copy" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.copy()}</button>`;
       }
       case 'edit': {
         const l = locale.edit ?? 'Edit message';
-        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-edit" data-action="edit" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.edit()}</button>`;
       }
       case 'retry': {
         const l = locale.retry ?? 'Retry';
-        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-retry" data-action="retry" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.retry()}</button>`;
       }
       case 'thumbUp': {
         const l = locale.feedbackPositive ?? 'Good response';
-        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-feedback-pos" data-action="feedback-positive" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbUp()}</button>`;
       }
       case 'thumbDown': {
         const l = locale.feedbackNegative ?? 'Bad response';
-        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-feedback-neg" data-action="feedback-negative" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${icons.thumbDown()}</button>`;
       }
       case 'info': {
         // Only when there are numbers to show: a details button over nothing is a
         // dead button. The popover itself is the app's (see `aparte-message-info`).
         if (!this._usage) return '';
         const l = locale.messageInfo ?? 'Details';
-        return `<button class="aparte-btn aparte-btn--icon aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${this._cfg.getIcon('info')}</button>`;
+        return `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-action-btn aparte-action-info" data-action="info" aria-label="${escapeAttr(l)}" title="${escapeAttr(l)}">${this._cfg.getIcon('info')}</button>`;
       }
       default:
         return '';
@@ -1464,9 +1499,9 @@ export class AparteChatBubble extends HTMLElement {
     const saveLabel = locale.editConfirm ?? 'Save';
     const cancelLabel = locale.editCancel ?? 'Cancel';
     this._actionBarEl.innerHTML =
-      `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--success aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
+      `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--success aparte-action-btn aparte-action-edit-save" data-action="edit-save" ` +
       `aria-label="${escapeAttr(saveLabel)}" title="${escapeAttr(saveLabel)}">${this._cfg.getIcon('check')}</button>` +
-      `<button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--danger aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
+      `<button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-btn--danger aparte-action-btn aparte-action-edit-cancel" data-action="edit-cancel" ` +
       `aria-label="${escapeAttr(cancelLabel)}" title="${escapeAttr(cancelLabel)}">${this._cfg.getIcon('close')}</button>`;
     this._actionBarEl.querySelectorAll('.aparte-action-btn').forEach(btn => {
       btn.addEventListener('click', (e) => this._handleActionClick(e as MouseEvent));
@@ -1501,15 +1536,7 @@ export class AparteChatBubble extends HTMLElement {
 
     switch (action) {
       case 'copy': {
-        // The reply, not the reasoning: a `thinking` segment is the model's scratchpad,
-        // and the client already keeps it out of the history it sends back
-        // (`_segmentsToText`) for the same reason. Copying it along with the answer
-        // pasted a paragraph of deliberation above every reply — no assistant on the
-        // market does that.
-        const text = this._content || this._segments
-          .filter(s => s.type !== 'thinking')
-          .map(s => (s as { content?: string }).content ?? '')
-          .join('\n');
+        const text = this._copyableText();
         const icons = this._cfg.getIconProvider();
         const locale = this._cfg.getLocale();
         copyText(text).then(() => {

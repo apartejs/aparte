@@ -1,5 +1,50 @@
 # @aparte-workspace/playground-react
 
+## 0.0.24
+
+### Patch Changes
+
+- Updated dependencies [50085e8]
+- Updated dependencies [31ccbc2]
+- Updated dependencies [7e5910a]
+- Updated dependencies [316eaa7]
+- Updated dependencies [94c44a7]
+- Updated dependencies [e4a3e86]
+- Updated dependencies [b20565d]
+- Updated dependencies [2e8f3ed]
+- Updated dependencies [a62abf9]
+- Updated dependencies [28b9ead]
+- Updated dependencies [1c5fc64]
+- Updated dependencies [2e8f3ed]
+- Updated dependencies [d78b150]
+- Updated dependencies [d79813f]
+- Updated dependencies [7e5910a]
+- Updated dependencies [d78b150]
+- Updated dependencies [7774e65]
+- Updated dependencies [fee67b7]
+- Updated dependencies [735ca53]
+- Updated dependencies [212aebd]
+- Updated dependencies [28b9ead]
+- Updated dependencies [c9529d2]
+- Updated dependencies [d78b150]
+- Updated dependencies [9337dd2]
+- Updated dependencies [7826e07]
+- Updated dependencies [100d089]
+- Updated dependencies [fee67b7]
+- Updated dependencies [dc4a7b7]
+- Updated dependencies [fee67b7]
+- Updated dependencies [1f89afc]
+- Updated dependencies [dc4a7b7]
+- Updated dependencies [54ab107]
+  - @aparte/core@0.16.8
+  - @aparte/locale-fr@0.16.8
+  - @aparte/plugin-model-selector@0.16.8
+  - @aparte/plugin-artifacts@0.16.8
+  - @aparte/plugin-ask-user@0.16.8
+  - @aparte/plugin-marked@0.16.8
+  - @aparte/provider-openai-compat@0.16.8
+  - @aparte/react@0.16.8
+
 ## 0.0.23
 
 ### Patch Changes

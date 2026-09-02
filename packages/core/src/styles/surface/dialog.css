@@ -54,7 +54,7 @@
   background: var(--aparte-surface-1);
   color: var(--aparte-text);
   border: var(--aparte-border-width) solid var(--aparte-border);
-  border-radius: var(--aparte-radius-xl);
+  border-radius: var(--aparte-radius-dialog);
   box-shadow: var(--aparte-menu-shadow);
 }
 
@@ -130,11 +130,20 @@ body:has(.aparte-dialog[open]) {
   .aparte-dialog:modal {
     width: 100%;
     max-width: 100%;
-    height: 100dvh;
+    /* As tall as its content, capped at the screen, sitting on the bottom edge: a sheet
+       stretched to 100dvh held a label, a field and two buttons over 586px of nothing.
+       `fit-content`, not `auto` — on a positioned box with both block insets set, an
+       auto height FILLS them (CSS 2 §10.6.4: the auto margins go to 0 and the height
+       is solved for), so `auto` measured the same 720 the explicit 100dvh had. What
+       the UA gives a dialog is `fit-content`, and it is what lets the auto top margin
+       push the sheet onto the bottom edge. And the safe areas: the ✕ used to sit 6px
+       from the physical top. */
+    height: fit-content;
     max-height: 100dvh;
-    margin: 0;
+    margin: auto 0 0;
+    padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
     border: 0;
-    border-radius: 0;
+    border-radius: var(--aparte-radius-dialog) var(--aparte-radius-dialog) 0 0;
   }
 }
 

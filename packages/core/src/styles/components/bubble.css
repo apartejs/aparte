@@ -45,7 +45,11 @@ aparte-chat-bubble {
   box-sizing: border-box;
   display: flex;
   gap: var(--aparte-message-gap);
-  padding: var(--aparte-message-padding);
+  /* The two parts, not the composite `--aparte-message-padding` that used to join them
+     on `:root`: a custom property is substituted where it is declared, so the composite
+     froze both parts at the root and the narrow-container override of them in
+     responsive.css never reached this row. */
+  padding: var(--aparte-message-padding-block) var(--aparte-message-padding-inline);
   width: 100%;
   max-width: var(--aparte-message-max-width);
   margin: 0 auto;
@@ -133,6 +137,11 @@ aparte-chat-bubble {
   opacity: 0;
   transition: opacity var(--aparte-duration-base) var(--aparte-ease);
   height: var(--aparte-action-bar-btn-size);
+  /* The INK meets the column, not the box: a glyph is centred in its 24px button, so
+     its ink began half the slack — (24 − 12) / 2 — to the right of the paragraph above.
+     Measured at +5 to +8px in 14 previews. The bar takes that slack back and the box
+     overhangs into the message padding, where nothing else lives. */
+  margin-inline-start: calc((var(--aparte-icon-size-sm) - var(--aparte-btn-size-sm)) / 2);
 }
 
 .aparte-message:hover .aparte-action-bar,
@@ -197,8 +206,6 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
     inset-block-end: calc(-1 * (var(--aparte-message-padding-block) + var(--aparte-message-gap)));
     margin: 0;
     z-index: 1;
-    /* Smaller than the last reply's 28px: this one lives in the padding. */
-    --aparte-action-bar-btn-size: 24px;
   }
 }
 
@@ -247,12 +254,11 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   display: none;
 }
 
+/* The arrows wear `--sm` and the recipe draws the box: this rule used to redraw
+   width/height to a 20px token over it — two sources for one measure. */
 .aparte-branch-prev,
 .aparte-branch-next {
   color: var(--aparte-branch-picker-btn-color);
-  width: var(--aparte-branch-picker-btn-size);
-  height: var(--aparte-branch-picker-btn-size);
-  font-size: var(--aparte-branch-picker-btn-icon-size);
 }
 
 .aparte-branch-prev:hover:not(:disabled),
@@ -261,9 +267,11 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   background: var(--aparte-action-bar-btn-hover-bg);
 }
 
+/* The button recipe draws the disabled state (a neutral ground, the muted ink); an
+   opacity over it read the arrow at 1.74:1 — as absent, where the picker means "no
+   further". `default` and not `not-allowed`: the end of a list is not a refusal. */
 .aparte-branch-prev:disabled,
 .aparte-branch-next:disabled {
-  opacity: var(--aparte-disabled-opacity);
   cursor: default;
 }
 

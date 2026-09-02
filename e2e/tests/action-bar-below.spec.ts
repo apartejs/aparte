@@ -53,7 +53,13 @@ test('an older reply\'s action bar hangs under its text, inside the gap, and res
     expect(barBox!.y + barBox!.height, `the bar's bottom (${barBox!.y + barBox!.height}) stays within the bubble's box (${olderBox!.y + olderBox!.height})`)
         .toBeLessThanOrEqual(olderBox!.y + olderBox!.height + 1);
     expect(barBox!.y + barBox!.height, 'and never reaches the next turn').toBeLessThanOrEqual(nextTop + 1);
-    expect(Math.abs(barBox!.x - bodyBox!.x), 'the bar starts where the text starts').toBeLessThanOrEqual(2);
+    // The bar's INK starts where the text starts (UI audit, LOT 22): the first button's
+    // box begins half a button-padding before the text edge, so that its glyph — the
+    // thing the eye reads as the bar's start — lands on the column. Measured on the
+    // glyph, not the box, since the box is exactly what moved.
+    const glyphBox = await bar.locator('svg').first().boundingBox();
+    expect(glyphBox).toBeTruthy();
+    expect(Math.abs(glyphBox!.x - bodyBox!.x), `the bar's first glyph (${glyphBox!.x}) starts where the text starts (${bodyBox!.x})`).toBeLessThanOrEqual(2);
 
     // The last reply keeps its always-visible bar in the flow — every chat does that.
     const lastBar = chat.lastReply.locator('.aparte-action-bar');

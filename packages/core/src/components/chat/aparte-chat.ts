@@ -31,9 +31,8 @@ import { escapeAttr } from '../../utils/escape.js';
  * Being a component (not a bare `<div>`), it also owns behaviour a wrapper div
  * can't: with `center-empty`, it watches its own viewport and keeps the composer
  * centered as a welcome state until the first `<aparte-chat-bubble>` lands, then
- * slides to the normal layout — no external JavaScript. While centered it carries
- * `data-empty` on itself (set and cleared by that same watcher), which is the hook to
- * style the welcome state from an app's own CSS. The watcher needs a viewport somewhere
+ * slides to the normal layout — no external JavaScript (`data-empty`, in the attribute
+ * list below, is that watcher's output). The watcher needs a viewport somewhere
  * inside, and hand-written markup always has one because composing the default injects
  * it — so the only path where no watcher starts and `data-empty` is never set is
  * `framework-managed`, where the framework owns the subtree anyway. The stylesheet
@@ -52,10 +51,38 @@ import { escapeAttr } from '../../utils/escape.js';
  * `AparteClient`, or handle `aparte-send` yourself, as with the primitives.
  * Size the element via CSS (a height, or let it fill a sized parent).
  *
+ * Composing it yourself is the other form, and the container still lays it out and still
+ * runs `center-empty`. It is written out here rather than as a second `@example` for a
+ * mechanical reason: every element-own example is concatenated into ONE live frame on the
+ * generated reference page, so a second `<aparte-chat>` there rendered as a second whole
+ * chat — two empty composers with 600px of nothing between them.
+ *
+ * ```html
+ * <aparte-chat center-empty attachments style="height: 24rem">
+ *   <aparte-chat-viewport></aparte-chat-viewport>
+ *   <aparte-composer>
+ *     <div class="aparte-composer-shell">
+ *       <div class="aparte-composer-row">
+ *         <aparte-composer-input></aparte-composer-input>
+ *         <aparte-composer-send></aparte-composer-send>
+ *       </div>
+ *     </div>
+ *   </aparte-composer>
+ * </aparte-chat>
+ * ```
+ *
  * @element aparte-chat
  * @attr {string} placeholder - Placeholder for the composer input (default composition)
  * @attr {boolean} disabled - Disables the composer
+ * @attr {boolean} submit-on-enter - Forwarded to the composer by value: `submit-on-enter="false"`
+ *   makes Enter break the line and Shift+Enter send (the bare attribute, or none, keeps the
+ *   default — Enter sends). The four wrappers expose the same switch as `submitOnEnter`.
  * @attr {boolean} center-empty - Center the composer as a welcome state until the first message, then slide to the normal layout
+ * @attr {boolean} data-empty - Reflected BY the element while `center-empty` is set and no
+ *   `<aparte-chat-bubble>` has landed in its viewport; the stylesheet centers the composer through
+ *   `aparte-chat[center-empty][data-empty]`, and an app styles its welcome state against it. Never
+ *   set without `center-empty`, and never under `framework-managed` (no viewport child to watch).
+ *   Read-only.
  * @attr {boolean} overlay-composer - The ChatGPT anatomy, opt-in: the transcript's scroll
  *   surface spans the whole column and the composer (with the rest of the bottom stack)
  *   floats over it, so the scrollbar runs edge to edge instead of stopping at the
@@ -70,35 +97,15 @@ import { escapeAttr } from '../../utils/escape.js';
  *   `[data-aparte-chat]` div and never create this element at all.
  * @attr {boolean} attachments - Add the file picker + chips strip to the default composition (opt-in: the host must consume the files — an `AparteClient` does, a hand-rolled loop must read `event.detail.files`)
  *
- * @cssprop [--aparte-chat-bottom-gap=var(--aparte-space-8, 16px)] - Space below the
+ * @cssprop [--aparte-chat-bottom-gap=var(--aparte-space-8)] - Space below the
  *   composer, as `padding-block-end` on the shell (the same rule covers a wrapper's
  *   `[data-aparte-chat]` root). The gap belongs to this element because padding applied
  *   from outside would also shrink the scroll area, stopping the transcript short of the
  *   edge instead of scrolling to it.
  *
- * Composing it yourself is the other form, and the container still lays it out and still
- * runs `center-empty`. It is written out here rather than as a second `@example` for a
- * mechanical reason: every element-own example is concatenated into ONE live frame on the
- * generated reference page, so a second `<aparte-chat>` there rendered as a second whole
- * chat — two empty composers with 600px of nothing between them.
- *
- * ```html
- * <aparte-chat center-empty attachments style="height: 320px">
- *   <aparte-chat-viewport></aparte-chat-viewport>
- *   <aparte-composer>
- *     <div class="aparte-composer-shell">
- *       <div class="aparte-composer-row">
- *         <aparte-composer-input></aparte-composer-input>
- *         <aparte-composer-send></aparte-composer-send>
- *       </div>
- *     </div>
- *   </aparte-composer>
- * </aparte-chat>
- * ```
- *
  * @example
  * <!-- Left empty it fills in a viewport, an input and a send button. -->
- * <aparte-chat center-empty placeholder="Say something…" style="height: 320px"></aparte-chat>
+ * <aparte-chat center-empty placeholder="Say something…" style="height: 24rem"></aparte-chat>
  *
  * <script>
  *   // Seeded so the frame shows a real exchange rather than an empty box: this
@@ -114,7 +121,7 @@ import { escapeAttr } from '../../utils/escape.js';
  */
 export class AparteChat extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ['placeholder', 'disabled', 'center-empty', 'attachments'];
+    return ['placeholder', 'disabled', 'submit-on-enter', 'center-empty', 'attachments'];
   }
 
   private _observer: MutationObserver | null = null;
@@ -130,6 +137,7 @@ export class AparteChat extends HTMLElement {
     this._render();
     this._forwardAttr('placeholder');
     this._forwardAttr('disabled');
+    this._forwardAttr('submit-on-enter');
     this._syncEmptyWatch();
   }
 

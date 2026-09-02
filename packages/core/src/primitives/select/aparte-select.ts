@@ -1,4 +1,5 @@
 import './aparte-option.js';
+import { presenceOn } from '../../utils/presence.js';
 import './aparte-optgroup.js';
 import { resolveConfig } from '../../config/config-context.js';
 
@@ -37,7 +38,6 @@ export interface AparteSelectChangeDetail {
  * @attr {string} value - The selected option's value.
  * @attr {string} placeholder - Shown while nothing is selected.
  * @attr {boolean} disabled - Blocks opening the dropdown.
- * @attr {boolean} grouped - Observed, never read: `<aparte-optgroup>` children render as groups without it.
  * @attr {boolean} searchable - Adds a filter field above the options. Read on the first render only.
  * @attr {boolean} open - Reflects (and controls) whether the dropdown is open.
  *
@@ -45,17 +45,15 @@ export interface AparteSelectChangeDetail {
  * @fires aparte-select-open - The dropdown opened. No detail.
  * @fires aparte-select-close - The dropdown closed. No detail.
  *
- * @cssprop [--aparte-select-bg=var(--aparte-surface-1, #fff)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
- * @cssprop [--aparte-select-border=var(--aparte-border, #e2e8f0)] - Border of the trigger and of the dropdown.
- * @cssprop [--aparte-select-border-hover=var(--aparte-primary, #3b82f6)] - Trigger border on hover.
- * @cssprop [--aparte-select-border-focus=var(--aparte-primary, #3b82f6)] - Trigger border while focused.
- * @cssprop [--aparte-select-ring=rgba(59, 130, 246, 0.2)] - Colour of the 2px focus ring around the trigger.
- * @cssprop [--aparte-select-radius=0.5rem] - Corner radius of the trigger and the dropdown.
- * @cssprop [--aparte-select-text=var(--aparte-text, #1e293b)] - Colour of the trigger label (and of the options).
- * @cssprop [--aparte-select-chevron=var(--aparte-text-muted, #94a3b8)] - Colour of the chevron, which rotates 180° while open.
- * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1, #fff)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware). It used to be read in the light theme only, the dark rule taking the TRIGGER's background instead — so a transparent trigger made the panel see-through in the dark.
- * @cssprop [--aparte-select-shadow=0 4px 12px rgba(0, 0, 0, 0.1)] - Dropdown panel shadow.
- * @cssprop [--aparte-select-z=1000] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
+ * @cssprop [--aparte-select-bg=var(--aparte-surface-1)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
+ * @cssprop [--aparte-select-border=var(--aparte-border-control)] - Border of the trigger and of the dropdown.
+ * @cssprop [--aparte-select-border-hover=var(--aparte-primary)] - Trigger border on hover.
+ * @cssprop [--aparte-radius-select=var(--aparte-radius-md)] - Corner radius of the trigger and the dropdown — the theme's knob, beside `--aparte-radius-input` and the others. (It used to exist twice, as this and a private `--aparte-select-radius` with a different value.)
+ * @cssprop [--aparte-select-text=var(--aparte-text)] - Colour of the trigger label (and of the options).
+ * @cssprop [--aparte-select-chevron=var(--aparte-text-muted)] - Colour of the chevron, which rotates 180° while open.
+ * @cssprop [--aparte-select-dropdown-bg=var(--aparte-surface-1)] - Dropdown panel background, in both themes (`--aparte-surface-1` is dark-aware). It used to be read in the light theme only, the dark rule taking the TRIGGER's background instead — so a transparent trigger made the panel see-through in the dark.
+ * @cssprop [--aparte-select-shadow=0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16)] - Dropdown panel shadow.
+ * @cssprop [--aparte-select-z=var(--aparte-z-dropdown)] - `z-index` of the dropdown. It is `position: fixed`, so this is the one knob that decides whether it lands above the rest of your page.
  *
  * @example
  * <aparte-select placeholder="Pick a model" searchable value="gpt-4o-mini">
@@ -102,13 +100,14 @@ export class AparteSelect extends HTMLElement {
     private _boundHandleKeydown = this._handleKeydown.bind(this);
 
     static get observedAttributes(): string[] {
-        return ['value', 'placeholder', 'disabled', 'grouped', 'searchable', 'open'];
+        return ['value', 'placeholder', 'disabled', 'searchable', 'open'];
     }
 
     connectedCallback(): void {
         this._value = this.getAttribute('value') || '';
         this._isOpen = this.hasAttribute('open');
         this._render();
+        this._applyDisabled();
         this._setupEventListeners();
         this._setupMutationObserver();
     }
@@ -136,6 +135,17 @@ export class AparteSelect extends HTMLElement {
                 this._dropdown?.setAttribute('hidden', '');
             }
         }
+        // Both were observed and neither had a branch here, so the callback fired and
+        // did nothing: a placeholder rewritten by a locale switch left the visible
+        // label and the combobox's name in the old language, and a select disabled
+        // after mount kept a focusable trigger announced as operable.
+        if (name === 'placeholder') {
+            this._updateTriggerLabel();
+            this._updateNames();
+        }
+        if (name === 'disabled') {
+            this._applyDisabled();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -160,11 +170,7 @@ export class AparteSelect extends HTMLElement {
     }
 
     set open(val: boolean) {
-        if (val) {
-            this.setAttribute('open', '');
-        } else {
-            this.removeAttribute('open');
-        }
+        this.toggleAttribute('open', presenceOn(val));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -594,6 +600,36 @@ export class AparteSelect extends HTMLElement {
         this._closeDropdown();
         this._emitChange(previousValue);
         this._trigger?.focus();
+    }
+
+    /**
+     * The combobox and its listbox are named by the host's `aria-label`, else by the
+     * placeholder — the same rule the first render applies, re-applied when the
+     * placeholder changes. Written only when different: the mutation observer watches
+     * this subtree.
+     */
+    private _updateNames(): void {
+        const name = this.getAttribute('aria-label') || this.getAttribute('placeholder') || 'Select...';
+        for (const el of [this._trigger, this.querySelector('.aparte-select-options')]) {
+            if (el && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
+        }
+    }
+
+    /**
+     * `disabled` takes the trigger out of the tab order and says so — opacity alone
+     * left it focusable and announced as operable. An open dropdown closes.
+     */
+    private _applyDisabled(): void {
+        const trigger = this._trigger;
+        if (!trigger) return;
+        const disabled = this.hasAttribute('disabled');
+        trigger.setAttribute('tabindex', disabled ? '-1' : '0');
+        if (disabled) {
+            trigger.setAttribute('aria-disabled', 'true');
+            if (this._isOpen) this._closeDropdown();
+        } else {
+            trigger.removeAttribute('aria-disabled');
+        }
     }
 
     private _updateTriggerLabel(): void {

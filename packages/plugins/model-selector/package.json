@@ -1,6 +1,6 @@
 {
   "name": "@aparte/plugin-model-selector",
-  "version": "0.16.7",
+  "version": "0.16.8",
   "homepage": "https://apartejs.dev/plugins/model-selector/",
   "description": "Provider + model selector web component (<aparte-model-selector>) for aparté — grouped dropdown, BYOK.",
   "type": "module",
@@ -60,7 +60,7 @@
   },
   "peerDependencies": {
     "@angular/core": "^19.2.0",
-    "@aparte/core": ">=0.16.7 <1.0.0",
+    "@aparte/core": ">=0.16.8 <1.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "svelte": "^4.0.0 || ^5.0.0",
     "vue": "^3.5.0"

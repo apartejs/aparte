@@ -31,7 +31,7 @@ const CHIPS = [
                     <h2>Start a conversation</h2>
                     <div class="suggestions">
                         @for (c of chips; track c.label) {
-                            <button class="chip" (click)="send(c.prompt)">{{ c.label }}</button>
+                            <button type="button" class="chip" (click)="send(c.prompt)">{{ c.label }}</button>
                         }
                     </div>
                 </div>

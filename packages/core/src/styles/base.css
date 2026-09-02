@@ -67,6 +67,28 @@
   animation: aparte-pulse var(--aparte-duration-pulse) infinite ease-in-out;
 }
 
+/* Under reduced motion the loop stops outright. The duration tokens are reset to
+   0.01ms in responsive.css, but that leaves `infinite` in place: a 0.01ms cycle
+   is not stillness, it is a flicker. The descendant sweep there does not reach a
+   recipe used outside aparté's own elements, so each looping recipe stops itself,
+   the way display/icon.css already does. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-dot { animation: none; }
+}
+
+/* `hidden` means hidden. 71 recipes in these sheets set `display` on their base class,
+   and an author declaration beats the browser's own `[hidden] { display: none }` — so a
+   hidden `.aparte-btn` was out of the accessibility tree and still painted: the copy
+   button of a tool-only turn stood there with `hidden` on it. Scoped to our own classes
+   (a prefix match, not a bare `[hidden]`, so a host's markup is not touched), and
+   `!important` because the whole point is to outrank the recipe's `display`. The
+   handful of per-element `[hidden]` rules that predate this stay; they are now
+   redundant, not wrong. */
+[class^="aparte-"][hidden],
+[class*=" aparte-"][hidden] {
+  display: none !important;
+}
+
 /* =========================================
    aparte-conversation-list
    ========================================= */
@@ -98,7 +120,7 @@ aparte-conversation-list {
 .aparte-link:hover { color: var(--aparte-link-color-hover); }
 .aparte-link:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 /* Quiet — for a link inside a dense row, where a coloured one would shout. It keeps
    the underline, which is the part that carries the meaning. */
@@ -121,8 +143,11 @@ aparte-conversation-list {
    same thing at slightly different rhythms; a travelling wave, where a row wants one,
    comes from an animation-delay on its later dots, not from a skewed curve. */
 @keyframes aparte-pulse {
-  0%, 100% { opacity: 0.3; transform: scale(0.85); }
-  50%      { opacity: 1;   transform: scale(1.1);  }
+  /* Opacity alone: the scale that used to ride along made a row of waiting dots change
+     width in a loop. And a floor above the perception threshold — at 0.3 the status
+     dot spent half of every cycle at 1.55:1, and a capture froze it there. */
+  0%, 100% { opacity: var(--aparte-pulse-floor); }
+  50%      { opacity: 1; }
 }
 
 /* One rotation, for every spinner and every spinning glyph. */

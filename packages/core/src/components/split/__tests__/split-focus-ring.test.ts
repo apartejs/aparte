@@ -25,9 +25,9 @@ describe('the split seam — a focus ring you can see', () => {
         expect(rule, 'the seam lost its :focus-visible rule, or the selector was renamed').not.toBe('');
     });
 
-    it('draws a solid outline in the focus-border colour', () => {
+    it('draws the one ring every control draws: a solid outline in the focus colour, one step outside the box', () => {
         expect(rule).toMatch(/outline:\s*var\(--aparte-focus-outline-width\)\s+solid\s+var\(--aparte-border-focus\)/);
-        expect(rule).toMatch(/outline-offset:\s*0/);
+        expect(rule).toMatch(/outline-offset:\s*var\(--aparte-focus-outline-offset\)/);
     });
 
     it('never suppresses the outline', () => {
@@ -36,15 +36,17 @@ describe('the split seam — a focus ring you can see', () => {
         expect(rule).not.toMatch(/outline:\s*none/);
     });
 
-    it('keeps the ring as decoration beside it, not instead of it', () => {
-        expect(rule).toMatch(/box-shadow:\s*var\(--aparte-focus-ring\)/);
+    it('draws no wash beside it — the soft box-shadow ring is gone from the kit (UI audit, LOT 2)', () => {
+        expect(rule).not.toMatch(/box-shadow/);
     });
 
-    it('is still restated for forced colours, which drop box-shadow entirely', () => {
-        // Windows high contrast repaints colours and drops shadows: the entry in
-        // responsive.css now overrides an outline that exists rather than substituting
-        // for one that does not — but it must still be there.
-        const forced = sheet.slice(sheet.indexOf('@media (forced-colors: active)'));
-        expect(forced).toMatch(/\.aparte-split__handle:focus-visible/);
+    it('needs no forced-colours restatement: an outline is painted there on its own', () => {
+        // The entry in responsive.css used to exist because a box-shadow ring vanishes
+        // under forced colours. The ring is an outline now, and forced colours paint it.
+        // Every forced-colours block in the corpus (several sheets carry one), none of
+        // which may name the seam's focus rule any more.
+        const blocks = [...sheet.matchAll(/@media \(forced-colors: active\)\s*\{([\s\S]*?)\n\}/g)].map((m) => m[1]!);
+        expect(blocks.length).toBeGreaterThan(0);
+        for (const block of blocks) expect(block).not.toMatch(/\.aparte-split__handle:focus-visible/);
     });
 });

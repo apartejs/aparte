@@ -42,24 +42,24 @@
 /* ── The shared text-entry recipe ────────────────────────────────────────────── */
 
 .aparte-field {
-  /* Padding recipe, declared here: nothing in the shared token file defines a field
-     padding yet, so this file owns its own default and size variants. */
-  --aparte-field-padding: var(--aparte-space-2) var(--aparte-space-3);
-  /* Same reason, and a gap the recipe had: every other recipe names its own radius
-     (`--aparte-btn-radius`, `--aparte-tag-radius`, `--aparte-field-choice-radius`) and
-     this one hardcoded the scale step, so a field could not be re-cornered from its
-     own element the way every sibling can. */
-  --aparte-field-radius: var(--aparte-radius-md);
-
+  /* Every knob this family reads lives in `theme.css` on `:root` — including the
+     radius and the paddings, which used to be declared right here. That was the one
+     construction bug of the kit: `.aparte-field-group` is this element's PARENT and
+     `.aparte-color` a sibling recipe, both read `--aparte-field-radius`, and a custom
+     property declared here is invisible to both, so they computed `border-radius: 0`
+     and every field group in the library rendered square. */
   box-sizing: border-box;
   display: block;
   width: 100%;
+  /* A resting height from the control scale, so a field and the button beside it stop
+     disagreeing by 6px; the size modifiers move it a step either way. */
+  min-block-size: var(--aparte-field-size);
   font: inherit;
-  font-size: var(--aparte-font-size-sm);
+  font-size: var(--aparte-font-size-md);
   line-height: var(--aparte-line-height-normal);
   color: var(--aparte-text);
   background: var(--aparte-surface-1);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-field-radius);
   padding: var(--aparte-field-padding);
   transition:
@@ -94,10 +94,13 @@
   border-color: var(--aparte-border-focus);
 }
 
+/* Drawn, not faded: the muted ink on the quieter ground, and the edge back to the region
+   colour. Opacity faded the text with its box and read under 3:1. */
 .aparte-field:disabled {
   cursor: not-allowed;
-  opacity: var(--aparte-disabled-opacity);
   background: var(--aparte-surface-2);
+  color: var(--aparte-text-muted);
+  border-color: var(--aparte-border);
 }
 
 .aparte-field[readonly] {
@@ -111,37 +114,35 @@
   border-color: var(--aparte-error);
 }
 
+/* The one ring (see --aparte-focus-outline-offset in theme.css): an outline outside the
+   box, and the border left alone — a highlighted border under an offset ring read as two
+   concentric lines. An invalid field's ring takes the error colour. */
 .aparte-field:focus-visible {
-  outline: none;
-  border-color: var(--aparte-border-focus);
-  box-shadow: var(--aparte-focus-ring);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-field[aria-invalid='true']:focus-visible {
-  border-color: var(--aparte-error);
-  box-shadow: var(--aparte-field-error-ring);
+  outline-color: var(--aparte-error-solid);
 }
 
 /* ── Sizes ───────────────────────────────────────────────────────────────────── */
 
 .aparte-field--sm {
-  --aparte-field-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
-
+  --aparte-field-size: var(--aparte-field-size-sm);
   padding: var(--aparte-field-padding-sm);
-  font-size: var(--aparte-font-size-xs);
+  font-size: var(--aparte-font-size-sm);
 }
 
 .aparte-field--lg {
-  --aparte-field-padding-lg: var(--aparte-space-3) var(--aparte-space-4);
-
+  --aparte-field-size: var(--aparte-field-size-lg);
   padding: var(--aparte-field-padding-lg);
-  font-size: var(--aparte-font-size-md);
+  font-size: var(--aparte-font-size-base);
 }
 
 /* ── Textarea ────────────────────────────────────────────────────────────────── */
 
 .aparte-field--textarea {
-  --aparte-field-textarea-min-height: 80px;
 
   display: block;
   min-block-size: var(--aparte-field-textarea-min-height);
@@ -156,7 +157,7 @@
   display: flex;
   align-items: stretch;
   background: var(--aparte-surface-1);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-field-radius);
   /* The addons' ground follows the group's corners; the focus ring is a shadow on the
      group itself, outside this box, so it is not clipped. */
@@ -178,8 +179,15 @@
   border-radius: 0;
 }
 
+/* The GROUP draws the ring (below): the field inside it draws none. */
 .aparte-field-group > .aparte-field:focus-visible {
-  box-shadow: none;
+  outline: none;
+}
+
+/* A button in the group is as tall as the field it sits beside — the one row where the
+   two recipes meet, and the one where a 4px difference shows. */
+.aparte-field-group > .aparte-btn {
+  --aparte-btn-size: var(--aparte-field-size);
 }
 
 /* An addon has a ground of its own and a rule against the field: on the field's own
@@ -206,8 +214,8 @@
 }
 
 .aparte-field-group:focus-within {
-  border-color: var(--aparte-border-focus);
-  box-shadow: var(--aparte-focus-ring);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* `aria-invalid` lives on the field itself, not the wrapper the app didn't write a
@@ -218,7 +226,7 @@
 }
 
 .aparte-field-group:has(.aparte-field[aria-invalid='true']):focus-within {
-  box-shadow: var(--aparte-field-error-ring);
+  outline-color: var(--aparte-error-solid);
 }
 
 /* ── Checkbox ────────────────────────────────────────────────────────────────── */
@@ -242,7 +250,6 @@
   --aparte-derived-ink: var(--aparte-on-intent);
   /* No shared control-size token covers a checkbox yet (the button's own sizes are
      button-specific), so its box is declared here. */
-  --aparte-checkbox-size: 18px;
 
   box-sizing: border-box;
   appearance: none;
@@ -253,7 +260,7 @@
   place-content: center;
   width: var(--aparte-checkbox-size);
   height: var(--aparte-checkbox-size);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-radius-sm);
   background: var(--aparte-surface-1);
   cursor: pointer;
@@ -338,7 +345,7 @@
 }
 
 .aparte-checkbox:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-checkbox-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -368,8 +375,6 @@
      used. `middle` and not `text-bottom`: the label may wrap. */
   vertical-align: middle;
   --aparte-radio-intent: var(--aparte-primary);
-  --aparte-radio-size: 18px;
-  --aparte-radio-dot-size: 8px;
 
   box-sizing: border-box;
   appearance: none;
@@ -380,7 +385,7 @@
   place-content: center;
   width: var(--aparte-radio-size);
   height: var(--aparte-radio-size);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-radius-full);
   background: var(--aparte-surface-1);
   cursor: pointer;
@@ -422,7 +427,7 @@
 }
 
 .aparte-radio:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-radio-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -453,9 +458,6 @@
      has to live here where `:checked` can override it — a central default could never
      react to the class + state combo. */
   --aparte-switch-track: var(--aparte-surface-3);
-  --aparte-switch-width: 40px;
-  --aparte-switch-height: 22px;
-  --aparte-switch-thumb-inset: 2px;
   /* DERIVED from the track, not a fourth literal to keep in step with the other three:
      the thumb used to be 16px in a 20px track with a 1px border and a 2px top inset —
      2px of air above it and none below, visibly low ("le cercle pas centré"). The
@@ -474,7 +476,7 @@
   flex-shrink: 0;
   inline-size: var(--aparte-switch-width);
   block-size: var(--aparte-switch-height);
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-radius-full);
   background: var(--aparte-switch-track);
   cursor: pointer;
@@ -522,7 +524,7 @@
 }
 
 .aparte-switch:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-switch-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -546,8 +548,6 @@
 
 .aparte-range {
   --aparte-range-intent: var(--aparte-primary);
-  --aparte-range-thumb-size: 16px;
-  --aparte-range-track-height: 4px;
 
   appearance: none;
   -webkit-appearance: none;
@@ -617,11 +617,11 @@
 .aparte-range:active::-moz-range-thumb { transform: scale(1.15); }
 
 .aparte-range:focus-visible::-webkit-slider-thumb {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-range-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 .aparte-range:focus-visible::-moz-range-thumb {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-range-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -642,6 +642,7 @@
 
 .aparte-field-label {
   display: inline-block;
+  vertical-align: middle;
   margin-block-end: var(--aparte-space-1);
   font-size: var(--aparte-font-size-sm);
   font-weight: var(--aparte-font-weight-medium);
@@ -729,7 +730,7 @@
   inline-size: var(--aparte-color-size);
   block-size: var(--aparte-color-size);
   padding: 0;
-  border: var(--aparte-border-width) solid var(--aparte-border);
+  border: var(--aparte-border-width) solid var(--aparte-border-control);
   border-radius: var(--aparte-field-radius);
   background: none;
   cursor: pointer;
@@ -739,7 +740,7 @@
 .aparte-color::-moz-color-swatch { border: none; border-radius: var(--aparte-radius-sm); }
 .aparte-color:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 .aparte-color:disabled { cursor: not-allowed; opacity: var(--aparte-disabled-opacity); }
 
@@ -795,6 +796,7 @@
    would invite a click. */
 .aparte-output {
   display: inline-block;
+  vertical-align: middle;
   padding: var(--aparte-output-padding);
   border-radius: var(--aparte-radius-sm);
   background: var(--aparte-output-bg);
@@ -877,7 +879,7 @@
 }
 .aparte-field-choice:has(:focus-visible) {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-field-choice__body { flex: 1 1 auto; min-width: 0; }

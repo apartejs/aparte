@@ -183,7 +183,6 @@
      below (it was a frozen plum hex that outlived every rebrand); the assistant is
      plain prose (AI-chat convention) — flip it to get a two-bubble chat-app look. */
   --aparte-message-content-bg-assistant: transparent;
-  --aparte-message-content-radius: 14px;
 
   /* Aliases used by some segment renderers (artifact card, tool pill).
      Mapped to existing tokens so consumers that override --aparte-surface-1/2
@@ -206,8 +205,6 @@
   --aparte-thumb-remove-bg-hover: rgba(0, 0, 0, 0.85);
   --aparte-thumb-remove-color: #ffffff;
 
-  /* Action Bar */
-  --aparte-action-bar-btn-size: 28px;
   /* The mark (display/mark.css): how much of its intent a marked row's ground takes,
      and how wide the bar on its start edge is. One pair for the select's chosen option,
      the checked field choice, the active conversation and an answered question. */
@@ -215,12 +212,16 @@
   --aparte-mark-bar: 2px;
 
   /* Branch Picker */
-  --aparte-branch-picker-btn-size: 20px;
-  --aparte-branch-picker-btn-icon-size: 16px;
   --aparte-branch-picker-label-min-width: 32px;
 
   /* Avatars */
   --aparte-avatar-size: 32px;
+  /* Fractions of the size, computed on the element (display/avatar.css): the initials'
+     type, the corner and the group's overlap follow the ramp instead of sitting at one
+     absolute value for 20px and 56px alike. */
+  --aparte-avatar-initials-ratio: 0.34;
+  --aparte-avatar-radius-ratio: 0.28;
+  --aparte-avatar-overlap-ratio: 0.28;
   --aparte-avatar-image-user: none;
   --aparte-avatar-image-assistant: none;
   --aparte-avatar-image-size: 90%;
@@ -230,21 +231,18 @@
   /* Input */
   --aparte-input-editor-max-height: 200px;
 
-  /* Icons — one knob, inherited: a container declares it, every glyph below follows. */
-  --aparte-icon-size: 14px;
-  --aparte-icon-size-sm: 12px;
-  --aparte-icon-size-lg: 16px;
-  --aparte-icon-size-xl: 20px;
+  /* Icons: one knob, inherited — a container declares `--aparte-icon-size` and every
+     glyph below follows. The steps are on the type scale, in the derived layer. */
 
-  /* Send button + inline action buttons */
-  --aparte-send-btn-size: 36px;
-  --aparte-input-action-btn-size: 36px;
+  /* Send button + inline action buttons (their size is the lg step, in the derived layer) */
   --aparte-input-action-btn-icon-size: 20px;
   --aparte-model-select-min-width: 120px;
 
   /* Status Indicator */
   --aparte-status-bg: transparent;
   --aparte-status-dot-size: 6px;
+  /* The floor of every pulsing dot's opacity: above the perception threshold. */
+  --aparte-pulse-floor: 0.55;
 
   /* Waiting Indicator (the bubble's own dots, before the first token) */
   --aparte-waiting-height: 1.5em;
@@ -252,7 +250,6 @@
   /* Thinking Segment */
   --aparte-thinking-content-max-height: 300px;
   --aparte-thinking-content-line-height: 1.55;
-  --aparte-thinking-toggle-size: 9px;
   --aparte-thinking-rail-width: 2px;
 
   /* Elicitation — the panel a tool's question is asked in.
@@ -282,8 +279,7 @@
   --aparte-code-copy-icon-size: 14px;
   --aparte-code-inline-font-size: 0.875em;
 
-  /* Scroll-to-bottom button */
-  --aparte-scroll-btn-size: 36px;
+  /* Scroll-to-bottom button (its size is the lg step, in the derived layer) */
   --aparte-scroll-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 
   /* Error segment */
@@ -291,8 +287,6 @@
   --aparte-error-border: #fecaca;
   --aparte-error-solid: #dc2626;
   --aparte-error-text: #991b1b;
-  --aparte-error-title: #7f1d1d;
-  --aparte-error-icon-size: 20px;
   --aparte-error-rail-width: 4px;
 
   /* Prose (aparte-segment-content) */
@@ -327,12 +321,9 @@
 
   /* Input (composer) */
 
-  /* Conversation List */
-  --aparte-conv-action-btn-size: 20px;
 
   /* Scroll rail — the ticks beside the transcript. Off-scale on purpose: a 2px line
      and a 14px mark are a minimap's measures, not spacing steps. */
-  --aparte-scroll-rail-width: 20px;
   --aparte-scroll-rail-tick-size: 14px;
   --aparte-scroll-rail-tick-thickness: 2px;
 
@@ -341,7 +332,6 @@
   /* Context gauge, ring variant — a diameter, and a stroke in the ring's own 36-unit
      box. Literals like the rail's: a 22px ring is a toolbar's measure, not a spacing step. */
   --aparte-context-ring-size: 22px;
-  --aparte-context-ring-stroke: 4;
 
   /* Shell — the sidebar's column, the header's row and the split's seam. */
   --aparte-sidebar-width: 260px;
@@ -353,9 +343,15 @@
      is 12px because that is a target, and it grows to the touch target on a coarse
      pointer (responsive.css). */
   --aparte-split-position: 38%;
-  --aparte-split-min: 20rem;
+  /* Never more than the container has: at 320px this floor was wider than a phone, so
+     the primary pane took everything and the end pane was annihilated to 0. */
+  --aparte-split-min: min(20rem, 100%);
   --aparte-split-max: 60%;
-  --aparte-split-handle-size: 4px;
+  /* The seam's TRACK — the grab zone, and what the grid reserves. The painted line
+     inside it is `--aparte-split-seam-width` (derived layer): one token used to size
+     both, so the line could not be thinned without moving the layout, and at 4px it
+     was four times the kit's rule with no grip — an interaction drawn as a decoration. */
+  --aparte-split-handle-size: 12px;
   --aparte-split-hit-area: 12px;
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather
@@ -406,6 +402,9 @@
   --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   --aparte-popover-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16);
   --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  /* The composer laid over the transcript (overlay-composer): a thing that floats has to
+     be seen floating, and its ground is the transcript's own. */
+  --aparte-composer-overlay-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
   --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 
@@ -444,11 +443,28 @@
   --aparte-skeleton-text-last-width: 60%;
   --aparte-progress-indeterminate-width: 40%;
 
+  /* The control height scale — four steps, and EVERY control reads one: a text
+     button used to have no height (23px of padding and line-height) beside 24, 29, 32,
+     36 and 44px neighbours, and the 36px family (send, the input's action button, the
+     scroll button) lived off the scale as literals. sm is the small control (action bar,
+     branch arrows, a row's ⋯), md the default button, lg the field and the composer's
+     controls at rest, xl the large button. */
   --aparte-btn-size-sm: 24px;
   --aparte-btn-size-md: 32px;
-  --aparte-btn-size-lg: 40px;
+  --aparte-btn-size-lg: 36px;
+  --aparte-btn-size-xl: 40px;
+  /* The field family's literal sizes, beside the button's: the derived knobs
+     (paddings, radius) sit in the anchored layer below, like the button's own. */
+  --aparte-field-textarea-min-height: 80px;
+  --aparte-checkbox-size: 18px;
+  --aparte-radio-size: 18px;
+  --aparte-radio-dot-size: 8px;
+  --aparte-switch-width: 40px;
+  --aparte-switch-height: 22px;
+  --aparte-switch-thumb-inset: 2px;
+  --aparte-range-thumb-size: 16px;
+  --aparte-range-track-height: 4px;
 
-  --aparte-focus-outline-offset: -2px;
   --aparte-tool-spinner-size: 10px;
   --aparte-model-select-chevron-room: 28px;
 }
@@ -482,6 +498,9 @@
     --aparte-scroll-btn-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
     --aparte-select-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.55);
     --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    --aparte-composer-overlay-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+    /* Declared once at :root it darkened a dark page by 8/255: the modal state vanished. */
+    --aparte-scrim: rgba(0, 0, 0, 0.6);
     --aparte-popover-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.55);
     --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
     --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -491,7 +510,6 @@
     --aparte-error-border: #7f1d1d;
     --aparte-error-solid: #f87171;
     --aparte-error-text: #fca5a5;
-    --aparte-error-title: #fecaca;
   }
 }
 
@@ -521,6 +539,10 @@
   --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   --aparte-popover-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 10px 28px rgba(0, 0, 0, 0.16);
   --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  /* The composer laid over the transcript (overlay-composer): a thing that floats has to
+     be seen floating, and its ground is the transcript's own. */
+  --aparte-composer-overlay-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+  --aparte-scrim: rgba(0, 0, 0, 0.35);
   --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   --aparte-range-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   --aparte-ink-l: 0.40;
@@ -528,7 +550,6 @@
   --aparte-error-border: #fecaca;
   --aparte-error-solid: #dc2626;
   --aparte-error-text: #991b1b;
-  --aparte-error-title: #7f1d1d;
 }
 
 
@@ -568,6 +589,8 @@
   --aparte-scroll-btn-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
   --aparte-select-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.55);
   --aparte-menu-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --aparte-composer-overlay-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  --aparte-scrim: rgba(0, 0, 0, 0.6);
   --aparte-popover-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.55);
   --aparte-tooltip-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   --aparte-switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -587,7 +610,6 @@
   --aparte-error-border: #7f1d1d;
   --aparte-error-solid: #f87171;
   --aparte-error-text: #fca5a5;
-  --aparte-error-title: #fecaca;
 }
 
 /* =========================================
@@ -653,8 +675,14 @@ aparte-chat {
   --aparte-font-size-xs: calc(0.6875rem * var(--aparte-font-scale));
   --aparte-font-size-sm: calc(0.75rem * var(--aparte-font-scale));
   --aparte-font-size-md: calc(0.8125rem * var(--aparte-font-scale));
-  --aparte-font-size-lg: calc(0.875rem * var(--aparte-font-scale));
   --aparte-font-size-base: calc(0.9375rem * var(--aparte-font-scale));
+  /* Above the body, in the order the names say. `lg` used to be 0.875rem — SMALLER than
+     `base` — with nothing above it, so a title and a placeholder shared a size and a
+     card's title was smaller than its body. A scale whose name lies is worse than a
+     short one. */
+  --aparte-font-size-lg: calc(1.0625rem * var(--aparte-font-scale));
+  --aparte-font-size-xl: calc(1.25rem * var(--aparte-font-scale));
+  --aparte-font-size-2xl: calc(1.5rem * var(--aparte-font-scale));
 
   /* Elicitation and the conversation item, on the scale.
      They were literals off every step — 0.76 / 0.78 / 0.8 / 0.82rem and a `7px 10px`
@@ -680,7 +708,6 @@ aparte-chat {
      vertical half (#56) — a shorthand cannot be read by parts. */
   --aparte-message-padding-block: var(--aparte-space-8);
   --aparte-message-padding-inline: var(--aparte-space-6);
-  --aparte-message-padding: var(--aparte-message-padding-block) var(--aparte-message-padding-inline);
   --aparte-message-content-padding: var(--aparte-space-5) var(--aparte-space-7);
   --aparte-action-bar-gap: var(--aparte-space-2);
   --aparte-branch-picker-gap: var(--aparte-space-2);
@@ -697,14 +724,15 @@ aparte-chat {
   --aparte-input-padding-y: var(--aparte-space-5);
   --aparte-conv-list-gap: var(--aparte-space-1);
   --aparte-conv-item-gap: var(--aparte-space-3);
-  --aparte-elic-option-radius: var(--aparte-radius-lg);
+  --aparte-elic-option-radius: var(--aparte-radius-md);
   --aparte-elic-input-radius: var(--aparte-radius-md);
   --aparte-tool-row-radius: var(--aparte-radius-md);
-  --aparte-avatar-font-size: var(--aparte-font-size-lg);
-  --aparte-name-font-size: var(--aparte-font-size-lg);
+  /* The split's painted seam: the kit's rule, inside a 12px track. */
+  --aparte-split-seam-width: var(--aparte-border-width);
+  --aparte-name-font-size: var(--aparte-font-size-md);
   --aparte-timestamp-font-size: var(--aparte-font-size-sm);
   --aparte-branch-picker-label-size: var(--aparte-font-size-sm);
-  --aparte-input-font-size: var(--aparte-font-size-lg);
+  --aparte-input-font-size: var(--aparte-font-size-base);
   --aparte-content-font-size: var(--aparte-font-size-base);
   --aparte-input-editor-font-size: var(--aparte-font-size-base);
   --aparte-status-font-size: var(--aparte-font-size-md);
@@ -717,6 +745,9 @@ aparte-chat {
      moves --aparte-space-unit or --aparte-font-scale carries them along. */
   /* A tooltip is an INVERTED surface: dark on a light theme, light on a dark one.
      Reading the text pair gives exactly that, and for free — no third palette. */
+  /* The distance between a placed tooltip (`data-side`) and its anchor: the arrow's
+     half-diagonal, so the tip lands on the trigger rather than 2px short of it. */
+  --aparte-tooltip-gap: var(--aparte-space-3);
   --aparte-tooltip-bg: var(--aparte-text);
   --aparte-tooltip-color: var(--aparte-text-inverse);
 
@@ -752,6 +783,14 @@ aparte-chat {
   --aparte-alert-padding: var(--aparte-space-4) var(--aparte-space-5);
   --aparte-alert-radius: var(--aparte-radius-md);
   --aparte-alert-rail-width: var(--aparte-space-1);
+  /* The icon scale, in rem times the type factor — the one scale in the theme that
+     was pinned in px while every type size followed `--aparte-font-scale`, so a glyph
+     beside text shrank optically the moment a reader enlarged the text. The loose
+     default is 16 (it was 14, and its documentation already said 16). */
+  --aparte-icon-size: calc(1rem * var(--aparte-font-scale));
+  --aparte-icon-size-sm: calc(0.75rem * var(--aparte-font-scale));
+  --aparte-icon-size-lg: calc(1.125rem * var(--aparte-font-scale));
+  --aparte-icon-size-xl: calc(1.25rem * var(--aparte-font-scale));
   --aparte-alert-icon-size: var(--aparte-space-8);
   --aparte-alert-dismiss-size: var(--aparte-btn-size-sm);
   --aparte-alert-title-font-size: var(--aparte-font-size-md);
@@ -759,8 +798,7 @@ aparte-chat {
 
   --aparte-avatar-fallback-bg: var(--aparte-surface-3);
   --aparte-avatar-fallback-color: var(--aparte-text);
-  --aparte-avatar-group-overlap: var(--aparte-space-3);
-  --aparte-avatar-group-ring-width: var(--aparte-border-width);
+  --aparte-avatar-group-ring-width: calc(var(--aparte-border-width) * 2);
   --aparte-avatar-group-ring-color: var(--aparte-surface-1);
 
   --aparte-badge-font-size: var(--aparte-font-size-2xs);
@@ -781,7 +819,7 @@ aparte-chat {
   --aparte-card-header-padding: var(--aparte-space-4) var(--aparte-space-5);
   --aparte-card-body-padding: var(--aparte-space-5);
   --aparte-card-footer-padding: var(--aparte-space-4) var(--aparte-space-5);
-  --aparte-card-header-font-size: var(--aparte-font-size-lg);
+  --aparte-card-header-font-size: var(--aparte-font-size-base);
 
   --aparte-divider-margin: var(--aparte-space-5);
   --aparte-divider-label-gap: var(--aparte-space-4);
@@ -797,22 +835,56 @@ aparte-chat {
   --aparte-progress-height: var(--aparte-space-2);
   --aparte-progress-fill: var(--aparte-primary);
 
-  --aparte-skeleton-base: var(--aparte-surface-2);
+  /* The ground of a gauge or a placeholder — the thing a value is read against, so it
+     has to be seen. Derived RELATIVE to the page, not a surface level: a level sat at
+     two different distances from the ground in light and dark. */
+  --aparte-track: color-mix(in srgb, var(--aparte-text) 8%, var(--aparte-bg));
+  --aparte-skeleton-base: var(--aparte-track);
+  /* The rail is as wide as its widest tick (the current one is 1.6× the resting size);
+     it used to be a 20px literal clipping a 22.4px tick. */
+  --aparte-scroll-rail-width: calc(var(--aparte-scroll-rail-tick-size) * 1.6);
   --aparte-skeleton-shine: var(--aparte-surface-3);
-  --aparte-skeleton-text-height: var(--aparte-space-6);
-  --aparte-skeleton-text-gap: var(--aparte-space-3);
+  /* The line it stands for: as tall as the content type, and a gap that is the rest of
+     the content line, so the text that replaces it lands where it was (T21). It was 12px
+     on an 18px step for a 16px line on a 27px step — a third of a line of jump per line. */
+  --aparte-skeleton-text-height: var(--aparte-content-font-size);
+  --aparte-skeleton-text-gap: calc(var(--aparte-content-font-size) * (var(--aparte-content-line-height) - 1));
   --aparte-skeleton-circle-size: var(--aparte-avatar-size);
 
   --aparte-spinner-thickness: var(--aparte-space-1);
 
-  --aparte-field-error-ring: 0 0 0 var(--aparte-focus-outline-width) var(--aparte-error-solid);
+
+  /* The field family's knobs, beside the button's — they used to be declared on
+     `.aparte-field` itself, which is why `.aparte-field-group` (their PARENT) and
+     `.aparte-color` (a sibling recipe) read a property that did not exist there and
+     rendered SQUARE: a custom property is substituted where it is declared and only
+     inherits downwards. Same reason they belong here rather than there: the theming
+     guide sends a consumer to `:root`, and every other family's knobs are here.
+     The *channels* stay local on purpose (`--aparte-checkbox-intent` and friends are
+     filled by a modifier, not set by a theme). */
+  --aparte-field-padding: var(--aparte-space-2) var(--aparte-space-3);
+  --aparte-field-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
+  --aparte-field-padding-lg: var(--aparte-space-3) var(--aparte-space-4);
+  --aparte-field-radius: var(--aparte-radius-md);
+  /* The field's resting height is the lg step of the control scale, one step above the
+     default button and level with the composer's controls; `--sm` and `--lg` sit one
+     step either side. It used to be padding plus line-height, ~29px, the second
+     tallest thing in a row of five different heights. */
+  --aparte-field-size: var(--aparte-btn-size-lg);
+  --aparte-field-size-sm: var(--aparte-btn-size-md);
+  --aparte-field-size-lg: var(--aparte-btn-size-xl);
+  /* The 36px family, on the scale: named, not literal. */
+  --aparte-send-btn-size: var(--aparte-btn-size-lg);
+  --aparte-input-action-btn-size: var(--aparte-btn-size-lg);
+  --aparte-scroll-btn-size: var(--aparte-btn-size-lg);
 
   --aparte-btn-gap: var(--aparte-space-2);
   --aparte-btn-padding: var(--aparte-space-2) var(--aparte-space-3);
   --aparte-btn-radius: var(--aparte-radius-md);
-  --aparte-btn-font-size: var(--aparte-font-size-sm);
+  /* Control text is the md step (14px). One step lower was the origin of the "poor"
+     look: 13px labels in 32px boxes, beside 15px prose. */
+  --aparte-btn-font-size: var(--aparte-font-size-md);
   --aparte-btn-bg-hover: var(--aparte-surface-2);
-  --aparte-btn-focus-offset: var(--aparte-space-1);
   --aparte-btn-bg-active: var(--aparte-surface-3);
   --aparte-btn-bg-toggled: var(--aparte-surface-2);
   --aparte-btn-color-toggled: var(--aparte-text);
@@ -822,11 +894,17 @@ aparte-chat {
   --aparte-btn-padding-sm: var(--aparte-space-1) var(--aparte-space-2);
   --aparte-btn-padding-lg: var(--aparte-space-3) var(--aparte-space-5);
 
+  /* One knob for the composer's control set — the send button, the input's action
+     buttons, the editor's single-line height: the lg step at rest, the touch target
+     under a coarse pointer (responsive.css). It used to be undeclared, with `44px`
+     written as a fallback at every reader, so a desktop composer was a 62px bar around
+     15px of text and the coarse-pointer block had nothing left to enlarge. */
+  --aparte-composer-control-size: var(--aparte-btn-size-lg);
   --aparte-input-container-min-height: var(--aparte-touch-target-size);
-  --aparte-elic-message-size: var(--aparte-font-size-md);
-  --aparte-elic-title-size: var(--aparte-font-size-md);
+  --aparte-elic-message-size: var(--aparte-font-size-base);
+  --aparte-elic-title-size: var(--aparte-font-size-base);
   --aparte-elic-desc-size: var(--aparte-font-size-sm);
-  --aparte-elic-option-title-size: var(--aparte-font-size-lg);
+  --aparte-elic-option-title-size: var(--aparte-font-size-md);
   --aparte-elic-option-desc-size: var(--aparte-font-size-sm);
   --aparte-elic-skip-size: var(--aparte-font-size-md);
   --aparte-elic-step-size: var(--aparte-font-size-sm);
@@ -836,6 +914,17 @@ aparte-chat {
 
   /* Borders */
   --aparte-border-focus: var(--aparte-primary);
+  /* THE focus ring: a 2px outline in this colour, one spacing step OUTSIDE the box, on
+     every control. It used to be drawn two ways — this outline on seventeen recipes and a
+     soft box-shadow wash (30 % of the accent, 1.39:1 against the page) on five — and the
+     offset was −2px, inside the box, so on a bordered row the ring sat as a second
+     concentric line and the next row painted over its edge. */
+  --aparte-focus-outline-offset: var(--aparte-space-1);
+  /* The edge of a CONTROL — a field, a choice box, the select's trigger. `--aparte-border`
+     separates two regions and is right to be faint; a thing someone can touch has to be
+     seen, and six previews showed a control with no visible edge. Derived from the ink
+     and the ground so both schemes follow; the mix is a first setting. */
+  --aparte-border-control: color-mix(in srgb, var(--aparte-text) 30%, var(--aparte-surface-1));
 
   /* Component-specific radius (overridable per app) */
   --aparte-radius-input: var(--aparte-radius-lg);
@@ -843,18 +932,24 @@ aparte-chat {
   --aparte-radius-send-btn: var(--aparte-radius-md);
   --aparte-radius-action-btn: var(--aparte-radius-sm);
   --aparte-radius-select: var(--aparte-radius-md);
-  --aparte-radius-avatar: var(--aparte-radius-md);
   --aparte-radius-bubble: var(--aparte-radius-lg);
+  /* The bubble's corner IS the bubble radius above: it was a 14px literal off the scale,
+     the most visible corner of the transcript, and the knob named for it drove nothing. */
+  --aparte-message-content-radius: var(--aparte-radius-bubble);
   --aparte-radius-code: var(--aparte-radius-lg);
   --aparte-radius-thinking: var(--aparte-radius-lg);
   --aparte-radius-error: var(--aparte-radius-md);
+  /* The floating surfaces. They read a step of the scale directly, so a theme that
+     wanted square menus and round bubbles had to move the step — and every other
+     reader of it. */
+  --aparte-radius-menu: var(--aparte-radius-lg);
+  --aparte-radius-popover: var(--aparte-radius-lg);
+  --aparte-radius-dialog: var(--aparte-radius-xl);
+  --aparte-radius-tooltip: var(--aparte-radius-sm);
 
   /* The error ring on an avatar. A full shadow value, like
      --aparte-scroll-btn-shadow: the whole ring is the knob, not its width. */
   --aparte-avatar-error-ring: 0 0 0 2px var(--aparte-error-solid);
-
-  /* Focus ring — derived from the accent so it themes automatically. */
-  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 30%, transparent);
 
   /* Messages */
   --aparte-message-content-text-user: var(--aparte-text);
@@ -865,7 +960,9 @@ aparte-chat {
      in sRGB rather than derived with `oklch(from …)`, because a wash has to keep the
      SURFACE's lightness, not the accent's; 12 % is where the default palette reads as a
      tint, not a fill, on both grounds. */
-  --aparte-message-content-bg-user: color-mix(in srgb, var(--aparte-primary) 12%, var(--aparte-surface-1));
+  /* The mark's own tint: at 12 % the user bubble — the one mark that says "this turn is
+     yours" — sat at 1.03:1 on the light page. */
+  --aparte-message-content-bg-user: color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), var(--aparte-surface-1));
   /* The third surface: the second, pulled 6 % toward the text. Close to what the old
      literals encoded (`#e7dfce` from `#f1ebdf` light, `#342a40` from `#2a2333` dark —
      5 to 9 % per channel, not one figure), now one rule that follows the masters. */
@@ -893,6 +990,12 @@ aparte-chat {
   --aparte-thumb-radius: var(--aparte-radius-lg);
 
   /* Action Bar */
+  /* The small controls of a turn and of a conversation row are the recipe's small step
+     (24px, the WCAG 2.5.8 floor). The action bar used to feed 28 with a 24 exception for
+     the last user turn, the branch arrows redrew 20 over their own `--sm`, the row's
+     `⋯` redrew 20: three control heights in one 14px row. */
+  --aparte-action-bar-btn-size: var(--aparte-btn-size-sm);
+  --aparte-conv-action-btn-size: var(--aparte-btn-size-sm);
   --aparte-action-bar-btn-color: var(--aparte-text-muted);
   --aparte-action-bar-btn-hover-bg: var(--aparte-surface-2);
   --aparte-action-bar-btn-hover-color: var(--aparte-text);
@@ -903,11 +1006,10 @@ aparte-chat {
   --aparte-branch-picker-label-color: var(--aparte-text-muted);
 
   /* Avatars */
-  --aparte-avatar-radius: var(--aparte-radius-avatar);
   --aparte-avatar-bg-user: var(--aparte-primary);
   --aparte-avatar-text-user: var(--aparte-text-inverse);
   --aparte-avatar-bg-assistant: var(--aparte-surface-3);
-  --aparte-avatar-text-assistant: var(--aparte-text-inverse);
+  --aparte-avatar-text-assistant: var(--aparte-text);
 
   /* Text Sizes */
   --aparte-name-color: var(--aparte-text);
@@ -936,6 +1038,10 @@ aparte-chat {
   --aparte-code-header-bg: var(--aparte-surface-2);
   --aparte-code-border: var(--aparte-border);
   --aparte-code-header-text: var(--aparte-text-muted);
+  /* The block's own type. It used to inherit the prose's size and leading (16px on 1.7)
+     under the browser's generic monospace — the largest, airiest text in the message. */
+  --aparte-code-block-font-size: var(--aparte-font-size-md);
+  --aparte-code-block-line-height: var(--aparte-line-height-normal);
 
   /* Scroll-to-bottom button */
 
@@ -955,6 +1061,9 @@ aparte-chat {
 
   /* Shell */
   --aparte-sidebar-bg: var(--aparte-surface-2);
+  /* The one inline inset of the column's four regions — header, search, body, footer.
+     They used to carry three (16 / 12 / 12 / 16) and the content sat on two axes. */
+  --aparte-sidebar-inset: var(--aparte-space-3);
 
   /* Conversation List */
   --aparte-conv-item-radius: var(--aparte-radius-md);

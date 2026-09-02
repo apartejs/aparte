@@ -43,7 +43,7 @@ const EXCERPT_LENGTH = 60;
  *
  * @fires {CustomEvent<AparteScrollRailJumpDetail>} aparte-scroll-rail-jump - A tick was activated. Bubbles, cancelable: `preventDefault()` leaves the transcript where it is.
  *
- * @cssprop [--aparte-scroll-rail-width=20px] - The rail's column, the ticks right-aligned in it.
+ * @cssprop [--aparte-scroll-rail-width=calc(var(--aparte-scroll-rail-tick-size) * 1.6)] - The rail's column, the ticks right-aligned in it.
  * @cssprop [--aparte-scroll-rail-tick-size=14px] - Length of a tick; the current one is 1.6× that.
  * @cssprop [--aparte-scroll-rail-tick-thickness=2px] - Thickness of a tick.
  * @cssprop [--aparte-scroll-rail-gap=8px] - Space between ticks.
@@ -59,7 +59,14 @@ const EXCERPT_LENGTH = 60;
  *     <aparte-chat-bubble message-id="a3" data-role="assistant" name="Assistant" content="Light DOM, like everything else here. Its ticks are plain buttons in a list; scroll the transcript and watch the current one move."></aparte-chat-bubble>
  *   </aparte-chat-viewport>
  *   <aparte-scroll-rail></aparte-scroll-rail>
- *   <aparte-composer></aparte-composer>
+ *   <aparte-composer>
+ *     <div class="aparte-composer-shell">
+ *       <div class="aparte-composer-row">
+ *         <aparte-composer-input></aparte-composer-input>
+ *         <aparte-composer-send></aparte-composer-send>
+ *       </div>
+ *     </div>
+ *   </aparte-composer>
  * </aparte-chat>
  */
 export class AparteScrollRail extends HTMLElement {

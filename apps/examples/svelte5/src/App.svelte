@@ -36,7 +36,7 @@
       <h2>Start a conversation</h2>
       <div class="suggestions">
         {#each chips as c (c.label)}
-          <button class="chip" on:click={() => sendPrompt(c.prompt)}>{c.label}</button>
+          <button type="button" class="chip" on:click={() => sendPrompt(c.prompt)}>{c.label}</button>
         {/each}
       </div>
     </div>

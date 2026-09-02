@@ -34,14 +34,14 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *
  * @element aparte-composer-send
  *
- * @cssprop [--aparte-composer-control-size=44px] - Width/height of the button inside the
+ * @cssprop [--aparte-composer-control-size=var(--aparte-btn-size-lg)] - Width/height of the button inside the
  *          `.aparte-composer-row` layout helper, shared with the input's single-line
  *          height so the row stays aligned. It wins over `--aparte-send-btn-size` there.
- * @cssprop [--aparte-send-btn-size=36px] - Width/height of the button outside that row
+ * @cssprop [--aparte-send-btn-size=var(--aparte-btn-size-lg)] - Width/height of the button outside that row
  *          helper. On coarse pointers it is raised to `--aparte-touch-target-size`.
  * @cssprop [--aparte-touch-target-size=44px] - Hit-area floor applied to the button
  *          under `@media (pointer: coarse)`.
- * @cssprop [--aparte-radius-send-btn=6px] - Corner radius of the button.
+ * @cssprop [--aparte-radius-send-btn=var(--aparte-radius-md)] - Corner radius of the button.
  * @cssprop --aparte-primary - Button background.
  * @cssprop --aparte-primary-hover - Button background on hover, while enabled.
  * @cssprop --aparte-on-primary - The glyph's colour. Undeclared by default, which means
@@ -112,6 +112,7 @@ export class AparteComposerSend extends HTMLElement {
         const disabled = !root || root.disabled || root.value.trim() === '';
 
         this.innerHTML = `<button
+            type="button"
             class="aparte-btn aparte-btn--primary aparte-btn--solid aparte-btn--icon aparte-cs-button aparte-send-button"
             aria-label="${escapeAttr(label)}"
             title="${escapeAttr(label)}"

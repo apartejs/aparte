@@ -28,6 +28,10 @@ aparte-chat,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* The height an author sets IS the box: with the bottom gap below outside it,
+     `style="height: 24rem"` rendered 336px, and a split's seam hung 16px under both
+     panels. */
+  box-sizing: border-box;
   /* The composer used to touch the bottom edge as soon as a conversation started: the
      viewport gives 16px above the composer and there was nothing below it. An app
      cannot fix this from outside without padding the container, which also shrinks the
@@ -99,6 +103,14 @@ aparte-chat[overlay-composer] > :not(aparte-chat-viewport),
   z-index: var(--aparte-z-raised);
 }
 
+/* A thing that floats has to be seen floating. The overlaid composer's shell shares the
+   transcript's ground, so a z-index alone left it flat on the words it covers. */
+aparte-chat[overlay-composer] .aparte-composer-shell,
+[data-aparte-chat][overlay-composer] .aparte-composer-shell,
+.aparte-chat-container[overlay-composer] .aparte-composer-shell {
+  box-shadow: var(--aparte-composer-overlay-shadow);
+}
+
 /* center-empty: the shell centers the composer as a welcome state until the first
    message, then slides to the normal layout. The component toggles [data-empty]
    on itself by watching its viewport — only `flex-grow` animates, so the composer
@@ -119,6 +131,17 @@ aparte-chat[center-empty][data-empty] > aparte-chat-viewport {
      the composer. Empty = nothing to scroll, so auto height is safe here; the moment
      a message lands, [data-empty] drops and height: 100% (scroll chain) is back. */
   height: auto;
+}
+
+/* And no block room at all: at `auto` the empty viewport still stood 32px tall — the
+   rows' wrapper keeps its block padding with no row in it — so `center` centred three
+   items of which the first was invisible, and the welcome group landed 16px low,
+   measured. The padding goes, not the box: capping the viewport itself left a 32px
+   scroll surface inside a 0px box, and "an empty transcript must not overflow" is a
+   browser test every example runs. Inline geometry is kept — the composer's inset is
+   measured from this element. */
+aparte-chat[center-empty][data-empty] > aparte-chat-viewport .aparte-messages-wrapper {
+  padding-block: 0;
 }
 
 /* =========================================
@@ -187,16 +210,16 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 
 /* ─── Scroll-to-bottom button ─────────────────────────────────────────────── */
 
-/* The button wears `aparte-btn--lg aparte-btn--circle`, and that IS its shape: 36px is
-   exactly `--aparte-btn-size-lg`, and `--circle` is the round one. So the box, the
-   corner and the 20px glyph all come from the recipe, and what stays here is only what
-   is genuinely this button's — where it floats, and its own surface.
+/* The button wears `aparte-btn--lg aparte-btn--circle`: `--lg` gives it the 20px glyph
+   and the lg step of the scale (36px), `--circle` the round corner, and
+   `--aparte-scroll-btn-size` (the same step, named for this button so a theme can move
+   it alone) is fed to the recipe below. What stays here is only what is genuinely this
+   button's — where it floats, and its own surface.
 
    It used to redraw all three: its own width/height, its own `border-radius: 50%`, and
    an icon-size override that existed only because the box was declared OUTSIDE the size
-   scale, so the glyph stayed at the medium default — a 16px arrow in a 36px circle, 44%
-   of its box where the rest of the library reads at ~57%. Naming the size instead makes
-   the ratio fall out for free, and the override disappears with it.
+   scale, so the glyph stayed at the medium default — a 16px arrow in a 36px circle.
+   Naming the size on the recipe's own token makes the override disappear.
 
    `--aparte-scroll-btn-size` stays the public knob, fed to the recipe. */
 .aparte-scroll-btn {

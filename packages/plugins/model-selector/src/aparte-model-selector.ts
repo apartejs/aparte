@@ -46,6 +46,8 @@ function esc(value: unknown): string {
  * @attr {boolean} persist - Writes the selection back through the config, so it survives a reload.
  * @attr {boolean} searchable - Adds the dropdown's filter field.
  * @attr {string} placeholder - Overrides the text shown while nothing is selected.
+ * @attr {boolean} disabled - Disables the picker. Inside an `<aparte-composer>` it also follows the
+ *   composer's own `disabled`, so a disabled composer does not leave its model picker operable.
  *
  * @fires {CustomEvent<AparteModelChangeEventDetail>} aparte-model-change - The provider or the model changed; carries both ids.
  *
@@ -82,9 +84,12 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     // Bound handlers for cleanup
     private _boundHandleChange = this._handleChange.bind(this);
     private _handleOptgroupToggle = (e: Event): void => { void this._onOptgroupToggle(e); };
+    /** The composer we sit in, if any — its `disabled` is ours too. */
+    private _composer: Element | null = null;
+    private _boundComposerChange = (): void => { this._syncDisabled(); };
 
     static get observedAttributes(): string[] {
-        return ['persist', 'auto-select', 'searchable', 'placeholder'];
+        return ['persist', 'auto-select', 'searchable', 'placeholder', 'disabled'];
     }
 
     async connectedCallback(): Promise<void> {
@@ -95,6 +100,10 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
         this._providerModels = [];
 
         this._setupEventListeners();
+        // The public event, not the composer's private bus: a disabled composer says so
+        // through `aparte-composer-change`, and the picker inside it follows.
+        this._composer = this.closest('aparte-composer');
+        this._composer?.addEventListener('aparte-composer-change', this._boundComposerChange);
 
         // Seed selection from the resolved config first (handles race conditions)
         const config = this._cfg.getModelConfig();
@@ -159,6 +168,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     disconnectedCallback(): void {
         this._aparteSelect?.removeEventListener('aparte-select-change', this._boundHandleChange);
         this.removeEventListener('aparte-optgroup-toggle', this._handleOptgroupToggle);
+        this._composer?.removeEventListener('aparte-composer-change', this._boundComposerChange);
+        this._composer = null;
         this._configUnsubscribe?.();
     }
 
@@ -323,6 +334,15 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
     // Rendering
     // ─────────────────────────────────────────────────────────────────────────
 
+    /** Our own attribute, or the disabled state of the composer we sit in. */
+    private _isDisabled(): boolean {
+        return this.hasAttribute('disabled') || (this._composer?.hasAttribute('disabled') ?? false);
+    }
+
+    private _syncDisabled(): void {
+        this._aparteSelect?.toggleAttribute('disabled', this._isDisabled());
+    }
+
     private _render(keepOpen = false): void {
         if (this._isRendering) return;
         this._isRendering = true;
@@ -393,11 +413,10 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
             if (searchable) this._aparteSelect.setAttribute('searchable', '');
             else this._aparteSelect.removeAttribute('searchable');
 
+            this._syncDisabled();
+
             if (wasOpen) this._aparteSelect.setAttribute('open', '');
             else this._aparteSelect.removeAttribute('open');
-
-            if (!singleProvider) this._aparteSelect.setAttribute('grouped', '');
-            else this._aparteSelect.removeAttribute('grouped');
 
             // Update children cleanly: prefer direct container update if available
             const optionsContainer = this._aparteSelect.querySelector('.aparte-select-options');
@@ -447,8 +466,8 @@ export class AparteModelSelector extends HTMLElement implements AparteConfigAwar
                     placeholder="${esc(placeholder)}"
                     ${currentValue ? `value="${esc(currentValue)}"` : ''}
                     ${searchable ? 'searchable' : ''}
+                    ${this._isDisabled() ? 'disabled' : ''}
                     ${wasOpen ? 'open' : ''}
-                    ${!singleProvider ? 'grouped' : ''}
                 >
                     ${optionsHtml}
                 </aparte-select>

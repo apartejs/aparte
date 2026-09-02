@@ -8,9 +8,13 @@
    */
 
 .aparte-spinner {
-
   display: inline-block;
+  vertical-align: middle;
   flex-shrink: 0;
+  /* The token is the ring's outer size, border included: without this the ring painted
+     16/20/28 for tokens of 12/16/24 (the 2px stroke added on each side), and painted
+     the token's value only on a host page with its own border-box reset. */
+  box-sizing: border-box;
   width: var(--aparte-spinner-size);
   height: var(--aparte-spinner-size);
   border: var(--aparte-spinner-thickness) solid currentColor;
@@ -25,3 +29,12 @@
 
 .aparte-spinner--sm { --aparte-spinner-size: var(--aparte-spinner-size-sm); }
 .aparte-spinner--lg { --aparte-spinner-size: var(--aparte-spinner-size-lg); }
+
+/* Under reduced motion the loop stops outright. The duration tokens are reset to
+   0.01ms in responsive.css, but that leaves `infinite` in place: a 0.01ms cycle
+   is not stillness, it is a flicker. The descendant sweep there does not reach a
+   recipe used outside aparté's own elements, so each looping recipe stops itself,
+   the way display/icon.css already does. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-spinner { animation: none; }
+}

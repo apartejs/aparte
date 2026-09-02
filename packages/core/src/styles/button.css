@@ -12,9 +12,9 @@
  *       <aparte-icon name="copy"></aparte-icon>
  *     </button>
  *     <div class="aparte-btn-group" role="group" aria-label="Versions">
- *       <button class="aparte-btn aparte-btn--surface">‹</button>
+ *       <button class="aparte-btn aparte-btn--surface" aria-label="Previous"><aparte-icon name="prevBranch"></aparte-icon></button>
  *       <button class="aparte-btn aparte-btn--surface">1 / 2</button>
- *       <button class="aparte-btn aparte-btn--surface">›</button>
+ *       <button class="aparte-btn aparte-btn--surface" aria-label="Next"><aparte-icon name="nextBranch"></aparte-icon></button>
  *     </div>
  *     <div class="aparte-btn-group" role="group" aria-label="View">
  *       <button class="aparte-btn aparte-btn--primary aparte-btn--outline" aria-pressed="true">Chat</button>
@@ -41,6 +41,13 @@
  */
 
 .aparte-btn {
+  /* The glyph reads this: an `<aparte-icon>` (or a raw `svg.aparte-icon`) inside a button
+     takes the button's icon size, per size modifier. */
+  --aparte-icon-size: var(--aparte-btn-icon-size);
+  /* The box, for EVERY button: `--icon` and `--circle` used to be the only readers of
+     the size, so a text button was padding plus line-height — 23px beside a 32px icon
+     button in the same row. The size is declared here and read below as a minimum. */
+  --aparte-btn-size: var(--aparte-btn-size-md);
   /* The intent, as a value. Every fill below reads THIS and nothing else, which is
      what keeps the two axes independent. */
   --aparte-btn-intent: var(--aparte-neutral);
@@ -59,6 +66,8 @@
   --aparte-btn-intent-ink: var(--aparte-btn-intent);
 
   display: inline-flex;
+
+  vertical-align: middle;
   align-items: center;
   justify-content: center;
   gap: var(--aparte-btn-gap);
@@ -69,6 +78,7 @@
      be set by the composer's own row rule, which is exactly the kind of thing a recipe
      should not need a caller for. */
   box-sizing: border-box;
+  min-block-size: var(--aparte-btn-size);
   padding: var(--aparte-btn-padding);
   border: var(--aparte-border-width) solid transparent;
   border-radius: var(--aparte-btn-radius);
@@ -223,15 +233,21 @@
 .aparte-btn--soft:active:not(:disabled) { background: color-mix(in srgb, var(--aparte-btn-intent) 30%, transparent); }
 .aparte-btn--solid:active:not(:disabled) { background: var(--aparte-btn-intent); filter: brightness(0.93); }
 
+/* Drawn, not faded. Opacity on the whole button faded the glyph with its ground and
+   read at 2:1 on the send button; "inactive" and "disappearing" are not the same
+   message. A neutral ground, the muted ink, no intent — whatever the fill was. */
 .aparte-btn:disabled,
 .aparte-btn[aria-disabled='true'] {
   cursor: not-allowed;
-  opacity: var(--aparte-disabled-opacity);
+  background: var(--aparte-surface-2);
+  color: var(--aparte-text-muted);
+  border-color: transparent;
+  filter: none;
 }
 
 .aparte-btn:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-btn-intent);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* Toggled — a disclosure that is open, a toggle that is on, a tab that is current. */
@@ -264,25 +280,39 @@
 .aparte-btn--block { display: flex; width: 100%; }
 
 .aparte-btn--sm { --aparte-btn-size: var(--aparte-btn-size-sm); --aparte-btn-icon-size: var(--aparte-icon-size-sm); font-size: var(--aparte-font-size-sm); padding: var(--aparte-btn-padding-sm); }
-.aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); --aparte-btn-icon-size: var(--aparte-icon-size-xl); font-size: var(--aparte-font-size-lg); padding: var(--aparte-btn-padding-lg); }
+.aparte-btn--lg { --aparte-btn-size: var(--aparte-btn-size-lg); --aparte-btn-icon-size: var(--aparte-icon-size-xl); font-size: var(--aparte-font-size-base); padding: var(--aparte-btn-padding-lg); }
+.aparte-btn--xl { --aparte-btn-size: var(--aparte-btn-size-xl); --aparte-btn-icon-size: var(--aparte-icon-size-xl); font-size: var(--aparte-font-size-base); padding: var(--aparte-btn-padding-lg); }
 .aparte-btn--sm.aparte-btn--icon,
 .aparte-btn--sm.aparte-btn--circle,
 .aparte-btn--lg.aparte-btn--icon,
-.aparte-btn--lg.aparte-btn--circle { padding: 0; }
+.aparte-btn--lg.aparte-btn--circle,
+.aparte-btn--xl.aparte-btn--icon,
+.aparte-btn--xl.aparte-btn--circle { padding: 0; }
 
 /* An icon inside a button never takes the pointer: the click belongs to the button,
-   and an SVG target makes `event.target` lie to a delegated listener. It is sized with
-   the button so the two axes stay in step. */
+   and an SVG target makes `event.target` lie to a delegated listener. */
 .aparte-btn > svg,
+.aparte-btn > aparte-icon,
 .aparte-btn > .aparte-btn__icon {
   pointer-events: none;
   flex-shrink: 0;
+}
+
+/* A raw SVG or a consumer's own icon box is sized with the button so the two axes stay
+   in step. An `<aparte-icon>` is NOT sized here: it renders its `<svg>` inside itself, a
+   grandchild this child combinator never reached, so the documented markup kept the
+   glyph at its loose 14px default in a button that asked for 16. The recipe feeds the
+   icon's own knob instead — `--aparte-icon-size`, declared on `.aparte-btn` above — and
+   `display/icon.css` draws it, at `--sm`'s 12 and `--lg`'s 20 like everything else. */
+.aparte-btn > svg:not(.aparte-icon),
+.aparte-btn > .aparte-btn__icon {
   width: var(--aparte-btn-icon-size);
   height: var(--aparte-btn-icon-size);
 }
 
 /* ── Group — buttons that read as one control. ───────────────────────────────── */
-.aparte-btn-group { display: inline-flex; }
+.aparte-btn-group { display: inline-flex;
+ vertical-align: middle; }
 .aparte-btn-group > .aparte-btn { border-radius: 0; }
 /* Logical properties, so the joined edge follows the writing direction instead of
    assuming left-to-right. */

@@ -60,6 +60,8 @@
   --aparte-derived-ink: var(--aparte-on-intent);
 
   display: inline-flex;
+
+  vertical-align: middle;
   align-items: center;
   justify-content: center;
   gap: var(--aparte-badge-gap);

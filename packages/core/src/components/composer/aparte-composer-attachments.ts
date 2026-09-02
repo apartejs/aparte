@@ -29,7 +29,7 @@ import { escapeAttr, escapeHtml } from '../../utils/escape.js';
  *
  * @cssprop [--aparte-attachments-max-height=140px] - Height cap on the strip; past it the
  *   tiles scroll instead of pushing the composer up.
- * @cssprop [--aparte-attachment-image-size=56px] - Tile edge. The stylesheet sets 56px on
+ * @cssprop [--aparte-attachment-image-size=72px] - Tile edge. The stylesheet sets 56px on
  *   this element (the `:root` default is 72px, and the sent-message strip re-sets 40px on
  *   itself), so a theme-level value reaches neither strip — target
  *   `aparte-composer-attachments` to resize these tiles.
@@ -126,11 +126,11 @@ export class AparteComposerAttachments extends HTMLElement {
                 const url = URL.createObjectURL(file);
                 this._objectUrls.push(url);
                 return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--image" title="${name}">` +
-                    `<img class="aparte-thumb__img" src="${escapeAttr(url)}" alt="${name}" />` +
+                    `<img class="aparte-thumbnail__image" src="${escapeAttr(url)}" alt="${name}" />` +
                     `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
             }
             return `<div class="aparte-thumbnail aparte-thumb aparte-thumb--file" title="${name}">` +
-                `<span class="aparte-thumb__ext">${escapeHtml(this._ext(file.name))}</span>` +
+                `<span class="aparte-thumbnail__label">${escapeHtml(this._ext(file.name))}</span>` +
                 `<span class="aparte-thumb__name">${name}</span>${remove}</div>`;
         }).join('');
 
@@ -151,7 +151,7 @@ export class AparteComposerAttachments extends HTMLElement {
             tile.setAttribute('role', 'button');
             tile.setAttribute('tabindex', '0');
             const open = (): void => {
-                const img = tile.querySelector('.aparte-thumb__img') as HTMLImageElement | null;
+                const img = tile.querySelector('.aparte-thumbnail__image') as HTMLImageElement | null;
                 if (!img) return;
                 this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
                     bubbles: true,

@@ -71,6 +71,9 @@ export const GUIDE_DEMOS: GuideDemo[] = [
       toolCall: { id: 't1', name: 'delete_file', input: { path: 'src/legacy/old-client.ts' } },
     },
   ]);
+  // Open the row the way a reader deciding would: the argument the decision is about
+  // (which file) is what the demo is here to show.
+  document.querySelector('details')?.setAttribute('open', '');
 </script>`,
     },
     {
@@ -81,7 +84,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      themselves inside the full-width transcript, so the scrollbar lands on the outer
      edge while the text stays readable. Boxing the chat instead moves the scrollbar in
      with it. -->
-<aparte-chat style="height: 20rem; --aparte-message-max-width: 32rem">
+<aparte-chat style="height: 26rem; --aparte-message-max-width: 32rem">
   <aparte-chat-viewport>
     <aparte-chat-bubble message-id="u1" data-role="user" content="My chat runs the full width of the page. How do I get the centred column?"></aparte-chat-bubble>
     <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="You already have it: the column is a max-width on the content, not on the chat. Set --aparte-message-max-width and the bubbles centre themselves inside the full-width transcript."></aparte-chat-bubble>
@@ -110,8 +113,8 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      The split stores nothing. \`position\` goes in, one \`aparte-split-resize\` comes out
      on release — persist from there.
 
-     \`breakpoint="30rem"\` only because this frame is narrower than the 48rem default: set
-     the width to 375 above and the split shows ONE pane, with the two buttons switching
+     Under its breakpoint (the 48rem default, restated here so the frame and the buttons
+     agree) the split shows ONE pane: set the width to 375 above and the two buttons switch
      it through \`data-aparte-split-pane\` and no script at all.
 
      The buttons are hidden above that same width, which is the rule rather than the
@@ -120,7 +123,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      the split already answers to. -->
 <style>
   #split-panes { display: none }
-  @media (max-width: 30rem) {
+  @media (max-width: 48rem) {
     #split-panes { display: flex; gap: var(--aparte-space-2); margin-block-end: var(--aparte-space-3) }
   }
 </style>
@@ -129,7 +132,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
   <button class="aparte-btn aparte-btn--sm aparte-btn--surface" type="button" data-aparte-split-pane="end">Preview</button>
 </div>
 
-<aparte-split position="38" breakpoint="30rem" style="height: 22rem; --aparte-split-min: 16rem; --aparte-split-max: 65%">
+<aparte-split position="38" breakpoint="48rem" style="height: 22rem; --aparte-split-min: 16rem; --aparte-split-max: 65%">
   <aparte-chat>
     <aparte-chat-viewport>
       <aparte-chat-bubble message-id="u1" data-role="user" content="Make the hero headline bigger and pin the header."></aparte-chat-bubble>
@@ -179,7 +182,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
     </div>
   </aparte-sidebar>
   <header class="aparte-app-header">
-    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle><aparte-icon name="menu"></aparte-icon></button>
     <span class="aparte-app-header__title">Deploy checklist</span>
     <div class="aparte-app-header__actions"><span class="aparte-tag">gpt-4.1</span></div>
   </header>
@@ -242,9 +245,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
     </div>
   </aparte-sidebar>
   <header class="aparte-app-header">
-    <!-- ☰ as text: \`menu\` is not a built-in glyph (it lives in the extended set behind
-         \`@aparte/core/icons\`), and an icon that is not registered renders nothing. -->
-    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>☰</button>
+    <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle><aparte-icon name="menu"></aparte-icon></button>
     <span class="aparte-app-header__title">What is aparté?</span>
     <div class="aparte-app-header__actions"><span class="aparte-tag">scripted model</span></div>
   </header>
@@ -360,7 +361,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      composer run edge to edge with the transcript's own padding, the way a team-chat
      feed does. The same token, set on the chat rather than on :root, keeps it to this
      one instance. -->
-<aparte-chat style="height: 18rem; --aparte-message-max-width: none">
+<aparte-chat style="height: 22rem; --aparte-message-max-width: none">
   <aparte-chat-viewport>
     <aparte-chat-bubble message-id="u1" data-role="user" content="Is this the whole width?"></aparte-chat-bubble>
     <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Yes — no column here, just the transcript's padding on each side."></aparte-chat-bubble>
@@ -385,7 +386,16 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      Nothing else is needed. Below 520px of CHAT width the transcript switches to its
      narrow spacing on its own — a container query on the chat, not a media query on the
      page — so a 20rem strip and a phone share the same CSS. -->
-<div style="display: grid; grid-template-columns: minmax(0, 1fr) 20rem; height: 20rem; background: var(--aparte-surface-2)">
+<style>
+  #side-panel-demo { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; height: 20rem; background: var(--aparte-surface-2) }
+  /* Under 40rem the strip stacks: a fixed 20rem column beside a 1fr one squeezed the code
+     to a sliver on a phone and let the chat overflow its host. */
+  @media (max-width: 40rem) {
+    #side-panel-demo { grid-template-columns: minmax(0, 1fr); grid-template-rows: 9rem minmax(0, 1fr); height: 30rem }
+    #side-panel-demo > aparte-chat { border-inline-start: 0; border-block-start: var(--aparte-border-width) solid var(--aparte-border) }
+  }
+</style>
+<div id="side-panel-demo">
   <pre style="margin: 0; overflow: auto; padding: var(--aparte-space-4); font-size: 0.78rem; line-height: 1.7; color: var(--aparte-text-muted)">export function createOrder(cart, customer) {
   const lines = cart.items.map(toLine);
   const total = lines.reduce((sum, line) =&gt; sum + line.amount, 0);
@@ -400,6 +410,7 @@ function toLine(item) {
       <aparte-chat-bubble message-id="u1" data-role="user" content="Why is total a float here?"></aparte-chat-bubble>
       <aparte-chat-bubble message-id="a1" data-role="assistant" name="Assistant" content="Because price is. Money in a float rounds badly at the third order — keep amounts in minor units and divide only when you print."></aparte-chat-bubble>
       <aparte-chat-bubble message-id="u2" data-role="user" content="Fix toLine then."></aparte-chat-bubble>
+      <aparte-chat-bubble message-id="a2" data-role="assistant" name="Assistant" content="Done: amount is now Math.round(item.qty * item.priceCents), and total sums integers."></aparte-chat-bubble>
     </aparte-chat-viewport>
     <aparte-composer>
       <div class="aparte-composer-shell">
@@ -422,14 +433,18 @@ function toLine(item) {
      of yours, no second component, and nothing to undo when the conversation is cleared
      again. -->
 <style>
-  .welcome { display: none; text-align: center; padding-block-end: var(--aparte-space-4) }
-  .welcome strong { font-size: var(--aparte-font-size-lg) }
+  .welcome { display: none; text-align: center; padding-block-end: var(--aparte-space-4); color: var(--aparte-text-muted) }
+  .welcome strong { display: block; font-size: var(--aparte-font-size-xl); color: var(--aparte-text); margin-block-end: var(--aparte-space-1) }
   aparte-chat[data-empty] .welcome { display: block }
 </style>
-<aparte-chat center-empty style="height: 20rem">
+<aparte-chat center-empty style="height: 24rem">
   <aparte-chat-viewport></aparte-chat-viewport>
-  <p class="welcome"><strong>What are we building today?</strong></p>
+  <p class="welcome"><strong>What are we building today?</strong>Ask anything, or start from one of these.</p>
   <aparte-composer>
+    <!-- Starters: shown while the transcript is empty, gone with the first message. -->
+    <aparte-suggestions empty-only
+      suggestions='["Explain what a transport is", {"label": "Draft a changeset", "prompt": "Draft a changeset for a patch that renames an attribute."}, "Compare the four wrappers"]'>
+    </aparte-suggestions>
     <div class="aparte-composer-shell">
       <div class="aparte-composer-row">
         <aparte-composer-input></aparte-composer-input>
@@ -474,7 +489,7 @@ function toLine(item) {
      In your app the first line is \`import { setupArtifacts } from '@aparte/plugin-artifacts'\`.
      This frame reads it off \`window.aparteArtifacts\` only because a classic script
      cannot import. -->
-<aparte-split position="55" breakpoint="30rem" style="height: 30rem; --aparte-split-min: 18rem; --aparte-split-max: 75%">
+<aparte-split position="55" breakpoint="48rem" style="height: 30rem; --aparte-split-min: 18rem; --aparte-split-max: 75%">
   <aparte-chat style="--aparte-artifact-body-max: 11rem">
     <aparte-chat-viewport></aparte-chat-viewport>
     <aparte-composer>

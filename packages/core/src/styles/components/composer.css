@@ -11,7 +11,9 @@
    Unscoped so it greys the composer in EVERY host (vanilla shell + all wrappers),
    not only a `[data-aparte-chat]` direct child. */
 aparte-composer[data-model-gated] {
-  opacity: var(--aparte-disabled-opacity);
+  /* No group fade: each control draws its own disabled state (the editor's muted ink,
+     the send button's neutral ground), so the text stays legible while it waits. */
+  cursor: not-allowed;
 }
 aparte-composer[data-model-gated] aparte-composer-send {
   pointer-events: none;
@@ -167,7 +169,7 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 
 /* Disabled state */
 .aparte-editor[contenteditable="false"] {
-  opacity: var(--aparte-disabled-opacity);
+  color: var(--aparte-text-muted);
   cursor: not-allowed;
 }
 
@@ -208,9 +210,9 @@ aparte-chat-viewport.aparte-viewport--framework::-webkit-scrollbar-thumb {
 }
 
 .aparte-send-button:disabled {
-  opacity: var(--aparte-disabled-opacity);
   cursor: not-allowed;
-  background: var(--aparte-send-disabled-bg, var(--aparte-primary));
+  background: var(--aparte-send-disabled-bg, var(--aparte-surface-2));
+  color: var(--aparte-text-muted);
 }
 
 /* =========================================
@@ -304,11 +306,10 @@ aparte-model-selector[hidden],
   border-color: var(--aparte-primary);
 }
 
-.aparte-provider-select:focus,
-.aparte-model-select:focus {
-  outline: none;
-  border-color: var(--aparte-primary);
-  box-shadow: var(--aparte-focus-ring);
+.aparte-provider-select:focus-visible,
+.aparte-model-select:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* Dark mode overrides for selects */
@@ -351,13 +352,14 @@ aparte-composer {
      it would then be the containing block of the `position: fixed` select dropdown
      that exists to escape `overflow: hidden` (select.css, and the same warning in
      split.css). So below 520px the transcript tightens to 8px and this stays at 16.
-     A flat 16 was measured against a step: the step wins for vanilla at phone width
-     and LOSES for framework-managed, which is the majority path, because the
-     transcript's own step targets a class framework mode never builds. Flat is a
-     uniform 10px worst case in both modes — which is the scrollbar gutter the
-     transcript reserves and the composer cannot, and which is 0 on the overlay
-     scrollbars every phone has. */
-  padding-inline: var(--aparte-viewport-padding);
+     So the composer does not guess: the viewport MEASURES where its rows start — the
+     transcript's padding plus the scrollbar gutter it reserves on both edges, at
+     whatever step its container query has taken — and publishes it on the chat host as
+     `--aparte-transcript-inset`. Padding by that puts the composer's box on the row's
+     box at every width. Measured before: 10px apart at 768, the gutter's half at 1280,
+     three left edges 12px apart on the reading-column demo. The fallback is for a
+     composer with no viewport beside it. */
+  padding-inline: var(--aparte-transcript-inset, var(--aparte-viewport-padding));
 }
 
 aparte-composer-input {
@@ -370,7 +372,7 @@ aparte-composer-input {
 aparte-composer-input .aparte-ci-editor {
   display: block;
   width: 100%;
-  min-height: var(--aparte-composer-control-size, 44px);
+  min-height: var(--aparte-composer-control-size);
   padding: var(--aparte-input-padding-y) var(--aparte-input-padding-x);
   font-size: var(--aparte-input-font-size);
   line-height: var(--aparte-input-line-height);
@@ -401,7 +403,7 @@ aparte-composer-input .aparte-ci-editor:empty::before {
 }
 
 aparte-composer-input .aparte-ci-editor[aria-disabled="true"] {
-  opacity: var(--aparte-disabled-opacity);
+  color: var(--aparte-text-muted);
   cursor: not-allowed;
 }
 
@@ -493,7 +495,7 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
 
 /* Inner row — flex container for input + buttons */
 /* Action buttons sized to the input's single-line height — they derive from
-   --aparte-composer-control-size (default 44px), so a theme resizes the whole
+   --aparte-composer-control-size (default: the lg step, 36px; the touch target under a coarse pointer), so a theme resizes the whole
    composer control set with ONE variable and alignment holds. Combined with
    the row's `align-items: flex-end` this makes the buttons read as vertically
    centered against a single line of text, and keeps them anchored to the
@@ -525,7 +527,11 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
   align-items: flex-end;
   gap: var(--aparte-space-4);
   padding: var(--aparte-space-4) var(--aparte-space-6);
-  --aparte-composer-row-control-size: var(--aparte-composer-control-size, 44px);
+  /* The lg step at rest — 36px, what `--aparte-send-btn-size` says — and the touch
+     target under a coarse pointer (responsive.css). It was 44 everywhere, which made
+     the send button the one control the coarse-pointer block could not enlarge because
+     it already was, and a 62px bar around 15px of text on a desktop. */
+  --aparte-composer-row-control-size: var(--aparte-composer-control-size);
   --aparte-btn-size: var(--aparte-composer-row-control-size);
 }
 

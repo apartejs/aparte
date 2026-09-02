@@ -13,7 +13,21 @@
              Shipping
              <aparte-icon name="expand"></aparte-icon>
            </summary>
-           <div class="aparte-accordion__panel">Free above 50 €.</div>
+           <div class="aparte-accordion__panel">Free above 50 €, otherwise 4,90 €. Two to four working days.</div>
+         </details>
+         <details class="aparte-accordion__item">
+           <summary class="aparte-accordion__header">
+             Returns
+             <aparte-icon name="expand"></aparte-icon>
+           </summary>
+           <div class="aparte-accordion__panel">Thirty days, in the original packaging.</div>
+         </details>
+         <details class="aparte-accordion__item">
+           <summary class="aparte-accordion__header">
+             Payment
+             <aparte-icon name="expand"></aparte-icon>
+           </summary>
+           <div class="aparte-accordion__panel">Card, PayPal, or an invoice for a company account.</div>
          </details>
        </div>
 
@@ -81,7 +95,7 @@
 }
 
 .aparte-accordion__header:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -91,13 +105,22 @@
   opacity: var(--aparte-disabled-opacity);
 }
 
-.aparte-accordion__icon {
+/* Two spellings for the chevron, because the header's documented markup is a bare
+   `<aparte-icon>` and a renderer that wraps a raw glyph needs a class to hang it on:
+   the wrapper `.aparte-accordion__icon` (the thinking block), or an `<aparte-icon>` /
+   `svg.aparte-icon` sitting directly in the header. Both are sized and both turn — the
+   documented form used to match neither rule, so the kit's own example showed an open
+   panel under a chevron still pointing down. */
+.aparte-accordion__icon,
+.aparte-accordion__header > aparte-icon,
+.aparte-accordion__header > .aparte-icon {
+  display: inline-flex;
   flex-shrink: 0;
-  /* Sized off the same step the button recipe already uses for an icon glyph
-     (`--aparte-btn-icon-size: var(--aparte-space-8)`), so a disclosure chevron
-     reads as the same weight of icon as everywhere else in the library. */
-  width: var(--aparte-space-8);
-  height: var(--aparte-space-8);
+  /* Fed to the glyph through its own knob, not drawn as a width/height: the icon
+     recipe reads `--aparte-icon-size`, and a box declared here around it would leave
+     the glyph at its loose default. The step is the one the button recipe uses for an
+     icon glyph, so a disclosure chevron reads as the same weight of icon everywhere. */
+  --aparte-icon-size: var(--aparte-space-8);
   color: var(--aparte-text-muted);
   transition: transform var(--aparte-duration-slow) var(--aparte-ease);
 }
@@ -106,7 +129,11 @@
    puts aria-expanded on the header itself; native <details> puts `open` on the
    ancestor and gives the browser no attribute to select on at all. */
 .aparte-accordion__header[aria-expanded='true'] .aparte-accordion__icon,
-details[open] > .aparte-accordion__header .aparte-accordion__icon {
+.aparte-accordion__header[aria-expanded='true'] > aparte-icon,
+.aparte-accordion__header[aria-expanded='true'] > .aparte-icon,
+details[open] > .aparte-accordion__header .aparte-accordion__icon,
+details[open] > .aparte-accordion__header > aparte-icon,
+details[open] > .aparte-accordion__header > .aparte-icon {
   transform: rotate(180deg);
 }
 

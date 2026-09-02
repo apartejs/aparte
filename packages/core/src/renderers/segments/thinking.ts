@@ -5,7 +5,7 @@
  * nowhere else to put them; the registry that consumes them is in
  * `../segment-renderers.ts`.
  */
-import { escapeHtml } from '../../utils/escape.js';
+import { escapeHtml, escapeAttr } from '../../utils/escape.js';
 import { contextConfig } from '../../config/index.js';
 import {
     writeStreamedMarkdown,
@@ -58,14 +58,16 @@ export const thinkingRenderer: AparteSegmentRenderer<AparteThinkingSegment> = {
      * only part that is genuinely about reasoning rather than about disclosure.
      * `.aparte-thinking-label` stays too: `relabel` below queries it.
      */
-    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span>${contextConfig().getIcon('expand')}</summary><div class="aparte-accordion__panel aparte-thinking-content">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
+    render: (segment) => `<details class="aparte-segment aparte-segment-thinking aparte-accordion__item" data-segment-id="${escapeHtml(segment.id)}" ${segment.collapsed === false ? 'open' : ''}><summary class="aparte-accordion__header aparte-thinking-header"><span class="aparte-thinking-label">${escapeHtml(segment.label || contextConfig().t('thinking'))}</span><span class="aparte-accordion__icon">${contextConfig().getIcon('expand')}</span></summary><div class="aparte-accordion__panel aparte-thinking-content" role="region" tabindex="0" aria-label="${escapeAttr(segment.label || contextConfig().t('thinking'))}">${contextConfig().renderMarkdown(segment.content)}</div></details>`,
     /**
      * The default label is the only config-derived text here — and `segment.label`
      * still wins, exactly as in `render`, because that string is the app's.
      */
     relabel: (el, segment) => {
+        const text = segment.label || contextConfig().t('thinking');
         const label = el.querySelector('.aparte-thinking-label');
-        if (label) label.textContent = segment.label || contextConfig().t('thinking');
+        if (label) label.textContent = text;
+        el.querySelector('.aparte-thinking-content')?.setAttribute('aria-label', text);
     },
     update: (el, segment) => {
         // collapsed state is managed by _applySegmentUpdate based on explicit updates only —

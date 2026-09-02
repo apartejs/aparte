@@ -39,7 +39,7 @@ export default function App() {
                         <h2>Start a conversation</h2>
                         <div className="suggestions">
                             {CHIPS.map((c) => (
-                                <button key={c.label} className="chip" onClick={() => sendPrompt(c.prompt)}>
+                                <button key={c.label} type="button" className="chip" onClick={() => sendPrompt(c.prompt)}>
                                     {c.label}
                                 </button>
                             ))}

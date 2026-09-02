@@ -23,7 +23,7 @@
   margin-inline-end: var(--aparte-space-4);
   /* Logical property */
   text-transform: uppercase;
-  opacity: 0.7;
+  /* The header's ink is already the muted one; an `opacity: .7` on top muted it twice. */
 }
 
 

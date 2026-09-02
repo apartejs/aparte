@@ -1,12 +1,15 @@
 /* =========================================
    aparte-avatar — sizes, shape, image + initials fallback
    =========================================
-   --aparte-avatar-size, --aparte-avatar-radius and --aparte-avatar-font-size are
-   NOT invented here: they already exist centrally for the message avatar
-   (bubble.css), and this component deliberately reads the same three rather than
-   declare its own — a generic avatar and a chat-message avatar are the same
-   object, and a size or shape modifier applied here resizes a role-coloured
-   message avatar too, for free, instead of only a second, disconnected one.
+   `--aparte-avatar-size` is NOT invented here: it already exists centrally for the
+   message avatar (bubble.css), and this component reads the same one — a generic
+   avatar and a chat-message avatar are the same object, and a size modifier applied
+   here resizes a role-coloured message avatar too. The corner, the initials and the
+   group's overlap are FRACTIONS of that size (`--aparte-avatar-radius-ratio`,
+   `--aparte-avatar-initials-ratio`, `--aparte-avatar-overlap-ratio`), computed on the
+   element so a size modifier moves them: as absolute tokens the 40px avatar drew the
+   same 11px initials as the 32px one, the corner drifted from squircle to square up
+   the ramp, and a 6px overlap was a fifth of a small avatar and a tenth of a large one.
 
        <span class="aparte-avatar aparte-avatar--sm">AP</span>
        <span class="aparte-avatar">JD</span>
@@ -21,16 +24,17 @@
 .aparte-avatar {
   position: relative;
   display: inline-flex;
+  vertical-align: middle;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   width: var(--aparte-avatar-size);
   height: var(--aparte-avatar-size);
-  border-radius: var(--aparte-avatar-radius);
+  border-radius: calc(var(--aparte-avatar-size) * var(--aparte-avatar-radius-ratio));
   background: var(--aparte-avatar-fallback-bg);
   color: var(--aparte-avatar-fallback-color);
-  font-size: var(--aparte-avatar-font-size);
+  font-size: calc(var(--aparte-avatar-size) * var(--aparte-avatar-initials-ratio));
   font-weight: var(--aparte-font-weight-semibold);
   line-height: var(--aparte-line-height-none);
   text-transform: uppercase;
@@ -54,13 +58,13 @@
 
 /* Square is the default shape and needs no class (it is what the message avatar
    already renders); named anyway so a square avatar can say so rather than omit. */
-.aparte-avatar--square { border-radius: var(--aparte-avatar-radius); }
+.aparte-avatar--square { border-radius: calc(var(--aparte-avatar-size) * var(--aparte-avatar-radius-ratio)); }
 .aparte-avatar--circle { border-radius: var(--aparte-radius-full); }
 
-.aparte-avatar--xs { --aparte-avatar-size: var(--aparte-avatar-size-xs); --aparte-avatar-font-size: var(--aparte-font-size-2xs); }
-.aparte-avatar--sm { --aparte-avatar-size: var(--aparte-avatar-size-sm); --aparte-avatar-font-size: var(--aparte-font-size-xs); }
-.aparte-avatar--lg { --aparte-avatar-size: var(--aparte-avatar-size-lg); --aparte-avatar-font-size: var(--aparte-font-size-lg); }
-.aparte-avatar--xl { --aparte-avatar-size: var(--aparte-avatar-size-xl); --aparte-avatar-font-size: var(--aparte-font-size-lg); }
+.aparte-avatar--xs { --aparte-avatar-size: var(--aparte-avatar-size-xs); }
+.aparte-avatar--sm { --aparte-avatar-size: var(--aparte-avatar-size-sm); }
+.aparte-avatar--lg { --aparte-avatar-size: var(--aparte-avatar-size-lg); }
+.aparte-avatar--xl { --aparte-avatar-size: var(--aparte-avatar-size-xl); }
 
 /* ── Group — a fan of avatars that read as one party. ─────────────────────────
    No z-index is set: later siblings simply paint over earlier ones in normal
@@ -68,13 +72,14 @@
    the one thing z-index would otherwise be needed for. */
 .aparte-avatar-group {
   display: inline-flex;
+  vertical-align: middle;
   align-items: center;
 }
 .aparte-avatar-group > .aparte-avatar {
   box-shadow: 0 0 0 var(--aparte-avatar-group-ring-width) var(--aparte-avatar-group-ring-color);
 }
 .aparte-avatar-group > .aparte-avatar:not(:first-child) {
-  margin-inline-start: calc(var(--aparte-avatar-group-overlap) * -1);
+  margin-inline-start: calc(var(--aparte-avatar-size) * var(--aparte-avatar-overlap-ratio) * -1);
 }
 .aparte-avatar-group > .aparte-avatar:hover {
   z-index: var(--aparte-z-raised);

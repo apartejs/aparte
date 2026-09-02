@@ -1,6 +1,6 @@
 {
     "name": "@aparte-workspace/example-svelte4",
-    "version": "0.0.23",
+    "version": "0.0.24",
     "private": true,
     "type": "module",
     "description": "Minimal Svelte example — @aparte/svelte + a real (BYOK / local) model.",

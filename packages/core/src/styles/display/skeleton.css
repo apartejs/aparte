@@ -13,10 +13,15 @@
          <div>
            <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
            <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
-           <span class="aparte-skeleton aparte-skeleton--text" aria-hidden="true"></span>
+           <span class="aparte-skeleton aparte-skeleton--text" style="max-inline-size: 60%" aria-hidden="true"></span>
          </div>
-         <span class="aparte-skeleton aparte-skeleton--rect" style="grid-column: 1 / -1; block-size: 64px" aria-hidden="true"></span>
+         <span class="aparte-skeleton aparte-skeleton--rect" style="grid-column: 2" aria-hidden="true"></span>
        </div>
+
+   The last line is shorter because the last line of a paragraph is, and the block sits
+   in the text column, under the lines it stands for — not across the avatar's. The
+   rect's height is the family's token (`--aparte-skeleton-rect-height`), not an inline
+   value that contradicts it.
    */
 
 .aparte-skeleton {
@@ -33,6 +38,19 @@
   animation: aparte-skeleton-shimmer var(--aparte-duration-pulse) linear infinite;
 }
 
+/* Under reduced motion the loop stops outright. The duration tokens are reset to
+   0.01ms in responsive.css, but that leaves `infinite` in place: a 0.01ms cycle
+   is not stillness, it is a flicker. The descendant sweep there does not reach a
+   recipe used outside aparté's own elements, so each looping recipe stops itself,
+   the way display/icon.css already does.
+   The shine goes with the shimmer: a stopped gradient would sit as a pale band. */
+@media (prefers-reduced-motion: reduce) {
+  .aparte-skeleton {
+    animation: none;
+    background-image: none;
+  }
+}
+
 .aparte-skeleton--text {
   width: 100%;
   height: var(--aparte-skeleton-text-height);
@@ -40,7 +58,7 @@
 }
 .aparte-skeleton--text + .aparte-skeleton--text { margin-block-start: var(--aparte-skeleton-text-gap); }
 /* The ragged last line reads as "text", where a full-width block reads as a bar. */
-.aparte-skeleton--text:last-child { width: var(--aparte-skeleton-text-last-width); }
+.aparte-skeleton--text:last-child:not(:first-child) { width: var(--aparte-skeleton-text-last-width); }
 
 .aparte-skeleton--circle {
   width: var(--aparte-skeleton-circle-size);

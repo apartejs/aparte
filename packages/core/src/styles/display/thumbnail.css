@@ -5,8 +5,8 @@
  *     <span class="aparte-thumbnail aparte-thumbnail--lg"><img class="aparte-thumbnail__image"
  *           src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 3'%3E%3Crect width='2' height='3' fill='%23b07d33'/%3E%3C/svg%3E"
  *           alt="A screenshot"></span>
- *     <span class="aparte-thumbnail"><span class="aparte-thumbnail__ext">PDF</span></span>
- *     <span class="aparte-thumbnail aparte-thumbnail--sm"><span class="aparte-thumbnail__ext">MD</span></span>
+ *     <span class="aparte-thumbnail"><span class="aparte-thumbnail__label">PDF</span></span>
+ *     <span class="aparte-thumbnail aparte-thumbnail--sm"><span class="aparte-thumbnail__label">MD</span></span>
  *
  * Distinct from `.aparte-avatar`, which is the same shape for a different reason: an
  * avatar stands for a PERSON and falls back to initials, so it carries type styling and
@@ -113,27 +113,14 @@
 }
 
 .aparte-thumb--image[role='button']:focus-visible {
-  box-shadow: var(--aparte-focus-ring);
-}
-
-.aparte-thumb__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-thumb--file {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.aparte-thumb__ext {
-  font-size: var(--aparte-font-size-xs);
-  font-weight: var(--aparte-font-weight-bold);
-  letter-spacing: 0.03em;
-  color: var(--aparte-text-muted);
 }
 
 .aparte-thumb__name {

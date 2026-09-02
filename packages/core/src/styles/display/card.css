@@ -33,6 +33,12 @@
   padding: var(--aparte-card-body-padding);
 }
 
+/* The body owns its edges: a paragraph's block margins fold into the padding instead of
+   stacking on it. The sheet's own example puts a <p> here, and the body band measured
+   twice the height of the header and footer beside it. */
+.aparte-card__body > :first-child { margin-block-start: 0; }
+.aparte-card__body > :last-child { margin-block-end: 0; }
+
 .aparte-card__footer {
   display: flex;
   align-items: center;

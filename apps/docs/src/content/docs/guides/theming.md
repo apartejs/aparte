@@ -86,7 +86,7 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **220 of core’s variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **245 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
 `--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
 places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
@@ -168,7 +168,7 @@ and the whole UI re-spaces or re-sizes coherently.
 | Scale | Tokens | Controls |
 |-------|--------|----------|
 | Spacing | `--aparte-space-1` … `--aparte-space-8` (2 → 16px) | gaps, padding, margins |
-| Font size | `--aparte-font-size-2xs` … `--aparte-font-size-base` | component text sizes |
+| Font size | `--aparte-font-size-2xs` … `--aparte-font-size-2xl` | component text sizes |
 | Font weight | `--aparte-font-weight-normal` … `-bold` | text weights |
 | Line height | `--aparte-line-height-none` … `-loose` | line heights |
 | Radius | `--aparte-radius-xs` … `--aparte-radius-full` | corner rounding |

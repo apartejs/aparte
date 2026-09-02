@@ -36,6 +36,7 @@ Each registered provider becomes an `<aparte-optgroup>`; a single provider rende
 | `persist`     | Write the selection back to the resolved config         |
 | `searchable`  | Enable search in the dropdown                           |
 | `placeholder` | Override the placeholder (else the active locale string)|
+| `disabled`    | Disable the picker; inside an `<aparte-composer>` it also follows the composer's `disabled` |
 
 It fires **`aparte-model-change`** with `{ providerId, modelId, previousProviderId, previousModelId }`.
 The selector reads providers from the nearest instance config (via `attachConfig`), falling back to the

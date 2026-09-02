@@ -90,7 +90,6 @@ const ringSvg = (): SVGSVGElement => {
  * @fires {CustomEvent<AparteCompactEventDetail>} aparte-compact - Dispatched on `window` when `auto-compact` is set and the gauge first reaches `danger`: compact this target's transcript. Once per crossing, and only while the attribute is present. `@aparte/plugin-compaction` answers it; with no listener nothing happens.
  *
  * @cssprop [--aparte-context-ring-size=22px] - Diameter of the ring variant.
- * @cssprop [--aparte-context-ring-stroke=4] - Thickness of the ring, in its own units (the ring is drawn on a 36-unit box).
  *
  * @example
  * <!-- The same gauge twice: the bar takes the room it is given, the ring takes none. -->

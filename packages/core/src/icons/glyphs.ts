@@ -83,7 +83,10 @@ export const toolIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none
 export const closeIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/></svg>`;
 
 /** Stop / halt streaming (■) */
-export const stopIcon = `<svg class="aparte-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg>`;
+export const stopIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg>`;
+
+/** Paused — two bars, filled like the stop square it sits beside in the tool row's vocabulary */
+export const pauseIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.5" height="14" rx="1.5"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.5"/></svg>`;
 
 /** Informational notice (ⓘ) */
 export const infoIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.25"/><path d="M12 7.75h.01"/></svg>`;
@@ -95,7 +98,7 @@ export const archiveIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="n
 export const unarchiveIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 21 8"/><path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><polyline points="9 14 12 17 15 14"/><line x1="12" y1="11" x2="12" y2="17"/></svg>`;
 
 /** Download / save to disk */
-export const downloadIcon = `<svg class="aparte-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9m0 0l-3-3m3 3l3-3M2 13h12"/></svg>`;
+export const downloadIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v12m0 0-4.5-4.5M12 15.5l4.5-4.5M4.5 20h15"/></svg>`;
 
 /** Overflow menu of a row (⋯) — the conversation list's actions button. */
 export const moreIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.1"/><circle cx="12" cy="12" r="1.1"/><circle cx="18.5" cy="12" r="1.1"/></svg>`;
@@ -107,6 +110,12 @@ export const pinIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none"
 export const trashIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M8 7V5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5v2"/><path d="m6.5 7 .8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/><path d="M10 11v5.5M14 11v5.5"/></svg>`;
 
 /** Every glyph, by name — the map `APARTE_DEFAULT_ICON_FALLBACKS` is built from. */
+/** Open a navigation drawer (☰) */
+export const menuIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></svg>`;
+
+/** A warning (triangle) */
+export const alertTriangleIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.7 4.3 2.9 18a1.5 1.5 0 0 0 1.3 2.3h15.6a1.5 1.5 0 0 0 1.3-2.3L13.3 4.3a1.5 1.5 0 0 0-2.6 0Z"/><path d="M12 9.5V14M12 17.2v.1"/></svg>`;
+
 export const APARTE_ICON_GLYPHS = {
     copy: copyIcon,
     check: checkIcon,
@@ -129,6 +138,7 @@ export const APARTE_ICON_GLYPHS = {
     tool: toolIcon,
     close: closeIcon,
     stop: stopIcon,
+    pause: pauseIcon,
     info: infoIcon,
     archive: archiveIcon,
     unarchive: unarchiveIcon,
@@ -136,4 +146,6 @@ export const APARTE_ICON_GLYPHS = {
     more: moreIcon,
     pin: pinIcon,
     trash: trashIcon,
+    menu: menuIcon,
+    alertTriangle: alertTriangleIcon,
 } as const;

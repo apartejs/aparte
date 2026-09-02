@@ -54,22 +54,22 @@ describe('default renderer: error (built-in fallback)', () => {
     it('renders an icon, the "Error" title and the escaped message', () => {
         const renderer = getSegmentRenderer('error')!;
         const html = renderer.render({ id: 'e10', type: 'error', content: '<script>alert(1)</script>' } as any) as string;
-        expect(html).toContain('class="aparte-error-icon-wrapper"');
-        expect(html).toContain('<div class="aparte-error-title">Error</div>');
-        expect(html).toContain('<div class="aparte-error-message">&lt;script&gt;alert(1)&lt;/script&gt;</div>');
+        expect(html).toContain('class="aparte-alert__icon"');
+        expect(html).toContain('<div class="aparte-alert__title">Error</div>');
+        expect(html).toContain('<div class="aparte-alert__message">&lt;script&gt;alert(1)&lt;/script&gt;</div>');
         expect(html).not.toContain('<script>alert(1)</script>');
     });
 
     it('omits the details block entirely when details is not provided', () => {
         const renderer = getSegmentRenderer('error')!;
         const html = renderer.render({ id: 'e11', type: 'error', content: 'boom' } as any) as string;
-        expect(html).not.toContain('aparte-error-details');
+        expect(html).not.toContain('aparte-segment-error__details');
     });
 
     it('renders an escaped details block when provided', () => {
         const renderer = getSegmentRenderer('error')!;
         const html = renderer.render({ id: 'e12', type: 'error', content: 'boom', details: '<img src=x onerror=alert(1)>' } as any) as string;
-        expect(html).toContain('class="aparte-error-details"');
+        expect(html).toContain('class="aparte-segment-error__details"');
         expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
         expect(html).not.toContain('<img src=x onerror=');
     });

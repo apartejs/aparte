@@ -23,16 +23,23 @@ aparte-progress-spinner svg {
     overflow: visible;
 }
 
+/* The same stroke as the CSS ring (`.aparte-spinner`), in SCREEN pixels: without
+   `vector-effect` a stroke is in viewBox units and scaled with the box — 2.5 of 24 was
+   1.67px in a 16px spinner, antialiased everywhere and 50 % lighter than its sibling.
+   The track is a visible reference in the control-edge colour: at 15 % of the ink a
+   determinate 62 % was the percentage of a circle nobody could see. */
 .aparte-spinner-track {
     fill: none;
-    stroke: var(--aparte-spinner-track, color-mix(in srgb, currentColor 15%, transparent));
-    stroke-width: var(--aparte-spinner-stroke, 2.5);
+    stroke: var(--aparte-spinner-track, var(--aparte-border-control));
+    stroke-width: var(--aparte-spinner-thickness);
+    vector-effect: non-scaling-stroke;
 }
 
 .aparte-spinner-fill {
     fill: none;
     stroke: var(--aparte-spinner-color, currentColor);
-    stroke-width: var(--aparte-spinner-stroke, 2.5);
+    stroke-width: var(--aparte-spinner-thickness);
+    vector-effect: non-scaling-stroke;
     stroke-linecap: round;
     transition: stroke-dashoffset 0.25s var(--aparte-ease);
 }

@@ -1,41 +1,19 @@
-.aparte-error-icon-wrapper {
-  flex-shrink: 0;
-  color: var(--aparte-error-solid);
-  display: flex;
-  align-items: flex-start;
-  padding-top: var(--aparte-space-1);
-}
-
-.aparte-error-icon-wrapper svg {
-  width: var(--aparte-error-icon-size);
-  height: var(--aparte-error-icon-size);
-}
-
-.aparte-error-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.aparte-error-title {
-  font-weight: var(--aparte-font-weight-semibold);
-  font-size: var(--aparte-font-size-lg);
-  margin-bottom: var(--aparte-space-2);
-  color: var(--aparte-error-title);
-}
-
-.aparte-error-message {
-  font-size: var(--aparte-font-size-lg);
-  line-height: var(--aparte-line-height-normal);
-}
-
-.aparte-error-details {
-  margin-top: var(--aparte-space-4);
-  padding-top: var(--aparte-space-4);
-  border-top: var(--aparte-border-width) solid var(--aparte-error-border);
+/* The error segment WEARS the alert recipe — frame and parts (`aparte-alert__icon`,
+   `__body`, `__title`, `__message` come from display/alert.css). It used to put the
+   recipe's class on its root and redraw every part under classes of its own, with a 20px
+   literal for the icon among derived tokens and a title colour nothing else used. What is
+   genuinely the segment's own is the one part the alert has no word for: the details
+   block — a transport's stack, a status line — set as code under the message. */
+.aparte-segment-error__details {
+  margin: var(--aparte-space-4) 0 0;
+  padding-block-start: var(--aparte-space-4);
+  border-block-start: var(--aparte-border-width) solid var(--aparte-error-border);
   font-family: var(--aparte-code-font-family);
   font-size: var(--aparte-font-size-sm);
-  opacity: 0.9;
+  line-height: var(--aparte-line-height-normal);
+  color: var(--aparte-text-secondary);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

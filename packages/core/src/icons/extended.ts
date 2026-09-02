@@ -39,9 +39,6 @@ export const searchIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="no
 /** Filter a list */
 export const filterIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 4.5h17l-6.5 8v6.5l-4 2v-8.5Z"/></svg>`;
 
-/** Open a navigation drawer */
-export const menuIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></svg>`;
-
 /** Overflow menu, in a row. The conversation list draws it, so the path lives in
  *  `glyphs.ts` as `more` — this is the alias under its shape name, like the chevrons. */
 export const moreHorizontalIcon = moreIcon;
@@ -136,9 +133,6 @@ export const starIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none
 /** Send elsewhere */
 export const shareIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.2 10.8 7.6-4.1M8.2 13.2l7.6 4.1"/></svg>`;
 
-/** A warning */
-export const alertTriangleIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.7 4.3 2.9 18a1.5 1.5 0 0 0 1.3 2.3h15.6a1.5 1.5 0 0 0 1.3-2.3L13.3 4.3a1.5 1.5 0 0 0-2.6 0Z"/><path d="M12 9.5V14M12 17.2v.1"/></svg>`;
-
 /** Done, emphatically */
 export const checkCircleIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.2 2.8 2.8 5.7-5.5"/></svg>`;
 
@@ -161,7 +155,6 @@ export const APARTE_EXTENDED_ICON_GLYPHS = {
     minus: minusIcon,
     search: searchIcon,
     filter: filterIcon,
-    menu: menuIcon,
     moreHorizontal: moreHorizontalIcon,
     moreVertical: moreVerticalIcon,
     chevronLeft: chevronLeftIcon,
@@ -192,7 +185,6 @@ export const APARTE_EXTENDED_ICON_GLYPHS = {
     history: historyIcon,
     star: starIcon,
     share: shareIcon,
-    alertTriangle: alertTriangleIcon,
     checkCircle: checkCircleIcon,
     xCircle: xCircleIcon,
     messageSquare: messageSquareIcon,

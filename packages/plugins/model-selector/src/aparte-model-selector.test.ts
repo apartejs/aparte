@@ -63,15 +63,25 @@ describe('aparte-model-selector', () => {
         expect(select.getAttribute('placeholder')).toBe('Select a model...');
 
         // Count what the switch touches, rather than asserting node identity: the
-        // claim is "one attribute, nothing rebuilt", and a mutation record is the only
-        // thing that can say so. Measured with the fix removed, this list is EMPTY —
-        // the placeholder simply stayed English.
+        // claim is "one attribute, no option rebuilt", and a mutation record is the
+        // only thing that can say so. Measured with the fix removed, this list is
+        // EMPTY — the placeholder simply stayed English. What follows the attribute
+        // is the select's OWN re-labelling (its trigger name, its width sizer), which
+        // this test used to forbid — and by forbidding it, it certified an attribute
+        // the select never read: the visible label and the combobox's name stayed
+        // English while the attribute said French.
         const touched: string[] = [];
+        const rebuilt: Node[] = [];
         const obs = new MutationObserver((records) => {
             for (const r of records) {
                 touched.push(r.type === 'attributes'
                     ? `attr:${r.attributeName}`
                     : `child:+${r.addedNodes.length}/-${r.removedNodes.length}`);
+                if (r.type === 'childList') {
+                    for (const n of [...r.addedNodes, ...r.removedNodes]) {
+                        if (n instanceof Element && /^APARTE-OPT/.test(n.tagName)) rebuilt.push(n);
+                    }
+                }
             }
         });
         obs.observe(sel, { childList: true, subtree: true, attributes: true });
@@ -84,7 +94,60 @@ describe('aparte-model-selector', () => {
         obs.disconnect();
 
         expect(select.getAttribute('placeholder')).toBe('Choisir un modèle…');
-        expect(touched).toEqual(['attr:placeholder']);
+        expect(touched[0]).toBe('attr:placeholder');
+        expect(rebuilt, 'no option or group is rebuilt by a language switch').toEqual([]);
+        // The half the attribute alone could not prove: the select re-reads it.
+        expect(select.querySelector('.aparte-select-trigger')?.getAttribute('aria-label')).toBe('Choisir un modèle…');
+    });
+
+    // `disabled` (UI audit LOT 9). The element had no such attribute, so inside a
+    // disabled composer — the send button greyed, the field inert — the model picker
+    // stayed fully operable: a control the user could work while everything around it
+    // said "not now".
+    it('disabled on the element reaches the select, both ways', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('zeta', 'Zeta One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'zeta', defaultModel: 'zeta-model' });
+        const sel = await mountSelector(document.createElement('div'));
+        const select = sel.querySelector('aparte-select')!;
+
+        sel.setAttribute('disabled', '');
+        expect(select.hasAttribute('disabled')).toBe(true);
+        sel.removeAttribute('disabled');
+        expect(select.hasAttribute('disabled')).toBe(false);
+    });
+
+    it('disabled survives the in-place re-render another attribute triggers', async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('eta', 'Eta One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'eta', defaultModel: 'eta-model' });
+        const sel = await mountSelector(document.createElement('div'));
+        const select = sel.querySelector('aparte-select')!;
+        sel.setAttribute('disabled', '');
+        expect(select.hasAttribute('disabled')).toBe(true);
+
+        // Any observed attribute re-renders; with a select already mounted that is the
+        // non-destructive branch, which rewrites the select's attributes one by one.
+        sel.setAttribute('searchable', '');
+
+        expect(sel.querySelector('aparte-select')).toBe(select);
+        expect(select.hasAttribute('searchable')).toBe(true);
+        expect(select.hasAttribute('disabled')).toBe(true);
+    });
+
+    it("inside a composer, follows the composer's own disabled state", async () => {
+        aparteGlobalConfig.registerAIProvider(fakeProvider('iota', 'Iota One'));
+        aparteGlobalConfig.setModelConfig({ defaultProvider: 'iota', defaultModel: 'iota-model' });
+        const composer = document.createElement('aparte-composer');
+        const sel = await mountSelector(composer);
+        const select = sel.querySelector('aparte-select')!;
+        expect(select.hasAttribute('disabled')).toBe(false);
+
+        composer.setAttribute('disabled', '');
+        await new Promise((r) => setTimeout(r, 0));
+        expect(select.hasAttribute('disabled')).toBe(true);
+
+        composer.removeAttribute('disabled');
+        await new Promise((r) => setTimeout(r, 0));
+        expect(select.hasAttribute('disabled')).toBe(false);
     });
 
     it('but an explicit placeholder attribute still wins over the locale', async () => {

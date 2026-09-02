@@ -44,14 +44,14 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *                      resize the editor in pure CSS without being fought by
  *                      an inline height.
  *
- * @cssprop [--aparte-composer-control-size=44px] - Single-line min-height of the editor.
+ * @cssprop [--aparte-composer-control-size=var(--aparte-btn-size-lg)] - Single-line min-height of the editor.
  *          Inside the `.aparte-composer-row` layout helper the composer's buttons read
  *          the same token, so one value resizes that whole control set and the row stays
  *          aligned.
- * @cssprop [--aparte-input-padding-y=10px] - Vertical padding inside the editor.
- * @cssprop [--aparte-input-padding-x=12px] - Horizontal padding inside the editor.
- * @cssprop [--aparte-input-font-size=14px] - Editor font size.
- * @cssprop [--aparte-input-line-height=1.5] - Editor line height — also what the
+ * @cssprop [--aparte-input-padding-y=var(--aparte-space-5)] - Vertical padding inside the editor.
+ * @cssprop [--aparte-input-padding-x=var(--aparte-space-6)] - Horizontal padding inside the editor.
+ * @cssprop [--aparte-input-font-size=var(--aparte-font-size-base)] - Editor font size.
+ * @cssprop [--aparte-input-line-height=var(--aparte-line-height-normal)] - Editor line height — also what the
  *          auto-expand measures, so changing it changes the height the editor settles at
  *          (until `max-height` clamps it).
  * @cssprop --aparte-text - Text and caret colour of the editor.
@@ -61,7 +61,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *          bubble's inline editor (`.aparte-message[data-editing]`) — inside a composer
  *          the shell paints the surface instead.
  * @cssprop --aparte-input-border - Border colour of that same edit-mode box.
- * @cssprop [--aparte-radius-input=8px] - Corner radius of the edit-mode box.
+ * @cssprop [--aparte-radius-input=var(--aparte-radius-lg)] - Corner radius of the edit-mode box.
  * @cssprop --aparte-input-focus-border - Border colour of the edit-mode box while it
  *          holds focus (`:focus-within`).
   *

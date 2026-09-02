@@ -227,7 +227,7 @@ export type AparteLocale = {
     compactionSummaryTitle?: string;
     /**
      * What the pill says while the decision is being made elsewhere (default:
-     * "waiting for you").
+     * "Waiting").
      *
      * The pill is the anchor, not the control — so it has to say WHY nothing is
      * happening. A pill that just sits there while the answer is expected at the
@@ -300,6 +300,8 @@ export type AparteLocale = {
     selectSearchPlaceholder?: string;
     /** Accessible name of that filter field, which has no visible label (default: "Search options") */
     selectSearchLabel?: string;
+    /** What an option group shows while its options are being fetched (default: "Loading…") */
+    loading?: string;
 
     // --- Plugin chrome — read by `@aparte/plugin-model-selector` and
     // `@aparte/plugin-approval`, declared here for the same reason as the Artifacts
@@ -439,7 +441,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     elicitationAnswerLabel: "Your answer",
     approvalInstructionPlaceholder: "Or tell it what to do instead…",
     approvalAsk: "Run {tool}?",
-    approvalWaiting: "waiting for you",
+    approvalWaiting: "Waiting",
     scrollToBottom: "Scroll to bottom",
     suggestionsLabel: "Suggested prompts",
     contextLabel: "Context window",
@@ -457,6 +459,7 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     removeAttachment: "Remove {name}",
     selectSearchPlaceholder: "Search…",
     selectSearchLabel: "Search options",
+    loading: "Loading…",
     download: "Download",
     previewPending: "Press Preview to run this artifact.",
     sandboxError: "The sandbox failed during generation.",

@@ -53,7 +53,9 @@ aparte-scroll-rail[data-empty] {
   padding: 0;
   border: 0;
   border-radius: var(--aparte-radius-full);
-  background: var(--aparte-border);
+  /* A tick is a thing you can press; at rest in the region colour it sat at 1.15:1, a
+     14×2px dash under the perception threshold. */
+  background: var(--aparte-border-control);
   cursor: pointer;
   transition:
     width var(--aparte-duration-fast) var(--aparte-ease),
@@ -76,7 +78,7 @@ aparte-scroll-rail[data-empty] {
 }
 
 .aparte-scroll-rail__tick:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 

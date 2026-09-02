@@ -24,7 +24,8 @@ import { collectPageErrors } from '../helpers/actions.js';
 import { ChatPage } from '../helpers/chat.js';
 
 interface Instruments {
-    writes: { t: number; kind: 'instant' | 'smooth' | 'scrollTo-instant'; top: number }[];
+    /** `seq` is the write's ORDER: WebKit rounds `performance.now()` to the millisecond, so two writes in one frame share a `t`. */
+    writes: { t: number; seq: number; kind: 'instant' | 'smooth' | 'scrollTo-instant'; top: number }[];
     curve: { t: number; top: number; max: number }[];
 }
 
@@ -44,17 +45,18 @@ async function arm(page: Page): Promise<void> {
         const t0 = performance.now();
         const inst: Instruments & { stop(): void } = { writes: [], curve: [], stop() { running = false; } };
         let running = true;
+        let seq = 0;
 
         // The writes: the instance shadows the prototype accessor and forwards to it.
         const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!;
         Object.defineProperty(s, 'scrollTop', {
             configurable: true,
             get() { return (desc.get as () => number).call(this); },
-            set(v: number) { inst.writes.push({ t: performance.now() - t0, kind: 'instant', top: v }); (desc.set as (v: number) => void).call(this, v); },
+            set(v: number) { inst.writes.push({ t: performance.now() - t0, seq: seq++, kind: 'instant', top: v }); (desc.set as (v: number) => void).call(this, v); },
         });
         const nativeScrollTo = s.scrollTo.bind(s) as (o: ScrollToOptions) => void;
         (s as unknown as { scrollTo: (o: ScrollToOptions) => void }).scrollTo = (o: ScrollToOptions) => {
-            inst.writes.push({ t: performance.now() - t0, kind: o?.behavior === 'smooth' ? 'smooth' : 'scrollTo-instant', top: Number(o?.top ?? 0) });
+            inst.writes.push({ t: performance.now() - t0, seq: seq++, kind: o?.behavior === 'smooth' ? 'smooth' : 'scrollTo-instant', top: Number(o?.top ?? 0) });
             nativeScrollTo(o);
         };
 
@@ -110,8 +112,13 @@ test('the send glides: no instant write cuts it, and the ascent is spread over f
     const glideStart = smooth[0]!.t;
     const target = curve.at(-1)!.max;
     const arrivedAt = curve.find((p) => p.max - p.top <= 1 && p.t > glideStart)?.t ?? Infinity;
-    const cut = writes.filter((w) => w.kind === 'instant' && w.t >= glideStart && w.t < Math.min(glideStart + 450, arrivedAt));
-    expect(cut, `instant writes inside the glide (glide at ${Math.round(glideStart)}ms, arrived at ${Math.round(arrivedAt)}ms, target ${target}): ${JSON.stringify(cut)}`)
+    // Inside means AFTER the smooth call, by order — not by timestamp. WebKit rounds
+    // `performance.now()` to the millisecond, so the instant pin the send makes just
+    // before it asks for the glide shares the smooth call's `t`; `>=` on that clock
+    // read a pre-glide write as a cut, about one run in eight on react-webkit, and never
+    // on an engine whose clock resolves microseconds.
+    const cut = writes.filter((w) => w.kind === 'instant' && w.seq > smooth[0]!.seq && w.t < Math.min(glideStart + 450, arrivedAt));
+    expect(cut, `instant writes inside the glide (glide at ${Math.round(glideStart)}ms, arrived at ${Math.round(arrivedAt)}ms, target ${target}): ${JSON.stringify(cut)}; all writes: ${JSON.stringify(writes.slice(0, 16))}`)
         .toEqual([]);
 
     // ── 2. The curve — recorded, not judged ───────────────────────────────

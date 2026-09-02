@@ -77,28 +77,36 @@ import {
  *   this mode only. All four wrappers set it.
  * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
  * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
+ * @attr {boolean} data-busy - Reflected BY the element while a turn streams: the transcript is
+ *   read-only meanwhile, and every bubble inside reads it (at connect, and when it changes). The
+ *   vanilla path derives it from the repository; a framework host sets it through
+ *   `setTranscriptBusy()`. Read-only from the outside.
  *
  * @fires {CustomEvent<AparteSegmentUpdateEventDetail>} aparte-segment-update - A segment grew or settled during a stream.
  * @fires aparte-reset-done - `clearAll()` finished emptying the transcript. No detail.
  * @fires {CustomEvent<ApartePathChangedEventDetail>} aparte-path-changed - The active branch path changed, after a retry fork or a navigation.
  *
- * @cssprop [--aparte-viewport-padding=16px] - Padding around the transcript — on
+ * @cssprop [--aparte-viewport-padding=var(--aparte-space-8)] - Padding around the transcript — on
  *   `.aparte-messages-wrapper`, or on the host itself in framework-managed mode, where the
  *   auto-scroll spacer is added on top of it. A container narrower than 520px tightens it in
  *   the default mode only: that rule reassigns the variable on `.aparte-messages-wrapper`,
  *   which framework-managed mode never builds.
- * @cssprop [--aparte-message-gap=12px] - Gap between consecutive bubbles in the transcript
+ * @cssprop [--aparte-message-gap=var(--aparte-space-6)] - Gap between consecutive bubbles in the transcript
  *   column (both DOM modes). Shared: it is also the avatar-to-content gap inside a bubble.
  * @cssprop [--aparte-scrollbar-thumb=var(--aparte-neutral)] - Colour of the transcript's scrollbar thumb. A host page with a scrollbar of its own sets this and the track so the chat's does not read as a second, foreign scrollbar.
  * @cssprop [--aparte-scrollbar-track=transparent] - Colour of the transcript's scrollbar track.
  * @cssprop [--aparte-scrollbar-width=6px] - Width of the WebKit scrollbar on the scroll
  *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
+ * @cssprop [--aparte-transcript-inset=var(--aparte-viewport-padding)] - Written BY the viewport on
+ *   the chat host: how far from the host's inline edge its rows start (padding plus the
+ *   scrollbar gutter, at the current container step). The composer pads by it, so the two
+ *   boxes share one edge at every width. Read-only from the outside.
  * @cssprop [--aparte-bottom-inset=0px] - How much of the transcript's bottom is covered
  *   by content floating over it. Written by the viewport itself under
  *   `[overlay-composer]` (never set it there — it would be overwritten); a host that
  *   overlays a composer of its own, without the attribute, sets it by hand and the
  *   spacer, the container padding and the scroll button all clear it.
- * @cssprop [--aparte-scroll-btn-size=36px] - Diameter of the scroll-to-bottom button. A
+ * @cssprop [--aparte-scroll-btn-size=var(--aparte-btn-size-lg)] - Diameter of the scroll-to-bottom button. A
  *   coarse pointer raises it to `--aparte-touch-target-size`.
  * @cssprop [--aparte-scroll-btn-shadow=0 2px 8px rgba(0, 0, 0, 0.12)] - Its shadow; the dark
  *   theme sets a heavier one.
@@ -107,7 +115,7 @@ import {
  * <!-- On its own, outside `<aparte-chat>`. Give it a height: it fills what it is given
  *      and owns the scrolling inside that box, so a viewport in an auto-height parent
  *      grows forever instead of scrolling. Messages are pushed in — it fetches nothing. -->
- * <aparte-chat-viewport style="height: 320px"></aparte-chat-viewport>
+ * <aparte-chat-viewport style="height: 24rem"></aparte-chat-viewport>
  *
  * <script>
  *   const viewport = document.querySelector('aparte-chat-viewport');
@@ -201,6 +209,8 @@ export class AparteChatViewport extends HTMLElement {
     private _overlayObserver: MutationObserver | null = null;
     /** Last `--aparte-bottom-inset` written, in px — style writes only when it changes. */
     private _overlayInset = -1;
+    /** Last `--aparte-transcript-inset` written on the host, in px — same write-on-change rule. */
+    private _transcriptInset = -1;
     private _boundResetHandler: (() => void) | null = null;
     /**
      * When true, _reRenderActivePath() only dispatches aparte-path-changed without
@@ -230,6 +240,7 @@ export class AparteChatViewport extends HTMLElement {
         this._render();
         this._setupEventListeners();
         this._setupObservers();
+        this._updateTranscriptInset();
         /**
          * Empty every mounted transcript on the page.
          *
@@ -1510,6 +1521,7 @@ export class AparteChatViewport extends HTMLElement {
             // overlay mode a composer that grew is THE resize being reported, and
             // re-anchoring against the stale inset would land the reader short.
             this._updateOverlayInset();
+            this._updateTranscriptInset();
             if (this._isAutoScrollEnabled) {
                 this._scrollToBottom();
             }
@@ -1672,6 +1684,33 @@ export class AparteChatViewport extends HTMLElement {
         if (inset === this._overlayInset) return;
         this._overlayInset = inset;
         this.style.setProperty('--aparte-bottom-inset', `${inset}px`);
+    }
+
+    /**
+     * Publish, on the chat host, how far from the host's inline edge the rows start —
+     * the transcript's padding plus the scrollbar gutter the scroller reserves on both
+     * edges, at whatever step its container query has taken — as
+     * `--aparte-transcript-inset`. The composer pads by it (composer.css), so its box
+     * lands on the row's box at every width. The two used to be independent stacks: the
+     * composer cannot know the gutter and a container query cannot reach it, so they sat
+     * 10px apart at 768 and the gutter's half apart at 1280, and the reading-column demo
+     * showed three left edges 12px apart. Written only when the value changes, for the
+     * same reason `_updateOverlayInset` is. On the HOST, not on this element: the
+     * composer is a sibling, and a custom property only travels down.
+     */
+    private _updateTranscriptInset(): void {
+        const host = this.parentElement;
+        if (!host) return;
+        const ref = this.querySelector<HTMLElement>('.aparte-messages-wrapper') ?? this._container ?? this;
+        const pad = parseFloat(getComputedStyle(ref).paddingInlineStart) || 0;
+        const rtl = getComputedStyle(host).direction === 'rtl';
+        const refRect = ref.getBoundingClientRect();
+        const hostRect = host.getBoundingClientRect();
+        const raw = rtl ? hostRect.right - refRect.right : refRect.left - hostRect.left;
+        const inset = Math.max(0, Math.round((raw + pad) * 10) / 10);
+        if (inset === this._transcriptInset) return;
+        this._transcriptInset = inset;
+        host.style.setProperty('--aparte-transcript-inset', `${inset}px`);
     }
 
     /** Is the scroll surface within `_scrollThreshold` of its bottom, right now? */
@@ -2101,6 +2140,7 @@ export class AparteChatViewport extends HTMLElement {
         this._overlayObserver = null;
         this._overlayRoot = null;
         this._overlayInset = -1;
+        this._transcriptInset = -1;
         this._resizeObserver = null;
         this._mutationObserver = null;
         if (this._spacerRafId !== null) {

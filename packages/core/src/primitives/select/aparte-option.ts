@@ -1,6 +1,11 @@
+// Imports stay ABOVE the docblock: one between the comment and the class detaches the
+// comment — TypeScript stops associating it, the manifest loses the `@example`, and
+// `check:examples` refuses the build. It happened here.
+import { presenceOn } from '../../utils/presence.js';
+
 /**
  * AparteOption
- * 
+ *
  * Option element for aparte-select dropdown.
  *
  * One selectable row. Only meaningful inside `<aparte-select>` (directly, or nested in an
@@ -30,10 +35,10 @@
  * @attr {boolean} selected - Selected state
  * @attr {string} data-status - Free-form status the host sets; styled, never read by core.
  *
- * @cssprop [--aparte-select-text=var(--aparte-text, #1e293b)] - Option text colour.
- * @cssprop [--aparte-select-option-hover=var(--aparte-surface-2, #f1f5f9)] - Background on hover, and for the keyboard-active row (`[data-active]`), which adds an inset `--aparte-primary` ring on top so the two are distinguishable.
- * @cssprop [--aparte-select-option-selected=color-mix(in srgb, var(--aparte-primary, #3b82f6) 18%, transparent)] - Background of the selected row. A tint by default: a solid accent fill with white text failed WCAG AA in both themes.
- * @cssprop [--aparte-select-option-selected-text=var(--aparte-select-text, var(--aparte-text, #1e293b))] - Text colour of the selected row. Set both this and the background to go back to a solid fill.
+ * @cssprop [--aparte-select-text=var(--aparte-text)] - Option text colour.
+ * @cssprop [--aparte-select-option-hover=var(--aparte-surface-2)] - Background on hover, and for the keyboard-active row (`[data-active]`), which adds an inset `--aparte-primary` ring on top so the two are distinguishable.
+ * @cssprop [--aparte-select-option-selected=color-mix(in srgb, var(--aparte-primary) var(--aparte-mark-tint), transparent)] - Background of the selected row. A tint by default: a solid accent fill with white text failed WCAG AA in both themes.
+ * @cssprop [--aparte-select-option-selected-text=var(--aparte-select-text, var(--aparte-text))] - Text colour of the selected row. Set both this and the background to go back to a solid fill.
  *
  * @example
  * <aparte-select placeholder="Pick a model" value="gpt-4o-mini">
@@ -41,7 +46,6 @@
  *   <aparte-option value="o3" disabled>o3 (no access)</aparte-option>
  * </aparte-select>
  */
-
 export class AparteOption extends HTMLElement {
     static get observedAttributes(): string[] {
         return ['value', 'disabled', 'selected', 'data-status'];
@@ -84,11 +88,7 @@ export class AparteOption extends HTMLElement {
     }
 
     set disabled(val: boolean) {
-        if (val) {
-            this.setAttribute('disabled', '');
-        } else {
-            this.removeAttribute('disabled');
-        }
+        this.toggleAttribute('disabled', presenceOn(val));
     }
 
     get selected(): boolean {
@@ -96,11 +96,7 @@ export class AparteOption extends HTMLElement {
     }
 
     set selected(val: boolean) {
-        if (val) {
-            this.setAttribute('selected', '');
-        } else {
-            this.removeAttribute('selected');
-        }
+        this.toggleAttribute('selected', presenceOn(val));
     }
 
     private _updateAriaSelected(): void {

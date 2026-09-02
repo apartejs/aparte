@@ -14,6 +14,16 @@ import type {
     AparteCodeSegment,
 } from '../../types/index.js';
 
+/**
+ * The tooltip and the accessible name are the same string and move together: this
+ * button used to be named by `title` alone, the one icon button core emits without an
+ * `aria-label`, so a screen reader had nothing to read on it.
+ */
+function nameButton(button: HTMLElement, label: string): void {
+    button.setAttribute('aria-label', label);
+    button.setAttribute('title', label);
+}
+
 export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
     type: 'code',
     render: (segment) => `
@@ -23,7 +33,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                     ? `<span class="aparte-code-filename">${escapeHtml(segment.filename)}</span>`
                     : `<span class="aparte-code-header-filler"></span>`}
                 <span class="aparte-code-language">${escapeHtml(segment.language || '')}</span>
-                <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-code-copy" data-action="copy" title="${escapeAttr(contextConfig().t('copy'))}">
+                <button type="button" class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-code-copy" data-action="copy" aria-label="${escapeAttr(contextConfig().t('copy'))}" title="${escapeAttr(contextConfig().t('copy'))}">
                     ${contextConfig().getIcon('copy')}
                 </button>
             </div>
@@ -38,7 +48,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
         // Leave a button mid-"copied" alone; its own timeout restores the resting
         // state from the new config a moment later anyway.
         if (!copyBtn || copyBtn.dataset.copied) return;
-        copyBtn.setAttribute('title', contextConfig().t('copy'));
+        nameButton(copyBtn, contextConfig().t('copy'));
         copyBtn.innerHTML = contextConfig().getIcon('copy');
     },
     setup: (element, segment) => {
@@ -75,7 +85,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                 // gone; resolve from the connected element instead.
                 void copyText(source).catch(() => { /* best-effort: a failed clipboard write degrades silently */ });
                 copyBtn.innerHTML = contextConfig(copyBtn).getIcon('check');
-                copyBtn.setAttribute('title', contextConfig(copyBtn).t('copied'));
+                nameButton(copyBtn, contextConfig(copyBtn).t('copied'));
                 // Marked, so `relabel` does not cancel a confirmation the reader is
                 // still looking at. The flag is also the only way to tell the two
                 // states apart: they differ by title and icon alone, and after a
@@ -83,7 +93,7 @@ export const codeRenderer: AparteSegmentRenderer<AparteCodeSegment> = {
                 copyBtn.dataset.copied = '1';
                 setTimeout(() => {
                     copyBtn.innerHTML = contextConfig(copyBtn).getIcon('copy');
-                    copyBtn.setAttribute('title', contextConfig(copyBtn).t('copy'));
+                    nameButton(copyBtn, contextConfig(copyBtn).t('copy'));
                     delete copyBtn.dataset.copied;
                 }, 1500);
             });

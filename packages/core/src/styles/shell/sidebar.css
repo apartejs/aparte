@@ -72,7 +72,10 @@ aparte-sidebar,
   display: flex;
   align-items: center;
   gap: var(--aparte-space-3);
-  padding: var(--aparte-space-4) var(--aparte-space-4) var(--aparte-space-2);
+  /* Inline, every region reads `--aparte-sidebar-inset`: the header and footer padded
+     16 while the search and the body padded 12, and the column's content stood on two
+     vertical axes 4px apart — measured as four left edges on the app-shell demo. */
+  padding: var(--aparte-space-4) var(--aparte-sidebar-inset) var(--aparte-space-2);
 }
 
 .aparte-sidebar__brand {
@@ -85,8 +88,8 @@ aparte-sidebar,
 }
 
 .aparte-sidebar__search {
-  margin: var(--aparte-space-2) var(--aparte-space-3);
-  min-width: calc(var(--aparte-sidebar-width) - 2 * var(--aparte-space-3));
+  margin: var(--aparte-space-2) var(--aparte-sidebar-inset);
+  min-width: calc(var(--aparte-sidebar-width) - 2 * var(--aparte-sidebar-inset));
 }
 
 /* The body is the one region that scrolls; the list inside keeps its own gap. */
@@ -95,7 +98,7 @@ aparte-sidebar,
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--aparte-space-2) var(--aparte-space-3);
+  padding: var(--aparte-space-2) var(--aparte-sidebar-inset);
   scrollbar-width: thin;
   scrollbar-color: var(--aparte-scrollbar-thumb) var(--aparte-scrollbar-track);
 }
@@ -104,7 +107,7 @@ aparte-sidebar,
   display: flex;
   align-items: center;
   gap: var(--aparte-space-3);
-  padding: var(--aparte-space-3) var(--aparte-space-4);
+  padding: var(--aparte-space-3) var(--aparte-sidebar-inset);
   border-block-start: var(--aparte-border-width) solid var(--aparte-border);
   font-size: var(--aparte-font-size-sm);
 }

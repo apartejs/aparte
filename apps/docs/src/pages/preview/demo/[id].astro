@@ -19,6 +19,16 @@ const { title, html, plugins } = Astro.props;
 const SCRIPT = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
 const scripts = [...html.matchAll(SCRIPT)].map((match) => match[1] ?? '');
 const markup = html.replace(SCRIPT, '').trim();
+
+/*
+ * A `<dialog>` without `open` is `display: none`: the dialog demo drew its trigger button
+ * and nothing else — 1.4% of the scene at 375 — and nothing in it answered the width.
+ * The class preview already opens its dialog modally on arrival (`class/[slug].astro`);
+ * a demo that carries one gets the same, and the code a reader copies keeps no `open`.
+ */
+if (/class="aparte-dialog"/.test(markup)) {
+    scripts.push("const d = document.querySelector('dialog.aparte-dialog'); if (d) d.showModal();");
+}
 ---
 
 <PreviewDocument title={`${title} — live demo`} markup={markup} scripts={scripts} plugins={plugins} />
