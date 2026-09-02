@@ -120,7 +120,7 @@ aparte-conversation-list {
 .aparte-link:hover { color: var(--aparte-link-color-hover); }
 .aparte-link:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 /* Quiet — for a link inside a dense row, where a coloured one would shout. It keeps
    the underline, which is the part that carries the meaning. */

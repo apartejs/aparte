@@ -42,7 +42,7 @@
      a consumer's screenshot, then here. The padding gives the ring that much room and
      the negative margin gives it back to the layout, so nothing moves; `scroll-padding`
      keeps a keyboard-focused option's ring inside the viewport when the list scrolls. */
-  --aparte-elic-ring-room: calc(var(--aparte-focus-outline-width) + var(--aparte-btn-focus-offset));
+  --aparte-elic-ring-room: calc(var(--aparte-focus-outline-width) + var(--aparte-focus-outline-offset));
   padding: var(--aparte-elic-ring-room);
   margin: calc(-1 * var(--aparte-elic-ring-room));
   scroll-padding: var(--aparte-elic-ring-room);
@@ -161,11 +161,6 @@
 
 textarea.aparte-elic-text {
   min-height: var(--aparte-elic-textarea-min-height);
-}
-
-.aparte-elic-other-input:focus,
-.aparte-elic-text:focus {
-  border-color: var(--aparte-primary);
 }
 
 .aparte-elic-option--recommended {
@@ -289,7 +284,7 @@ textarea.aparte-elic-text {
 
 .aparte-approval-args:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: 1px;
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* The refusal's reason, in the user's words. Quiet by default and one line tall: it is
@@ -309,9 +304,9 @@ textarea.aparte-elic-text {
   min-height: 1.6em;
 }
 
-.aparte-approval-instruction:focus {
-  outline: none;
-  border-top-color: var(--aparte-accent);
+.aparte-approval-instruction:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-approval-instruction::placeholder {

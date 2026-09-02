@@ -343,9 +343,15 @@
      is 12px because that is a target, and it grows to the touch target on a coarse
      pointer (responsive.css). */
   --aparte-split-position: 38%;
-  --aparte-split-min: 20rem;
+  /* Never more than the container has: at 320px this floor was wider than a phone, so
+     the primary pane took everything and the end pane was annihilated to 0. */
+  --aparte-split-min: min(20rem, 100%);
   --aparte-split-max: 60%;
-  --aparte-split-handle-size: 4px;
+  /* The seam's TRACK — the grab zone, and what the grid reserves. The painted line
+     inside it is `--aparte-split-seam-width` (derived layer): one token used to size
+     both, so the line could not be thinned without moving the layout, and at 4px it
+     was four times the kit's rule with no grip — an interaction drawn as a decoration. */
+  --aparte-split-handle-size: 12px;
   --aparte-split-hit-area: 12px;
   /* Sizes that are not steps of a scale. Each is off-scale on purpose — a 40px
      file tile is a tile, not fourteen spacing units — so each gets a name rather
@@ -459,7 +465,6 @@
   --aparte-range-thumb-size: 16px;
   --aparte-range-track-height: 4px;
 
-  --aparte-focus-outline-offset: -2px;
   --aparte-tool-spinner-size: 10px;
   --aparte-model-select-chevron-room: 28px;
 }
@@ -722,6 +727,8 @@ aparte-chat {
   --aparte-elic-option-radius: var(--aparte-radius-md);
   --aparte-elic-input-radius: var(--aparte-radius-md);
   --aparte-tool-row-radius: var(--aparte-radius-md);
+  /* The split's painted seam: the kit's rule, inside a 12px track. */
+  --aparte-split-seam-width: var(--aparte-border-width);
   --aparte-name-font-size: var(--aparte-font-size-md);
   --aparte-timestamp-font-size: var(--aparte-font-size-sm);
   --aparte-branch-picker-label-size: var(--aparte-font-size-sm);
@@ -837,13 +844,15 @@ aparte-chat {
      it used to be a 20px literal clipping a 22.4px tick. */
   --aparte-scroll-rail-width: calc(var(--aparte-scroll-rail-tick-size) * 1.6);
   --aparte-skeleton-shine: var(--aparte-surface-3);
-  --aparte-skeleton-text-height: var(--aparte-space-6);
-  --aparte-skeleton-text-gap: var(--aparte-space-3);
+  /* The line it stands for: as tall as the content type, and a gap that is the rest of
+     the content line, so the text that replaces it lands where it was (T21). It was 12px
+     on an 18px step for a 16px line on a 27px step — a third of a line of jump per line. */
+  --aparte-skeleton-text-height: var(--aparte-content-font-size);
+  --aparte-skeleton-text-gap: calc(var(--aparte-content-font-size) * (var(--aparte-content-line-height) - 1));
   --aparte-skeleton-circle-size: var(--aparte-avatar-size);
 
   --aparte-spinner-thickness: var(--aparte-space-1);
 
-  --aparte-field-error-ring: 0 0 0 var(--aparte-focus-outline-width) var(--aparte-error-solid);
 
   /* The field family's knobs, beside the button's — they used to be declared on
      `.aparte-field` itself, which is why `.aparte-field-group` (their PARENT) and
@@ -876,7 +885,6 @@ aparte-chat {
      look: 13px labels in 32px boxes, beside 15px prose. */
   --aparte-btn-font-size: var(--aparte-font-size-md);
   --aparte-btn-bg-hover: var(--aparte-surface-2);
-  --aparte-btn-focus-offset: var(--aparte-space-1);
   --aparte-btn-bg-active: var(--aparte-surface-3);
   --aparte-btn-bg-toggled: var(--aparte-surface-2);
   --aparte-btn-color-toggled: var(--aparte-text);
@@ -906,6 +914,12 @@ aparte-chat {
 
   /* Borders */
   --aparte-border-focus: var(--aparte-primary);
+  /* THE focus ring: a 2px outline in this colour, one spacing step OUTSIDE the box, on
+     every control. It used to be drawn two ways — this outline on seventeen recipes and a
+     soft box-shadow wash (30 % of the accent, 1.39:1 against the page) on five — and the
+     offset was −2px, inside the box, so on a bordered row the ring sat as a second
+     concentric line and the next row painted over its edge. */
+  --aparte-focus-outline-offset: var(--aparte-space-1);
   /* The edge of a CONTROL — a field, a choice box, the select's trigger. `--aparte-border`
      separates two regions and is right to be faint; a thing someone can touch has to be
      seen, and six previews showed a control with no visible edge. Derived from the ink
@@ -936,9 +950,6 @@ aparte-chat {
   /* The error ring on an avatar. A full shadow value, like
      --aparte-scroll-btn-shadow: the whole ring is the knob, not its width. */
   --aparte-avatar-error-ring: 0 0 0 2px var(--aparte-error-solid);
-
-  /* Focus ring — derived from the accent so it themes automatically. */
-  --aparte-focus-ring: 0 0 0 3px color-mix(in srgb, var(--aparte-primary) 30%, transparent);
 
   /* Messages */
   --aparte-message-content-text-user: var(--aparte-text);

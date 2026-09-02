@@ -246,8 +246,8 @@
 }
 
 .aparte-btn:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-btn-intent);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* Toggled — a disclosure that is open, a toggle that is on, a tab that is current. */

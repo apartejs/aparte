@@ -113,7 +113,7 @@
 }
 
 .aparte-menu__item:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 

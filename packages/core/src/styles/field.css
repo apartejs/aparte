@@ -114,15 +114,16 @@
   border-color: var(--aparte-error);
 }
 
+/* The one ring (see --aparte-focus-outline-offset in theme.css): an outline outside the
+   box, and the border left alone — a highlighted border under an offset ring read as two
+   concentric lines. An invalid field's ring takes the error colour. */
 .aparte-field:focus-visible {
-  outline: none;
-  border-color: var(--aparte-border-focus);
-  box-shadow: var(--aparte-focus-ring);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-field[aria-invalid='true']:focus-visible {
-  border-color: var(--aparte-error);
-  box-shadow: var(--aparte-field-error-ring);
+  outline-color: var(--aparte-error-solid);
 }
 
 /* ── Sizes ───────────────────────────────────────────────────────────────────── */
@@ -178,8 +179,9 @@
   border-radius: 0;
 }
 
+/* The GROUP draws the ring (below): the field inside it draws none. */
 .aparte-field-group > .aparte-field:focus-visible {
-  box-shadow: none;
+  outline: none;
 }
 
 /* A button in the group is as tall as the field it sits beside — the one row where the
@@ -212,8 +214,8 @@
 }
 
 .aparte-field-group:focus-within {
-  border-color: var(--aparte-border-focus);
-  box-shadow: var(--aparte-focus-ring);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* `aria-invalid` lives on the field itself, not the wrapper the app didn't write a
@@ -224,7 +226,7 @@
 }
 
 .aparte-field-group:has(.aparte-field[aria-invalid='true']):focus-within {
-  box-shadow: var(--aparte-field-error-ring);
+  outline-color: var(--aparte-error-solid);
 }
 
 /* ── Checkbox ────────────────────────────────────────────────────────────────── */
@@ -343,7 +345,7 @@
 }
 
 .aparte-checkbox:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-checkbox-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -425,7 +427,7 @@
 }
 
 .aparte-radio:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-radio-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -522,7 +524,7 @@
 }
 
 .aparte-switch:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-switch-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -615,11 +617,11 @@
 .aparte-range:active::-moz-range-thumb { transform: scale(1.15); }
 
 .aparte-range:focus-visible::-webkit-slider-thumb {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-range-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 .aparte-range:focus-visible::-moz-range-thumb {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-range-intent);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -738,7 +740,7 @@
 .aparte-color::-moz-color-swatch { border: none; border-radius: var(--aparte-radius-sm); }
 .aparte-color:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 .aparte-color:disabled { cursor: not-allowed; opacity: var(--aparte-disabled-opacity); }
 
@@ -877,7 +879,7 @@
 }
 .aparte-field-choice:has(:focus-visible) {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-btn-focus-offset);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-field-choice__body { flex: 1 1 auto; min-width: 0; }

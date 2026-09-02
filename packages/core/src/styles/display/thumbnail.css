@@ -113,7 +113,8 @@
 }
 
 .aparte-thumb--image[role='button']:focus-visible {
-  box-shadow: var(--aparte-focus-ring);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-thumb--file {

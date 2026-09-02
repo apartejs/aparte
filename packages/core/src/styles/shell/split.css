@@ -89,35 +89,47 @@ aparte-split > [data-aparte-chat],
   box-sizing: border-box;
   border: 0;
   padding: 0;
-  background: var(--aparte-border);
+  /* A transparent TRACK: the seam is the 1px line painted by `::before`, centred in it,
+     and the grip is a short bar drawn on the track under the pointer. The track used
+     to be the seam — 4px of paint, four times the kit's rule, with nothing to hold. */
+  background: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
   cursor: col-resize;
   touch-action: none;
+}
+
+.aparte-split__handle::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(50% - var(--aparte-split-seam-width) / 2);
+  inline-size: var(--aparte-split-seam-width);
+  background: var(--aparte-border);
   transition: background-color var(--aparte-duration-fast) var(--aparte-ease);
 }
 
-.aparte-split__handle:hover,
-.aparte-split__handle[data-dragging] {
+.aparte-split__handle:hover::before,
+.aparte-split__handle[data-dragging]::before {
   background: var(--aparte-primary);
 }
 
-/* A real outline, and the ring kept as decoration.
+/* The grip: the convention of every editor's split, so the seam reads as something to
+   take hold of. Drawn as a background so it needs no third element. */
+.aparte-split__handle:hover,
+.aparte-split__handle[data-dragging] {
+  background-image: linear-gradient(var(--aparte-primary), var(--aparte-primary));
+  background-size: calc(var(--aparte-split-seam-width) * 3) var(--aparte-space-8);
+}
 
-   The seam's whole keyboard story is arrowing it, and its only focus indicator was
-   `--aparte-focus-ring` — a soft wash that measures 1.39:1 against the page in the
-   light palette and 1.83:1 in the dark one, where WCAG asks 3:1 of a focus indicator.
-   `outline: none` with nothing in its place is the shape of that failure: the
-   indicator was not weak, it was absent, on a 4px band with `border: 0` that a
-   keyboard user has no other way to find.
-
-   The outline is what carries the contrast (3.54:1 light, 7.36:1 dark, measured); the
-   shadow stays because it reads as a glow AROUND the seam and the two do not fight.
-   The forced-colors entry in responsive.css keeps overriding the colour only — it is
-   now overriding an outline that exists rather than substituting for one that does
-   not. */
+/* The one ring. The seam's whole keyboard story is arrowing it, and its only focus
+   indicator used to be a soft wash at 1.39:1 against the page — not weak, absent, on a
+   4px band with `border: 0` that a keyboard user has no other way to find. The outline
+   carries the contrast (3.54:1 light, 7.36:1 dark, measured), and it is the same outline
+   every other control draws. */
 .aparte-split__handle:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: 0;
-  box-shadow: var(--aparte-focus-ring);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* The hit slop: a 4px seam is a 4px target, and a pointer misses it. The pseudo-element
@@ -206,6 +218,14 @@ aparte-split[orientation='vertical'][primary='end']:not([data-stacked]),
 aparte-split[orientation='vertical'] > .aparte-split__handle,
 .aparte-split--vertical > .aparte-split__handle {
   cursor: row-resize;
+  background-size: var(--aparte-space-8) calc(var(--aparte-split-seam-width) * 3);
+}
+aparte-split[orientation='vertical'] > .aparte-split__handle::before,
+.aparte-split--vertical > .aparte-split__handle::before {
+  inset-block: calc(50% - var(--aparte-split-seam-width) / 2) auto;
+  inset-inline: 0;
+  inline-size: auto;
+  block-size: var(--aparte-split-seam-width);
 }
 
 aparte-split[orientation='vertical'] > .aparte-split__handle::after,

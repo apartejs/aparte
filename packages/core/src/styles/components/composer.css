@@ -306,11 +306,10 @@ aparte-model-selector[hidden],
   border-color: var(--aparte-primary);
 }
 
-.aparte-provider-select:focus,
-.aparte-model-select:focus {
-  outline: none;
-  border-color: var(--aparte-primary);
-  box-shadow: var(--aparte-focus-ring);
+.aparte-provider-select:focus-visible,
+.aparte-model-select:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 /* Dark mode overrides for selects */

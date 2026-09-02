@@ -34,10 +34,9 @@ aparte-select {
     border-color: var(--aparte-select-border-hover, var(--aparte-primary));
 }
 
-.aparte-select-trigger:focus {
-    outline: none;
-    border-color: var(--aparte-select-border-focus, var(--aparte-primary));
-    box-shadow: var(--aparte-select-ring, var(--aparte-focus-ring));
+.aparte-select-trigger:focus-visible {
+    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+    outline-offset: var(--aparte-focus-outline-offset);
 }
 
 aparte-select[disabled] .aparte-select-trigger {
@@ -131,8 +130,11 @@ aparte-select[open] .aparte-select-chevron {
     font-family: inherit;
 }
 
-.aparte-select-search:focus {
-    outline: none;
+/* Inside, not outside: the field sits at the top of a scrolling panel, and an outset
+   ring would be clipped by it. The one documented exception to the shared offset. */
+.aparte-select-search:focus-visible {
+    outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+    outline-offset: calc(-1 * var(--aparte-focus-outline-width));
 }
 
 /* Options container */

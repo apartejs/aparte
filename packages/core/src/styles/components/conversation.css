@@ -70,8 +70,8 @@
 /* Inside the edge: the list clips horizontally (`overflow-x: hidden` in base.css), and
    a ring drawn outside the row was cut on both sides. */
 .aparte-conv-item__select:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
-  outline-offset: calc(-1 * var(--aparte-focus-outline-width));
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: var(--aparte-focus-outline-offset);
 }
 
 .aparte-conv-item__title {

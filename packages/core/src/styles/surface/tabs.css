@@ -148,7 +148,7 @@
 }
 
 .aparte-tabs__tab:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 
@@ -171,7 +171,7 @@
 }
 
 .aparte-tabs__panel:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-primary);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
 }
 

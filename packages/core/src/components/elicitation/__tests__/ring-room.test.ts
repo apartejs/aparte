@@ -17,7 +17,7 @@ describe('elicitation body — room for the focus ring', () => {
 
     it('scrolls, and pads by the ring (outline width + offset) while giving the space back', () => {
         expect(body).toMatch(/overflow-y:\s*auto/);
-        expect(body).toMatch(/--aparte-elic-ring-room:\s*calc\(var\(--aparte-focus-outline-width\)\s*\+\s*var\(--aparte-btn-focus-offset\)\)/);
+        expect(body).toMatch(/--aparte-elic-ring-room:\s*calc\(var\(--aparte-focus-outline-width\)\s*\+\s*var\(--aparte-focus-outline-offset\)\)/);
         expect(body).toMatch(/padding:\s*var\(--aparte-elic-ring-room\)/);
         expect(body).toMatch(/margin:\s*calc\(-1 \* var\(--aparte-elic-ring-room\)\)/);
         expect(body).toMatch(/scroll-padding:\s*var\(--aparte-elic-ring-room\)/);
@@ -27,6 +27,6 @@ describe('elicitation body — room for the focus ring', () => {
         // If the ring ever moves to other tokens, the room must follow — this pins them together.
         const ring = sheet.match(/\.aparte-field-choice:has\(:focus-visible\)\s*\{([^}]*)\}/)?.[1] ?? '';
         expect(ring).toMatch(/outline:\s*var\(--aparte-focus-outline-width\)/);
-        expect(ring).toMatch(/outline-offset:\s*var\(--aparte-btn-focus-offset\)/);
+        expect(ring).toMatch(/outline-offset:\s*var\(--aparte-focus-outline-offset\)/);
     });
 });

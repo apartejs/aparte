@@ -81,7 +81,7 @@ function toPercent(raw: string | null | undefined, fallback: number): number {
  * @cssprop [--aparte-split-position=38%] - The primary pane's size.
  * @cssprop [--aparte-split-min=20rem] - Floor of the primary pane. Any length or percentage.
  * @cssprop [--aparte-split-max=60%] - Ceiling of the primary pane.
- * @cssprop [--aparte-split-handle-size=4px] - The visible seam.
+ * @cssprop [--aparte-split-handle-size=12px] - The seam's track: the grab zone, and what the grid reserves between the panes. The painted line inside it is `--aparte-split-seam-width`.
  * @cssprop [--aparte-split-hit-area=12px] - The invisible grab zone around it. Grows to the touch target on a coarse pointer.
  *
  * @example
