@@ -9,8 +9,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const tooltip = readFileSync(resolve(process.cwd(), 'src/styles/surface/tooltip.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const tooltip = readFileSync(resolve(coreRoot(), 'src/styles/surface/tooltip.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 const rule = tooltip.match(/(?:^|\n)\.aparte-tooltip\s*\{([^}]*)\}/)?.[1] ?? '';
 
 describe('the tooltip', () => {

@@ -12,8 +12,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const bubble = readFileSync(resolve(process.cwd(), 'src/styles/components/bubble.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const bubble = readFileSync(resolve(coreRoot(), 'src/styles/components/bubble.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 const bar = bubble.match(/(?:^|\n)\.aparte-action-bar\s*\{([^}]*)\}/)?.[1] ?? '';
 
 describe('the action bar', () => {

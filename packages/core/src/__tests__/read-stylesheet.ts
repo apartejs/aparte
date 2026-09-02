@@ -78,3 +78,21 @@ export function readAparteStylesheet(): string {
     }
     throw new Error(`core's styles/ not found from ${process.cwd()}`);
 }
+
+/**
+ * The `@aparte/core` package directory — the one that holds `src/` — from either working
+ * directory. Thirty-five stylesheet suites resolved their sheets from `process.cwd()`
+ * and were green under `nx test @aparte/core` (cwd = the package) and red under the
+ * root `pnpm test` (cwd = the repo), which is the run the gate makes: nine of them
+ * failed to even load. Same walk as above, one answer, so `resolve(coreRoot(), 'src/…')`
+ * reads the same file from both places.
+ */
+export function coreRoot(): string {
+    for (let dir = process.cwd(), i = 0; i < 6; i++, dir = dirname(dir)) {
+        for (const root of ['packages/core', '.']) {
+            const base = join(dir, root);
+            if (existsSync(join(base, 'src', 'styles', 'theme.css'))) return base;
+        }
+    }
+    throw new Error(`core's package directory not found from ${process.cwd()}`);
+}

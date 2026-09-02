@@ -11,8 +11,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const menu = readFileSync(resolve(process.cwd(), 'src/styles/surface/menu.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const menu = readFileSync(resolve(coreRoot(), 'src/styles/surface/menu.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 describe('the menu check gutter', () => {
     it('is reserved on every item of a panel that holds a checkable one', () => {

@@ -16,8 +16,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const button = readFileSync(resolve(process.cwd(), 'src/styles/button.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const button = readFileSync(resolve(coreRoot(), 'src/styles/button.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 describe('the button recipe and its icon', () => {
     it('feeds --aparte-icon-size from --aparte-btn-icon-size on the button itself', () => {

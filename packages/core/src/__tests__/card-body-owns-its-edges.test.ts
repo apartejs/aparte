@@ -11,8 +11,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const card = readFileSync(resolve(process.cwd(), 'src/styles/display/card.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const card = readFileSync(resolve(coreRoot(), 'src/styles/display/card.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 describe('the card body', () => {
     it('folds its first child’s leading margin into its padding', () => {

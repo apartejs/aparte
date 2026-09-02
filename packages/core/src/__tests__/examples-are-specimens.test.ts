@@ -21,9 +21,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const STYLES = join(process.cwd(), 'src/styles');
-const COMPONENTS = join(process.cwd(), 'src/components');
+const STYLES = join(coreRoot(), 'src/styles');
+const COMPONENTS = join(coreRoot(), 'src/components');
 const walk = (dir: string, ext: string, out: string[] = []): string[] => {
     for (const f of readdirSync(dir)) {
         const p = join(dir, f);

@@ -14,8 +14,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const STYLES = resolve(process.cwd(), 'src/styles');
+const STYLES = resolve(coreRoot(), 'src/styles');
 const raw = readFileSync(resolve(STYLES, 'surface/tooltip.css'), 'utf8');
 const css = raw.replace(/\/\*[\s\S]*?\*\//g, ' ');
 const theme = readFileSync(resolve(STYLES, 'theme.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');

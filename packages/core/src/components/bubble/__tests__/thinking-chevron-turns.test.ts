@@ -18,10 +18,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import '../aparte-chat-bubble.js';
 import type { AparteSegment } from '../../../types/index.js';
+import { coreRoot } from '../../../__tests__/read-stylesheet.js';
 
 type BubbleEl = HTMLElement & { setSegments(segments: AparteSegment[]): void };
 
-const STYLES = resolve(process.cwd(), 'src/styles');
+const STYLES = resolve(coreRoot(), 'src/styles');
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
 const accordion = strip(readFileSync(resolve(STYLES, 'surface/accordion.css'), 'utf8'));
 const theme = strip(readFileSync(resolve(STYLES, 'theme.css'), 'utf8'));

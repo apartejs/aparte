@@ -16,12 +16,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import '../../components/bubble/aparte-chat-bubble.js';
 import type { AparteSegment } from '../../types/index.js';
+import { coreRoot } from '../../__tests__/read-stylesheet.js';
 
 type BubbleEl = HTMLElement & { setSegments(segments: AparteSegment[]): void };
 
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
-const errorSheet = strip(readFileSync(resolve(process.cwd(), 'src/styles/segment/error.css'), 'utf8'));
-const errorRenderer = readFileSync(resolve(process.cwd(), 'src/renderers/segments/error.ts'), 'utf8');
+const errorSheet = strip(readFileSync(resolve(coreRoot(), 'src/styles/segment/error.css'), 'utf8'));
+const errorRenderer = readFileSync(resolve(coreRoot(), 'src/renderers/segments/error.ts'), 'utf8');
 
 afterEach(() => { document.body.innerHTML = ''; });
 

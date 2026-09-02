@@ -20,6 +20,7 @@ import { resolve } from 'node:path';
 import '../aparte-chat.js';
 import '../../viewport/aparte-chat-viewport.js';
 import '../../composer/aparte-composer.js';
+import { coreRoot } from '../../../__tests__/read-stylesheet.js';
 
 afterEach(() => { document.body.innerHTML = ''; });
 
@@ -33,7 +34,7 @@ describe('the transcript inset', () => {
     });
 
     it('is what the composer pads by', () => {
-        const composer = readFileSync(resolve(process.cwd(), 'src/styles/components/composer.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+        const composer = readFileSync(resolve(coreRoot(), 'src/styles/components/composer.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
         const rule = composer.match(/(?:^|\n)aparte-composer\s*\{([^}]*)\}/g)?.map((m) => m).join('\n') ?? '';
         expect(rule).toMatch(/padding-inline:\s*var\(--aparte-transcript-inset,\s*var\(--aparte-viewport-padding\)\)/);
     });

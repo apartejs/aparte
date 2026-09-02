@@ -13,9 +13,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
-const shell = strip(readFileSync(resolve(process.cwd(), 'src/styles/components/shell.css'), 'utf8'));
+const shell = strip(readFileSync(resolve(coreRoot(), 'src/styles/components/shell.css'), 'utf8'));
 const rule = (selector: string) => {
     for (const m of shell.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
         if (m[1]!.split(',').map((s) => s.trim().replace(/\s+/g, ' ')).includes(selector)) return m[2]!;

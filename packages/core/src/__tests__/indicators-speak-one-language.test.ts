@@ -17,8 +17,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const STYLES = resolve(process.cwd(), 'src/styles');
+const STYLES = resolve(coreRoot(), 'src/styles');
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
 const read = (rel: string) => strip(readFileSync(resolve(STYLES, rel), 'utf8'));
 const rule = (css: string, selector: string) => {

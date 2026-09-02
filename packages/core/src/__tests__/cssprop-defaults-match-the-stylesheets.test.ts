@@ -17,8 +17,9 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const SRC = resolve(process.cwd(), 'src');
+const SRC = resolve(coreRoot(), 'src');
 const STYLES = join(SRC, 'styles');
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
 const norm = (s: string) => s.trim().replace(/\s+/g, ' ');

@@ -14,8 +14,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const css = readFileSync(resolve(process.cwd(), 'src/styles/surface/tabs.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const css = readFileSync(resolve(coreRoot(), 'src/styles/surface/tabs.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 const rule = (selector: string) => {
     for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
         if (m[1]!.split(',').map((s) => s.trim()).includes(selector)) return m[2]!;

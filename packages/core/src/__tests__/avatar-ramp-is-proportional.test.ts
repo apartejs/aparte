@@ -15,8 +15,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const STYLES = resolve(process.cwd(), 'src/styles');
+const STYLES = resolve(coreRoot(), 'src/styles');
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
 const avatar = strip(readFileSync(resolve(STYLES, 'display/avatar.css'), 'utf8'));
 const theme = strip(readFileSync(resolve(STYLES, 'theme.css'), 'utf8'));

@@ -11,8 +11,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const theme = readFileSync(resolve(process.cwd(), 'src/styles/theme.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+const theme = readFileSync(resolve(coreRoot(), 'src/styles/theme.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 describe('the skeleton text line', () => {
     it('is as tall as the content type', () => {

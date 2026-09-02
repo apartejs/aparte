@@ -12,8 +12,9 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const SRC = resolve(process.cwd(), 'src');
+const SRC = resolve(coreRoot(), 'src');
 
 function walk(dir: string, out: string[] = []): string[] {
     for (const name of readdirSync(dir)) {

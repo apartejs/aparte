@@ -17,6 +17,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { readAparteStylesheet } from './read-stylesheet';
+import { coreRoot } from './read-stylesheet.js';
 
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
 const css = strip(readAparteStylesheet());
@@ -65,7 +66,7 @@ describe('composite tokens on :root', () => {
 
 describe('the message row', () => {
     it('reads the two padding parts directly, so a container query can move them', () => {
-        const bubble = strip(readFileSync(resolve(process.cwd(), 'src/styles/components/bubble.css'), 'utf8'));
+        const bubble = strip(readFileSync(resolve(coreRoot(), 'src/styles/components/bubble.css'), 'utf8'));
         const row = bubble.match(/(?:^|\n)\.aparte-message\s*\{([^}]*)\}/)?.[1] ?? '';
         expect(row).toMatch(/padding:\s*var\(--aparte-message-padding-block\)\s+var\(--aparte-message-padding-inline\)/);
     });

@@ -21,10 +21,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import '../aparte-chat-bubble.js';
 import type { AparteAttachment } from '../../../types/index.js';
+import { coreRoot } from '../../../__tests__/read-stylesheet.js';
 
 type BubbleEl = HTMLElement & { setAttachments(attachments: AparteAttachment[]): void };
 
-const thumbnail = readFileSync(resolve(process.cwd(), 'src/styles/display/thumbnail.css'), 'utf8')
+const thumbnail = readFileSync(resolve(coreRoot(), 'src/styles/display/thumbnail.css'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, ' ');
 
 afterEach(() => { document.body.innerHTML = ''; });

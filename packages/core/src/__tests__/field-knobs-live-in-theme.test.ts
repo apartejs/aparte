@@ -16,8 +16,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { coreRoot } from './read-stylesheet.js';
 
-const STYLES = resolve(process.cwd(), 'src/styles');
+const STYLES = resolve(coreRoot(), 'src/styles');
 const theme = readFileSync(resolve(STYLES, 'theme.css'), 'utf8');
 const field = readFileSync(resolve(STYLES, 'field.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
 
