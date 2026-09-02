@@ -97,6 +97,10 @@ import {
  * @cssprop [--aparte-scrollbar-track=transparent] - Colour of the transcript's scrollbar track.
  * @cssprop [--aparte-scrollbar-width=6px] - Width of the WebKit scrollbar on the scroll
  *   surface. Firefox and the standard property use `scrollbar-width: thin` and ignore it.
+ * @cssprop [--aparte-transcript-inset=var(--aparte-viewport-padding)] - Written BY the viewport on
+ *   the chat host: how far from the host's inline edge its rows start (padding plus the
+ *   scrollbar gutter, at the current container step). The composer pads by it, so the two
+ *   boxes share one edge at every width. Read-only from the outside.
  * @cssprop [--aparte-bottom-inset=0px] - How much of the transcript's bottom is covered
  *   by content floating over it. Written by the viewport itself under
  *   `[overlay-composer]` (never set it there — it would be overwritten); a host that
@@ -205,6 +209,8 @@ export class AparteChatViewport extends HTMLElement {
     private _overlayObserver: MutationObserver | null = null;
     /** Last `--aparte-bottom-inset` written, in px — style writes only when it changes. */
     private _overlayInset = -1;
+    /** Last `--aparte-transcript-inset` written on the host, in px — same write-on-change rule. */
+    private _transcriptInset = -1;
     private _boundResetHandler: (() => void) | null = null;
     /**
      * When true, _reRenderActivePath() only dispatches aparte-path-changed without
@@ -234,6 +240,7 @@ export class AparteChatViewport extends HTMLElement {
         this._render();
         this._setupEventListeners();
         this._setupObservers();
+        this._updateTranscriptInset();
         /**
          * Empty every mounted transcript on the page.
          *
@@ -1514,6 +1521,7 @@ export class AparteChatViewport extends HTMLElement {
             // overlay mode a composer that grew is THE resize being reported, and
             // re-anchoring against the stale inset would land the reader short.
             this._updateOverlayInset();
+            this._updateTranscriptInset();
             if (this._isAutoScrollEnabled) {
                 this._scrollToBottom();
             }
@@ -1676,6 +1684,33 @@ export class AparteChatViewport extends HTMLElement {
         if (inset === this._overlayInset) return;
         this._overlayInset = inset;
         this.style.setProperty('--aparte-bottom-inset', `${inset}px`);
+    }
+
+    /**
+     * Publish, on the chat host, how far from the host's inline edge the rows start —
+     * the transcript's padding plus the scrollbar gutter the scroller reserves on both
+     * edges, at whatever step its container query has taken — as
+     * `--aparte-transcript-inset`. The composer pads by it (composer.css), so its box
+     * lands on the row's box at every width. The two used to be independent stacks: the
+     * composer cannot know the gutter and a container query cannot reach it, so they sat
+     * 10px apart at 768 and the gutter's half apart at 1280, and the reading-column demo
+     * showed three left edges 12px apart. Written only when the value changes, for the
+     * same reason `_updateOverlayInset` is. On the HOST, not on this element: the
+     * composer is a sibling, and a custom property only travels down.
+     */
+    private _updateTranscriptInset(): void {
+        const host = this.parentElement;
+        if (!host) return;
+        const ref = this.querySelector<HTMLElement>('.aparte-messages-wrapper') ?? this._container ?? this;
+        const pad = parseFloat(getComputedStyle(ref).paddingInlineStart) || 0;
+        const rtl = getComputedStyle(host).direction === 'rtl';
+        const refRect = ref.getBoundingClientRect();
+        const hostRect = host.getBoundingClientRect();
+        const raw = rtl ? hostRect.right - refRect.right : refRect.left - hostRect.left;
+        const inset = Math.max(0, Math.round((raw + pad) * 10) / 10);
+        if (inset === this._transcriptInset) return;
+        this._transcriptInset = inset;
+        host.style.setProperty('--aparte-transcript-inset', `${inset}px`);
     }
 
     /** Is the scroll surface within `_scrollThreshold` of its bottom, right now? */
@@ -2105,6 +2140,7 @@ export class AparteChatViewport extends HTMLElement {
         this._overlayObserver = null;
         this._overlayRoot = null;
         this._overlayInset = -1;
+        this._transcriptInset = -1;
         this._resizeObserver = null;
         this._mutationObserver = null;
         if (this._spacerRafId !== null) {
