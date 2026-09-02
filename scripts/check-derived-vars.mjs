@@ -88,7 +88,7 @@ const LITERAL_SELECTORS = [':root', ':host'];
  * (`--aparte-split-hit-area`, a size read from `--aparte-touch-target-size`) — a
  * responsive SIZE, which is the case this exemption exists for.
  */
-const AT_RULE_CEILING = 11; // #56 split --aparte-message-padding into -block/-inline (one responsive size became two); then the conversation row's ⋯ and the composer's control size joined the buttons that take the touch-target size under (pointer: coarse).
+const AT_RULE_CEILING = 12; // #56 split --aparte-message-padding into -block/-inline (one responsive size became two); then the conversation row's ⋯ and the composer's control size joined the buttons that take the touch-target size under (pointer: coarse); then the pending attachment's ✕ (--aparte-thumb-remove-size), same modality rule.
 /**
  * If the anchored count collapses, the matcher stopped matching — that is not a clean
  * file. Same reasoning as check-attr-escaping's SEEN_FLOOR.
@@ -766,6 +766,93 @@ if (existsSync(THEMING_GUIDE)) {
     }
 }
 
+/*
+ * …and the other half of the same failure: a variable NAME written in prose exists.
+ *
+ * The count above was checked because prose drifts. The names drift the same way and
+ * cost the reader more: the theming guide's grouped token list offered
+ * `--aparte-message-padding` and `--aparte-avatar-radius`, both split or renamed away in
+ * 0.16.8, and the landing page's three-line "one instance, three variables" snippet — the
+ * page whose whole job is to make the theming promise credible — set the second of them.
+ * A token that does not exist fails in SILENCE (invalid at computed-value time, the
+ * property inherits), which is the exact failure the same guide has a section warning
+ * about. So the page taught the mistake it teaches you to avoid.
+ *
+ * The corpus is the two public pages plus every JSDoc block in core's and the plugins'
+ * source — the prose a generated page reprints. The `@cssprop` TAGS are not read here:
+ * `cssprop-defaults-match-the-stylesheets` owns those, values and all.
+ *
+ * "Exists" is deliberately wide: declared in a sheet, read in a sheet (a knob whose
+ * default is its fallback), written from JS, or documented as a `@cssprop`. Anything the
+ * library answers to. Two things are skipped — a family prefix (`--aparte-code-*`,
+ * `--aparte-space-…`), which names no single token, and a line carrying the marker
+ * `undeclared-on-purpose`, for the one sentence whose subject IS a name core does not
+ * declare.
+ */
+let proseNames = 0;
+{
+    const cssText = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+    const known = new Set();
+    for (const m of cssText.matchAll(/--aparte-[a-z0-9-]+/g)) known.add(m[0]);
+    for (const name of JS_WRITTEN) known.add(name);
+    for (const name of cssPropDeclared.keys()) known.add(name);
+
+    const PROSE_MARKER = 'undeclared-on-purpose';
+    const PROSE_PAGES = ['apps/docs/src/content/docs/guides/theming.md', 'apps/docs/src/pages/index.astro'];
+    /** `--prose <file>` adds one more page to the corpus — how this rule's own test feeds it a fixture. */
+    const extraProse = process.argv.slice(2).filter((a, i, all) => all[i - 1] === '--prose');
+    /** A collapsed corpus is a broken matcher, not a clean repo — same reasoning as every floor here. */
+    const PROSE_NAME_FLOOR = 120;
+
+    const strayProse = new Map();
+    const scanProse = (where, text) => {
+        const all = text.split(String.fromCharCode(10));
+        for (let k = 0; k < all.length; k++) {
+            const line = all[k];
+            // On the line, or on the one above it: prose wraps, and a marker shoved into
+            // the middle of a sentence is a marker that will be edited away.
+            if (line.includes(PROSE_MARKER) || (all[k - 1] ?? '').includes(PROSE_MARKER)) continue;
+            for (const m of line.matchAll(/--aparte-[a-z0-9-]*/g)) {
+                const name = m[0];
+                const after = line.slice(m.index + name.length, m.index + name.length + 1);
+                // `--aparte-code-*` / `--aparte-space-…`: a family, not a token.
+                if (name.endsWith('-') || after === '*' || after === '…') continue;
+                proseNames++;
+                if (known.has(name)) continue;
+                if (!strayProse.has(name)) strayProse.set(name, new Set());
+                strayProse.get(name).add(where);
+            }
+        }
+    };
+
+    for (const page of [...PROSE_PAGES, ...extraProse]) {
+        if (existsSync(page)) scanProse(page, readFileSync(page, 'utf8'));
+    }
+    for (const file of cssPropFiles) {
+        const blocks = [...readFileSync(file, 'utf8').matchAll(/\/\*[\s\S]*?\*\//g)].map((m) => m[0]).join('\n');
+        // The tag line is the other suite's; only the prose around it is judged here.
+        scanProse(file, blocks.split(String.fromCharCode(10)).filter((l) => !/@cssprop/.test(l)).join(String.fromCharCode(10)));
+    }
+
+    for (const [name, where] of [...strayProse].sort()) {
+        problems.push(
+            `${name} is named in prose and the library has no such token.\n`
+            + `      in: ${[...where].sort().join(', ')}\n`
+            + '      A reader who copies it gets nothing: the declaration is invalid at\n'
+            + '      computed-value time and the page looks almost right. Name the token that\n'
+            + '      replaced it, or mark the line `undeclared-on-purpose` if it is an example\n'
+            + '      of a name core deliberately does not declare.',
+        );
+    }
+    if (proseNames < PROSE_NAME_FLOOR) {
+        problems.push(
+            `[prose] read only ${proseNames} token name(s) across ${PROSE_PAGES.length} page(s) and `
+            + `${cssPropFiles.length} source files, floor is ${PROSE_NAME_FLOOR}.\n`
+            + '      The pages moved or the matcher broke; either way this rule is judging nothing.',
+        );
+    }
+}
+
 /* ── The system-theme duplicates cannot drift ─────────────────────────────────
    theme.css carries the dark palette twice — the attribute block and its
    prefers-color-scheme copy (CSS cannot share one block between a media query
@@ -822,5 +909,5 @@ console.log(
     + `the literal palette stays on \`${LITERAL_SELECTORS.join(', ')}\`; `
     + `${atRuleExempt.length} responsive exemption(s); ${refs} var() refs, single-owner `
     + `and each one declared or written from JS; ${classTokens} class tokens over `
-    + `${classSites} sites, all prefixed.`,
+    + `${classSites} sites, all prefixed; ${proseNames} token names in prose, all real.`,
 );
