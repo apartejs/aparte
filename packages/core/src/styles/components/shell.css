@@ -15,7 +15,10 @@
 
 /* Both host shapes core recognises get the same layout: the vanilla
    <aparte-chat> element AND a framework wrapper's `[data-aparte-chat]` root
-   (React/Vue/Svelte/Angular render `<div data-aparte-chat>`). `[data-aparte-chat]`
+   (React/Vue/Svelte render `<div data-aparte-chat class="aparte-chat-container">`;
+   Angular's host IS `<aparte-chat>` and its shell is the inner
+   `.aparte-chat-container`, which carries no attribute here — the overlay rules
+   below list that third shape for exactly that reason). `[data-aparte-chat]`
    is the SAME selector core uses to resolve the host (see aparte-client /
    aparte-chat-bubble), so one rule covers both — no wrapper-specific class. */
 aparte-chat,
@@ -93,12 +96,14 @@ aparte-chat[overlay-composer] > aparte-chat-viewport,
   z-index: 0;
 }
 
-/* The bottom stack paints over the absolutely positioned viewport. `:not()` is
-   exact here: the only child that is not the viewport IS the stack (the scroll
-   button lives inside the viewport). */
-aparte-chat[overlay-composer] > :not(aparte-chat-viewport),
-[data-aparte-chat][overlay-composer] > :not(aparte-chat-viewport),
-.aparte-chat-container[overlay-composer] > :not(aparte-chat-viewport) {
+/* The bottom stack paints over the absolutely positioned viewport. The `:not()` names
+   what is NOT the stack: the viewport (the scroll button lives inside it), and the
+   scroll rail, which is a child of the shell too. `position: relative` here beat the
+   rail's own `absolute`, so in overlay mode the floating rail dropped into the flow
+   and pushed the composer down — the one child that floats by design has to be named. */
+aparte-chat[overlay-composer] > :not(aparte-chat-viewport, aparte-scroll-rail),
+[data-aparte-chat][overlay-composer] > :not(aparte-chat-viewport, aparte-scroll-rail),
+.aparte-chat-container[overlay-composer] > :not(aparte-chat-viewport, aparte-scroll-rail) {
   position: relative;
   z-index: var(--aparte-z-raised);
 }

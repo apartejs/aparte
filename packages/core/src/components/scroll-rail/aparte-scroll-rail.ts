@@ -43,10 +43,11 @@ const EXCERPT_LENGTH = 60;
  *
  * @fires {CustomEvent<AparteScrollRailJumpDetail>} aparte-scroll-rail-jump - A tick was activated. Bubbles, cancelable: `preventDefault()` leaves the transcript where it is.
  *
- * @cssprop [--aparte-scroll-rail-width=calc(var(--aparte-scroll-rail-tick-size) * 1.6)] - The rail's column, the ticks right-aligned in it.
+ * @cssprop [--aparte-scroll-rail-width=max(var(--aparte-scroll-rail-hit-size), calc(var(--aparte-scroll-rail-tick-size) * 1.6))] - The rail's column, the ticks end-aligned in it. Never under one tick's pressable zone: the rail clips, so a narrower column would cut the target back.
  * @cssprop [--aparte-scroll-rail-tick-size=14px] - Length of a tick; the current one is 1.6× that.
  * @cssprop [--aparte-scroll-rail-tick-thickness=2px] - Thickness of a tick.
- * @cssprop [--aparte-scroll-rail-gap=8px] - Space between ticks.
+ * @cssprop [--aparte-scroll-rail-hit-size=24px] - The pressable zone around a tick (WCAG 2.5.8). The drawn line keeps its own size; this one sizes the pseudo-element and, through the gap below, the pitch — so raising it spaces the ticks out rather than overlapping them.
+ * @cssprop [--aparte-scroll-rail-gap=calc(var(--aparte-scroll-rail-hit-size) - var(--aparte-scroll-rail-tick-thickness))] - Space between ticks: the zone minus the line, so gap + thickness is exactly the pitch. Set it smaller and the zones overlap.
  *
  * @example
  * <aparte-chat style="height: 18rem">
