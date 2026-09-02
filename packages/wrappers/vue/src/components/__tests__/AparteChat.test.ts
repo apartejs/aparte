@@ -3,6 +3,26 @@ import { mount } from '@vue/test-utils';
 import AparteChat from '../AparteChat.vue';
 import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig } from '@aparte/core';
 import type { AparteMessage } from '@aparte/core';
+import { AparteConversationManager } from '@aparte/core';
+import type { AparteConversation, AparteStorageAdapter } from '@aparte/core';
+
+/**
+ * The smallest thing the conversation lifecycle needs: somewhere to put a
+ * conversation. Without a manager on the resolved config the controller runs in
+ * degraded mode — the optimistic user bubble still appears and NOTHING is created —
+ * so `conversationCreated` can only be asserted with one registered.
+ */
+async function memoryManager(): Promise<AparteConversationManager> {
+    const store = new Map<string, AparteConversation>();
+    const adapter: AparteStorageAdapter = {
+        async loadAll() { return [...store.values()]; },
+        async save(c) { store.set(c.id, c); },
+        async delete(id) { store.delete(id); },
+    };
+    const manager = new AparteConversationManager(adapter);
+    await manager.init();
+    return manager;
+}
 
 // Ensure all backend components are registered
 registerAllComponents();
@@ -331,5 +351,59 @@ describe('AparteChat.vue', () => {
         expect(host.id).toMatch(/^aparte-chat-/);
         // Regression guard: crypto.randomUUID() at setup caused hydration mismatch (#9).
         expect(host.id).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    });
+
+    // ── The three callbacks nothing asserted ─────────────────────────────
+    //
+    // `messageAppended` and `conversationCreated` were asserted by no test on any of
+    // the four wrappers, and `messagesChange` only inside one Angular streaming
+    // scenario. The parity guard proves each is declared and dispatched; only a test
+    // proves the payload that arrives is the one the JSDoc promises.
+
+    it('emits messageAppended with the appended message, and not messagesChange', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        wrapper.vm.appendMessage({ id: 'u1', role: 'user', content: 'hello', timestamp: 1 });
+
+        expect(wrapper.emitted('messageAppended')).toHaveLength(1);
+        expect(wrapper.emitted('messageAppended')![0][0]).toMatchObject({ id: 'u1', content: 'hello' });
+        // The silence is the contract: echoing the local list back on an append would
+        // overwrite a `v-model:messages` parent's authoritative one and drop the
+        // message it pushed in the same tick.
+        expect(wrapper.emitted('messagesChange')).toBeUndefined();
+    });
+
+    it('emits messagesChange (and update:messages) with the whole path on an update', async () => {
+        const wrapper = mount(AparteChat, { props: { messages: [] } });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        wrapper.vm.appendMessage({ id: 'u1', role: 'user', content: 'draft', timestamp: 1 });
+        wrapper.vm.updateMessage('u1', { content: 'edited' });
+
+        const emitted = wrapper.emitted('messagesChange');
+        expect(emitted).toHaveLength(1);
+        expect((emitted![0][0] as AparteMessage[]).map(m => m.id)).toEqual(['u1']);
+        expect((emitted![0][0] as AparteMessage[])[0]!.content).toBe('edited');
+        // Same payload on the v-model channel — that is what makes `v-model:messages` work.
+        expect(wrapper.emitted('update:messages')).toHaveLength(1);
+    });
+
+    it('emits conversationCreated on the first send once a manager is registered', async () => {
+        const cfg = new AparteConfig();
+        cfg.setConversationManager(await memoryManager());
+        const wrapper = mount(AparteChat, { props: { messages: [], config: cfg } });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        wrapper.element.querySelector('aparte-composer')!.dispatchEvent(
+            new CustomEvent('aparte-send', {
+                detail: { content: 'first message' },
+                bubbles: true, composed: true,
+            }),
+        );
+
+        // Creation is async (the adapter is): wait for the event, not for a delay.
+        await vi.waitFor(() => expect(wrapper.emitted('conversationCreated')).toHaveLength(1));
+        expect(typeof wrapper.emitted('conversationCreated')![0][0]).toBe('string');
     });
 });

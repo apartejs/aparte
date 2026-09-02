@@ -5,6 +5,26 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { AparteChatComponent } from '../aparte-chat.component';
 import { registerAllComponents, type AparteMessage } from '@aparte/core';
+import { AparteConfig, AparteConversationManager } from '@aparte/core';
+import type { AparteConversation, AparteStorageAdapter } from '@aparte/core';
+
+/**
+ * The smallest thing the conversation lifecycle needs: somewhere to put a
+ * conversation. Without a manager on the resolved config the controller runs in
+ * degraded mode — the optimistic user bubble still appears and NOTHING is created —
+ * so `conversationCreated` can only be asserted with one registered.
+ */
+async function memoryManager(): Promise<AparteConversationManager> {
+    const store = new Map<string, AparteConversation>();
+    const adapter: AparteStorageAdapter = {
+        async loadAll() { return [...store.values()]; },
+        async save(c) { store.set(c.id, c); },
+        async delete(id) { store.delete(id); },
+    };
+    const manager = new AparteConversationManager(adapter);
+    await manager.init();
+    return manager;
+}
 
 // Register aparté web components so setContent/setSegments exist on bubble elements
 registerAllComponents();
@@ -703,5 +723,57 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         // …and a live append still passes nothing, so the host keeps its default (live).
         component.appendMessage({ id: 'l1', role: 'user', content: 'hi', timestamp: 2 });
         expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'l1' }), undefined);
+    });
+
+    // ── The two callbacks nothing asserted ───────────────────────────────
+    //
+    // `messageAppended` and `conversationCreated` were asserted by no test on any of
+    // the four wrappers. The parity guard proves each is declared and dispatched;
+    // only a test proves the payload that arrives is the one the JSDoc promises.
+
+    it('emits messageAppended with the appended message, and not messagesChange', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        const component = fixture.componentInstance;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const appended: AparteMessage[] = [];
+        const changed: AparteMessage[][] = [];
+        component.messageAppended.subscribe((m: AparteMessage) => appended.push(m));
+        component.messagesChange.subscribe((m: AparteMessage[]) => changed.push(m));
+
+        component.appendMessage({ id: 'u1', role: 'user', content: 'hello', timestamp: 1 });
+
+        expect(appended).toHaveLength(1);
+        expect(appended[0]).toMatchObject({ id: 'u1', content: 'hello' });
+        // The silence is the contract: echoing the local list back on an append would
+        // overwrite the parent's authoritative one and drop the message it pushed in
+        // the same tick — the race the "optimistic-append + parent-push" spec guards.
+        expect(changed).toHaveLength(0);
+    });
+
+    it('emits conversationCreated on the first send once a manager is registered', async () => {
+        const cfg = new AparteConfig();
+        cfg.setConversationManager(await memoryManager());
+
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        const component = fixture.componentInstance;
+        component.config = cfg;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const created: string[] = [];
+        component.conversationCreated.subscribe((id: string) => created.push(id));
+
+        (fixture.nativeElement as HTMLElement).querySelector('aparte-composer')!.dispatchEvent(
+            new CustomEvent('aparte-send', {
+                detail: { content: 'first message' },
+                bubbles: true, composed: true,
+            }),
+        );
+
+        // Creation is async (the adapter is): wait for the emission, not for a delay.
+        await vi.waitFor(() => expect(created).toHaveLength(1));
+        expect(typeof created[0]).toBe('string');
     });
 });
