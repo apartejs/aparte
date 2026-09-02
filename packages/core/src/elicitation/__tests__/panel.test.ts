@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { buildElicitationPanel } from '../panel';
 import { aparteGlobalConfig, runWithConfig, AparteConfig } from '../../config/index.js';
 import type { AparteElicitationSchema } from '../types';
@@ -501,6 +501,89 @@ describe('buildElicitationPanel', () => {
             expect(commands(p.el), 'no command buttons in this shape').toHaveLength(0);
             expect(p.mode()).toBe('submit');
             expect(p.getContent()).toBe('vue');
+        });
+    });
+
+    /**
+     * Arrow keys SELECT as they move inside a radiogroup, so a `change` from one is
+     * not consent — and focusing the free-text field on it carried a keyboard reader
+     * out of the group with no activation at all. That is WCAG SC 3.2.2 / F36, the
+     * exact failure this file refuses a hundred lines above when it explains why one
+     * choice is one BUTTON. The field still opens on the arrow; only the focus waits
+     * for a real activation.
+     *
+     * The radios survive here because the question carries a `default` — the shape
+     * where a button cannot be pre-selected.
+     */
+    describe('arrowing onto the free-text escape', () => {
+        const schema: AparteElicitationSchema = {
+            type: 'enum',
+            options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }],
+            default: 'a',
+            allowOther: true,
+        };
+
+        function mount(): { el: HTMLElement; radios: HTMLInputElement[]; other: HTMLInputElement; text: HTMLInputElement } {
+            const p = buildElicitationPanel('?', schema, noop);
+            document.body.appendChild(p.el);
+            const radios = Array.from(p.el.querySelectorAll<HTMLInputElement>('.aparte-elic-control'));
+            return {
+                el: p.el,
+                radios,
+                other: p.el.querySelector<HTMLInputElement>('input[value="__other__"]')!,
+                text: p.el.querySelector<HTMLInputElement>('.aparte-elic-other-input')!,
+            };
+        }
+
+        /** What a browser does for ArrowDown in a radiogroup: move, check, then change. */
+        function arrowOnto(from: HTMLInputElement, to: HTMLInputElement): void {
+            from.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+            to.checked = true;
+            to.focus();
+            to.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        afterEach(() => { document.body.innerHTML = ''; });
+
+        it('reveals the field and leaves the focus in the group', () => {
+            const { radios, other, text } = mount();
+            radios[0]!.focus();
+
+            arrowOnto(radios[0]!, other);
+
+            expect(text.style.display, 'the field is revealed, so the answer is reachable').toBe('');
+            expect(document.activeElement, 'the arrow key must not carry focus out of the group').toBe(other);
+        });
+
+        it('a click on the same option does focus the field', () => {
+            const { other, text } = mount();
+
+            other.click();
+
+            expect(text.style.display).toBe('');
+            expect(document.activeElement).toBe(text);
+        });
+
+        it('Space focuses it too — that is an activation', () => {
+            const { radios, other, text } = mount();
+            radios[0]!.focus();
+
+            other.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+            other.checked = true;
+            other.dispatchEvent(new Event('change', { bubbles: true }));
+
+            expect(text.style.display).toBe('');
+            expect(document.activeElement).toBe(text);
+        });
+
+        it('an arrow pressed earlier does not disarm the next click', () => {
+            const { radios, other, text } = mount();
+            radios[0]!.focus();
+
+            arrowOnto(radios[0]!, radios[1]!);
+            other.click();
+
+            expect(document.activeElement).toBe(text);
         });
     });
 

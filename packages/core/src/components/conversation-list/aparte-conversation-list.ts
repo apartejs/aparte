@@ -544,7 +544,13 @@ export class AparteConversationList extends HTMLElement {
         input.dataset['renameId'] = conv.id;
         select.replaceWith(input);
         this._renaming = { id: conv.id, input, done: false };
-        input.addEventListener('blur', () => this._finishRename(true, false));
+        input.addEventListener('blur', (e) => {
+            const next = (e as FocusEvent).relatedTarget as Node | null;
+            // Restore when the focus is going nowhere (`<body>`) or into the list this
+            // render is about to destroy. Not when it is heading for a live element
+            // outside — pulling it back from there is the theft `_onFocusOut` avoids.
+            this._finishRename(true, !next || this.contains(next));
+        });
         input.focus();
         input.select();
     }
@@ -554,22 +560,29 @@ export class AparteConversationList extends HTMLElement {
      * the blur a removal causes cannot commit a second time. The row is re-rendered
      * from the array either way: the list shows data, and the host's re-assignment is
      * what makes the new title appear.
+     *
+     * `restoreFocus` puts the keyboard back on the row: every exit destroys the field
+     * the reader was in, so without it the focus lands on `<body>` and the next Tab
+     * restarts at the top of the page. The caller decides — the blur path says no when
+     * the focus is already heading somewhere live outside this list.
      */
-    private _finishRename(commit: boolean, viaKeyboard: boolean): void {
+    private _finishRename(commit: boolean, restoreFocus: boolean): void {
         const renaming = this._renaming;
         if (!renaming || renaming.done) return;
         renaming.done = true;
         const conv = this._conversations.find(c => c.id === renaming.id);
         const title = renaming.input.value.trim();
         this._render();
-        if (viaKeyboard) {
-            this.querySelector<HTMLElement>(`[data-select-id="${cssEscape(renaming.id)}"]`)?.focus();  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
-        }
         if (commit && conv && title && title !== conv.title) {
             this.dispatchEvent(new CustomEvent<AparteConversationRenameDetail>(
                 'aparte-rename-conversation',
                 { detail: { id: conv.id, title }, bubbles: true, composed: true }
             ));
+        }
+        // After the event, not before: a host that re-assigns `conversations` on it
+        // re-renders the list, and the button focused beforehand is gone by now.
+        if (restoreFocus) {
+            this.querySelector<HTMLElement>(`[data-select-id="${cssEscape(renaming.id)}"]`)?.focus();  // safe-attr: a selector, not markup — cssEscape() is the right escape here.
         }
     }
 

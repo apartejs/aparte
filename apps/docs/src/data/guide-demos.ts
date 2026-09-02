@@ -305,13 +305,19 @@ export const GUIDE_DEMOS: GuideDemo[] = [
     </button>
   </div>
   <div class="aparte-dialog__body">
-    <div class="aparte-tabs aparte-tabs--underline" role="tablist">
-      <button class="aparte-tabs__tab" role="tab" aria-selected="true" type="button">Model</button>
-      <button class="aparte-tabs__tab" role="tab" aria-selected="false" type="button">Appearance</button>
+    <div class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Settings section">
+      <button class="aparte-tabs__tab" role="tab" type="button" id="tab-model" aria-controls="panel-model" aria-selected="true" tabindex="0">Model</button>
+      <button class="aparte-tabs__tab" role="tab" type="button" id="tab-appearance" aria-controls="panel-appearance" aria-selected="false" tabindex="-1">Appearance</button>
     </div>
-    <label class="aparte-field-label" for="endpoint">Endpoint</label>
-    <input class="aparte-field" id="endpoint" value="http://localhost:11434/v1">
-    <p class="aparte-field-hint">Any OpenAI-compatible server.</p>
+    <div class="aparte-tabs__panel" role="tabpanel" id="panel-model" aria-labelledby="tab-model">
+      <label class="aparte-field-label" for="endpoint">Endpoint</label>
+      <input class="aparte-field" id="endpoint" value="http://localhost:11434/v1">
+      <p class="aparte-field-hint">Any OpenAI-compatible server.</p>
+    </div>
+    <div class="aparte-tabs__panel" role="tabpanel" id="panel-appearance" aria-labelledby="tab-appearance" hidden>
+      <label class="aparte-field-label" for="accent">Accent</label>
+      <input class="aparte-field" id="accent" type="color" value="#b8860b">
+    </div>
   </div>
   <div class="aparte-dialog__footer">
     <button class="aparte-btn aparte-btn--ghost" type="button" data-aparte-dialog-close>Cancel</button>
@@ -324,6 +330,27 @@ export const GUIDE_DEMOS: GuideDemo[] = [
   document.getElementById('settings').addEventListener('close', (e) => {
     document.getElementById('settings-result').textContent =
       e.target.returnValue === 'saved' ? 'Saved.' : 'Closed without saving.';
+  });
+
+  // The tabs. The recipe draws the row; who is selected, which panel shows and where
+  // the one tab stop sits are the app's - a tablist whose arrows do nothing announces
+  // more than plain buttons and does less. This is the whole handler.
+  const tabs = [...document.querySelectorAll('#settings [role="tab"]')];
+  const showTab = (tab) => {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    }
+    tab.focus();
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => showTab(tab));
+    tab.addEventListener('keydown', (e) => {
+      const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (step) { e.preventDefault(); showTab(tabs[(i + step + tabs.length) % tabs.length]); }
+    });
   });
 </script>`,
     },

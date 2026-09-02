@@ -31,6 +31,14 @@ The one page this cannot serve is one whose Content-Security-Policy forbids `blo
 package from your own origin there, and the provider constructs the worker directly.
 :::
 
+:::note[With a bundler, nothing to configure either]
+The worker ships as `dist/worker.js` and is constructed from a literal
+`new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })` — the shape Vite
+and webpack both detect. Your bundler therefore processes it as a module and resolves
+`@huggingface/transformers` inside it, exactly as it does for your own code. You do not
+need a worker loader, a `copy` rule, or an entry of your own.
+:::
+
 ```ts
 import { aparteGlobalConfig, AparteDirectTransport } from '@aparte/core';
 import { TransformersProvider, registerModel } from '@aparte/provider-transformers';

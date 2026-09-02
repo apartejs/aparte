@@ -111,9 +111,16 @@
     opacity: 1;
   }
 
-  /* Nor the ✕ on a pending attachment, which is the only way to remove one. */
+  /* Nor the ✕ on a pending attachment, which is the only way to remove one — and
+     seeing it is no use at 18px, under the 24 of WCAG 2.2 SC 2.5.8. 24 is not a new
+     number: it is the box `aparte-btn--sm` already draws, so this is the component
+     giving the recipe back its own size on touch rather than out-specifying it.
+     Not `--aparte-touch-target-size`: 44px inside a 72px tile would swallow the
+     picture, and full parity with the neighbouring controls needs the tile to grow
+     with it — a second decision, not this floor. */
   .aparte-thumb__remove {
     opacity: 1;
+    --aparte-thumb-remove-size: var(--aparte-btn-size-sm);
   }
 
   /* Hover cannot reveal the row's ⋯ on touch — keep it visible and tappable. */

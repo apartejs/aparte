@@ -147,20 +147,39 @@ export class AparteComposerAttachments extends HTMLElement {
         // Image tiles ask for the full-size preview — only when the app declared it
         // opens one (same rule as the sent-message strip in the bubble).
         if (!resolveConfig(this).getHostHandlers().attachmentPreview) return;
-        this.querySelectorAll('.aparte-thumb--image').forEach(tile => {
-            tile.setAttribute('role', 'button');
-            tile.setAttribute('tabindex', '0');
+        /*
+         * The control is the IMAGE, not the tile.
+         *
+         * The role used to sit on the tile, which wraps the remove `<button>` — a
+         * button nested inside a button, which no role permits, and whose name is
+         * computed from its contents: the file name from the `title`, again from the
+         * `.aparte-thumb__name` overlay, and a third time inside "Remove report.png",
+         * with no way for the reader to tell which of the two controls Enter reaches.
+         *
+         * The picture is what the preview opens, so it is what the button is; the ✕
+         * sits beside it. The bubble's sent strip keeps the role on its tile and must:
+         * there is no ✕ there, nothing is nested, and the tile IS the whole control.
+         *
+         * The label is interpolated from the RAW `file.name` — `setAttribute` escapes
+         * for us, and reusing the already-escaped `name` would escape twice, the trap
+         * `removeLabel` above already documents.
+         */
+        const images = files.filter(f => f.type.startsWith('image/'));
+        this.querySelectorAll('.aparte-thumb--image').forEach((tile, i) => {
+            const img = tile.querySelector('.aparte-thumbnail__image') as HTMLImageElement | null;
+            if (!img) return;
+            img.setAttribute('role', 'button');
+            img.setAttribute('tabindex', '0');
+            img.setAttribute('aria-label', images[i]?.name ?? '');
             const open = (): void => {
-                const img = tile.querySelector('.aparte-thumbnail__image') as HTMLImageElement | null;
-                if (!img) return;
                 this.dispatchEvent(new CustomEvent('aparte-attachment-preview', {
                     bubbles: true,
                     composed: true,
-                    detail: { url: img.src, name: tile.getAttribute('title') ?? '' },
+                    detail: { url: img.src, name: images[i]?.name ?? '' },
                 }));
             };
-            tile.addEventListener('click', open);
-            tile.addEventListener('keydown', (e) => {
+            img.addEventListener('click', open);
+            img.addEventListener('keydown', (e) => {
                 const key = (e as KeyboardEvent).key;
                 if (key !== 'Enter' && key !== ' ') return;
                 e.preventDefault();

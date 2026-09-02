@@ -134,7 +134,11 @@ export default defineConfig({
         // Lines/statements 87 -> 90 and branches 90 -> 93 with the echo lot
         // (2026-08-31): the echo suite covers both modes, the attachment ride and
         // the FileReader failure path — measured 91.71 / 94.05; the ratchet asked.
-        'packages/core/src/client/**': { lines: 90, statements: 90, functions: 97, branches: 93 },
+        // Lines/statements 90 -> 93 on 2026-09-02: the client suites added since
+        // (the echo modes, the superseded reply, the two-chats scoping) moved the
+        // measurement to 94.24%, and 4.2 points of slack is a floor that cannot fail.
+        // The two-sided ratchet asked; that is what it is for.
+        'packages/core/src/client/**': { lines: 93, statements: 93, functions: 97, branches: 93 },
         // The renderers sit at 53.6% lines, which is the thinnest area in the
         // package and the reason a per-glob floor was needed at all: the 81% global
         // average was hiding it completely. The floor is set at the MEASURED value
@@ -174,6 +178,55 @@ export default defineConfig({
         // statements, 97.67% functions, 81.55% branches. 75/75/85/72 -> 94/94/96/80, each
         // ~1.5 points under the measurement, as the ratchet asked.
         'packages/core/src/renderers/**': { lines: 94, statements: 94, functions: 96, branches: 80 },
+
+        // ── A floor per PUBLISHED PACKAGE ────────────────────────────────────
+        //
+        // The two globs above guard the two areas an audit had already looked at,
+        // and two of the best-covered in the repo. Everything else answered only to
+        // the global average — and an average over ~120 files cannot see one area:
+        // `plugins/artifacts` sat at 78% lines / 72% branches and `wrappers/angular`
+        // at 62% functions with all four global numbers comfortably green, because
+        // deleting a small package's tests moves a repo-wide average by a fraction
+        // of a point.
+        //
+        // So there is now one threshold over the WHOLE `src` of every package this
+        // repo publishes, `packages/core/src/**` included — a glob over a
+        // sub-directory does not floor its parent, which is exactly the shape that
+        // left the other ~100 files of core unfloored. The list is asserted against
+        // the same corpus `check-dist-freshness` walks, in
+        // `scripts/__tests__/check-coverage-floors.test.ts`, so a new package cannot
+        // land without one.
+        //
+        // Every number below is the MEASURED value minus a point, the rule this file
+        // already states, and `check-coverage-floors` keeps it that way from both
+        // sides: under the floor fails, and more than three points over it fails too.
+        // Measured 2026-09-02 by `vitest run --coverage`. The low FUNCTION floors on
+        // the wrappers (41-47) are not a target, they are the truth: a wrapper's
+        // functions are mostly framework-invoked template closures, and a floor set
+        // where nobody stands is a floor that gets lowered.
+        'packages/core/src/**': { lines: 93, statements: 93, functions: 92, branches: 88 },
+        'packages/engine/src/**': { lines: 99, statements: 99, functions: 99, branches: 93 },
+        'packages/locales/fr/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        'packages/plugins/approval/src/**': { lines: 97, statements: 97, functions: 90, branches: 95 },
+        'packages/plugins/artifacts/src/**': { lines: 77, statements: 77, functions: 83, branches: 71 },
+        'packages/plugins/ask-user/src/**': { lines: 96, statements: 96, functions: 89, branches: 87 },
+        'packages/plugins/compaction/src/**': { lines: 94, statements: 94, functions: 95, branches: 89 },
+        'packages/plugins/marked/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        'packages/plugins/model-selector/src/**': { lines: 82, statements: 82, functions: 81, branches: 75 },
+        'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
+        'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        'packages/providers/ai/ai-sdk/src/**': { lines: 95, statements: 95, functions: 90, branches: 76 },
+        'packages/providers/ai/openai-compat/src/**': { lines: 92, statements: 92, functions: 93, branches: 79 },
+        'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
+        // Measured 78.04 by the full run after the worker moved to a stable path (its new
+        // construction path is exercised by the published-shape test, not by a run): a
+        // point under that, as every floor here.
+        'packages/providers/ai/transformers/src/**': { lines: 77, statements: 77, functions: 85, branches: 81 },
+        'packages/tools/docs-mcp/src/**': { lines: 93, statements: 93, functions: 85, branches: 89 },
+        'packages/wrappers/angular/src/**': { lines: 77, statements: 77, functions: 61, branches: 85 },
+        'packages/wrappers/react/src/**': { lines: 96, statements: 96, functions: 47, branches: 84 },
+        'packages/wrappers/svelte/src/**': { lines: 97, statements: 97, functions: 44, branches: 85 },
+        'packages/wrappers/vue/src/**': { lines: 97, statements: 97, functions: 41, branches: 82 },
       },
     },
   },

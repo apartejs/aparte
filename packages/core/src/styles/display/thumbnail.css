@@ -106,15 +106,30 @@
   --aparte-thumbnail-border: var(--aparte-attachment-chip-border);
 }
 
-/* Only an image tile the app declared it can preview is a button — see
-   aparteGlobalConfig.setHostHandlers(). Undeclared, it is a picture, not a control. */
-.aparte-thumb--image[role='button'] {
+/* Only an image the app declared it can preview is a button — see
+   aparteGlobalConfig.setHostHandlers(). Undeclared, it is a picture, not a control.
+
+   Two selectors because the two strips carry the role in two places, and both are
+   right. The sent-message strip has no ✕, so its TILE is the whole control. The
+   composer's tile wraps the remove button, so the control there is the IMAGE — a
+   button inside a button is what the role on the tile used to make. */
+.aparte-thumb--image[role='button'],
+.aparte-thumbnail__image[role='button'] {
   cursor: pointer;
 }
 
 .aparte-thumb--image[role='button']:focus-visible {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
+}
+
+/* Inset, unlike the tile's. The image fills the tile edge to edge and the tile is the
+   frame (`overflow: hidden` above), so an outline drawn outward is cropped away — the
+   focus ring would simply not exist. Pulled in by its own width, it lands just inside
+   the border and stays whole. */
+.aparte-thumbnail__image[role='button']:focus-visible {
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: calc(-1 * var(--aparte-focus-outline-width));
 }
 
 .aparte-thumb--file {

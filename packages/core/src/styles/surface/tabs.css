@@ -12,11 +12,12 @@
  * script the caller owns: a <details open> toggling itself, a positioning library placing
  * a menu next to its trigger. Nothing here reaches for position:fixed on your behalf.
  *
- *     <div class="aparte-tabs" role="tablist">
- *       <button class="aparte-tabs__tab" role="tab" aria-selected="true">Preview</button>
- *       <button class="aparte-tabs__tab" role="tab" aria-selected="false">Code</button>
+ *     <div class="aparte-tabs" role="tablist" aria-label="Result view">
+ *       <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-a-preview" aria-controls="tabs-a-preview-panel" aria-selected="true" tabindex="0">Preview</button>
+ *       <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-a-code" aria-controls="tabs-a-code-panel" aria-selected="false" tabindex="-1">Code</button>
  *     </div>
- *     <div class="aparte-tabs__panel" role="tabpanel">The panel for the selected tab.</div>
+ *     <div class="aparte-tabs__panel" role="tabpanel" id="tabs-a-preview-panel" aria-labelledby="tabs-a-preview">The panel for the selected tab.</div>
+ *     <div class="aparte-tabs__panel" role="tabpanel" id="tabs-a-code-panel" aria-labelledby="tabs-a-code" hidden>The panel the other tab opens.</div>
  *
  *     <div class="aparte-accordion">
  *       <details class="aparte-accordion__item" open>
@@ -63,17 +64,29 @@
    the current tab, which reads as a control rather than as navigation. Neither moves
    anything: `aria-selected` is what says which tab is current, and the app owns it.
 
-       <div class="aparte-tabs aparte-tabs--underline" role="tablist">
-         <button class="aparte-tabs__tab" role="tab" aria-selected="true">Preview</button>
-         <button class="aparte-tabs__tab" role="tab" aria-selected="false">Code</button>
-       </div>
-       <div class="aparte-tabs__panel" role="tabpanel">What the selected tab shows.</div>
+   The markup below is the whole contract of the role, and all of it is yours to write:
+   ONE tab stop for the list (`tabindex="0"` on the selected tab, `-1` on the rest),
+   `aria-controls` from each tab to its `role="tabpanel"`, and `aria-labelledby` back.
+   The app also owns the ArrowLeft/ArrowRight/Home/End handler that moves the selection
+   and the stop together — `@aparte/plugin-artifacts`' card has a working one to copy.
+   A tablist without those is louder than plain buttons and says less: every tab a tab
+   stop, and none of them naming what it opens.
 
-       <div class="aparte-tabs aparte-tabs--segmented" role="tablist">
-         <button class="aparte-tabs__tab" role="tab" aria-selected="true">Light</button>
-         <button class="aparte-tabs__tab" role="tab" aria-selected="false">Dark</button>
-         <button class="aparte-tabs__tab" role="tab" aria-selected="false">System</button>
+       <div class="aparte-tabs aparte-tabs--underline" role="tablist" aria-label="Result view">
+         <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-u-preview" aria-controls="tabs-u-preview-panel" aria-selected="true" tabindex="0">Preview</button>
+         <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-u-code" aria-controls="tabs-u-code-panel" aria-selected="false" tabindex="-1">Code</button>
        </div>
+       <div class="aparte-tabs__panel" role="tabpanel" id="tabs-u-preview-panel" aria-labelledby="tabs-u-preview">What the selected tab shows.</div>
+       <div class="aparte-tabs__panel" role="tabpanel" id="tabs-u-code-panel" aria-labelledby="tabs-u-code" hidden>What the other tab shows.</div>
+
+       <div class="aparte-tabs aparte-tabs--segmented" role="tablist" aria-label="Theme">
+         <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-s-light" aria-controls="tabs-s-light-panel" aria-selected="true" tabindex="0">Light</button>
+         <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-s-dark" aria-controls="tabs-s-dark-panel" aria-selected="false" tabindex="-1">Dark</button>
+         <button class="aparte-tabs__tab" role="tab" type="button" id="tabs-s-system" aria-controls="tabs-s-system-panel" aria-selected="false" tabindex="-1">System</button>
+       </div>
+       <div class="aparte-tabs__panel" role="tabpanel" id="tabs-s-light-panel" aria-labelledby="tabs-s-light">The light theme's settings.</div>
+       <div class="aparte-tabs__panel" role="tabpanel" id="tabs-s-dark-panel" aria-labelledby="tabs-s-dark" hidden>The dark theme's settings.</div>
+       <div class="aparte-tabs__panel" role="tabpanel" id="tabs-s-system-panel" aria-labelledby="tabs-s-system" hidden>Whatever the system asks for.</div>
    ========================================= */
 
 .aparte-tabs {

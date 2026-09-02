@@ -43,13 +43,6 @@ import type {
 import { uuid } from '@aparte/core';
 import type { BuiltInRunner, Device, Dtype } from './runners/types.js';
 
-// The worker's URL, not the worker itself: this package constructs it by hand because a
-// cross-origin copy has to go through a blob (see `_spawnWorker`). `?worker&url` is what
-// keeps Vite emitting the worker as its own chunk — the `new Worker(new URL(...))` form
-// it detects by pattern was the only other way, and moving the URL out of that call made
-// the build inline the worker's raw TypeScript as a data: URL instead. Caught by a
-// two-origin browser probe, not by any test.
-import workerUrl from './worker.ts?worker&url';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hardware detection
@@ -312,6 +305,20 @@ let _loadedModelId: string | null = null;
 /** Model currently being prepared (for the getModelStatus 'cached' path). */
 let _preparingModelId: string | null = null;
 
+/**
+ * The worker this package publishes, beside `dist/index.js`.
+ *
+ * It used to be `import workerUrl from './worker.ts?worker&url'`, which handed the
+ * emit to Vite's worker plugin — and that plugin rewrote the one shape a consumer's
+ * bundler can detect into `new URL("assets/worker-<hash>.js", import.meta.url).href`
+ * behind a `@vite-ignore`. Nothing static was left to detect, so a bundled app copied
+ * the chunk as an opaque asset without ever processing it as a module, and the
+ * `import('@huggingface/transformers')` inside it stayed a bare specifier no browser
+ * can resolve: every model load failed. The worker is a second lib entry now, at a
+ * stable `dist/worker.js`, and this package constructs it itself.
+ */
+const WORKER_FILE = './worker.js';
+
 /** The blob URL the worker was built from, if it needed one. Revoked with the worker. */
 let _workerBlobUrl: string | null = null;
 
@@ -333,7 +340,13 @@ let _workerBlobUrl: string | null = null;
  * names the real file.
  */
 function _spawnWorker(): Worker {
-    const url = new URL(workerUrl, import.meta.url);
+    // Behind a constant, and that is not style either. Vite's asset transform rewrites
+    // `new URL(<literal>, import.meta.url)` to a base of its own; behind a variable it
+    // does not look, so this line keeps the REAL module URL — which is what the origin
+    // comparison and the blob body below have to be built from. The build drops that
+    // transform anyway (see `vite.config.ts`), so in the shipped bytes the two forms
+    // resolve identically; under a dev server and under vitest they do not.
+    const url = new URL(WORKER_FILE, import.meta.url);
     const sameOrigin = typeof location === 'undefined' || url.origin === location.origin;
     // A blob is the only way across an origin, so an environment that cannot mint one has
     // nothing to gain from trying: construct directly and let the platform say what it
@@ -341,13 +354,17 @@ function _spawnWorker(): Worker {
     // every test in this package went through the blob path and threw before this line
     // existed.
     const canMintBlob = typeof Blob === 'function' && typeof URL.createObjectURL === 'function';
-    // The literal below is not style. `new Worker(new URL('./worker.ts', import.meta.url))`
-    // is the exact shape Vite's worker detection and webpack's WorkerPlugin match on, and
-    // matching it is what makes a CONSUMER's bundler process the worker as a module — which
-    // is how `@huggingface/transformers` gets resolved inside it today. Behind a variable
-    // the chunk is copied as an opaque asset and its imports are never touched, so hoisting
-    // this line to reuse it for the blob would fix a CDN page by breaking every bundled app.
-    if (sameOrigin || !canMintBlob) return new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+    // The literal below is not style, and it is written out rather than reusing
+    // `WORKER_FILE` above. `new Worker(new URL('./worker.js', import.meta.url))` is the
+    // exact shape Vite's worker detection and webpack's WorkerPlugin match on, and
+    // matching it is what makes a CONSUMER's bundler process the worker as a module —
+    // which is how `@huggingface/transformers` gets resolved inside it. Behind a variable
+    // the file is copied as an opaque asset and its imports are never touched, so
+    // hoisting this line to reuse `url` would fix a CDN page by breaking every bundled
+    // app. That the SHIPPED bytes still carry it is asserted by
+    // `src/__tests__/published-shape.test.ts`: the claim was true of this source and
+    // false of the artifact for as long as the build owned the emit.
+    if (sameOrigin || !canMintBlob) return new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 
     _workerBlobUrl = URL.createObjectURL(
         new Blob([`import ${JSON.stringify(url.href)};`], { type: 'text/javascript' }),

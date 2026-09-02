@@ -338,7 +338,7 @@ export class AparteSidebar extends HTMLElement {
      * nothing focusable in it keeps the focus where it was, which is the honest outcome.
      */
     private _focusFirst(): void {
-        this.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+        visibleFocusable(this)[0]?.focus();
     }
 
     private _syncScrim(): void {
@@ -369,7 +369,7 @@ export class AparteSidebar extends HTMLElement {
         // was deliberately NOT added: it would steal the focus back from a dialog the
         // drawer's own content opens onto `<body>`.
         if (e.key === 'Tab') {
-            const focusable = Array.from(this.querySelectorAll<HTMLElement>(FOCUSABLE));
+            const focusable = visibleFocusable(this);
             if (focusable.length === 0) return;
             const first = focusable[0]!;
             const last = focusable[focusable.length - 1]!;
@@ -444,6 +444,17 @@ const FOCUSABLE = [
     'textarea:not([disabled])',
     '[tabindex]:not([tabindex="-1"])',
 ].join(',');
+
+/**
+ * The focusables a reader can actually reach. The drawer's own search filter hides rows
+ * with `hidden`, and a hidden row's buttons hold no tab stop — so a trap that compared
+ * DOM-last rather than reachable-last never fired at the real end of the drawer and let
+ * Tab walk out under the scrim.
+ */
+function visibleFocusable(root: ParentNode): HTMLElement[] {
+    return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE))
+        .filter((el) => !el.closest('[hidden]') && el.checkVisibility?.() !== false);
+}
 
 /** The sidebar a toggle belongs to: the closest ancestor, else the first on the page. */
 function nearestSidebar(control: HTMLElement): Element | null {

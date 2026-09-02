@@ -11,13 +11,24 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import '../../composer/aparte-composer.js';
+import '../../composer/aparte-composer-input.js';
 import '../aparte-elicitation.js';
 import { aparteGlobalConfig } from '../../../config/aparte-config';
 import { requestUserInput } from '../../../elicitation/index';
 
+/**
+ * The composer is authored the way the shell authors it — WITH its input.
+ *
+ * It used to be an empty `<aparte-composer>`, and that emptiness hid a second theft:
+ * closing the panel called `composer.focus()`, which forwards to the composer's input
+ * and did nothing at all when there was none. Every assertion below about focus
+ * staying put was therefore vacuous on the one path that could move it.
+ */
 function mountChat(): HTMLButtonElement {
     const host = document.createElement('div');
-    host.appendChild(document.createElement('aparte-composer'));
+    const composer = document.createElement('aparte-composer');
+    composer.appendChild(document.createElement('aparte-composer-input'));
+    host.appendChild(composer);
     host.appendChild(document.createElement('aparte-elicitation'));
     const trigger = document.createElement('button');
     trigger.textContent = 'send';
@@ -73,5 +84,32 @@ describe('elicitation focus (SC 2.4.3)', () => {
         await p;
 
         expect(document.activeElement, 'the focus stays where the reader put it').toBe(elsewhere);
+    });
+
+    /*
+     * The eviction path, which nothing covered.
+     *
+     * A turn ending closes any open panel (`_handleMessageDone` → `_evictPanel`), and
+     * that is not the reader's doing at all: the model finished. Pulling the caret out
+     * of whatever they had moved to — another chat's field, a search box, a link they
+     * were about to follow — is the same theft as the case above, minus even a click
+     * to blame it on.
+     */
+    it('does not grab the focus when a turn ending evicts the panel', async () => {
+        const trigger = mountChat();
+        trigger.focus();
+        const p = requestUserInput({
+            message: 'Framework?',
+            schema: { type: 'enum', options: [{ value: 'react' }, { value: 'vue' }], allowOther: false },
+        });
+
+        const elsewhere = document.createElement('input');
+        document.body.appendChild(elsewhere);
+        elsewhere.focus();
+
+        window.dispatchEvent(new CustomEvent('aparte-message-done'));
+        await p.catch(() => undefined);
+
+        expect(document.activeElement, 'the model finishing is not a reason to move the caret').toBe(elsewhere);
     });
 });

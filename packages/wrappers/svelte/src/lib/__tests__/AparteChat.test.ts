@@ -285,15 +285,19 @@ describe('AparteChat.svelte', () => {
     // NB: @testing-library/svelte's `render` here does NOT run `onMount` — the
     // SSR-safe test below depends on that. Everything this wrapper builds in
     // `onMount` is therefore out of reach of this harness:
-    //   - the AparteChatHost binding (so `config`/`attachConfig`, the typed `action`
-    //     and `typingChange` events — all host-driven — cannot be asserted here),
+    //   - the AparteChatHost binding (so `config`/`attachConfig`, and the typed
+    //     `action`, `typingChange`, `messagesChange`, `messageAppended` and
+    //     `conversationCreated` events — all host-driven — could not be asserted
+    //     here; measured at the time: `appendMessage()` through the exposed API fired
+    //     nothing, because there was no host to fire it),
     //   - <AparteUi>, which creates its element in `onMount` too.
     // REVISITED with the callback props (#47): the harness ran on Svelte's SERVER build
     // (no `resolve.conditions: ['browser']` in vitest.config.ts), where `onMount` is a
     // no-op — so the host was never constructed and the listeners never attached, and
     // every test above passed without them. The condition is set now; `onMount` runs,
     // `AparteUi.test.ts` exists, and the test below asserts the mount instead of its
-    // absence.
+    // absence. The three host-driven callbacks the audit asserted on React, Vue and
+    // Angular can now be asserted here the same way — a follow-up, not this lot.
 
     it('generates the host id in onMount, never at render time (SSR-safe, #9)', () => {
         // The id is generated client-side, in onMount, so a server render carries none and

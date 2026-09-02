@@ -66,6 +66,81 @@ describe('aparte-chat-status — visible custom text', () => {
     });
 });
 
+/*
+ * The container is `role="status" aria-live="polite"`, and a live region announces its
+ * CONTENT when that content changes. In the dots-only default the whole subtree was one
+ * `aria-hidden` dot and an empty span, so the region's text was the empty string: the
+ * state rode on `aria-label`, which a live region does not announce on its own — the
+ * label names the region, it is not the news. A sighted reader saw the dots pulse and a
+ * screen-reader user was told nothing at all.
+ *
+ * So exactly one of the two nodes carries the word at any time: the visible span when
+ * `text` is set (the label is already the same string — a second copy would be read
+ * twice), the screen-reader span when it is not.
+ *
+ * And the word arrives WITH the element. `aparte-chat-status:not([visible])` is
+ * `display: none`, and all four wrappers mount the element once and flip the attribute,
+ * so a word written at render time is already sitting in the region when it is revealed
+ * — the reveal-from-hidden path, which is the one assistive tech is documented not to
+ * announce reliably, and on the second turn there is not even a reveal-time difference
+ * to notice. Writing on show and clearing on hide makes every turn a real mutation of an
+ * already-exposed region, which is the path that announces.
+ */
+describe('aparte-chat-status — the live region has something to announce', () => {
+    it('puts the fallback word in the region when the line is dots-only', () => {
+        const el = document.createElement('aparte-chat-status');
+        el.setAttribute('visible', '');
+        document.body.appendChild(el);
+        const container = el.querySelector('.aparte-status-container') as HTMLElement;
+        expect(container.getAttribute('aria-live')).toBe('polite');
+        expect(container.textContent!.trim()).not.toBe('');
+        expect(el.querySelector('.aparte-status-sr')!.textContent).toBe('Typing');
+        // The documented dots-only LOOK is untouched: nothing visible was added.
+        expect(el.querySelector('.aparte-status-text')!.textContent).toBe('');
+        el.remove();
+    });
+
+    it('says the line once when `text` is set, not twice', () => {
+        const el = document.createElement('aparte-chat-status');
+        el.setAttribute('visible', '');
+        el.setAttribute('text', 'Searching the docs…');
+        document.body.appendChild(el);
+        expect(el.querySelector('.aparte-status-text')!.textContent).toBe('Searching the docs…');
+        expect(el.querySelector('.aparte-status-sr')!.textContent).toBe('');
+        el.remove();
+    });
+
+    it('hands the word back and forth as the attribute comes and goes', () => {
+        const el = document.createElement('aparte-chat-status');
+        el.setAttribute('visible', '');
+        document.body.appendChild(el);
+        el.setAttribute('text', 'Uploading…');
+        expect(el.querySelector('.aparte-status-text')!.textContent).toBe('Uploading…');
+        expect(el.querySelector('.aparte-status-sr')!.textContent).toBe('');
+        el.removeAttribute('text');
+        expect(el.querySelector('.aparte-status-text')!.textContent).toBe('');
+        expect(el.querySelector('.aparte-status-sr')!.textContent).toBe('Typing');
+        el.remove();
+    });
+
+    it('holds nothing until the element is shown, and the word again on every show', () => {
+        const el = document.createElement('aparte-chat-status');
+        document.body.appendChild(el);
+        const sr = el.querySelector('.aparte-status-sr')!;
+        // Mounted hidden: an unexposed region with the word already in it is a region
+        // whose reveal announces nothing.
+        expect(sr.textContent).toBe('');
+        el.setAttribute('visible', '');
+        expect(sr.textContent).toBe('Typing');
+        // Cleared on hide, so the NEXT turn is a change and not the same string again.
+        el.removeAttribute('visible');
+        expect(sr.textContent).toBe('');
+        el.setAttribute('visible', '');
+        expect(sr.textContent).toBe('Typing');
+        el.remove();
+    });
+});
+
 describe('aparte-chat-status — custom renderStatus (charter §6)', () => {
     afterEach(() => aparteGlobalConfig.reset());
 
