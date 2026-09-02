@@ -725,7 +725,12 @@ aparte-chat {
   --aparte-viewport-padding: var(--aparte-space-8);
   --aparte-scrollbar-thumb: var(--aparte-neutral);
   --aparte-input-padding-x: var(--aparte-space-6);
-  --aparte-input-padding-y: var(--aparte-space-5);
+  /* The editor at rest is the control height: half of what the control size leaves once
+     one line of its own text is taken out. It used to be a flat 10px, which made the editor
+     44px beside 36px buttons and, the row aligning at the end, sat the send button 4px
+     below the editor's centre. Derived from the editor's own line (1lh), so a coarse
+     pointer's 44 and a changed font both keep the editor and its buttons on one centre. */
+  --aparte-input-padding-y: calc((var(--aparte-composer-control-size) - 1lh) / 2);
   --aparte-conv-list-gap: var(--aparte-space-1);
   --aparte-conv-item-gap: var(--aparte-space-3);
   --aparte-elic-option-radius: var(--aparte-radius-md);
