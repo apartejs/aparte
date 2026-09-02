@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
 import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AparteChat from '../AparteChat.svelte';
@@ -116,6 +117,39 @@ describe('AparteChat.svelte', () => {
         composer?.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
 
         expect(onMessageSent).toHaveBeenCalledWith(detail);
+    });
+
+    // Callback props alongside the events (#47). `createEventDispatcher` and the `on:`
+    // directive on a component are the Svelte 4 path; Svelte 5 documents both as
+    // deprecated and recommends callback props. The wrapper keeps the events, so a
+    // Svelte 4 consumer changes nothing, and calls the matching callback prop with the
+    // same payload — the payload itself, not a CustomEvent to unwrap — so a Svelte 5
+    // consumer never writes `on:` on the component. Measured before this landed: the
+    // 5.56 compiler warns on neither form, so this is the idiom, not an emergency.
+    it('calls the onmessageSent callback prop with the payload, alongside the event', async () => {
+        const onmessageSent = vi.fn();
+        const { container, component } = render(AparteChat, { messages: [], onmessageSent });
+        const viaEvent = vi.fn();
+        (component as any).$on('messageSent', (e: any) => viaEvent(e.detail));
+
+        const detail = { content: 'Both routes', timestamp: Date.now() };
+        container.querySelector('aparte-composer')?.dispatchEvent(new CustomEvent('aparte-send', { detail, bubbles: true, composed: true }));
+
+        expect(onmessageSent).toHaveBeenCalledWith(detail);
+        expect(viaEvent, 'the event still fires for a Svelte 4 consumer').toHaveBeenCalledWith(detail);
+    });
+
+    it('calls the onaction callback prop when a custom bubble action fires', async () => {
+        const onaction = vi.fn();
+        const { container } = render(AparteChat, { messages: [], onaction });
+        await tick();
+
+        const detail = { actionId: 'custom:bookmark', messageId: 'm1' };
+        // A bubble's action BUBBLES to the root, where the listener is attached on mount:
+        // dispatched from a descendant (the composer, always present), like `aparte-send` above.
+        container.querySelector('aparte-composer')!.dispatchEvent(new CustomEvent('aparte-action', { detail, bubbles: true, composed: true }));
+
+        expect(onaction).toHaveBeenCalledWith(detail);
     });
 
     it('renders custom composer slot content in place of the default shell', () => {
@@ -253,23 +287,38 @@ describe('AparteChat.svelte', () => {
     // `onMount` is therefore out of reach of this harness:
     //   - the AparteChatHost binding (so `config`/`attachConfig`, and the typed
     //     `action`, `typingChange`, `messagesChange`, `messageAppended` and
-    //     `conversationCreated` events — all host-driven — cannot be asserted here;
-    //     measured, not assumed: `appendMessage()` through the exposed API fires
-    //     nothing in this harness because there is no host to fire it),
-    //   - <AparteUi>, which creates its element in `onMount` too (hence no
-    //     AparteUi.test.ts in this package, unlike React/Vue/Angular).
-    // All of it is wired identically to the other three wrappers and verified in
-    // their suites; the types are validated by the Svelte build. Revisiting this
-    // harness (so onMount runs) would unlock real coverage here — see the ledger.
+    //     `conversationCreated` events — all host-driven — could not be asserted
+    //     here; measured at the time: `appendMessage()` through the exposed API fired
+    //     nothing, because there was no host to fire it),
+    //   - <AparteUi>, which creates its element in `onMount` too.
+    // REVISITED with the callback props (#47): the harness ran on Svelte's SERVER build
+    // (no `resolve.conditions: ['browser']` in vitest.config.ts), where `onMount` is a
+    // no-op — so the host was never constructed and the listeners never attached, and
+    // every test above passed without them. The condition is set now; `onMount` runs,
+    // `AparteUi.test.ts` exists, and the test below asserts the mount instead of its
+    // absence. The three host-driven callbacks the audit asserted on React, Vue and
+    // Angular can now be asserted here the same way — a follow-up, not this lot.
 
-    it('does not generate the host id at render time — deferred to onMount (SSR-safe, #9)', () => {
-        // This render is the SSR-equivalent (onMount does not run). The host id must be
-        // empty here so server and first client render agree — the id is generated
-        // client-side in onMount, avoiding a hydration mismatch (was crypto.randomUUID
-        // at instance scope).
+    it('generates the host id in onMount, never at render time (SSR-safe, #9)', () => {
+        // The id is generated client-side, in onMount, so a server render carries none and
+        // the first client render agrees with it (no hydration mismatch — it used to be
+        // crypto.randomUUID at instance scope). Two halves: mounted here, the id exists;
+        // and the generation sits inside `onMount` in the source, which is the SSR proof
+        // this browser-build harness cannot make by rendering.
         const { container } = render(AparteChat, { messages: [] });
         const host = container.querySelector('.aparte-chat-container') as HTMLElement | null;
         expect(host).not.toBeNull();
-        expect(host!.id).toBe('');
+        expect(host!.id).toMatch(/^aparte-chat-/);
+
+        // Not `import.meta.url`: under Vite it is not a file URL. The cwd is the package
+        // under `pnpm -C`, the repo root under the root `pnpm test` — try both.
+        const candidates = ['src/lib/AparteChat.svelte', 'packages/wrappers/svelte/src/lib/AparteChat.svelte'];
+        const path = candidates.find((p) => existsSync(p));
+        expect(path, 'the component source is readable from either working directory').toBeTruthy();
+        const source = readFileSync(path!, 'utf8');
+        const mount = source.indexOf('onMount(() => {');
+        const generation = source.indexOf('hostId = id ?? `aparte-chat-${uuid()}`');
+        expect(mount, 'onMount is where the id is made').toBeGreaterThan(-1);
+        expect(generation, 'the generation line exists').toBeGreaterThan(mount);
     });
 });

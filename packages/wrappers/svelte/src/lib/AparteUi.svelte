@@ -12,6 +12,12 @@
    * other events (e.g. ['aparte-composer-change'] for attachments).
    */
   export let events: string[] | undefined = undefined;
+  /**
+   * Callback prop for the same forwarding as the `elementEvent` component event (#47):
+   * called with the element's own CustomEvent, then the event is dispatched. The path
+   * Svelte 5 recommends over `createEventDispatcher`; Svelte 4 keeps `on:elementEvent`.
+   */
+  export let onelementEvent: ((event: CustomEvent) => void) | undefined = undefined;
 
   const dispatch = createEventDispatcher<{ elementEvent: CustomEvent }>();
 
@@ -28,7 +34,7 @@
     el = document.createElement(name);
     applyProps();
     for (const ev of events ?? APARTE_DEFAULT_UI_EVENTS) {
-      const listener = (e: Event) => dispatch('elementEvent', e as CustomEvent);
+      const listener = (e: Event) => { onelementEvent?.(e as CustomEvent); dispatch('elementEvent', e as CustomEvent); };
       el.addEventListener(ev, listener);
       cleanups.push(() => el?.removeEventListener(ev, listener));
     }
