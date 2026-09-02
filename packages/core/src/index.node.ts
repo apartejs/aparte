@@ -173,7 +173,11 @@ export type {
     AparteAttachmentRow,
 } from './conversations/index.js';
 export { APARTE_CONVERSATION_SCHEMA_VERSION } from './conversations/index.js';
-export { AparteConversationManager, type ConversationManagerOptions } from './conversations/index.js';
+export {
+    AparteConversationManager,
+    type ConversationManagerOptions,
+    type AparteConversationTitleProvider,
+} from './conversations/index.js';
 export {
     AparteConversationController,
     type AparteChatBinding,
