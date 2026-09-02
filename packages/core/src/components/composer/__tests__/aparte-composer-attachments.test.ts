@@ -28,6 +28,12 @@ import { aparteGlobalConfig } from '../../../config/index.js';
 import { APARTE_DEFAULT_LOCALE } from '../../../config/locale.js';
 import { readAparteStylesheet } from '../../../__tests__/read-stylesheet.js';
 
+// jsdom has no createObjectURL; every real browser does, and an image tile needs one.
+if (typeof URL.createObjectURL !== 'function') {
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => 'blob:vitest';
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = () => undefined;
+}
+
 type ComposerWithAttachments = HTMLElement & { addAttachments(files: File[] | FileList): void };
 
 function mount(files: File[]) {
@@ -64,6 +70,16 @@ describe('the pending attachment ✕ — the sheet', () => {
         const coarse = sheet.slice(sheet.indexOf('@media (pointer: coarse)'));
         const rule = coarse.match(/\.aparte-thumb__remove\s*\{([^}]*)\}/)?.[1] ?? '';
         expect(rule, 'the ✕ is not revealed in the coarse-pointer block').toMatch(/opacity:\s*1/);
+    });
+
+    it('and gives it a finger-sized box there', () => {
+        // 18px is under the WCAG 2.2 SC 2.5.8 floor of 24, and this is the only way to
+        // drop a file. 24 is not a new number: it is the box `aparte-btn--sm` already
+        // draws, so the fix is to stop out-specifying the recipe on touch.
+        const coarse = sheet.slice(sheet.indexOf('@media (pointer: coarse)'));
+        const rule = coarse.match(/\.aparte-thumb__remove\s*\{([^}]*)\}/)?.[1] ?? '';
+        expect(rule, 'the ✕ keeps its 18px box on a coarse pointer')
+            .toMatch(/--aparte-thumb-remove-size:\s*var\(--aparte-btn-size-sm\)/);
     });
 });
 
@@ -106,5 +122,114 @@ describe('the pending attachment ✕ — the control', () => {
         ]);
         expect(removeButtons(strip).map((b) => b.getAttribute('aria-label')))
             .toEqual(['Remove one.pdf', 'Remove two.txt']);
+    });
+});
+
+/*
+ * The image tile: ONE control, and it is the image.
+ *
+ * The tile carried `role="button"` and wrapped the real remove `<button>`, so the
+ * strip declared a button inside a button — invalid content for the role, and the
+ * outer one computes its name from its contents: a screen reader read the file name
+ * from the `title`, again from the `.aparte-thumb__name` overlay, and a third time
+ * inside "Remove report.png", then offered a nested control with no way to say which
+ * of the two an Enter would reach.
+ *
+ * The preview control is the picture, which is what it opens. The ✕ sits beside it,
+ * not inside it. The sent-message strip in the bubble keeps the role on its tile:
+ * there is no ✕ there, so nothing is nested, and its tile IS the whole control.
+ */
+describe('the image tile as a preview button', () => {
+    afterEach(() => { aparteGlobalConfig.reset(); });
+
+    const mountImage = (name = 'report.png') => {
+        aparteGlobalConfig.setHostHandlers({ attachmentPreview: true });
+        return mount([new File(['x'], name, { type: 'image/png' })]);
+    };
+
+    const imageOf = (strip: HTMLElement) =>
+        strip.querySelector<HTMLImageElement>('.aparte-thumbnail__image')!;
+
+    it('never nests the ✕ inside a button', () => {
+        const { strip } = mountImage();
+        expect(
+            strip.querySelector('[role="button"] .aparte-thumb__remove'),
+            'a button inside a button: neither control has an unambiguous name or action',
+        ).toBeNull();
+    });
+
+    it('puts the role and the tab stop on the image', () => {
+        const { strip } = mountImage();
+        const img = imageOf(strip);
+        expect(img.getAttribute('role')).toBe('button');
+        expect(img.getAttribute('tabindex')).toBe('0');
+        expect(strip.querySelector('.aparte-thumb--image')!.hasAttribute('role')).toBe(false);
+    });
+
+    it('names it once, with the file name', () => {
+        const { strip } = mountImage();
+        expect(imageOf(strip).getAttribute('aria-label')).toBe('report.png');
+    });
+
+    it('escapes that name ONCE — the trap the ✕ label already documents', () => {
+        const name = 'a & b "c".png';
+        const { strip } = mountImage(name);
+        expect(imageOf(strip).getAttribute('aria-label')).toBe(name);
+    });
+
+    it('still opens the preview on Enter, exactly once', () => {
+        const { strip } = mountImage();
+        const seen: string[] = [];
+        strip.addEventListener('aparte-attachment-preview', (e) => {
+            seen.push((e as CustomEvent).detail.name);
+        });
+
+        imageOf(strip).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+        expect(seen).toEqual(['report.png']);
+    });
+
+    it('is a picture, not a control, when the app declared no preview', () => {
+        const { strip } = mount([new File(['x'], 'report.png', { type: 'image/png' })]);
+        expect(imageOf(strip).hasAttribute('role')).toBe(false);
+        expect(imageOf(strip).hasAttribute('tabindex')).toBe(false);
+    });
+
+    /*
+     * The name band is a SIBLING of the image, absolutely positioned over it with a
+     * scrim — and `.aparte-thumb:hover` reveals it exactly when the pointer is over the
+     * tile, so it is the surface most likely to be under a click. It is roughly half of
+     * a 56px composer tile.
+     *
+     * While the role sat on the TILE a click on the band bubbled up to the control. It
+     * sits on the `<img>` now, and the band is not an ancestor of the `<img>` — so the
+     * only thing that keeps the band click-through is `pointer-events: none`, which
+     * makes the click land on the image underneath. Asserted on the SHEET because jsdom
+     * does no hit testing: it dispatches on whatever node the test names, so a jsdom
+     * click could never tell the two cases apart.
+     *
+     * The band is decorative either way — the file name is already the image's
+     * `aria-label` and the tile's `title`.
+     */
+    it('lets a click on the name band through to the image under it', () => {
+        const sheet = readAparteStylesheet();
+        const rule = sheet.match(/\.aparte-thumb__name\s*\{([^}]*)\}/)?.[1];
+        expect(rule, 'no rule for the name band').toBeTruthy();
+        expect(
+            rule,
+            'without it the band eats the click and the preview never opens',
+        ).toMatch(/pointer-events:\s*none/);
+    });
+
+    it('draws its focus ring inside the tile, which clips', () => {
+        // The tile is `overflow: hidden` (it is the frame). An outline drawn outward
+        // from the image, which fills the tile edge to edge, would be cropped away.
+        const sheet = readAparteStylesheet();
+        const rule = sheet.match(
+            /\.aparte-thumbnail__image\[role='button'\]:focus-visible\s*\{([^}]*)\}/,
+        )?.[1];
+        expect(rule, 'no focus-visible rule for the image preview button').toBeTruthy();
+        expect(rule).toMatch(/outline:/);
+        expect(rule, 'a positive offset is clipped by the tile').toMatch(/outline-offset:\s*calc\(\s*-1/);
     });
 });

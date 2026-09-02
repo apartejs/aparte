@@ -108,10 +108,17 @@ document.addEventListener('aparte-attachment-preview', (e) => {
 });
 ```
 
-Declared, the tile is a real button — `role="button"`, a tab stop, Enter and Space. Undeclared,
-it is a plain picture: no role, no tab stop, not even a pointer cursor, because looking
-clickable is the same promise in a quieter voice. The event itself is always public; the
-declaration only decides whether the trigger is rendered.
+Declared, the image is a real button — `role="button"`, a tab stop, Enter and Space. Which
+element carries that differs between the two strips, and both are right. In a **sent
+message** the tile has no ✕, so the tile itself is the whole control and wears the role. In
+the **composer's pending strip** the tile wraps the remove button, and no role permits a
+button inside a button — so the role, the tab stop and the `aria-label` sit on the `<img>`,
+with the ✕ beside it. Style `.aparte-thumbnail__image[role='button']` for the composer's,
+`.aparte-thumb--image[role='button']` for a sent message's.
+
+Undeclared, it is a plain picture: no role, no tab stop, not even a pointer cursor, because
+looking clickable is the same promise in a quieter voice. The event itself is always public;
+the declaration only decides whether the trigger is rendered.
 
 The vanilla and React examples do exactly this in ~15 lines with a `<dialog>` — see
 [`apps/examples`](https://github.com/apartejs/aparte/tree/main/apps/examples).
