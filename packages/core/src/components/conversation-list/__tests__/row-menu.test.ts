@@ -257,7 +257,7 @@ describe('aparte-conversation-list — the row menu', () => {
 
         it('keeps the row focused when the host re-assigns conversations on the rename event', () => {
             const el = mount([{ id: 'c1', title: 'One' }]);
-            el.addEventListener('aparte-rename-conversation', (e) => {
+            el.addEventListener('aparte-conversation-rename', (e) => {
                 const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
                 el.conversations = [{ id, title }];
             });
