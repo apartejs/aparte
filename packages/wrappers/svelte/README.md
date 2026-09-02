@@ -35,12 +35,13 @@ npm install @aparte/svelte @aparte/core svelte
 <AparteChat
   bind:this={comp}
   messages={$messages}
-  on:messagesChange={(e) => chat.onMessagesChange(e.detail)}
+  onmessagesChange={(m) => chat.onMessagesChange(m)}
 />
 ```
 
-The user's message is appended automatically on send — don't add it yourself. `on:messageSent` is
-optional and only for side-effects (scroll, analytics).
+The user's message is appended automatically on send — don't add it yourself. `onmessageSent` is
+optional and only for side-effects (scroll, analytics). Every callback prop also exists as a component
+event (`on:messagesChange`, payload under `event.detail`) — the Svelte 4 spelling, still fine on Svelte 5.
 
 `@aparte/core` and `svelte` are **peer dependencies**.
 

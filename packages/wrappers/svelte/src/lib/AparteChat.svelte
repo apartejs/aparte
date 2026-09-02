@@ -61,6 +61,26 @@
    */
   export let config: AparteConfig | undefined = undefined;
 
+  /*
+   * Callback props, called with the payload itself, alongside the events below (#47).
+   * Svelte 5 documents `createEventDispatcher` as deprecated and recommends callback
+   * props; a Svelte 4 consumer keeps `on:` and sees nothing change, a Svelte 5 one
+   * never writes `on:` on a component. Both routes fire for the same occurrence, in
+   * this order: the callback, then the event.
+   */
+  /** User submitted a message from the composer — see `messageSent` below for the append rule. */
+  export let onmessageSent: ((detail: AparteSendEventDetail) => void) | undefined = undefined;
+  /** A custom bubble action (registerBubbleAction) was clicked. */
+  export let onaction: ((detail: AparteActionEventDetail) => void) | undefined = undefined;
+  /** Active path changed — the list to bind back to `messages`. */
+  export let onmessagesChange: ((messages: AparteMessage[]) => void) | undefined = undefined;
+  /** One message was appended. */
+  export let onmessageAppended: ((message: AparteMessage) => void) | undefined = undefined;
+  /** The typing/"thinking" indicator toggled. */
+  export let ontypingChange: ((typing: boolean) => void) | undefined = undefined;
+  /** The host created a conversation id (persistence). */
+  export let onconversationCreated: ((id: string) => void) | undefined = undefined;
+
   const dispatch = createEventDispatcher<{
     /**
      * User submitted a message from the composer. It is **appended to the
@@ -128,12 +148,16 @@
 
   function handleSend(event: Event) {
     (viewportRef as unknown as { requestSmoothScroll?: () => void })?.requestSmoothScroll?.();
-    dispatch('messageSent', (event as CustomEvent<AparteSendEventDetail>).detail);
+    const detail = (event as CustomEvent<AparteSendEventDetail>).detail;
+    onmessageSent?.(detail);
+    dispatch('messageSent', detail);
   }
 
   // Custom bubble actions bubble to the root as `aparte-action` — dispatch typed.
   function handleAction(event: Event) {
-    dispatch('action', (event as CustomEvent<AparteActionEventDetail>).detail);
+    const detail = (event as CustomEvent<AparteActionEventDetail>).detail;
+    onaction?.(detail);
+    dispatch('action', detail);
   }
 
   onMount(() => {
@@ -149,9 +173,9 @@
       viewport: viewportRef,
       getMessages: () => internalMessages,
       setMessages: (m) => { internalMessages = m as AparteMessage[]; },
-      onMessagesChange: (m) => dispatch('messagesChange', m as AparteMessage[]),
-      onMessageAppended: (m) => dispatch('messageAppended', m as AparteMessage),
-      onTypingChange: (t) => { typingActive = t; dispatch('typingChange', t); },
+      onMessagesChange: (m) => { onmessagesChange?.(m as AparteMessage[]); dispatch('messagesChange', m as AparteMessage[]); },
+      onMessageAppended: (m) => { onmessageAppended?.(m as AparteMessage); dispatch('messageAppended', m as AparteMessage); },
+      onTypingChange: (t) => { typingActive = t; ontypingChange?.(t); dispatch('typingChange', t); },
       onStreamingChange: () => { /* exposed via isStreaming() */ },
       afterRender: (cb) => { void tick().then(cb); },
       resetComposer: () => (composerRef as unknown as { reset?: () => void })?.reset?.(),
@@ -159,7 +183,7 @@
     host = new AparteChatHost(binding, {
       layoutTransitionMs,
       conversationId: conversationId ?? null,
-      onConversationCreated: (id) => dispatch('conversationCreated', id),
+      onConversationCreated: (id) => { onconversationCreated?.(id); dispatch('conversationCreated', id); },
       config,
     });
     teardown = host.bind();
