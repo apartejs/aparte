@@ -85,6 +85,9 @@ export const closeIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="non
 /** Stop / halt streaming (■) */
 export const stopIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg>`;
 
+/** Paused — two bars, filled like the stop square it sits beside in the tool row's vocabulary */
+export const pauseIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.5" height="14" rx="1.5"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.5"/></svg>`;
+
 /** Informational notice (ⓘ) */
 export const infoIcon = `<svg class="aparte-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.25"/><path d="M12 7.75h.01"/></svg>`;
 
@@ -135,6 +138,7 @@ export const APARTE_ICON_GLYPHS = {
     tool: toolIcon,
     close: closeIcon,
     stop: stopIcon,
+    pause: pauseIcon,
     info: infoIcon,
     archive: archiveIcon,
     unarchive: unarchiveIcon,

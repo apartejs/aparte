@@ -42,7 +42,9 @@ function stateBadge(segment: AparteToolCallSegment): string {
     const cfg = contextConfig();
     const status = segment.status ?? 'pending';
     const word = (key: string): string => escapeHtml(cfg.t(key as never));
-    if (status === 'awaiting-approval') return word('approvalWaiting');
+    // Paused for a person: two bars, so the one state a reader must act on wears a glyph
+    // like every other — it used to be the only bare word in the row.
+    if (status === 'awaiting-approval') return `${cfg.getIcon('pause')}${word('approvalWaiting')}`;
     if (status === 'pending') return word('toolRunning');
     if (status === 'resolved') return `${cfg.getIcon('check')}${word('toolCompleted')}`;
     if (status === 'rejected') return `${cfg.getIcon('close')}${word('toolRejected')}`;
