@@ -115,3 +115,80 @@ describe('the tool timeout is raced, not merely signalled', () => {
         await vi.waitFor(() => expect(sawSignal, 'the handler was given the chance to abort itself').toBe(true));
     });
 });
+
+/**
+ * A Stop is not a timeout.
+ *
+ * The race above made `toolTimeoutMs` true, but the PARENT signal stayed merely
+ * signalled: `onParentAbort` aborted the child controller and a deaf handler
+ * ignored it exactly as before, so a Stop pressed during a tool call did nothing
+ * visible until the timeout budget expired — five minutes by default. The parent
+ * abort has to be a racer too.
+ */
+describe('a Stop is raced as well', () => {
+    it('a Stop unwinds the run even when the handler ignores its signal', async () => {
+        const controller = new AbortController();
+        const events: string[] = [];
+        let handlerSettled = false;
+
+        const run = runStreamAgent({
+            messageId: 'a1',
+            baseRequest: { modelId: 'm', messages: [] } as never,
+            transportCall: toolCallOnce() as never,
+            // Deaf on purpose, and slower than anything this test will wait for.
+            // The Stop lands once the handler is in flight, which is the case the
+            // child controller alone could never answer.
+            toolLookup: () => async () => {
+                setTimeout(() => controller.abort(), 0);
+                await new Promise((r) => setTimeout(r, 60_000));
+                handlerSettled = true;
+                return { content: 'too late' };
+            },
+            toolConfigLookup: () => undefined,
+            approvalResolver: async () => ({ approved: true }),
+            emitter: (e: { type: string }) => { events.push(e.type); },
+            signal: controller.signal,
+            // A minute: far beyond this test's own budget, so only the parent
+            // abort can end this run.
+            toolTimeoutMs: 60_000,
+        } as never);
+
+        await run;
+
+        expect(events, 'the announced call got its terminal event').toContain('tool-aborted');
+        expect(events, 'and the run ended as aborted').toContain('run-aborted');
+        expect(handlerSettled, 'the run did not wait for the deaf handler').toBe(false);
+    });
+
+    it('a handler that resolves after the Stop appends no tool result', async () => {
+        const controller = new AbortController();
+        const events: string[] = [];
+        const appended: { role?: string }[] = [];
+        let release: (() => void) | undefined;
+
+        const run = runStreamAgent({
+            messageId: 'a1',
+            baseRequest: { modelId: 'm', messages: [] } as never,
+            transportCall: toolCallOnce() as never,
+            toolLookup: () => async () => {
+                setTimeout(() => controller.abort(), 0);
+                await new Promise<void>((r) => { release = r; });
+                return { content: 'late content' };
+            },
+            toolConfigLookup: () => undefined,
+            approvalResolver: async () => ({ approved: true }),
+            onHistoryAppend: (m: { role?: string }) => { appended.push(m); },
+            emitter: (e: { type: string }) => { events.push(e.type); },
+            signal: controller.signal,
+            toolTimeoutMs: 60_000,
+        } as never);
+
+        await run;
+        // The handler settles only now — after the run is already over.
+        release?.();
+        await Promise.resolve();
+
+        expect(events, 'no result was announced').not.toContain('tool-resolved');
+        expect(appended.some((m) => m.role === 'tool_result'), 'and none was appended to the history').toBe(false);
+    });
+});
