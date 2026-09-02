@@ -93,8 +93,11 @@ export default defineConfig({
         // Raised 87 -> 89 on 2026-08-29 by the layout lot: `<aparte-split>` (49 tests
         // over a pure geometry module and the element) and the settle suites moved the
         // global to 90.20%. The ratchet asked a third time.
-        lines: 89,
-        statements: 89,
+        // Raised 89 -> 91 on 2026-09-02 by the UI kit audit: some fifty stylesheet and
+        // jsdom suites (the height scale, the type ramp, the focus ring, the rails, the
+        // specimens) moved the global to 92.17%. The ratchet asked a fourth time.
+        lines: 91,
+        statements: 91,
         // Raised with the typed element directives: 19 directives with a setter per
         // attribute and a listener per event moved the function and branch numbers, and
         // the table-driven suite in
