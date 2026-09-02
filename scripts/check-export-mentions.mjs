@@ -66,6 +66,7 @@ const BARRELS = [
     // reason. A package absent from this array is not "exempt", it is unmeasured.
     { pkg: '@aparte/plugin-approval', types: 'packages/plugins/approval/dist/index.d.ts', readme: 'packages/plugins/approval/README.md' },
     { pkg: '@aparte/plugin-compaction', types: 'packages/plugins/compaction/dist/index.d.ts', readme: 'packages/plugins/compaction/README.md' },
+    { pkg: '@aparte/plugin-titler', types: 'packages/plugins/titler/dist/index.d.ts', readme: 'packages/plugins/titler/README.md' },
     { pkg: '@aparte/provider-scenario', types: 'packages/providers/ai/scenario/dist/index.d.ts', readme: 'packages/providers/ai/scenario/README.md' },
     // Published like the rest (`private` is unset), so its surface is measured here too
     // even though the package is a Node CLI rather than part of the browser library.

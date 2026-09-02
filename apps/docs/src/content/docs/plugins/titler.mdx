@@ -1,0 +1,100 @@
+---
+title: Titler
+description: "Auto-title conversations with an aparte-titler model — 3 to 6 words of the first message, picked in the browser by a 40–133 KB model, no API call; setupTitler and createTitleProvider on the conversation manager's title provider."
+sidebar:
+  order: 10
+  label: titler
+---
+
+A conversation needs a name the moment it exists. Core titles it from the first user message,
+and the default is the message as typed. **Titler** replaces that default with the words an
+[aparte-titler](/models/titler/) model picks out of the message — 3 to 6 of them, in the
+message's order, in 17 languages — inside the browser, in a few milliseconds, with a model
+that weighs less than an icon. Nothing leaves the page.
+
+```bash
+npm install @aparte/plugin-titler @aparte/titler-latin
+```
+
+```ts
+import { loadTitler } from '@aparte/titler-latin';   // 17 European languages, 133 KB
+import { setupTitler } from '@aparte/plugin-titler';
+
+setupTitler(manager, { titler: loadTitler });        // manager: your AparteConversationManager
+```
+
+That is the whole setup. `loadTitler` is called once, the first time a conversation needs a
+title, so the model is never on the page's critical path; the title lands in the manager,
+and from there in `<aparte-conversation-list>` and everything else that reads it.
+
+`@aparte/core` is the only **peer dependency**. The model is yours to pick and is not a
+dependency of the plugin: any object with `title(message, budget?)` is accepted — the
+runtime's `Titler`, a promise of one, a loader, or a titler of your own.
+
+## The seam
+
+The plugin is small because the seam is core's. `AparteConversationManager` decides a
+conversation's title in one place, on its first user message, and
+`setTitleProvider(provider)` replaces how. A provider receives the message's text and the
+message, and answers a title, synchronously or not:
+
+```ts
+import type { AparteConversationTitleProvider } from '@aparte/core';
+
+const provider: AparteConversationTitleProvider = async (text, message) => {
+    // anything: a model in the browser, a request to your backend, a heuristic
+    return text.split(' ').slice(0, 5).join(' ');
+};
+manager.setTitleProvider(provider);          // null restores the default
+```
+
+An empty answer, or a throw, leaves the default title — so a titler that fails never loses
+the message from the sidebar. `updateTitle` (the user's own rename) is untouched.
+
+## The options
+
+The second argument is a `TitlerOptions`:
+
+```ts
+setupTitler(manager, {
+    titler: loadTitler,   // a Titler, a Promise<Titler>, or () => Titler | Promise<Titler>
+    budget: 4,            // words to keep; the model's default is 6
+});
+```
+
+`setupTitler` returns a teardown that gives the manager back the provider it had — unless
+another was set since, which is then left alone. For a manager built with the
+`titleProvider` option, `createTitleProvider(options)` is the provider alone:
+
+```ts
+import { createTitleProvider } from '@aparte/plugin-titler';
+
+const manager = new AparteConversationManager(adapter, {
+    titleProvider: createTitleProvider({ titler: loadTitler, budget: 4 }),
+});
+```
+
+## Which model
+
+| Package | Languages | Size |
+| --- | --- | --- |
+| `@aparte/titler-latin` | en, fr, es, de, pt, it, nl, pl, sv, da, fi, cs, ro, no, hu, hr, lt | 133 KB |
+| `@aparte/titler-latin-mini` | the same 17, smaller vocabulary | 96 KB |
+| `@aparte/titler-efigsp` | en, fr, es, de, pt, it | 77 KB |
+| `@aparte/titler` + one `.bin` | one language | 40 KB |
+
+Each bundled package ships its model file beside the runtime; a bundler copies it as an
+asset, and the page fetches it from your own origin. The runtime alone, `@aparte/titler`,
+reads any file from the [model repository](https://huggingface.co/apartejs/aparte-titler):
+
+```ts
+import { loadTitler } from '@aparte/titler';
+
+const titler = await loadTitler(fetch('/models/titler-v1-fr-int3.bin').then((r) => r.arrayBuffer()));
+setupTitler(manager, { titler });
+```
+
+The model is **extractive**: it copies words, it does not rephrase. "Can you explain how
+photosynthesis works in plants?" becomes *explain photosynthesis works plants* — the subject,
+in the message's own words, which is what a sidebar needs. Try it on
+[the model's page](/models/titler/#demo), where the numbers behind it are laid out.

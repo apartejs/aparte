@@ -215,6 +215,7 @@ export default defineConfig({
         'packages/plugins/model-selector/src/**': { lines: 82, statements: 82, functions: 81, branches: 75 },
         'packages/plugins/shiki/src/**': { lines: 99, statements: 99, functions: 99, branches: 92 },
         'packages/plugins/streaming-markdown/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
+        'packages/plugins/titler/src/**': { lines: 99, statements: 99, functions: 99, branches: 99 },
         'packages/providers/ai/ai-sdk/src/**': { lines: 95, statements: 95, functions: 90, branches: 76 },
         'packages/providers/ai/openai-compat/src/**': { lines: 92, statements: 92, functions: 93, branches: 79 },
         'packages/providers/ai/scenario/src/**': { lines: 96, statements: 96, functions: 99, branches: 88 },
