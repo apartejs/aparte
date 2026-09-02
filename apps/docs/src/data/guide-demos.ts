@@ -110,8 +110,8 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      The split stores nothing. \`position\` goes in, one \`aparte-split-resize\` comes out
      on release — persist from there.
 
-     \`breakpoint="30rem"\` only because this frame is narrower than the 48rem default: set
-     the width to 375 above and the split shows ONE pane, with the two buttons switching
+     Under its breakpoint (the 48rem default, restated here so the frame and the buttons
+     agree) the split shows ONE pane: set the width to 375 above and the two buttons switch
      it through \`data-aparte-split-pane\` and no script at all.
 
      The buttons are hidden above that same width, which is the rule rather than the
@@ -120,7 +120,7 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      the split already answers to. -->
 <style>
   #split-panes { display: none }
-  @media (max-width: 30rem) {
+  @media (max-width: 48rem) {
     #split-panes { display: flex; gap: var(--aparte-space-2); margin-block-end: var(--aparte-space-3) }
   }
 </style>
@@ -383,7 +383,16 @@ export const GUIDE_DEMOS: GuideDemo[] = [
      Nothing else is needed. Below 520px of CHAT width the transcript switches to its
      narrow spacing on its own — a container query on the chat, not a media query on the
      page — so a 20rem strip and a phone share the same CSS. -->
-<div style="display: grid; grid-template-columns: minmax(0, 1fr) 20rem; height: 20rem; background: var(--aparte-surface-2)">
+<style>
+  #side-panel-demo { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; height: 20rem; background: var(--aparte-surface-2) }
+  /* Under 40rem the strip stacks: a fixed 20rem column beside a 1fr one squeezed the code
+     to a sliver on a phone and let the chat overflow its host. */
+  @media (max-width: 40rem) {
+    #side-panel-demo { grid-template-columns: minmax(0, 1fr); grid-template-rows: 9rem minmax(0, 1fr); height: 30rem }
+    #side-panel-demo > aparte-chat { border-inline-start: 0; border-block-start: var(--aparte-border-width) solid var(--aparte-border) }
+  }
+</style>
+<div id="side-panel-demo">
   <pre style="margin: 0; overflow: auto; padding: var(--aparte-space-4); font-size: 0.78rem; line-height: 1.7; color: var(--aparte-text-muted)">export function createOrder(cart, customer) {
   const lines = cart.items.map(toLine);
   const total = lines.reduce((sum, line) =&gt; sum + line.amount, 0);
