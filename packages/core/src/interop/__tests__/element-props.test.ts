@@ -30,6 +30,18 @@ describe('applyElementProps — `on*` never becomes an inline handler', () => {
         applyElementProps(el, { onerror: 'x=1', ondblclick: 'x=2' });
         expect(el.getAttribute('onerror')).toBeNull();
         expect(el.getAttribute('ondblclick')).toBeNull();
+
+        // An attribute name is case-INSENSITIVE, so `setAttribute('ONCLICK', …)`
+        // writes the very same `onclick` this branch exists to refuse. The guard
+        // was `key.startsWith('on')`, which only ever saw the lowercase spelling,
+        // and a prop bag forwarded from data carries whatever casing it was given.
+        applyElementProps(el, { ONCLICK: 'window.__pwned = 1' });
+        applyElementProps(el, { Onmouseover: 'window.__pwned = 2' });
+        applyElementProps(el, { oNerror: 'window.__pwned = 3' });
+        expect(el.getAttribute('onclick')).toBeNull();
+        expect(el.getAttribute('onmouseover')).toBeNull();
+        expect(el.getAttribute('onerror')).toBeNull();
+        expect(el.outerHTML).not.toContain('__pwned');
     });
 });
 

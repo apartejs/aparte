@@ -40,13 +40,21 @@ export interface AparteLifecycleTarget {
  * deliberately: it is a superset of the client copy's unconditional spread, so
  * unifying on it cannot change any existing call, and it is the only difference
  * between the two versions that was ever load-bearing.
+ *
+ * `targetId` is the id of the chat the target BELONGS to, and the caller has to say
+ * it, because `target.id` is not it. The target is whatever RENDERS — an
+ * `<aparte-chat>` shell delegates to its `.viewport`, which carries no id — so the
+ * stamp read empty for every shell-shaped chat, and a missing id means "for every
+ * chat on the page" on the receive side. `target.id` stays the fallback: it is right
+ * whenever the render target IS the chat host, which is the viewport-only shape.
  */
 export function dispatchLifecycleEvent(
     target: AparteLifecycleTarget,
     name: string,
     detail: unknown,
+    targetId?: string,
 ): void {
-    const id = target.id || undefined;
+    const id = targetId ?? (target.id || undefined);
     const stamped = detail && typeof detail === 'object'
         ? { targetId: id, ...(detail as Record<string, unknown>) }
         : detail;

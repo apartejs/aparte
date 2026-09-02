@@ -32,9 +32,15 @@ export interface CompactionConfig {
     safetyMargin: number;
     /** Floor for history budget — never compact below this. */
     minHistoryBudget: number;
-    /** Ratio of history budget allocated to the summary block. */
+    /**
+     * Share of the history budget held back for the running summary, so the verbatim
+     * window leaves room for it (0..1).
+     */
     summaryRatio: number;
-    /** Hard cap for summary tokens. */
+    /**
+     * Ceiling on that reservation, in tokens. It sizes the WINDOW — it does not bound
+     * the summary your `summarize` returns, and nothing here truncates one.
+     */
     summaryMaxTokens: number;
 }
 
@@ -55,7 +61,14 @@ export interface BudgetResult {
     config: CompactionConfig;
 }
 
-/** The history budget, split: what the running summary may take, what the verbatim window gets. */
+/**
+ * The history budget, split: the room held back for the running summary, and the
+ * verbatim window that is what remains.
+ *
+ * `summary` is a RESERVATION, read only to shrink `window`. Nothing measures the
+ * summary against it, and nothing clips one that comes back longer — a summariser that
+ * overruns simply costs the turn more than the split assumed.
+ */
 export interface SplitBudget {
     summary: number;
     window: number;

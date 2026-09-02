@@ -23,8 +23,10 @@ export interface AparteSendEventDetail {
     timestamp: number;
 
     /**
-     * ID of the host element (e.g. aparte-chat) that should receive the response.
-     * Set automatically when the input has a `target` attribute.
+     * ID of the chat this send belongs to: the composer's `target` attribute, or the id
+     * of the `<aparte-chat>` / `[data-aparte-chat]` host above it — the same resolution
+     * the composer's receive side (`_isForThisComposer`) uses, so the two halves of the
+     * channel cannot disagree about which chat is which.
      * Used by AparteClient to find the host without DOM traversal.
      */
     targetId?: string;

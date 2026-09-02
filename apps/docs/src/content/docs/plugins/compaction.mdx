@@ -122,8 +122,10 @@ budget = contextWindow − systemPrompt − tools − reservedThinking
 ```
 
 `computeHistoryBudget({ systemPrompt, toolsArray, config })` returns it with its
-breakdown, `splitHistoryBudget(budget)` splits it between the running summary and the
-verbatim window (`{ summary, window }`), `estimateTokens(text)` / `estimateTokensJson(obj)`
+breakdown, `splitHistoryBudget(budget)` splits it between the room held for the running
+summary and the verbatim window (`{ summary, window }` — the first is a reservation that
+sizes the second, not a cap the plugin enforces on your summariser's output),
+`estimateTokens(text)` / `estimateTokensJson(obj)`
 are the heuristic, and `DEFAULT_COMPACTION_CONFIG` holds the reserves and ratios a
 `CompactionConfig` can override. The gauge, the selector and the model speak the same
 numbers: the window is the model's, the budget is this one, and the reading the gauge shows
@@ -177,4 +179,4 @@ Three things are core's, and stay so whether or not this plugin is installed:
 | `CompactionSelection` | `{ keep, drop }`. |
 | `CompactionConfig` | The reserves and ratios of the budget; `DEFAULT_COMPACTION_CONFIG` is one. |
 | `BudgetResult` / `BudgetBreakdown` | What `computeHistoryBudget` returns: the budget, and each cost it subtracted. |
-| `SplitBudget` | What `splitHistoryBudget` returns: `{ summary, window }`. |
+| `SplitBudget` | What `splitHistoryBudget` returns: `{ summary, window }` — `summary` is the room reserved for the running summary, not a bound on it. |

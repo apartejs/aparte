@@ -14,14 +14,20 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../aparte-composer.js';
+import '../aparte-composer-input.js';
 import { aparteGlobalConfig } from '../../../config/index.js';
 import type { AparteComposer } from '../aparte-composer.js';
 
 function mount(): AparteComposer {
     const composer = document.createElement('aparte-composer') as AparteComposer;
+    composer.appendChild(document.createElement('aparte-composer-input'));
     document.body.appendChild(composer);
     return composer;
 }
+
+/** The contenteditable `focus()` forwards to — what "the composer has the focus" means. */
+const editorOf = (composer: AparteComposer): HTMLElement =>
+    composer.querySelector('[contenteditable]') as HTMLElement;
 
 const panel = (name: string): HTMLElement => {
     const el = document.createElement('div');
@@ -108,6 +114,43 @@ describe('the composer panel slot has an owner', () => {
 
         expect(composer.panelActive).toBe(false);
         expect(evicted, 'the owner must be told, or its request orphans').toBe(1);
+    });
+
+    /*
+     * Closing the panel is not a reason to take the focus.
+     *
+     * The teardown ended on an unconditional `this.focus()`, so ANY close — the owner's
+     * own, a consumer's `hidePanel()`, a turn ending — pulled the caret into the
+     * composer's editor from wherever the reader had put it. It reads as a fix for the
+     * keyboard user and is the opposite: the panel is allowed to hand back what it took,
+     * never to take what it never had.
+     */
+    describe('the focus, on close', () => {
+        it('stays where the reader put it when the composer never had it', () => {
+            const composer = mount();
+            composer.showPanel(panel('only'));
+
+            const elsewhere = document.createElement('input');
+            document.body.appendChild(elsewhere);
+            elsewhere.focus();
+
+            composer.hidePanel();
+
+            expect(document.activeElement, 'the caret belongs to the reader').toBe(elsewhere);
+        });
+
+        it('comes back to the editor when it was inside the panel', () => {
+            const composer = mount();
+            const p = panel('only');
+            p.tabIndex = -1;
+            composer.showPanel(p);
+            p.focus();
+            expect(document.activeElement, 'precondition: the focus is in the panel').toBe(p);
+
+            composer.hidePanel();
+
+            expect(document.activeElement, 'or the reader is dropped on <body>').toBe(editorOf(composer));
+        });
     });
 
     it('does NOT tell the owner when they close their own panel', () => {

@@ -251,8 +251,11 @@ describe('AparteChat.svelte', () => {
     // NB: @testing-library/svelte's `render` here does NOT run `onMount` — the
     // SSR-safe test below depends on that. Everything this wrapper builds in
     // `onMount` is therefore out of reach of this harness:
-    //   - the AparteChatHost binding (so `config`/`attachConfig`, the typed `action`
-    //     and `typingChange` events — all host-driven — cannot be asserted here),
+    //   - the AparteChatHost binding (so `config`/`attachConfig`, and the typed
+    //     `action`, `typingChange`, `messagesChange`, `messageAppended` and
+    //     `conversationCreated` events — all host-driven — cannot be asserted here;
+    //     measured, not assumed: `appendMessage()` through the exposed API fires
+    //     nothing in this harness because there is no host to fire it),
     //   - <AparteUi>, which creates its element in `onMount` too (hence no
     //     AparteUi.test.ts in this package, unlike React/Vue/Angular).
     // All of it is wired identically to the other three wrappers and verified in

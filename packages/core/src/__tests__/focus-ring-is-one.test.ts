@@ -8,9 +8,11 @@
  * ring sat 2px from a tinted border as a second concentric line and the next row painted
  * over its bottom edge. Decided (T10): one geometry — a 2px outline in the focus colour,
  * offset OUTSIDE the box by one spacing step — for every control; the soft ring and the
- * two per-recipe offsets are gone. Two documented exceptions: the search field at the
+ * two per-recipe offsets are gone. Three documented exceptions: the search field at the
  * top of the select's scrolling panel draws its ring inside (an outset one would be
- * clipped), and a field inside a field group draws none — the group draws it.
+ * clipped), the image thumbnail that is a preview control draws its ring inside for the
+ * same reason (its tile clips), and a field inside a field group draws none — the group
+ * draws it.
  */
 import { describe, it, expect } from 'vitest';
 import { readAparteStylesheet } from './read-stylesheet';
@@ -50,7 +52,10 @@ const isFocusRule = (r: Rule) => r.selectors.some((s) => /:focus(-visible|-withi
 const underForcedColors = (r: Rule) => r.ancestors.some((a) => /forced-colors/.test(a));
 const focusRules = rules.filter((r) => isFocusRule(r) && !underForcedColors(r));
 
-const INSET_ALLOWED = new Set(['.aparte-select-search:focus-visible']);
+// The third exception (audit F23): the image thumbnail's ring. The tile clips its picture
+// (`overflow: hidden`), so an outward ring is cropped away entirely; the image draws it
+// inside, pulled in by the ring's own width, and stays whole.
+const INSET_ALLOWED = new Set(['.aparte-select-search:focus-visible', ".aparte-thumbnail__image[role='button']:focus-visible"]);
 const NO_RING_ALLOWED = new Set(['.aparte-field-group > .aparte-field:focus-visible']);
 
 describe('the tokens', () => {

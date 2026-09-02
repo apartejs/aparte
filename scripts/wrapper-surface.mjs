@@ -163,24 +163,45 @@ function stripComments(src) {
  * Making the claim true rather than deleting it: the guard exists, the four sources exist,
  * and a wrapper that renames or drops a callback should fail here rather than be documented
  * wrong on four pages.
+ *
+ * DECLARED IS NOT DISPATCHED. Two of these proofs used to match only the declaration —
+ * the key in Vue's `defineEmits<{…}>`, the `output<…>()` initialiser in Angular — and a
+ * declaration nobody fires is precisely the silent failure the guard exists for: a
+ * consumer's `@message-sent` or `(messageSent)` handler simply never runs, with no error
+ * anywhere. Svelte's proof was already the right shape (it matched the `dispatch` call),
+ * which is what made the asymmetry visible. Both halves are now required, so renaming
+ * either one fails: sabotaging each callback's dispatch line is a test in
+ * `scripts/__tests__/wrapper-surface.test.ts`, and 12 of its 18 rows passed before this.
  */
 export const CALLBACK_PROOFS = {
+    // The React props interface is the source this whole module parses; a prop cannot
+    // be missing from where it is read, and the handler IS the prop.
     react: { label: 'React', usage: (c) => c.react, proves: () => true },
     vue: {
         label: 'Vue',
         usage: (c) => c.vue,
-        // `defineEmits<{ messageSent: [...] }>` — the name as a key in the emits type.
-        proves: (src, c) => new RegExp(`\\b${c.name}\\s*:`).test(stripComments(src)),
+        // Declared as a key in `defineEmits<{ messageSent: [...] }>`, AND fired by an
+        // `emit('messageSent', …)` somewhere in the setup block.
+        proves: (src, c) => {
+            const s = stripComments(src);
+            return new RegExp(`\\b${c.name}\\s*:`).test(s) && new RegExp(`emit\\(\\s*'${c.name}'`).test(s);
+        },
     },
     svelte: {
         label: 'Svelte',
         usage: (c) => c.svelte,
+        // `createEventDispatcher` has no declaration to drift from: the call is both.
         proves: (src, c) => stripComments(src).includes(`dispatch('${c.name}'`),
     },
     angular: {
         label: 'Angular',
         usage: (c) => c.angular,
-        proves: (src, c) => new RegExp(`\\b${c.name}\\s*=\\s*output<`).test(stripComments(src)),
+        // Declared as `readonly messageSent = output<…>()`, AND fired by a
+        // `this.messageSent.emit(…)`.
+        proves: (src, c) => {
+            const s = stripComments(src);
+            return new RegExp(`\\b${c.name}\\s*=\\s*output<`).test(s) && new RegExp(`\\bthis\\.${c.name}\\.emit\\(`).test(s);
+        },
     },
 };
 

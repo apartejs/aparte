@@ -8,12 +8,30 @@
  * chat host. `:has()` gives the host its containing block only while a rail is inside
  * it — a bare `position: relative` on every chat would have moved any absolutely
  * positioned child a consumer already placed there.
+ *
+ * The three shell shapes shell.css already lays out, because an absolute element lands
+ * in the nearest POSITIONED ancestor and a shape missing from this list is a rail that
+ * escaped to the page: the vanilla `<aparte-chat>`, the `[data-aparte-chat]` div
+ * React/Vue/Svelte render, and Angular's inner `.aparte-chat-container` (its host IS
+ * `<aparte-chat>`, but the rail is a child of that inner div). The first two shapes are
+ * both true of the wrapper div, which carries the class and the attribute — listing all
+ * three costs one selector and closes the Angular hole.
  */
 aparte-chat:has(> aparte-scroll-rail),
-[data-aparte-chat]:has(> aparte-scroll-rail) {
+[data-aparte-chat]:has(> aparte-scroll-rail),
+.aparte-chat-container:has(> aparte-scroll-rail) {
   position: relative;
 }
 
+/* The block padding is the room the END zones need, and it is not decoration.
+   The rail clips (`overflow: hidden`, which cuts at the PADDING box) and the list has
+   none of its own, so with no padding here the first tick's top edge sits exactly on the
+   clip line. A zone grows symmetrically — half of `hit − thickness` above and below the
+   line — so the first tick would lose its upper half and the last tick its lower half,
+   to paint AND to hit-testing: 13px of the 24px, on the two ticks a reader aims at most
+   ("jump to the first message", "jump to the latest"). Padding by exactly that half puts
+   the clip line outside every zone instead of through the two end ones. `box-sizing`
+   keeps `max-height` measuring the same box it measured before. */
 aparte-scroll-rail {
   position: absolute;
   inset-inline-end: var(--aparte-space-2);
@@ -21,7 +39,9 @@ aparte-scroll-rail {
   transform: translateY(-50%);
   z-index: var(--aparte-z-floating);
   display: block;
+  box-sizing: border-box;
   width: var(--aparte-scroll-rail-width);
+  padding-block: calc((var(--aparte-scroll-rail-hit-size) - var(--aparte-scroll-rail-tick-thickness)) / 2);
   max-height: calc(100% - 2 * var(--aparte-space-8));
   overflow: hidden;
 }
@@ -41,7 +61,7 @@ aparte-scroll-rail[data-empty] {
   gap: var(--aparte-scroll-rail-gap);
 }
 
-/* A tick is a real button, drawn as a line. The hit area is the gap around it, drawn
+/* A tick is a real button, drawn as a line. The hit area is the zone around it, drawn
    by the pseudo-element so the line itself can stay two pixels. */
 .aparte-scroll-rail__tick {
   appearance: none;
@@ -62,10 +82,23 @@ aparte-scroll-rail[data-empty] {
     background var(--aparte-duration-fast) var(--aparte-ease);
 }
 
+/* The pressable zone: 24px square around a 14×2 line (WCAG 2.5.8). It used to be 22×10
+   — half the 8px gap in the block axis, one spacing step in the inline one — and no
+   spacing exemption covered it, because at a 10px pitch a neighbour's 24px circle
+   overlaps this one's.
+   Block: grow symmetrically to the hit size. The gap is `hit − thickness`, so the pitch
+   is exactly the hit size and two zones meet without overlapping — and the rail pads its
+   block axis by the same half-growth, so the clip does not eat the first and last zone.
+   Inline: grow INWARD only. The rail clips (`overflow: hidden`) and ticks are
+   end-aligned, so a centred zone would hang past the end edge and come back cut to
+   19px; anchored to the tick's end edge it stays whole, and the rail's width carries
+   the hit size as its floor so the column has room for it. */
 .aparte-scroll-rail__tick::before {
   content: "";
   position: absolute;
-  inset: calc(-1 * var(--aparte-scroll-rail-gap) / 2) calc(-1 * var(--aparte-space-2));
+  inset-block: calc((var(--aparte-scroll-rail-tick-thickness) - var(--aparte-scroll-rail-hit-size)) / 2);
+  inset-inline-end: 0;
+  inset-inline-start: calc(var(--aparte-scroll-rail-tick-size) - var(--aparte-scroll-rail-hit-size));
 }
 
 .aparte-scroll-rail__tick:hover {

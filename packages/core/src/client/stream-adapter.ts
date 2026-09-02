@@ -85,6 +85,14 @@ export interface CreateStreamAdapterOptions {
     config: AparteConfig;
     /** The streamed assistant message id (carried in the run events). */
     messageId: string;
+    /**
+     * The id of the CHAT the target belongs to, stamped on every lifecycle event the
+     * adapter dispatches. The target is whatever renders — a shell's `.viewport`,
+     * which has no id of its own — so it cannot be read off the target, and an
+     * unstamped event is read as "for every chat on the page". Omitted, the dispatcher
+     * falls back to `target.id`, which is right for the viewport-only chat shape.
+     */
+    targetId?: string;
 }
 
 /**
@@ -94,7 +102,7 @@ export interface CreateStreamAdapterOptions {
  * by the engine parity test against the real loop).
  */
 export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStreamRunEmitter {
-    const { target, config, messageId } = opts;
+    const { target, config, messageId, targetId } = opts;
 
     // Per-turn streaming state (reset on `turn-start`, mirroring `_streamLoop`
     // creating a fresh parser / maps each outer iteration).
@@ -205,7 +213,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
             case 'tool-awaiting-approval':
                 target.updateSegment?.(`tool-${e.toolCallId}`, { status: 'awaiting-approval' });
-                dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input });
+                dispatchLifecycleEvent(target, 'aparte-tool-approval-request', { toolCallId: e.toolCallId, toolName: e.name, input: e.input }, targetId);
                 break;
 
             case 'tool-approved':
@@ -249,7 +257,7 @@ export function createStreamAdapter(opts: CreateStreamAdapterOptions): AparteStr
 
 
             case 'run-aborted':
-                dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId });
+                dispatchLifecycleEvent(target, 'aparte-message-aborted', { messageId }, targetId);
                 break;
 
             case 'run-done':

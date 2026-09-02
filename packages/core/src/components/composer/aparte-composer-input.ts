@@ -48,7 +48,7 @@ import { subscribeConfigChange } from '../../config/config-subscribe.js';
  *          Inside the `.aparte-composer-row` layout helper the composer's buttons read
  *          the same token, so one value resizes that whole control set and the row stays
  *          aligned.
- * @cssprop [--aparte-input-padding-y=var(--aparte-space-5)] - Vertical padding inside the editor.
+ * @cssprop [--aparte-input-padding-y=calc((var(--aparte-composer-control-size) - 1lh) / 2)] - Vertical padding inside the editor.
  * @cssprop [--aparte-input-padding-x=var(--aparte-space-6)] - Horizontal padding inside the editor.
  * @cssprop [--aparte-input-font-size=var(--aparte-font-size-base)] - Editor font size.
  * @cssprop [--aparte-input-line-height=var(--aparte-line-height-normal)] - Editor line height — also what the

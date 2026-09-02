@@ -83,22 +83,31 @@ test('arrow keys move the active option and Enter selects it', async ({ page }) 
     // replacement. Comparing the two reads reported an inconsistency that never
     // existed. The invariant is what matters: the announced id IS the highlighted
     // option's.
+    // Read it off the COMBOBOX, not off the trigger. A reader follows focus, and a
+    // `searchable` select focuses its filter field on open — so the combobox (and
+    // the announcement with it) is that field there, and the trigger only summons
+    // the list. Without `searchable` the two are the same element, which is why this
+    // read is the general one rather than a second case.
     const highlight = () => chat.modelSelector.evaluate((selector) => {
         const active = Array.from(selector.querySelectorAll('aparte-option[data-active]'));
-        const trigger = selector.querySelector('.aparte-select-trigger');
+        const combos = selector.querySelectorAll('[role="combobox"]');
+        const combo = combos[0] as HTMLElement | undefined;
         return {
             count: active.length,
             id: (active[0] as HTMLElement | undefined)?.id ?? null,
             label: active[0]?.textContent?.trim() ?? null,
-            announced: trigger?.getAttribute('aria-activedescendant') ?? null,
+            combos: combos.length,
+            announced: combo?.getAttribute('aria-activedescendant') ?? null,
         };
     });
 
     await page.keyboard.press('ArrowDown');
     await expect.poll(async () => {
         const h = await highlight();
-        return h.count === 1 && h.id !== null && h.announced === h.id ? 'announced' : JSON.stringify(h);
-    }, { message: 'aria-activedescendant must name the one highlighted option' }).toBe('announced');
+        return h.count === 1 && h.combos === 1 && h.id !== null && h.announced === h.id
+            ? 'announced'
+            : JSON.stringify(h);
+    }, { message: 'the one combobox must name the one highlighted option' }).toBe('announced');
 
     // ArrowDown moves the highlight to another MODEL. Compared by label, not by id:
     // a rebuild re-mints the id of the very same position, so an id change proves

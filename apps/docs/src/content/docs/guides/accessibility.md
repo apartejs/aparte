@@ -47,6 +47,10 @@ falls back to English.
 `aria-activedescendant`, and its listbox carries `role="listbox"` / `role="option"` with
 `aria-selected`.
 
+Those combobox attributes sit on whichever element has focus. Add `searchable` and opening
+the dropdown focuses the filter field, so the field becomes the combobox and the trigger
+becomes a `role="button"` — one combobox per control, and always the one a reader is on.
+
 The composer's editor is a `role="textbox"` with `aria-multiline="true"`, labelled from its
 placeholder. <kbd>Enter</kbd> sends and <kbd>Shift</kbd>+<kbd>Enter</kbd> breaks the line;
 `submit-on-enter="false"` swaps them for a composer where the reverse is the expectation.

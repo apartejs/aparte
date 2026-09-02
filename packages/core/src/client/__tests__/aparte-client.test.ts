@@ -872,6 +872,11 @@ describe('AparteClient — API key resolution', () => {
         const viewport = document.createElement('div');
         Object.assign(viewport, spies);
         const shell = document.createElement('div');
+        // `data-aparte-chat` is one of the three chat-host shapes core accepts (the
+        // three non-Angular wrappers render exactly this div), and it is what makes
+        // the shell a CHAT rather than an anonymous wrapper — both `_targetIdOf` here
+        // and `aparte-composer._ownTargetId` on the receive side climb to it.
+        shell.setAttribute('data-aparte-chat', '');
         shell.id = id;
         (shell as unknown as { viewport: unknown }).viewport = viewport;
         shell.appendChild(viewport);
@@ -900,6 +905,56 @@ describe('AparteClient — API key resolution', () => {
 
         expect(a.viewport.appendMessage, 'the other chat must stay untouched').not.toHaveBeenCalled();
         expect(warn.mock.calls.flat().join(' ')).not.toContain('targetId present but element not found');
+
+        a.shell.remove();
+        b.shell.remove();
+    });
+
+    /*
+     * The lifecycle events must name the CHAT, not the element that renders.
+     *
+     * `dispatchLifecycleEvent` stamps `target.id`, and the target is the render
+     * target — an `<aparte-chat>` shell's `.viewport`, which carries no id of its
+     * own. So every event went out with `targetId: undefined`, and the receive side
+     * (`aparte-composer._isForThisComposer`) reads a missing id as "for me",
+     * deliberately, so a single-chat page needs no wiring. On a two-chat page that
+     * made one chat's turn drive every composer: chat A's stop button re-enabled
+     * itself on chat B's `-done`, and A's open elicitation panel was evicted.
+     */
+    it('stamps a lifecycle event with the id of the chat, not of the viewport that renders', async () => {
+        const cfg = new AparteConfig();
+        cfg.registerAIProvider(makeMockProvider(vi.fn()));
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        cfg.setTransport({
+            chat: () => new ReadableStream({
+                start(c) { c.enqueue({ type: 'done' }); c.close(); },
+            }),
+        } as never);
+
+        const a = makeShellTarget('chat-a');
+        const b = makeShellTarget('chat-b');
+
+        const seen: { name: string; targetId: unknown }[] = [];
+        const record = (e: Event) => seen.push({
+            name: e.type,
+            targetId: (e as CustomEvent).detail?.targetId,
+        });
+        window.addEventListener('aparte-message-start', record);
+        window.addEventListener('aparte-message-done', record);
+
+        client = new AparteClient({ config: cfg, autoRegister: false });
+        client.start();
+        window.dispatchEvent(new CustomEvent('aparte-send', { detail: { content: 'hi B', targetId: 'chat-b' } }));
+        await vi.waitFor(() => expect(seen.some(s => s.name === 'aparte-message-done')).toBe(true));
+
+        window.removeEventListener('aparte-message-start', record);
+        window.removeEventListener('aparte-message-done', record);
+
+        expect(
+            seen.map(s => s.targetId),
+            'an unstamped lifecycle event is read as "for every chat on the page"',
+        ).toEqual(['chat-b', 'chat-b']);
 
         a.shell.remove();
         b.shell.remove();

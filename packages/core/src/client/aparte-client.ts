@@ -139,7 +139,12 @@ export interface AparteClientOptions {
 
     /**
      * Conversation history strategy:
-     * - 'viewport' (default) — collects completed messages from the viewport
+     * - 'viewport' (default) — sends every user/assistant turn up to the last answered
+     *                          one. A turn that errored, or is still in flight
+     *                          ('streaming' / 'pending'), is held back and does not move
+     *                          that cutoff; a turn a host seeded with NO `status` counts
+     *                          as answered, so a restored or server-rendered transcript
+     *                          goes out as history without inventing a status for it.
      * - 'none'               — sends only the current message (original behavior)
      * - function             — custom: receives viewport messages, returns AparteChatMessage[]
      */
@@ -584,6 +589,9 @@ export class AparteClient {
         authConfig: string | Record<string, string> | undefined,
         opts?: { temperature?: number },
     ): Promise<void> {
+        // The id of the CHAT, resolved once for the whole turn — the render target is
+        // a viewport and does not carry it. See `_targetIdOf`.
+        const chatId = this._targetIdOf(targetElement);
         const registeredTools = this._toolsForCurrentModel();
         let baseRequest: AparteChatRequest = {
             messages,
@@ -604,7 +612,7 @@ export class AparteClient {
         // controller did not exist yet, so `abort()` had nothing to cancel — the
         // flag is the only trace, and it must not be thrown away here.
         if (this._isAborted) {
-            dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+            dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
             // FINISHED, like the two abort paths below: the pending shell appended a few
             // lines up is a streaming message in the viewport's model until a terminal
             // status says otherwise, and with nothing saying it the transcript stayed
@@ -613,7 +621,7 @@ export class AparteClient {
             this._updateMessage(targetElement, messageId, { status: 'completed' });
             return;
         }
-        dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' });
+        dispatchLifecycleEvent(targetElement, 'aparte-message-start', { messageId, role: 'assistant' }, chatId);
         // This turn's own controller: the terminal below is decided from ITS signal, not
         // from the client-wide `_isAborted`, which the next send resets before the
         // superseded turn has returned.
@@ -632,7 +640,7 @@ export class AparteClient {
                 // abort is what a provider that ends quietly used to produce.
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
             } else {
-                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage });
+                dispatchLifecycleEvent(targetElement, 'aparte-message-done', { messageId, role: 'assistant', usage }, chatId);
             }
         } catch (error: unknown) {
             // A THIRD abort path, and the one the browser suite caught after the
@@ -643,7 +651,7 @@ export class AparteClient {
             // `_handleLifecycleError` would REPLACE the message with an error
             // segment, turning a deliberate stop into a rendered failure.
             if (this._isAborted || streamController.signal.aborted) {
-                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId });
+                dispatchLifecycleEvent(targetElement, 'aparte-message-aborted', { messageId }, chatId);
                 this._updateMessage(targetElement, messageId, { status: 'completed' });
                 return;
             }
@@ -880,18 +888,69 @@ export class AparteClient {
     }
 
     /**
-     * Convert AparteMessage[] to AparteChatMessage[] for re-submission.
+     * Which chat a render target BELONGS to — the id the lifecycle events must carry.
+     *
+     * Not `target.id`: the target is whatever renders, and an `<aparte-chat>` shell
+     * delegates that to its `.viewport`, which has no id. So every lifecycle event on
+     * a shell-shaped chat went out unstamped, and the receive side reads a missing id
+     * as "for every chat on the page" — deliberately, so a single-chat page needs no
+     * wiring. On a two-chat page one chat's turn therefore drove every composer.
+     *
+     * The climb is the same rule `aparte-composer._ownTargetId` uses on the receive
+     * side, and it has to be, or the two would disagree about which chat is which:
+     * the nearest `aparte-chat` / `[data-aparte-chat]` ancestor (or the element
+     * itself) that HAS an id. Deliberately not `chatBoundaryOf` — that returns the
+     * boundary whether or not it is identified, and an id-less boundary must fall
+     * through to the next one up rather than answer "no id".
+     */
+    private _targetIdOf(el: HTMLElement | null | undefined): string | undefined {
+        let node: HTMLElement | null = el ?? null;
+        while (node) {
+            const tag = node.tagName?.toLowerCase();
+            const isHost = tag === 'aparte-chat' || node.hasAttribute?.('data-aparte-chat');
+            if (isHost && node.id) return node.id;
+            node = node.parentElement;
+        }
+        return el?.id || undefined;
+    }
+
+    /**
+     * Convert AparteMessage[] to AparteChatMessage[] for re-submission (retry, edit).
+     *
+     * The SLICE is each caller's own business — retry cuts before the reply it is
+     * regenerating, edit cuts after the message being reworded, send cuts at the last
+     * answered turn. What a message CONTRIBUTES to the wire is not: send, retry and
+     * edit must not disagree about it, and they did. This one had no filter at all,
+     * so a failed turn and a turn stopped before its first token both went out as
+     * `{ role: 'assistant', content: '' }` — a claim the assistant said nothing, which
+     * some providers reject outright and the rest read as an empty reply worth
+     * imitating.
      */
     private _messagesToChatMessages(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
-        // Use _extractText (not m.content): assistant replies stream their text
-        // into `segments`, leaving `content` as ''. Without flattening, retry/edit
-        // would send empty assistant turns and the model answers the wrong question.
+        return this._wireHistory(messages);
+    }
+
+    /**
+     * The one rule for what a message contributes to the wire.
+     *
+     * Not the slice — the contribution: a role the wire has (`user`/`assistant`), a
+     * turn that neither failed nor is still in flight, and text that is not empty.
+     *
+     * `_wireText` (not `m.content`): assistant replies stream their text into
+     * `segments`, leaving `content` as '', so without flattening every reply would be
+     * empty here and the drop below would swallow the whole transcript.
+     */
+    private _wireHistory(messages: AparteMessage[]): import('../types/chat.js').AparteChatMessage[] {
         return messages
-            .filter(m => m.role === 'user' || m.role === 'assistant')
+            .filter(m => {
+                if (m.role !== 'user' && m.role !== 'assistant') return false;
+                return m.status !== 'error' && !AparteClient._inFlight(m);
+            })
             .map(m => ({
                 role: m.role as 'user' | 'assistant',
                 content: this._wireText(m)
-            }));
+            }))
+            .filter(m => m.content.length > 0);
     }
 
     /** The "no model selected" warning is said once per client, not once per dropped send. */
@@ -1110,31 +1169,39 @@ export class AparteClient {
         return messages;
     }
 
+    /**
+     * A turn that has not finished yet. `status` is OPTIONAL on `AparteMessage`, so
+     * the question the history gates can ask is "is this still in flight?", never
+     * "is this completed?".
+     *
+     * The gates below used to ask the second one, and a host that SEEDS a transcript
+     * — restoring a saved conversation, hydrating a server-rendered one — has no
+     * reason to invent a status for turns that are already over. With none, the
+     * cutoff never advanced past 0 and the whole transcript was sliced away: the
+     * model got the new question with no context, and nothing in the UI said so,
+     * because the viewport still showed every message.
+     */
+    private static _inFlight(m: AparteMessage): boolean {
+        return m.status === 'streaming' || m.status === 'pending';
+    }
+
     private _toHistoryMessages(messages: AparteMessage[]): AparteChatMessage[] {
         // Exclude trailing unanswered user messages: the current user message is
         // already added explicitly at the end of _buildMessages, so including it
         // from the viewport would cause a duplicate.
-        // Find the last completed assistant response and cut there.
+        // Find the last ANSWERED assistant response and cut there — errored and
+        // in-flight turns are not answers and must not move the cutoff.
         let cutoff = 0;
         for (let i = 0; i < messages.length; i++) {
             const m = messages[i]!;
-            if (m.role === 'assistant' && m.status === 'completed') {
+            if (m.role === 'assistant' && m.status !== 'error' && !AparteClient._inFlight(m)) {
                 cutoff = i + 1;
             }
         }
 
-        return messages
-            .slice(0, cutoff)
-            .filter(m => {
-                if (m.role === 'user') return m.status !== 'error';
-                if (m.role === 'assistant') return m.status === 'completed';
-                return false;
-            })
-            .map(m => ({
-                role: m.role as 'user' | 'assistant',
-                content: this._wireText(m)
-            }))
-            .filter(m => m.content.length > 0);
+        // The cutoff is this path's own concern; what each message contributes to the
+        // wire is shared with retry and edit — see `_wireHistory`.
+        return this._wireHistory(messages.slice(0, cutoff));
     }
 
     /**
@@ -1363,10 +1430,15 @@ export class AparteClient {
     ): Promise<AparteUsage | undefined> {
         const signal = streamController.signal;
 
+        // The chat, not the viewport — see `_targetIdOf`. Without it the adapter's own
+        // two lifecycle dispatches (`aparte-tool-approval-request` and the abort) go
+        // out unstamped, which every chat on the page reads as its own.
+        const chatId = this._targetIdOf(targetElement);
         const adapter = createStreamAdapter({
             target: targetElement as StreamAdapterTarget,
             config: this._config,
             messageId,
+            ...(chatId ? { targetId: chatId } : {}),
         });
         // `prefixSegments` (`_meta`) land right after the runner's `run-start` — the
         // flip to `status: 'streaming'` — so they sit on a streaming bubble, in the
@@ -1536,6 +1608,6 @@ export class AparteClient {
             });
         }
 
-        dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error });
+        dispatchLifecycleEvent(target, 'aparte-message-error', { messageId, error }, this._targetIdOf(target));
     }
 }
