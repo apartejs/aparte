@@ -1,5 +1,5 @@
 ---
-"@aparte/core": minor
+"@aparte/core": patch
 "@aparte/plugin-artifacts": patch
 ---
 

@@ -1,5 +1,5 @@
 ---
-"@aparte/core": minor
+"@aparte/core": patch
 ---
 
 Every control has a height from one scale — sm 24 · md 32 · lg 36 · xl 40 — and control text is the 14px step: a text button is as tall as an icon button (`min-block-size`), the field rests at 36 (`--aparte-field-size`; `--sm`/`--lg` one step either side), a button inside a field group takes the field's height, the select trigger is a field, and the composer's controls are 36 at rest and the touch target under a coarse pointer (`--aparte-composer-control-size`, now a declared knob).

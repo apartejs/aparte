@@ -1,5 +1,5 @@
 ---
-"@aparte/core": minor
+"@aparte/core": patch
 ---
 
 `data-side="top | bottom | start | end"` places a tooltip against its trigger — wrap the trigger in `.aparte-tooltip-anchor` — and turns the arrow to match; `--aparte-tooltip-gap` is the distance. No inline positioning needed any more.
