@@ -42,6 +42,7 @@
         "@aparte/plugin-model-selector": "workspace:*",
         "@aparte/plugin-titler": "workspace:*",
         "@aparte/provider-scenario": "workspace:*",
+        "@aparte/titler": "^1.0.0",
         "@aparte/titler-efigsp": "^1.0.0",
         "@aparte/titler-latin": "^1.0.0",
         "@aparte/titler-latin-mini": "^1.0.0",

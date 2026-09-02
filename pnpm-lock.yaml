@@ -147,6 +147,9 @@ importers:
       '@aparte/provider-scenario':
         specifier: workspace:*
         version: link:../../packages/providers/ai/scenario
+      '@aparte/titler':
+        specifier: ^1.0.0
+        version: 1.0.1
       '@aparte/titler-efigsp':
         specifier: ^1.0.0
         version: 1.0.1
