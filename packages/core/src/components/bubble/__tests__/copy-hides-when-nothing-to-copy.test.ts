@@ -25,8 +25,8 @@ function mount(segments: AparteSegment[]): BubbleEl {
 }
 
 const toolCall: AparteSegment = {
-    id: 'tc', type: 'tool_call', toolCallId: 'c1', name: 'search', input: { q: 'x' }, status: 'success', result: 'ok',
-} as AparteSegment;
+    id: 'tc', type: 'tool_call', status: 'resolved', toolCall: { id: 'c1', name: 'search', input: { q: 'x' } }, result: 'ok',
+};
 
 const copyButton = (bubble: HTMLElement) => bubble.querySelector('.aparte-action-copy') as HTMLButtonElement | null;
 
