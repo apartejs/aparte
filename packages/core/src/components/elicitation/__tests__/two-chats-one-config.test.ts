@@ -2,6 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import '../../composer/aparte-composer.js';
 import '../aparte-elicitation.js';
 import { aparteGlobalConfig } from '../../../config/aparte-config';
+import { AparteConfig } from '../../../config/aparte-config';
+import { AparteClient } from '../../../client/aparte-client';
 import { requestUserInput } from '../../../elicitation/index';
 
 /*
@@ -135,6 +137,62 @@ describe('two chats sharing one config', () => {
         (b.composer as HTMLElement & { cancel(): void }).cancel();
         await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
         expect(panelIn(b)).toBeNull();
+    });
+
+    /*
+     * The mirror of the Stop case, on the other half of the same channel.
+     *
+     * Stop is dispatched by the composer, which knows which chat it is in. The
+     * TURN's own events — `aparte-message-start` / `-done` / `-error` /
+     * `-aborted` — are dispatched by `AparteClient` on the element it renders
+     * into, and that element is a viewport: the `<aparte-chat>` shell carries the
+     * id, its `.viewport` does not. So they went out with `targetId: undefined`,
+     * which the receive side reads as "for every chat", and a turn finishing in B
+     * evicted A's open question — the panel vanished under the user's cursor while
+     * A's tool call was still waiting for the answer.
+     */
+    it("a turn finishing in one chat leaves the other chat's open question alone", async () => {
+        const a = mountChat('chat-a');
+        const b = mountChat('chat-b');
+
+        const pending = ask(a.composer);
+        expect(panelIn(a)).not.toBeNull();
+
+        // B's render target: a viewport inside B's host, with no id of its own —
+        // which is what every chat shape in the repo actually hands the client.
+        const viewport = document.createElement('div');
+        Object.assign(viewport, {
+            appendMessage: () => {}, updateMessage: () => {}, addSegment: () => {},
+            updateSegment: () => {}, updateLastMessage: () => {}, typeName: () => {},
+            setUsage: () => {}, getMessages: () => [],
+        });
+        b.host.appendChild(viewport);
+
+        const cfg = new AparteConfig();
+        cfg.registerAIProvider({
+            id: 'mock', getMetadata: () => ({ id: 'mock', name: 'M' }),
+            getModels: () => [{ id: 'm', name: 'M' }], chat: async () => '',
+        } as never);
+        cfg.setModelConfig({ defaultProvider: 'mock', defaultModel: 'm' });
+        cfg.setKeyProvider(() => 'k');
+        cfg.setTransport({
+            chat: () => new ReadableStream({
+                start(c) { c.enqueue({ type: 'done' }); c.close(); },
+            }),
+        } as never);
+
+        const client = new AparteClient({ config: cfg, autoRegister: false, targetResolver: () => viewport as never });
+        await (client as unknown as { _handleSend: (e: Event) => Promise<void> })._handleSend(
+            new CustomEvent('aparte-send', { detail: { content: 'go' } }),
+        );
+
+        expect(
+            panelIn(a),
+            "B's turn must not reach A — the question would vanish while A's tool call still waits",
+        ).not.toBeNull();
+
+        a.host.remove();
+        await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
     });
 
     it('withdraws only its own registration, so re-mounting is not needed', () => {
