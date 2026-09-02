@@ -131,14 +131,17 @@ aparte-chat[center-empty][data-empty] > aparte-chat-viewport {
      the composer. Empty = nothing to scroll, so auto height is safe here; the moment
      a message lands, [data-empty] drops and height: 100% (scroll chain) is back. */
   height: auto;
-  /* And no block room at all: at `auto` the empty viewport still stood 32px tall (its
-     container's block padding), so `center` centred three items of which the first was
-     invisible — the welcome group landed 16px low, measured. Capped and clipped; the
-     clip is what makes the automatic flex minimum 0 as well. Inline geometry is kept:
-     the composer's inset is measured from this element, and a rect of zero height
-     still has a left. */
-  max-block-size: 0;
-  overflow: hidden;
+}
+
+/* And no block room at all: at `auto` the empty viewport still stood 32px tall — the
+   rows' wrapper keeps its block padding with no row in it — so `center` centred three
+   items of which the first was invisible, and the welcome group landed 16px low,
+   measured. The padding goes, not the box: capping the viewport itself left a 32px
+   scroll surface inside a 0px box, and "an empty transcript must not overflow" is a
+   browser test every example runs. Inline geometry is kept — the composer's inset is
+   measured from this element. */
+aparte-chat[center-empty][data-empty] > aparte-chat-viewport .aparte-messages-wrapper {
+  padding-block: 0;
 }
 
 /* =========================================
@@ -428,10 +431,6 @@ aparte-chat-status:not([visible]) {
 .aparte-chat-container--auto-center[data-aparte-empty]
   aparte-chat-viewport.aparte-viewport--framework {
   flex-grow: 0;
-  /* No block room while empty — the same measure as the core rule above, for the same
-     16px the invisible first item pushed the welcome group down by. */
-  max-block-size: 0;
-  overflow: hidden;
 }
 
 /* overlay-composer × center-empty: while the welcome state centres the composer,

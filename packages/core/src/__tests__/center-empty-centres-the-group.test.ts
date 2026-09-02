@@ -4,11 +4,15 @@
  *
  * Measured on the built empty-state demo at 768: the chat's centre at 240, the centre of
  * what a visitor sees (the greeting, the starters, the composer) at 256 — 16px low, which
- * is half of the 32px the EMPTY viewport still stood at (its container's block padding).
- * `justify-content: center` centred the three items; the first was invisible and not
- * nothing. While the chat is empty the viewport takes no block room at all: capped at 0
- * and clipped, so its automatic flex minimum is 0 too. Its inline geometry is untouched —
- * the composer's inset is measured from it, and a rect of zero height still has a left.
+ * is half of the 32px the EMPTY viewport still stood at: the rows' wrapper keeps its
+ * block padding with no row inside it. `justify-content: center` centred the three
+ * items; the first was invisible and not nothing.
+ *
+ * The padding goes, not the box. A first fix capped the viewport at 0 and clipped it;
+ * that left a 32px scroll surface inside a 0px box, and the browser smoke test every
+ * example runs — "an empty transcript must not overflow its box" — went red on nine
+ * projects. Framework mode is left alone: there the viewport is the scroll surface and
+ * may hold the wrapper's own empty-state content, so its height is not core's to take.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -25,13 +29,11 @@ const rule = (selector: string) => {
 };
 
 describe('the empty viewport under center-empty', () => {
-    it.each([
-        ['core mode', 'aparte-chat[center-empty][data-empty] > aparte-chat-viewport'],
-        ['framework mode', '.aparte-chat-container--auto-center[data-aparte-empty] aparte-chat-viewport.aparte-viewport--framework'],
-    ])('takes no block room in %s, so the group centres on itself', (_mode, selector) => {
-        const empty = rule(selector);
-        expect(empty, selector).toMatch(/flex-grow:\s*0/);
-        expect(empty, selector).toMatch(/max-block-size:\s*0/);
-        expect(empty, 'clipped: overflow other than visible is what makes the flex minimum 0').toMatch(/overflow:\s*hidden/);
+    it('does not grow, and its rows’ wrapper carries no block padding, so the group centres on itself', () => {
+        const viewport = rule('aparte-chat[center-empty][data-empty] > aparte-chat-viewport');
+        expect(viewport).toMatch(/flex-grow:\s*0/);
+        expect(viewport, 'the box is not capped — a capped box over padded content is a scroll surface').not.toMatch(/max-block-size:\s*0/);
+        const wrapper = rule('aparte-chat[center-empty][data-empty] > aparte-chat-viewport .aparte-messages-wrapper');
+        expect(wrapper).toMatch(/padding-block:\s*0/);
     });
 });
