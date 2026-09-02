@@ -267,9 +267,11 @@ aparte-chat-bubble:last-of-type .aparte-message[data-role="assistant"]:not(.apar
   background: var(--aparte-action-bar-btn-hover-bg);
 }
 
+/* The button recipe draws the disabled state (a neutral ground, the muted ink); an
+   opacity over it read the arrow at 1.74:1 — as absent, where the picker means "no
+   further". `default` and not `not-allowed`: the end of a list is not a refusal. */
 .aparte-branch-prev:disabled,
 .aparte-branch-next:disabled {
-  opacity: var(--aparte-disabled-opacity);
   cursor: default;
 }
 

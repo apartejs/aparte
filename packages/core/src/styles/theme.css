@@ -1061,6 +1061,9 @@ aparte-chat {
 
   /* Shell */
   --aparte-sidebar-bg: var(--aparte-surface-2);
+  /* The one inline inset of the column's four regions — header, search, body, footer.
+     They used to carry three (16 / 12 / 12 / 16) and the content sat on two axes. */
+  --aparte-sidebar-inset: var(--aparte-space-3);
 
   /* Conversation List */
   --aparte-conv-item-radius: var(--aparte-radius-md);

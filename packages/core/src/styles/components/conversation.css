@@ -92,14 +92,21 @@
   font-weight: var(--aparte-conv-item-font-weight-active);
 }
 
+/* The selection mark: a bar the width of `--aparte-mark-bar` down the row's start
+   edge. Painted as the first pixels of a pseudo the SIZE of the row that inherits its
+   radius, so the bar follows the curve — drawn as a 2px box of its own it stood square
+   in a 9px corner and a sliver of the page's ground showed between the two. Not
+   `overflow: hidden` on the row: that would clip the title button's focus ring. */
 .aparte-conv-item--active::before {
   content: "";
   position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: var(--aparte-mark-bar);
-  background: var(--aparte-primary-ink);
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(to right, var(--aparte-primary-ink) var(--aparte-mark-bar), transparent 0);
   pointer-events: none;
+}
+.aparte-conv-item--active:dir(rtl)::before {
+  background: linear-gradient(to left, var(--aparte-primary-ink) var(--aparte-mark-bar), transparent 0);
 }
 
 .aparte-conv-item--archived .aparte-conv-item__title {

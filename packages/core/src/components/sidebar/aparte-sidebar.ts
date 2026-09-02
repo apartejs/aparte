@@ -54,6 +54,8 @@ const DRAWER_QUERY = '(max-width: 48rem)';
  * @fires {CustomEvent<AparteSidebarToggleDetail>} aparte-sidebar-toggle - The sidebar opened or closed, by a toggle, by Escape, by a click on the scrim or by `collapsed` being set. Bubbles.
  *
  * @cssprop [--aparte-sidebar-width=260px] - Width of the column, and of the drawer.
+ * @cssprop [--aparte-sidebar-inset=var(--aparte-space-3)] - The inline inset of the four
+ *   regions (header, search, body, footer): one value, so their content stands on one axis.
  * @cssprop [--aparte-sidebar-bg=var(--aparte-surface-2)] - Its ground.
  *
  * @example
