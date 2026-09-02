@@ -1,0 +1,109 @@
+---
+import { statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import Landing from '../../layouts/Landing.astro';
+
+/*
+ * The models aparté publishes — a list that starts at one.
+ *
+ * An Astro page on the landing's frame, beside /roadmap/, for the same reason the
+ * roadmap is: this is not a how-to, it is a catalogue, and a catalogue in the docs
+ * sidebar reads as a reference page and goes stale unnoticed. Each model gets a page
+ * of its own under /models/; this one says why a chat library publishes models at all,
+ * and lists them.
+ */
+const require = createRequire(pathToFileURL(`${process.cwd()}/`).href);
+const TITLER_KB = Math.round(statSync(require.resolve('@aparte/titler-latin/model')).size / 1000);
+
+const TITLE = 'aparté — models: small, one task each, in the browser';
+const DESCRIPTION =
+    'The models aparté publishes: built for one job in a chat, light enough to run in the '
+    + 'browser, with no API call. The first is aparte-titler, a conversation titler in 17 languages.';
+/** Written from the entry in src/pages/og/[...slug].ts; change one and change the other. */
+const IMAGE_ALT =
+    'A dark card with a brass edge and the aparté mascot, headed “Small models, one task each”, '
+    + 'over the line “The models aparté publishes: built for one job in a chat, light enough to '
+    + 'run in the browser, with no API call.”';
+---
+
+<Landing
+  title={TITLE}
+  description={DESCRIPTION}
+  canonical="https://apartejs.dev/models/"
+  ogImage="https://apartejs.dev/og/models.png"
+  ogImageAlt={IMAGE_ALT}
+  current="models"
+>
+  <div class="md">
+    <header class="md-head">
+      <p class="eyebrow">Models &mdash; <b>one task each</b></p>
+      <h1 class="thesis serif">Small models, <em>in</em> the chat.</h1>
+      <p class="lede">
+        A chat has jobs an LLM is the wrong tool for: naming a conversation, and soon others.
+        Each one is a few hundred kilobytes of model, trained for that job alone, running in
+        the browser beside the components &#8212; <b>no API call, nothing leaving the page</b>.
+        They are published like the packages: on npm, MIT, with their benchmark beside them.
+      </p>
+    </header>
+
+    <ol class="models">
+      <li class="model">
+        <a href="/models/titler/" class="model-link">
+          <p class="state">Available</p>
+          <h2 class="serif">aparte-titler</h2>
+          <p class="model-lede">
+            A title for every conversation, as you type: 3 to 6 words picked out of the first
+            message, in 17 European languages.
+          </p>
+          <div class="figs">
+            <div><b>{TITLER_KB} KB</b><span>one file, 17 languages</span></div>
+            <div><b>3&#8211;6</b><span>words, the message&#8217;s own</span></div>
+            <div><b>0</b><span>network calls</span></div>
+          </div>
+          <span class="go">Try it in your browser &#8594;</span>
+        </a>
+      </li>
+    </ol>
+
+    <p class="md-note">
+      What makes the list: a job a chat actually has, a model that does it as well as a large one
+      would on that job, and a weight a page can afford. The next candidates are named on the
+      <a href="/roadmap/">roadmap</a> when they are.
+    </p>
+  </div>
+
+  <style>
+      .md { width: min(1120px, 100%); margin-inline: auto; }
+      .md-head { padding: clamp(52px, 8vw, 96px) 0 clamp(26px, 4vw, 40px); max-width: 68ch; }
+      .md-head .lede { margin-bottom: 0; }
+
+      /* `auto-fit`, not `auto-fill`: with one model the list has one card, and auto-fill
+         kept two empty tracks beside it — a third of the page used, the rest blank. auto-fit
+         collapses the empty tracks, so one card fills the row, two share it, three make
+         thirds; the page grows with the list without being retouched. */
+      .models { list-style: none; margin: clamp(26px, 4vw, 40px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+      .model-link {
+        display: block; position: relative; overflow: hidden; text-decoration: none; color: inherit;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 15px; padding: 24px 26px 26px;
+        box-shadow: var(--shadow); transition: border-color .2s, transform .15s;
+      }
+      .model-link::before { content: ""; position: absolute; inset-inline: 0; top: 0; block-size: 2px; background: linear-gradient(to right, var(--accent), transparent 78%); }
+      .model-link:hover { border-color: var(--accent); transform: translateY(-1px); }
+      .model-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .state { margin: 0 0 6px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent-text); }
+      .model h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 400; letter-spacing: -.02em; margin: 0 0 10px; }
+      .model-lede { margin: 0 0 18px; color: var(--dim); font-size: 15.5px; line-height: 1.6; }
+      .figs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+      .figs div { flex: 1 1 90px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 11px; }
+      .figs b { display: block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 500; letter-spacing: -.02em; color: var(--text); line-height: 1.15; }
+      .figs span { display: block; margin-top: 3px; color: var(--dim); font-size: 12px; }
+      .go { color: var(--accent-text); font-size: 14.5px; }
+      .model-link:hover .go { text-decoration: underline; }
+
+      .md-note { margin: clamp(30px, 5vw, 48px) 0 0; max-width: 64ch; color: var(--dim); font-size: 14.5px; line-height: 1.6; }
+      .md-note a { color: var(--accent-text); text-decoration: none; }
+      .md-note a:hover { text-decoration: underline; }
+      @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</Landing>

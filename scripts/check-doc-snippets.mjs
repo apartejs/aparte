@@ -208,6 +208,13 @@ function workspacePaths() {
         '@shikijs/themes/*': ['../packages/plugins/shiki/node_modules/@shikijs/themes/dist/*.d.mts'],
         ai: ['../packages/providers/ai/ai-sdk/node_modules/ai'],
         '@ai-sdk/*': ['../packages/providers/ai/ai-sdk/node_modules/@ai-sdk/*'],
+        // The aparte-titler runtime and its bundled models are published from their own
+        // repository; the docs app installs them for the /models/titler/ demo, so the
+        // plugin page's snippets are checked against that same install.
+        '@aparte/titler': ['../apps/docs/node_modules/@aparte/titler'],
+        '@aparte/titler-latin': ['../apps/docs/node_modules/@aparte/titler-latin'],
+        '@aparte/titler-latin-mini': ['../apps/docs/node_modules/@aparte/titler-latin-mini'],
+        '@aparte/titler-efigsp': ['../apps/docs/node_modules/@aparte/titler-efigsp'],
     });
     Object.assign(paths, {
         react: [`${RP}/@types/react`],

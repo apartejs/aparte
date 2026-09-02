@@ -71,6 +71,21 @@ if (packages.length === 0) {
 
 const byName = new Map(packages.map(({ pkg, dir }) => [pkg.name, { pkg, dir }]));
 
+// The aparte-titler packages (`@aparte/titler*`) are published from their own repository
+// and installed by the docs app for /models/titler/. A README that imports one is
+// checked against THAT install rather than skipped: an import path nobody verifies is
+// the one that rots. Workspace links under the same directory are already in `byName`.
+const installed = join(root, 'apps/docs/node_modules/@aparte');
+if (existsSync(installed)) {
+    for (const entry of readdirSync(installed)) {
+        const dir = join(installed, entry);
+        const manifest = join(dir, 'package.json');
+        if (!existsSync(manifest)) continue;
+        const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+        if (pkg.name && !byName.has(pkg.name)) byName.set(pkg.name, { pkg, dir });
+    }
+}
+
 /** Names a package subpath exports, read from its built `.js` and `.d.ts`. */
 function exportsOf(specifier) {
     const parts = specifier.split('/');
