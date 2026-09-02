@@ -10,10 +10,12 @@ npm install @aparte/plugin-titler @aparte/titler-latin
 ```
 
 ```ts
+import type { AparteConversationManager } from '@aparte/core';
 import { loadTitler } from '@aparte/titler-latin';   // 17 European languages, 133 KB
 import { setupTitler } from '@aparte/plugin-titler';
 
-setupTitler(manager, { titler: loadTitler });        // manager: your AparteConversationManager
+declare const manager: AparteConversationManager;    // yours — the one the chat persists to
+setupTitler(manager, { titler: loadTitler });
 ```
 
 `loadTitler` is called once, the first time a conversation needs a title — the model is not on
@@ -25,6 +27,11 @@ in the same place, and so is any object with `title(message, budget?)` of your o
 built with the `titleProvider` option, `createTitleProvider(options)` is the provider alone:
 
 ```ts
+import { AparteConversationManager, type AparteStorageAdapter } from '@aparte/core';
+import { loadTitler } from '@aparte/titler-latin';
+import { createTitleProvider } from '@aparte/plugin-titler';
+
+declare const adapter: AparteStorageAdapter;
 const manager = new AparteConversationManager(adapter, {
     titleProvider: createTitleProvider({ titler: loadTitler, budget: 4 }),
 });

@@ -17,10 +17,12 @@ npm install @aparte/plugin-titler @aparte/titler-latin
 ```
 
 ```ts
+import type { AparteConversationManager } from '@aparte/core';
 import { loadTitler } from '@aparte/titler-latin';   // 17 European languages, 133 KB
 import { setupTitler } from '@aparte/plugin-titler';
 
-setupTitler(manager, { titler: loadTitler });        // manager: your AparteConversationManager
+declare const manager: AparteConversationManager;    // yours — the one the chat persists to
+setupTitler(manager, { titler: loadTitler });
 ```
 
 That is the whole setup. `loadTitler` is called once, the first time a conversation needs a
@@ -39,8 +41,9 @@ conversation's title in one place, on its first user message, and
 message, and answers a title, synchronously or not:
 
 ```ts
-import type { AparteConversationTitleProvider } from '@aparte/core';
+import type { AparteConversationManager, AparteConversationTitleProvider } from '@aparte/core';
 
+declare const manager: AparteConversationManager;
 const provider: AparteConversationTitleProvider = async (text, message) => {
     // anything: a model in the browser, a request to your backend, a heuristic
     return text.split(' ').slice(0, 5).join(' ');
@@ -67,8 +70,11 @@ another was set since, which is then left alone. For a manager built with the
 `titleProvider` option, `createTitleProvider(options)` is the provider alone:
 
 ```ts
+import { AparteConversationManager, type AparteStorageAdapter } from '@aparte/core';
+import { loadTitler } from '@aparte/titler-latin';
 import { createTitleProvider } from '@aparte/plugin-titler';
 
+declare const adapter: AparteStorageAdapter;         // your storage adapter
 const manager = new AparteConversationManager(adapter, {
     titleProvider: createTitleProvider({ titler: loadTitler, budget: 4 }),
 });
@@ -88,8 +94,11 @@ asset, and the page fetches it from your own origin. The runtime alone, `@aparte
 reads any file from the [model repository](https://huggingface.co/apartejs/aparte-titler):
 
 ```ts
+import type { AparteConversationManager } from '@aparte/core';
 import { loadTitler } from '@aparte/titler';
+import { setupTitler } from '@aparte/plugin-titler';
 
+declare const manager: AparteConversationManager;
 const titler = await loadTitler(fetch('/models/titler-v1-fr-int3.bin').then((r) => r.arrayBuffer()));
 setupTitler(manager, { titler });
 ```
