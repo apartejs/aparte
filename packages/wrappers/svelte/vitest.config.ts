@@ -14,6 +14,12 @@ export default defineConfig({
             preprocess: vitePreprocess({ style: false }),
         }),
     ],
+    // Svelte's BROWSER build, not its server one. Without this condition Vite hands
+    // the test the SSR entry of `svelte`, where `onMount` never runs: every test in
+    // this file passed with the host never constructed, the root listeners never
+    // attached and `<AparteUi>` never creating its element — found by the first test
+    // that asserted an onMount effect (the callback props, #47).
+    resolve: { conditions: ['browser'] },
     test: {
         globals: true,
         environment: 'jsdom',
