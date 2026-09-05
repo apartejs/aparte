@@ -17,6 +17,17 @@ import {
 import type { AparteThinkingSegment } from '@aparte/core';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
+import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
+import { createHighlighterCore } from 'shiki/core';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
+import ts from '@shikijs/langs/typescript';
+import js from '@shikijs/langs/javascript';
+import css from '@shikijs/langs/css';
+import html from '@shikijs/langs/html';
+import bash from '@shikijs/langs/bash';
+import json from '@shikijs/langs/json';
+import githubLight from '@shikijs/themes/github-light';
+import githubDark from '@shikijs/themes/github-dark';
 // Registers the `ask_user` tool AND the <aparte-elicitation> panel that answers
 // it. This example had no tool at all, which made the whole tools path — approval,
 // elicitation, the guide — undemonstrated on the one app that is raw core: asking a
@@ -48,6 +59,20 @@ aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 // 1. Renderers + Markdown rendering for assistant replies.
 registerDefaultRenderers();
 setupMarkedProvider();
+// Syntax highlighting, through the plugin's `/core` entry: the grammars are chosen
+// here, so the bundle carries six of them and not the three hundred the convenience
+// entry pulls in. A language outside this list renders as plain text. Awaited before
+// the chat wires, because a block is highlighted when it settles and a provider
+// registered later would miss the sample conversations' code. The light/dark pair
+// follows `data-aparte-theme` on the root — the header's toggle.
+setupShikiProviderFromHighlighter(
+    await createHighlighterCore({
+        themes: [githubLight, githubDark],
+        langs: [ts, js, css, html, bash, json],
+        engine: createJavaScriptRegexEngine(),
+    }),
+    { theme: { light: 'github-light', dark: 'github-dark' } },
+);
 setupAskUser();
 // The artifact is a plugin: the `create_artifact` tool, the `<artifact>` grammar and
 // the Code/Preview card that renders both, in one call.
