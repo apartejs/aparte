@@ -231,17 +231,11 @@
   --aparte-avatar-image-assistant: none;
   --aparte-avatar-image-size: 90%;
 
-  /* Text Sizes */
-
-  /* Input */
-  --aparte-input-editor-max-height: 200px;
-
   /* Icons: one knob, inherited — a container declares `--aparte-icon-size` and every
      glyph below follows. The steps are on the type scale, in the derived layer. */
 
   /* Send button + inline action buttons (their size is the lg step, in the derived layer) */
   --aparte-input-action-btn-icon-size: 20px;
-  --aparte-model-select-min-width: 120px;
 
   /* Status Indicator */
   --aparte-status-bg: transparent;
@@ -478,7 +472,6 @@
   --aparte-range-track-height: 4px;
 
   --aparte-tool-spinner-size: 10px;
-  --aparte-model-select-chevron-room: 28px;
 }
 
 /* =========================================
@@ -494,9 +487,20 @@
    editing one without the other fails the build rather than forking the theme.
    No `color-scheme` here — it is not namespaced, and a library setting it on the
    host's :root would flip the whole page's native controls.
+
+   `:host` is on every dark selector, and it has to be spelled `:host(...)`: the light
+   palette above is declared on `:root, :host`, so a sheet ADOPTED into a shadow root
+   put the light hexes ON THE HOST — where a local declaration beats the dark value the
+   host would otherwise inherit. Neither dark block could reach it, because `:root` does
+   not match inside a shadow tree and a bare `[data-aparte-theme=...]` does not match the
+   host element. Measured before the fix: a chat in a shadow root under a dark page read
+   `--aparte-bg: #f6f2ea`. The attribute half only sees an attribute set ON THE HOST
+   ELEMENT itself — one set on an ancestor outside the shadow root is invisible from
+   inside (only `:host-context()` could see it, and its support is partial).
    ========================================= */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-aparte-theme="light"]) {
+  :root:not([data-aparte-theme="light"]),
+  :host(:not([data-aparte-theme="light"])) {
     --aparte-bg: #17141c;
     --aparte-surface-1: #211b28;
     --aparte-surface-2: #2a2333;
@@ -534,7 +538,8 @@
    the dark block overrides — `check:derived-vars` holds that pairing, so a light
    literal edited above cannot drift from its copy here.
    ========================================= */
-[data-aparte-theme="light"] {
+[data-aparte-theme="light"],
+:host([data-aparte-theme="light"]) {
   color-scheme: light;
   --aparte-bg: #f6f2ea;
   --aparte-surface-1: #fffdf8;
@@ -569,7 +574,8 @@
    Dark Theme (App-controlled via attribute)
    Usage: <div data-aparte-theme="dark">...</div>
    ========================================= */
-[data-aparte-theme="dark"] {
+[data-aparte-theme="dark"],
+:host([data-aparte-theme="dark"]) {
   color-scheme: dark;
   /* Backgrounds */
   --aparte-bg: #17141c;
@@ -723,7 +729,6 @@ aparte-chat {
   --aparte-message-content-padding: var(--aparte-space-5) var(--aparte-space-7);
   --aparte-action-bar-gap: var(--aparte-space-2);
   --aparte-branch-picker-gap: var(--aparte-space-2);
-  --aparte-input-gap: var(--aparte-space-4);
   --aparte-waiting-dot-gap: var(--aparte-space-2);
   --aparte-elic-gap: var(--aparte-space-3);
   --aparte-elic-padding: var(--aparte-space-3) var(--aparte-space-2);
@@ -751,7 +756,6 @@ aparte-chat {
   --aparte-branch-picker-label-size: var(--aparte-font-size-sm);
   --aparte-input-font-size: var(--aparte-font-size-base);
   --aparte-content-font-size: var(--aparte-font-size-base);
-  --aparte-input-editor-font-size: var(--aparte-font-size-base);
   --aparte-status-font-size: var(--aparte-font-size-md);
 
   /* The button recipe's knobs. Derived, so a chat that moves --aparte-space-unit or
@@ -923,7 +927,6 @@ aparte-chat {
      written as a fallback at every reader, so a desktop composer was a 62px bar around
      15px of text and the coarse-pointer block had nothing left to enlarge. */
   --aparte-composer-control-size: var(--aparte-btn-size-lg);
-  --aparte-input-container-min-height: var(--aparte-touch-target-size);
   --aparte-elic-message-size: var(--aparte-font-size-base);
   --aparte-elic-title-size: var(--aparte-font-size-base);
   --aparte-elic-desc-size: var(--aparte-font-size-sm);
@@ -1044,7 +1047,6 @@ aparte-chat {
   /* Input */
   --aparte-input-bg: var(--aparte-surface-1);
   --aparte-input-border: var(--aparte-border);
-  --aparte-input-text: var(--aparte-text);
   --aparte-input-placeholder: var(--aparte-text-muted);
   --aparte-input-focus-border: var(--aparte-border-focus);
 

@@ -201,7 +201,7 @@ aparte-option[disabled] {
     height: var(--aparte-select-status-dot-size);
     border-radius: 50%;
     flex-shrink: 0;
-    margin-left: var(--aparte-space-4);
+    margin-inline-start: var(--aparte-space-4);
 }
 
 .aparte-status-dot[data-status="ready"] {

@@ -86,7 +86,7 @@ Most of the palette derives from a few base tokens, so a rebrand is short:
 ```
 
 :::note[Set the base, not the value it feeds]
-"Derives" is literal: **245 of core’s variables read another one.** `--aparte-input-bg` is
+"Derives" is literal: **241 of core’s variables read another one.** `--aparte-input-bg` is
 `var(--aparte-surface-1)`, `--aparte-radius-bubble` is `var(--aparte-radius-lg)`,
 `--aparte-avatar-bg-user` is `var(--aparte-primary)`. Those bases are read directly in 262
 places across the stylesheets *and* feed the rest, which is why a rebrand is eight lines.
@@ -227,7 +227,7 @@ Variables are grouped by region. The most-reached-for ones:
 `--aparte-action-bar-btn-hover-bg` / `-hover-color`.
 
 **Composer / input** — `--aparte-input-bg`, `--aparte-input-border`,
-`--aparte-input-text`, `--aparte-input-placeholder`,
+`--aparte-input-placeholder`,
 `--aparte-composer-control-size` (sizes the whole composer control row at once).
 
 **Segments** — the rich blocks with a group of their own: `--aparte-code-*`,

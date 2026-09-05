@@ -12,7 +12,8 @@ describe('aparteGlobalConfig', () => {
         it('should have default English locale', () => {
             const locale = aparteGlobalConfig.getLocale();
             expect(locale).toBeDefined();
-            expect(locale.direction).toBe('ltr');
+            // No direction: undefined means "follow the host", the way `tag` does.
+            expect(locale.direction).toBeUndefined();
             expect(locale.sendButton).toBe('Send');
         });
 

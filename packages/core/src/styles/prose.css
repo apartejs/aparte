@@ -54,7 +54,7 @@
 .aparte-segment-content ul,
 .aparte-thinking-content ul {
   list-style: disc;
-  padding-left: var(--aparte-prose-list-indent);
+  padding-inline-start: var(--aparte-prose-list-indent);
   margin: var(--aparte-prose-list-margin);
 }
 
@@ -62,7 +62,7 @@
 .aparte-segment-content ol,
 .aparte-thinking-content ol {
   list-style: decimal;
-  padding-left: var(--aparte-prose-list-indent);
+  padding-inline-start: var(--aparte-prose-list-indent);
   margin: var(--aparte-prose-list-margin);
 }
 
@@ -75,8 +75,8 @@
 .aparte-content blockquote,
 .aparte-segment-content blockquote,
 .aparte-thinking-content blockquote {
-  border-left: var(--aparte-prose-blockquote-border-width) solid var(--aparte-prose-blockquote-border);
-  padding-left: var(--aparte-prose-blockquote-indent);
+  border-inline-start: var(--aparte-prose-blockquote-border-width) solid var(--aparte-prose-blockquote-border);
+  padding-inline-start: var(--aparte-prose-blockquote-indent);
   margin: var(--aparte-prose-blockquote-margin);
   color: var(--aparte-text-muted);
   font-style: italic;

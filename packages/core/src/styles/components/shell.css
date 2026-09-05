@@ -130,7 +130,13 @@ aparte-chat[overlay-composer] .aparte-composer-shell,
    height applied at once — 494 → 816px in one frame, measured on the chat site
    (2026-09-05), where a new chat glided back over ~300ms. So under this mode the
    viewport keeps one size rule, a zero basis with no height, and the scroll chain is
-   the definite flex size instead. */
+   the definite flex size instead.
+
+   ELEMENT ONLY, where `overlay-composer` above enumerates three shapes: this mode is
+   documented as `<aparte-chat>`'s (guides/layout.mdx), and the wrappers reach the same
+   idea through `.aparte-chat-container--auto-center` (one rule, in composer.css). The
+   two answers differ on purpose — do not add the other two selectors here expecting
+   parity. */
 aparte-chat[center-empty] > aparte-chat-viewport {
   flex: 1 1 0%;
   height: auto;

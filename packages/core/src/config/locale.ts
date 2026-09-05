@@ -398,7 +398,23 @@ export type AparteLocale = {
      * have chosen French strings, French formatting is what you meant.
      */
     tag?: string;
-    /** Direction of the text (ltr or rtl) - defaults to ltr */
+    /**
+     * Reading direction — `'ltr'` or `'rtl'`. Written as `dir` onto the viewport's
+     * scroll container and onto `<aparte-composer>`, so everything inside inherits it.
+     *
+     * Undefined on purpose in the English default, for the reason `tag` above is:
+     * `undefined` means "follow the host". The default used to be the literal
+     * `'ltr'`, which meant core wrote `dir="ltr"` on its own DOM — so a page that
+     * had said `<html dir="rtl">` got a mirrored app shell around a chat that was
+     * still left-to-right, and nothing said why. Not declaring it lets the host's
+     * direction inherit, which is what a library should do with a decision the page
+     * has already taken.
+     *
+     * A locale that wants the direction PINNED still declares it, and that is the
+     * case it exists for: `@aparte/locale-ar` would say `'rtl'` whatever the page
+     * around it does. `setLocale` replaces the object wholesale, so nothing merges a
+     * default back in.
+     */
     direction?: 'ltr' | 'rtl';
 };
 
@@ -515,6 +531,5 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     scrollRailLabel: "Conversation outline",
     sidebarLabel: "Conversations",
     splitHandleLabel: "Resize the panes",
-    transcript: "Transcript",
-    direction: 'ltr'
+    transcript: "Transcript"
 };

@@ -18,8 +18,15 @@ describe('APARTE_DEFAULT_LOCALE', () => {
         expect(APARTE_DEFAULT_LOCALE.file).toBeDefined();
     });
 
-    it('should have ltr direction', () => {
-        expect(APARTE_DEFAULT_LOCALE.direction).toBe('ltr');
+    /**
+     * The English default declares NO direction, the way it declares no `tag`.
+     * Both writers (`aparte-chat-viewport`, `aparte-composer`) branch on the value,
+     * so `undefined` means "follow the host". It used to be the literal `'ltr'`, and
+     * core then wrote `dir="ltr"` onto its own DOM: a page that had said
+     * `<html dir="rtl">` got a mirrored app shell around a left-to-right chat.
+     */
+    it('declares no direction — undefined means follow the host', () => {
+        expect(APARTE_DEFAULT_LOCALE.direction).toBeUndefined();
     });
 
     it('should have English values', () => {

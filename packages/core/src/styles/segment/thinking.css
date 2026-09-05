@@ -50,7 +50,7 @@
 /* Text */
 .aparte-segment-thinking {
   /* Understated disclosure: a muted left rail, not a filled card. */
-  border-left: var(--aparte-thinking-rail-width) solid var(--aparte-thinking-border);
+  border-inline-start: var(--aparte-thinking-rail-width) solid var(--aparte-thinking-border);
   margin: var(--aparte-space-5) 0;
   background: transparent;
 }

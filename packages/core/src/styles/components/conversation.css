@@ -45,7 +45,11 @@
    text, and on the row the pointer is actually over. It takes the ACTIVE colour instead,
    which is the same value the selected row already uses (12.13 light, 11.71 dark) and so
    costs the design nothing it had not already decided. */
-.aparte-conv-item:hover {
+/* `:not(:disabled):not([aria-disabled])` for specificity, not meaning: the row wears
+   `aparte-menu__item`, whose own hover rule (menu.css, 0-4-0) beat this one (0-2-0) and
+   painted the menu recipe's fill — the sidebar's own ground, so a hovered row showed
+   nothing. Same weight, later sheet: the row's token wins. */
+.aparte-conv-item:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--aparte-conv-item-bg-hover);
   color: var(--aparte-conv-item-color-active);
 }
@@ -67,18 +71,29 @@
   cursor: pointer;
 }
 
-/* Inside the edge: the list clips horizontally (`overflow-x: hidden` in base.css), and
-   a ring drawn outside the row was cut on both sides. */
-/* Keyboard focus on a row IS the hover: the whole row lifts, the way ChatGPT's and
-   Claude's lists do. A ring drew the title button's box alone — the ⋯ outside it, the
-   ring's end hidden under the ⋯ — and a rectangle inside a rounded row read as a
-   mistake (the chat-site review, 2026-09-05). The row is what the person is on. */
+/* Keyboard focus is drawn on the ROW, not on the title button inside it: the button's
+   own box left the ⋯ outside the ring and hid the ring's end under it, and a rectangle
+   inside a rounded row read as a mistake (the chat-site review, 2026-09-05). So the
+   button's ring is suppressed and the row draws one of its own.
+
+   The row also lifts — but the lift alone is not the indicator. Measured, it is
+   `--aparte-surface-3`, a 6% tint: 1.12:1 against a neighbouring row in light and
+   1.18:1 in dark, where SC 1.4.11 asks 3:1 of anything that says which row Enter
+   opens. The ring carries that job (4.72:1 light, 5.79:1 dark) and the lift stays as
+   the warmth.
+
+   Inset by its own width, not offset outward: the list clips horizontally
+   (`overflow-x: hidden` in base.css) and a ring outside the row was cut on both sides
+   — which is why it was removed rather than kept. Inside, it follows the row's own
+   radius. Same token, same colour, same 1px as every other ring in the kit. */
 .aparte-conv-item__select:focus-visible {
   outline: none;
 }
 .aparte-conv-item:has(.aparte-conv-item__select:focus-visible) {
   background: var(--aparte-conv-item-bg-hover);
   color: var(--aparte-conv-item-color-active);
+  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
+  outline-offset: calc(-1 * var(--aparte-focus-outline-width));
 }
 
 .aparte-conv-item__title {

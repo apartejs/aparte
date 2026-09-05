@@ -56,7 +56,9 @@ const KEY_FLOOR = 75;
  * the right default for a library. Anything else added here needs the same kind of
  * sentence — a key with no value renders an empty string.
  */
-const NO_DEFAULT = new Set(['tag']);
+// `tag` and `direction` are undefined on purpose: "follow the host" — a locale that pins them
+// writes `lang` and `dir`; the default writes neither.
+const NO_DEFAULT = new Set(['tag', 'direction']);
 
 const problems = [];
 

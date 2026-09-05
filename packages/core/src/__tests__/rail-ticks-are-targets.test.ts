@@ -138,3 +138,28 @@ describe('the rail is a capped list, centred on the transcript', () => {
     });
 });
 
+
+/*
+ * …and the indicator has to mark the same zone (the CSS/a11y audit, 2026-09-05 — M8).
+ *
+ * `outline` paints on the ELEMENT's border box, never on a pseudo-element's, and the
+ * tick's element box is the 14×2 line it draws. Measured: the ring came out 16×4,
+ * floating in the middle of the 24×24 zone the pointer uses — for the indicator a
+ * keyboard user follows down the whole transcript, since the rail implements roving
+ * focus. At 4.72:1 it satisfied SC 1.4.11 and SC 2.4.7; the shortfall was area, i.e.
+ * AAA SC 2.4.13. Two lines either way, so it moved onto the `::before` that already
+ * computes the zone.
+ */
+describe('the ring marks the zone, not the line', () => {
+    it('draws nothing on the tick itself', () => {
+        expect(rule(rail, '.aparte-scroll-rail__tick:focus-visible')).toMatch(/outline:\s*none/);
+    });
+
+    it('draws the kit’s ring on the pressable zone', () => {
+        const ring = rule(rail, '.aparte-scroll-rail__tick:focus-visible::before');
+        expect(ring, 'the ring is not on the ::before').toBeTruthy();
+        expect(ring).toMatch(/outline:\s*var\(--aparte-focus-outline-width\)\s+solid\s+var\(--aparte-border-focus\)/);
+        expect(ring).toMatch(/outline-offset:\s*var\(--aparte-focus-outline-offset\)/);
+        expect(ring, 'a square ring around a rounded zone').toMatch(/border-radius:/);
+    });
+});

@@ -105,20 +105,34 @@ describe('a live locale switch reaches a mounted bubble', () => {
 });
 
 describe('a live locale switch reaches a mounted viewport', () => {
+    /**
+     * The English default declares no direction, so core writes no `dir` at all and
+     * the host's own reading direction inherits. The default used to be `'ltr'` and
+     * core stamped it, which overrode a page that had said `<html dir="rtl">`.
+     */
+    it('writes no dir under the default locale, so the host direction inherits', () => {
+        const vp = mount('aparte-chat-viewport');
+        expect(vp.querySelector('.aparte-viewport-container')!.hasAttribute('dir')).toBe(false);
+    });
+
     it('flips the reading direction to RTL without a reload', () => {
         const vp = mount('aparte-chat-viewport');
-        const container = vp.querySelector('.aparte-viewport-container')!;
-        expect(container.getAttribute('dir')).toBe('ltr');
 
         aparteGlobalConfig.setLocale(AR);
 
         expect(vp.querySelector('.aparte-viewport-container')!.getAttribute('dir')).toBe('rtl');
     });
 
-    it('and back to LTR', () => {
+    it('and back to nothing — the attribute is removed, not reset to ltr', () => {
         const vp = mount('aparte-chat-viewport');
         aparteGlobalConfig.setLocale(AR);
         aparteGlobalConfig.resetLocale();
+        expect(vp.querySelector('.aparte-viewport-container')!.hasAttribute('dir')).toBe(false);
+    });
+
+    it('honours a locale that pins LTR — the case the field exists for', () => {
+        const vp = mount('aparte-chat-viewport');
+        aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, direction: 'ltr' });
         expect(vp.querySelector('.aparte-viewport-container')!.getAttribute('dir')).toBe('ltr');
     });
 });
@@ -131,20 +145,24 @@ describe('a live locale switch reaches a mounted composer', () => {
      * toolbar's documented placement idiom (`margin-inline-start: auto`) actually work:
      * a logical property in a subtree that inherits no direction is a no-op.
      */
+    it('writes no dir under the default locale', () => {
+        const composer = mount('aparte-composer');
+        expect(composer.hasAttribute('dir')).toBe(false);
+    });
+
     it('flips the composer to RTL without a reload', () => {
         const composer = mount('aparte-composer');
-        expect(composer.getAttribute('dir')).toBe('ltr');
 
         aparteGlobalConfig.setLocale(AR);
 
         expect(composer.getAttribute('dir')).toBe('rtl');
     });
 
-    it('and back to LTR', () => {
+    it('and back to nothing — the attribute is removed, not reset to ltr', () => {
         const composer = mount('aparte-composer');
         aparteGlobalConfig.setLocale(AR);
         aparteGlobalConfig.resetLocale();
-        expect(composer.getAttribute('dir')).toBe('ltr');
+        expect(composer.hasAttribute('dir')).toBe(false);
     });
 
     it('carries the direction to a toolbar inside it — the row the idiom targets', () => {

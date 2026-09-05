@@ -31,14 +31,6 @@
   min-height: var(--aparte-action-bar-btn-size);
 }
 
-/* Action slots */
-.aparte-actions-left,
-.aparte-actions-right {
-  display: flex;
-  align-items: center;
-  gap: var(--aparte-space-2);
-  flex-shrink: 0;
-}
 
 .aparte-dots {
   display: flex;

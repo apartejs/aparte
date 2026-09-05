@@ -141,9 +141,18 @@ aparte-scroll-rail[data-empty] {
   background: var(--aparte-primary);
 }
 
+/* The ring goes on the ::before, because `outline` paints on the ELEMENT's border box
+   and this element is a 14×2 line: the indicator for a 24×24 target came out 16×4,
+   a hairline floating in the middle of the zone the pointer uses. The zone is already
+   computed above; drawing the ring on it costs nothing and marks the thing that is
+   actually pressable. Same width, same colour, same offset as every other ring. */
 .aparte-scroll-rail__tick:focus-visible {
+  outline: none;
+}
+.aparte-scroll-rail__tick:focus-visible::before {
   outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
   outline-offset: var(--aparte-focus-outline-offset);
+  border-radius: var(--aparte-radius-sm);
 }
 
 @media (prefers-reduced-motion: reduce) {
