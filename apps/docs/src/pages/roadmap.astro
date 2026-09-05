@@ -1,4 +1,7 @@
 ---
+import { bundled } from '../lib/bundled-model';
+// The titler model, measured — a hand-typed figure here once disagreed with the model page's own.
+const TITLER = bundled('@aparte/titler-latin');
 import { readFileSync, readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import Landing from '../layouts/Landing.astro';
@@ -196,7 +199,7 @@ const ROADMAP_IMAGE_ALT =
                   <li>Compaction left core for <code>@aparte/plugin-compaction</code>.</li>
                   <li><code>@aparte/plugin-artifacts</code> &#8212; the artifact card as a tool renderer, and as a stream block.</li>
                   <li>The <code>ask_user</code> rework, and <code>@aparte/plugin-approval</code>.</li>
-                  <li>A title for every conversation: the manager takes a <b>title provider</b>, and <code>@aparte/plugin-titler</code> binds one to <a href="/models/titler/">a 132 KB model that runs in the browser</a>, in 17 languages.</li>
+                  <li>A title for every conversation: the manager takes a <b>title provider</b>, and <code>@aparte/plugin-titler</code> binds one to <a href="/models/titler/">a {TITLER.kb} KB model that runs in the browser</a>, in 17 languages.</li>
                   <li>The scroll rail measured against the market and reworked: a list of ticks capped at a share of the transcript, centred on it, and a jump that lands where it aimed.</li>
                 </ul>
               </div>

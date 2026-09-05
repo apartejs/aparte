@@ -1,9 +1,6 @@
 ---
-import { readFileSync, statSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import Landing from '../../layouts/Landing.astro';
+import { bundled } from '../../lib/bundled-model';
 
 /*
  * The product page of aparte-titler, the first model aparté publishes.
@@ -27,19 +24,7 @@ import Landing from '../../layouts/Landing.astro';
  *      demo that let the reader believe otherwise would be selling something else.
  */
 
-/**
- * The three bundled models the site installs. `process.cwd()` is the Astro project root
- * (apps/docs) however this builds — the anchor roadmap.astro uses, for the reason it
- * gives: counting `../` from `import.meta.url` broke the day Astro prerendered from
- * bundled chunks.
- */
-const require = createRequire(pathToFileURL(`${process.cwd()}/`).href);
-function bundled(pkg: string, languages: string[]) {
-    const file = require.resolve(`${pkg}/model`);
-    const root = resolve(dirname(file), '..');
-    const version: string = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
-    return { pkg, languages, version, kb: Math.round(statSync(file).size / 1000) };
-}
+/** The three bundled models the site installs, measured by the shared `bundled()` helper. */
 const LATIN_LANGS = ['en', 'fr', 'es', 'de', 'pt', 'it', 'nl', 'pl', 'sv', 'da', 'fi', 'cs', 'ro', 'no', 'hu', 'hr', 'lt'];
 const LATIN = bundled('@aparte/titler-latin', LATIN_LANGS);
 const MINI = bundled('@aparte/titler-latin-mini', LATIN_LANGS);
@@ -104,7 +89,7 @@ const IMAGE_ALT =
         <div class="demo-out">
           <p class="lab">Your sidebar, a moment later</p>
           <div class="side" data-tl-side>
-            <aparte-conversation-list no-groups active-id="tl-demo"></aparte-conversation-list>
+            <aparte-conversation-list flat active-id="tl-demo"></aparte-conversation-list>
           </div>
           <p class="meter" aria-live="polite" data-tl-state>Loading the model, {LATIN.kb} KB&hellip;</p>
         </div>

@@ -82,7 +82,16 @@ const lines = css.split(/\r?\n/);
 // AND the derived layer split out of it. The dark block is correctly skipped: it holds
 // overrides, not the token list. Reading only the first block is what dropped ten
 // tokens off this page; see the header.
+//
+// One of these blocks is also the ANCHORED layer: its selector list ends
+// `..., aparte-chat` (theme.css's own comment calls it "re-anchored, on purpose") and
+// core re-declares every token inside it on `:root, :host, [data-aparte-theme],
+// [data-aparte-host], aparte-chat` — so a `:root`-only override of one of THESE never
+// reaches inside a chat (a local declaration always beats an inherited one). Its lines
+// are captured separately so the reference can tell a reader which is which, the same
+// way it already marks a token nothing reads.
 const body = [];
+const anchoredBody = [];
 for (let i = 0; i < lines.length; i++) {
   // Column ZERO, and that word is the fix. The pattern used to allow leading
   // whitespace, so the `:root` nested inside `responsive.css`'s
@@ -95,12 +104,41 @@ for (let i = 0; i < lines.length; i++) {
   if (!/^:root\b/.test(lines[i])) continue;
   let j = i;
   while (j < lines.length && !lines[j].includes('{')) j++;
+  const isAnchored = /\baparte-chat\b/.test(lines.slice(i, j + 1).join(' '));
   j++; // step past the opening `{`
-  for (; j < lines.length && !/^\}/.test(lines[j]); j++) body.push(lines[j]);
+  for (; j < lines.length && !/^\}/.test(lines[j]); j++) {
+    body.push(lines[j]);
+    if (isAnchored) anchoredBody.push(lines[j]);
+  }
   i = j;
 }
 
 const TOKEN = /^\s*(--aparte-[\w-]+)\s*:\s*(.+?);\s*(?:\/\*\s*(.*?)\s*\*\/)?\s*$/;
+
+/**
+ * The anchored block's own token NAMES, comments blanked first. Two lines inside it
+ * are prose that happens to look like a declaration — a note reading "`--aparte-primary`
+ * everywhere, e.g. `--aparte-space-unit:3px`" and a mention of `--aparte-scroll-btn-shadow`
+ * — and a naive per-line regex counts both, which is exactly the bug this audit's own
+ * harness shipped with once (two false positives, 247 instead of 245). Comments are
+ * full CSS comments here, possibly spanning several lines, so they are walked and
+ * skipped as a block rather than matched line by line.
+ */
+function declaredTokenNames(bodyLines) {
+  const names = new Set();
+  for (let i = 0; i < bodyLines.length; i++) {
+    if (/^\s*\/\*/.test(bodyLines[i])) {
+      let end = i;
+      while (end < bodyLines.length && !bodyLines[end].includes('*/')) end++;
+      i = end;
+      continue;
+    }
+    const tok = bodyLines[i].match(TOKEN);
+    if (tok) names.add(tok[1]);
+  }
+  return names;
+}
+const ANCHORED = declaredTokenNames(anchoredBody);
 
 /**
  * ## How a comment finds the variable it is about
@@ -348,9 +386,11 @@ sidebar:
 <!-- AUTO-GENERATED from packages/core/src/styles/ (every sheet src/index.ts imports) by apps/docs/scripts/gen-css-vars.mjs — do not edit by hand. Run \`pnpm --filter @aparte-workspace/docs gen:css-vars\` to refresh. -->
 
 Every \`--aparte-*\` variable aparté declares or reads — **${total + componentTokens.length}**
-in total: ${total} declared in the stylesheet's \`:root\` and ${componentTokens.length} read by a
-component with a built-in default. Override any of them as shown in
-[Theming](/guides/theming). Both halves are swept from the source on every build.
+in total: ${total - ANCHORED.size} declared once on \`:root\`, ${ANCHORED.size} declared on the
+**anchored layer** (\`:root, :host, [data-aparte-theme], [data-aparte-host], aparte-chat\`) and
+${componentTokens.length} read by a component with a built-in default. A row marked
+**anchored** must be overridden on \`aparte-chat\` or a theme boundary, not on \`:root\` — see
+[Theming](/guides/theming/). Both halves are swept from the source on every build.
 
 A row marked **palette only** is declared but read by nothing in aparté: it is there
 for your own CSS to reference (\`--aparte-bg\` is the page background *your app*
@@ -372,9 +412,10 @@ for (const g of groups) {
   if (!g.tokens.length) continue;
   md += `| Variable | Default | Notes |\n| --- | --- | --- |\n`;
   for (const t of g.tokens) {
-    const note = unread.has(t.name)
-      ? [t.note, '**palette only**'].filter(Boolean).join(' — ')
-      : t.note;
+    const markers = [];
+    if (unread.has(t.name)) markers.push('**palette only**');
+    if (ANCHORED.has(t.name)) markers.push('**anchored**');
+    const note = [t.note, ...markers].filter(Boolean).join(' — ');
     md += `| \`${esc(t.name)}\` | \`${esc(t.value)}\` | ${esc(note)} |\n`;
   }
 }

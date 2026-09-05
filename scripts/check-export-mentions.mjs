@@ -120,7 +120,7 @@ const MAX_UNMENTIONED = new Map([
     // Ratcheted 76 → 66 by the generated events reference. It names every event-detail
     // interface in one place, which is ten types that were exported, typed in the event
     // map, and named on no page a reader opens.
-    ['@aparte/core', 66],      // of 200 exports checked
+    ['@aparte/core', 51],      // of 200 exports checked
     ['@aparte/react', 6],
     ['@aparte/vue', 2],
     ['@aparte/svelte', 3],

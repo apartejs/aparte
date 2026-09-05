@@ -95,10 +95,11 @@ Pass a per-instance `config` prop to scope providers/transport to a single `<Apa
 `aparteGlobalConfig`.
 
 :::note
-`createAparteClient` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
-agent loop** instead of core's inline one, inject it:
-`createAparteClient({ streamRunner: runStreamAgent })` from [`@aparte/engine`](/guides/engine/) — an
-optional swap-in, not required. With the client mounted, switch the retry/edit buttons on —
+`createAparteClient` accepts the full `AparteClientOptions`. The loop is already
+`@aparte/engine`'s `runStreamAgent` — there is nothing to inject to get it. `streamRunner`
+is the seam for wrapping its options or replacing it with a loop of your own:
+`createAparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }) })` —
+see [the `streamRunner` seam](/guides/engine/#the-streamrunner-seam). With the client mounted, switch the retry/edit buttons on —
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 For file uploads add the `attachments` prop (off by default) —
@@ -109,6 +110,16 @@ your own. The root element (`[data-aparte-chat]`) takes `class` and `style`, mer
 core's own class, so `<AparteChat class="flex-1 min-h-0" />` sizes the chat column with
 utilities.
 :::
+
+For a wait of your own — independent of what the client is doing, e.g. while your own store
+is still answering — pass `loading`:
+
+```svelte
+<AparteChat loading={isFetchingHistory} />
+```
+
+See [the wrapper reference](/reference/wrappers/#props) for the same prop in React, Vue
+and Angular.
 
 ## Any aparté element: typed in the markup
 

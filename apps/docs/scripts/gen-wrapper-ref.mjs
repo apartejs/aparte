@@ -71,6 +71,34 @@ for (const slot of slots) {
 }
 
 /*
+ * The `loading` prop — cited once, in one guide, with no table of its own, which is
+ * exactly the defect this whole page exists to fix for slots and callbacks. Hand-listed
+ * rather than read from wrapper-surface.mjs: it is the only prop this page covers today,
+ * so a shared reader built for one row would teach nothing a literal doesn't already say.
+ */
+const props = [
+    {
+        prop: 'loading',
+        summary: 'Draw the wait yourself while your store answers; the controller sets it for its own fetches.',
+        react: 'loading={…}',
+        vue: ':loading',
+        svelte: 'loading',
+        angular: '[loading]',
+    },
+];
+
+md += `
+## Props
+
+| Prop | React | Vue | Svelte | Angular |
+| --- | --- | --- | --- | --- |
+`;
+for (const p of props) {
+    md += `| \`${esc(p.prop)}\` | \`${esc(p.react)}\` | \`${esc(p.vue)}\` | \`${esc(p.svelte)}\` | \`${esc(p.angular)}\` |\n`;
+}
+md += `\n${props.map((p) => p.summary).join(' ')}\n`;
+
+/*
  * The callbacks, for the same reason and against the same defect one column over: four of
  * the six were named in prose on the ANGULAR page alone, so three framework pages
  * documented a third of the surface and nothing could notice. Generated from the same

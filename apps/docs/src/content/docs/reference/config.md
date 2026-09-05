@@ -96,7 +96,7 @@ See the [Localization](/guides/localization/) guide.
 - `getIconProvider(): Required<AparteIconProvider>` — the registered provider, or a fallback built from `APARTE_DEFAULT_ICON_FALLBACKS`. `Required<>` is the point: every key resolves, so a caller never null-checks a glyph.
 - `getIcon(name: AparteIconName): string` — HTML for one icon by name, falling back to the built-in default.
 
-A loading placeholder is a CSS recipe, not a provider: `.aparte-skeleton` (with `--text`, `--circle`, `--rect`) in the [classes reference](/reference/classes/#skeleton). Core never asks for one — nothing it renders has a loading state that is not the message itself — so there is no `setSkeletonProvider` to call.
+A loading placeholder is a CSS recipe, not a provider: `.aparte-skeleton` (with `--text`, `--circle`, `--rect`) in the [classes reference](/reference/classes/#skeleton). Core draws it itself where it has a wait — `<aparte-chat-viewport loading>` puts up two skeleton turns, `<aparte-conversation-list loading>` six rows — and asks no provider for it, so there is no `setSkeletonProvider` to call. Restyle the class to change both.
 
 ### Actions
 
@@ -162,11 +162,11 @@ See the [Conversation persistence](/guides/conversation-persistence/) guide.
 
 ### Elicitation (human-in-the-loop)
 
-- `setElicitationPresenter(presenter: AparteElicitationPresenter | null): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default.
+- `setElicitationPresenter(presenter: AparteElicitationPresenter | null, owner?: HTMLElement): void` — register the presenter that renders a typed input request (choice / confirmation / text field / form) and resolves with the user's answer. `<aparte-elicitation>` registers itself here by default. `owner` ties the registration to one element, which is what lets `removeElicitationPresenter` withdraw a single mounted chat's presenter.
 - `getElicitationPresenter(): AparteElicitationPresenter | undefined` — the registered presenter, if any.
 - `removeElicitationPresenter(presenter: AparteElicitationPresenter): void` — withdraw ONE presenter by identity, leaving the others registered. This is what an unmounting `<aparte-elicitation>` needs: `setElicitationPresenter(null)` clears the slot and takes every other mounted chat's presenter with it. Removing one that is not registered is a no-op.
 - `setElicitationOptions(options: { allowOther?: boolean; layout?: 'stepped' | 'stacked'; answerOnClick?: boolean }): void` — how the built-in panel presents a request: whether a free-text "other" answer is offered alongside the choices, whether questions come one at a time or all at once, and whether a single choice answers on the click (buttons, the default) or keeps its radios and the composer's button.
-- `getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked' }` — the options in force, both resolved.
+- `getElicitationOptions(): { allowOther: boolean; layout: 'stepped' | 'stacked'; answerOnClick: boolean }` — the options in force, all three resolved.
 - `setElicitationFieldRenderer(fn: AparteElicitationFieldRenderer | null): void` — draw one field of the panel yourself; `null` restores the built-in.
 - `getElicitationFieldRenderer(): AparteElicitationFieldRenderer | undefined` — the registered field renderer, if any.
 - `requestUserInput(request: AparteElicitationRequest): Promise<AparteElicitationResult>` — ask the user for typed input mid-run; resolves `{ action: 'accept' | 'decline', ... }`, or **rejects** with `AparteElicitationAbortError` when the request ends without an answer (a stopped turn, a fired signal, the question taken away, or no presenter mounted — `err.reason` tells the last one apart from the others). One request reaches the presenter at a time; a second one waits.
@@ -219,6 +219,7 @@ Constructor options (all optional):
 | `scopeToTargetId` | `string` | Scope this client instance to one target id, for multiple independent conversations on one page. |
 | `maxTurns` | `number` (default `10`) | Max agentic tool-call loop turns before the loop is forcibly stopped. |
 | `toolTimeoutMs` | `number` (default `300000` — 5 min) | Per-call ceiling for a tool handler to resolve before its `AbortSignal` fires. Same name and same default as `runStreamAgent`, so the value means one thing whichever loop runs. |
+| `echoUserMessage` | `boolean` (default `true`) | Whether a send appends the optimistic USER bubble before the reply streams. Pass `false` when your host owns its transcript and appends the user message itself — the four framework wrappers do. The wire cannot double either way: the history builder already excludes trailing unanswered user messages. |
 | `rawFileInject` | `'all' \| 'images-only' \| 'none'` (default `'all'`) | Which attached files are injected as raw content parts vs. left to the app layer (e.g. a RAG pipeline). |
 | `config` | `AparteConfig` | The config instance this client reads. Defaults to `aparteGlobalConfig`. |
 

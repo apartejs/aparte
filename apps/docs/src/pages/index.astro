@@ -7,6 +7,9 @@ import { SEGMENT_KINDS } from '../data/segment-kinds';
 // The same list `check:derived-vars` and the CSS-variables reference read, so this page
 // cannot count a corpus the rest of the repo has stopped using.
 import { coreStylesheets } from '../../../../scripts/core-stylesheets.mjs';
+// Same helper `models/titler.astro` measures its models with, so the two pages cannot
+// quote two different weights for the one file the site installs.
+import { bundled } from '../lib/bundled-model';
 
 /*
  * The landing page.
@@ -231,6 +234,10 @@ const PRIMARY_DERIVED = PRIMARY.derived;
  *  cards echo it, which is what makes ten boxes read as one enumeration. */
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
 
+/** The titler model's weight, read from the same file `models/titler.astro` measures —
+ *  one hand-typed "132 KB" here once disagreed with that page's own 133. */
+const TITLER = bundled('@aparte/titler-latin');
+
 /** The five demo tabs. `caption` is what the panel is showing; the source for
  *  each lives as a real <pre> in the markup, not a string built in JS. */
 const DEMOS = [
@@ -275,7 +282,7 @@ const FAMILIES = [
       { pkg: '@aparte/plugin-approval', line: 'Approval modes for tool calls — plan, ask, auto-edit, auto — from a classification of your own tool names.' },
       { pkg: '@aparte/plugin-artifacts', line: 'A document the model writes, shown as a Code/Preview card; the preview runs in a sandboxed iframe.' },
       { pkg: '@aparte/plugin-compaction', line: 'Context compaction: the transcript is summarised in place when the window fills, on request or automatically.' },
-      { pkg: '@aparte/plugin-titler', line: 'A title for every conversation from its first message, in 17 languages, from a model that weighs 132 KB and runs in the browser.' },
+      { pkg: '@aparte/plugin-titler', line: `A title for every conversation from its first message, in 17 languages, from a model that weighs ${TITLER.kb} KB and runs in the browser.` },
     ],
   },
   {

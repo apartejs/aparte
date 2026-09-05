@@ -361,6 +361,8 @@ registerAllComponents();                       // safe to call more than once
 // The host takes its binding up front: you own the message list, it drives the DOM.
 const chat = document.querySelector('aparte-chat')!;
 let messages: AparteMessage[] = [];
+let waiting = false;                            // your own wait indicator, e.g. a spinner
+const setWaiting = (on: boolean) => { waiting = on; };
 
 const host = new AparteChatHost({
   hostId: uuid(),
@@ -372,6 +374,7 @@ const host = new AparteChatHost({
   // next frame is the honest answer — the host uses it to measure, not to poll.
   afterRender: (cb) => void requestAnimationFrame(() => cb()),
   onMessagesChange: (next) => void next,       // your framework's re-render
+  onLoadingChange: (on) => setWaiting(on),     // draw your own wait; the viewport's `loading` attribute is set either way
 });
 const release = host.bind();                   // returns its own unbind
 

@@ -128,10 +128,11 @@ stays a leaf with no plugin catalog. Pass a per-instance `[config]` to scope pro
 single `<aparte-chat>` instead of `aparteGlobalConfig`.
 
 :::note
-`clientOptions` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
-agent loop** instead of core's inline one, inject it:
-`provideAparte({ clientOptions: { streamRunner: runStreamAgent } })` from
-[`@aparte/engine`](/guides/engine/) — an optional swap-in, not required. For file uploads add
+`clientOptions` accepts the full `AparteClientOptions`. The loop is already
+`@aparte/engine`'s `runStreamAgent` — there is nothing to inject to get it. `streamRunner`
+is the seam for wrapping its options or replacing it with a loop of your own:
+`provideAparte({ clientOptions: { streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }) } })` —
+see [the `streamRunner` seam](/guides/engine/#the-streamrunner-seam). For file uploads add
 `attachments` to `<aparte-chat>` (off by default) — see [Attachments](/guides/attachments/).
 The `<aparte-elicitation>` presenter — what the built-in approval gate and `requestUserInput()`
 ask through — renders inside the host **by default**, as in core's `<aparte-chat>`; bind
@@ -142,6 +143,16 @@ ask through — renders inside the host **by default**, as in core's `<aparte-ch
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })` — they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 :::
+
+For a wait of your own — independent of what the client is doing, e.g. while your own store
+is still answering — bind `[loading]`:
+
+```html
+<aparte-chat [loading]="isFetchingHistory"></aparte-chat>
+```
+
+See [the wrapper reference](/reference/wrappers/#props) for the same prop in React, Vue
+and Svelte.
 
 ## Any aparté element: a typed directive
 

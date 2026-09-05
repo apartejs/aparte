@@ -372,6 +372,11 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
   // types has to be stated once, plainly, at the top.
   md += `\`<${tag}>\`${parts.length ? ` — with ${parts.length} part${parts.length > 1 ? 's' : ''}: ${parts.map((p) => `\`<${p}>\``).join(', ')}` : ''}\n\n`;
 
+  // Named once, plainly: the export guard's Tier 1 measures the DOM-free barrel and
+  // cannot see an element class, so the only way a reader (or a future widening of that
+  // guard) finds the class this tag is backed by is a page saying so in words.
+  md += `Class: \`${decl.name}\`\n\n`;
+
   if (description) md += `${mdxSafe(description)}\n\n`;
 
   // Sections STACKED, not tabbed. Usage/API/Theming were three `<Tabs>` panels, which put
@@ -389,9 +394,15 @@ import ElementPreview from '../../../../components/ElementPreview.astro';
   const ex = exampleBlocks(decl);
   md += ex ? `\n### Example\n${ex}` : '';
   for (const p of parts) {
-    const pex = exampleBlocks(byTag.get(p).decl);
-    const pdesc = String(byTag.get(p).decl.description ?? '').trim();
+    const pDecl = byTag.get(p).decl;
+    const pex = exampleBlocks(pDecl);
+    const pdesc = String(pDecl.description ?? '').trim();
     md += `\n### ${humanName(p)}\n\n\`<${p}>\`\n\n`;
+    // A part is folded into its primitive's page rather than getting one of its own
+    // (see PARTS above), so its class name has nowhere else to be printed — and Tier 1
+    // of the export guard cannot see it either (it reads the DOM-free barrel), so this
+    // line is the one place a reader learns it.
+    md += `Class: \`${pDecl.name}\`\n\n`;
     if (pdesc) md += `${mdxSafe(pdesc)}\n`;
     md += pex;
   }

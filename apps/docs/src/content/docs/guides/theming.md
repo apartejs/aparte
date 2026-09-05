@@ -145,8 +145,14 @@ a themed subtree, a `[data-aparte-host]` boundary, or one element:
 
 That single attribute moves this chat's send button, its user avatar, its focus ring, its
 input's focus border and its progress fill, and leaves every other chat on the page alone.
-A derived variable is still yours to set on its own when you want one to break ranks — a
-value you declare always wins over the one it would have derived.
+A derived variable is still yours to set on its own — declare it where core does. Core
+re-declares its 245 derived tokens on `:root, :host, [data-aparte-theme],
+[data-aparte-host], aparte-chat`, and a custom property declared on an element beats the
+one it would have inherited: a `:root` value for a derived token never reaches inside a
+chat. Set the master it reads (`--aparte-primary`, `--aparte-space-unit`,
+`--aparte-radius-unit`, `--aparte-btn-size-md|lg`, `--aparte-font-scale`), or declare the
+derived token on `aparte-chat` / `[data-aparte-theme]` itself. The
+[CSS variables](/reference/css-variables/) reference marks which is which.
 :::
 
 :::note[`--aparte-bg` is yours to paint]
@@ -175,7 +181,7 @@ and the whole UI re-spaces or re-sizes coherently.
 
 ```css
 /* A denser, squarer chat. */
-:root {
+aparte-chat, [data-aparte-theme] {
   --aparte-space-6: 8px;      /* pull the default 12px paddings/gaps in */
   --aparte-radius-lg: 4px;    /* squarer bubbles, inputs, cards */
 }
@@ -242,7 +248,7 @@ By convention the assistant is plain full-width prose (like ChatGPT / Claude) an
 user message is a bubble. To make both sides bubbles:
 
 ```css
-:root {
+aparte-chat, [data-aparte-theme] {
   --aparte-message-content-bg-assistant: var(--aparte-surface-2);
   --aparte-message-content-text-assistant: var(--aparte-text);
 }
@@ -253,7 +259,7 @@ user message is a bubble. To make both sides bubbles:
 Every composer control (input height + buttons) derives from a single token:
 
 ```css
-:root { --aparte-composer-control-size: 52px; }  /* a chunkier composer */
+aparte-chat { --aparte-composer-control-size: 52px; }  /* a chunkier composer */
 ```
 
 ### Swap the code font

@@ -80,15 +80,26 @@ Pass a per-instance `config` prop to scope providers/transport to a single `<Apa
 `aparteGlobalConfig`.
 
 :::note
-`useAparteClient` accepts the full `AparteClientOptions`. To drive the chat with the **standalone
-agent loop** instead of core's inline one, inject it:
-`useAparteClient({ streamRunner: runStreamAgent })` from [`@aparte/engine`](/guides/engine/) — an
-optional swap-in, not required. With the client mounted, switch the retry/edit buttons on —
+`useAparteClient` accepts the full `AparteClientOptions`. The loop is already
+`@aparte/engine`'s `runStreamAgent` — there is nothing to inject to get it. `streamRunner`
+is the seam for wrapping its options or replacing it with a loop of your own:
+`useAparteClient({ streamRunner: (opts) => runStreamAgent({ ...opts, maxTurns: 4 }) })` —
+see [the `streamRunner` seam](/guides/engine/#the-streamrunner-seam). With the client mounted, switch the retry/edit buttons on —
 `aparteGlobalConfig.setBubbleActions({ retry: true, edit: true })`; they ship off because without a
 host they do nothing (see [What ships enabled](/guides/customization/#what-ships-enabled)).
 For file uploads add the `attachments` prop (off by default) —
 see [Attachments](/guides/attachments/).
 :::
+
+For a wait of your own — independent of what the client is doing, e.g. while your own store
+is still answering — pass `loading`:
+
+```tsx
+<AparteChat loading={isFetchingHistory} />
+```
+
+See [the wrapper reference](/reference/wrappers/#props) for the same prop in Vue, Svelte
+and Angular.
 
 The `<aparte-elicitation>` presenter — what the built-in approval gate and `requestUserInput()`
 ask through — renders inside the host **by default**, as it does in `<aparte-chat>`; pass

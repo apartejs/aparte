@@ -33,7 +33,7 @@ The [components reference](/components/) is generated from the same manifest, pa
 
 ## The events
 
-Forty typed events, all kebab-case and prefixed `aparte-`. Frozen: the name, and the shape of `detail` (a field may be added if optional; none is removed or renamed).
+Forty typed events, all kebab-case and prefixed `aparte-`. Frozen: the name, and the shape of `detail` (a field may be added if optional; none is removed or renamed). Six more carry no `detail` at all and are deliberately absent from `AparteEventMap` — `aparte-cancel`, `aparte-composer-submit`, `aparte-reset`, `aparte-reset-done`, `aparte-select-open`, `aparte-select-close`: their **names** freeze the same way, which is what matters for `aparte-reset`, a command your app dispatches by name.
 
 `aparte-send`, `aparte-retry`, `aparte-edit`, `aparte-action`, `aparte-path-changed`, `aparte-branch-navigate`, `aparte-link-click`, `aparte-feedback`, `aparte-message-info`, `aparte-message-done`, `aparte-model-change`, `aparte-approval-mode-change`, `aparte-tool-approval-request`, `aparte-composer-change`, `aparte-select-change`, `aparte-segment-update`, `aparte-conversation-select`, `aparte-conversation-delete`, `aparte-conversation-archive`, `aparte-conversation-unarchive`, `aparte-conversation-rename`, `aparte-conversation-pin`, `aparte-conversation-unpin`, `aparte-message-start`, `aparte-message-error`, `aparte-message-aborted`, `aparte-abort`, `aparte-compact`, `aparte-compact-start`, `aparte-compact-done`, `aparte-compact-error`, `aparte-attachment-preview`, `aparte-action-click`, `aparte-suggestion`, `aparte-context-threshold`, `aparte-scroll-rail-jump`, `aparte-sidebar-toggle`, `aparte-split-resize`, `aparte-optgroup-toggle`, `aparte-config-change`.
 
@@ -41,7 +41,7 @@ The [events reference](/reference/events/) carries each one's `detail` type and 
 
 ## The exports
 
-The values `@aparte/core` exports from its barrel — eighty-six today, from `AparteClient` and `AparteConversationManager` to `registerSegmentRenderer` and `registerDefaultRenderers` — and the types their signatures name. Each package's README and the reference pages list them; the gate refuses a public export that no page mentions.
+The values `@aparte/core` exports from its barrel — eighty-six today, from `AparteClient` and `AparteConversationManager` to `registerSegmentRenderer` and `registerDefaultRenderers` — and the types their signatures name. Each package's README and the reference pages list them, and the gate holds it: no value export of `@aparte/core`'s runtime barrel may go unmentioned, and every other barrel's unmentioned count is pinned to a recorded ceiling that may fall but never rise (`scripts/check-export-mentions.mjs`).
 
 Each plugin and provider freezes the same way: its `setup*` entry, the options that entry takes, and the types it exports. `@aparte/engine` freezes `runStreamAgent`, its options and the stream event vocabulary.
 
