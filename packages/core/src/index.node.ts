@@ -103,6 +103,7 @@ export type {
     AparteToolRenderer,
     AparteToolApprovalRequestDetail,
     AparteChatImperativeApi,
+    AparteUiHandle,
     AparteElementAttributes,
     AparteElementTagName,
     AparteAttrValue,

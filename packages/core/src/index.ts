@@ -158,8 +158,10 @@ export type {
     AparteToolContext,
     AparteToolRenderer,
     AparteToolApprovalRequestDetail,
-    // Canonical imperative surface (aliased by every wrapper's handle type).
+    // Canonical imperative surfaces (re-exported by every wrapper: the chat handle,
+    // and the <AparteUi> proxy handle the four used to hand-copy).
     AparteChatImperativeApi,
+    AparteUiHandle,
     // The attribute surface of every element, for the wrappers to map over.
     AparteElementAttributes,
     AparteElementTagName,
