@@ -69,6 +69,10 @@ export type AparteLocale = {
     // --- Conversation list ---
     /** Default title for a new conversation (default: "New Chat") */
     newChat: string;
+    /** Read by a screen reader while the conversation list is on its way (default: "Loading conversations") */
+    loadingConversations: string;
+    /** Read by a screen reader while a conversation's messages are on their way (default: "Loading the conversation") */
+    loadingConversation: string;
     /**
      * The "Delete" item of a row's menu (default: "Delete"). Used to be the aria-label
      * of a permanent ✕ on every row ("Delete conversation"); the menu is named after
@@ -491,6 +495,8 @@ export const APARTE_DEFAULT_LOCALE: AparteLocale = {
     rejectTool: "Reject",
     messageInfo: "Details",
     newChat: "New Chat",
+    loadingConversations: "Loading conversations",
+    loadingConversation: "Loading the conversation",
     deleteConversation: "Delete",
     archiveConversation: "Archive",
     unarchiveConversation: "Unarchive",

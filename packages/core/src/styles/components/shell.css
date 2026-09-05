@@ -464,3 +464,28 @@ aparte-chat[overlay-composer][center-empty][data-empty] > aparte-chat-viewport,
 .aparte-chat-container[overlay-composer][data-aparte-empty] > aparte-chat-viewport {
   position: static;
 }
+
+/* The transcript on its way (`aparte-chat-viewport[loading]`): two turns of the kit's
+   skeleton in the reading column — a short bubble on the end edge for the person, a
+   few lines for the reply — drawn by the viewport itself, ahead of its messages
+   wrapper, and gone when the messages land. */
+.aparte-viewport-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aparte-space-3);
+  width: 100%;
+  max-width: var(--aparte-message-max-width);
+  margin-inline: auto;
+  padding: var(--aparte-message-padding-block) var(--aparte-message-padding-inline);
+  box-sizing: border-box;
+}
+.aparte-viewport-loading__user {
+  align-self: flex-end;
+  width: 40%;
+  height: calc(var(--aparte-skeleton-text-height) * 2.6);
+  border-radius: var(--aparte-radius-bubble);
+  margin-block-end: var(--aparte-space-6);
+}
+.aparte-viewport-loading__last {
+  max-inline-size: 60%;
+}

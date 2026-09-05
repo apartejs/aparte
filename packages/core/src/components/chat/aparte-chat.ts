@@ -277,14 +277,20 @@ export class AparteChat extends HTMLElement {
     if (!viewport) return;
 
     this._updateEmpty();
-    // A message is an <aparte-chat-bubble>; watch the viewport for the first one.
+    // A message is an <aparte-chat-bubble>; watch the viewport for the first one — and
+    // for its `loading` attribute, the other way of not being empty.
     this._observer = new MutationObserver(() => this._updateEmpty());
-    this._observer.observe(viewport, { childList: true, subtree: true });
+    this._observer.observe(viewport, { childList: true, subtree: true, attributes: true, attributeFilter: ['loading'] });
   }
 
+  /**
+   * Empty means no message AND none on its way. A viewport that says `loading` holds
+   * no bubble yet, and it used to count as empty: the welcome and the centred composer
+   * showed while a conversation was being fetched.
+   */
   private _updateEmpty(): void {
     const viewport = this.querySelector('aparte-chat-viewport');
-    const empty = !viewport || !viewport.querySelector('aparte-chat-bubble');
+    const empty = !viewport || (!viewport.hasAttribute('loading') && !viewport.querySelector('aparte-chat-bubble'));
     this.toggleAttribute('data-empty', empty);
   }
 

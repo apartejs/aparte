@@ -76,6 +76,8 @@ export const fr: AparteLocale = {
     rejectTool: "Rejeter",
     messageInfo: "Détails",
     newChat: "Nouvelle conversation",
+    loadingConversations: "Chargement des conversations",
+    loadingConversation: "Chargement de la conversation",
     deleteConversation: "Supprimer",
     archiveConversation: "Archiver",
     unarchiveConversation: "Désarchiver",

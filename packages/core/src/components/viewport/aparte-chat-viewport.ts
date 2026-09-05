@@ -95,6 +95,11 @@ function withParsedSegments(message: AparteMessage, blocks: AparteStreamBlock[])
  *   this mode only. All four wrappers set it.
  * @attr {number} scroll-threshold - How close to the bottom still counts as "at the bottom".
  * @attr {number} max-rendered-bubbles - Caps how many bubbles stay in the DOM; older ones are released.
+ * @attr {boolean} loading - The transcript is on its way: a conversation was chosen and its messages
+ *                    are being fetched. The element draws two skeleton turns, marks its scroll surface
+ *                    `aria-busy` and names the wait for a screen reader; `aparte-chat[center-empty]`
+ *                    does not count a loading viewport as empty. Set by `AparteConversationController`
+ *                    through its binding, or by hand from a loop of your own (`setLoading(true)`).
  * @attr {boolean} data-busy - Reflected BY the element while a turn streams: the transcript is
  *   read-only meanwhile, and every bubble inside reads it (at connect, and when it changes). The
  *   vanilla path derives it from the repository; a framework host sets it through
@@ -238,7 +243,60 @@ export class AparteChatViewport extends HTMLElement {
     private _frameworkManagedDOM = false;
 
     static get observedAttributes(): string[] {
-        return ['scroll-threshold', 'max-rendered-bubbles'];
+        return ['scroll-threshold', 'max-rendered-bubbles', 'loading'];
+    }
+
+    /**
+     * The transcript is on its way: a conversation was chosen and its messages are
+     * being fetched. Two skeleton turns stand where they will be, the scroll surface
+     * is `aria-busy`, and a visually hidden line names the wait. Reflected as the
+     * `loading` attribute — `AparteConversationController` sets it through its
+     * binding; a loop of your own sets it by hand. Not the same thing as `data-busy`,
+     * which is a reply streaming into a transcript that is already there.
+     */
+    get loading(): boolean {
+        return this.hasAttribute('loading');
+    }
+
+    set loading(value: boolean) {
+        this.toggleAttribute('loading', value);
+    }
+
+    setLoading(loading: boolean): void {
+        this.loading = loading;
+    }
+
+    /** Draw or remove the wait, from the attribute. Safe before the structure exists. */
+    private _syncLoading(): void {
+        const container = this._container;
+        if (!container) return;
+        const on = this.hasAttribute('loading');
+        container.setAttribute('aria-busy', on ? 'true' : 'false');
+        const existing = container.querySelector(':scope > .aparte-viewport-loading');
+        if (!on) {
+            existing?.remove();
+            return;
+        }
+        if (existing) return;
+        const cfg = resolveConfig(this);
+        const skeleton = document.createElement('div');
+        skeleton.className = 'aparte-viewport-loading';
+        skeleton.setAttribute('aria-hidden', 'true');
+        // Two turns: a short bubble on the end edge for the person, a few lines for the
+        // reply — the kit's own skeleton recipe, sized by its tokens.
+        skeleton.innerHTML =
+            '<span class="aparte-skeleton aparte-skeleton--rect aparte-viewport-loading__user"></span>'
+            + '<span class="aparte-skeleton aparte-skeleton--text"></span>'
+            + '<span class="aparte-skeleton aparte-skeleton--text"></span>'
+            + '<span class="aparte-skeleton aparte-skeleton--text"></span>'
+            + '<span class="aparte-skeleton aparte-skeleton--text aparte-viewport-loading__last"></span>';
+        // Screen readers ignore aria-busy alone: the wait is also a line of text, off screen.
+        const status = document.createElement('span');
+        status.className = 'aparte-viewport-loading-status aparte-sr-only';
+        status.setAttribute('role', 'status');
+        status.textContent = cfg.t('loadingConversation');
+        skeleton.appendChild(status);
+        container.prepend(skeleton);
     }
 
     constructor() {
@@ -358,6 +416,9 @@ export class AparteChatViewport extends HTMLElement {
             case 'max-rendered-bubbles':
                 this._maxRenderedBubbles = parseInt(newValue || '1000', 10);
                 this._pruneRenderedBubbles();
+                break;
+            case 'loading':
+                this._syncLoading();
                 break;
         }
     }
@@ -1390,6 +1451,8 @@ export class AparteChatViewport extends HTMLElement {
             this.appendChild(container);
 
             this._container = container;
+            // An attribute set before the structure existed is honoured now.
+            this._syncLoading();
 
             // Scroll-to-bottom button — absolutely positioned over the viewport
             this._scrollBtn = document.createElement('button');

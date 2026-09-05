@@ -51,7 +51,9 @@ describe('the conversation list’s flat attribute', () => {
     const element = read('src/components/conversation-list/aparte-conversation-list.ts');
 
     it('is `flat`, observed and documented, and `no-groups` is gone', () => {
-        expect(element).toMatch(/observedAttributes[\s\S]*?\['active-id', 'flat'\]/);
+        // 'flat' among the observed attributes, whatever else the list observes
+        // ('loading' joined it on 2026-09-05).
+        expect(element).toMatch(/observedAttributes[\s\S]*?\[[^\]]*'flat'[^\]]*\]/);
         expect(element).toMatch(/@attr \{boolean\} flat -/);
         expect(element).toContain(`hasAttribute('flat')`);
         expect(element).not.toContain('no-groups');

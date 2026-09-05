@@ -190,12 +190,29 @@ const controller = new AparteConversationController({
   setMessages: (m) => viewport.setMessages(m),
   appendMessage: (m) => viewport.appendMessage(m),
   clearMessages: () => viewport.clearMessages(),
+  setLoading: (on) => viewport.setLoading(on), // optional — the viewport draws the wait
   exportTree: () => viewport.exportTree(),   // optional — enables branch persistence
   importTree: (t) => viewport.importTree(t), // optional
 });
 controller.bind();
 void controller.setConversationId('abc-123'); // or null to deselect
 ```
+
+### A conversation on its way
+
+A store takes its time. When your adapter implements `loadMeta()` and `loadFull(id)`,
+the manager reads the list through the first and fetches a conversation's messages
+through the second the first time it is opened (`manager.ensureFull(id)`, and
+`manager.isLoaded(id)` says whether it has). While that fetch runs, the controller calls
+the binding's `setLoading(true)`: `<aparte-chat-viewport>` draws two skeleton turns,
+marks its scroll surface `aria-busy` and names the wait for a screen reader, and
+`aparte-chat[center-empty]` does not count it as empty — the welcome never shows over a
+conversation that is loading. Two quick clicks are safe: a reply that lands for a
+conversation the user has already left is dropped.
+
+The list has the same word for its own wait: set `loading` on
+`<aparte-conversation-list>` while `manager.init()` runs, clear it when you assign
+`conversations`.
 
 ## 4. Render a sidebar
 

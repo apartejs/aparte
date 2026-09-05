@@ -53,7 +53,7 @@ interface OpenMenu {
 
 /** Locale keys this element reads; each falls back to the English default. */
 type ListLocaleKey =
-    | 'newChat' | 'deleteConversation' | 'archiveConversation' | 'unarchiveConversation'
+    | 'newChat' | 'loadingConversations' | 'deleteConversation' | 'archiveConversation' | 'unarchiveConversation'
     | 'conversationActions' | 'renameConversation' | 'conversationTitle'
     | 'pinConversation' | 'unpinConversation' | 'deleteConversationConfirm' | 'cancel'
     | 'conversationGroupPinned' | 'conversationGroupToday' | 'conversationGroupYesterday'
@@ -98,6 +98,10 @@ const VIEWPORT_MARGIN = 8;
  * @element aparte-conversation-list
  * @attr {string} active-id - The id of the conversation to render as selected.
  * @attr {boolean} flat - Render the rows flat, in host order, with no date headings.
+ * @attr {boolean} loading - The list is on its way: six skeleton rows stand where the rows will be, the
+ *                    element is `aria-busy` and a visually hidden line names the wait. A list that is
+ *                    not there yet is not an empty list. Set it while your store answers, clear it when
+ *                    you assign `conversations`.
  *
  * @fires {CustomEvent<AparteConversationSelectDetail>} aparte-conversation-select - A row's title was activated; the host loads that conversation.
  * @fires {CustomEvent<AparteConversationRenameDetail>} aparte-conversation-rename - A rename was committed with a new, non-empty title. Nothing is renamed here.
@@ -155,7 +159,21 @@ export class AparteConversationList extends HTMLElement {
     private _renaming: { id: string; input: HTMLInputElement; done: boolean } | null = null;
 
     static get observedAttributes(): string[] {
-        return ['active-id', 'flat'];
+        return ['active-id', 'flat', 'loading'];
+    }
+
+    /**
+     * The list is on its way: rows of the kit's skeleton stand where the rows will be,
+     * the element is `aria-busy`, and a visually hidden line names the wait. Reflected
+     * as the `loading` attribute, so a site sets it while its store answers and clears
+     * it when `conversations` is set. A list that is not there yet is not an empty list.
+     */
+    get loading(): boolean {
+        return this.hasAttribute('loading');
+    }
+
+    set loading(value: boolean) {
+        this.toggleAttribute('loading', value);
     }
 
     // ─── Lifecycle ────────────────────────────────────────────────────────
@@ -187,7 +205,7 @@ export class AparteConversationList extends HTMLElement {
         if (name === 'active-id') {
             this._activeId = newValue;
             this._updateActiveState();
-        } else if (name === 'flat' && this.isConnected) {
+        } else if ((name === 'flat' || name === 'loading') && this.isConnected) {
             this._render();
         }
     }
@@ -222,6 +240,16 @@ export class AparteConversationList extends HTMLElement {
         // The menu and the rename input live inside the rows; a render replaces them.
         this._closeMenu();
         this._renaming = null;
+        const loading = this.hasAttribute('loading');
+        this.setAttribute('aria-busy', loading ? 'true' : 'false');
+        if (loading) {
+            // Six rows of the recipe, the widths varied so it reads as a list and not a
+            // grid; a status line off screen, because aria-busy alone is often ignored.
+            this.innerHTML =
+                `<div class="aparte-conv-list-loading" aria-hidden="true">${'<span class="aparte-skeleton aparte-skeleton--text"></span>'.repeat(6)}</div>`
+                + `<span class="aparte-conv-list-loading-status aparte-sr-only" role="status">${escapeHtml(this._t('loadingConversations'))}</span>`;
+            return;
+        }
         this.innerHTML = this._groups().map(g => this._renderGroup(g)).join('');
     }
 

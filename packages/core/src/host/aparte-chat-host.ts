@@ -58,6 +58,7 @@ interface ViewportApi {
     updateMessage?(messageId: string, updates: Partial<AparteMessage>): void;
     /** The transcript's read-only-while-streaming flag; in framework-managed mode the host is its one writer. */
     setTranscriptBusy?(busy: boolean): void;
+    setLoading?(loading: boolean): void;
     exportTree?(): ExportedMessageRepository;
     importTree?(tree: ExportedMessageRepository): void;
     clearAll?(options?: { revokeAttachments?: boolean }): void;
@@ -301,6 +302,7 @@ export class AparteChatHost {
                 return this._vp()?.exportTree?.();
             },
             importTree: (tree) => { this._vp()?.importTree?.(tree); },
+            setLoading: (on) => { this._vp()?.setLoading?.(on); },
         };
 
         this._controller = new AparteConversationController(convBinding, {

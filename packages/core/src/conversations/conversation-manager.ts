@@ -99,6 +99,10 @@ export class AparteConversationManager {
     private _initialized = false;
     private _retention: { maxMessages: number } | null = null;
     private _titleProvider: AparteConversationTitleProvider | null = null;
+    /** Ids whose messages are in memory. Every id, after a loadAll(); only fetched ones after loadMeta(). */
+    private _loaded = new Set<string>();
+    /** One fetch per id at a time: a second ensureFull(id) while the first is in flight joins it. */
+    private _fetching = new Map<string, Promise<void>>();
 
     constructor(adapter: AparteStorageAdapter, options?: ConversationManagerOptions) {
         this._adapter = adapter;
@@ -126,9 +130,45 @@ export class AparteConversationManager {
 
     /** Load all conversations from the adapter. Call once at app startup. */
     async init(): Promise<void> {
-        this._conversations = await this._adapter.loadAll();
+        // The list first, the messages on demand — when the adapter can split the two.
+        // loadMeta() and loadFull() were in the contract from the start and nothing called
+        // them: every store loaded everything, and between a click and its messages there
+        // was no moment at all (the chat-site review, 2026-09-05). An adapter without
+        // loadMeta loads everything as before, and every conversation counts as loaded.
+        if (this._adapter.loadMeta && this._adapter.loadFull) {
+            const metas = await this._adapter.loadMeta();
+            this._conversations = metas.map((m) => ({ ...m, messages: [] }));
+        } else {
+            this._conversations = await this._adapter.loadAll();
+            for (const c of this._conversations) this._loaded.add(c.id);
+        }
         this._initialized = true;
         this._notify();
+    }
+
+    /** Whether a conversation's messages are in memory (always, without split storage). */
+    isLoaded(id: string): boolean {
+        return this._loaded.has(id);
+    }
+
+    /**
+     * Fetch a conversation's messages through the adapter's loadFull(), the first time
+     * they are needed; later calls resolve at once. The row keeps its place and its meta;
+     * the messages (and the tree) come from the full record.
+     */
+    async ensureFull(id: string): Promise<void> {
+        if (this._loaded.has(id) || !this._adapter.loadFull) return;
+        const inFlight = this._fetching.get(id);
+        if (inFlight) return inFlight;
+        const fetch = (async () => {
+            const full = await this._adapter.loadFull!(id);
+            const row = this._find(id);
+            if (full && row) this._replace({ ...row, ...full, id });
+            this._loaded.add(id);
+            this._notify();
+        })().finally(() => this._fetching.delete(id));
+        this._fetching.set(id, fetch);
+        return fetch;
     }
 
     /**
@@ -189,6 +229,7 @@ export class AparteConversationManager {
             schemaVersion: APARTE_CONVERSATION_SCHEMA_VERSION,
         };
         this._conversations = [conv, ...this._conversations];
+        this._loaded.add(conv.id); // born in memory: nothing to fetch
         this._activeId = conv.id;
         await this._adapter.save(conv);
         this._notify();

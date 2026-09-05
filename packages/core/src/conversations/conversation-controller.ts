@@ -30,6 +30,11 @@ export interface AparteChatBinding {
     /** Clear all messages (e.g. when starting a new conversation). */
     clearMessages(options?: { revokeAttachments?: boolean }): void;
     /**
+     * The transcript is on its way, or no longer: a conversation was chosen and its
+     * messages are being fetched. The DOM binding sets the viewport's `loading`.
+     */
+    setLoading?(loading: boolean): void;
+    /**
      * Export the full conversation tree for persistence.
      * Optional: only available when the binding wraps a `AparteMessageRepository`
      * (e.g. the vanilla viewport). Returns `undefined` when not supported.
@@ -465,17 +470,41 @@ export class AparteConversationController {
         // importTree (below) may dispatch aparte-path-changed synchronously — flag
         // the load to prevent _onPathChanged from calling _persistActive() and
         // touching updatedAt (which would cause the conv to float to the top).
+        // The messages may not be in memory yet — split storage lists through loadMeta()
+        // and fetches a conversation through loadFull(). The binding shows the wait, and
+        // a reply that lands after the user moved on is dropped: the active id is read
+        // again after the await, which is the whole race guard.
+        let record = conv;
+        const fetching = !manager.isLoaded(id);
+        if (fetching) {
+            this._binding.setLoading?.(true);
+            this._binding.clearMessages();
+            try {
+                await manager.ensureFull(id);
+            } catch (err) {
+                if (this._activeId === id) this._binding.setLoading?.(false);
+                throw err;
+            }
+            // The user moved on while this was on its way: the newer call owns the
+            // binding now, loading flag included. Nothing of this reply may land.
+            if (this._activeId !== id) return;
+            record = manager.conversations.find((c: AparteConversation) => c.id === id) ?? conv;
+        }
         this._isLoadingConversation = true;
         try {
-            this._binding.setMessages([...conv.messages]);
+            this._binding.setMessages([...record.messages]);
             // If the conversation has a full tree snapshot and the binding supports
             // importing it, restore the branch topology on top. This is a no-op
             // for bindings that don't implement importTree.
-            if (conv.tree && this._binding.importTree) {
-                this._binding.importTree(conv.tree);
+            if (record.tree && this._binding.importTree) {
+                this._binding.importTree(record.tree);
             }
         } finally {
             this._isLoadingConversation = false;
+            // AFTER the messages, never before: a frame with the wait gone and the
+            // transcript still empty reads as "no messages", and center-empty centres
+            // the composer for that frame.
+            if (fetching) this._binding.setLoading?.(false);
         }
     }
 
