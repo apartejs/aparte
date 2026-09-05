@@ -150,3 +150,35 @@ a.site-title::after { content: ')'; color: var(--sl-color-accent); font-style: n
         white-space: nowrap;
     }
 }
+
+/* The frame stops growing at 96rem and centres as a whole. Starlight pins its sidebar
+   to the viewport's start edge (`position: fixed; inset-inline-start: 0`) and centres
+   only the article, so on a wide screen the two drift apart — at 2560px the sidebar sat
+   600px from the text it navigates. Above 96rem the three columns (sidebar, article,
+   "on this page") travel together: the fixed sidebar takes the frame's start edge as
+   its inset, the main frame caps and centres itself, and the header's row narrows to
+   match so the title and search stay over the columns they belong to. Below 96rem
+   nothing changes. The width appears twice because a media query cannot read a custom
+   property — keep the two in step. */
+:root {
+  --aparte-docs-frame: 96rem;
+}
+
+@media (min-width: 96rem) {
+  .sidebar-pane {
+    inset-inline-start: max(0px, calc(50% - var(--aparte-docs-frame) / 2));
+  }
+
+  .main-frame {
+    /* A flex item that takes auto margins stops stretching and shrinks to its content;
+       the width pins it back to the column before the cap applies. */
+    width: 100%;
+    max-width: var(--aparte-docs-frame);
+    margin-inline: auto;
+  }
+
+  header.header > .header {
+    max-width: calc(var(--aparte-docs-frame) - 2 * var(--sl-nav-pad-x));
+    margin-inline: auto;
+  }
+}
