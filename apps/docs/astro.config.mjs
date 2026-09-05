@@ -165,7 +165,7 @@ export default defineConfig({
           // outside Starlight's collection, and the plugin reports a link to one as
           // "invalid link to custom page" although the route is built. `check:doc-links`
           // walks the BUILT pages, so a link into /models/ is still verified, by that guard.
-          exclude: ['/changelog/**', '/models/**'],
+          exclude: ['/changelog/**', '/models/**', '/roadmap/'],
         }),
         // Replaces apps/docs/scripts/gen-llms-txt.mjs. llmstxt.org is an external spec
         // that will keep moving, and tracking a spec is the thing to delegate rather
