@@ -92,10 +92,11 @@ test('one tick per question, all of them in the rail, the current one visible â€
     await expect(rail.locator('.aparte-scroll-rail__tick')).toHaveCount(TURNS);
 
     // The last question is the current one, and it is on screen: the rail did not clip it.
-    await expect(rail.locator('[aria-current="true"]')).toHaveAttribute('data-message-id', /./);
-    const g = await geometry(page);
+    // Polled, not read once: the mark comes from intersection observers, which report a
+    // frame or two after the last turn landed â€” a one-shot read raced them on CI.
     const lastUserId = await chat.bubbles('user').last().getAttribute('message-id');
-    expect(g.current, `at the end of the thread (${g.fromMax}px from the max scroll), the mark is the last question`).toBe(lastUserId);
+    await expect.poll(async () => (await geometry(page)).current, { message: 'at the end of the thread, the mark is the last question' }).toBe(lastUserId);
+    const g = await geometry(page);
     expect(g.currentInRail).toBe(true);
     expect(g.ticksInRail, 'every tick lies in the rail: the pitch tightened rather than the rail clipping').toBe(TURNS);
     if (TURNS * 24 > g.railHeight) {
