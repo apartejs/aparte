@@ -245,8 +245,12 @@ export class AparteConversationList extends HTMLElement {
         if (loading) {
             // Six rows of the recipe, the widths varied so it reads as a list and not a
             // grid; a status line off screen, because aria-busy alone is often ignored.
+            // Literals only in the skeleton: the text-escaping guard reads a `.repeat()` on a
+            // string as an interpolation it cannot see through, and a red guard is a guard
+            // somebody skips. The status line is the one interpolation, escaped.
+            const row = '<span class="aparte-skeleton aparte-skeleton--text"></span>';
             this.innerHTML =
-                `<div class="aparte-conv-list-loading" aria-hidden="true">${'<span class="aparte-skeleton aparte-skeleton--text"></span>'.repeat(6)}</div>`
+                '<div class="aparte-conv-list-loading" aria-hidden="true">' + row + row + row + row + row + row + '</div>'
                 + `<span class="aparte-conv-list-loading-status aparte-sr-only" role="status">${escapeHtml(this._t('loadingConversations'))}</span>`;
             return;
         }
