@@ -93,15 +93,11 @@
                 <aparte-composer-input placeholder="Ask anything…"></aparte-composer-input>
                 <aparte-composer-send></aparte-composer-send>
               </div>
-              <aparte-composer-toolbar>
-                <!-- The context gauge: how full the model's window is. Hidden until the
-                     first turn reports a usage and the model declares a window; with
-                     auto-compact it asks for a compaction on reaching 90 % — answered by
-                     `@aparte/plugin-compaction`, set up in main.ts. -->
-                <aparte-context auto-compact style="flex: 1"></aparte-context>
-                <!-- The model selector joins this row only with a local server (main.ts):
-                     with the scripted model there is one model and nothing to choose. -->
-              </aparte-composer-toolbar>
+              <!-- The toolbar row: empty here, so it draws nothing. The model selector
+                   joins it with a local server (main.ts). A context gauge is a code
+                   assistant's thing, not a chat's — <aparte-context auto-compact> goes
+                   here when you want one, and @aparte/plugin-compaction answers it. -->
+              <aparte-composer-toolbar></aparte-composer-toolbar>
             </div>
           </aparte-composer>
         </aparte-chat>
