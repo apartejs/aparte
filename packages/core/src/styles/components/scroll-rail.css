@@ -4,10 +4,10 @@
  * One of the sheets src/index.ts imports in cascade order; check:derived-vars reads
  * them concatenated in that same order, the way a browser does.
  *
- * The rail floats on the transcript's end edge, vertically centred, as a child of the
- * chat host. `:has()` gives the host its containing block only while a rail is inside
- * it — a bare `position: relative` on every chat would have moved any absolutely
- * positioned child a consumer already placed there.
+ * The rail floats on the transcript's end edge as a child of the chat host. `:has()`
+ * gives the host its containing block only while a rail is inside it — a bare
+ * `position: relative` on every chat would have moved any absolutely positioned child
+ * a consumer already placed there.
  *
  * The three shell shapes shell.css already lays out, because an absolute element lands
  * in the nearest POSITIONED ancestor and a shape missing from this list is a rail that
@@ -23,27 +23,57 @@ aparte-chat:has(> aparte-scroll-rail),
   position: relative;
 }
 
-/* The block padding is the room the END zones need, and it is not decoration.
-   The rail clips (`overflow: hidden`, which cuts at the PADDING box) and the list has
-   none of its own, so with no padding here the first tick's top edge sits exactly on the
-   clip line. A zone grows symmetrically — half of `hit − thickness` above and below the
-   line — so the first tick would lose its upper half and the last tick its lower half,
-   to paint AND to hit-testing: 13px of the 24px, on the two ticks a reader aims at most
-   ("jump to the first message", "jump to the latest"). Padding by exactly that half puts
-   the clip line outside every zone instead of through the two end ones. `box-sizing`
-   keeps `max-height` measuring the same box it measured before. */
+/* Where the rail sits is measured, not assumed. The element publishes three lengths on
+   itself (aparte-scroll-rail.ts, `_layout`): `--aparte-scroll-rail-bar`, the width of
+   the transcript's scrollbar when it is a classic one — 0 for an overlay bar — so the
+   ticks never sit on the bar under Windows or Linux Chrome; and the two block insets,
+   the transcript's distance from the host's top and bottom edges, so the rail centres
+   on the messages and not on the composer under them. Without a measurement (jsdom, a
+   rail with no transcript yet) the fallbacks centre it on the host, where it used to be.
+
+   It is a LIST of ticks, not a minimap: it takes the height of its list, capped at a
+   share of the transcript (`--aparte-scroll-rail-share`, .6), and sits centred on the
+   transcript's span — its top is the middle of that span, pulled back by half its own
+   height. Measured on the market: every per-turn rail that ships as a list caps itself
+   (LobeChat at 50vh), and every full-height strip is a proportional minimap with a
+   viewport window, a different component; a list stretched to the full transcript read
+   as the second while behaving as the first.
+
+   The block padding is the room the END zones need, and it is not decoration.
+   The rail clips the list at its padding box, and the list has no padding of its own,
+   so with no padding here the first tick's top edge sits exactly on the clip line. A
+   zone grows symmetrically — half of `hit − thickness` above and below the line — so
+   the first tick would lose its upper half and the last tick its lower half, to paint
+   AND to hit-testing: 13px of the 24px, on the two ticks a reader aims at most ("jump
+   to the first message", "jump to the latest"). Padding by exactly that half puts the
+   clip line outside every zone instead of through the two end ones. `box-sizing` keeps
+   `max-height` measuring the same box it measured before.
+
+   When more ticks exist than 24px targets fit in the cap, the element tightens the
+   pitch by setting `--aparte-scroll-rail-hit-size` on itself (never under 6px), and
+   gap, padding and zone follow it here as they would a consumer's value. Past that
+   floor the list still overflows, and the rail scrolls — the element keeps the current
+   tick in its window, the arrows walk every tick, a wheel over the rail slides it —
+   with no bar of its own: a 24px column showing a scrollbar would be all bar. */
 aparte-scroll-rail {
   position: absolute;
-  inset-inline-end: var(--aparte-space-2);
-  top: 50%;
+  inset-inline-end: calc(var(--aparte-space-2) + var(--aparte-scroll-rail-bar, 0px));
+  top: calc(var(--aparte-scroll-rail-block-start, 0px) + (100% - var(--aparte-scroll-rail-block-start, 0px) - var(--aparte-scroll-rail-block-end, 0px)) / 2);
   transform: translateY(-50%);
   z-index: var(--aparte-z-floating);
-  display: block;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   width: var(--aparte-scroll-rail-width);
   padding-block: calc((var(--aparte-scroll-rail-hit-size) - var(--aparte-scroll-rail-tick-thickness)) / 2);
-  max-height: calc(100% - 2 * var(--aparte-space-8));
-  overflow: hidden;
+  max-height: calc((100% - var(--aparte-scroll-rail-block-start, 0px) - var(--aparte-scroll-rail-block-end, 0px)) * var(--aparte-scroll-rail-share));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+aparte-scroll-rail::-webkit-scrollbar {
+  display: none;
 }
 
 aparte-scroll-rail[hidden],
@@ -58,6 +88,7 @@ aparte-scroll-rail[data-empty] {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  flex-shrink: 0;
   gap: var(--aparte-scroll-rail-gap);
 }
 
@@ -89,10 +120,10 @@ aparte-scroll-rail[data-empty] {
    Block: grow symmetrically to the hit size. The gap is `hit − thickness`, so the pitch
    is exactly the hit size and two zones meet without overlapping — and the rail pads its
    block axis by the same half-growth, so the clip does not eat the first and last zone.
-   Inline: grow INWARD only. The rail clips (`overflow: hidden`) and ticks are
-   end-aligned, so a centred zone would hang past the end edge and come back cut to
-   19px; anchored to the tick's end edge it stays whole, and the rail's width carries
-   the hit size as its floor so the column has room for it. */
+   Inline: grow INWARD only. The rail clips and ticks are end-aligned, so a centred zone
+   would hang past the end edge and come back cut to 19px; anchored to the tick's end
+   edge it stays whole, and the rail's width carries the hit size as its floor so the
+   column has room for it. */
 .aparte-scroll-rail__tick::before {
   content: "";
   position: absolute;

@@ -332,6 +332,9 @@
      `display: none` under `(pointer: coarse)`, so 2.5.8's 24px is the bar here and not
      2.5.5's 44px. */
   --aparte-scroll-rail-hit-size: 24px;
+  /* The share of the transcript's height the rail may take: a list of ticks, not a
+     minimap, so it is the height of its list up to this, centred, and scrolls past it. */
+  --aparte-scroll-rail-share: .6;
 
   /* Context gauge, ring variant — a diameter, and a stroke in the ring's own 36-unit
      box. Literals like the rail's: a 22px ring is a toolbar's measure, not a spacing step. */

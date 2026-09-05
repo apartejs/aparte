@@ -161,7 +161,11 @@ export default defineConfig({
           // that tried (`why.md`, pointing a reader at the version history) failed the
           // build. Excluded by prefix rather than one link at a time, since the whole
           // subtree has the same cause.
-          exclude: ['/changelog/**'],
+          // Same family: /models/ and its children are Astro pages on the landing's frame,
+          // outside Starlight's collection, and the plugin reports a link to one as
+          // "invalid link to custom page" although the route is built. `check:doc-links`
+          // walks the BUILT pages, so a link into /models/ is still verified, by that guard.
+          exclude: ['/changelog/**', '/models/**'],
         }),
         // Replaces apps/docs/scripts/gen-llms-txt.mjs. llmstxt.org is an external spec
         // that will keep moving, and tracking a spec is the thing to delegate rather

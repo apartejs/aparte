@@ -1,7 +1,7 @@
 {
     "name": "@aparte-workspace/docs",
     "type": "module",
-    "version": "0.0.25",
+    "version": "0.0.27",
     "private": true,
     "scripts": {
         "gen:css-vars": "node scripts/gen-css-vars.mjs",
@@ -40,7 +40,12 @@
         "@aparte/plugin-ask-user": "workspace:*",
         "@aparte/plugin-compaction": "workspace:*",
         "@aparte/plugin-model-selector": "workspace:*",
+        "@aparte/plugin-titler": "workspace:*",
         "@aparte/provider-scenario": "workspace:*",
+        "@aparte/titler": "^1.0.3",
+        "@aparte/titler-efigsp": "^1.0.3",
+        "@aparte/titler-latin": "^1.0.3",
+        "@aparte/titler-latin-mini": "^1.0.3",
         "@astrojs/check": "^0.9.10",
         "astro-og-canvas": "^0.13.0",
         "canvaskit-wasm": "^0.42.0",

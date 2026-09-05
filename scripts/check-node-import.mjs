@@ -204,6 +204,7 @@ const SATELLITES = [
     ['@aparte/plugin-ask-user', 'packages/plugins/ask-user'],
     ['@aparte/plugin-approval', 'packages/plugins/approval'],
     ['@aparte/plugin-compaction', 'packages/plugins/compaction'],
+    ['@aparte/plugin-titler', 'packages/plugins/titler'],
     ['@aparte/plugin-artifacts', 'packages/plugins/artifacts'],
     ['@aparte/plugin-model-selector', 'packages/plugins/model-selector'],
     ['@aparte/plugin-marked', 'packages/plugins/marked'],

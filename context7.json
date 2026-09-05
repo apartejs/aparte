@@ -1,0 +1,29 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "aparté",
+  "description": "Framework-agnostic AI-chat library: vanilla web components with zero third-party dependencies (@aparte/core), an agent loop (@aparte/engine), React/Vue/Svelte/Angular wrappers, and opt-in providers and plugins. Talks to any LLM through a transport, browser-direct or via your backend.",
+  "folders": [
+    "apps/docs/src/content/docs",
+    "packages"
+  ],
+  "excludeFolders": [
+    "node_modules",
+    "dist",
+    "__tests__",
+    "apps/examples",
+    "e2e",
+    "packages/tools"
+  ],
+  "excludeFiles": [
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "rules": [
+    "Install @aparte/core and import '@aparte/core' once (side-effect import registers every <aparte-*> element); load '@aparte/core/styles.css' for the default look.",
+    "React, Vue, Svelte and Angular each have a wrapper package (@aparte/react, @aparte/vue, @aparte/svelte, @aparte/angular); use the wrapper's component instead of the raw elements in those frameworks.",
+    "Every package is 0.x: pin an exact version, a minor may rename an API and the changeset says so; there are no deprecated aliases.",
+    "Markdown, syntax highlighting, model selection, approval, artifacts and compaction are opt-in plugins (@aparte/plugin-*); core renders plain text until a plugin is set up.",
+    "An LLM is reached through a provider (@aparte/provider-openai-compat, @aparte/provider-ai-sdk, @aparte/provider-transformers) and a transport: AparteDirectTransport for browser-direct calls, AparteBackendTransport when the key must stay on your server.",
+    "Every CSS class and custom property is prefixed aparte-; theme by overriding the --aparte-* variables, never by editing the shipped stylesheet."
+  ]
+}

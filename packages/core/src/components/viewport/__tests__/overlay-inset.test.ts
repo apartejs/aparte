@@ -68,6 +68,27 @@ describe('overlay-composer wiring', () => {
         expect(vp.style.getPropertyValue('--aparte-bottom-inset'), 'inset = viewport bottom - stack top').toBe('130px');
     });
 
+    it('does not count the scroll rail as stack: it floats over the transcript by design', () => {
+        // The stylesheet already names the rail as NOT the stack (shell.css); the
+        // measurement had not, so a rail centred on the transcript set the inset to
+        // the distance from its own top — 398px on the vanilla example, frozen while
+        // the composer grew under a draft.
+        const chat = document.createElement('aparte-chat');
+        chat.setAttribute('overlay-composer', '');
+        const vp = document.createElement('aparte-chat-viewport');
+        const rail = document.createElement('aparte-scroll-rail');
+        const composer = document.createElement('aparte-composer');
+        chat.append(vp, rail, composer);
+        document.body.appendChild(chat);
+        mockRect(vp, { top: 0, bottom: 600, height: 600 });
+        mockRect(rail, { top: 200, bottom: 400, height: 200 });
+        mockRect(composer, { top: 470, bottom: 590, height: 120 });
+
+        expect(observed, 'the rail is not a resize target of the stack').not.toContain(rail);
+        for (const cb of roCallbacks) cb();
+        expect(vp.style.getPropertyValue('--aparte-bottom-inset'), 'inset from the composer, not from the rail').toBe('130px');
+    });
+
     it('skips the write when the value has not changed, and follows a real change', () => {
         const { vp, composer } = mountOverlay();
         mockRect(vp, { top: 0, bottom: 600, height: 600 });

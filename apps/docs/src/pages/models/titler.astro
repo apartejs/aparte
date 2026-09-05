@@ -1,0 +1,367 @@
+---
+import { readFileSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import Landing from '../../layouts/Landing.astro';
+
+/*
+ * The product page of aparte-titler, the first model aparté publishes.
+ *
+ * An Astro page on the landing's frame, beside /roadmap/ — not a docs entry. The docs
+ * carry the plugin (/plugins/titler/); the Hugging Face card carries the science (every
+ * file, the benchmark, the charts). This page carries the one thing neither of them can:
+ * the model running, under the reader's fingers, in the first screen. The demo is the
+ * top of the page and `#demo` is the address given everywhere — the card, the npm
+ * README, an article — because a page that can be tried is not a page that has to be
+ * read.
+ *
+ * Two rules it holds itself to, the landing's and the roadmap's:
+ *
+ *   1. Nothing typed that can be measured. The sizes below are `stat`ed from the model
+ *      files the site installs, the version is read from the package, and the latency
+ *      is measured in the reader's own tab, not quoted. The titles in the demo are the
+ *      model's, not ours.
+ *   2. The model is EXTRACTIVE and the page says so before the reader finds out: it
+ *      copies words, it does not rephrase. That is the reason it fits in 133 KB, and a
+ *      demo that let the reader believe otherwise would be selling something else.
+ */
+
+/**
+ * The three bundled models the site installs. `process.cwd()` is the Astro project root
+ * (apps/docs) however this builds — the anchor roadmap.astro uses, for the reason it
+ * gives: counting `../` from `import.meta.url` broke the day Astro prerendered from
+ * bundled chunks.
+ */
+const require = createRequire(pathToFileURL(`${process.cwd()}/`).href);
+function bundled(pkg: string, languages: string[]) {
+    const file = require.resolve(`${pkg}/model`);
+    const root = resolve(dirname(file), '..');
+    const version: string = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
+    return { pkg, languages, version, kb: Math.round(statSync(file).size / 1000) };
+}
+const LATIN_LANGS = ['en', 'fr', 'es', 'de', 'pt', 'it', 'nl', 'pl', 'sv', 'da', 'fi', 'cs', 'ro', 'no', 'hu', 'hr', 'lt'];
+const LATIN = bundled('@aparte/titler-latin', LATIN_LANGS);
+const MINI = bundled('@aparte/titler-latin-mini', LATIN_LANGS);
+const EFIGSP = bundled('@aparte/titler-efigsp', ['en', 'fr', 'es', 'de', 'pt', 'it']);
+
+/** Six first messages, six languages. Their titles are the model's, computed live. */
+const EXAMPLES = [
+    { lang: 'en', text: 'Can you explain how photosynthesis works in plants?' },
+    { lang: 'fr', text: "Peux-tu m'expliquer la photosynthèse chez les plantes ?" },
+    { lang: 'es', text: '¿Me ayudas a escribir una carta de renuncia amable pero firme?' },
+    { lang: 'de', text: 'Wie richte ich einen Reverse-Proxy mit Nginx für zwei Domains ein?' },
+    { lang: 'pl', text: 'Jak przygotować ciasto na pizzę bez drożdży?' },
+    { lang: 'fi', text: 'Miten voin parantaa uneni laatua ilman lääkkeitä?' },
+];
+
+const TITLE = 'aparte-titler — a title for every conversation, as you type, in the browser';
+const DESCRIPTION =
+    `aparte-titler picks 3 to 6 words out of a conversation's first message and makes them its title. `
+    + `${LATIN.kb} KB for 17 languages, a few milliseconds per title, no API call — try it in your browser.`;
+/** Written from the entry in src/pages/og/[...slug].ts; change one and change the other. */
+const IMAGE_ALT =
+    'A dark card with a brass edge and the aparté mascot, headed “A title for every conversation, '
+    + 'as you type”, over the line “aparte-titler picks 3 to 6 words out of the first message. '
+    + '133 KB for 17 languages, a few milliseconds per title, nothing leaves the page.”';
+---
+
+<Landing
+  title={TITLE}
+  description={DESCRIPTION}
+  canonical="https://apartejs.dev/models/titler/"
+  ogImage="https://apartejs.dev/og/models/titler.png"
+  ogImageAlt={IMAGE_ALT}
+  current="models"
+>
+  <div class="tl">
+    <header class="tl-head">
+      <p class="eyebrow"><a href="/models/">Models</a> &mdash; <b>aparte-titler {LATIN.version}</b></p>
+      <h1 class="thesis serif">A conversation, <em>named</em> as you type.</h1>
+      <p class="lede">
+        aparte-titler picks <b>3 to 6 words</b> out of the first message and makes them the
+        title. <b>{LATIN.kb} KB</b> for 17 languages, a few milliseconds per title, and nothing
+        leaves the page: the model runs where the message is typed.
+      </p>
+    </header>
+
+    <!-- ── the demo: the top of the page, and the address given everywhere ── -->
+    <section class="demo" id="demo" aria-label="Try the model" data-kb={LATIN.kb}>
+      <div class="demo-card">
+        <div class="demo-in">
+          <label class="lab" for="tl-msg">The first message</label>
+          <textarea id="tl-msg" rows="4" spellcheck="false" autocomplete="off"
+            placeholder="Type a message, in any of the 17 languages…"></textarea>
+          <div class="examples" role="group" aria-label="Or try one of these">
+            {EXAMPLES.map((e) => (
+              <button type="button" class="ex" data-text={e.text}>
+                <span class="ex-lang" aria-hidden="true">{e.lang}</span>
+                <span class="ex-text">{e.text}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div class="demo-out">
+          <p class="lab">Your sidebar, a moment later</p>
+          <div class="side" data-tl-side>
+            <aparte-conversation-list no-groups active-id="tl-demo"></aparte-conversation-list>
+          </div>
+          <p class="meter" aria-live="polite" data-tl-state>Loading the model, {LATIN.kb} KB&hellip;</p>
+        </div>
+      </div>
+      <p class="demo-note">
+        Every title above is the model's, computed in this tab as you type. The latency is
+        measured here, not quoted.
+      </p>
+    </section>
+
+    <!-- ── the numbers ──────────────────────────────────────────────────── -->
+    <section class="band">
+      <h2 class="serif">What it <span class="paren">(</span>weighs<span class="paren">)</span></h2>
+      <div class="figures">
+        <div class="fig"><b>{LATIN.kb} KB</b><span>the file, 17 languages<em>int3 &#8212; a favicon is often larger</em></span></div>
+        <div class="fig"><b>17</b><span>languages in one file<em>{LATIN_LANGS.join(' · ')}</em></span></div>
+        <div class="fig"><b data-tl-ms>&#8230; ms</b><span>per title, one core<em>measured above, in your tab</em></span></div>
+        <div class="fig"><b>0</b><span>network calls<em>after the file: the model runs in the page</em></span></div>
+        <div class="fig"><b>0</b><span>dependencies<em>a runtime of about 250 lines</em></span></div>
+        <div class="fig"><b>90&#8211;95%</b><span>of a 2.4 GB teacher<em>word F1 on real chat &#8212; twice the &#8220;first five words&#8221; rule</em></span></div>
+      </div>
+      <p class="sec-note">
+        The benchmark, every language, every precision and the charts are on the
+        <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">model card &#8594;</a>
+      </p>
+    </section>
+
+    <!-- ── use it ───────────────────────────────────────────────────────── -->
+    <section class="band">
+      <h2 class="serif">In apart&eacute;, <span class="paren">(</span>three lines<span class="paren">)</span></h2>
+      <p class="sec-sub">
+        The <a href="/plugins/titler/">titler plugin</a> binds the model to the conversation
+        manager: the first message of every conversation is titled by it, and the title lands in
+        the list. The model loads once, the first time a title is needed.
+      </p>
+      <div class="code"><pre><code><span class="kw">import</span> {'{'} loadTitler {'}'} <span class="kw">from</span> <span class="st">'@aparte/titler-latin'</span>;
+<span class="kw">import</span> {'{'} setupTitler {'}'} <span class="kw">from</span> <span class="st">'@aparte/plugin-titler'</span>;
+
+<span class="fn">setupTitler</span>(manager, {'{'} titler: loadTitler {'}'});   <span class="cm">// manager: your AparteConversationManager</span></code></pre></div>
+      <p class="sec-sub">Without apart&eacute;, the runtime alone. One import, one file, one call:</p>
+      <div class="code"><pre><code><span class="kw">import</span> {'{'} loadTitler {'}'} <span class="kw">from</span> <span class="st">'@aparte/titler-latin'</span>;
+
+<span class="kw">const</span> titler = <span class="kw">await</span> <span class="fn">loadTitler</span>();
+titler.<span class="fn">title</span>(<span class="st">"Peux-tu m'expliquer la photosynthèse chez les plantes ?"</span>);</code></pre></div>
+      <p class="sec-note">
+        <code>npm install @aparte/titler-latin</code> &#8212; the file ships inside the package
+        and your bundler copies it as an asset, so the page fetches it from your own origin.
+      </p>
+    </section>
+
+    <!-- ── pick a model ─────────────────────────────────────────────────── -->
+    <section class="band">
+      <h2 class="serif">Pick the <span class="paren">(</span>file<span class="paren">)</span></h2>
+      <p class="sec-sub">
+        One model per language group, four precisions each. The int3 files below ship on npm;
+        every other one is on the model card.
+      </p>
+      <table class="pick">
+        <thead><tr><th>Package</th><th>Languages</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td><code>{LATIN.pkg}</code></td><td>{LATIN.languages.length} &#8212; {LATIN.languages.join(', ')}</td><td>{LATIN.kb} KB</td></tr>
+          <tr><td><code>{MINI.pkg}</code></td><td>the same {MINI.languages.length}, a smaller vocabulary<em>about half a point below, on average</em></td><td>{MINI.kb} KB</td></tr>
+          <tr><td><code>{EFIGSP.pkg}</code></td><td>{EFIGSP.languages.length} &#8212; {EFIGSP.languages.join(', ')}</td><td>{EFIGSP.kb} KB</td></tr>
+          <tr><td><code>@aparte/titler</code> + one file</td><td>one language, from the <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">model card</a></td><td>about 40 KB</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── what it is, and is not ───────────────────────────────────────── -->
+    <section class="band">
+      <h2 class="serif">What it <span class="paren">(</span>is<span class="paren">)</span>, and is not</h2>
+      <dl class="tl-facts">
+        <dt>Extractive</dt>
+        <dd>It copies 3 to 6 words of the message, in the message&#8217;s order. It does not rephrase, summarise or translate &#8212; which is why it fits in {LATIN.kb} KB, and why a title reads like the message that started the conversation.</dd>
+        <dt>One message</dt>
+        <dd>Give it the user&#8217;s first message and nothing else &#8212; no system prompt, no history. It reads up to 1,200 characters; a long preamble before the actual request costs it some accuracy.</dd>
+        <dt>One file</dt>
+        <dd>Header, tokenizer and weights in a single <code>.bin</code>, read by a dependency-free runtime of about 250 lines. A Python reference reader gives the same title, word for word, on every message of the benchmark.</dd>
+        <dt>Open</dt>
+        <dd>MIT, code and weights. Training data and the benchmark are published beside the model, under their own licences.</dd>
+      </dl>
+      <p class="st-links">
+        <a href="https://huggingface.co/apartejs/aparte-titler" target="_blank" rel="noopener">The model card &#8594;</a>
+        <a href="https://github.com/apartejs/aparte-titler-model" target="_blank" rel="noopener">The code &#8594;</a>
+        <a href="https://www.npmjs.com/package/@aparte/titler-latin" target="_blank" rel="noopener">On npm &#8594;</a>
+        <a href="/plugins/titler/">The plugin &#8594;</a>
+      </p>
+    </section>
+  </div>
+
+  <script>
+    // The real library — the row the title lands in is the sidebar's own element.
+    import '@aparte/core';
+    import '@aparte/core/styles.css';
+    // The real package, the one a consumer installs: the model file ships inside it and
+    // the bundler copied it as an asset of this site, so the fetch below is same-origin.
+    import { loadTitler } from '@aparte/titler-latin';
+
+    const section = document.getElementById('demo')!;
+    const KB = section.dataset.kb;
+    // The figure below the fold reads the same measurement as the meter.
+    const figure = document.querySelector('[data-tl-ms]');
+    const field = document.getElementById('tl-msg') as HTMLTextAreaElement;
+    const state = section.querySelector('[data-tl-state]')!;
+    const side = section.querySelector('[data-tl-side]')!;
+    // Typed by core's element map: `conversations` is the list's own property.
+    const list = section.querySelector('aparte-conversation-list')!;
+
+    // ── theme: the frame owns the toggle, this page mirrors it onto the list ──
+    // Core's dark palette is keyed on `data-aparte-theme`, whose absence is light.
+    const root = document.documentElement;
+    const currentTheme = () =>
+      root.getAttribute('data-theme') ||
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const mirror = (theme: string) => {
+      if (theme === 'dark') side.setAttribute('data-aparte-theme', 'dark');
+      else side.removeAttribute('data-aparte-theme');
+    };
+    mirror(currentTheme());
+    document.addEventListener('site-theme-change', (e) => {
+      mirror((e as CustomEvent<{ theme: string }>).detail.theme);
+    });
+
+    // ── the row ──
+    const show = (title: string) => {
+      list.conversations = [{ id: 'tl-demo', title: title || 'New Chat' }];
+    };
+    show('');
+
+    // ── the model ──
+    let titler: Awaited<ReturnType<typeof loadTitler>> | null = null;
+    const retitle = () => {
+      if (!titler) return;
+      const t0 = performance.now();
+      const title = titler.title(field.value);
+      const ms = performance.now() - t0;
+      show(title);
+      state.textContent = `${ms.toFixed(1)} ms · latin int3 · ${KB} KB · measured in this tab`;
+      if (figure) figure.textContent = `${ms.toFixed(1)} ms`;
+    };
+    field.addEventListener('input', retitle);
+    for (const button of section.querySelectorAll<HTMLButtonElement>('.ex')) {
+      button.addEventListener('click', () => {
+        field.value = button.dataset.text ?? '';
+        retitle();
+        field.focus();
+      });
+    }
+    loadTitler()
+      .then((t) => {
+        titler = t;
+        // Arriving from the link everyone gives (`#demo`), the first example is already
+        // titled and the field has the focus: the visitor only has to type.
+        if (!field.value) field.value = section.querySelector<HTMLButtonElement>('.ex')?.dataset.text ?? '';
+        retitle();
+        if (location.hash === '#demo') field.focus({ preventScroll: true });
+      })
+      .catch(() => {
+        state.textContent = 'The model could not be loaded — the page is still readable, the demo is not.';
+      });
+  </script>
+
+  <style>
+      /*
+       * Page-local, prefixed by its own classes; every colour through the brand
+       * tokens landing.css aliases, so both themes come out of one declaration.
+       */
+      .tl { width: min(1120px, 100%); margin-inline: auto; }
+      .tl-head { padding: clamp(52px, 8vw, 96px) 0 clamp(26px, 4vw, 40px); max-width: 68ch; }
+      .tl-head .eyebrow a { color: inherit; text-decoration: none; }
+      .tl-head .eyebrow a:hover { color: var(--accent-text); }
+      .tl-head .lede { margin-bottom: 0; }
+
+      /* ── the demo card: the spotlight, spent once, on the model running ── */
+      .demo { margin-top: clamp(26px, 4vw, 40px); scroll-margin-top: 24px; }
+      .demo-card {
+        display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 15px;
+        padding: 24px 26px 26px; position: relative; overflow: hidden; box-shadow: var(--shadow);
+      }
+      /* The same brass hairline the landing's proof cards and the roadmap's present station wear. */
+      .demo-card::before { content: ""; position: absolute; inset-inline: 0; top: 0; block-size: 2px; background: linear-gradient(to right, var(--accent), transparent 78%); }
+      .lab { margin: 0 0 10px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+      .demo-in textarea {
+        display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 7.5em;
+        padding: 14px 16px; border-radius: 11px; border: 1px solid var(--line);
+        background: var(--ground); color: var(--text); font: inherit; font-size: 16.5px; line-height: 1.55;
+      }
+      .demo-in textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+      /* `min-width: 0` on both: a flex item's minimum is its min-content, and a
+         nowrap sentence's min-content is the whole sentence — on a 390px screen the
+         chips pushed the card 200px past the viewport before this. */
+      .ex {
+        display: inline-flex; align-items: baseline; gap: 8px; max-width: 100%; min-width: 0;
+        padding: 7px 11px 7px 8px; border-radius: 999px; border: 1px solid var(--line);
+        background: transparent; color: var(--dim); font: inherit; font-size: 13px; line-height: 1.3; cursor: pointer;
+        transition: border-color .2s, color .2s;
+      }
+      .ex:hover { border-color: var(--accent); color: var(--text); }
+      .ex:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .ex-lang { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); }
+      .ex-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      /* The sidebar's own row, in a sidebar-shaped frame: the title lands where an app
+         would show it, and core's tokens draw the row — this page adds the frame only.
+         The row's `⋯` menu is hidden here on purpose: nothing on this page answers a
+         rename or a delete, and an affordance nobody honours is not shown (decision #8). */
+      .side { border: 1px solid var(--line); border-radius: 11px; padding: 10px; background: var(--ground); }
+      .side aparte-conversation-list { display: block; }
+      .side :global(.aparte-conv-item__more) { display: none; }
+      .meter { margin: 12px 0 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--dim); min-height: 1.4em; }
+      .demo-note { margin: 14px 0 0; color: var(--dim); font-size: 13.5px; line-height: 1.5; }
+
+      /* ── the sections below the fold: the landing's band rhythm ── */
+      .band { padding: clamp(40px, 6vw, 64px) 0 0; max-width: 78ch; }
+      .band h2 { font-size: clamp(26px, 3.2vw, 36px); font-weight: 400; letter-spacing: -.02em; margin: 0 0 14px; }
+      .band h2 .paren { color: var(--accent); }
+      .sec-sub { margin: 0 0 18px; color: var(--dim); font-size: 16px; line-height: 1.62; max-width: 64ch; }
+      .sec-sub a, .sec-note a, .tl-facts a, .pick a { color: var(--accent-text); text-decoration: none; }
+      .sec-sub a:hover, .sec-note a:hover, .tl-facts a:hover, .pick a:hover { text-decoration: underline; }
+      .sec-note { margin: 16px 0 0; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
+      .band code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em; color: color-mix(in oklab, var(--text) 82%, var(--accent-text)); }
+      .code + .sec-sub { margin-top: 22px; }
+
+      .figures { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+      .fig { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px 13px; }
+      .fig b { display: block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 500; letter-spacing: -.02em; color: var(--text); line-height: 1.15; }
+      .fig span { display: block; margin-top: 4px; color: var(--dim); font-size: 12.5px; line-height: 1.35; }
+      .fig em { display: block; margin-top: 3px; font-style: normal; font-size: 11px; line-height: 1.35; color: var(--dim); }
+
+      .pick { width: 100%; border-collapse: collapse; font-size: 14.5px; line-height: 1.5; }
+      .pick th { text-align: start; padding: 0 12px 8px 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+      .pick td { padding: 10px 12px 10px 0; border-top: 1px solid var(--line); color: var(--dim); vertical-align: top; }
+      .pick td:first-child { color: var(--text); white-space: nowrap; }
+      .pick td:last-child { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+      .pick td em { display: block; font-style: normal; font-size: 12.5px; }
+
+      .tl-facts { display: grid; grid-template-columns: minmax(0, .5fr) minmax(0, 1.5fr); gap: 0; margin: 4px 0 0; }
+      .tl-facts dt { padding: 12px 0; border-top: 1px solid var(--line); color: var(--text); font-size: 15px; line-height: 24px; }
+      .tl-facts dd { padding: 12px 0; padding-inline-start: 24px; border-top: 1px solid var(--line); margin: 0; color: var(--dim); font-size: 14.5px; line-height: 24px; }
+      .tl-facts dt:first-of-type, .tl-facts dt:first-of-type + dd { border-top: none; }
+      .st-links { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 26px 0 0; font-size: 14px; }
+      .st-links a { color: var(--accent-text); text-decoration: none; }
+      .st-links a:hover { text-decoration: underline; }
+
+      @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+      @media (max-width: 820px) {
+        /* `minmax(0, 1fr)`, not `1fr`: a bare `1fr` is `minmax(auto, 1fr)`, and the
+           column's `auto` minimum is the widest chip's nowrap sentence — measured 429px
+           in a 390px viewport, the card clipping its own right edge. */
+        .demo-card { grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 20px 18px 22px; border-radius: 13px; }
+        .tl-facts { grid-template-columns: 1fr; }
+        .tl-facts dt { padding-bottom: 0; }
+        .tl-facts dd { padding-top: 4px; padding-inline-start: 0; border-top: none; }
+        .tl-facts dt:first-of-type + dd { border-top: none; }
+        .pick td:first-child { white-space: normal; }
+      }
+  </style>
+</Landing>

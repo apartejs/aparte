@@ -38,6 +38,10 @@ const pages = Object.fromEntries([
     // because astro-og-canvas bakes these two strings into the PNG as pixels — change
     // one and change the other.
     ['roadmap', { title: 'One road, no dates', description: 'What npm serves, where the current branch stands, and the conditions the beta and 1.0 each have to meet.' }],
+    // /models/ and /models/titler/ are Astro pages on the same frame. Their
+    // og:image:alt strings (in each page) are written FROM these two entries.
+    ['models', { title: 'Small models, one task each', description: 'The models aparté publishes: built for one job in a chat, light enough to run in the browser, with no API call.' }],
+    ['models/titler', { title: 'A title for every conversation, as you type', description: 'aparte-titler picks 3 to 6 words out of the first message. 133 KB for 17 languages, a few milliseconds per title, nothing leaves the page.' }],
     ...docs.map(({ id, data }) => [ogSlug(id), { title: data.title, description: data.description }]),
 ]);
 

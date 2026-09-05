@@ -109,3 +109,32 @@ describe('the rail does not clip the first and last zone', () => {
         expect(host).not.toMatch(/(^|;)\s*padding:/);
     });
 });
+
+/*
+ * The rail is a LIST of ticks, not a minimap: it takes the height of its list, capped at a
+ * share of the transcript, and sits centred on the transcript's span. Measured on the
+ * market (2026-09-05): every per-turn rail that ships as a list caps itself (LobeChat at
+ * 50vh) and every full-height strip is a proportional minimap with a viewport window —
+ * a different component. A list stretched to the full transcript read as the second
+ * while behaving as the first.
+ */
+describe('the rail is a capped list, centred on the transcript', () => {
+    const host = rule(rail, 'aparte-scroll-rail');
+
+    it('caps its height at a share of the transcript, from one token', () => {
+        expect(theme).toMatch(/--aparte-scroll-rail-share:\s*\.6/);
+        expect(host).toMatch(/max-height:\s*calc\(\(100% - var\(--aparte-scroll-rail-block-start, 0px\) - var\(--aparte-scroll-rail-block-end, 0px\)\) \* var\(--aparte-scroll-rail-share\)\)/);
+    });
+
+    it('centres on the transcript: its top is the middle of the published span, pulled back by half its own height', () => {
+        expect(host).toMatch(/top:\s*calc\(var\(--aparte-scroll-rail-block-start, 0px\) \+ \(100% - var\(--aparte-scroll-rail-block-start, 0px\) - var\(--aparte-scroll-rail-block-end, 0px\)\) \/ 2\)/);
+        expect(host).toMatch(/transform:\s*translateY\(-50%\)/);
+        expect(host).not.toMatch(/(^|;)\s*bottom:/);
+    });
+
+    it('scrolls past the cap, with no bar of its own', () => {
+        expect(host).toMatch(/overflow-y:\s*auto/);
+        expect(host).toMatch(/scrollbar-width:\s*none/);
+    });
+});
+

@@ -6,7 +6,23 @@ import { uuid } from '../utils/uuid.js';
 
 type Listener = (conversations: AparteConversation[]) => void;
 
+/**
+ * Titles a conversation from its first user message.
+ *
+ * Receives the message's text and the message itself, and returns the title —
+ * synchronously or not. An empty answer, or a throw, leaves
+ * the default title (the text as typed), so a titler that fails never loses the
+ * message from the sidebar. Registered with `AparteConversationManager.setTitleProvider`;
+ * `@aparte/plugin-titler` binds one to an aparte-titler model.
+ */
+export type AparteConversationTitleProvider = (text: string, message: AparteMessage) => string | Promise<string>;
+
 export interface ConversationManagerOptions {
+    /**
+     * Titles a new conversation from its first user message, instead of the default
+     * (the message's text). Same as calling `setTitleProvider` after construction.
+     */
+    titleProvider?: AparteConversationTitleProvider;
     /**
      * Opt-in history retention. When set, `updateMessages()` trims a persisted
      * conversation to at most `maxMessages` on the active path (dropping the
@@ -82,10 +98,28 @@ export class AparteConversationManager {
     private _listeners: Set<Listener> = new Set();
     private _initialized = false;
     private _retention: { maxMessages: number } | null = null;
+    private _titleProvider: AparteConversationTitleProvider | null = null;
 
     constructor(adapter: AparteStorageAdapter, options?: ConversationManagerOptions) {
         this._adapter = adapter;
         this._retention = options?.retention ?? null;
+        this._titleProvider = options?.titleProvider ?? null;
+    }
+
+    // ─── Title provider ─────────────────────────────────────────────────────
+
+    /**
+     * Replace how a new conversation is titled from its first user message.
+     * `null` restores the default (the message's text). The provider is consulted
+     * once per conversation, on that first message; `updateTitle` is untouched.
+     */
+    setTitleProvider(provider: AparteConversationTitleProvider | null): void {
+        this._titleProvider = provider;
+    }
+
+    /** The registered title provider, or `null` when the default applies. */
+    getTitleProvider(): AparteConversationTitleProvider | null {
+        return this._titleProvider;
     }
 
     // ─── Initialisation ────────────────────────────────────────────────────
@@ -183,7 +217,7 @@ export class AparteConversationManager {
             ...conv,
             messages: [...conv.messages, msg],
             updatedAt: Date.now(),
-            title: isFirstUserMsg ? this._autoTitle(msg) : conv.title,
+            title: isFirstUserMsg ? await this._title(msg) : conv.title,
         };
         this._replace(updated);
         await this._adapter.save(updated);
@@ -343,12 +377,26 @@ export class AparteConversationManager {
         });
     }
 
+    /**
+     * The title of a conversation, decided once, on its first user message: the
+     * provider's answer when one is registered and answers, else the default.
+     */
+    private async _title(msg: AparteMessage): Promise<string> {
+        const fallback = this._autoTitle(msg);
+        if (!this._titleProvider) return fallback;
+        try {
+            const title = (await this._titleProvider((msg.content ?? '').trim(), msg)).trim();
+            return title || fallback;
+        } catch (err) {
+            console.warn('[AparteConversationManager] the title provider threw; the default title stands:', err);
+            return fallback;
+        }
+    }
+
     private _autoTitle(msg: AparteMessage): string {
-        const raw = msg.content;
-        const text = typeof raw === 'string' ? raw : (raw ?? '').toString();
         // Auto-title from the first user message. Full content is preserved
         // (UI surfaces handle visual truncation via CSS). The user can rename
         // freely afterwards via updateTitle() — also untouched.
-        return text.trim() || 'New Chat';
+        return (msg.content ?? '').trim() || 'New Chat';
     }
 }

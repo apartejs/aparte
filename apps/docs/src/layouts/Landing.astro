@@ -41,7 +41,7 @@ interface Props {
      *  pixels. An alt written from the tags describes an image nobody sees. */
     ogImageAlt: string;
     /** Which nav link is the page you are on. */
-    current: 'index' | 'roadmap';
+    current: 'index' | 'roadmap' | 'models';
 }
 
 const { title, description, canonical, ogImage, ogImageAlt, current } = Astro.props;
@@ -178,6 +178,11 @@ const CORE_VERSION_HREF = `/changelog/version/${CORE_VERSION.replaceAll('.', '-'
                390px screen with the version chip, GitHub and the toggle, and one more
                word overflowed the page by 41px. The frame's own mechanism, not a new
                one. -->
+          <a
+            href="/models/"
+            class="hide-sm"
+            aria-current={current === 'models' ? 'page' : undefined}
+          >Models</a>
           <a
             href="/roadmap/"
             class="hide-sm"
