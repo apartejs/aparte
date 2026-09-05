@@ -113,3 +113,8 @@ aparte-chat {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.85rem;
 }
+
+/* A group whose fields are disabled — the local server's, under the scripted model. */
+.settings-group[data-disabled] {
+  opacity: 0.55;
+}

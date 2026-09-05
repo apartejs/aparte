@@ -431,8 +431,20 @@ function wireSettingsView(): void {
     // source is applied by reloading the page, which is also what makes it visible.
     const startedWith = loadSettings().modelSource;
 
+    // The system prompt, the endpoint and the token belong to the local server: the
+    // scripted model reads none of them, so under it they are disabled rather than
+    // editable and unread.
+    const syncLocalFields = (): void => {
+        const local = sourceEls.find((el) => el.checked)?.value === 'local';
+        for (const el of [promptEl, endpointEl, tokenEl]) {
+            el.disabled = !local;
+            el.closest('.settings-group')?.toggleAttribute('data-disabled', !local);
+        }
+    };
+
     const render = (settings: ExampleSettings): void => {
         for (const el of sourceEls) el.checked = el.value === settings.modelSource;
+        syncLocalFields();
         promptEl.value = settings.systemPrompt;
         endpointEl.value = settings.endpoint;
         tokenEl.value = settings.token;
@@ -440,6 +452,7 @@ function wireSettingsView(): void {
     render(loadSettings());
 
     const commit = (): void => {
+        syncLocalFields();
         const next: ExampleSettings = {
             modelSource: sourceEls.find((el) => el.checked)?.value === 'local' ? 'local' : 'scripted',
             systemPrompt: promptEl.value,
