@@ -50,6 +50,36 @@ const GATE_STEPS = gate.split('&&').length;
 const GATE_GUARDS = gate.split('&&').filter((s) => /pnpm check/.test(s)).length;
 
 /**
+ * The surface figures are counted the same way: the manifest for the elements, the
+ * typed event map for the events, the generated references for the variables and the
+ * classes, the tree for the kit families and the plugins. Typed here, they drifted
+ * inside a week (45 events against 46 generated, 456 variables against 469). Each has
+ * a fallback for a clone where a generated file is missing, like the test count above.
+ */
+function count(read: () => number, fallback: number): number {
+    try { return read() || fallback; } catch { return fallback; }
+}
+const ELEMENTS = count(() => {
+    const m = JSON.parse(readFileSync(at('packages/core/dist/custom-elements.json'), 'utf8'));
+    return m.modules.flatMap((x: { declarations?: unknown[] }) => x.declarations ?? [])
+        .filter((d: { customElement?: boolean; tagName?: string }) => d.customElement && d.tagName).length;
+}, 24);
+const EVENTS = count(() =>
+    (readFileSync(at('packages/core/src/types/event-map.ts'), 'utf8').match(/^\s*'aparte-[a-z-]+'/gm) ?? []).length, 40);
+const CSS_VARS = count(() =>
+    (readFileSync(at('apps/docs/src/content/docs/reference/css-variables.md'), 'utf8').match(/^\| `--aparte-/gm) ?? []).length, 469);
+const SHEETS = count(() =>
+    (readFileSync(at('packages/core/src/index.ts'), 'utf8').match(/^import '\.\/styles\//gm) ?? []).length, 44);
+const CSS_CLASSES = count(() => {
+    const md = readFileSync(at('apps/docs/src/content/docs/reference/classes.mdx'), 'utf8');
+    return new Set(md.match(/`\.?aparte-[a-z0-9_-]+`/g) ?? []).size;
+}, 350);
+const KIT_FAMILIES = count(() =>
+    readdirSync(at('apps/docs/src/content/docs/kit/')).filter((f) => f.endsWith('.mdx') && f !== 'index.mdx').length, 25);
+const PLUGINS = count(() =>
+    readdirSync(at('packages/plugins/'), { withFileTypes: true }).filter((e) => e.isDirectory()).length, 9);
+
+/**
  * How many tests actually RAN, stamped by `scripts/stamp-test-count.mjs` on every
  * `pnpm test`. Absent (a fresh clone that has never run the suite) the page falls
  * back to the last measured figures rather than to a guess.
@@ -166,6 +196,8 @@ const ROADMAP_IMAGE_ALT =
                   <li>Compaction left core for <code>@aparte/plugin-compaction</code>.</li>
                   <li><code>@aparte/plugin-artifacts</code> &#8212; the artifact card as a tool renderer, and as a stream block.</li>
                   <li>The <code>ask_user</code> rework, and <code>@aparte/plugin-approval</code>.</li>
+                  <li>A title for every conversation: the manager takes a <b>title provider</b>, and <code>@aparte/plugin-titler</code> binds one to <a href="/models/titler/">a 132 KB model that runs in the browser</a>, in 17 languages.</li>
+                  <li>The scroll rail measured against the market and reworked: a list of ticks capped at a share of the transcript, centred on it, and a jump that lands where it aimed.</li>
                 </ul>
               </div>
 
@@ -196,12 +228,12 @@ const ROADMAP_IMAGE_ALT =
 
               <p class="fig-head">Counted on the tree</p>
               <div class="figures">
-                <div class="fig"><b>24</b><span>elements</span></div>
-                <div class="fig"><b>25</b><span>kit families</span></div>
-                <div class="fig"><b>45</b><span>typed events</span></div>
-                <div class="fig"><b>456</b><span>CSS variables<em>documented</em></span></div>
-                <div class="fig"><b>351</b><span>CSS classes<em>across 44 sheets</em></span></div>
-                <div class="fig"><b>9</b><span>plugins</span></div>
+                <div class="fig"><b>{ELEMENTS}</b><span>elements</span></div>
+                <div class="fig"><b>{KIT_FAMILIES}</b><span>kit families</span></div>
+                <div class="fig"><b>{EVENTS}</b><span>typed events</span></div>
+                <div class="fig"><b>{CSS_VARS}</b><span>CSS variables<em>documented</em></span></div>
+                <div class="fig"><b>{CSS_CLASSES}</b><span>CSS classes<em>across {SHEETS} sheets</em></span></div>
+                <div class="fig"><b>{PLUGINS}</b><span>plugins</span></div>
                 <div class="fig"><b>4</b><span>wrappers<em>React, Vue, Svelte, Angular &#8212; plus vanilla</em></span></div>
                 <div class="fig"><b>{TESTS_LABEL}</b><span>tests<em>in {FILES} files</em></span></div>
                 <div class="fig"><b>{GATE_STEPS}</b><span>gate steps<em>{GATE_GUARDS} of them guards</em></span></div>
@@ -239,9 +271,9 @@ const ROADMAP_IMAGE_ALT =
                 <em class="b-state">done &#183; re-checked by the cold audit</em>
               </li>
               <li>
-                <span class="g g-open" aria-hidden="true">(<b>&#160;</b>)</span>
-                <span class="b-text">The frozen surface declared on a stability page.</span>
-                <em class="b-state">open &#183; drafted</em>
+                <span class="g g-now" aria-hidden="true">(<b>&#9680;</b>)</span>
+                <span class="b-text">The frozen surface declared on a <a href="/reference/stability/">stability page</a>.</span>
+                <em class="b-state">in progress &#183; the page says what freezes; the beta turns it into what is frozen</em>
               </li>
               <li>
                 <span class="g g-done" aria-hidden="true">(<b>&#9679;</b>)</span>
