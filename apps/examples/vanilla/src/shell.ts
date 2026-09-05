@@ -1,116 +1,89 @@
 /**
- * The site around the chat: the conversation list, the header title, the new-chat
- * button and the theme toggle.
+ * The site around the chat: the conversation list, the new-chat button, the theme
+ * toggle — over the library's own conversation chain, not a store of this file's.
  *
- * Everything here is UI wiring over what core ships — the list is
- * `<aparte-conversation-list>`, the drawer and the search are `<aparte-sidebar>`'s, the
- * grid is the `.aparte-app-shell` recipe. What this file adds is the glue a real site
- * has: which conversation is open, what the header says, and what a send does to the
- * list. The conversations themselves are sample data (sample-conversations.ts); a site
- * with a store plugs the conversation manager in here instead.
+ * The list is `<aparte-conversation-list>`, the drawer and the search are
+ * `<aparte-sidebar>`'s, the grid is the `.aparte-app-shell` recipe. The data is an
+ * `AparteConversationManager` over a storage adapter (sample-adapter.ts, which answers
+ * after a delay on purpose), and an `AparteConversationController` binds the chat to
+ * it: it hears the list's select, the composer's send, creates a conversation on the
+ * first message, persists after every turn, fetches a conversation's messages on
+ * demand and shows the wait on the viewport. What this file adds is small: feed the
+ * list from the manager, forward the list's intents to the manager, the theme toggle.
  */
-import type { AparteChatViewport, AparteConversationList } from '@aparte/core';
+import {
+    AparteConversationController,
+    AparteConversationManager,
+    aparteGlobalConfig,
+    type AparteChatViewport,
+    type AparteConversationList,
+} from '@aparte/core';
 import { moonIcon, searchIcon, sunIcon } from '@aparte/core/icons';
-import { SAMPLE_CONVERSATIONS, type SampleConversation } from './sample-conversations';
-
-const NEW_TITLE = 'New conversation';
+import { createSampleAdapter } from './sample-adapter';
 
 export function wireShell(): void {
     const list = document.querySelector<AparteConversationList>('aparte-conversation-list');
     const viewport = document.querySelector<AparteChatViewport>('aparte-chat-viewport');
     const chat = document.querySelector<HTMLElement>('aparte-chat');
-    const welcome = document.getElementById('welcome');
     if (!list || !viewport || !chat) return;
-    // The product keeps the conversation's name out of the header: the sidebar's active
-    // row carries it, and so does the document's title.
-    const title = { set textContent(t: string | null) { document.title = t ? `${t} · aparté` : 'aparté'; } };
 
-    // Copies, so a rename or a delete in this session never touches the sample data.
-    const conversations: SampleConversation[] = SAMPLE_CONVERSATIONS.map((c) => ({ ...c }));
-    let activeId: string | null = null;
+    // The manager, registered for every <aparte-*> element on the page.
+    const manager = new AparteConversationManager(createSampleAdapter());
+    aparteGlobalConfig.setConversationManager(manager);
 
-    const byId = (id: string) => conversations.find((c) => c.id === id);
+    // The controller: the chat bound to the manager. `setLoading` is how it shows a
+    // conversation on its way — the viewport draws the wait itself.
+    const controller = new AparteConversationController({
+        hostId: chat.id || 'main-chat',
+        host: chat,
+        getMessages: () => viewport.getMessages(),
+        setMessages: (m) => viewport.setMessages(m),
+        appendMessage: (m) => viewport.appendMessage(m),
+        clearMessages: (o) => viewport.clearAll(o),
+        setLoading: (on) => viewport.setLoading(on),
+        exportTree: () => viewport.exportTree(),
+        importTree: (t) => viewport.importTree(t),
+    });
+    controller.bind();
 
-    /** The list reads a plain item per conversation; the messages stay here. */
-    const render = (): void => {
-        list.conversations = conversations.map(({ messages: _m, ...item }) => item);
-        if (activeId) list.setAttribute('active-id', activeId);
+    // The list mirrors the manager: every mutation re-renders the rows, the active one
+    // follows the manager's selection. The document's title carries the name — the
+    // product keeps it out of the header.
+    manager.subscribe(() => {
+        list.conversations = manager.conversations.map(({ id, title, updatedAt, pinnedAt, archivedAt }) => ({ id, title, updatedAt, pinnedAt, archivedAt }));
+        const active = manager.active;
+        if (active) list.setAttribute('active-id', active.id);
         else list.removeAttribute('active-id');
-    };
-
-    /** Open a conversation in the chat — or none, which is the new-chat state. */
-    const open = (conv: SampleConversation | null): void => {
-        activeId = conv?.id ?? null;
-        // `setMessages` replaces the transcript; the messages are historical, so they
-        // land without the arrival animation and the composer keeps its focus.
-        viewport.setMessages(conv?.messages ?? []);
-        title.textContent = conv?.title ?? NEW_TITLE;
-        if (welcome) welcome.hidden = (conv?.messages.length ?? 0) > 0;
-        render();
-    };
-
-    list.addEventListener('aparte-conversation-select', (e) => {
-        open(byId((e as CustomEvent<{ id: string }>).detail.id) ?? null);
+        document.title = active?.title ? `${active.title} · aparté` : 'aparté';
     });
-    list.addEventListener('aparte-conversation-delete', (e) => {
-        const id = (e as CustomEvent<{ id: string }>).detail.id;
-        const i = conversations.findIndex((c) => c.id === id);
-        if (i >= 0) conversations.splice(i, 1);
-        if (activeId === id) open(null);
-        else render();
-    });
+
+    // The list's intents, forwarded to the manager. Select is not here: the controller
+    // hears `aparte-conversation-select` on the window and loads the conversation.
+    list.addEventListener('aparte-conversation-delete', (e) => { void manager.delete((e as CustomEvent<{ id: string }>).detail.id); });
     list.addEventListener('aparte-conversation-rename', (e) => {
-        const { id, title: next } = (e as CustomEvent<{ id: string; title: string }>).detail;
-        const conv = byId(id);
-        if (!conv) return;
-        conv.title = next;
-        if (activeId === id) title.textContent = next;
-        render();
+        const { id, title } = (e as CustomEvent<{ id: string; title: string }>).detail;
+        void manager.updateTitle(id, title);
     });
-    list.addEventListener('aparte-conversation-pin', (e) => {
-        const conv = byId((e as CustomEvent<{ id: string }>).detail.id);
-        if (conv) { conv.pinnedAt = Date.now(); render(); }
-    });
-    list.addEventListener('aparte-conversation-unpin', (e) => {
-        const conv = byId((e as CustomEvent<{ id: string }>).detail.id);
-        if (conv) { delete conv.pinnedAt; render(); }
-    });
+    list.addEventListener('aparte-conversation-pin', (e) => { void manager.pin((e as CustomEvent<{ id: string }>).detail.id); });
+    list.addEventListener('aparte-conversation-unpin', (e) => { void manager.unpin((e as CustomEvent<{ id: string }>).detail.id); });
+    list.addEventListener('aparte-conversation-archive', (e) => { void manager.archive((e as CustomEvent<{ id: string }>).detail.id); });
+    list.addEventListener('aparte-conversation-unarchive', (e) => { void manager.unarchive((e as CustomEvent<{ id: string }>).detail.id); });
 
     document.getElementById('new-chat')?.addEventListener('click', () => {
-        open(null);
+        void controller.setConversationId(null);
         chat.querySelector<HTMLElement>('aparte-composer-input')?.focus();
-    });
-
-    // A send in the new-chat state creates the conversation, titled by the message —
-    // the way a site with a store does through the conversation manager. A send in an
-    // open conversation bumps it to the top of its day.
-    chat.addEventListener('aparte-send', (e) => {
-        const text = String((e as CustomEvent<{ content?: string }>).detail?.content ?? '').trim();
-        if (!activeId) {
-            const conv: SampleConversation = {
-                id: `c-${Date.now().toString(36)}`,
-                title: text.length > 60 ? `${text.slice(0, 57)}…` : text || NEW_TITLE,
-                updatedAt: Date.now(),
-                messages: [],
-            };
-            conversations.unshift(conv);
-            activeId = conv.id;
-            title.textContent = conv.title;
-        } else {
-            const conv = byId(activeId);
-            if (conv) conv.updatedAt = Date.now();
-        }
-        if (welcome) welcome.hidden = true;
-        render();
     });
 
     wireThemeToggle();
     drawSearchIcon();
-    open(null);
     // The composer has the focus on load, the way every chat product does: with a
     // sidebar before it, the editor is twenty-odd tab stops from the top of the page.
-    // The composer's own gates (a model not selected yet) still apply to what is typed.
     chat.querySelector<HTMLElement>('aparte-composer-input')?.focus();
+
+    // The list says it is on its way until the adapter's first answer; the manager's
+    // first notification fills it.
+    list.loading = true;
+    void manager.init().then(() => { list.loading = false; });
 }
 
 /** The search row's glyph, from the extended set — a static SVG string, never user input. */

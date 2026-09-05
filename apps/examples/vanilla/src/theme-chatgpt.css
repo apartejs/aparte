@@ -369,3 +369,10 @@
 :root:root .aparte-code-content-wrapper pre {
   background-color: var(--aparte-code-bg);
 }
+
+/* The welcome (heading + starters) belongs to the empty state, and the chat says when
+   it is empty: `data-empty` is off while messages are there OR on their way, so the
+   welcome never shows over a conversation that is loading. */
+aparte-chat:not([data-empty]) .welcome {
+  display: none;
+}
