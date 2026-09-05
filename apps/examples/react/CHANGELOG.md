@@ -1,5 +1,20 @@
 # @aparte-workspace/playground-react
 
+## 0.0.27
+
+### Patch Changes
+
+- Updated dependencies [21dd3bc]
+- Updated dependencies [6d3272e]
+  - @aparte/plugin-artifacts@0.16.11
+  - @aparte/plugin-ask-user@0.16.11
+  - @aparte/plugin-model-selector@0.16.11
+  - @aparte/core@0.16.11
+  - @aparte/locale-fr@0.16.11
+  - @aparte/plugin-marked@0.16.11
+  - @aparte/provider-openai-compat@0.16.11
+  - @aparte/react@0.16.11
+
 ## 0.0.26
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
     "name": "@aparte/core",
-    "version": "0.16.10",
+    "version": "0.16.11",
     "homepage": "https://apartejs.dev/",
     "description": "AI chat in Web Components, with the agent loop inside — zero third-party dependencies",
     "type": "module",

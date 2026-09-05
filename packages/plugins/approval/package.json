@@ -1,6 +1,6 @@
 {
     "name": "@aparte/plugin-approval",
-    "version": "0.16.10",
+    "version": "0.16.11",
     "homepage": "https://apartejs.dev/plugins/approval/",
     "publishConfig": {
         "access": "public"
@@ -42,7 +42,7 @@
         "test:coverage": "vitest run --coverage"
     },
     "peerDependencies": {
-        "@aparte/core": ">=0.16.10 <1.0.0"
+        "@aparte/core": ">=0.16.11 <1.0.0"
     },
     "devDependencies": {
         "@aparte/core": "workspace:*",

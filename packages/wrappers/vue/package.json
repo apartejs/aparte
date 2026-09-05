@@ -1,6 +1,6 @@
 {
   "name": "@aparte/vue",
-  "version": "0.16.10",
+  "version": "0.16.11",
   "homepage": "https://apartejs.dev/frameworks/vue/",
   "description": "Vue 3 wrapper for aparté — an ergonomic <AparteChat> component plus composables over the framework-agnostic web components.",
   "type": "module",
@@ -35,7 +35,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@aparte/core": ">=0.16.10 <1.0.0",
+    "@aparte/core": ">=0.16.11 <1.0.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
