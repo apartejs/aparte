@@ -28,6 +28,12 @@ That split is the rule the whole kit follows: a recipe draws, an element exists 
 there is something to do. The [UI kit](/kit/button/) has every recipe with its markup, one family per page; the
 [element page](/components/shell/aparte-sidebar/) has the sidebar's attributes and events.
 
+A shell written as static HTML paints before any script runs, so load the stylesheet from
+the head — a `<link>`, or an `@import` at the top of your own CSS — rather than from
+JavaScript: in development a JavaScript-imported sheet arrives after the module graph, and
+the shell shows bare for a moment on every reload (the note on
+[getting started](/guides/getting-started/#register-the-components) has the detail).
+
 ## What the sidebar does
 
 **Collapse.** `collapsed` is an attribute — set it, read it, persist it. Any element

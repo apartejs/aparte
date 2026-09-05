@@ -100,6 +100,16 @@ import { registerDefaultRenderers } from '@aparte/core';
 registerDefaultRenderers();          // turns raw text/markdown into rendered bubbles
 ```
 
+:::note[A static shell wants the stylesheet in the head]
+Importing the stylesheet from JavaScript is fine when the framework renders your page:
+the markup and the styles arrive together. If your page ships its shell as **static
+HTML** — a sidebar, a header, the chat's tags in `index.html` — load the stylesheet
+from the head instead, with a `<link>` or an `@import` at the top of your own CSS:
+in development, Vite injects a JavaScript-imported sheet only after the module graph
+has loaded, and the shell paints bare for a moment on every reload. A production build
+extracts it into a `<link>` either way; the difference is what you see while you work.
+:::
+
 :::note[It's optional now]
 Core installs its built-in renderers the first time a segment needs one, so a chat
 renders out of the box whichever path you take. Calling `registerDefaultRenderers()`
