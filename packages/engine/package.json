@@ -1,6 +1,6 @@
 {
     "name": "@aparte/engine",
-    "version": "0.16.10",
+    "version": "0.16.11",
     "homepage": "https://apartejs.dev/reference/engine/",
     "description": "Framework-agnostic AI agent loop (runStreamAgent) + parsers/orchestrator — zero runtime deps, headless (browser or Node).",
     "type": "module",

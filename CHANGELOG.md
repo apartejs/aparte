@@ -4,6 +4,24 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.16.11
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [6d3272e](https://github.com/apartejs/aparte/commit/6d3272e): The README carries the webcomponents.org badge; nothing changes in the code you import.
+
+  The listing at webcomponents.org/element/@aparte/core exists as of 2026-09-05 and the badge links to it from npm and GitHub. Only core is listed, by decision: the plugins stay off the catalogue for now.
+  <sub>`@aparte/core`</sub>
+
+- [21dd3bc](https://github.com/apartejs/aparte/commit/21dd3bc): The four plugins that ship a custom element now carry the `web-components` npm keyword; nothing changes in the code you import.
+
+  Each already pointed `customElements` at its manifest, which is what the webcomponents.org catalogue reads, but only core carried the keyword the catalogue and npm search filter on. The five plugins that expose no element (compaction, marked, shiki, streaming-markdown, titler) are untouched: they have nothing to list there.
+  <sub>`@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-model-selector`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/plugin-titler`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.16.10
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
