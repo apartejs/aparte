@@ -23,8 +23,11 @@
  *
  * @element aparte-composer-toolbar
  *
- * @attr {boolean} data-empty - Reflected BY the element while it holds neither an element
- *                    child nor non-whitespace text; the stylesheet hides it then.
+ * @attr {boolean} data-empty - Reflected BY the element while it holds neither a visible
+ *                    element child nor non-whitespace text; the stylesheet hides it then.
+ *                    A child that hides itself — `hidden`, or its own `data-empty` the
+ *                    way `<aparte-context>` does before its first usage — does not count:
+ *                    a row whose only child shows nothing is an empty band with a border.
  *                    Read-only, do not set it yourself.
  *
  * @example
@@ -53,8 +56,14 @@ export class AparteComposerToolbar extends HTMLElement {
         this._syncEmpty();
         // Children can arrive after connection — a framework commits the element and its
         // children in whichever order suits it, and a consumer may add a control later.
-        this._observer ??= new MutationObserver(() => this._syncEmpty());
-        this._observer.observe(this, { childList: true });
+        // Its own data-empty write is a mutation too: a record whose target is this
+        // element is skipped, or the write re-enters the observer without end.
+        this._observer ??= new MutationObserver((records) => {
+            if (records.some((r) => r.target !== this)) this._syncEmpty();
+        });
+        // Children's own `hidden` / `data-empty` count too (see _syncEmpty), so the
+        // subtree's attributes are watched, filtered to those two.
+        this._observer.observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'data-empty'] });
     }
 
     disconnectedCallback(): void {
@@ -76,7 +85,13 @@ export class AparteComposerToolbar extends HTMLElement {
      * not empty, and hiding it would be a twenty-minute mystery for whoever wrote it.
      */
     private _syncEmpty(): void {
-        const hasContent = Boolean(this.firstElementChild) || this.textContent?.trim() !== '';
+        // A child hidden by the library's own convention shows nothing: `<aparte-context>`
+        // sets `data-empty` on itself until the first usage arrives, and a consumer sets
+        // `hidden`. Counting it kept a 13px band with a border above the composer's
+        // edge, over nothing (the chat-site review, 2026-09-05).
+        const visibleChild = Array.from(this.children).some((c) => !c.hasAttribute('hidden') && !c.hasAttribute('data-empty'));
+        const hasContent = visibleChild || this.textContent?.trim() !== '';
+        if (hasContent === !this.hasAttribute('data-empty')) return;
         if (hasContent) this.removeAttribute('data-empty');
         else this.setAttribute('data-empty', '');
     }
