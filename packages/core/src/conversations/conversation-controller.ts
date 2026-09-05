@@ -552,9 +552,9 @@ export class AparteConversationController {
             // conversation creation.
             if (!this._ensureInFlight) {
                 // Title kept full-length; UI surfaces handle visual truncation
-                // via CSS (`min-w-0` + `truncate`). See conversation-manager
-                // updateTitle() / _autoTitle() comments.
-                const text = (userMsg.content ?? '').toString().trim() || 'New Chat';
+                // via CSS (`min-w-0` + `truncate`). The manager decides the final
+                // title when the message is added (title provider, empty text).
+                const text = (userMsg.content ?? '').toString().trim();
                 this._ensureInFlight = manager.createNew(text).then(conv => conv.id);
             }
             convId = await this._ensureInFlight;

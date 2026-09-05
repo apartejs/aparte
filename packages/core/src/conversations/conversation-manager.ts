@@ -173,8 +173,12 @@ export class AparteConversationManager {
 
     // ─── Mutations ──────────────────────────────────────────────────────────
 
-    /** Create a new empty conversation, persist it, and make it active. */
-    async createNew(title = 'New Chat'): Promise<AparteConversation> {
+    /**
+     * Create a new empty conversation, persist it, and make it active. Untitled by
+     * default: the list shows its locale's `newChat` word for an empty title, so the
+     * store never carries an English string a French UI would then display.
+     */
+    async createNew(title = ''): Promise<AparteConversation> {
         const now = Date.now();
         const conv: AparteConversation = {
             id: uuid(),
@@ -219,6 +223,7 @@ export class AparteConversationManager {
             updatedAt: Date.now(),
             title: isFirstUserMsg ? await this._title(msg) : conv.title,
         };
+        if (isFirstUserMsg) updated.autoTitle = true;
         this._replace(updated);
         await this._adapter.save(updated);
         this._notify();
@@ -251,6 +256,16 @@ export class AparteConversationManager {
             updatedAt: contentChanged ? Date.now() : conv.updatedAt,
         };
         if (tree !== undefined) updated.tree = tree;
+        // The title follows the first user message while it is the manager's decision:
+        // editing that message re-titles, the way the first send titled. A title the
+        // user typed (`updateTitle`) is not the manager's and stays.
+        if (conv.autoTitle) {
+            const before = conv.messages.find(m => m.role === 'user');
+            const after = messages.find(m => m.role === 'user');
+            if (after && (after.content ?? '') !== (before?.content ?? '')) {
+                updated.title = await this._title(after);
+            }
+        }
         this._replace(updated);
         await this._adapter.save(updated);
         this._notify();
@@ -338,7 +353,7 @@ export class AparteConversationManager {
     async updateTitle(id: string, title: string): Promise<void> {
         const conv = this._find(id);
         if (!conv) return;
-        const updated: AparteConversation = { ...conv, title: title.trim(), updatedAt: Date.now() };
+        const updated: AparteConversation = { ...conv, title: title.trim(), autoTitle: false, updatedAt: Date.now() };
         this._replace(updated);
         await this._adapter.save(updated);
         this._notify();
@@ -378,8 +393,9 @@ export class AparteConversationManager {
     }
 
     /**
-     * The title of a conversation, decided once, on its first user message: the
-     * provider's answer when one is registered and answers, else the default.
+     * The title of a conversation, decided on its first user message — and again if
+     * that message is edited while the title is still the manager's: the provider's
+     * answer when one is registered and answers, else the default.
      */
     private async _title(msg: AparteMessage): Promise<string> {
         const fallback = this._autoTitle(msg);
@@ -396,7 +412,8 @@ export class AparteConversationManager {
     private _autoTitle(msg: AparteMessage): string {
         // Auto-title from the first user message. Full content is preserved
         // (UI surfaces handle visual truncation via CSS). The user can rename
-        // freely afterwards via updateTitle() — also untouched.
-        return (msg.content ?? '').trim() || 'New Chat';
+        // freely afterwards via updateTitle() — also untouched. No text, no
+        // title: the list shows its locale's `newChat` word for an empty one.
+        return (msg.content ?? '').trim();
     }
 }

@@ -18,8 +18,21 @@ export const APARTE_CONVERSATION_SCHEMA_VERSION = 2 as const;
  */
 export interface AparteConversation {
     id: string;
-    /** Auto-generated from the first user message (≤50 chars). */
+    /**
+     * The title. Decided by the manager from the first user message (the text as
+     * typed, or what the title provider returns), or typed by the user. Empty when
+     * the conversation has no text yet: the list shows its locale's `newChat` word,
+     * and the store never carries a UI string.
+     */
     title: string;
+    /**
+     * `true` while the title is the manager's decision. Editing the first user
+     * message then re-titles; a title typed by the user (`updateTitle`) clears it
+     * and is kept whatever happens to the messages. Absent on records written
+     * before this field existed, which reads as "typed": an old title is never
+     * overwritten.
+     */
+    autoTitle?: boolean;
     createdAt: number;
     updatedAt: number;
     messages: AparteMessage[];

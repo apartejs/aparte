@@ -90,13 +90,64 @@ describe('AparteConversationManager — the title provider', () => {
 });
 
 describe('AparteConversationManager — the default title', () => {
-    it('is the first user message as typed, and "New Chat" when it has no text', async () => {
+    it('is the first user message as typed, and empty when it has no text', async () => {
         const { manager, id, title } = await fresh();
         await manager.addMessage(id, user('  a photo of my cat  '));
         expect(title()).toBe('a photo of my cat');
 
         const empty = await fresh();
         await empty.manager.addMessage(empty.id, user(''));
-        expect(empty.title()).toBe('New Chat');
+        expect(empty.title()).toBe('');
+    });
+});
+
+describe('AparteConversationManager — an untitled conversation, and the title after an edit', () => {
+    it('stores no title when the first message has no text: the list shows its locale word, the store carries no UI string', async () => {
+        const { manager, id, title } = await fresh();
+        await manager.addMessage(id, user(''));
+        expect(title()).toBe('');
+        expect((await manager.createNew()).title).toBe('');
+    });
+
+    it('re-titles when the first user message is edited and the title was decided by the manager', async () => {
+        const { manager, id, title } = await fresh();
+        await manager.addMessage(id, user('first draft'));
+        await manager.addMessage(id, assistant('ok'));
+        expect(title()).toBe('first draft');
+        const edited = manager.conversations.find((c) => c.id === id)!.messages
+            .map((m) => (m.role === 'user' ? { ...m, content: 'second draft' } : m));
+        await manager.updateMessages(id, edited);
+        expect(title()).toBe('second draft');
+    });
+
+    it('re-titles through the provider, with the edited text as the default', async () => {
+        const provider = vi.fn(async (text: string) => (text === 'second draft' ? 'Titled twice' : ''));
+        const { manager, id, title } = await fresh({ titleProvider: provider });
+        await manager.addMessage(id, user('first draft'));
+        expect(title()).toBe('first draft');
+        const msgs = manager.conversations.find((c) => c.id === id)!.messages;
+        await manager.updateMessages(id, msgs.map((m) => ({ ...m, content: 'second draft' })));
+        expect(title()).toBe('Titled twice');
+        expect(provider).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps a title the user typed, whatever happens to the first message', async () => {
+        const { manager, id, title } = await fresh();
+        await manager.addMessage(id, user('first draft'));
+        await manager.updateTitle(id, 'Mine');
+        const msgs = manager.conversations.find((c) => c.id === id)!.messages;
+        await manager.updateMessages(id, msgs.map((m) => ({ ...m, content: 'second draft' })));
+        expect(title()).toBe('Mine');
+    });
+
+    it('does not re-title when the first user message is unchanged', async () => {
+        const provider = vi.fn(async (text: string) => `T:${text}`);
+        const { manager, id, title } = await fresh({ titleProvider: provider });
+        await manager.addMessage(id, user('first draft'));
+        await manager.addMessage(id, assistant('ok'));
+        const msgs = manager.conversations.find((c) => c.id === id)!.messages;
+        await manager.updateMessages(id, [...msgs, user('another question')]);
+        expect(title()).toBe('T:first draft');
+        expect(provider).toHaveBeenCalledTimes(1);
     });
 });
