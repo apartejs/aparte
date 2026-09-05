@@ -74,6 +74,24 @@ two row actions are real buttons in the tab order.
   activity keeps being conveyed through `aria-live` and `aria-busy`.
 - Under `pointer: coarse` the control set re-sizes to `--aparte-touch-target-size` (44px).
 
+The ring itself is `1px` at `0` offset, on purpose — flush against the control rather
+than a moat around it (2026-09-05; it used to sit one spacing step outside). That
+clears WCAG 2.2 AA: SC 2.4.7 Focus Visible and SC 1.4.11 Non-text Contrast. It falls
+short of one AAA criterion, SC 2.4.13 Focus Appearance, which asks for more area than a
+1px flush ring gives — the library targets AA, so that gap is the deliberate line, not
+an oversight. The composer follows the same restraint: its focus signal is the caret
+plus the shell's border tint (`.aparte-composer-shell:focus-within`), not a second ring
+drawn around the whole field.
+
+A site that wants AAA anyway widens the ring with the one token that draws it
+everywhere it's read, declared on the same anchors as any other chat override:
+
+```css
+aparte-chat, [data-aparte-theme] {
+  --aparte-focus-outline-width: 2px;
+}
+```
+
 ## What core leaves to you
 
 None of these is an oversight. Each is a place where the library cannot know enough to be

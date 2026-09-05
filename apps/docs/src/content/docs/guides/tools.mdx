@@ -293,6 +293,31 @@ const webSearchRenderer: AparteToolRenderer = {
 aparteGlobalConfig.registerToolRenderer('web_search', webSearchRenderer);
 ```
 
+### A popover needs to live outside the bubble
+
+The bubble element carries `content-visibility: auto` for its streaming/scroll
+performance, and that containment makes the bubble the containing block for
+`position: fixed` descendants. A renderer that opens a popover inside the row — an
+`<aparte-select>`, a menu — gets it clipped to the bubble's own box, not the window.
+There is no portal helper for this today; mount the popover on `document.body` and
+position it from the trigger's rect instead:
+
+```ts
+function openMenu(trigger: HTMLElement): HTMLElement {
+  const menu = document.createElement('div');
+  menu.className = 'aparte-menu';
+  document.body.append(menu);
+  const r = trigger.getBoundingClientRect();
+  menu.style.cssText = `position:fixed; left:${r.left}px; top:${r.bottom}px;`;
+  return menu;
+}
+```
+
+Nothing in this repo needs it yet — core puts no popover inside a bubble (the
+elicitation panel is a sibling of the viewport, the conversation list's menu lives in
+the sidebar). The trigger to build a portal helper instead of hand-rolling this is a
+real `registerToolRenderer` here that needs one.
+
 A call changes several times in one turn — its result lands, a decision is made, it
 fails — and on each change core rebuilds your markup from `render()` unless you declare
 **`update`**, which patches the element in place instead. Rebuilding is right for a

@@ -153,6 +153,13 @@ function segmentRenderResultToElement(result: string | HTMLElement, segment?: Pi
  * so the one event belonging to the branch picker was the one missing from the
  * manifest, and from the generated reference, for as long as both existed.
  *
+ * The bubble element is `content-visibility: auto` for its streaming/scroll performance
+ * (measured, not assumed — see `bubble.css`), and that containment makes the bubble
+ * the containing block for `position: fixed` descendants: a popover mounted inside it
+ * (an `<aparte-select>` from a `registerToolRenderer` renderer, say) is clipped to the
+ * bubble's own box, not the window. Mount it outside instead — [Custom tool
+ * renderer](https://apartejs.dev/guides/tools/#custom-tool-renderer) shows the pattern.
+ *
  * @element aparte-chat-bubble
  *
  * @attr {string} data-role - The message role, `user` or `assistant` — the one channel for it, and what the CSS keys off. (`role` is ARIA's attribute; this element sets it to `article` itself and no longer reads a message role from it.)

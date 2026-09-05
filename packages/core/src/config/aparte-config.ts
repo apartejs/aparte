@@ -1156,6 +1156,13 @@ export class AparteConfig {
      * Controls what appears in the chat bubble when the AI calls this tool.
      * Use this instead of the generic `tool_call` segment renderer for tool-specific UI.
      *
+     * A renderer that needs a popover (a `<aparte-select>`, a menu) cannot open one
+     * inside the row: the bubble is `content-visibility: auto`, which makes it the
+     * containing block for `position: fixed` descendants and clips a popover to its
+     * own box. Mount it on `document.body` and position it from the trigger's rect
+     * instead — see [Custom tool
+     * renderer](https://apartejs.dev/guides/tools/#custom-tool-renderer).
+     *
      * @example
      * // Hide the segment entirely (UI-only tool like ask_user)
      * aparteGlobalConfig.registerToolRenderer('ask_user', { render: () => '' });
