@@ -10,8 +10,9 @@
  * A recipe and nothing more, because a header has no behaviour of its own: a toggle
  * for the sidebar (which `<aparte-sidebar>` wires from the `data-aparte-sidebar-toggle`
  * attribute), the conversation's title, and an actions zone pushed to the end — a
- * model selector, a share button, whatever the page needs. The toggle shows only
- * under 48rem, where the sidebar is a drawer; above it the column is simply there.
+ * model selector, a share button, whatever the page needs. The toggle shows under
+ * 48rem, where the sidebar is a drawer, and at any width while the sidebar is
+ * collapsed — the one control left that can open it again.
  *
  *     <header class="aparte-app-header">
  *       <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle><aparte-icon name="menu"></aparte-icon></button>
@@ -54,7 +55,17 @@
   display: none;
 }
 
-/* The same 48rem the sidebar turns into a drawer at (`sidebar.css`). */
+/* The sidebar keeps `aria-expanded` on every `[data-aparte-sidebar-toggle]` that drives
+   it, so the header's control can show exactly when the sidebar is closed — at every
+   width. Collapsed on a desktop, the sidebar is 0px, `inert` and `aria-hidden`, its own
+   toggle with it; without this rule nothing on the page reopened it (the chat site at
+   1440px, 2026-09-05). */
+.aparte-app-header__toggle[aria-expanded="false"] {
+  display: inline-flex;
+}
+
+/* The same 48rem the sidebar turns into a drawer at (`sidebar.css`): a drawer's
+   control is always in the header, open or closed. */
 @media (max-width: 48rem) {
   .aparte-app-header__toggle {
     display: inline-flex;

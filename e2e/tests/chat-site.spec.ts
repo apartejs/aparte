@@ -89,3 +89,20 @@ test('the theme toggle flips the page between light and dark', async ({ page }) 
     await toggle.click();
     await expect(page.locator('html')).toHaveAttribute('data-aparte-theme', 'dark');
 });
+
+test('a sidebar collapsed on a desktop opens again from the header', async ({ page }) => {
+    await page.goto('/?scenario&fast');
+    const sidebar = page.locator('aparte-sidebar');
+    const headerToggle = page.locator('.aparte-app-header__toggle');
+    // Wide: the sidebar is a column, and the header's toggle stays out of the way.
+    await expect(sidebar).not.toHaveAttribute('data-drawer', /.*/);
+    await expect(headerToggle).toBeHidden();
+
+    await sidebar.locator('[data-aparte-sidebar-toggle]').click();
+    await expect(sidebar).toHaveAttribute('collapsed', '');
+    // Collapsed, the sidebar's own toggle went with it (inert, 0px): the header's shows.
+    await expect(headerToggle).toBeVisible();
+    await headerToggle.click();
+    await expect(sidebar).not.toHaveAttribute('collapsed', '');
+    await expect(headerToggle).toBeHidden();
+});
