@@ -84,14 +84,15 @@ test('the composer is reachable and sendable by keyboard alone', async ({ page }
     await page.goto('/');
     await chat.waitUngated();
 
-    // Tab must land in the editor within a few stops — a keyboard user should not
-    // have to hunt through the page to type.
-    let focusedEditor = false;
+    // A keyboard user should not have to hunt through the page to type. On a site
+    // with a sidebar the editor is twenty-odd stops from the top, so the site gives
+    // it the focus on load, the way every chat product does; a page without that
+    // still has to reach it within a few stops.
+    const inEditor = () => page.evaluate(() => !!document.activeElement?.closest('aparte-composer-input'));
+    let focusedEditor = await inEditor();
     for (let i = 0; i < 8 && !focusedEditor; i++) {
         await page.keyboard.press('Tab');
-        focusedEditor = await page.evaluate(
-            () => !!document.activeElement?.closest('aparte-composer-input'),
-        );
+        focusedEditor = await inEditor();
     }
     expect(focusedEditor, 'the composer editor must be reachable with Tab').toBe(true);
 

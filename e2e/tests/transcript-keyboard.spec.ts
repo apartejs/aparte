@@ -58,7 +58,10 @@ test('the transcript is reachable by Tab and scrolls from the keyboard', async (
     // tell those apart.
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     let reached = false;
-    for (let i = 0; i < 20 && !reached; i++) {
+    // Forty, not twenty: the site's sidebar sits before the chat in the tab order —
+    // eleven conversations, each a row and its menu, plus the search, the new-chat
+    // button and the header's controls — and the walk may wrap around the composer.
+    for (let i = 0; i < 40 && !reached; i++) {
         await page.keyboard.press('Tab');
         reached = await page.evaluate(
             (sel) => document.activeElement === document.querySelector(sel),

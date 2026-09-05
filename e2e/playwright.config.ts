@@ -148,6 +148,9 @@ const SCROLL_BTN = /scroll-button\.spec\.ts/;
 // survival and where a jump lands need an engine — three of them, since the loop measured
 // 61/s in Chromium and 146/s in Firefox.
 const SCROLL_RAIL = /scroll-rail\.spec\.ts/;
+// The chat SITE around the vanilla chat: the conversation list, the header title, the
+// new-chat button, the drawer, the theme toggle — the example's own glue.
+const CHAT_SITE = /chat-site\.spec\.ts/;
 // overlay-composer geometry: the full-column scroll surface, the floating stack's
 // clearance, and the pinned reader surviving a composer that grows.
 const OVERLAY = /overlay\.spec\.ts/;
@@ -226,7 +229,7 @@ const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep

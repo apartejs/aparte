@@ -90,15 +90,17 @@ body {
     justify-content: center;
 }
 
-/* `?layout=split` and `?layout=shell`: whatever the page puts under the topbar takes
-   the room the same way the bare chat does — as a flex item, never as `height: 100%`
-   of a box that also has a header in it. `flex-basis: 0` is what makes the inline
-   `height: 100%` on the split harmless: in a column flex container the basis, not the
-   height, is the used main size. */
-.app > aparte-split,
-.app > .aparte-app-shell {
-    flex: 1;
-    min-height: 0;
+/* The site is the `.aparte-app-shell` recipe, given the viewport's height: the grid
+   fills it, the sidebar spans it, the main area takes what is left. Everything inside
+   is core's — the sidebar, the header, the list — and this file adds nothing to them. */
+#chat-view {
+    height: 100dvh;
+}
+
+/* The person in the sidebar's footer, beside the avatar. */
+.aparte-sidebar__footer .who {
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 aparte-chat {
@@ -175,4 +177,17 @@ aparte-chat {
     padding: 1px 4px;
     border-radius: 4px;
     background: var(--aparte-surface-2, #1e1a15);
+}
+/* The model source: two radios, each with its sentence, stacked. */
+.field-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.field-choice {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.9rem;
+    line-height: 1.45;
 }

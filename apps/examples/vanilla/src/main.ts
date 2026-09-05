@@ -13,6 +13,7 @@ import {
     isSegmentSettled,
     segmentDuration,
     aparteGlobalConfig,
+    APARTE_DEFAULT_LOCALE,
     AparteClient,
     AparteDirectTransport,
 } from '@aparte/core';
@@ -33,10 +34,19 @@ import {
     applySystemPrompt,
     isSettingsView,
     loadSettings,
+    resolveModelSource,
     saveSettings,
     settingsKeyResolver,
     type ExampleSettings,
 } from './settings-store';
+import { wireShell } from './shell';
+
+// 0. This site speaks English, dates included. Core's default locale carries the
+//    English strings but no language TAG on purpose — "format dates the browser's way"
+//    is the right default for a library — so on a French machine the list's month
+//    headings came out as "Juillet" under "Yesterday". A site that has chosen its
+//    language says so, and the tag pins the formatting to it.
+aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 
 // 1. Renderers + Markdown rendering for assistant replies.
 registerDefaultRenderers();
@@ -106,17 +116,16 @@ function parseRoot(html: string): HTMLElement {
     return t.content.firstElementChild as HTMLElement;
 }
 
-// 2. Real providers — both LOCAL and keyless, so this example runs with zero
-//    setup and zero account. A cloud provider used to be registered here too; it
-//    was removed because its only visible trace was a key field for a service the
-//    reader does not have, and the settings view already covers any endpoint +
-//    token you want to point at (that is the same code path a cloud provider uses).
+// 2. The model. The SCRIPTED one by default (`@aparte/provider-scenario`): no server,
+//    no key, the same replies every time — so a fresh clone shows a working site, and
+//    a screenshot or a test of THIS app gets the same page twice. It declares a
+//    context window so the gauge in the toolbar has something to measure against.
 //
-//    `?scenario` swaps them for the scripted model: the same page with no local
-//    server, no key and the same replies every time — what a demo, a screenshot
-//    or a test of THIS app wants. The scripted model declares a context window so
-//    the gauge in the toolbar has something to measure against.
-const scenarioMode = new URLSearchParams(location.search).has('scenario');
+//    The settings view switches to a LOCAL server — Ollama and LM Studio, both
+//    keyless — with the endpoint and token it holds (that is the same code path a
+//    cloud provider uses). `?scenario` and `?local` in the URL override the setting:
+//    a link a reader or a test can share.
+const scenarioMode = resolveModelSource(loadSettings()) === 'scripted';
 if (scenarioMode) {
     aparteGlobalConfig.registerAIProvider(createScenarioProvider({
         scenarios: showcase,
@@ -185,20 +194,21 @@ setupCompaction({ keyResolver: settingsKeyResolver(loadSettings) });
 // (a static import would upgrade the element mid-setup and miss them).
 void import('@aparte/plugin-model-selector');
 
-// ── Layout variants (`?layout=split`, `?layout=shell`) ───────────────────────
+// ── Layout variants (`?layout=split`, `?layout=shell`, `?layout=page`) ───────
 //
 // Same convention as `?chats=2` below: off by default, so the page stays the
 // single-chat reference, and reachable by a URL a reader can share.
 //
 //   ?layout=split — the chat in one pane of an <aparte-split>, an <iframe> in the
-//                   other. The FRAME is the point: a pointer that crosses an iframe
-//                   is delivered to the frame's document and lost, which is what the
-//                   split's drag scrim exists to prevent. Nothing else in this repo
-//                   put a frame beside a chat, so nothing proved it.
-//   ?layout=shell — the same split, inside the real application shell: a sidebar
-//                   that becomes a drawer, a header with its toggle and the two
-//                   [data-aparte-split-pane] buttons. The shell had zero browser
-//                   coverage before this — no example app contained one.
+//                   other, inside the shell's main area. The FRAME is the point: a
+//                   pointer that crosses an iframe is delivered to the frame's
+//                   document and lost, which is what the split's drag scrim exists
+//                   to prevent. Nothing else in this repo put a frame beside a chat,
+//                   so nothing proved it. The two [data-aparte-split-pane] buttons
+//                   join the header's actions for the stacked (narrow) case.
+//   ?layout=shell — the same thing. The application shell — sidebar, drawer, header
+//                   with its toggle — is the page's default now (index.html), so the
+//                   variant only keeps the URL the E2E suite and the docs share.
 //
 // The restructure runs HERE, before any of the chat wiring below: it moves the
 // existing <aparte-chat> rather than building a second one, so the client, the
@@ -244,49 +254,14 @@ function buildSplit(chatEl: HTMLElement): HTMLElement {
 }
 
 /** The two buttons that switch panes while the split is stacked. No script behind them. */
-function paneSwitcher(): HTMLElement {
-    const actions = document.createElement('div');
-    actions.className = 'aparte-app-header__actions';
+function paneSwitcher(): DocumentFragment {
+    const t = document.createElement('template');
     // `--surface` rather than a bare `.aparte-btn`: the plain form is a ghost, which
     // reads as two words of text rather than two controls when nothing sits beside it.
-    actions.innerHTML =
+    t.innerHTML =
         '<button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-aparte-split-pane="start">Chat</button>'
         + '<button class="aparte-btn aparte-btn--surface aparte-btn--sm" type="button" data-aparte-split-pane="end">Preview</button>';
-    return actions;
-}
-
-/** `?layout=shell` — sidebar, header, and the split in the main area. */
-function buildShell(app: HTMLElement, split: HTMLElement): void {
-    const shell = document.createElement('div');
-    shell.className = 'aparte-app-shell';
-    shell.innerHTML = `
-      <aparte-sidebar>
-        <div class="aparte-sidebar__header">
-          <span class="aparte-sidebar__brand">aparté</span>
-        </div>
-        <div class="aparte-sidebar__search aparte-field-group">
-          <input class="aparte-field aparte-field--sm" type="search" placeholder="Search conversations"
-                 aria-label="Search conversations" data-aparte-sidebar-search />
-        </div>
-        <div class="aparte-sidebar__body">
-          <aparte-conversation-list></aparte-conversation-list>
-        </div>
-      </aparte-sidebar>
-      <header class="aparte-app-header">
-        <button class="aparte-btn aparte-btn--icon aparte-app-header__toggle" type="button"
-                aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>&#9776;</button>
-        <span class="aparte-app-header__title">aparté · vanilla</span>
-      </header>
-      <main class="aparte-app-shell__main"></main>`;
-    shell.querySelector('.aparte-app-header')?.appendChild(paneSwitcher());
-    split.remove();
-    shell.querySelector('.aparte-app-shell__main')?.appendChild(split);
-    // The topbar's job — the brand, and the way out to the settings view — is the
-    // header's now, so the page does not carry two of them.
-    const viewswitch = app.querySelector('.viewswitch');
-    if (viewswitch) shell.querySelector('.aparte-app-header__actions')?.appendChild(viewswitch);
-    app.querySelector('.topbar')?.remove();
-    app.appendChild(shell);
+    return t.content;
 }
 
 const layoutParam = new URLSearchParams(location.search).get('layout');
@@ -308,12 +283,11 @@ if (layoutParam === 'page') {
     }
 }
 if (layoutParam === 'split' || layoutParam === 'shell') {
-    const app = document.querySelector<HTMLElement>('.app:not(.settings)');
     const chatEl = document.querySelector<HTMLElement>('aparte-chat');
-    if (app && chatEl) {
-        const split = buildSplit(chatEl);
-        if (layoutParam === 'shell') buildShell(app, split);
-        else app.querySelector('.topbar')?.insertBefore(paneSwitcher(), app.querySelector('.viewswitch'));
+    const actions = document.querySelector<HTMLElement>('.aparte-app-header__actions');
+    if (chatEl) {
+        buildSplit(chatEl);
+        actions?.prepend(paneSwitcher());
     }
 }
 
@@ -324,12 +298,10 @@ if (layoutParam === 'split' || layoutParam === 'shell') {
 // cannot see what they typed, which is exactly why the client took the job.
 const chat = document.querySelector('aparte-chat');
 
-if (chat) {
-    // The welcome heading goes once the conversation starts. The starters under it
-    // are an <aparte-suggestions empty-only> and hide themselves; they used to be four
-    // hand-wired chips here, which is what the element replaced.
-    chat.addEventListener('aparte-send', () => document.getElementById('welcome')?.remove(), { once: true });
-}
+// The site around the chat: the conversation list, the header title, new chat, the
+// theme toggle. It also hides the welcome heading once a conversation has messages;
+// the starters under it are an <aparte-suggestions empty-only> and hide themselves.
+wireShell();
 
 // ── Two chats on one page (`?chats=2`) ───────────────────────────────────────
 // Off by default, so the example stays the single-chat reference. It shows the
@@ -396,18 +368,20 @@ wireAttachmentLightbox();
 // `string | Record` auth shape" and which no example demonstrated.
 function wireSettingsView(): void {
     const view = document.querySelector<HTMLElement>('#settings-view');
-    const chat = document.querySelector<HTMLElement>('.app:not(.settings)');
-    if (!view || !chat) return;
+    const site = document.querySelector<HTMLElement>('#chat-view');
+    if (!view || !site) return;
 
     if (!isSettingsView()) return;
-    chat.hidden = true;
+    site.hidden = true;
     view.hidden = false;
 
+    const sourceEls = [...view.querySelectorAll<HTMLInputElement>('input[name="model-source"]')];
     const promptEl = view.querySelector<HTMLTextAreaElement>('#system-prompt')!;
     const endpointEl = view.querySelector<HTMLInputElement>('#endpoint')!;
     const tokenEl = view.querySelector<HTMLInputElement>('#token')!;
 
     const render = (settings: ExampleSettings): void => {
+        for (const el of sourceEls) el.checked = el.value === settings.modelSource;
         promptEl.value = settings.systemPrompt;
         endpointEl.value = settings.endpoint;
         tokenEl.value = settings.token;
@@ -416,6 +390,7 @@ function wireSettingsView(): void {
 
     const commit = (): void => {
         const next: ExampleSettings = {
+            modelSource: sourceEls.find((el) => el.checked)?.value === 'local' ? 'local' : 'scripted',
             systemPrompt: promptEl.value,
             endpoint: endpointEl.value,
             token: tokenEl.value,
@@ -424,8 +399,9 @@ function wireSettingsView(): void {
         applySystemPrompt(aparteGlobalConfig, next);
     };
     // `input`, not `change`: a reader who types and navigates away without blurring
-    // the field would otherwise lose what they typed.
-    for (const el of [promptEl, endpointEl, tokenEl]) el.addEventListener('input', commit);
+    // the field would otherwise lose what they typed. The model source is read on the
+    // next page load — the chat page registers its provider once, at start.
+    for (const el of [promptEl, endpointEl, tokenEl, ...sourceEls]) el.addEventListener('input', commit);
 
     view.querySelector<HTMLButtonElement>('#settings-reset')?.addEventListener('click', () => {
         render({ ...DEFAULT_SETTINGS });

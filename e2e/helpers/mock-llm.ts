@@ -467,6 +467,18 @@ export async function installLlmMock(page: Page, opts: LlmMockOptions = {}): Pro
 
     await page.route('**/models', (route) => fulfill(route, JSON.stringify({ data: models }), 'application/json'));
 
+    // The vanilla example answers with its scripted model by default; this mock stands
+    // in for a LOCAL server, so the page is told to use one — through the same setting
+    // its settings view writes. Other examples ignore the key. Runs before every
+    // document of the page, so a spec that navigates twice keeps it.
+    await page.addInitScript(() => {
+        try {
+            const key = 'aparte.example.settings';
+            const stored = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
+            localStorage.setItem(key, JSON.stringify({ ...stored, modelSource: 'local' }));
+        } catch { /* storage refused: the page falls back to its scripted model */ }
+    });
+
     // Paced delivery is answered inside the page (a fulfil cannot stream), so the
     // chat route below is not installed for it — the shim owns that URL.
     const paced = opts.pace !== undefined;

@@ -22,7 +22,15 @@
  * by `bind()` firing post-mount.
  */
 
+export type ModelSource = 'scripted' | 'local';
+
 export interface ExampleSettings {
+    /**
+     * Which model answers: the scripted one (`@aparte/provider-scenario`, no server, no
+     * key — the default, so the page works on a fresh clone) or a local server through
+     * the endpoint and token below. `?scenario` and `?local` in the URL override it.
+     */
+    modelSource: ModelSource;
     /** Sent as the `system` turn. Empty means "send none". */
     systemPrompt: string;
     /** Overrides the selected provider's `defaultEndpoint`. Empty means "use it". */
@@ -39,6 +47,7 @@ export interface ExampleSettings {
  * guess the shape of.
  */
 export const DEFAULT_SETTINGS: ExampleSettings = {
+    modelSource: 'scripted',
     systemPrompt: '',
     endpoint: 'http://localhost:1234/v1',
     token: '',
@@ -55,6 +64,7 @@ export function loadSettings(): ExampleSettings {
         // Field by field, so a key added later gets its default instead of
         // `undefined` reaching the config.
         return {
+            modelSource: parsed.modelSource === 'local' ? 'local' : DEFAULT_SETTINGS.modelSource,
             systemPrompt: parsed.systemPrompt ?? DEFAULT_SETTINGS.systemPrompt,
             endpoint: parsed.endpoint ?? DEFAULT_SETTINGS.endpoint,
             token: parsed.token ?? DEFAULT_SETTINGS.token,
@@ -99,6 +109,17 @@ export function settingsKeyResolver(read: () => ExampleSettings) {
         if (token.trim()) auth['apiKey'] = token.trim();
         return Object.keys(auth).length ? auth : undefined;
     };
+}
+
+/**
+ * The model source for this page load: the URL first (`?scenario`, `?local` — a link a
+ * reader or a test can share), the stored setting otherwise.
+ */
+export function resolveModelSource(settings: ExampleSettings): ModelSource {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('scenario')) return 'scripted';
+    if (params.has('local')) return 'local';
+    return settings.modelSource;
 }
 
 /** Is the settings view the requested one? A link, so it is deep-linkable. */
