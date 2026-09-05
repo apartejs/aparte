@@ -71,8 +71,14 @@ export const SAMPLE_CONVERSATIONS: SampleConversation[] = [
         updatedAt: at(DAY + 9 * HOUR),
         messages: [
             user('Show me a typed debounce helper.', DAY + 9 * HOUR + 30e3),
+            // A plain markdown string, the way a store or a backend hands a reply over: core
+            // splits it the way it splits the stream — the `<think>` becomes the reasoning
+            // block, the fence becomes the code card with its language and copy button.
             assistant(
-                'Here is one that keeps the wrapped function\'s parameter types:\n\n'
+                '<think>The caller wants the parameter types kept, so the wrapper has to be generic over the '
+                + 'argument tuple rather than over a function type. The return is void on purpose: a debounced '
+                + 'call has nothing to hand back.</think>\n\n'
+                + 'Here is one that keeps the wrapped function\'s parameter types:\n\n'
                 + '```ts\n'
                 + 'export function debounce<A extends unknown[]>(fn: (...args: A) => void, wait = 200) {\n'
                 + '    let timer: ReturnType<typeof setTimeout> | undefined;\n'
@@ -103,7 +109,9 @@ export const SAMPLE_CONVERSATIONS: SampleConversation[] = [
         messages: [
             user('How do I change the accent colour of the chat?', 6 * DAY + 45e3),
             assistant(
-                'Three custom properties on the chat, or on `:root`:\n\n'
+                '<think>Accent means the primary colour and whatever derives from it; the bubble and the radius '
+                + 'are the two other things a person changes first. Three variables, not a theme file.</think>\n\n'
+                + 'Three custom properties on the chat, or on `:root`:\n\n'
                 + '```css\n'
                 + 'aparte-chat {\n'
                 + '    --aparte-primary: #b8860b;\n'

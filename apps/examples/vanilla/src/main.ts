@@ -124,8 +124,11 @@ function writeDuration(host: HTMLElement, segment: AparteThinkingSegment): void 
     // which is three conditions to get right and wrong at epoch 0.
     if (!isSegmentSettled(segment)) return;
     const ms = segmentDuration(segment);
-    if (ms === undefined) return;
     const label = host.querySelector('.aparte-thinking-label');
+    // A settled block with no measurement — a reply that came back from a store, or
+    // was handed over as a string — thought, but nobody timed it. "Thinking…" would
+    // say it still is.
+    if (ms === undefined) { if (label) label.textContent = 'Thought'; return; }
     // A sub-second span is "<1s", not "0.0s": a duration that reads as zero says the
     // model did not think, which is the opposite of what the block means.
     if (label) label.textContent = ms < 1000 ? 'Thought for <1s' : `Thought for ${(ms / 1000).toFixed(1)}s`;
