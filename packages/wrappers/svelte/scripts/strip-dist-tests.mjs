@@ -31,21 +31,22 @@ for (const [path, why] of REMOVE) {
 }
 
 /**
- * KNOWN GAP, with its cause now established rather than guessed at.
+ * FORMER KNOWN GAP — closed. `AparteChat.svelte.d.ts` / `AparteUi.svelte.d.ts` are
+ * now emitted (see `dist/`), because the "build" script passes `--tsconfig
+ * ./tsconfig.dts.json` to `svelte-package`. Nothing in this script changed for it.
  *
- * No per-component `AparteChat.svelte.d.ts` is emitted, so a consumer's
- * `svelte-check` does not see the component's props: they are documented, not
- * compiler-enforced. `svelte-package` is run with `--types` (its default), and it
- * silently emits nothing.
+ * The real cause, found by toggling each candidate `tsconfig.json` setting alone
+ * against a real `svelte-package -i src/lib -o <dir> --tsconfig <probe>` run: this
+ * package's real tsconfig.json inherits `noEmitOnError: true` from the repo base,
+ * which silently blocks svelte2tsx's `emitDts` step on diagnostics that are
+ * EXPECTED noise in its `dts` transform mode (svelte2tsx's own diagnostic filter
+ * already excludes those exact codes as non-fatal) — no error, no output file, no
+ * message, `svelte-package` just reports success with nothing written. `composite`
+ * is NOT a cause in either direction (verified the same way, toggled alone) and is
+ * left untouched.
  *
- * The reason, found by calling the underlying API directly: `svelte2tsx`'s
- * `emitDts` — which is what `svelte-package --types` uses — resolves its tsconfig
- * to a path derived from `libRoot` and throws TS5083 ("Cannot read file
- * 'src/lib/tsconfig.json'") when none is there. `svelte-package` swallows that
- * error and reports success. Putting a tsconfig in `src/lib` does not fix it — the
- * path arithmetic then looks for `src/lib/src/lib/tsconfig.json`, and the stray
- * config gets copied into the output.
- *
- * So this is upstream, not ours, and the honest state is: documented props, no
- * ambient module hijack, and this note so the next attempt starts from the cause.
+ * `tsconfig.dts.json` relaxes `noEmitOnError` (plus `declarationMap`, for an
+ * unrelated broken-sourcemap-path reason documented there) for this one shadow
+ * compile; see its own comments for the evidence. Verified with a consumer `tsc
+ * --noEmit` importing the built package: a wrong `AparteChat` prop now errors.
  */
