@@ -27,14 +27,14 @@ describe('before an element is defined, the page already has its shape', () => {
         expect(css.length).toBeGreaterThan(100_000);
     });
 
-    it('an empty center-empty chat centres its composer from the first frame, and its viewport releases its height', () => {
+    it('an empty center-empty chat centres its composer from the first frame: the spacer already grows', () => {
         const chat = 'aparte-chat[center-empty]:not(:defined):not(:has(aparte-chat-bubble))';
-        expect(declarationsOf(chat)).toMatch(/justify-content\s*:\s*center/);
-        const viewport = declarationsOf(`${chat} > aparte-chat-viewport`);
-        expect(viewport).toMatch(/flex-grow\s*:\s*0/);
-        // The same release the defined [data-empty] rule makes: the standalone
-        // height: 100% ignores flex-grow: 0.
-        expect(viewport).toMatch(/height\s*:\s*auto/);
+        // The centring is the spacer after the composer (shell.css): before the element
+        // is defined it grows the way the defined [data-empty] rule grows it.
+        expect(declarationsOf(`${chat}::after`)).toMatch(/flex-grow\s*:\s*1/);
+        // The viewport needs no first-paint rule of its own: its one size rule under
+        // center-empty — a zero basis, no height — does not depend on being defined.
+        expect(declarationsOf('aparte-chat[center-empty] > aparte-chat-viewport')).toMatch(/flex\s*:\s*1 1 0%/);
     });
 
     it('the composer input reserves the editor\'s height', () => {

@@ -1,18 +1,18 @@
 /**
  * `center-empty` centres the welcome group, not a stack that still holds the empty
- * transcript (UI audit — LOT 15.3).
+ * transcript (UI audit — LOT 15.3, reshaped 2026-09-05).
  *
  * Measured on the built empty-state demo at 768: the chat's centre at 240, the centre of
  * what a visitor sees (the greeting, the starters, the composer) at 256 — 16px low, which
- * is half of the 32px the EMPTY viewport still stood at: the rows' wrapper keeps its
- * block padding with no row inside it. `justify-content: center` centred the three
- * items; the first was invisible and not nothing.
+ * was half of the 32px the EMPTY viewport still stood at under `justify-content: center`:
+ * the rows' wrapper kept its block padding with no row inside it, so the centring counted
+ * three items of which the first was invisible and not nothing.
  *
- * The padding goes, not the box. A first fix capped the viewport at 0 and clipped it;
- * that left a 32px scroll surface inside a 0px box, and the browser smoke test every
- * example runs — "an empty transcript must not overflow its box" — went red on nine
- * projects. Framework mode is left alone: there the viewport is the scroll surface and
- * may hold the wrapper's own empty-state content, so its height is not core's to take.
+ * The centring is a spacer now (shell.css): the viewport and a `::after` after the
+ * composer both grow while the chat is empty, so the group sits between two EQUAL halves
+ * whatever the empty viewport holds — its padding is inside its half, not between the
+ * halves. No rule zeroes the viewport any more, and none needs to: what this test holds
+ * is that the halves are symmetric — same basis, same growth — on both shell shapes.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -28,12 +28,14 @@ const rule = (selector: string) => {
     return '';
 };
 
-describe('the empty viewport under center-empty', () => {
-    it('does not grow, and its rows’ wrapper carries no block padding, so the group centres on itself', () => {
-        const viewport = rule('aparte-chat[center-empty][data-empty] > aparte-chat-viewport');
-        expect(viewport).toMatch(/flex-grow:\s*0/);
-        expect(viewport, 'the box is not capped — a capped box over padded content is a scroll surface').not.toMatch(/max-block-size:\s*0/);
-        const wrapper = rule('aparte-chat[center-empty][data-empty] > aparte-chat-viewport .aparte-messages-wrapper');
-        expect(wrapper).toMatch(/padding-block:\s*0/);
+describe.each([
+    ['aparte-chat[center-empty] > aparte-chat-viewport', 'aparte-chat[center-empty]::after', 'aparte-chat[center-empty][data-empty]::after'],
+    ['.aparte-chat-container--auto-center aparte-chat-viewport.aparte-viewport--framework', '.aparte-chat-container--auto-center::after', '.aparte-chat-container--auto-center[data-aparte-empty]::after'],
+])('the empty group under %s', (viewportSel, spacerSel, emptySpacerSel) => {
+    it('sits between two equal halves: the viewport and the spacer share one basis and, empty, one growth', () => {
+        expect(rule(viewportSel)).toMatch(/flex:\s*1 1 0%/);
+        expect(rule(spacerSel)).toMatch(/flex:\s*0 1 0%/);
+        expect(rule(emptySpacerSel)).toMatch(/flex-grow:\s*1/);
+        expect(rule(viewportSel), 'the box is not capped — a capped box over padded content is a scroll surface').not.toMatch(/max-block-size:\s*0/);
     });
 });
