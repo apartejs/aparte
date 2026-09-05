@@ -1,9 +1,10 @@
-import { setupAparte } from './aparte';
+import { setupSite } from '../../_shared/site-setup';
 import './style.css';
 import App from './App.svelte';
 
-setupAparte();
-
-const app = new App({ target: document.getElementById('app')! });
-
-export default app;
+// Awaited before the first render: the highlighter and the providers have to be
+// there before a conversation opens. A `.then`, not a top-level await: the production
+// build targets browsers a step behind it, and esbuild refuses it.
+void setupSite().then(({ scenarioMode }) => {
+    new App({ target: document.getElementById('app')!, props: { scenarioMode } });
+});

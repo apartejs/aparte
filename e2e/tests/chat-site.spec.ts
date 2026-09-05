@@ -12,6 +12,11 @@ import { collectPageErrors } from '../helpers/actions';
 
 const LIST = 'aparte-conversation-list';
 const VIEWPORT = 'aparte-chat-viewport';
+/** Whether the shell says it is empty — `data-empty` on the element, `data-aparte-empty` on a wrapper's container. */
+const isEmpty = (page: import('@playwright/test').Page) => page.evaluate(() => {
+    const el = document.querySelector('aparte-chat, [data-aparte-chat]');
+    return !!el && (el.hasAttribute('data-empty') || el.hasAttribute('data-aparte-empty'));
+});
 
 test('the list is on its way, then fills; opening a conversation shows the wait, then the transcript', async ({ page }) => {
     const errors = collectPageErrors(page);
@@ -28,7 +33,7 @@ test('the list is on its way, then fills; opening a conversation shows the wait,
     // The messages come through `loadFull()`: the viewport wears `loading` in between,
     // the row is already the current one, and the welcome screen does not show.
     await expect(page.locator(VIEWPORT)).toHaveAttribute('loading', '');
-    await expect(page.locator('aparte-chat')).not.toHaveAttribute('data-empty', '');
+    await expect.poll(() => isEmpty(page)).toBe(false);
     await expect(page.locator(`${LIST} [aria-current="page"]`)).toContainText('Compare three frameworks');
     await expect(page.locator('aparte-chat-bubble')).toHaveCount(2);
     await expect(page.locator(VIEWPORT)).not.toHaveAttribute('loading', '');
