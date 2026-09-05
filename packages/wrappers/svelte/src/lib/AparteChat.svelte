@@ -150,6 +150,10 @@
   function toggleAttr(el: HTMLElement, name: string, on: boolean, value: string) {
     if (on) el.setAttribute(name, value); else el.removeAttribute(name);
   }
+  // The viewport's `loading` too: Svelte 5 sets a template attribute as a PROPERTY when
+  // the element has one, and `''` through the setter reads as false — the attribute
+  // never appeared (Svelte 4 set the attribute; the svelte5 example caught the drift).
+  $: if (viewportRef) toggleAttr(viewportRef, 'loading', waiting, '');
   $: if (composerRef) {
     composerRef.setAttribute('target', hostId);
     composerRef.setAttribute('placeholder', placeholder);
@@ -279,7 +283,7 @@
   id={hostId}
   bind:this={rootRef}
 >
-  <aparte-chat-viewport bind:this={viewportRef} framework-managed="" loading={waiting ? '' : null}>
+  <aparte-chat-viewport bind:this={viewportRef} framework-managed="">
     <!-- The wait, drawn here because this DOM is Svelte's: the kit's skeleton recipe,
          and a line for a screen reader. -->
     {#if waiting}
