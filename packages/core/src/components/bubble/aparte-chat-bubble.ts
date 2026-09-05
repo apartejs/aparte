@@ -21,6 +21,7 @@ import { copyText } from '../../utils/copy-text.js';
 import { mergeSegmentUpdate } from '../../utils/segments.js';
 import type { AparteComposerInput } from '../composer/aparte-composer-input.js';
 import { escapeAttr, escapeHtml } from '../../utils/escape.js';
+import { isSafeUrl } from '../../config/sanitize.js';
 
 /**
  * Warn ONCE when a segment has no renderer — now only for types core has never
@@ -1094,7 +1095,7 @@ export class AparteChatBubble extends HTMLElement {
 
     this._attachmentsEl.innerHTML = this._attachments.map(a => {
       const name = escapeHtml(a.name);
-      if (a.type.startsWith('image/')) {
+      if (a.type.startsWith('image/') && this._isShowableUrl(a.url)) {
         // `aparte-thumbnail` is the RECIPE (the box, the size, the ground); `aparte-thumb`
         // only maps the strip's measurements onto it. The bubble emitted the mapping
         // without the recipe, so its tiles had no box — a bare "PDF" beside a bare image.
@@ -1134,6 +1135,25 @@ export class AparteChatBubble extends HTMLElement {
   }
 
   /** Uppercased file extension (≤4 chars), or 'FILE' when there is none. */
+  /**
+   * The same answer `copyAttributes` gives before it writes an `src`, plus `blob:`.
+   *
+   * An attachment's `url` is documented as "URL or data URI" and a storage adapter
+   * re-mints it when a conversation is restored, so it is the app's value, not the
+   * composer's — it was escaped and written, where every other URL core emits is
+   * asked whether its SCHEME is allowed at all. A picture whose URL is refused is
+   * not half-rendered: it falls back to the file chip, which still names the file.
+   *
+   * `blob:` is added because it is the shape core itself mints — `filesToAttachments`
+   * calls `URL.createObjectURL`, and `AparteMessage.attachments` documents the same
+   * on hydration. `isSafeUrl` refuses it, and rightly: that list governs MODEL
+   * markup, which has no way to make a blob URL resolve.
+   */
+  private _isShowableUrl(url: string | undefined): boolean {
+    if (!url) return false;
+    return isSafeUrl(url, 'img') || /^blob:/i.test(url.trim());
+  }
+
   private _fileExt(filename: string): string {
     const dot = filename.lastIndexOf('.');
     return dot > 0 ? filename.slice(dot + 1).toUpperCase().slice(0, 4) : 'FILE';
@@ -1761,9 +1781,25 @@ export class AparteChatBubble extends HTMLElement {
       }
     }
     this._updateWaiting();
-    // Streaming just finished: highlight the final content once (skipped during
-    // streaming to avoid re-highlighting on every token).
-    if (wasStreaming && !streaming) this._highlightContentCode();
+    /*
+     * Streaming just finished — the SETTLE pass.
+     *
+     * `_updateContent` is what runs it: on `isStreaming === false`
+     * `writeStreamedMarkdown` flushes the incremental parser and re-renders once
+     * through the one-shot provider, whose output goes through `sanitizeHtml`.
+     * That re-sanitisation is the reason the streaming provider is allowed to write
+     * DOM directly — and this branch never called it, so a streamed
+     * `<code class="aparte-btn">` was permanent rather than transient. The live
+     * end-of-turn call carries no content (`completeMessage` sends
+     * `{ status: 'completed' }` alone), so re-applying `_content` here is the only
+     * place it can happen.
+     *
+     * It also highlights on its way out (it is no longer streaming), which is what
+     * this line used to do on its own. A segment-bearing bubble is a no-op there —
+     * the content element is hidden and empty — which is what it was for the
+     * highlight too.
+     */
+    if (wasStreaming && !streaming) this._updateContent();
   }
 }
 

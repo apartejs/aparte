@@ -144,3 +144,61 @@ describe('@aparte/plugin-streaming-markdown — external links while the message
         expect(img?.getAttribute('target')).toBeNull();
     });
 });
+
+/**
+ * The third sink, and the one core's sanitizer names in its own comment: a code
+ * fence's info string becomes the `<code>` element's `class`, verbatim. So a
+ * legal fence — three backticks then `aparte-approval-option aparte-btn` — dressed
+ * model text in core's own recipes for the whole length of the reply, and a
+ * `position: fixed` one (`.aparte-select-dropdown`, `.aparte-sidebar__scrim`)
+ * repainted the page around the chat.
+ *
+ * The class written now is `language-<token>`, which is what every one-shot
+ * Markdown renderer emits for a fence: the streamed DOM and the settled DOM stop
+ * diverging, `language-*` is deliberately exempt from the sanitizer's class
+ * filter, and `highlightMarkdownFences` can finally read a streamed fence's
+ * language.
+ */
+describe('@aparte/plugin-streaming-markdown — a code fence cannot wear core’s classes', () => {
+    beforeEach(() => {
+        setupStreamingMarkdownProvider();
+    });
+
+    function fence(info: string): HTMLElement {
+        const target = document.createElement('div');
+        const r = aparteGlobalConfig.createStreamingMarkdownRenderer(target);
+        if (!r) throw new Error('no streaming renderer registered');
+        r.write('```' + info + '\nApprove\n```');
+        r.end();
+        const code = target.querySelector('code');
+        if (!code) throw new Error('no code block rendered');
+        return code;
+    }
+
+    it('gives a forged fence no aparte- class at all', () => {
+        const code = fence('aparte-approval-option aparte-btn aparte-btn--solid');
+        // The same test core's sanitizer applies to a class token: does it START
+        // with the prefix core owns. `language-aparte-…` is not one of ours, and it
+        // is exactly what the one-shot renderer produces for the same fence.
+        expect([...code.classList].some((c) => /^aparte-/i.test(c))).toBe(false);
+        expect(code.className).toBe('language-aparte-approval-option');
+    });
+
+    it('emits language-<lang> for an ordinary fence, the way a one-shot renderer does', () => {
+        expect(fence('ts').className).toBe('language-ts');
+    });
+
+    it('keeps only the first token of the info string', () => {
+        expect(fence('js title="app.js"').className).toBe('language-js');
+    });
+
+    it('drops the characters a language token cannot contain', () => {
+        expect(fence('c++').className).toBe('language-c++');
+        expect(fence('py<script>').className).toBe('language-py');
+    });
+
+    it('writes no class when the info string leaves nothing', () => {
+        expect(fence('<>&').hasAttribute('class')).toBe(false);
+        expect(fence('').hasAttribute('class')).toBe(false);
+    });
+});

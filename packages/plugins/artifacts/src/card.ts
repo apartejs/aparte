@@ -37,6 +37,13 @@ export type AparteArtifactSegment = ArtifactSegment;
 
 const PREVIEWABLE_KINDS: ReadonlySet<string> = new Set(['react', 'html', 'svg', 'js', 'css']);
 
+/**
+ * One id space per rendered card, monotonic — the same shape `aparte-optgroup` uses
+ * for its label ids, and for the same reason: the id has to be UNIQUE on the page,
+ * and nothing about the content can promise that.
+ */
+let cardIdSeq = 0;
+
 /** Binary file kinds: their source is implementation noise; the app produces the file. */
 const BINARY_FILE_KINDS: ReadonlySet<string> = new Set(['pdf', 'xlsx', 'docx']);
 
@@ -81,15 +88,20 @@ export const artifactRenderer: AparteSegmentRenderer<ArtifactSegment> = {
          * relationship and a keyboard model that are not there, which is worse than the
          * plain buttons it actually was.
          *
-         * Scoped to the segment id because a transcript holds many cards, and duplicate
-         * ids would make `aria-controls` point at whichever one parsed first.
+         * A COUNTER, not the segment's id. The segment's id is the model's — a tool-call
+         * segment is `tool-${toolCallId}` straight off the wire — so two calls answering
+         * to one id gave two cards the same `id` and the same `aria-controls`, and
+         * `getElementById` returns whichever parsed first: exactly the collision this
+         * scoping exists to prevent. An author-chosen `id` is also the DOM-clobbering
+         * shape core's sanitizer refuses on model markup.
          *
          * Escaped HERE rather than inside an id-building helper: `check:attr-escaping`
          * follows a local produced by an escaper and cannot see through a function, and
          * teaching it to trust the helper's NAME is precisely the hole that guard was
-         * just tightened to close.
+         * just tightened to close. (The value is digits; the escaper is what the reader
+         * and the guard are owed, since the position is what makes the rule.)
          */
-        const cardId = escapeAttr(segment.id);
+        const cardId = escapeAttr(String(++cardIdSeq));
         // The card ALWAYS opens on the code tab, and the preview frame is not built
         // here at all — it is mounted only when the user presses Preview
         // (`mountPreviewFrame`, called from the tab handler).

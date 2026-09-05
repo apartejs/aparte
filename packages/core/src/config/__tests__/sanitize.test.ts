@@ -106,6 +106,21 @@ describe('defaultSanitizer', () => {
             expect(out).toContain('type="checkbox"');
         });
 
+        it('keeps no other input type — the comment on the tag said checkboxes only, the code did not', () => {
+            // `type` was allowlisted for `input` and copied unexamined, so a model
+            // could put a credential prompt in the transcript: nothing reads what is
+            // typed (no `form`, no `name`, no `on*`) but the ASK is the phishing.
+            for (const t of ['password', 'text', 'email', 'file', 'image', 'submit', 'hidden']) {
+                const out = s(`<p><input type="${t}" title="API key"></p>`);
+                expect(out).not.toContain(`type="${t}"`);
+            }
+        });
+
+        it('is not fooled by the case of the type', () => {
+            expect(s('<input type="PASSWORD">')).not.toContain('PASSWORD');
+            expect(s('<input type="CheckBox">')).toContain('type="CheckBox"');
+        });
+
         it('keeps a highlighter’s CUSTOM properties — dual-theme output is only those', () => {
             // Shiki's documented way to render for light and dark at once is
             // `defaultColor: false`, which emits no `color` at all: only
