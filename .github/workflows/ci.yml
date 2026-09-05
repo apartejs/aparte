@@ -179,6 +179,13 @@ jobs:
       - name: Check the typed event map is honest
         run: pnpm check:event-map
 
+      # The beta's promise, mechanised: the declared surface in
+      # apps/docs/src/data/frozen-surface.json is re-measured on the tree, and a frozen
+      # name that left without a deprecating changeset fails here rather than on someone's
+      # upgrade. Needs the build above — it reads the manifests and the built barrels.
+      - name: Check the frozen surface still matches the tree
+        run: pnpm check:frozen-surface
+
       - name: Check no comment cites code by line number
         run: pnpm check:cross-refs
 

@@ -19,7 +19,7 @@ answers one question:
 | [Wrappers](/reference/wrappers/) | *What is the same on React, Vue, Svelte and Angular?* The one imperative contract and how each framework spells it. |
 | [Icons](/reference/icons/) | *Which glyphs exist, and how do I swap them?* The built-in set and the extended set behind `@aparte/core/icons`. |
 | [Support matrix](/reference/support/) | *Does it run where my users are?* The browser, Node, framework, bundler and TypeScript floors — each derived from what the code uses — beside the versions CI runs. |
-| [Stability](/reference/stability/) | *What can I build on without a rename landing on me?* The surface the beta freezes — elements, events, exports, tokens — measured on the tree, and the two-release rule a change follows once frozen. |
+| [Stability](/reference/stability/) | *What can I build on without a rename landing on me?* The frozen surface — elements, attributes, events, exports, locale keys, tokens — rendered from a snapshot the gate re-measures against the tree, and the two-release rule a change follows. |
 
 :::note[Reading the repository instead of this site?]
 Seven of the nine pages above do not exist as files in the repository: they are written
