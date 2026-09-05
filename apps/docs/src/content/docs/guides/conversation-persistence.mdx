@@ -207,7 +207,9 @@ through the second the first time it is opened (`manager.ensureFull(id)`, and
 the binding's `setLoading(true)`: `<aparte-chat-viewport>` draws two skeleton turns,
 marks its scroll surface `aria-busy` and names the wait for a screen reader, and
 `aparte-chat[center-empty]` does not count it as empty — the welcome never shows over a
-conversation that is loading. Two quick clicks are safe: a reply that lands for a
+conversation that is loading. The composer is disabled for the duration — a message sent
+into a transcript that has not arrived would be overwritten by it — and comes back as
+it was (a `disabled` you set stays). Two quick clicks are safe: a reply that lands for a
 conversation the user has already left is dropped.
 
 The list has the same word for its own wait: set `loading` on

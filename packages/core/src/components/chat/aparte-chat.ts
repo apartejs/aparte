@@ -125,6 +125,11 @@ export class AparteChat extends HTMLElement {
   }
 
   private _observer: MutationObserver | null = null;
+  private _loadingObserver: MutationObserver | null = null;
+  /** The viewport is loading and the gate is on — see `_applyLoadingGate`. */
+  private _gated = false;
+  /** The composer's `disabled` is the gate's to remove, not one the consumer set. */
+  private _gateOwns = false;
 
   /**
    * True only for the composition THIS element injected. An author-provided
@@ -139,11 +144,14 @@ export class AparteChat extends HTMLElement {
     this._forwardAttr('disabled');
     this._forwardAttr('submit-on-enter');
     this._syncEmptyWatch();
+    this._syncLoadingWatch();
   }
 
   disconnectedCallback(): void {
     this._observer?.disconnect();
     this._observer = null;
+    this._loadingObserver?.disconnect();
+    this._loadingObserver = null;
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -158,7 +166,12 @@ export class AparteChat extends HTMLElement {
     }
     // placeholder / disabled forward to the inner composer. An explicit removal
     // mirrors through; a never-set attribute is left alone (so a caller-provided
-    // composer keeps its own).
+    // composer keeps its own). While the transcript is on its way the composer stays
+    // disabled whatever the consumer does to the attribute — the gate lifts with the wait.
+    if (name === 'disabled' && newValue === null && this._gated) {
+      this._gateOwns = true;
+      return;
+    }
     const composer = this.querySelector('aparte-composer');
     if (!composer) return;
     if (newValue !== null) composer.setAttribute(name, newValue);
@@ -281,6 +294,43 @@ export class AparteChat extends HTMLElement {
     // for its `loading` attribute, the other way of not being empty.
     this._observer = new MutationObserver(() => this._updateEmpty());
     this._observer.observe(viewport, { childList: true, subtree: true, attributes: true, attributeFilter: ['loading'] });
+  }
+
+  /**
+   * A transcript on its way cannot take a message: while the viewport says `loading`
+   * the composer is disabled, whatever else the chat is set to. A send in that window
+   * raced the fetch — the controller appended to a history that `setMessages`
+   * overwrote a moment later. Independent of `center-empty`: every chat gates.
+   */
+  private _syncLoadingWatch(): void {
+    this._loadingObserver?.disconnect();
+    this._loadingObserver = null;
+    const viewport = this.querySelector('aparte-chat-viewport');
+    if (!viewport) return;
+    this._applyLoadingGate();
+    this._loadingObserver = new MutationObserver(() => this._applyLoadingGate());
+    this._loadingObserver.observe(viewport, { attributes: true, attributeFilter: ['loading'] });
+  }
+
+  /**
+   * The gate only ever ADDS `disabled` and only ever removes what it added: a `disabled`
+   * the consumer set — on this element, or on a composer of their own — stays.
+   */
+  private _applyLoadingGate(): void {
+    const composer = this.querySelector('aparte-composer');
+    const loading = this.querySelector('aparte-chat-viewport')?.hasAttribute('loading') ?? false;
+    if (!composer) return;
+    if (loading && !this._gated) {
+      this._gated = true;
+      // Already disabled: nothing to add, and nothing to take back later — unless the
+      // consumer lifts theirs during the wait, which makes the attribute the gate's.
+      this._gateOwns = !composer.hasAttribute('disabled');
+      composer.setAttribute('disabled', '');
+    } else if (!loading && this._gated) {
+      this._gated = false;
+      if (this._gateOwns && !this.hasAttribute('disabled')) composer.removeAttribute('disabled');
+      this._gateOwns = false;
+    }
   }
 
   /**

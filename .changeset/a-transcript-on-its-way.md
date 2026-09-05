@@ -11,6 +11,7 @@ What was wrong: `loadMeta()` and `loadFull()` were in the storage contract from 
 
 - `<aparte-chat-viewport loading>` (reflected; `viewport.loading = true` or `setLoading(true)`) draws two skeleton turns with the kit's recipe, marks the scroll surface `aria-busy` and names the wait for a screen reader (locale key `loadingConversation`). `data-busy` is still a reply streaming; this is the transcript itself arriving.
 - `aparte-chat[center-empty]` counts a loading viewport as not empty.
+- `<aparte-chat>` disables its composer while its viewport is loading, and gives it back as it found it (a `disabled` you set stays). A send in that window raced the fetch: the message went into a history the arriving one overwrote.
 - `<aparte-conversation-list loading>` draws six skeleton rows, `aria-busy`, with its own status line (locale key `loadingConversations`). Set it while your store answers, clear it when you assign `conversations`.
 - `AparteChatBinding.setLoading?(on)` is the controller's way to say it; the default DOM binding sets the viewport's attribute.
 - Two quick clicks: the controller re-reads the active id after the fetch and drops the stale reply, so A never paints over B.

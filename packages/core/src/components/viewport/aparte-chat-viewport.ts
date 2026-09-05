@@ -272,6 +272,10 @@ export class AparteChatViewport extends HTMLElement {
         if (!container) return;
         const on = this.hasAttribute('loading');
         container.setAttribute('aria-busy', on ? 'true' : 'false');
+        // Under `framework-managed` the host is the surface and its children are the
+        // wrapper's to reconcile: the attribute and aria-busy say the transcript is on
+        // its way, the wrapper draws what that looks like.
+        if (this._frameworkManagedDOM) return;
         const existing = container.querySelector(':scope > .aparte-viewport-loading');
         if (!on) {
             existing?.remove();
