@@ -10,7 +10,7 @@ export type { ProvideAparteOptions, ApartePluginLoader } from './lib/provide-apa
 // Components (standalone — import them directly).
 export { AparteChatComponent } from './lib/aparte-chat.component';
 export { AparteUiComponent } from './lib/aparte-ui.component';
-export type { AparteUiHandle } from './lib/aparte-ui.component';
+export type { AparteUiHandle, AparteUiProps } from './lib/aparte-ui.component';
 
 // Typed directives, one per element: the real tag in the template with typed Inputs and
 // one Output per event. GENERATED from core's custom-elements manifest at build time —

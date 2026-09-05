@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
 import { AparteChat } from '../components/AparteChat';
 import { registerAllComponents, resolveConfig, aparteGlobalConfig, AparteConfig, type AparteChatImperativeApi } from '@aparte/core';
@@ -27,6 +27,18 @@ async function memoryManager(): Promise<AparteConversationManager> {
 
 // Ensure components are registered
 registerAllComponents();
+
+/**
+ * jsdom implements no `URL.revokeObjectURL`, and core's revoker is written to skip
+ * when there is none — so the attachment tests have to install one, and take it back
+ * out afterwards rather than leave the page half-implemented for the next test.
+ */
+function stubRevokeObjectURL() {
+    const revoke = vi.fn();
+    (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL = revoke;
+    return revoke;
+}
+afterEach(() => { delete (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL; });
 
 // Mock scrollToBottom and other browser APIs
 if (typeof window !== 'undefined') {
@@ -392,6 +404,40 @@ describe('AparteChat React Wrapper', () => {
         // accessibility tree and in anyone's querySelector.
         expect(composer?.querySelector('aparte-composer-toolbar')).toBeNull();
         expect(composer?.querySelector('.aparte-composer-footer')).toBeNull();
+    });
+
+    // `clearMessages(options)` — the bridge used to be zero-arity, so the caller's
+    // explicit "don't revoke" arrived as `undefined` and the viewport revoked anyway:
+    // every attachment still on screen came back broken. TypeScript cannot see it (a
+    // 0-arg function is assignable to a 1-optional-arg signature), so only a run can.
+    it('forwards clearMessages options — `revokeAttachments: false` keeps the object URLs', () => {
+        const revoke = stubRevokeObjectURL();
+        const ref = React.createRef<AparteChatImperativeApi>();
+        render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} ref={ref} />);
+        act(() => {
+            ref.current?.appendMessage({
+                id: 'att-1', role: 'user', content: 'look', timestamp: Date.now(),
+                attachments: [{ id: 'f1', name: 'a.png', type: 'image/png', url: 'blob:fake-url' }],
+            });
+        });
+
+        act(() => { ref.current?.clearMessages({ revokeAttachments: false }); });
+        expect(revoke).not.toHaveBeenCalled();
+    });
+
+    it('clearMessages() with no options still revokes (the documented default)', () => {
+        const revoke = stubRevokeObjectURL();
+        const ref = React.createRef<AparteChatImperativeApi>();
+        render(<AparteChat messages={[]} onMessageSent={mockOnMessageSent} ref={ref} />);
+        act(() => {
+            ref.current?.appendMessage({
+                id: 'att-2', role: 'user', content: 'look', timestamp: Date.now(),
+                attachments: [{ id: 'f2', name: 'b.png', type: 'image/png', url: 'blob:fake-url-2' }],
+            });
+        });
+
+        act(() => { ref.current?.clearMessages(); });
+        expect(revoke).toHaveBeenCalledWith('blob:fake-url-2');
     });
 
     it('exposes scrollToBottom via ref', () => {

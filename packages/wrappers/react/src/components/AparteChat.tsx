@@ -325,10 +325,12 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         return () => composer.removeEventListener('aparte-send', onSend);
     }, []);
 
-    // aparte-composer exposes `placeholder`/`disabled` as GETTER-ONLY accessors.
-    // React 19 sets matching props as PROPERTIES on custom elements, which throws
-    // ("Cannot set property placeholder ... which has only a getter"). Set them as
-    // attributes imperatively instead (the getter reads the attribute).
+    // Set as ATTRIBUTES, because the attribute IS the state core's composer parts
+    // read. React 19 assigns a matching prop as a PROPERTY on a custom element; core
+    // gained the matching setters in 0.16.12 (before that these were getter-only and
+    // the assignment threw, taking the render down), so this is now a direct write
+    // rather than a way around a crash — and it is the only writer, since the JSX
+    // below declares neither.
     useEffect(() => {
         const composer = composerRef.current;
         if (!composer) return;
@@ -361,7 +363,7 @@ export const AparteChat = forwardRef<AparteChatImperativeApi, AparteChatProps>(f
         removeSegment: (id) => hostRef.current?.removeSegment(id),
         appendToSegment: (id, c) => hostRef.current?.appendToSegment(id, c),
         getMessages: () => hostRef.current?.getMessages() ?? messagesRef.current,
-        clearMessages: () => hostRef.current?.clearMessages(),
+        clearMessages: (o) => hostRef.current?.clearMessages(o),
         addBranch: (id) => hostRef.current?.addBranch(id) ?? 0,
         addSiblingOf: (id, m) => hostRef.current?.addSiblingOf(id, m) ?? null,
         truncateFrom: (id) => hostRef.current?.truncateFrom(id),

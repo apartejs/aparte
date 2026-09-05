@@ -51,8 +51,9 @@ describe('useAparteChat', () => {
         expect(result.current.addSiblingOf('x', { id: 'z', role: 'user', content: '', timestamp: 1 })).toBeNull();
         expect(result.current.isStreaming()).toBe(false);
         await expect(result.current.injectTokenStream('x', (async function* () {})())).resolves.toBeUndefined();
-        // `getMessages`/`getViewport` are deliberately NOT on the hook: the state
-        // `messages` and `ref.current` already serve them.
+        expect(result.current.getMessages()).toEqual([]);
+        expect(result.current.getViewport()).toBeNull();
+        expect(() => { result.current.scrollToBottom(); result.current.focusInput(); }).not.toThrow();
         expect(result.current.ref.current).toBeNull();
     });
 
@@ -69,6 +70,34 @@ describe('useAparteChat', () => {
         result.current.appendMessage({ id: 'y', role: 'user', content: 'b', timestamp: 1 });
         expect(appendMessage).toHaveBeenCalledOnce();
         expect(result.current.addBranch('y')).toBe(2);
+    });
+
+    // The helper is the documented entry point, so it must not narrow the contract:
+    // it used to expose 17 of the 20 imperative members, and the four missing ones
+    // were exactly the reads (`getMessages`, `getViewport`) and the two view acts
+    // (`scrollToBottom`, `focusInput`) a consumer reaches for after a send.
+    it('exposes the same 20 members as the component handle', () => {
+        const { result } = renderHook(() => useAparteChat());
+        const getMessages = vi.fn(() => [{ id: 'live', role: 'user', content: 'ahead', timestamp: 1 }]);
+        const scrollToBottom = vi.fn();
+        const focusInput = vi.fn();
+        const viewport = document.createElement('aparte-chat-viewport');
+        const getViewport = vi.fn(() => viewport);
+
+        act(() => {
+            (result.current.ref as { current: unknown }).current = {
+                getMessages, scrollToBottom, focusInput, getViewport,
+            };
+        });
+
+        // Not the same thing as the `messages` state: the host's list is the authority
+        // and, mid-stream, is a frame ahead of what React has rendered.
+        expect(result.current.getMessages()).toEqual([{ id: 'live', role: 'user', content: 'ahead', timestamp: 1 }]);
+        result.current.scrollToBottom();
+        result.current.focusInput();
+        expect(scrollToBottom).toHaveBeenCalledOnce();
+        expect(focusInput).toHaveBeenCalledOnce();
+        expect(result.current.getViewport()).toBe(viewport);
     });
 });
 

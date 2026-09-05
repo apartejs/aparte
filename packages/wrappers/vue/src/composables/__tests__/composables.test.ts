@@ -59,6 +59,33 @@ describe('useAparteChat', () => {
         expect(api.addBranch('x')).toBe(0);
         expect(api.isStreaming()).toBe(false);
         await expect(api.injectTokenStream('x', (async function* () {})())).resolves.toBeUndefined();
+        expect(api.getMessages()).toEqual([]);
+        expect(api.getViewport()).toBeNull();
+        expect(() => { api.scrollToBottom(); api.focusInput(); }).not.toThrow();
+    });
+
+    // The composable is the documented entry point, so it must not narrow the
+    // contract: it used to expose 17 of the 20 imperative members, and the four
+    // missing ones were exactly the reads (`getMessages`, `getViewport`) and the two
+    // view acts (`scrollToBottom`, `focusInput`) a consumer reaches for after a send.
+    it('exposes the same 20 members as the component instance', () => {
+        const { api } = mountComposable(() => useAparteChat());
+        const getMessages = vi.fn(() => [{ id: 'live', role: 'user', content: 'ahead', timestamp: 1 }]);
+        const scrollToBottom = vi.fn();
+        const focusInput = vi.fn();
+        const viewport = document.createElement('aparte-chat-viewport');
+        const getViewport = vi.fn(() => viewport);
+
+        (api.chatRef as { value: unknown }).value = { getMessages, scrollToBottom, focusInput, getViewport };
+
+        // Not the same thing as the `messages` ref: the host's list is the authority
+        // and, mid-stream, is a frame ahead of what Vue has rendered.
+        expect(api.getMessages()).toEqual([{ id: 'live', role: 'user', content: 'ahead', timestamp: 1 }]);
+        api.scrollToBottom();
+        api.focusInput();
+        expect(scrollToBottom).toHaveBeenCalledOnce();
+        expect(focusInput).toHaveBeenCalledOnce();
+        expect(api.getViewport()).toBe(viewport);
     });
 
     it('routes delegates to the bound instance', () => {

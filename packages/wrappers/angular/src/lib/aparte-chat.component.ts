@@ -56,6 +56,8 @@ import { AparteChatHost, aparteGlobalConfig, isAwaitingReply, uuid } from '@apar
     template: `
     <div
       class="aparte-chat-container"
+      [class]="containerClass()"
+      [style]="containerStyle()"
       [class.aparte-chat-container--auto-center]="centerWhenEmpty()"
       [attr.overlay-composer]="overlayComposer() ? '' : null"
       [attr.data-aparte-empty]="centerWhenEmpty() && messages().length === 0 && !waiting() ? '' : null"
@@ -181,14 +183,18 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
         // Debounced with requestAnimationFrame so rapid token bursts only trigger
         // one sync per paint frame instead of N syncs for N tokens.
         effect(() => {
-            const msgs = this.messages();
-            if (msgs.length > 0) {
-                if (this._syncRafId !== null) return;
-                this._syncRafId = requestAnimationFrame(() => {
-                    this._syncRafId = null;
-                    this._host?.syncBubbles();
-                });
-            }
+            // Read the signal so the effect tracks it — and react to EVERY value,
+            // the empty list included. React, Vue and Svelte all re-sync
+            // unconditionally, and emptying the transcript is exactly when the host
+            // has to let go of the bubbles that just went away. With the default
+            // bubbles `bubbleRefs.changes` hid the divergence; under a custom
+            // `[bubbleTemplate]` that query never fires and this was the only path.
+            this.messages();
+            if (this._syncRafId !== null) return;
+            this._syncRafId = requestAnimationFrame(() => {
+                this._syncRafId = null;
+                this._host?.syncBubbles();
+            });
         });
     }
 
@@ -248,6 +254,25 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     readonly hostLoading = signal<boolean>(false);
     readonly waiting = computed(() => this.loading() || this.hostLoading());
     get loadingText(): string { return (this.config ?? aparteGlobalConfig).t('loadingConversation'); }
+
+    /**
+     * Class(es) merged onto the INNER `.aparte-chat-container`, not onto this
+     * component's own `<aparte-chat>` host.
+     *
+     * The other three wrappers have no such host: their root IS the container, so a
+     * consumer's `className` / `class` lands on the div that carries
+     * `.aparte-chat-container`, `[overlay-composer]` and `[data-aparte-empty]` — the
+     * three selectors core's shell recipe keys on. Here a class written on the tag
+     * lands one level above them, so overriding the shell needed a descendant
+     * selector on Angular alone. This input is that parity. Additive: the recipe's
+     * own classes stay.
+     */
+    @Input('containerClass') set containerClassInput(val: string) { this.containerClass.set(val ?? ''); }
+    readonly containerClass = signal<string>('');
+
+    /** Inline style for the same div — a string or a `{ prop: value }` map. */
+    @Input('containerStyle') set containerStyleInput(val: string | Record<string, string> | null) { this.containerStyle.set(val ?? null); }
+    readonly containerStyle = signal<string | Record<string, string> | null>(null);
 
     /**
      * Overlay the composer on the transcript (the ChatGPT anatomy): the scroll
@@ -465,8 +490,11 @@ export class AparteChatComponent implements AfterViewInit, OnDestroy, AparteChat
     }
     /** Read the current message list. */
     getMessages(): AparteMessage[] { return this._host?.getMessages() ?? this.messages(); }
-    /** Clear all messages + reset state. */
-    clearMessages(): void { this._host?.clearMessages(); }
+    /**
+     * Clear all messages + reset state. `{ revokeAttachments: false }` keeps the
+     * attachments' object URLs alive — pass it when the same messages are going back.
+     */
+    clearMessages(options?: { revokeAttachments?: boolean }): void { this._host?.clearMessages(options); }
     /** Scroll the viewport to the latest message. */
     scrollToBottom(): void {
         (this.viewportRef?.nativeElement as unknown as { scrollToBottom?: () => void })?.scrollToBottom?.();

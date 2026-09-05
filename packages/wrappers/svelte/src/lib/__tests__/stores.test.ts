@@ -59,6 +59,33 @@ describe('createAparteChat', () => {
         expect(chat.addBranch('x')).toBe(0);
         expect(chat.isStreaming()).toBe(false);
         await expect(chat.injectTokenStream('x', (async function* () {})())).resolves.toBeUndefined();
+        expect(chat.getMessages()).toEqual([]);
+        expect(chat.getViewport()).toBeNull();
+        expect(() => { chat.scrollToBottom(); chat.focusInput(); }).not.toThrow();
+    });
+
+    // The store is the documented entry point, so it must not narrow the contract: it
+    // used to expose 17 of the 20 imperative members, and the four missing ones were
+    // exactly the reads (`getMessages`, `getViewport`) and the two view acts
+    // (`scrollToBottom`, `focusInput`) a consumer reaches for after a send.
+    it('exposes the same 20 members as the component instance', () => {
+        const chat = createAparteChat();
+        const getMessages = vi.fn(() => [{ id: 'live', role: 'user', content: 'ahead', timestamp: 1 }]);
+        const scrollToBottom = vi.fn();
+        const focusInput = vi.fn();
+        const viewport = document.createElement('aparte-chat-viewport');
+        const getViewport = vi.fn(() => viewport);
+
+        chat.connect({ getMessages, scrollToBottom, focusInput, getViewport } as never);
+
+        // Not the same thing as the `messages` store: the host's list is the authority
+        // and, mid-stream, is a frame ahead of what Svelte has rendered.
+        expect(chat.getMessages()).toEqual([{ id: 'live', role: 'user', content: 'ahead', timestamp: 1 }]);
+        chat.scrollToBottom();
+        chat.focusInput();
+        expect(scrollToBottom).toHaveBeenCalledOnce();
+        expect(focusInput).toHaveBeenCalledOnce();
+        expect(chat.getViewport()).toBe(viewport);
     });
 
     it('routes delegates to the connected component', () => {

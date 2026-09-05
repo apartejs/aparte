@@ -191,7 +191,7 @@ const updateSegment = (id: string, u: Partial<AparteSegment>) => host?.updateSeg
 const removeSegment = (id: string) => host?.removeSegment(id);
 const appendToSegment = (id: string, c: string) => host?.appendToSegment(id, c);
 const getMessages = () => host?.getMessages() ?? internalMessages.value;
-const clearMessages = () => host?.clearMessages();
+const clearMessages = (options?: { revokeAttachments?: boolean }) => host?.clearMessages(options);
 const addBranch = (id: string) => host?.addBranch(id) ?? 0;
 const addSiblingOf = (id: string, m: AparteMessage) => host?.addSiblingOf(id, m) ?? null;
 const truncateFrom = (id: string) => host?.truncateFrom(id);
@@ -265,10 +265,11 @@ defineExpose({
     <!-- Content above the composer (banner, disclaimer, context chip). -->
     <slot name="above-composer" />
 
-    <!-- `.attr` forces attribute-setting: core's <aparte-composer> exposes
-         `placeholder`/`disabled` as getter-only accessors, so Vue's default
-         property-set (it prefers props on custom elements) would throw and the
-         value would silently never apply. -->
+    <!-- `.attr` forces attribute-setting, and stays: the attribute IS the state
+         core's composer parts read (`getAttribute('placeholder')`, `hasAttribute
+         ('disabled')`). Core gained the matching setters in 0.16.12 — before that
+         they were getter-only and Vue's default property-set on a custom element
+         threw — so this is now a direct write rather than a way around a crash. -->
     <aparte-composer
       ref="composerRef"
       :target="hostId"

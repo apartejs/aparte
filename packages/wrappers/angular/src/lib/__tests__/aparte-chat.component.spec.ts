@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@angular/compiler';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { of } from 'rxjs';
 import { AparteChatComponent } from '../aparte-chat.component';
 import { registerAllComponents, type AparteMessage } from '@aparte/core';
-import { AparteConfig, AparteConversationManager } from '@aparte/core';
+import { AparteConfig, AparteConversationManager, resolveConfig, aparteGlobalConfig } from '@aparte/core';
 import type { AparteConversation, AparteStorageAdapter } from '@aparte/core';
 
 /**
@@ -28,6 +29,18 @@ async function memoryManager(): Promise<AparteConversationManager> {
 
 // Register aparté web components so setContent/setSegments exist on bubble elements
 registerAllComponents();
+/**
+ * jsdom implements no `URL.revokeObjectURL`, and core's revoker is written to skip
+ * when there is none — so the attachment test has to install one, and take it back out
+ * afterwards rather than leave the page half-implemented for the next test.
+ */
+function stubRevokeObjectURL() {
+    const revoke = vi.fn();
+    (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL = revoke;
+    return revoke;
+}
+afterEach(() => { delete (URL as unknown as { revokeObjectURL?: (u: string) => void }).revokeObjectURL; });
+
 
 // Host that projects a custom composer into <aparte-chat> via the composer slot.
 @Component({
@@ -723,6 +736,123 @@ describe('AparteChatComponent (Angular Wrapper)', () => {
         // …and a live append still passes nothing, so the host keeps its default (live).
         component.appendMessage({ id: 'l1', role: 'user', content: 'hi', timestamp: 2 });
         expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'l1' }), undefined);
+    });
+
+    // ─── the bubble sync runs on EVERY list change, empty included ─────────────
+    //
+    // React (`useEffect` on the rendered list), Vue (`watch`) and Svelte (`$:`) all
+    // re-sync unconditionally; Angular's effect was wrapped in `if (msgs.length > 0)`.
+    // With the DEFAULT bubbles the divergence hides — `bubbleRefs.changes` fires when
+    // `@for` destroys them and re-syncs anyway — so it is asserted through
+    // `[bubbleTemplate]`, where the consumer renders its own elements, the `#bubble`
+    // query never changes, and the effect is the only path left.
+    it('re-syncs the bubbles when the list empties, even with a custom bubbleTemplate', async () => {
+        const fixture = TestBed.createComponent(BubbleTemplateHost);
+        fixture.componentInstance.messages = [{ id: '1', role: 'assistant', content: 'Hi', timestamp: 0 }];
+        fixture.detectChanges();
+        await fixture.whenStable();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        const chat = fixture.debugElement.query(By.directive(AparteChatComponent)).componentInstance as AparteChatComponent;
+        const syncBubbles = vi.spyOn((chat as any)._host, 'syncBubbles');
+
+        fixture.componentInstance.messages = [];
+        fixture.detectChanges();
+        await fixture.whenStable();
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        expect(syncBubbles).toHaveBeenCalled();
+    });
+
+    // ─── class / style reach the SHELL, as they do on the other three ──────────
+    //
+    // React merges `className`/`style` onto `.aparte-chat-container`, Svelte merges
+    // `class`/`style`, Vue gets there by attribute fallthrough. Angular's own host is
+    // `<aparte-chat>`, one level ABOVE the div that carries `.aparte-chat-container`,
+    // `[overlay-composer]` and `[data-aparte-empty]` — the three selectors core's
+    // shell recipe keys on — so a consumer class landed where it could not override
+    // shell geometry without a descendant selector.
+    it('merges containerClass and containerStyle onto the .aparte-chat-container shell', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('containerClass', 'my-shell tall');
+        (fixture.componentRef as any).setInput('containerStyle', 'border-radius: 12px');
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const box = fixture.nativeElement.querySelector('.aparte-chat-container') as HTMLElement;
+        expect(box.classList.contains('my-shell')).toBe(true);
+        expect(box.classList.contains('tall')).toBe(true);
+        // The recipe's own classes survive the merge — this is additive, not a replace.
+        expect(box.classList.contains('aparte-chat-container')).toBe(true);
+        expect(box.style.borderRadius).toBe('12px');
+    });
+
+    it('keeps the shell classes when no containerClass is given', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('centerWhenEmpty', true);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const box = fixture.nativeElement.querySelector('.aparte-chat-container') as HTMLElement;
+        expect(box.classList.contains('aparte-chat-container')).toBe(true);
+        expect(box.classList.contains('aparte-chat-container--auto-center')).toBe(true);
+    });
+
+    // ─── clearMessages forwards its options — the "don't revoke" the caller meant ──
+    //
+    // The bridge was zero-arity, so an explicit `{ revokeAttachments: false }` arrived
+    // as `undefined` and the viewport revoked anyway: every attachment still on screen
+    // came back broken. TypeScript cannot see it (a 0-arg function is assignable to a
+    // 1-optional-arg signature), so only a run can.
+    it('clearMessages({ revokeAttachments: false }) keeps the attachments object URLs', async () => {
+        const revoke = stubRevokeObjectURL();
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        const component = fixture.componentInstance;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        component.appendMessage({
+            id: 'att-1', role: 'user', content: 'look', timestamp: 1,
+            attachments: [{ id: 'f1', name: 'a.png', type: 'image/png', url: 'blob:fake-url' }],
+        });
+        component.clearMessages({ revokeAttachments: false });
+
+        expect(revoke).not.toHaveBeenCalled();
+    });
+
+    it('clearMessages() with no options still revokes (the documented default)', async () => {
+        const revoke = stubRevokeObjectURL();
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        const component = fixture.componentInstance;
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        component.appendMessage({
+            id: 'att-2', role: 'user', content: 'look', timestamp: 1,
+            attachments: [{ id: 'f2', name: 'b.png', type: 'image/png', url: 'blob:fake-url-2' }],
+        });
+        component.clearMessages();
+
+        expect(revoke).toHaveBeenCalledWith('blob:fake-url-2');
+    });
+
+    // The `config` boundary, asserted on React and Vue and on neither of the other
+    // two: a per-instance config has to reach the elements INSIDE, which depends on
+    // the host binding running after the children connect.
+    it('forwards a per-instance config so components inside resolve it', async () => {
+        const cfg = new AparteConfig();
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        (fixture.componentRef as any).setInput('config', cfg);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(resolveConfig(fixture.nativeElement as HTMLElement)).toBe(cfg);
+    });
+
+    it('resolves `aparteGlobalConfig` when no config input is passed', async () => {
+        const fixture = TestBed.createComponent(AparteChatComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(resolveConfig(fixture.nativeElement as HTMLElement)).toBe(aparteGlobalConfig);
     });
 
     // ── The two callbacks nothing asserted ───────────────────────────────

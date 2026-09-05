@@ -144,9 +144,11 @@
   // Reconcile bubbles after the rendered list changes (host queries the DOM).
   $: if (host && internalMessages) { void tick().then(() => host?.syncBubbles()); }
 
-  // Composer attributes set imperatively (like Angular's `[attr.x]`): Svelte's
-  // custom-element binding assigns to *properties*, but aparte-composer exposes
-  // some of these (e.g. `placeholder`) as getter-only — assigning throws.
+  // Composer attributes set imperatively (like Angular's `[attr.x]`), because the
+  // attribute IS the state core's composer parts read. Svelte's custom-element
+  // binding assigns to *properties*; core gained the matching setters in 0.16.12
+  // (before that `placeholder`/`disabled` were getter-only and assigning threw), so
+  // this is now a direct write rather than a way around a crash.
   function toggleAttr(el: HTMLElement, name: string, on: boolean, value: string) {
     if (on) el.setAttribute(name, value); else el.removeAttribute(name);
   }
@@ -229,7 +231,7 @@
     host?.appendToSegment(segmentId, content);
   }
   export function getMessages(): AparteMessage[] { return host?.getMessages() ?? internalMessages; }
-  export function clearMessages() { host?.clearMessages(); }
+  export function clearMessages(options?: { revokeAttachments?: boolean }) { host?.clearMessages(options); }
   export function addBranch(messageId: string): number { return host?.addBranch(messageId) ?? 0; }
   export function addSiblingOf(existingId: string, message: AparteMessage): string | null {
     return host?.addSiblingOf(existingId, message) ?? null;

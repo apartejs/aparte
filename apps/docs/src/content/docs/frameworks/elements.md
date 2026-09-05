@@ -243,8 +243,10 @@ third-party web component:
 <AparteUi name="my-token-counter" props={{ 'data-budget': '8000' }} onElementEvent={log} />
 ```
 
-`name` is a string, `props` is an untyped bag, and the element is created imperatively — so no
-control flow or projection reaches it. For core's elements the typed surface above is strictly
+`name` is a string, `props` is an untyped bag (`AparteUiProps`, the same shape in the four
+wrappers), and the element is created imperatively — so no control flow or projection reaches
+it. What a ref to it gives back is one type, `AparteUiHandle` from `@aparte/core`: `getElement()`
+returns the mounted element, typed as you ask for it. For core's elements the typed surface above is strictly
 better; for anything else, the two mechanisms in the previous section beat it as soon as you care
 about types. `<aparte-ui>` earns its place when you want none of that ceremony for a one-off.
 
