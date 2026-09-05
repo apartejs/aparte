@@ -7,7 +7,8 @@
  * hides everything that happens in between — the list that is not there yet, the
  * transcript between the click and its messages, two clicks racing each other. This
  * adapter answers after a delay so the site shows those moments; the delays are the
- * only thing it fakes, and `?fast` in the URL sets them to zero for a test.
+ * only thing it fakes: `?fast` in the URL sets them to zero for a test, `?slow` holds a
+ * conversation for a minute.
  *
  * What the manager does with it: `init()` calls `loadMeta()`, `setConversationId(id)`
  * on the controller calls `loadFull(id)` the first time and sets the viewport's
@@ -16,7 +17,10 @@
 import type { AparteConversation, AparteConversationMeta, AparteStorageAdapter } from '@aparte/core';
 import { SAMPLE_CONVERSATIONS } from './sample-conversations';
 
-const fast = new URLSearchParams(location.search).has('fast');
+const params = new URLSearchParams(location.search);
+const fast = params.has('fast');
+/** `?slow`: a full minute per conversation, to look at the wait for as long as you like. */
+const slow = params.has('slow');
 
 /** A wait of `ms` — none under `?fast`. */
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, fast ? 0 : ms));
@@ -40,7 +44,7 @@ export function createSampleAdapter(): AparteStorageAdapter {
             return [...rows.values()].map(meta);
         },
         async loadFull(id) {
-            await wait(between(300, 800));
+            await wait(slow ? 60_000 : between(300, 800));
             return rows.get(id) ?? null;
         },
         async save(conv) { rows.set(conv.id, conv); },
