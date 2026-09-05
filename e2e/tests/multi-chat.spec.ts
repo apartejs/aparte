@@ -10,6 +10,11 @@
  *
  * Fixture: the vanilla example mounts a second chat under `?chats=2`, both
  * composers carrying `target`, one client serving both.
+ *
+ * The first chat keeps the id `wireShell()` gave it (`main-chat`) rather than being
+ * renamed to `chat-a` — the rename used to happen AFTER the conversation controller
+ * was already bound to the old id, which is the SAB-11 mismatch (main.ts's `?chats=2`
+ * block no longer touches the first chat's id at all, only the second's).
  */
 
 import { test, expect } from '@playwright/test';
@@ -23,7 +28,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('both chats mount independently', async ({ page }) => {
-    const a = new ChatPage(page, '#chat-a');
+    const a = new ChatPage(page, '#main-chat');
     const b = new ChatPage(page, '#chat-b');
 
     await expect(a.viewport).toBeAttached();
@@ -37,7 +42,7 @@ test('both chats mount independently', async ({ page }) => {
 
 test('a reply lands only in the chat that sent it', async ({ page }) => {
     const errors = collectPageErrors(page);
-    const a = new ChatPage(page, '#chat-a');
+    const a = new ChatPage(page, '#main-chat');
     const b = new ChatPage(page, '#chat-b');
 
     await a.sendAndSettle('question from A', { expect: MOCK_REPLY_MARK });
@@ -60,7 +65,7 @@ test('a reply lands only in the chat that sent it', async ({ page }) => {
 });
 
 test('retrying in one chat does not touch the other', async ({ page }) => {
-    const a = new ChatPage(page, '#chat-a');
+    const a = new ChatPage(page, '#main-chat');
     const b = new ChatPage(page, '#chat-b');
 
     await a.sendAndSettle('A first turn', { expect: MOCK_REPLY_MARK });
@@ -79,7 +84,7 @@ test('an in-flight turn in one chat leaves the other composer idle', async ({ pa
     await installLlmMock(page, { scenario: 'slow', delayMs: 5000 });
     await page.goto('/?chats=2');
 
-    const a = new ChatPage(page, '#chat-a');
+    const a = new ChatPage(page, '#main-chat');
     const b = new ChatPage(page, '#chat-b');
 
     await a.send('slow turn in A');

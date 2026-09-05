@@ -36,10 +36,18 @@ export function wireShell(): void {
     // The manager, registered for every <aparte-*> element on the page.
     const manager = createSiteManager();
 
+    // The id the controller binds to has to be the element's REAL id: giving it one
+    // here, before anything else reads `chat.id`, means a later rename (the `?chats=2`
+    // block in main.ts used to rename the element AFTER this ran) can never leave the
+    // controller pointed at an id the DOM no longer carries (SAB-11 — the composer's
+    // `target` mismatch that logged "targetId present but element not found" on every
+    // send under `?chats=2`).
+    chat.id ||= 'main-chat';
+
     // The controller: the chat bound to the manager. `setLoading` is how it shows a
     // conversation on its way — the viewport draws the wait itself.
     const controller = new AparteConversationController({
-        hostId: chat.id || 'main-chat',
+        hostId: chat.id,
         host: chat,
         getMessages: () => viewport.getMessages(),
         setMessages: (m) => viewport.setMessages(m),
@@ -87,7 +95,14 @@ export function wireShell(): void {
     chat.querySelector<HTMLElement>('aparte-composer-input')?.focus();
 
     // The list says it is on its way until the adapter's first answer; the manager's
-    // first notification fills it.
+    // first notification fills it. A rejecting `loadMeta` must still clear the wait —
+    // the library has no error state for it, so a `console.warn` is what tells the
+    // developer their adapter failed instead of leaving the skeleton up forever.
     list.loading = true;
-    void manager.init().then(() => { list.loading = false; });
+    void manager.init()
+        .then(() => { list.loading = false; })
+        .catch((err: unknown) => {
+            list.loading = false;
+            console.warn('[chat-site] failed to load conversations', err);
+        });
 }

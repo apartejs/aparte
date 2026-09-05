@@ -135,8 +135,13 @@ async function main(): Promise<void> {
     // drives this; the model gate is satisfied globally by the first selector, which
     // is why the second chat needs no selector of its own.
     if (new URLSearchParams(location.search).get('chats') === '2' && chat) {
-        chat.id = 'chat-a';
-        chat.querySelector('aparte-composer')?.setAttribute('target', 'chat-a');
+        // `wireShell()` (above) already gave this element its id (`main-chat`, since
+        // nothing had set one) and built its conversation controller around that id —
+        // renaming the element here, after the binding was made, is exactly the
+        // mismatch that left `AparteClient` warning "targetId present but element not
+        // found" on every send under `?chats=2` (SAB-11). Keep the id the shell used;
+        // only the SECOND chat gets a fresh one.
+        chat.querySelector('aparte-composer')?.setAttribute('target', chat.id);
 
         const second = document.createElement('aparte-chat');
         second.id = 'chat-b';

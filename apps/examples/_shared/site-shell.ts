@@ -10,7 +10,7 @@ import {
 } from '@aparte/core';
 import { moonIcon, searchIcon, sunIcon } from '@aparte/core/icons';
 import { createSampleAdapter } from './sample-adapter';
-import { DEFAULT_SETTINGS, applySystemPrompt, isSettingsView, loadSettings, saveSettings, type ExampleSettings } from './settings-store';
+import { DEFAULT_SETTINGS, applySystemPrompt, isSettingsView, loadSettings, modelSourcePinnedByUrl, resolveModelSource, saveSettings, type ExampleSettings } from './settings-store';
 
 /**
  * The manager over the sample adapter (which answers after a delay on purpose),
@@ -94,7 +94,14 @@ export function wireSettingsDialog(view: HTMLDialogElement | null): void {
     const promptEl = view.querySelector<HTMLTextAreaElement>('#system-prompt')!;
     const endpointEl = view.querySelector<HTMLInputElement>('#endpoint')!;
     const tokenEl = view.querySelector<HTMLInputElement>('#token')!;
-    const startedWith = loadSettings().modelSource;
+    // The URL (`?scenario`/`?local`) always wins over the stored setting (see
+    // `resolveModelSource`), so it — not the raw stored value — is what this page
+    // load actually runs, what the radios must show, and what a reload is compared
+    // against. Comparing against the stored value alone (the bug) let a reader flip
+    // to "local" under `?scenario`, save it, and reload straight back into the same
+    // scripted page with nothing telling them why.
+    const pinnedByUrl = modelSourcePinnedByUrl();
+    const startedWith = resolveModelSource(loadSettings());
 
     // The system prompt, the endpoint and the token belong to the local server: the
     // scripted model reads none of them, so under it they are disabled rather than
@@ -108,7 +115,14 @@ export function wireSettingsDialog(view: HTMLDialogElement | null): void {
     };
 
     const render = (settings: ExampleSettings): void => {
-        for (const el of sourceEls) el.checked = el.value === settings.modelSource;
+        // Pinned: the radios show what the URL actually runs (`startedWith`), not
+        // the stored value the URL is overriding — and they are disabled, because
+        // no click here can change what this page load runs.
+        const effective = pinnedByUrl ? startedWith : settings.modelSource;
+        for (const el of sourceEls) {
+            el.checked = el.value === effective;
+            el.disabled = pinnedByUrl;
+        }
         syncLocalFields();
         promptEl.value = settings.systemPrompt;
         endpointEl.value = settings.endpoint;
@@ -126,7 +140,11 @@ export function wireSettingsDialog(view: HTMLDialogElement | null): void {
         };
         saveSettings(next);
         applySystemPrompt(aparteGlobalConfig, next);
-        if (next.modelSource !== startedWith) location.reload();
+        // Pinned: the radios are disabled, so `next.modelSource` can never disagree
+        // with `startedWith` here — but the guard is explicit rather than relied on,
+        // so a reload is never triggered on a choice the URL was going to override
+        // anyway.
+        if (!pinnedByUrl && next.modelSource !== startedWith) location.reload();
     };
     // `input`, not `change`: a reader who types and navigates away without blurring
     // the field would otherwise lose what they typed.

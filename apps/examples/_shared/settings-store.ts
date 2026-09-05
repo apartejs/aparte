@@ -122,6 +122,17 @@ export function resolveModelSource(settings: ExampleSettings): ModelSource {
     return settings.modelSource;
 }
 
+/**
+ * Is the model source pinned by the URL (`?scenario` or `?local`)? When it is, no
+ * radio flip in the settings dialog can change what this page load actually runs —
+ * a reload only lands back on the URL it started from — so the dialog must say so
+ * rather than let the choice look live and do nothing.
+ */
+export function modelSourcePinnedByUrl(): boolean {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('scenario') || params.has('local');
+}
+
 /** Is the settings view the requested one? A link, so it is deep-linkable. */
 export function isSettingsView(): boolean {
     return new URLSearchParams(window.location.search).get('view') === 'settings';

@@ -95,6 +95,67 @@ test('the theme toggle flips the page between light and dark', async ({ page }) 
     await expect(page.locator('html')).toHaveAttribute('data-aparte-theme', 'dark');
 });
 
+test('a conversation can be deleted from its row menu', async ({ page }) => {
+    // SAB-02 regression. Expected RED until the fix lands in core (in progress
+    // elsewhere): deleting from the row's `⋯` menu must remove the row and fire
+    // `aparte-conversation-delete` once the confirmation is accepted.
+    await page.goto('/?scenario&fast');
+    const rows = page.locator(`${LIST} [data-conv-id]`);
+    await expect(rows).toHaveCount(10);
+
+    await page.evaluate(() => {
+        (window as unknown as { __deleteFired?: boolean }).__deleteFired = false;
+        document.addEventListener('aparte-conversation-delete', () => {
+            (window as unknown as { __deleteFired?: boolean }).__deleteFired = true;
+        });
+    });
+
+    const row = page.locator(`${LIST} [data-conv-id="c-weather"]`);
+    await row.locator('.aparte-conv-item__more').click();
+    await page.locator('[role="menu"] [data-menu-action="delete"]').click();
+    await page.locator('[role="menu"] [data-menu-action="confirm-delete"]').click();
+
+    await expect(row).toHaveCount(0);
+    await expect(rows).toHaveCount(9);
+    expect(await page.evaluate(() => (window as unknown as { __deleteFired?: boolean }).__deleteFired)).toBe(true);
+});
+
+test('Enter on a focused row keeps the focus on the row', async ({ page }) => {
+    // SAB-12 regression. Expected RED until the fix lands in core (in progress
+    // elsewhere): selecting a row with the keyboard must not move the focus away
+    // from that row — a plausible cause is the sidebar's `manager.subscribe`
+    // callback reassigning `list.conversations` (a fresh array every notification)
+    // and the list fully re-rendering in response, which would replace the very
+    // button Enter just activated.
+    await page.goto('/?scenario&fast');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    const focusedRowId = () => page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el || !el.classList.contains('aparte-conv-item__select')) return null;
+        return el.closest('[data-conv-id]')?.getAttribute('data-conv-id') ?? null;
+    });
+
+    let rowId: string | null = null;
+    for (let i = 0; i < 40 && !rowId; i++) {
+        await page.keyboard.press('Tab');
+        rowId = await focusedRowId();
+    }
+    expect(rowId, 'Tab must reach a conversation row\'s title button').not.toBeNull();
+
+    await page.keyboard.press('Enter');
+
+    // The conversation opened…
+    await expect(page.locator(`${LIST} [data-conv-id="${rowId}"] .aparte-conv-item__select`))
+        .toHaveAttribute('aria-current', 'page');
+    // …and the focus is still inside that same row, not lost to the document.
+    const stillInRow = await page.evaluate(
+        (id) => !!(document.activeElement as HTMLElement | null)?.closest(`[data-conv-id="${id}"]`),
+        rowId,
+    );
+    expect(stillInRow, 'focus should remain inside the row after Enter selects it').toBe(true);
+});
+
 test('a sidebar collapsed on a desktop opens again from the header', async ({ page }) => {
     await page.goto('/?scenario&fast');
     const sidebar = page.locator('aparte-sidebar');

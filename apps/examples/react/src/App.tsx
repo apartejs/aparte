@@ -72,8 +72,16 @@ export default function App({ scenarioMode }: { scenarioMode: boolean }) {
         // The model selector, only with a local server, in the header where the
         // product keeps its picker.
         if (!scenarioMode) mountModelSelector(modelSlotRef.current, document.querySelector('aparte-composer-toolbar'));
-        // The list says it is on its way until the adapter's first answer.
-        void manager.init().then(() => setListLoading(false));
+        // The list says it is on its way until the adapter's first answer. A
+        // rejecting `loadMeta` must still clear the wait — the library has no error
+        // state for it, so a `console.warn` is what tells the developer their
+        // adapter failed instead of leaving the skeleton up forever.
+        void manager.init()
+            .then(() => setListLoading(false))
+            .catch((err: unknown) => {
+                setListLoading(false);
+                console.warn('[chat-site] failed to load conversations', err);
+            });
         chat.ref.current?.focusInput();
         return () => { unsubscribe(); for (const off of offs) off(); };
     }, []);

@@ -21,7 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-const FILE = 'apps/examples/vanilla/src/main.ts';
+const FILE = 'apps/examples/_shared/site-setup.ts';
 const raw = readFileSync(FILE, 'utf8');
 
 /**
@@ -57,4 +57,4 @@ if (!importsRunner || !wiresRunner) {
     process.exit(1);
 }
 
-console.log('[engine-consumer] OK: the vanilla example drives runStreamAgent through the streamRunner seam.');
+console.log('[engine-consumer] OK: the shared site setup (every example) drives runStreamAgent through the streamRunner seam.');

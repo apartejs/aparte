@@ -84,13 +84,18 @@ test('the composer is reachable and sendable by keyboard alone', async ({ page }
     await page.goto('/');
     await chat.waitUngated();
 
-    // A keyboard user should not have to hunt through the page to type. On a site
-    // with a sidebar the editor is twenty-odd stops from the top, so the site gives
-    // it the focus on load, the way every chat product does; a page without that
-    // still has to reach it within a few stops.
+    // A keyboard user should not have to hunt through the page to type. The site gives
+    // the editor the focus on load, the way every chat product does — and that is
+    // asserted first. Then the walk: the site autofocus used to make the loop below
+    // never run (it was already true), so a composer unreachable by Tab would have
+    // passed as easily as a reachable one. Blur, and Tab through the whole page: with
+    // a sidebar before it the editor is twenty-odd stops from the top, so the budget
+    // is the page's, not "a few".
     const inEditor = () => page.evaluate(() => !!document.activeElement?.closest('aparte-composer-input'));
+    expect(await inEditor(), 'the site focuses the editor on load').toBe(true);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     let focusedEditor = await inEditor();
-    for (let i = 0; i < 8 && !focusedEditor; i++) {
+    for (let i = 0; i < 60 && !focusedEditor; i++) {
         await page.keyboard.press('Tab');
         focusedEditor = await inEditor();
     }

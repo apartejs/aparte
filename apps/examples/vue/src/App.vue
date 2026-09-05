@@ -78,8 +78,16 @@ onMounted(() => {
     // The model selector, only with a local server, in the header where the
     // product keeps its picker.
     if (!props.scenarioMode) mountModelSelector(modelSlotRef.value, document.querySelector('aparte-composer-toolbar'));
-    // The list says it is on its way until the adapter's first answer.
-    void manager.init().then(() => { listLoading.value = false; });
+    // The list says it is on its way until the adapter's first answer. A rejecting
+    // `loadMeta` must still clear the wait — the library has no error state for it,
+    // so a `console.warn` is what tells the developer their adapter failed instead
+    // of leaving the skeleton up forever.
+    void manager.init()
+        .then(() => { listLoading.value = false; })
+        .catch((err: unknown) => {
+            listLoading.value = false;
+            console.warn('[chat-site] failed to load conversations', err);
+        });
     chat.chatRef.value?.focusInput();
 });
 

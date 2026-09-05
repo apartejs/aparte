@@ -67,7 +67,7 @@ test('a derived value follows a master set on one chat — per-instance theming'
     expect(await cssVar(page, ':root', '--aparte-accent')).toBe(rootAccentBefore);
 });
 
-test('a dark chat derives from the DARK palette, not the light substitution', async ({ page }) => {
+test('a dark chat derives from the DARK palette, not the light substitution', async ({ page }, testInfo) => {
     const lightAccent = await cssVar(page, 'aparte-chat', '--aparte-accent');
     const lightInputBg = await cssVar(page, 'aparte-chat', '--aparte-input-bg');
     const paintedLight = await page
@@ -95,9 +95,21 @@ test('a dark chat derives from the DARK palette, not the light substitution', as
     // pinned to a literal from an abandoned palette. It now tracks a dark surface — the
     // first, or the second when a skin lifts the composer one surface up, as the chat
     // site's does (measured on the product: the pill sits on #303030 over #212121).
-    const darkSurface2 = await cssVar(page, 'aparte-chat', '--aparte-surface-2');
-    expect([darkSurface1, darkSurface2]).toContain(await cssVar(page, 'aparte-chat', '--aparte-input-bg'));
-    expect(await cssVar(page, 'aparte-chat', '--aparte-input-bg')).not.toBe(lightInputBg);
+    //
+    // `vanilla-dist` carries no skin at all (a bare `<aparte-chat>`, core's own
+    // default composition — see playwright.config.ts's `suiteFor`), so it is where
+    // the ORIGINAL, exact assertion still applies: the first surface, and nothing
+    // else. Only `vanilla` (which loads the chat site's skin) keeps the tolerant
+    // either-surface form — accepting either there unconditionally is what let this
+    // assertion stop measuring core's own derivation at all (RA-14).
+    const inputBg = await cssVar(page, 'aparte-chat', '--aparte-input-bg');
+    if (testInfo.project.name.startsWith('vanilla-dist')) {
+        expect(inputBg).toBe(darkSurface1);
+    } else {
+        const darkSurface2 = await cssVar(page, 'aparte-chat', '--aparte-surface-2');
+        expect([darkSurface1, darkSurface2]).toContain(inputBg);
+    }
+    expect(inputBg).not.toBe(lightInputBg);
 
     // Not only the variables: something is actually painted differently.
     const paintedDark = await page

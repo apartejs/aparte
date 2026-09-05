@@ -228,7 +228,11 @@ const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 // - vanilla-dist owns the human-in-the-loop suite and consumes core's built dist.
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW];
 const suiteFor = (k: AppKey): RegExp[] =>
-    k === 'vanilla-dist' ? [DEMO] :
+    // vanilla-dist also runs THEMING: its page has no skin at all (a bare
+    // `<aparte-chat>`, core's own default composition), which is exactly where the
+    // dark-derivation assertion can go back to being exact (`toBe`, not `toContain`)
+    // — see theming.spec.ts's own per-project branch (RA-14).
+    k === 'vanilla-dist' ? [DEMO, THEMING] :
     k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, CHAT_SITE, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, CHAT_SITE, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
