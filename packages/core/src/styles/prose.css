@@ -94,9 +94,13 @@
   font-style: italic;
 }
 
-.aparte-content code,
-.aparte-segment-content code,
-.aparte-thinking-content code {
+/* INLINE code only — `:not(pre) > code`. This rule used to match the <code> inside a
+   fenced <pre> too, and with `white-space: pre-wrap` an inline background and padding
+   paint per line box: every line of a markdown code block wore its own stripe, with a
+   notch of padding at the start of each (the chat-site review, 2026-09-05). */
+.aparte-content :not(pre) > code,
+.aparte-segment-content :not(pre) > code,
+.aparte-thinking-content :not(pre) > code {
   font-family: var(--aparte-code-font-family);
   font-size: var(--aparte-code-inline-font-size);
   background: var(--aparte-prose-code-bg);
