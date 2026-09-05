@@ -105,3 +105,33 @@ describe('the stylesheet styles the element, not just the legacy class', () => {
         expect(css).toMatch(/\.aparte-composer-footer:empty/);
     });
 });
+
+describe('aparte-composer-toolbar — a child that hides itself does not count', () => {
+    // The chat-site review (2026-09-05): a row holding only the context gauge, which
+    // sets its own data-empty until the first usage arrives, kept a 13px band with a
+    // border above the composer's edge, over nothing.
+    it('is empty while its only child carries data-empty or hidden', async () => {
+        const gauge = mount('<aparte-context data-empty></aparte-context>');
+        await vi.waitFor(() => expect(gauge.hasAttribute('data-empty')).toBe(true));
+
+        const hidden = mount('<span hidden>later</span>');
+        await vi.waitFor(() => expect(hidden.hasAttribute('data-empty')).toBe(true));
+    });
+
+    it('shows the moment the child shows, and hides again when it hides', async () => {
+        const el = mount('<aparte-context data-empty></aparte-context>');
+        const child = el.firstElementChild!;
+        await vi.waitFor(() => expect(el.hasAttribute('data-empty')).toBe(true));
+
+        child.removeAttribute('data-empty');
+        await vi.waitFor(() => expect(el.hasAttribute('data-empty')).toBe(false));
+
+        child.setAttribute('data-empty', '');
+        await vi.waitFor(() => expect(el.hasAttribute('data-empty')).toBe(true));
+    });
+
+    it('still counts a visible child beside a hidden one', async () => {
+        const el = mount('<aparte-context data-empty></aparte-context><button>Send</button>');
+        await vi.waitFor(() => expect(el.hasAttribute('data-empty')).toBe(false));
+    });
+});

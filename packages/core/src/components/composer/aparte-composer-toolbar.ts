@@ -56,10 +56,11 @@ export class AparteComposerToolbar extends HTMLElement {
         this._syncEmpty();
         // Children can arrive after connection — a framework commits the element and its
         // children in whichever order suits it, and a consumer may add a control later.
-        // Its own data-empty write is a mutation too: a record whose target is this
-        // element is skipped, or the write re-enters the observer without end.
+        // Its own data-empty write is a mutation too: an ATTRIBUTE record on this element
+        // is skipped, or the write re-enters the observer without end. A childList record
+        // also targets this element — the parent — and must not be skipped.
         this._observer ??= new MutationObserver((records) => {
-            if (records.some((r) => r.target !== this)) this._syncEmpty();
+            if (records.some((r) => !(r.type === 'attributes' && r.target === this))) this._syncEmpty();
         });
         // Children's own `hidden` / `data-empty` count too (see _syncEmpty), so the
         // subtree's attributes are watched, filtered to those two.
@@ -90,7 +91,10 @@ export class AparteComposerToolbar extends HTMLElement {
         // `hidden`. Counting it kept a 13px band with a border above the composer's
         // edge, over nothing (the chat-site review, 2026-09-05).
         const visibleChild = Array.from(this.children).some((c) => !c.hasAttribute('hidden') && !c.hasAttribute('data-empty'));
-        const hasContent = visibleChild || this.textContent?.trim() !== '';
+        // Text counts when it is the row's OWN — a text node directly under it — not the
+        // text inside a hidden child, which `textContent` would have folded in.
+        const ownText = Array.from(this.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== '');
+        const hasContent = visibleChild || ownText;
         if (hasContent === !this.hasAttribute('data-empty')) return;
         if (hasContent) this.removeAttribute('data-empty');
         else this.setAttribute('data-empty', '');
