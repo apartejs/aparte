@@ -4,6 +4,35 @@ Every `@aparte/*` package is released together at one version. Per-package detai
 lives in each package's own `CHANGELOG.md`; this file is the aggregate, generated
 by `scripts/gen-root-changelog.mjs` (run as part of `pnpm version-packages`).
 
+## 0.16.10
+
+Every `@aparte/*` package ships at this version (they are released in lockstep).
+
+### Patch Changes
+
+- [33b8cc0](https://github.com/apartejs/aparte/commit/33b8cc0): `AparteConversationManager.setTitleProvider(fn)` replaces how a new conversation is titled from its first user message.
+
+  A conversation's title was decided in one private place, `_autoTitle`, and it was the message as typed. A consumer with a titler — a model in the browser, a request to a backend, a heuristic — had no way in short of racing `updateTitle` behind every send, and losing the race on the sidebar. The seam is on the manager, which owns that one place: `setTitleProvider(provider)` / `getTitleProvider()`, plus a `titleProvider` constructor option. The provider receives the message's text and the message, may be async, and is consulted once per conversation; an empty answer or a throw leaves the default, so a titler that fails never loses the message from the list. `updateTitle` is untouched. `@aparte/plugin-titler` binds an aparte-titler model to it.
+  <sub>`@aparte/core`</sub>
+
+- [36af623](https://github.com/apartejs/aparte/commit/36af623): `<aparte-scroll-rail>` works on a long conversation: it no longer rebuilds itself every frame, every turn stays reachable and the current tick stays visible, a click lands on its message and keeps its mark, and the rail sits clear of a classic scrollbar, centred on the transcript rather than the composer, and never taller than a share of it.
+
+  Measured in Chromium, Firefox and WebKit on a 40-turn chat before the fix: the rail rebuilt itself 61 to 146 times a second at rest, with a new `IntersectionObserver` each time, because its mutation observer watched the whole host subtree — the rail included — and every rebuild replaced every tick. Nothing on a tick survived a frame: focus, the arrow keys, a hover tooltip. Past sixteen ticks the rest was clipped, the current one included, so the mark was invisible on the long thread the rail exists for. A jump ended on the wrong mark two times in three, and landed up to 1,213px off the message on a long transcript, because the bubbles carry `content-visibility: auto` and a scroll aims at an estimated position.
+
+  Now the rail drops its own mutations, reconciles its ticks by message id (the same nodes, so focus, hover and the tooltip survive an appended turn or a streaming reply) and re-observes only when the bubbles change. It is the height of its list, capped at 60% of the transcript (`--aparte-scroll-rail-share`) and centred on it — a list of ticks, as LobeChat's, not a full-height minimap. When more turns exist than 24px targets fit in that cap, it tightens the pitch to what fits — never under 6px — by setting `--aparte-scroll-rail-hit-size` and `--aparte-scroll-rail-gap` on itself; past that floor it scrolls, keeping the current tick in its window, and the arrows still walk every tick. A jump holds its mark until the transcript has settled, then re-aligns on the message when the scroll landed off it. Three measurements are published on the element for the stylesheet — `--aparte-scroll-rail-bar` (a classic scrollbar's width), `--aparte-scroll-rail-block-start` and `--aparte-scroll-rail-block-end` (the transcript's extent within the host) — and the reading band now starts at the top of the scroll surface so that a bubble a jump aligned there counts.
+
+  In `overlay-composer` mode the viewport no longer counts the rail as part of the floating bottom stack when it measures `--aparte-bottom-inset`: the stylesheet already named the rail as not the stack, the measurement had not, and a rail centred on the transcript froze the inset at the distance from its own top while the composer grew under a draft.
+
+  If you had styled the rail: it is a flex column now, `overflow-y: auto` with no visible scrollbar, and its `top` is the middle of the transcript's measured span rather than of the host.
+  <sub>`@aparte/core`</sub>
+
+- [3df9174](https://github.com/apartejs/aparte/commit/3df9174): New package: `setupTitler(manager, { titler: loadTitler })` titles each conversation from its first message with an [aparte-titler](https://apartejs.dev/models/titler/) model — 3 to 6 words, in the browser, no API call.
+
+  The model is not a dependency of the plugin: hand it `@aparte/titler-latin`'s `loadTitler` (17 languages, 133 KB), a `Titler`, a promise of one, or any object with `title(message, budget?)`. The loader runs once, the first time a title is needed. `createTitleProvider(options)` is the provider alone, for a manager built with the `titleProvider` option; the teardown returned by `setupTitler` restores the previous provider.
+  <sub>`@aparte/plugin-titler`</sub>
+
+<sub>Version-only bumps (no changes of their own): `@aparte/engine`, `@aparte/provider-ai-sdk`, `@aparte/provider-openai-compat`, `@aparte/provider-scenario`, `@aparte/provider-transformers`, `@aparte/plugin-approval`, `@aparte/plugin-artifacts`, `@aparte/plugin-ask-user`, `@aparte/plugin-compaction`, `@aparte/plugin-marked`, `@aparte/plugin-model-selector`, `@aparte/plugin-shiki`, `@aparte/plugin-streaming-markdown`, `@aparte/angular`, `@aparte/react`, `@aparte/svelte`, `@aparte/vue`, `@aparte/locale-fr`, `@aparte/docs-mcp`.</sub>
+
 ## 0.16.9
 
 Every `@aparte/*` package ships at this version (they are released in lockstep).
