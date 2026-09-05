@@ -11,6 +11,8 @@ import { resolveConfig } from '../../config/index.js';
 import { AparteMessageRepository } from '../../runtime/message-repository.js';
 import type { ExportedMessageRepository } from '../../runtime/message-repository.js';
 import { populateBubbleFromMessage, type SyncableBubble } from '../bubble/bubble-sync.js';
+import { parseMarkdownToSegments } from '../../parsers/index.js';
+import type { AparteStreamBlock } from '../../types/stream-blocks.js';
 import { cssEscape } from '../../utils/css-escape.js';
 import { isAwaitingReply } from '../../utils/is-awaiting-reply.js';
 import { revokeAttachmentUrls } from '../../utils/files-to-attachments.js';
@@ -25,6 +27,22 @@ import {
     stampSegmentActivity,
     isTerminalStatus,
 } from '../../utils/segments.js';
+
+/**
+ * An assistant reply handed over as a markdown string, split the way the stream would
+ * have split it — fences to `code` segments, `<think>` to a reasoning block, the
+ * registered stream blocks to theirs. Anything else comes back untouched: a message
+ * that already carries segments, a person's message (their fences are their own), an
+ * empty or multimodal content, and plain prose with nothing to split, which keeps the
+ * cheaper content path.
+ */
+function withParsedSegments(message: AparteMessage, blocks: AparteStreamBlock[]): AparteMessage {
+    if (message.role !== 'assistant' || message.segments?.length) return message;
+    if (typeof message.content !== 'string' || !message.content.trim()) return message;
+    const segments = parseMarkdownToSegments(message.content, { blocks });
+    const onlyProse = segments.length <= 1 && segments.every((s) => s.type === 'text');
+    return onlyProse ? message : { ...message, segments };
+}
 
 /**
  * The transcript surface: a light-DOM container with sticky scrolling, token
@@ -743,6 +761,18 @@ export class AparteChatViewport extends HTMLElement {
          * Either way the segments go through a seam and into a NEW array, so `index`
          * follows the position and the caller's array is not retained.
          */
+        /*
+         * One grammar, both paths. A reply that arrives as a markdown STRING — from a
+         * loop of your own, a store's `setMessages`, an `importTree` — went to the prose
+         * renderer as it was, and the fence the stream would have made a `code` segment
+         * (the card, the filename, the copy button) came out as a bare <pre>; a
+         * `<think>` stayed text. The guide even told the consumer to run
+         * `parseMarkdownToSegments` by hand first. Core knows the grammar: the same
+         * parser the stream uses, with the same registered blocks, runs here. Only an
+         * assistant's text — a person's fences are their own — and only when there is
+         * something to split: plain prose keeps the cheaper content path.
+         */
+        message = withParsedSegments(message, resolveConfig(this).getStreamBlocks());
         const stored: AparteMessage = options?.historical
             ? adoptMessageSegments(message)
             : message.segments?.length
