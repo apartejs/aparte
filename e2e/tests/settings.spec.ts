@@ -47,10 +47,12 @@ test('the chat page offers a way to REACH the settings', async ({ page }) => {
     await installLlmMock(page);
     await page.goto('/');
 
-    const link = page.getByRole('link', { name: /settings/i });
-    await expect(link, 'the settings view must be reachable by clicking').toBeVisible();
+    // A control named "settings", whatever it is: the vanilla site opens the kit's
+    // <dialog> from a button, the react example still links to its settings view.
+    const open = page.getByRole('button', { name: /settings/i }).or(page.getByRole('link', { name: /settings/i }));
+    await expect(open, 'the settings view must be reachable by clicking').toBeVisible();
 
-    await link.click();
+    await open.click();
     await expect(page.getByLabel('System prompt')).toBeVisible();
 });
 
