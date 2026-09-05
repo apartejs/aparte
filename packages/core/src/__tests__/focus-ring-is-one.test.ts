@@ -13,6 +13,13 @@
  * clipped), the image thumbnail that is a preview control draws its ring inside for the
  * same reason (its tile clips), and a field inside a field group draws none — the group
  * draws it.
+ *
+ * Revised on the chat-site review (2026-09-05): the ring is 1px and FLUSH with the box —
+ * the 2px offset ring on every control read as a frame gallery — so the offset token is
+ * 0px. Two more rules draw no ring on purpose: a conversation row lifts like its hover
+ * when its title button has keyboard focus (the ring drew the button's box, not the
+ * row's, and ended under the ⋯), and the select's search field, flush at the top of an
+ * opened menu, is the caret's — a rectangle inside a rounded panel was the wrong shape.
  */
 import { describe, it, expect } from 'vitest';
 import { readAparteStylesheet } from './read-stylesheet';
@@ -56,11 +63,16 @@ const focusRules = rules.filter((r) => isFocusRule(r) && !underForcedColors(r));
 // (`overflow: hidden`), so an outward ring is cropped away entirely; the image draws it
 // inside, pulled in by the ring's own width, and stays whole.
 const INSET_ALLOWED = new Set(['.aparte-select-search:focus-visible', ".aparte-thumbnail__image[role='button']:focus-visible"]);
-const NO_RING_ALLOWED = new Set(['.aparte-field-group > .aparte-field:focus-visible']);
+const NO_RING_ALLOWED = new Set([
+    '.aparte-field-group > .aparte-field:focus-visible',
+    '.aparte-conv-item__select:focus-visible',
+    '.aparte-select-search',
+]);
 
 describe('the tokens', () => {
-    it('the offset is one spacing step outside the box; the soft ring and the private offsets are gone', () => {
-        expect(theme).toMatch(/--aparte-focus-outline-offset:\s*var\(--aparte-space-1\)/);
+    it('the ring is 1px, flush with the box; the soft ring and the private offsets are gone', () => {
+        expect(theme).toMatch(/--aparte-focus-outline-offset:\s*0px/);
+        expect(theme).toMatch(/--aparte-focus-outline-width:\s*1px/);
         expect(theme).not.toMatch(/--aparte-focus-ring\s*:/);
         expect(theme).not.toMatch(/--aparte-field-error-ring\s*:/);
         expect(theme).not.toMatch(/--aparte-btn-focus-offset\s*:/);
