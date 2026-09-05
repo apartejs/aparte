@@ -10,7 +10,7 @@
  * with a store plugs the conversation manager in here instead.
  */
 import type { AparteChatViewport, AparteConversationList } from '@aparte/core';
-import { moonIcon, sunIcon } from '@aparte/core/icons';
+import { moonIcon, searchIcon, sunIcon } from '@aparte/core/icons';
 import { SAMPLE_CONVERSATIONS, type SampleConversation } from './sample-conversations';
 
 const NEW_TITLE = 'New conversation';
@@ -19,9 +19,11 @@ export function wireShell(): void {
     const list = document.querySelector<AparteConversationList>('aparte-conversation-list');
     const viewport = document.querySelector<AparteChatViewport>('aparte-chat-viewport');
     const chat = document.querySelector<HTMLElement>('aparte-chat');
-    const title = document.getElementById('chat-title');
     const welcome = document.getElementById('welcome');
-    if (!list || !viewport || !chat || !title) return;
+    if (!list || !viewport || !chat) return;
+    // The product keeps the conversation's name out of the header: the sidebar's active
+    // row carries it, and so does the document's title.
+    const title = { set textContent(t: string | null) { document.title = t ? `${t} · aparté` : 'aparté'; } };
 
     // Copies, so a rename or a delete in this session never touches the sample data.
     const conversations: SampleConversation[] = SAMPLE_CONVERSATIONS.map((c) => ({ ...c }));
@@ -103,11 +105,18 @@ export function wireShell(): void {
     });
 
     wireThemeToggle();
+    drawSearchIcon();
     open(null);
     // The composer has the focus on load, the way every chat product does: with a
     // sidebar before it, the editor is twenty-odd tab stops from the top of the page.
     // The composer's own gates (a model not selected yet) still apply to what is typed.
     chat.querySelector<HTMLElement>('aparte-composer-input')?.focus();
+}
+
+/** The search row's glyph, from the extended set — a static SVG string, never user input. */
+function drawSearchIcon(): void {
+    const slot = document.getElementById('search-icon');
+    if (slot) slot.innerHTML = searchIcon;
 }
 
 /**

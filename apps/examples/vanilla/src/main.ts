@@ -15,6 +15,7 @@ import {
     AparteDirectTransport,
 } from '@aparte/core';
 import type { AparteThinkingSegment } from '@aparte/core';
+import { arrowUpIcon, plusIcon } from '@aparte/core/icons';
 import { createOpenAICompatProvider, presets } from '@aparte/provider-openai-compat';
 import { setupMarkedProvider } from '@aparte/plugin-marked';
 import { setupShikiProviderFromHighlighter } from '@aparte/plugin-shiki/core';
@@ -26,7 +27,6 @@ import css from '@shikijs/langs/css';
 import html from '@shikijs/langs/html';
 import bash from '@shikijs/langs/bash';
 import json from '@shikijs/langs/json';
-import githubLight from '@shikijs/themes/github-light';
 import githubDark from '@shikijs/themes/github-dark';
 // Registers the `ask_user` tool AND the <aparte-elicitation> panel that answers
 // it. This example had no tool at all, which made the whole tools path — approval,
@@ -56,6 +56,11 @@ import { wireShell } from './shell';
 //    language says so, and the tag pins the formatting to it.
 aparteGlobalConfig.setLocale({ ...APARTE_DEFAULT_LOCALE, tag: 'en' });
 
+// 0b. Two glyphs of the product's: an up arrow on the send button, a plus on the
+//     attachment button. The icon provider covers only the names it cares about; the
+//     rest fall back to core's set.
+aparteGlobalConfig.setIconProvider({ send: () => arrowUpIcon, paperclip: () => plusIcon });
+
 // 1. Renderers + Markdown rendering for assistant replies.
 registerDefaultRenderers();
 setupMarkedProvider();
@@ -67,11 +72,15 @@ setupMarkedProvider();
 // follows `data-aparte-theme` on the root — the header's toggle.
 setupShikiProviderFromHighlighter(
     await createHighlighterCore({
-        themes: [githubLight, githubDark],
+        themes: [githubDark],
         langs: [ts, js, css, html, bash, json],
         engine: createJavaScriptRegexEngine(),
     }),
-    { theme: { light: 'github-light', dark: 'github-dark' } },
+    // The same dark theme on both sides: the product draws its code cards dark in light
+    // mode too. A PAIR rather than one name, because a pair renders through CSS
+    // variables (the card's own background can then take over) where a single theme
+    // paints the block inline.
+    { theme: { light: 'github-dark', dark: 'github-dark' } },
 );
 setupAskUser();
 // The artifact is a plugin: the `create_artifact` tool, the `<artifact>` grammar and
@@ -223,11 +232,14 @@ setupCompaction({ keyResolver: settingsKeyResolver(loadSettings) });
 if (!scenarioMode) {
     void import('@aparte/plugin-model-selector').then(() => {
         const selector = document.createElement('aparte-model-selector');
-        selector.setAttribute('style', 'margin-inline-start:auto');
         selector.setAttribute('auto-select', '');
         selector.setAttribute('persist', '');
         selector.setAttribute('searchable', '');
-        document.querySelector('aparte-composer-toolbar')?.appendChild(selector);
+        // In the header, where the product keeps its model picker; the toolbar row
+        // under the composer stays empty and draws nothing.
+        const slot = document.getElementById('model-slot');
+        if (slot) slot.replaceChildren(selector);
+        else document.querySelector('aparte-composer-toolbar')?.appendChild(selector);
     });
 }
 

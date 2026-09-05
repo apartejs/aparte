@@ -21,16 +21,25 @@
          new-chat button and the theme toggle. -->
     <div class="aparte-app-shell" id="chat-view">
       <aparte-sidebar>
+        <!-- The brand row, then the two rows every chat product opens with: a new
+             conversation and the search. Rows, not icon buttons — the product draws
+             them as 36px rows with an icon and a label. -->
         <div class="aparte-sidebar__header">
           <span class="aparte-sidebar__brand">(aparté)</span>
-          <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" id="new-chat" aria-label="New conversation">
-            <aparte-icon name="edit"></aparte-icon>
+          <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
+            <aparte-icon name="menu"></aparte-icon>
           </button>
         </div>
-        <div class="aparte-sidebar__search aparte-field-group">
-          <!-- `data-aparte-sidebar-search`: the sidebar filters the list itself. -->
-          <input class="aparte-field aparte-field--sm" type="search" placeholder="Search conversations"
-                 aria-label="Search conversations" data-aparte-sidebar-search />
+        <div class="site-rows">
+          <button class="site-row" type="button" id="new-chat">
+            <aparte-icon name="edit"></aparte-icon>
+            <span>New chat</span>
+          </button>
+          <label class="site-row site-row--search">
+            <span class="site-row__icon" id="search-icon" aria-hidden="true"></span>
+            <!-- `data-aparte-sidebar-search`: the sidebar filters the list itself. -->
+            <input class="site-search" type="search" placeholder="Search chats" aria-label="Search chats" data-aparte-sidebar-search />
+          </label>
         </div>
         <div class="aparte-sidebar__body">
           <aparte-conversation-list></aparte-conversation-list>
@@ -47,7 +56,11 @@
                 aria-label="Toggle the sidebar" data-aparte-sidebar-toggle>
           <aparte-icon name="menu"></aparte-icon>
         </button>
-        <span class="aparte-app-header__title" id="chat-title">New conversation</span>
+        <!-- The product's header names the MODEL, not the conversation: the picker on the
+             start edge (main.ts puts the real selector here with a local server; the
+             scripted model has one name), the actions on the end edge. The conversation's
+             name lives in the sidebar's active row and in the document title (shell.ts). -->
+        <div class="site-model" id="model-slot"><span class="site-model__name">ChatGPTClone</span></div>
         <div class="aparte-app-header__actions">
           <!-- Its glyph comes from the extended icon set (`@aparte/core/icons`), so
                shell.ts draws it; the label says what a press does. -->
@@ -65,7 +78,7 @@
 
           <aparte-composer>
             <div class="welcome" id="welcome">
-              <h2>Start a conversation</h2>
+              <h2>Where should we begin?</h2>
               <!-- The starters go through the composer's own submit(), so every gate it
                    has (disabled, streaming, model not selected yet) applies to a click too.
                    Each one matches a scripted scenario, so the reply is real markdown, a
@@ -73,7 +86,7 @@
                    tool: the model has to ask before it can answer, so it is the one-click
                    way to see the question panel. -->
               <aparte-suggestions empty-only suggestions='[
-                { "label": "What is aparté?", "prompt": "Explain what aparté is in one sentence." },
+                { "label": "What can you do?", "prompt": "Explain what aparté is in one sentence." },
                 { "label": "Write a haiku", "prompt": "Write a haiku about web components." },
                 { "label": "Markdown table", "prompt": "Give me a markdown table comparing 3 JS frameworks." },
                 { "label": "Ask me a question", "prompt": "Design a colour scheme for my landing page. Ask me what you need to know first." }
@@ -90,11 +103,11 @@
               <aparte-composer-attachments></aparte-composer-attachments>
               <div class="aparte-composer-row">
                 <aparte-composer-add-attachment></aparte-composer-add-attachment>
-                <aparte-composer-input placeholder="Ask anything…"></aparte-composer-input>
+                <aparte-composer-input placeholder="Ask ChatGPT"></aparte-composer-input>
                 <aparte-composer-send></aparte-composer-send>
               </div>
-              <!-- The toolbar row: empty here, so it draws nothing. The model selector
-                   joins it with a local server (main.ts). A context gauge is a code
+              <!-- The toolbar row: empty here, so it draws nothing (the model selector
+                   sits in the header, as the product's does). A context gauge is a code
                    assistant's thing, not a chat's — <aparte-context auto-compact> goes
                    here when you want one, and @aparte/plugin-compaction answers it. -->
               <aparte-composer-toolbar></aparte-composer-toolbar>

@@ -5,6 +5,9 @@
    every load. The bare specifier is resolved by vite.config.ts: to the source bundle in
    dev (HMR), to the published dist/index.css in a build. */
 @import '@aparte/core/styles.css';
+/* The ChatGPT skin, after core: it overrides core's tokens and adds the rules a token
+   cannot say. See the file's header for what was measured and where. */
+@import './theme-chatgpt.css';
 
 * {
     box-sizing: border-box;
