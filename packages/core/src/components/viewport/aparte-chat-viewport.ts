@@ -1653,11 +1653,19 @@ export class AparteChatViewport extends HTMLElement {
         }
     }
 
-    /** The overlay shell's element children that are not this viewport — the floating bottom stack. */
+    /**
+     * The overlay shell's element children that are the floating bottom stack: not this
+     * viewport, and not the scroll rail, which floats over the transcript by design —
+     * shell.css names it the same way (`:not(aparte-chat-viewport, aparte-scroll-rail)`).
+     * Counted, a rail centred on the transcript set the inset to the distance from its
+     * own top edge (398px on the vanilla example) and held it there while the composer
+     * grew under a draft.
+     */
     private _overlayStack(): HTMLElement[] {
         if (!this._overlayRoot) return [];
         return Array.from(this._overlayRoot.children).filter(
-            (el): el is HTMLElement => el instanceof HTMLElement && el !== (this as HTMLElement),
+            (el): el is HTMLElement => el instanceof HTMLElement && el !== (this as HTMLElement)
+                && el.tagName.toLowerCase() !== 'aparte-scroll-rail',
         );
     }
 
