@@ -362,6 +362,14 @@ aparte-composer {
   padding-inline: var(--aparte-transcript-inset, var(--aparte-viewport-padding));
 }
 
+/* Before the element is defined the editor is not there yet, and the row was 16px on
+   the first frame and 52px after the upgrade. The editor's own minimum reserves the
+   room (Lighthouse on the chat site, 2026-09-05). */
+aparte-composer-input:not(:defined) {
+  display: block;
+  min-height: var(--aparte-composer-control-size);
+}
+
 aparte-composer-input {
   display: block;
   flex: 1 1 auto;
@@ -555,7 +563,10 @@ aparte-composer-toolbar,
    `data-empty` itself (see aparte-composer-toolbar.ts) because `:empty` is defeated by
    the whitespace text node an indented template leaves behind; the legacy class keeps
    `:empty`, which is all it ever had. */
+/* Before the element is defined it has not reflected data-empty yet, and a row holding
+   only whitespace painted its 13px band on the first frame, then vanished at upgrade. */
 aparte-composer-toolbar[data-empty],
+aparte-composer-toolbar:not(:defined):not(:has(*)),
 .aparte-composer-footer:empty {
   display: none;
 }

@@ -167,6 +167,9 @@
   --aparte-on-intent: #14100a;
   /* Outline width for keyboard focus + drag-over indicators. */
   --aparte-focus-outline-width: 1px;
+  /* Flush with the box since 2026-09-05 (it was one spacing step outside). A literal, so
+     it lives here with the width rather than in the derived layer. */
+  --aparte-focus-outline-offset: 0px;
   /* Scrollbars rendered by the library. */
   --aparte-scrollbar-width: 6px;
   /* The transcript's scrollbar track; the thumb is derived from the neutral, in the
@@ -942,7 +945,6 @@ aparte-chat {
      soft box-shadow wash (30 % of the accent, 1.39:1 against the page) on five — and the
      offset was −2px, inside the box, so on a bordered row the ring sat as a second
      concentric line and the next row painted over its edge. */
-  --aparte-focus-outline-offset: 0px;
   /* The edge of a CONTROL — a field, a choice box, the select's trigger. `--aparte-border`
      separates two regions and is right to be faint; a thing someone can touch has to be
      seen, and six previews showed a control with no visible edge. Derived from the ink

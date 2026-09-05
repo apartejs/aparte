@@ -36,6 +36,12 @@ export default defineConfig({
         target: 'es2022',
         // Ship readable ESM — consumers' bundlers tree-shake + minify.
         minify: false,
+        // The stylesheet is the exception: `minify: false` also switched CSS minification
+        // off, and dist/index.css shipped at 368 kB raw / 98 kB gzip — its comments are
+        // most of it — where the minified sheet is 142 kB / 21 kB. A bundler minifies
+        // either way; a page that links the file directly (a CDN, the vanilla-dist
+        // example) paid five times the weight (Lighthouse on the chat site, 2026-09-05).
+        cssMinify: true,
         sourcemap: true,
         reportCompressedSize: false,
         rollupOptions: {
