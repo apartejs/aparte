@@ -166,7 +166,7 @@
      I wrote a paragraph justifying instead of reading. */
   --aparte-on-intent: #14100a;
   /* Outline width for keyboard focus + drag-over indicators. */
-  --aparte-focus-outline-width: 2px;
+  --aparte-focus-outline-width: 1px;
   /* Scrollbars rendered by the library. */
   --aparte-scrollbar-width: 6px;
   /* The transcript's scrollbar track; the thumb is derived from the neutral, in the
@@ -209,7 +209,9 @@
      and how wide the bar on its start edge is. One pair for the select's chosen option,
      the checked field choice, the active conversation and an answered question. */
   --aparte-mark-tint: 18%;
-  --aparte-mark-bar: 2px;
+  /* No bar since 2026-09-05: the start-edge bar read as a dated motif on the chat-site
+     review; the tint and the text weight carry the mark. A theme can put it back. */
+  --aparte-mark-bar: 0px;
 
   /* Branch Picker */
   --aparte-branch-picker-label-min-width: 32px;
@@ -931,13 +933,16 @@ aparte-chat {
   --aparte-conv-item-font-size: var(--aparte-font-size-md);
 
   /* Borders */
-  --aparte-border-focus: var(--aparte-primary);
+  /* Neutral, not the accent: an accent ring on every focused control turned the page
+     into a frame gallery (2026-09-05, the chat-site review). The ring is a contrast step
+     on the neutral, which clears 3:1 on both grounds; the accent stays for actions. */
+  --aparte-border-focus: var(--aparte-neutral);
   /* THE focus ring: a 2px outline in this colour, one spacing step OUTSIDE the box, on
      every control. It used to be drawn two ways — this outline on seventeen recipes and a
      soft box-shadow wash (30 % of the accent, 1.39:1 against the page) on five — and the
      offset was −2px, inside the box, so on a bordered row the ring sat as a second
      concentric line and the next row painted over its edge. */
-  --aparte-focus-outline-offset: var(--aparte-space-1);
+  --aparte-focus-outline-offset: 0px;
   /* The edge of a CONTROL — a field, a choice box, the select's trigger. `--aparte-border`
      separates two regions and is right to be faint; a thing someone can touch has to be
      seen, and six previews showed a control with no visible edge. Derived from the ink
@@ -1039,7 +1044,7 @@ aparte-chat {
   --aparte-input-border: var(--aparte-border);
   --aparte-input-text: var(--aparte-text);
   --aparte-input-placeholder: var(--aparte-text-muted);
-  --aparte-input-focus-border: var(--aparte-primary);
+  --aparte-input-focus-border: var(--aparte-border-focus);
 
   /* Status Indicator */
   --aparte-status-color: var(--aparte-text-muted);
@@ -1085,7 +1090,7 @@ aparte-chat {
 
   /* Conversation List */
   --aparte-conv-item-radius: var(--aparte-radius-md);
-  --aparte-conv-item-color: var(--aparte-text-muted);
+  --aparte-conv-item-color: var(--aparte-text);
   --aparte-conv-item-color-active: var(--aparte-text);
   --aparte-conv-item-bg-hover: var(--aparte-surface-3);
   --aparte-conv-item-bg-active: var(--aparte-surface-3);

@@ -489,8 +489,10 @@ aparte-composer.aparte-is-dragover:not(:has(.aparte-composer-shell)) {
   transition: border-color var(--aparte-duration-slow);
 }
 
+/* The one focus colour every control reads (theme.css, --aparte-border-focus): the
+   shell follows the page, it does not pick its own. */
 .aparte-composer-shell:focus-within {
-  border-color: var(--aparte-primary);
+  border-color: var(--aparte-border-focus);
 }
 
 /* Inner row — flex container for input + buttons */

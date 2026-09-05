@@ -69,9 +69,16 @@
 
 /* Inside the edge: the list clips horizontally (`overflow-x: hidden` in base.css), and
    a ring drawn outside the row was cut on both sides. */
+/* Keyboard focus on a row IS the hover: the whole row lifts, the way ChatGPT's and
+   Claude's lists do. A ring drew the title button's box alone — the ⋯ outside it, the
+   ring's end hidden under the ⋯ — and a rectangle inside a rounded row read as a
+   mistake (the chat-site review, 2026-09-05). The row is what the person is on. */
 .aparte-conv-item__select:focus-visible {
-  outline: var(--aparte-focus-outline-width) solid var(--aparte-border-focus);
-  outline-offset: var(--aparte-focus-outline-offset);
+  outline: none;
+}
+.aparte-conv-item:has(.aparte-conv-item__select:focus-visible) {
+  background: var(--aparte-conv-item-bg-hover);
+  color: var(--aparte-conv-item-color-active);
 }
 
 .aparte-conv-item__title {

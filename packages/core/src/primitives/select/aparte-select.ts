@@ -53,7 +53,7 @@ export interface AparteSelectChangeDetail {
  *
  * @cssprop [--aparte-select-bg=var(--aparte-surface-1)] - Trigger background. (The dropdown panel has its own token, `--aparte-select-dropdown-bg`, in both themes.)
  * @cssprop [--aparte-select-border=var(--aparte-border-control)] - Border of the trigger and of the dropdown.
- * @cssprop [--aparte-select-border-hover=var(--aparte-primary)] - Trigger border on hover.
+ * @cssprop [--aparte-select-border-hover=var(--aparte-border-control)] - Trigger border on hover.
  * @cssprop [--aparte-radius-select=var(--aparte-radius-md)] - Corner radius of the trigger and the dropdown — the theme's knob, beside `--aparte-radius-input` and the others. (It used to exist twice, as this and a private `--aparte-select-radius` with a different value.)
  * @cssprop [--aparte-select-text=var(--aparte-text)] - Colour of the trigger label (and of the options).
  * @cssprop [--aparte-select-chevron=var(--aparte-text-muted)] - Colour of the chevron, which rotates 180° while open.
