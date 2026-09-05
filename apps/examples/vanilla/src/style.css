@@ -1,11 +1,11 @@
-/* App shell only — the chat itself is styled by @aparte/core's theme variables.
-   Core's stylesheet is deliberately NOT @imported here: a CSS `@import` of a bare
-   specifier does not go through vite's `resolve.conditions`, so it resolved to the
-   package's BUILT `dist/index.css` instead of the source the dev server serves —
-   two copies of the theme in the page, the stale one winning on anything edited
-   since the last `pnpm build`. It stays a JS import in main.ts, where the source
-   condition applies. What this link fixes is the SHELL, which is static HTML and
-   was the visible flash. */
+/* Core's theme and every component sheet, FIRST and through this <link>: a stylesheet
+   in the head is render-blocking, so the page has its look before the first paint.
+   It used to be a JS import in main.ts, and the dev server injects that only after the
+   module graph loads — the shell (sidebar, header, list) painted bare for a moment on
+   every load. The bare specifier is resolved by vite.config.ts: to the source bundle in
+   dev (HMR), to the published dist/index.css in a build. */
+@import '@aparte/core/styles.css';
+
 * {
     box-sizing: border-box;
 }
@@ -29,47 +29,6 @@ body {
     background: var(--aparte-surface, #16130f);
     color: var(--aparte-text, #f5f0e6);
 }
-
-/* Full width on purpose. Core centres the transcript and the composer at
-   --aparte-message-max-width (800px), so the page's own edge is where the scrollbar
-   lands — the layout ChatGPT and Claude use. A max-width HERE boxed the whole chat,
-   and with it the scrollbar, 200px in from the edge of a wide screen. */
-.app {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    gap: 10px;
-}
-
-.topbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    /* The inset the shell used to carry; the chat below it runs edge to edge. */
-    padding: 12px 12px 0;
-}
-.brand {
-    font-weight: 700;
-    font-size: 1.05rem;
-}
-.brand span {
-    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
-    font-weight: 500;
-}
-.topbar aparte-model-selector {
-    min-width: 200px;
-}
-/* Both topbar links — to the settings view and back. There was no rule for this
-   at all, which is why the settings view's own "back to the chat" rendered as a
-   default browser link on a dark header. */
-.viewswitch {
-    margin-inline-start: auto;
-    color: inherit;
-    font-size: 0.85rem;
-    opacity: 0.85;
-}
-
 
 .welcome {
     display: flex;
@@ -129,65 +88,25 @@ aparte-chat {
   max-height: 90vh;
   border-radius: 10px;
 }
-/* ── The settings view: the three things a consumer changes first ─────────────
-   A plain stacked form. Each field carries a hint naming the API behind it, because
-   the endpoint and the token do not have setters — they travel through the key
-   resolver, and a reader has no way to guess that from the UI alone.
-
-   No width of its own: it used to be 720px against the chat's 820px, which made the
-   topbar and the brand jump sideways every time you switched view. A narrower
-   measure is right for a form in the abstract and wrong for two views of one app. */
-.fields {
+/* The settings dialog: the kit's dialog, fields and radios; only the stacking is this
+   page's. A textarea is a field that grows downward, and the kit's field is one line. */
+.settings-body {
     display: flex;
     flex-direction: column;
     gap: 18px;
-    overflow-y: auto;
-    padding-block-end: 12px;
 }
-.field {
+.settings-group {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
 }
-.field-label {
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-.field-input {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--aparte-border, #3a3229);
-    background: var(--aparte-surface-2, #1e1a15);
-    color: inherit;
-    font: inherit;
-}
-.field-textarea {
+.settings-textarea {
     resize: vertical;
-    min-height: 96px;
+    min-height: 6rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.85rem;
-}
-.field-hint {
-    font-size: 0.8rem;
-    opacity: 0.75; /* >= 4.5:1 contrast (axe color-contrast) */
-    line-height: 1.45;
-}
-.field-hint code {
-    font-size: 0.95em;
-    padding: 1px 4px;
-    border-radius: 4px;
-    background: var(--aparte-surface-2, #1e1a15);
-}
-/* The model source: two radios, each with its sentence, stacked. */
-.field-choices {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.field-choice {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 0.9rem;
-    line-height: 1.45;
 }

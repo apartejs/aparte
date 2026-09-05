@@ -52,7 +52,7 @@
           <!-- Its glyph comes from the extended icon set (`@aparte/core/icons`), so
                shell.ts draws it; the label says what a press does. -->
           <button class="aparte-btn aparte-btn--icon aparte-btn--sm" type="button" id="theme-toggle" aria-label="Switch to the light theme"></button>
-          <a class="aparte-btn aparte-btn--ghost aparte-btn--sm" href="?view=settings">Settings</a>
+          <button class="aparte-btn aparte-btn--ghost aparte-btn--sm" type="button" data-aparte-dialog-open="settings">Settings</button>
         </div>
       </header>
 
@@ -99,7 +99,8 @@
                      auto-compact it asks for a compaction on reaching 90 % — answered by
                      `@aparte/plugin-compaction`, set up in main.ts. -->
                 <aparte-context auto-compact style="flex: 1"></aparte-context>
-                <aparte-model-selector style="margin-inline-start:auto" auto-select persist searchable></aparte-model-selector>
+                <!-- The model selector joins this row only with a local server (main.ts):
+                     with the scripted model there is one model and nothing to choose. -->
               </aparte-composer-toolbar>
             </div>
           </aparte-composer>
@@ -107,91 +108,71 @@
       </main>
     </div>
 
-    <!-- The settings a consumer changes first. Two of the three have no setter: an
-         endpoint and a token reach a provider only through the KEY RESOLVER, which
-         may return `{ apiKey, endpoint }` instead of a bare string. Reachable at
-         ?view=settings, so it is a link rather than a hidden mode. -->
-    <div class="app settings" id="settings-view" hidden>
-      <header class="topbar">
-        <div class="brand">aparté <span>· vanilla settings</span></div>
-        <a class="viewswitch" href="?">← back to the chat</a>
-      </header>
-
-      <div class="fields">
-        <div class="field">
-          <span class="field-label" id="model-source-label">Model</span>
-          <div class="field-choices" role="radiogroup" aria-labelledby="model-source-label">
-            <label class="field-choice">
-              <input type="radio" name="model-source" value="scripted" id="model-source-scripted" />
-              Scripted model — no server, no key, the same replies every time
-            </label>
-            <label class="field-choice">
-              <input type="radio" name="model-source" value="local" id="model-source-local" />
-              Local server — Ollama or LM Studio, reached with the two fields below
-            </label>
-          </div>
-          <span class="field-hint">
+    <!-- The settings a consumer changes first, in the kit's dialog: a native <dialog>
+         wearing the recipe, opened by the header button through data-aparte-dialog-open
+         (core installs the triggers). Two of the three text fields exist because they
+         have no setter: an endpoint and a token reach a provider only through the KEY
+         RESOLVER, which may return { apiKey, endpoint } instead of a bare string.
+         ?view=settings opens it on load, so it stays a link a reader can share. -->
+    <dialog class="aparte-dialog aparte-dialog--lg" id="settings" aria-labelledby="settings-title">
+      <div class="aparte-dialog__header">
+        <h2 class="aparte-dialog__title" id="settings-title">Settings</h2>
+        <button class="aparte-btn aparte-btn--icon aparte-btn--sm aparte-dialog__close" type="button" aria-label="Close" data-aparte-dialog-close>
+          <aparte-icon name="close"></aparte-icon>
+        </button>
+      </div>
+      <div class="aparte-dialog__body settings-body">
+        <fieldset class="settings-group">
+          <legend class="aparte-field-label">Model</legend>
+          <label class="aparte-field-choice">
+            <input type="radio" class="aparte-radio" name="model-source" value="scripted" id="model-source-scripted" />
+            <span class="aparte-field-choice__body">Scripted model — no server, no key, the same replies every time</span>
+          </label>
+          <label class="aparte-field-choice">
+            <input type="radio" class="aparte-radio" name="model-source" value="local" id="model-source-local" />
+            <span class="aparte-field-choice__body">Local server — Ollama or LM Studio, reached with the two fields below</span>
+          </label>
+          <p class="aparte-field-hint">
             The scripted model is <code>@aparte/provider-scenario</code>; the local one is
             <code>@aparte/provider-openai-compat</code> with its Ollama and LM Studio presets.
             <code>?scenario</code> and <code>?local</code> in the URL override this choice.
-          </span>
-        </div>
+          </p>
+        </fieldset>
 
-        <div class="field">
-          <label class="field-label" for="system-prompt">System prompt</label>
-          <textarea
-            id="system-prompt"
-            aria-describedby="system-prompt-hint"
-            class="field-input field-textarea"
-            rows="6"
-            spellcheck="false"
-            placeholder="Leave empty to send no system turn."
-          ></textarea>
-          <span class="field-hint" id="system-prompt-hint">
+        <div class="settings-group">
+          <label class="aparte-field-label" for="system-prompt">System prompt</label>
+          <textarea id="system-prompt" aria-describedby="system-prompt-hint" class="aparte-field settings-textarea" rows="5" spellcheck="false" placeholder="Leave empty to send no system turn."></textarea>
+          <p class="aparte-field-hint" id="system-prompt-hint">
             Sent as the <code>system</code> turn. Supports <code>{{key}}</code> placeholders — resolve
             them with <code>setSystemPromptVarsProvider()</code>.
-          </span>
+          </p>
         </div>
 
-        <div class="field">
-          <label class="field-label" for="endpoint">Endpoint</label>
-          <input
-            id="endpoint"
-            aria-describedby="endpoint-hint"
-            class="field-input"
-            type="url"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Empty = the selected provider's own default"
-          />
-          <span class="field-hint" id="endpoint-hint">
+        <div class="settings-group">
+          <label class="aparte-field-label" for="endpoint">Endpoint</label>
+          <input id="endpoint" aria-describedby="endpoint-hint" class="aparte-field" type="url" autocomplete="off" spellcheck="false" placeholder="Empty = the selected provider's own default" />
+          <p class="aparte-field-hint" id="endpoint-hint">
             Any OpenAI-compatible base URL — LM Studio, Ollama, vLLM, llama.cpp, a hosted API.
             Reaches the provider through the key resolver as <code>{ endpoint }</code>, which is the
             only runtime channel for it.
-          </span>
+          </p>
         </div>
 
-        <div class="field">
-          <label class="field-label" for="token">Token</label>
-          <input
-            id="token"
-            aria-describedby="token-hint"
-            class="field-input"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Empty is correct for a local server"
-          />
-          <span class="field-hint" id="token-hint">
+        <div class="settings-group">
+          <label class="aparte-field-label" for="token">Token</label>
+          <input id="token" aria-describedby="token-hint" class="aparte-field" type="password" autocomplete="off" spellcheck="false" placeholder="Empty is correct for a local server" />
+          <p class="aparte-field-hint" id="token-hint">
             Stays in this browser — it is sent straight to the endpoint above, which is what BYOK
             means. For a key that must not reach the browser, use <code>AparteBackendTransport</code>
             instead.
-          </span>
+          </p>
         </div>
-
-        <button class="chip" type="button" id="settings-reset">Reset to defaults</button>
       </div>
-    </div>
+      <div class="aparte-dialog__footer">
+        <button class="aparte-btn aparte-btn--ghost" type="button" id="settings-reset">Reset to defaults</button>
+        <button class="aparte-btn aparte-btn--primary aparte-btn--solid" type="button" data-aparte-dialog-close>Done</button>
+      </div>
+    </dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

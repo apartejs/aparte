@@ -1,10 +1,7 @@
 import '@aparte/core'; // registers the <aparte-*> custom elements
-// Core's theme, through the package export so the dev server's source condition
-// applies (a CSS `@import` would not get it, and would serve the stale dist).
-// The APP SHELL's stylesheet is a <link> in index.html instead — see the comment
-// there: a JS-injected stylesheet arrives after this module does, and this
-// document ships its shell as static HTML, so that gap was visible.
-import '@aparte/core/styles.css';
+// No stylesheet import here: core's CSS comes through the <link> in index.html (see
+// src/style.css), which is render-blocking — a JS-injected sheet arrives after this
+// module, and the static shell painted bare until then.
 
 import {
     registerDefaultRenderers,
@@ -149,8 +146,10 @@ if (scenarioMode) {
 }
 
 // 3. Browser talks to the provider directly; the key (if any) stays in the browser.
-// Gate the composer until the model selector has fetched + auto-selected a model.
-aparteGlobalConfig.setRequireModelSelection(true);
+// With a local server the composer waits for the model selector to fetch and
+// auto-select a model; the scripted model is the only one, so there is no selector
+// and nothing to wait for.
+aparteGlobalConfig.setRequireModelSelection(!scenarioMode);
 
 aparteGlobalConfig.setTransport(new AparteDirectTransport({ byok: true }));
 
@@ -189,10 +188,20 @@ client.start(); // listens for aparte-send/retry/edit and streams replies into t
 // is summarised through the same provider, key and endpoint the chat uses.
 setupCompaction({ keyResolver: settingsKeyResolver(loadSettings) });
 
-// Register <aparte-model-selector> AFTER providers are registered, so its async
-// connectedCallback loads the model list with the providers already present
-// (a static import would upgrade the element mid-setup and miss them).
-void import('@aparte/plugin-model-selector');
+// The model selector, only with a local server: one model needs no picker. Added to
+// the toolbar AFTER providers are registered, so its async connectedCallback loads
+// the model list with the providers already present (a static import would upgrade
+// the element mid-setup and miss them).
+if (!scenarioMode) {
+    void import('@aparte/plugin-model-selector').then(() => {
+        const selector = document.createElement('aparte-model-selector');
+        selector.setAttribute('style', 'margin-inline-start:auto');
+        selector.setAttribute('auto-select', '');
+        selector.setAttribute('persist', '');
+        selector.setAttribute('searchable', '');
+        document.querySelector('aparte-composer-toolbar')?.appendChild(selector);
+    });
+}
 
 // ── Layout variants (`?layout=split`, `?layout=shell`, `?layout=page`) ───────
 //
@@ -367,18 +376,20 @@ wireAttachmentLightbox();
 // resolver as `{ apiKey, endpoint }`, which core's own JSDoc calls "the legacy
 // `string | Record` auth shape" and which no example demonstrated.
 function wireSettingsView(): void {
-    const view = document.querySelector<HTMLElement>('#settings-view');
-    const site = document.querySelector<HTMLElement>('#chat-view');
-    if (!view || !site) return;
+    const view = document.querySelector<HTMLDialogElement>('#settings');
+    if (!view) return;
 
-    if (!isSettingsView()) return;
-    site.hidden = true;
-    view.hidden = false;
+    // A deep link opens it; the header button opens it through the kit's trigger.
+    if (isSettingsView()) view.showModal();
 
     const sourceEls = [...view.querySelectorAll<HTMLInputElement>('input[name="model-source"]')];
     const promptEl = view.querySelector<HTMLTextAreaElement>('#system-prompt')!;
     const endpointEl = view.querySelector<HTMLInputElement>('#endpoint')!;
     const tokenEl = view.querySelector<HTMLInputElement>('#token')!;
+
+    // The provider and the selector are registered once, at start: a change of model
+    // source is applied by reloading the page, which is also what makes it visible.
+    const startedWith = loadSettings().modelSource;
 
     const render = (settings: ExampleSettings): void => {
         for (const el of sourceEls) el.checked = el.value === settings.modelSource;
@@ -397,10 +408,10 @@ function wireSettingsView(): void {
         };
         saveSettings(next);
         applySystemPrompt(aparteGlobalConfig, next);
+        if (next.modelSource !== startedWith) location.reload();
     };
     // `input`, not `change`: a reader who types and navigates away without blurring
-    // the field would otherwise lose what they typed. The model source is read on the
-    // next page load — the chat page registers its provider once, at start.
+    // the field would otherwise lose what they typed.
     for (const el of [promptEl, endpointEl, tokenEl, ...sourceEls]) el.addEventListener('input', commit);
 
     view.querySelector<HTMLButtonElement>('#settings-reset')?.addEventListener('click', () => {
