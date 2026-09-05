@@ -142,6 +142,12 @@ const TOOLBAR = /composer-toolbar\.spec\.ts/;
 // modes matter: vanilla is core mode (absolute button), react is framework-managed
 // (sticky inside the scrolling host) - where it floated `padding + spacer` too high.
 const SCROLL_BTN = /scroll-button\.spec\.ts/;
+// The scroll rail, on the one example that mounts it. Its unit suite runs in jsdom, where
+// nothing is laid out and the observers are stubs, which is how a rail that rebuilt itself
+// every frame and clipped past sixteen ticks stayed green for a release. Geometry, focus
+// survival and where a jump lands need an engine — three of them, since the loop measured
+// 61/s in Chromium and 146/s in Firefox.
+const SCROLL_RAIL = /scroll-rail\.spec\.ts/;
 // overlay-composer geometry: the full-column scroll surface, the floating stack's
 // clearance, and the pinned reader surviving a composer that grows.
 const OVERLAY = /overlay\.spec\.ts/;
@@ -220,7 +226,7 @@ const TRANSCRIPT_KEYS = /transcript-keyboard\.spec\.ts/;
 const DEEP: RegExp[] = [STREAMING, PROGRESSIVE, ERRORS, ACTIONS, SEGMENTS, ARTIFACTS, ATTACH, SELECTOR, RESPONSIVE, SCROLL_BTN, OVERLAY, SEND_GLIDE, ACTION_BAR_BELOW];
 const suiteFor = (k: AppKey): RegExp[] =>
     k === 'vanilla-dist' ? [DEMO] :
-    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, ...DEEP] :
+    k === 'vanilla' ? [SMOKE, REAL, AXE, LAYOUT, SHELL_LAYOUT, TRANSCRIPT_KEYS, MULTICHAT, PENDING, TOOLBAR, SETTINGS, ELICITATION, SEGMENT_META, THEMING, SCROLL_RAIL, ...DEEP] :
     k === 'react' ? [SMOKE, REAL, AXE, TOOLBAR, INSTANCE_CONFIG, SETTINGS, ...DEEP] :
     // svelte5 answers one question — does the SHIPPED SOURCE build and run on the
     // other major — so it runs the boundary smoke and the toolbar row, not the deep
@@ -266,7 +272,7 @@ const FIREFOX_SUITE: RegExp[] = [SMOKE, AXE];
 // reports 0 for a button that is still down (the reason the release check is in
 // `pointermove` and never on `pointerleave`).
 const firefoxSuiteFor = (k: AppKey): RegExp[] =>
-    k === 'vanilla' ? [...FIREFOX_SUITE, SHELL_LAYOUT] : FIREFOX_SUITE;
+    k === 'vanilla' ? [...FIREFOX_SUITE, SHELL_LAYOUT, SCROLL_RAIL] : FIREFOX_SUITE;
 const skipFirefox = !process.env.CI && process.env.E2E_NO_FIREFOX === '1';
 
 export default defineConfig({
